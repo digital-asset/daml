@@ -43,19 +43,6 @@ pkg_tar(
     ],
 )
 
-# FIXME(#448): This has the same contents as `:ledger-api-protos` but a
-# directory structure which is suitable for the SDK.
-pkg_tar(
-    name = "ledger-api-protos-tarball",
-    srcs = glob(["**/*.proto"]),
-    extension = "tar.gz",
-    package_dir = "grpc-definitions",
-    strip_prefix = "./",
-    visibility = [
-        "//visibility:public",
-    ],
-)
-
 proto_gen(
     name = "ledger-api-scalapb-sources",
     srcs = [

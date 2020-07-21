@@ -39,15 +39,15 @@ dupe x = (x,x)
 
 -- | Extract the 'fst' of a triple.
 fst3 : (a,b,c) -> a
-fst3 (a,b,c) = a
+fst3 (a,_,_) = a
 
 -- | Extract the 'snd' of a triple.
 snd3 : (a,b,c) -> b
-snd3 (a,b,c) = b
+snd3 (_,b,_) = b
 
 -- | Extract the final element of a triple.
 thd3 : (a,b,c) -> c
-thd3 (a,b,c) = c
+thd3 (_,_,c) = c
 
 -- | Converts an uncurried function to a curried function.
 curry3 : ((a, b, c) -> d) -> a -> b -> c -> d

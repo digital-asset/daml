@@ -8,7 +8,7 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data.{FrontStack, Ref, Time}
+import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SError
@@ -286,18 +286,27 @@ class SpeedyTest extends WordSpec with Matchers {
     }
 
   }
+
+  "profiler" should {
+    "evaluate arguments before open event" in {
+      val events = profile(e"""
+        let f: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 1 in
+        let g: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 2 in
+        f (g 1)
+      """)
+      events should have size 4
+      events.get(0) should matchPattern { case Profile.Event(true, "g", _) => }
+      events.get(1) should matchPattern { case Profile.Event(false, "g", _) => }
+      events.get(2) should matchPattern { case Profile.Event(true, "f", _) => }
+      events.get(3) should matchPattern { case Profile.Event(false, "f", _) => }
+    }
+  }
 }
 
 object SpeedyTest {
 
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      compiledPackages = packages,
-      scenario = false,
-      submissionTime = Time.Timestamp.now(),
-      initialSeeding = InitialSeeding.NoSeed,
-    )
+    val machine = Speedy.Machine.fromPureExpr(packages, e)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       val value = machine.run() match {
@@ -309,6 +318,13 @@ object SpeedyTest {
     } catch {
       case Goodbye(err) => Left(err)
     }
+  }
+
+  private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
+    val packages = PureCompiledPackages(Map.empty, profiling = Compiler.FullProfile).right.get
+    val machine = Speedy.Machine.fromPureExpr(packages, e)
+    machine.run()
+    machine.profile.events
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))

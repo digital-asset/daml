@@ -149,7 +149,7 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
-      machine.pushKont(KBuiltin(builtin, actuals))
+      machine.pushKont(KBuiltin(builtin, actuals, machine.env.size))
       evaluateArguments(machine, actuals, args, args.length);
     }
   }
@@ -210,7 +210,8 @@ object SExpr {
         sValues(i) = fvs(i).lookup(machine)
         i += 1
       }
-      machine.returnValue = SPAP(PClosure(null, body, sValues), new util.ArrayList[SValue](), arity)
+      machine.returnValue =
+        SPAP(PClosure(Profile.LabelUnset, body, sValues), new util.ArrayList[SValue](), arity)
     }
   }
 
@@ -351,7 +352,7 @@ object SExpr {
     * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
     * [[AnyRef]] for the label.
     */
-  final case class SELabelClosure(label: AnyRef, expr: SExpr) extends SExpr {
+  final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KLabelClosure(label))
       machine.ctrl = expr

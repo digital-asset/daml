@@ -56,7 +56,7 @@ load(
 
 c2hs_toolchain(
     name = "c2hs-toolchain",
-    c2hs = "@c2hs//:c2hs",
+    c2hs = "@stackage-exe//c2hs",
 )
 
 filegroup(
@@ -247,7 +247,7 @@ da_haskell_repl(
         "//compiler/damlc/tests:damlc-test",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//compiler/damlc/tests:incremental",
-        "//compiler/damlc/tests:integration-dev",
+        "//compiler/damlc/tests:integration-v1dev",
         "//compiler/damlc/tests:packaging",
         "//daml-assistant:daml",
         "//daml-assistant:test",

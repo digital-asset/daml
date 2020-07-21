@@ -8,7 +8,6 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.Transaction
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
@@ -32,7 +31,7 @@ class KeyValueSubmission(metrics: Metrics) {
     *
     * @deprecated Use [[KeyValueCommitting.submissionOutputs]] instead. This function will be removed in later version.
     */
-  def transactionOutputs(tx: Transaction.Transaction): List[DamlStateKey] =
+  def transactionOutputs(tx: SubmittedTransaction): List[DamlStateKey] =
     metrics.daml.kvutils.submission.conversion.transactionOutputs.time { () =>
       val effects = InputsAndEffects.computeEffects(tx)
       effects.createdContracts.map(_._1) ++ effects.consumedContracts
@@ -42,7 +41,7 @@ class KeyValueSubmission(metrics: Metrics) {
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
       meta: TransactionMeta,
-      tx: Transaction.Transaction,
+      tx: SubmittedTransaction,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.transactionToSubmission.time { () =>
       val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)
@@ -59,7 +58,7 @@ class KeyValueSubmission(metrics: Metrics) {
             .setSubmitterInfo(encodedSubInfo)
             .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
             .setWorkflowId(meta.workflowId.getOrElse(""))
-            .setSubmissionSeed(meta.submissionSeed.fold(ByteString.EMPTY)(_.bytes.toByteString))
+            .setSubmissionSeed(meta.submissionSeed.bytes.toByteString)
             .setSubmissionTime(buildTimestamp(meta.submissionTime))
         )
         .build

@@ -76,7 +76,7 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
 
   private def domainEvents(events: Seq[Event]): Either[InputValidationError, Seq[DomainEvent]] =
     events.toList
-      .traverseU { event =>
+      .traverse { event =>
         for {
           domainEvent <- mapEvent(event)
         } yield domainEvent.toList

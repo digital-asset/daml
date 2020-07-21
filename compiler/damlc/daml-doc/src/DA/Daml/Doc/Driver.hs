@@ -9,6 +9,7 @@ module DA.Daml.Doc.Driver
     , RenderFormat(..)
     , TransformOptions(..)
     , runDamlDoc
+    , loadExternalAnchors
     ) where
 
 import DA.Daml.Doc.Types
@@ -23,12 +24,17 @@ import qualified Language.Haskell.LSP.Messages as LSP
 
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Except
+import Control.Exception
+
 import Data.Maybe
+import Data.Bifunctor
 import System.IO
 import System.Exit
 import System.Directory
 import System.FilePath
 
+import qualified Data.HashMap.Strict as HMS
 import qualified Data.Aeson as AE
 import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.ByteString as BS
@@ -53,6 +59,7 @@ data DamldocOptions = DamldocOptions
     , do_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
     , do_hooglePath :: Maybe FilePath -- ^ hoogle database output path
     , do_anchorPath :: Maybe FilePath -- ^ anchor table output path
+    , do_externalAnchorPath :: Maybe FilePath -- ^ external anchor table input path
     }
 
 data InputFormat = InputJson | InputDaml
@@ -91,6 +98,27 @@ inputDocData DamldocOptions{..} = do
         InputDaml -> onErrorExit . runMaybeT $
             extractDocs do_extractOptions do_diagsLogger do_compileOptions do_inputFiles
 
+-- | Load a database of external anchors from a file. Will abnormally
+-- terminate the program if there's an IOError or json decoding
+-- failure.
+loadExternalAnchors :: Maybe FilePath -> IO AnchorMap
+loadExternalAnchors path = do
+    let printAndExit err = do
+            hPutStr stderr err
+            exitFailure
+    anchors <- tryLoadAnchors path
+    either printAndExit pure anchors
+    where
+        tryLoadAnchors = \case
+            Just path -> runExceptT $ do
+              bytes <- ExceptT $ first readErr <$> try @IOError (LBS.fromStrict <$> BS.readFile path)
+              anchors <- ExceptT $ pure (first decodeErr (AE.eitherDecode @AnchorMap bytes))
+              pure $ anchors
+              where
+                  readErr = const $ "Failed to read anchor table '" ++ path ++ "'"
+                  decodeErr err = unlines ["Failed to decode anchor table '" ++ path ++ "':", err]
+            Nothing -> pure . Right $ AnchorMap HMS.empty
+
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()
 renderDocData DamldocOptions{..} docData = do
@@ -108,11 +136,12 @@ renderDocData DamldocOptions{..} docData = do
             OutputJson ->
                 write do_outputPath $ T.decodeUtf8 . LBS.toStrict $ AP.encodePretty' jsonConf docData
             OutputDocs format -> do
+                externalAnchors <- loadExternalAnchors do_externalAnchorPath
                 let renderOptions = RenderOptions
                         { ro_mode =
-                            if do_combine
-                                then RenderToFile do_outputPath
-                                else RenderToFolder do_outputPath
+                          if do_combine
+                            then RenderToFile do_outputPath
+                            else RenderToFolder do_outputPath
                         , ro_format = format
                         , ro_title = do_docTitle
                         , ro_template = templateM
@@ -121,5 +150,6 @@ renderDocData DamldocOptions{..} docData = do
                         , ro_baseURL = do_baseURL
                         , ro_hooglePath = do_hooglePath
                         , ro_anchorPath = do_anchorPath
+                        , ro_externalAnchors = externalAnchors
                         }
                 renderDocs renderOptions docData

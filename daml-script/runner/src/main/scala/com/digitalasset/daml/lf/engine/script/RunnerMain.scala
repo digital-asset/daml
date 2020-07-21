@@ -7,8 +7,6 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream._
 import java.nio.file.Files
-import java.time.Instant
-import java.util.stream.Collectors
 import scala.collection.JavaConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -17,7 +15,6 @@ import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.daml.api.util.TimeProvider
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -32,7 +29,6 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.TokenHolder
 
 object RunnerMain {
@@ -51,13 +47,7 @@ object RunnerMain {
           Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 
         val applicationId = ApplicationId("Script Runner")
-        val timeProvider: TimeProvider =
-          config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType) match {
-            case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
-            case TimeProviderType.WallClock => TimeProvider.UTC
-            case _ =>
-              throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
-          }
+        val timeMode: ScriptTimeMode = config.timeMode.getOrElse(RunnerConfig.DefaultTimeMode)
 
         implicit val system: ActorSystem = ActorSystem("ScriptRunner")
         implicit val sequencer: ExecutionSequencerFactory =
@@ -77,6 +67,10 @@ object RunnerMain {
 
         val participantParams = config.participantConfig match {
           case Some(file) => {
+            // To avoid a breaking change, we allow specifying
+            // --access-token-file and --participant-config
+            // together and use the token file as the default for all participants
+            // that do not specify an explicit token.
             val source = Source.fromFile(file)
             val fileContent = try {
               source.mkString
@@ -84,25 +78,30 @@ object RunnerMain {
               source.close
             }
             val jsVal = fileContent.parseJson
+            val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
             import ParticipantsJsonProtocol._
-            jsVal.convertTo[Participants[ApiParameters]]
+            jsVal
+              .convertTo[Participants[ApiParameters]]
+              .map(params => params.copy(access_token = params.access_token.orElse(token)))
           }
           case None =>
+            val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
             Participants(
-              default_participant =
-                Some(ApiParameters(config.ledgerHost.get, config.ledgerPort.get)),
+              default_participant = Some(
+                ApiParameters(
+                  config.ledgerHost.get,
+                  config.ledgerPort.get,
+                  tokenHolder.flatMap(_.token))),
               participants = Map.empty,
-              party_participants = Map.empty)
+              party_participants = Map.empty
+            )
         }
         val flow: Future[Unit] = for {
 
           clients <- if (config.jsonApi) {
-            // We fail during config parsing if this does not exist.
-            val tokenFile = config.accessTokenFile.get
-            val token = Files.readAllLines(tokenFile).stream.collect(Collectors.joining("\n"))
             val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
             val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-            Runner.jsonClients(participantParams, token, envIface)
+            Runner.jsonClients(participantParams, envIface)
           } else {
             // Note (MK): For now, we only support using a single-token for everything.
             // We might want to extend this to allow for multiple tokens, e.g., one token per party +
@@ -110,14 +109,18 @@ object RunnerMain {
             val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
             val clientConfig = LedgerClientConfiguration(
               applicationId = ApplicationId.unwrap(applicationId),
-              ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+              ledgerIdRequirement = LedgerIdRequirement.none,
               commandClient = CommandClientConfiguration.default,
               sslContext = config.tlsConfig.flatMap(_.client),
               token = tokenHolder.flatMap(_.token),
             )
-            Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize)
+            Runner.connect(
+              participantParams,
+              applicationId,
+              config.tlsConfig,
+              config.maxInboundMessageSize)
           }
-          result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
+          result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeMode)
           _ <- Future {
             config.outputFile.foreach { outputFile =>
               val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)

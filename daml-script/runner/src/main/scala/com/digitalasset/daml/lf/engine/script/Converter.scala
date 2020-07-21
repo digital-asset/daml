@@ -13,6 +13,7 @@ import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -20,14 +21,14 @@ import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.CompiledPackages
+import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.v1.value
-import com.daml.lf.data.Time
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -217,13 +218,7 @@ object Converter {
         Array(SELocA(0), SELocA(1))),
     )
     val machine =
-      Speedy.Machine.fromSExpr(
-        sexpr = SEApp(SEValue(fun), Array(extractStruct)),
-        compiledPackages = compiledPackages,
-        submissionTime = Time.Timestamp.now(),
-        seeding = InitialSeeding.NoSeed,
-        Set.empty,
-      )
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractStruct)))
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {
@@ -379,6 +374,12 @@ object Converter {
       case _ => Left(s"Expected SParty but got $v")
     }
 
+  def toTimestamp(v: SValue): Either[String, Time.Timestamp] =
+    v match {
+      case STimestamp(t) => Right(t)
+      case _ => Left(s"Expected STimestamp but got $v")
+    }
+
   // Helper to construct a record
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
     val fieldNames = Name.Array(fields.map({
@@ -423,6 +424,16 @@ object Converter {
         scriptIds.damlScript("SubmitFailure"),
         ("status", SInt64(status.getCode.value.asInstanceOf[Long])),
         ("description", SText(status.getDescription))
+      ))
+  }
+
+  def fromPartyDetails(scriptIds: ScriptIds, details: PartyDetails): Either[String, SValue] = {
+    Right(
+      record(
+        scriptIds.damlScript("PartyDetails"),
+        ("party", SParty(details.party)),
+        ("displayName", SOptional(details.displayName.map(SText))),
+        ("isLocal", SBool(details.isLocal))
       ))
   }
 

@@ -7,9 +7,8 @@ import com.daml.lf.CompiledPackages
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.Transaction._
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.speedy.SError._
-import com.daml.lf.transaction.Node.GlobalKey
 
 /** The result from small-step evaluation.
   * If the result is not Done or Continue, then the machine
@@ -34,7 +33,7 @@ object SResult {
       // Callback to signal that the contract was not present
       // or visible. Returns true if this was recoverable.
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value[ContractId]] => Unit,
+      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was
@@ -51,7 +50,7 @@ object SResult {
     * to be absolute. */
   final case class SResultScenarioCommit(
       value: SValue,
-      tx: Transaction,
+      tx: SubmittedTransaction,
       committers: Set[Party],
       callback: SValue => Unit,
   ) extends SResult
@@ -65,7 +64,7 @@ object SResult {
     * commit this transaction with the expectation that it fails.
     * The callback signals success and clears the partial transaction. */
   final case class SResultScenarioMustFail(
-      ptx: Transaction,
+      ptx: SubmittedTransaction,
       committers: Set[Party],
       callback: Unit => Unit,
   ) extends SResult
@@ -83,7 +82,7 @@ object SResult {
   ) extends SResult
 
   final case class SResultNeedKey(
-      key: GlobalKey,
+      key: GlobalKeyWithMaintainers,
       committers: Set[Party],
       // Callback.
       // returns true if machine can continue with the given result.

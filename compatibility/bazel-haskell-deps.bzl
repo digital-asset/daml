@@ -27,6 +27,7 @@ def daml_haskell_deps():
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
+        stack_snapshot_json = "//:stackage_snapshot.json" if not is_windows else None,
         flags = dicts.add(
             {
                 "cryptonite": ["-integer-gmp"],
@@ -66,14 +67,18 @@ def daml_haskell_deps():
             "safe-exceptions",
             "semver",
             "split",
+            "stm",
             "tagged",
             "tar-conduit",
             "tasty",
             "tasty-hunit",
             "text",
+            "typed-process",
             "optparse-applicative",
             "unix-compat",
             "unordered-containers",
+            "utf8-string",
+            "uuid",
         ] + (["unix"] if not is_windows else ["Win32"]),
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         tools = [

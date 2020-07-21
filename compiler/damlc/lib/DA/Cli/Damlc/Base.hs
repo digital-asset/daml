@@ -3,12 +3,12 @@
 
 module DA.Cli.Damlc.Base
     ( module DA.Cli.Options
-    , module DA.Cli.Output
+    , module DA.Daml.Compiler.Output
     , getLogger
     )
 where
 import           DA.Cli.Options
-import           DA.Cli.Output
+import           DA.Daml.Compiler.Output
 import DA.Daml.Options.Types
 import qualified Data.Text as T
 import qualified DA.Service.Logger                 as Logger

@@ -1,12 +1,12 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
-load(":util.bzl", "damlc_compile_test", "damlc_integration_test")
+load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//compiler/damlc:util.bzl", "ghc_pkg")
+load("//compiler/damlc:util.bzl", "DAML_LF_VERSIONS", "ghc_pkg")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -107,11 +107,83 @@ da_haskell_test(
     ],
 )
 
-# Integration tests for all non-dev DAML-LF versions
-damlc_integration_test("integration-stable", "DA.Test.DamlcIntegration.mainAll")
+da_haskell_library(
+    name = "integration-lib",
+    srcs = ["src/DA/Test/DamlcIntegration.hs"],
+    hackage_deps = [
+        "aeson-pretty",
+        "base",
+        "bytestring",
+        "data-default",
+        "deepseq",
+        "directory",
+        "dlist",
+        "extra",
+        "filepath",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "ghcide",
+        "haskell-lsp-types",
+        "optparse-applicative",
+        "process",
+        "proto3-suite",
+        "shake",
+        "tagged",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "time",
+        "unordered-containers",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-opts",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/scenario-service/client",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
 
-# Integration tests for DAML-LF 1.dev
-damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
+[
+    da_haskell_test(
+        # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
+        # the components of the version number by dot, dash or underscore.
+        name = "integration-v{}".format(version.replace(".", "")),
+        size = "large",
+        srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+        args = [
+            "--daml-lf-version",
+            version,
+        ],
+        data = [
+            ":bond-trading",
+            ":daml-test-files",
+            ":query-lf-lib",
+            "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
+            "//compiler/scenario-service/server:scenario_service_jar",
+            "@jq_dev_env//:jq",
+        ],
+        hackage_deps = [
+            "base",
+        ],
+        main_function = "DA.Test.DamlcIntegrationMain.main",
+        src_strip_prefix = "src",
+        visibility = ["//visibility:public"],
+        deps = [
+            ":integration-lib",
+        ],
+    )
+    for version in DAML_LF_VERSIONS
+]
 
 # Tests for daml-doc
 da_haskell_test(
@@ -119,11 +191,14 @@ da_haskell_test(
     srcs = ["src/DA/Test/DamlDoc.hs"],
     data = [
         ":daml-test-files",
+        "//compiler/damlc:daml-base-anchors.json",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
     ],
     hackage_deps = [
         "base",
+        "containers",
+        "filepath",
         "tasty-hunit",
         "text",
     ],
@@ -132,7 +207,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -287,9 +364,38 @@ da_haskell_test(
 )
 
 genrule(
+    name = "repl-test-indirect",
+    srcs = [
+        "ReplTestIndirect.daml",
+    ],
+    outs = ["repl-test-indirect.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location ReplTestIndirect.daml) $$TMP_DIR/daml
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: repl-test-indirect
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-stdlib
+  - daml-prim
+build-options: ["--ghc-option", "-Werror"]
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test-indirect.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
     name = "repl-test",
     srcs = [
         "ReplTest.daml",
+        "repl-test-indirect.dar",
     ],
     outs = ["repl-test.dar"],
     cmd = """
@@ -297,6 +403,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location ReplTest.daml) $$TMP_DIR/daml
+      cp -L $(location repl-test-indirect.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: repl-test
@@ -305,6 +412,7 @@ version: 0.1.0
 dependencies:
   - daml-stdlib
   - daml-prim
+  - repl-test-indirect.dar
 build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test.dar)
@@ -314,8 +422,37 @@ EOF
     visibility = ["//visibility:public"],
 )
 
+genrule(
+    name = "repl-test-two",
+    srcs = [
+        "ReplTest2.daml",
+    ],
+    outs = ["repl-test-two.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location ReplTest2.daml) $$TMP_DIR/daml
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: repl-test-two
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-stdlib
+  - daml-prim
+build-options: ["--ghc-option", "-Werror"]
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test-two.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
 da_haskell_test(
     name = "repl",
+    timeout = "long",
     srcs = ["src/DA/Test/Repl.hs"],
     data = [
         ":repl-test.dar",
@@ -356,6 +493,7 @@ da_haskell_test(
     srcs = ["src/DA/Test/Repl/FuncTests.hs"],
     data = [
         ":repl-test.dar",
+        ":repl-test-two.dar",
         ghc_pkg,
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
@@ -384,6 +522,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
@@ -440,6 +579,38 @@ damlc_compile_test(
     heap_limit = "200M" if is_windows else "100M",
     main = "bond-trading/Test.daml",
     stack_limit = "100K" if is_windows else "70K",
+)
+
+da_haskell_binary(
+    name = "generate-package-pattern-match",
+    srcs = ["src/DA/Test/GeneratePackagePatternMatch.hs"],
+    hackage_deps = [
+        "base",
+        "directory",
+        "filepath",
+    ],
+    main_function = "DA.Test.GeneratePackagePatternMatch.main",
+    src_strip_prefix = "src",
+)
+
+# This is an SH test since damlc_compile_test does not support packages so far.
+sh_test(
+    name = "package-pattern-match-perf",
+    srcs = ["src/package-pattern-match-perf.sh"],
+    args = [
+        "$(location //compiler/damlc)",
+        "$(location :generate-package-pattern-match)",
+    ],
+    data = [
+        ":generate-package-pattern-match",
+        "//compiler/damlc",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 filegroup(
@@ -499,11 +670,11 @@ sh_test(
     args = [
         "$(rootpath //compiler/damlc)",
         "$(rootpath @jq_dev_env//:jq)",
-        "$(rootpath //ledger/test-common:Test-dev.dar)",
+        "$(rootpath //ledger/test-common:model-tests.dar)",
     ],
     data = [
         "//compiler/damlc",
-        "//ledger/test-common:Test-dev.dar",
+        "//ledger/test-common:model-tests.dar",
         "@jq_dev_env//:jq",
     ],
     toolchains = [

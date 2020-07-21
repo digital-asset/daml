@@ -14,6 +14,7 @@ da_scala_library(
         "@maven//:org_spire_math_kind_projector_2_12",
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
+    scalacopts = ["-P:silencer:checkUnused"],
     tags = ["maven_coordinates=com.daml:ledger-api-common:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -32,6 +33,7 @@ da_scala_library(
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//libs-scala/direct-execution-context",
+        "//libs-scala/resources",
         "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

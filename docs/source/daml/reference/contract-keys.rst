@@ -1,6 +1,7 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _contractkeys:
    
 Contract keys
 #############
@@ -79,7 +80,6 @@ Unlike ``fetchByKey``, the transaction **does not fail** if no contract with the
 - Authorization from at least one maintainer is missing. This check fails at interpretation time.
 - The lookup is incorrect. This can happen either due to contention, or because the submitter didn't know of the contract. This check fails at validation time.
 
-
 To get the data from the contract once you've confirmed it exists, you'll still need to use ``fetch``.
 
 exerciseByKey
@@ -88,3 +88,12 @@ exerciseByKey
 ``exerciseByKey @ContractType contractKey``
 
 Use ``exerciseByKey`` to exercise a choice on a contract identified by its ``key`` (compared to ``exercise``, which lets you exercise a contract identified by its ``ContractId``). To run ``exerciseByKey`` you need authorization from the controllers of the choice and at least one stakeholder. This is equivalent to the authorization needed to fo a ``fetchByKey`` followed by an ``exercise``.
+
+Example
+*******
+
+A complete example of possible success and failure scenarios of `fetchByKey` and `lookupByKey` is shown below.
+
+
+.. literalinclude:: ../code-snippets/Keys.daml
+   :language: daml

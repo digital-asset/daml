@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SExpr._
 
-object Classify { // classify the machine state w.r.t what step occurs next
+private[speedy] object Classify { // classify the machine state w.r.t what step occurs next
 
   final class Counts(
       var ctrlExpr: Int = 0,

@@ -347,50 +347,6 @@ To debug config file errors and learn more about the
 config file API, open the Navigator ``/config`` page in your browser
 (e.g., `<http://localhost:7500/config>`_).
 
-Using Navigator outside the SDK
-===============================
-
-This section explains how to work with the Navigator if you have a project created outside of the normal SDK workflow and want to use the Navigator to inspect the ledger and interact with it.
-
-.. note:: If you are using the Navigator as part of the DAML SDK, you do not need to read this section.
-
-The Navigator is released as a "fat" Java `.jar` file that bundles all required
-dependencies. This JAR is part of the SDK release and can be found using the
-SDK Assistant's ``path`` command::
-
-  da path navigator
-
-Use the ``run`` command to launch the Navigator JAR and print usage instructions::
-
-  da run navigator
-
-Arguments may be given at the end of a command, following a double dash. For example::
-
-  da run navigator -- server \
-    --config-file my-config.conf \
-    --port 8000 \
-    localhost 6865
-
-The Navigator requires a configuration file specifying each user and the party
-they act as. It has a ``.conf`` ending by convention. The file follows this
-form::
-
-  users {
-      <USERNAME> {
-          party = <PARTYNAME>
-      }
-      ..
-  }
-
-In many cases, a simple one-to-one correspondence between users and their
-respective parties is sufficient to configure the Navigator. Example::
-
-  users {
-      BANK1 { party = "BANK1" }
-      BANK2 { party = "BANK2" }
-      OPERATOR { party = "OPERATOR" }
-  }
-
 Using Navigator with a DAML Ledger
 ==================================
 

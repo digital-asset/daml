@@ -38,153 +38,6 @@ def daml_haskell_deps():
     #
 
     http_archive(
-        name = "alex",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
-haskell_cabal_binary(
-    name = "alex",
-    srcs = glob(["**"]),
-    verbose = False,
-    visibility = ["//visibility:public"],
-)
-""",
-        sha256 = "d58e4d708b14ff332a8a8edad4fa8989cb6a9f518a7c6834e96281ac5f8ff232",
-        strip_prefix = "alex-3.2.4",
-        urls = ["http://hackage.haskell.org/package/alex-3.2.4/alex-3.2.4.tar.gz"],
-    )
-
-    http_archive(
-        name = "c2hs",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
-haskell_cabal_binary(
-    name = "c2hs",
-    srcs = glob(["**"]),
-    deps = [
-        "@c2hs_deps//:base",
-        "@c2hs_deps//:bytestring",
-        "@c2hs_deps//:language-c",
-        "@c2hs_deps//:filepath",
-        "@c2hs_deps//:dlist",
-    ],
-    verbose = False,
-    visibility = ["//visibility:public"],
-)
-""",
-        sha256 = "91dd121ac565009f2fc215c50f3365ed66705071a698a545e869041b5d7ff4da",
-        strip_prefix = "c2hs-0.28.6",
-        urls = ["http://hackage.haskell.org/package/c2hs-0.28.6/c2hs-0.28.6.tar.gz"],
-    )
-
-    http_archive(
-        name = "happy",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
-haskell_cabal_binary(
-    name = "happy",
-    srcs = glob(["**"]),
-    verbose = False,
-    visibility = ["//visibility:public"],
-)
-""",
-        sha256 = "9094d19ed0db980a34f1ffd58e64c7df9b4ecb3beed22fd9b9739044a8d45f77",
-        strip_prefix = "happy-1.19.11",
-        urls = ["http://hackage.haskell.org/package/happy-1.19.11/happy-1.19.11.tar.gz"],
-    )
-
-    # Standard ghcide (not ghc-lib based) - used on daml's Haskell sources.
-    http_archive(
-        name = "ghcide",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary", "haskell_cabal_library")
-deps = [
-    "@stackage//:aeson",
-    "@stackage//:async",
-    "@stackage//:base",
-    "@stackage//:binary",
-    "@stackage//:bytestring",
-    "@stackage//:containers",
-    "@stackage//:data-default",
-    "@stackage//:deepseq",
-    "@stackage//:directory",
-    "@stackage//:extra",
-    "@stackage//:filepath",
-    "@stackage//:fuzzy",
-    "@stackage//:ghc",
-    "@stackage//:ghc-boot",
-    "@stackage//:ghc-boot-th",
-    "@stackage//:haddock-library",
-    "@stackage//:hashable",
-    "@stackage//:haskell-lsp",
-    "@stackage//:haskell-lsp-types",
-    "@stackage//:mtl",
-    "@stackage//:network-uri",
-    "@stackage//:prettyprinter",
-    "@stackage//:prettyprinter-ansi-terminal",
-    "@stackage//:regex-tdfa",
-    "@stackage//:rope-utf16-splay",
-    "@stackage//:safe-exceptions",
-    "@stackage//:shake",
-    "@stackage//:sorted-list",
-    "@stackage//:stm",
-    "@stackage//:syb",
-    "@stackage//:text",
-    "@stackage//:time",
-    "@stackage//:transformers",
-    "@stackage//:unordered-containers",
-    "@stackage//:utf8-string",
-]
-haskell_cabal_library(
-    name = "ghcide-lib",
-    package_name = "ghcide",
-    version = "{version}",
-    haddock = False,
-    srcs = glob(["**"]),
-    deps = deps,
-    visibility = ["//visibility:public"],
-)
-haskell_cabal_binary(
-    name = "ghcide",
-    srcs = glob(["**"]),
-    deps = deps + [
-        ":ghcide-lib",
-        "@stackage//:gitrev",
-        "@stackage//:ghc-paths",
-        "@stackage//:hie-bios",
-        "@stackage//:optparse-applicative",
-    ],
-    visibility = ["//visibility:public"],
-)
-""".format(version = GHCIDE_VERSION),
-        sha256 = GHCIDE_SHA256,
-        strip_prefix = "ghcide-%s" % GHCIDE_REV,
-        urls = ["https://github.com/digital-asset/ghcide/archive/%s.tar.gz" % GHCIDE_REV],
-    )
-
-    http_archive(
-        name = "hpp",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
-haskell_cabal_binary(
-    name = "hpp",
-    srcs = glob(["**"]),
-    deps = [
-        "@stackage//:base",
-        "@stackage//:directory",
-        "@stackage//:filepath",
-        "@stackage//:hpp",
-        "@stackage//:time",
-    ],
-    verbose = False,
-    visibility = ["//visibility:public"],
-)
-""",
-        sha256 = "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
-        strip_prefix = "hpp-0.6.1",
-        urls = ["http://hackage.haskell.org/package/hpp-0.6.1/hpp-0.6.1.tar.gz"],
-    )
-
-    http_archive(
         name = "proto3_suite",
         build_file_content = """
 # XXX: haskell_cabal_binary inexplicably fails with
@@ -298,7 +151,7 @@ haskell_cabal_library(
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["grpc-haskell-core"].deps + {deps},
-    tools = ["@c2hs//:c2hs"],
+    tools = ["@stackage-exe//c2hs"],
     verbose = False,
     visibility = ["//visibility:public"],
 )
@@ -471,28 +324,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
     # Stack Snapshots
     #
 
-    # Used to bootstrap `@c2hs` for `@stackage`.
-    # Some packages in the `@stackage` snapshot require `c2hs` as a build tool.
-    # But `c2hs` requires some Stackage packages to builld itself. So, we
-    # define this separate `stack_snapshot` to bootstrap `c2hs`.
-    stack_snapshot(
-        name = "c2hs_deps",
-        haddock = False,
-        local_snapshot = "//:stack-snapshot.yaml",
-        packages = [
-            "base",
-            "bytestring",
-            "dlist",
-            "filepath",
-            "language-c",
-        ],
-        stack = "@stack_windows//:stack.exe" if is_windows else None,
-        tools = [
-            "@alex",
-            "@happy",
-        ],
-    )
-
     stack_snapshot(
         name = "stackage",
         extra_deps = {
@@ -517,6 +348,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         ),
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
+        stack_snapshot_json = "//:stackage_snapshot.json" if not is_windows else None,
         packages = [
             "aeson",
             "aeson-extra",
@@ -532,6 +364,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "binary",
             "blaze-html",
             "bytestring",
+            "c2hs",
             "Cabal",
             "case-insensitive",
             "cereal",
@@ -683,12 +516,10 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "zlib",
             "zlib-bindings",
         ] + (["unix"] if not is_windows else ["Win32"]),
+        components = {
+            "hpp": ["lib", "exe"],
+        },
         stack = "@stack_windows//:stack.exe" if is_windows else None,
-        tools = [
-            "@alex",
-            "@c2hs",
-            "@happy",
-        ],
         vendored_packages = {
             "ghcide": "@ghcide_ghc_lib//:ghcide",
             "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
@@ -696,6 +527,30 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "js-dgtable": "@js_dgtable//:js-dgtable",
             "js-flot": "@js_flot//:js-flot",
             "shake": "@shake//:shake",
+            "zip": "@zip//:zip",
+        },
+    )
+
+    stack_snapshot(
+        name = "ghcide",
+        extra_deps = {
+            "zlib": ["@com_github_madler_zlib//:libz"],
+        },
+        flags = {
+            "hashable": ["-integer-gmp"],
+            "integer-logarithms": ["-integer-gmp"],
+            "text": ["integer-simple"],
+            "scientific": ["integer-simple"],
+        } if use_integer_simple else {},
+        haddock = False,
+        local_snapshot = "//:ghcide-snapshot.yaml",
+        stack_snapshot_json = "//:ghcide_snapshot.json" if not is_windows else None,
+        packages = [
+            "ghcide",
+        ],
+        components = {"ghcide": ["lib", "exe"]},
+        stack = "@stack_windows//:stack.exe" if is_windows else None,
+        vendored_packages = {
             "zip": "@zip//:zip",
         },
     )

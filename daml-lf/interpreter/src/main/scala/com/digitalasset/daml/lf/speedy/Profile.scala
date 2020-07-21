@@ -9,23 +9,20 @@ import java.lang.System
 import java.nio.file.{Files, Path}
 import java.util.ArrayList
 
-/** Class for profiling information collected by Speedy. We use [[AnyRef]] for
-  * the labels to avoid any conversions into a common label format at runtime
-  * since this might skew the profile. Instead, we convert the labels to strings
-  * when we write out the profile.
+/** Class for profiling information collected by Speedy.
   */
 final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
-  private val events: ArrayList[Event] = new ArrayList()
+  private[lf] val events: ArrayList[Event] = new ArrayList()
   var name: String = "DAML Engine profile"
 
-  def addOpenEvent(label: AnyRef) = {
+  def addOpenEvent(label: Label) = {
     val time = System.nanoTime()
     events.add(Event(true, label, time))
   }
 
-  def addCloseEvent(label: AnyRef) = {
+  def addCloseEvent(label: Label) = {
     val time = System.nanoTime()
     events.add(Event(false, label, time))
   }
@@ -37,21 +34,49 @@ final class Profile {
 }
 
 object Profile {
-  // NOTE(MH): See the documenation of [[Profile]] above for why we use
-  // [[AnyRef]] for the labels.
-  private final case class Event(val open: Boolean, val rawLabel: AnyRef, val time: Long) {
-    def label: String = {
-      import com.daml.lf.speedy.SExpr._
-      rawLabel match {
-        case null => "<null>" // NOTE(MH): We should never see this but it's no problem if we do.
-        case AnonymousClosure => "<anonymous closure>"
-        case LfDefRef(ref) => ref.toString()
-        case ChoiceDefRef(tmplRef, name) => s"<exercise ${tmplRef}:${name}>"
-        case ref: SEBuiltinRecursiveDefinition.Reference => s"<${ref.toString().toLowerCase()}>"
-        case str: String => str
-        case any => s"<unknown ${any}>"
+  private[lf] final case class Event(val open: Boolean, val rawLabel: Label, val time: Long) {
+    def label: String = LabelModule.Allowed.renderLabel(rawLabel)
+  }
+
+  private def unmangleLenient(str: String): String = {
+    val builder = new StringBuilder(str.length)
+    var i = 0
+    while (i < str.length) {
+      if (str(i) == '$' && i + 1 < str.length) {
+        str(i + 1) match {
+          case '$' =>
+            builder.append('$')
+            i += 2
+          case 'u' if i + 5 < str.length =>
+            try {
+              val cp = Integer.parseUnsignedInt(str.substring(i + 2, i + 6), 16)
+              builder.appendAll(Character.toChars(cp))
+              i += 6
+            } catch {
+              case _: NumberFormatException =>
+                builder.append('$')
+                i += 1
+            }
+          case 'U' if i + 9 < str.length =>
+            try {
+              val cp = Integer.parseUnsignedInt(str.substring(i + 2, i + 10), 16)
+              builder.appendAll(Character.toChars(cp))
+              i += 10
+            } catch {
+              case _: NumberFormatException =>
+                builder.append('$')
+                i += 1
+            }
+          case _ =>
+            builder.append('$')
+            i += 1
+        }
+      } else {
+        builder.append(str(i))
+        i += 1
       }
     }
+    builder.toString
   }
 
   /** Utility object to convert the profile into the JSON format required by
@@ -111,7 +136,7 @@ object Profile {
             case Some(index) => index
             case None =>
               val index = frames.size()
-              frames.add(FrameJson(label))
+              frames.add(FrameJson(unmangleLenient(label)))
               frameIndices.put(label, index)
               index
           }
@@ -139,6 +164,57 @@ object Profile {
           name = profile.name,
         )
       }
+    }
+  }
+
+  type Label = LabelModule.Module.T
+  val LabelUnset: Label = LabelModule.Module(null)
+
+  /** We avoid any conversions into a common label format at runtime
+    * since this might skew the profile. Instead, we convert the labels to strings
+    * when we write out the profile.
+    */
+  sealed abstract class LabelModule {
+    type T <: AnyRef
+    private[Profile] def apply(t: AnyRef): T
+  }
+
+  object LabelModule {
+    // NOTE(MH): See the documentation of [[LabelModule]] above for why we use
+    // [[AnyRef]] for the labels.
+    val Module: LabelModule = new LabelModule {
+      type T = AnyRef
+      override def apply(t: AnyRef) = t
+    }
+
+    import scala.language.implicitConversions
+
+    // assumes -Xsource:2.13 in clients, which we should just do always,
+    // this is in scope wherever the expected type is `Label`
+    implicit def fromAllowed[T: Allowed](t: T with AnyRef): Label = Module(t)
+
+    final class Allowed[-T] private ()
+    object Allowed {
+      import com.daml.lf.speedy.SExpr._
+      private[this] val allowAll = new Allowed[Any]
+      implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
+      implicit val lfDefRef: Allowed[LfDefRef] = allowAll
+      implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
+      implicit val sebrdr: Allowed[SEBuiltinRecursiveDefinition.Reference] = allowAll
+      implicit val str: Allowed[String] = allowAll
+
+      // below cases must cover above set
+
+      private[Profile] def renderLabel(rawLabel: Label): String =
+        (rawLabel: AnyRef) match {
+          case null => "<null>" // NOTE(MH): We should never see this but it's no problem if we do.
+          case AnonymousClosure => "<lambda>"
+          case LfDefRef(ref) => ref.qualifiedName.toString()
+          case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
+          case ref: SEBuiltinRecursiveDefinition.Reference => ref.toString().toLowerCase()
+          case str: String => str
+          case any => s"<unknown ${any}>"
+        }
     }
   }
 }

@@ -75,9 +75,10 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 
     Claims(
       claims = claims.toList,
-      expiration = payload.exp,
       ledgerId = payload.ledgerId,
       participantId = payload.participantId,
+      applicationId = payload.applicationId,
+      expiration = payload.exp,
     )
   }
 }

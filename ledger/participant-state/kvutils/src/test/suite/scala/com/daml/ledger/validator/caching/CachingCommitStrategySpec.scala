@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator.caching
 
-import com.daml.caching.{Cache, Configuration}
+import com.daml.caching.{Cache, WeightedCache}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
@@ -51,7 +51,7 @@ class CachingCommitStrategySpec extends AsyncWordSpec with Matchers with Mockito
   }
 
   private def newCache(): Cache[DamlStateKey, DamlStateValue] =
-    Cache.from[DamlStateKey, DamlStateValue](Configuration(1024))
+    WeightedCache.from[DamlStateKey, DamlStateValue](WeightedCache.Configuration(1024))
 
   private def createInstance(
       cache: Cache[DamlStateKey, DamlStateValue],

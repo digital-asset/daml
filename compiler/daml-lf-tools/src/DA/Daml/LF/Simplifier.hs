@@ -6,14 +6,15 @@ module DA.Daml.LF.Simplifier(
     simplifyModule,
     ) where
 
-import Control.Monad (guard)
+import Control.Monad (guard, forM, forM_)
+import Control.Monad.State.Strict (State, evalState, gets, modify)
 import Data.Maybe (mapMaybe)
-import Data.List (foldl')
 import Data.Foldable (fold, toList)
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.Graph as G
 import qualified Data.Text as T
 import qualified Data.Set as Set
+import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Safe
 import qualified Safe.Exact as Safe
@@ -22,6 +23,9 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.FreeVars
+import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.TypeChecker.Check
+import DA.Daml.LF.TypeChecker.Env
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the
@@ -247,6 +251,27 @@ infoStep world e = Info
     (safetyStep (fmap safety e))
     (typeclassStep world (fmap tcinfo e))
 
+-- | Take the free variables and safety of a let-expression `let x = e1 in e2`
+-- and compute over-approximations of the free variables and
+-- under-approximations of the safe of `e1` and `e2`. The reasoning behind the
+-- choice of `s1` and `s2` is as follows:
+-- * If `fv(let x = e1 in e2) ⊆ V`, then `fv(e1) ⊆ V` and `fv(e2) ⊆ V ∪ {x}`.
+-- * If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is k-safe.
+infoUnstepELet :: ExprVarName -> Info -> (Info, Info)
+infoUnstepELet x (Info fv sf _) = (s1, s2)
+  where
+    s1 = Info fv (sf `min` Safe 0) TCNeither
+    s2 = Info (freeExprVar x <> fv) sf TCNeither
+
+-- | Take the free variables and safety of a lambda-expression `λx. e1` and
+-- compute an over-approximation of the free variables and an
+-- under-approximation of the safety of `e1`. The reasoning behind the result
+-- is as follows:
+-- * If `fv(λx. e1) ⊆ V`, then `fv(e1) ⊆ V ∪ {x}`.
+-- * If `λx. e1` is k-safe, then `e1` is (k-1)-safe.
+infoUnstepETmapp :: ExprVarName -> Info -> Info
+infoUnstepETmapp x (Info fv sf _) = Info (freeExprVar x <> fv) (decrSafety sf) TCNeither
+
 -- | Try to get the actual field value from the body of
 -- a typeclass projection function, after substitution of the
 -- dictionary function inside.
@@ -290,12 +315,81 @@ getTypeClassDictionary world = \case
     _ ->
         Nothing
 
-simplifyExpr :: World -> Expr -> Expr
-simplifyExpr world = fst . cata go
+calcPartyLiterals :: Expr -> HasNoPartyLiterals
+calcPartyLiterals e = HasNoPartyLiterals (cata go e)
   where
-
-    go :: ExprF (Expr, Info) -> (Expr, Info)
     go = \case
+        EBuiltinF (BEParty _) -> False
+        f -> and f
+
+-- | Attempt to lift a closed expression to the top level. Returns either
+-- a variable expression that references the lifted expression, or
+-- returns the original expression.
+liftClosedExpr :: Expr -> Simplifier Expr
+liftClosedExpr e = do
+    cache <- gets sCache
+    case Map.lookup e cache of
+        Just name -> do
+            EVal <$> selfQualify name
+
+        Nothing -> do
+            world <- gets sWorldExtended
+            version <- gets sVersion
+            case runGamma world version (typeOf' e) of
+                Right ty -> do
+                    name <- freshExprVarNameFor e
+                    addDefValue DefValue
+                        { dvalBinder = (name, ty)
+                        , dvalBody = e
+                        , dvalLocation = Nothing
+                        , dvalNoPartyLiterals = calcPartyLiterals e
+                        , dvalIsTest = IsTest False
+                        }
+                    EVal <$> selfQualify name
+
+                -- This happens when the information in the World is incomplete, preventing
+                -- full typechecking. That happens when compiling with --incremental=yes,
+                -- or when simplifying mutually recursive functions.
+                Left _ ->
+                    pure e
+
+simplifyExpr :: Expr -> Simplifier Expr
+simplifyExpr = fmap fst . cata go'
+  where
+    go' :: ExprF (Simplifier (Expr, Info)) -> Simplifier (Expr, Info)
+    go' ms = do
+        es <- sequence ms
+        world <- gets sWorldExtended
+        let v' = freeVarsStep (fmap (freeVars . snd) es)
+
+        -- We decide here whether it's worth performing constant lifting
+        -- for closed terms immediately under the current term. We want
+        -- to avoid creating unnecessary bindings, so we only perform
+        -- constant lifting when a closed term would become non-closed,
+        -- thereby grouping all the closed subterms together into a single
+        -- lift. If possible, we also want to lift constants from below
+        -- lambdas and other binders (to make them memoizable),
+        -- even if the resulting expression would remain closed,
+        -- so we have the additional 'alwaysLiftUnder' check.
+        if freeVarsNull v' && not (alwaysLiftUnder es)
+          then pure (go world es)
+          else do -- constant lifting
+            es' <- forM es $ \case
+              (e,i)
+                | freeVarsNull (freeVars i)
+                , isWorthLifting e
+                -> do
+                    e' <- liftClosedExpr e
+                    pure (e',i)
+
+                | otherwise
+                -> pure (e,i)
+
+            world' <- gets sWorldExtended
+            pure (go world' es')
+
+    go :: World -> ExprF (Expr, Info) -> (Expr, Info)
+    go world = \case
 
       ETmAppF (_, i1) (_, i2)
           | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
@@ -307,7 +401,7 @@ simplifyExpr world = fst . cata go
                   -- a repeated beta-reduction of a closed expression
                   -- (the dictionary function) applied to subterms of
                   -- the argument whose free variables are tracked in i2.
-          -> cata go e'
+          -> cata (go world) e'
 
       -- <...; f = e; ...>.f    ==>    e
       EStructProjF f (EStructCon fes, s)
@@ -337,9 +431,10 @@ simplifyExpr world = fst . cata go
         , and bs ->
             (ERecCon t fes1, s)
         where
-          matchField (f1, _) (f2, e2)
-            | f1 == f2, EStructProj f3 (EVar x3) <- e2, f1 == f3, x1 == x3 = True
-            | otherwise = False
+          matchField (f1, _) = \case
+              (f2, EStructProj f3 (EVar x3)) ->
+                  (f1 == f2) && (f1 == f3) && (x1 == x3)
+              _ -> False
 
       -- let x = e1 in e2    ==>    e2, if e1 cannot be bottom and x is not free in e2
       ELetF (BindingF (x, _) e1) e2
@@ -347,19 +442,107 @@ simplifyExpr world = fst . cata go
         , not (isFreeExprVar x (freeVars (snd e2))) -> e2
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
-      -- NOTE(MH): The reason for the choice of `s1` and `s2` is as follows:
-      -- - If `fv(let x = e1 in e2) ⊆ V`, then `fv(e1) ⊆ V` and
-      --   `fv(e2) ⊆ V ∪ {x}`.
-      -- - If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is
-      --   k-safe.
-      EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf _) ->
-        go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
+      EStructProjF f (ELet (Binding (x, t) e1) e2, s0) ->
+          go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ EStructProjF f (e2, s2))
         where
-          s1 = Info fv (sf `min` Safe 0) TCNeither
-          s2 = Info (freeExprVar x <> fv) sf TCNeither
+          (s1, s2) = infoUnstepELet x s0
+
+      -- (λx1 ... xn. e0) e1 ... en    ==>    let x1 = e2 in ... let xn = en in e0,
+      -- if `xi` is not free in `ej` for any `i < j`
+      --
+      -- This rule is achieved by combining the rules for `(λx. e1) e2` and
+      -- `(let x = e1 in e2) e3` repeatedly.
+
+      -- (λx. e1) e2    ==>    let x = e2 in e1
+      --
+      -- NOTE(MH): This also works when `x` is free in `e2` since let-bindings
+      -- are _not_ recursive.
+      ETmAppF (ETmLam (x, t) e1, s0) (e2, s2) ->
+        go world $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
+        where
+          s1 = infoUnstepETmapp x s0
+
+      -- (let x = e1 in e2) e3    ==>    let x = e1 in e2 e3, if x is not free in e3
+      ETmAppF (ELet (Binding (x, t) e1) e2, s0) e3
+        | not (isFreeExprVar x (freeVars (snd e3))) ->
+          go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ ETmAppF (e2, s2) e3)
+          where
+            (s1, s2) = infoUnstepELet x s0
 
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
+
+-- | If we have a closed term under a lambda, we want to lift it up to the top level,
+-- even though the result of the lambda is also a closed term. We avoid breaking up
+-- lambda terms, though.
+alwaysLiftUnder :: ExprF (Expr, Info) -> Bool
+alwaysLiftUnder = \case
+    ETmLamF _ (ETmLam _ _, _) -> False
+    ETmLamF _ _ -> True
+    _ -> False
+
+-- | Some terms are not worth lifting to the top level, because they don't
+-- require any computation.
+isWorthLifting :: Expr -> Bool
+isWorthLifting = \case
+    EVar _ -> False
+    EVal _ -> False
+    EBuiltin _ -> False
+    EEnumCon _ _ -> False
+    ENil _ -> False
+    ENone _ -> False
+    EUpdate _ -> False
+    EScenario _ -> False
+    ETypeRep _ -> False
+    ETyApp e _ -> isWorthLifting e
+    ETyLam _ e -> isWorthLifting e
+    ELocation _ e -> isWorthLifting e
+    _ -> True
+
+data SimplifierState = SimplifierState
+    { sWorld :: World
+    , sVersion :: Version
+    , sModule :: Module
+    , sReserved :: Set.Set ExprValName
+    , sCache :: Map.Map Expr ExprValName
+    , sFreshNamePrefix :: T.Text -- Prefix for fresh variable names.
+    }
+
+sWorldExtended :: SimplifierState -> World
+sWorldExtended SimplifierState{..} = extendWorldSelf sModule sWorld
+
+type Simplifier t = State SimplifierState t
+
+addDefValue :: DefValue -> Simplifier ()
+addDefValue dval = modify $ \s@SimplifierState{..} -> s
+    { sModule = sModule { moduleValues = NM.insert dval (moduleValues sModule) }
+    , sReserved = Set.insert (fst (dvalBinder dval)) sReserved
+    , sCache = Map.insert (dvalBody dval) (fst (dvalBinder dval)) sCache
+    }
+
+freshExprVarNameFor :: Expr -> Simplifier ExprValName
+freshExprVarNameFor e = do
+    name <- freshExprVarName
+    modify $ \s -> s { sCache = Map.insert e name (sCache s) }
+    pure name
+
+setFreshNamePrefix :: T.Text -> Simplifier ()
+setFreshNamePrefix x = modify (\s -> s { sFreshNamePrefix = x })
+
+freshExprVarName :: Simplifier ExprValName
+freshExprVarName = do
+    reserved <- gets sReserved
+    prefix <- gets sFreshNamePrefix
+    let candidates = [ExprValName (prefix <> T.pack (show i)) | i <- [1 :: Int ..]]
+        name = Safe.findJust (`Set.notMember` reserved) candidates
+    modify (\s -> s { sReserved = Set.insert name reserved })
+    pure name
+
+selfQualify :: t -> Simplifier (Qualified t)
+selfQualify qualObject = do
+    qualModule <- gets (moduleName . sModule)
+    let qualPackage = PRSelf
+    pure Qualified {..}
 
 exprRefs :: Expr -> Set.Set (Qualified ExprValName)
 exprRefs = cata $ \case
@@ -378,14 +561,25 @@ topoSortDefValues m =
         sccs = G.stronglyConnComp . map dvalNode . NM.toList $ moduleValues m
     in concatMap toList sccs
 
-simplifyDefValue :: World -> DefValue -> DefValue
-simplifyDefValue world dval = dval { dvalBody = simplifyExpr world (dvalBody dval) }
+simplifyTemplate :: Template -> Simplifier Template
+simplifyTemplate t = do
+    setFreshNamePrefix ("$sc_" <> T.intercalate "_" (unTypeConName (tplTypeCon t)) <> "_")
+    templateExpr simplifyExpr t
 
-simplifyModule :: World -> Module -> Module
-simplifyModule world m =
-    let step accum dval =
-            let m' = m { moduleValues = accum }
-                w' = extendWorldSelf m' world
-                d' = simplifyDefValue w' dval
-            in NM.insert d' accum
-    in m { moduleValues = foldl' step NM.empty (topoSortDefValues m) }
+simplifyModule :: World -> Version -> Module -> Module
+simplifyModule world version m = runSimplifier world version m $ do
+    forM_ (topoSortDefValues m) $ \ dval -> do
+        setFreshNamePrefix ("$sc_" <> unExprValName (fst (dvalBinder dval)) <> "_")
+        body' <- simplifyExpr (dvalBody dval)
+        addDefValue dval { dvalBody = body' }
+    t' <- NM.traverse simplifyTemplate (moduleTemplates m)
+    m' <- gets sModule
+    pure m' { moduleTemplates = t' }
+
+runSimplifier :: World -> Version -> Module -> Simplifier t -> t
+runSimplifier sWorld sVersion m x =
+    let sModule = m { moduleValues = NM.empty }
+        sReserved = Set.fromList (NM.names (moduleValues m))
+        sCache = Map.empty
+        sFreshNamePrefix = "$sc"
+    in evalState x SimplifierState {..}

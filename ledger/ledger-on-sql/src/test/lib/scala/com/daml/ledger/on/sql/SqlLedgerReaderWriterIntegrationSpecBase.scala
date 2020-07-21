@@ -20,7 +20,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
   override protected final val startIndex: Long = StartIndex
 
   override protected final def participantStateFactory(
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,
@@ -29,7 +29,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       ledgerId,
       participantId,
       metrics,
-      engine = Engine(),
+      engine = Engine.DevEngine(),
       jdbcUrl(testId),
       resetOnStartup = false,
       // Using a weak random source to avoid slowdown during tests.

@@ -46,7 +46,7 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
         "//daml-lf/validation",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",

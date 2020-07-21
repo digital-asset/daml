@@ -5,7 +5,7 @@
 module DA.Cli.Damlc.Command.Damldoc(cmd, exec) where
 
 import DA.Cli.Options
-import DA.Cli.Output
+import DA.Daml.Compiler.Output
 import DA.Daml.Doc.Driver
 import DA.Daml.Doc.Extract
 import DA.Daml.Options.Types
@@ -46,6 +46,7 @@ documentation numProcessors = Damldoc
     <*> optBaseURL
     <*> optHooglePath
     <*> optAnchorPath
+    <*> optExternalAnchorPath
     <*> argMainFiles
   where
     optInputFormat :: Parser InputFormat
@@ -91,6 +92,13 @@ documentation numProcessors = Damldoc
             $ metavar "PATH"
             <> help "Path to output anchor table."
             <> long "output-anchor"
+
+    optExternalAnchorPath :: Parser (Maybe FilePath)
+    optExternalAnchorPath =
+        optional . option str
+            $ metavar "PATH"
+            <> help "Path to input anchor table (for external anchors)."
+            <> long "input-anchor"
 
     optTemplate :: Parser (Maybe FilePath)
     optTemplate =
@@ -243,6 +251,7 @@ data CmdArgs = Damldoc
     , cBaseURL :: Maybe T.Text
     , cHooglePath :: Maybe FilePath
     , cAnchorPath :: Maybe FilePath
+    , cExternalAnchorPath :: Maybe FilePath
     , cMainFiles :: [FilePath]
     } deriving (Show)
 
@@ -270,6 +279,7 @@ exec Damldoc{..} = do
         , do_baseURL = cBaseURL
         , do_hooglePath = cHooglePath
         , do_anchorPath = cAnchorPath
+        , do_externalAnchorPath = cExternalAnchorPath
         }
 
   where

@@ -3,21 +3,33 @@
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
 
-import Control.Exception
+import Control.Exception.Safe
 import Control.Monad
+import DA.Bazel.Runfiles
 import Data.Foldable
 import Data.List.Extra
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
+import System.FilePath
 import System.IO
+import System.Process.Typed
 import Text.Read (readMaybe)
 
 import DA.Signals
-import DA.Daml.Helper.Run
+import DA.Daml.Project.Consts
+import DA.Daml.Helper.Init
+import DA.Daml.Helper.Ledger
+import DA.Daml.Helper.New
+import DA.Daml.Helper.Start
+import DA.Daml.Helper.Studio
+import DA.Daml.Helper.Util
 
 main :: IO ()
-main =
+main = do
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
     withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
         hPutStrLn stderr (displayException e)
         exitFailure
@@ -35,6 +47,11 @@ data Command
         , mbLogbackConfig :: Maybe FilePath
         -- ^ Both file paths are relative to the SDK directory.
         , remainingArguments :: [String]
+        , shutdownStdinClose :: Bool
+        }
+    | RunPlatformJar
+        { args :: [String]
+        , logbackConfig :: FilePath
         , shutdownStdinClose :: Bool
         }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
@@ -77,6 +94,7 @@ commandParser = subparser $ fold
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
     , command "ledger" (info (ledgerCmd <**> helper) ledgerCmdInfo)
     , command "run-jar" (info runJarCmd forwardOptions)
+    , command "run-platform-jar" (info runPlatformJarCmd forwardOptions)
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     ]
   where
@@ -104,6 +122,11 @@ commandParser = subparser $ fold
         <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
         <*> optional (strOption (long "logback-config"))
         <*> many (argument str (metavar "ARG"))
+        <*> stdinCloseOpt
+
+    runPlatformJarCmd = RunPlatformJar
+        <$> many (argument str (metavar "ARG"))
+        <*> strOption (long "logback-config")
         <*> stdinCloseOpt
 
     newCmd = asum
@@ -266,6 +289,7 @@ commandParser = subparser $ fold
         <*> portFlag
         <*> accessTokenFileFlag
         <*> sslConfig
+        <*> timeoutOption
 
     sslConfig :: Parser (Maybe ClientSSLConfig)
     sslConfig = do
@@ -275,7 +299,7 @@ commandParser = subparser $ fold
             ]
         mbCACert <- optional $ strOption $ mconcat
             [ long "cacrt"
-            , help "The crt file to be used as the the trusted root CA."
+            , help "The crt file to be used as the trusted root CA."
             ]
         mbClientKeyCertPair <- optional $ liftA2 ClientSSLKeyCertPair
             (strOption $ mconcat
@@ -314,12 +338,23 @@ commandParser = subparser $ fold
         <> metavar "TOKEN_PATH"
         <> help "Path to the token-file for ledger authorization"
 
+    timeoutOption :: Parser TimeoutSeconds
+    timeoutOption = option auto $ mconcat
+        [ long "timeout"
+        , metavar "INT"
+        , value 30
+        , help "Timeout of gRPC operations in seconds. Defaults to 30s. Must be > 0."
+        ]
+
 runCommand :: Command -> IO ()
 runCommand = \case
     DamlStudio {..} -> runDamlStudio replaceExtension remainingArguments
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
+    RunPlatformJar {..} ->
+        (if shutdownStdinClose then withCloseOnStdin else id) $
+        runPlatformJar args logbackConfig
     New {..} -> runNew targetFolder templateNameM
     CreateDamlApp{..} -> runNew targetFolder (Just "create-daml-app")
     Init {..} -> runInit targetFolderM
@@ -346,8 +381,10 @@ runCommand = \case
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} ->
         case lang of
-            JavaScript ->
-                runDaml2js remainingArguments
+            JavaScript -> do
+                daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
+                withProcessWait_' (proc daml2js remainingArguments) (const $ pure ()) `catchIO`
+                    (\e -> hPutStrLn stderr "Failed to invoke daml2js." *> throwIO e)
             Java ->
                 runJar
                     "daml-sdk/daml-sdk.jar"

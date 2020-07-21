@@ -9,16 +9,23 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
+import java.time.Clock
 import java.util.UUID
 
 import io.grpc.netty.NettyChannelBuilder
+
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.\/-
+import scalaz.{Applicative, Traverse, \/-}
 import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.std.option._
+import scalaz.std.map._
+import scalaz.std.scalaFuture._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+
+import scala.language.higherKinds
 import spray.json._
-import com.daml.api.util.TimeProvider
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
@@ -26,7 +33,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -36,18 +43,21 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerIdRequirement}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
 import ParticipantsJsonProtocol.ContractIdFormat
+import com.daml.lf.language.LanguageVersion
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
 case class Participant(participant: String)
 case class Party(party: String)
-case class ApiParameters(host: String, port: Int)
+case class ApiParameters(host: String, port: Int, access_token: Option[String])
 case class Participants[+T](
     default_participant: Option[T],
     participants: Map[Participant, T],
@@ -72,6 +82,24 @@ case class Participants[+T](
           case Some(t) => Right(t)
         }
     }
+}
+
+object Participants {
+  implicit val darTraverse: Traverse[Participants] = new Traverse[Participants] {
+    override def map[A, B](fa: Participants[A])(f: A => B): Participants[B] =
+      Participants[B](fa.default_participant.map(f), fa.participants.map({
+        case (k, v) => (k, f(v))
+      }), fa.party_participants)
+
+    override def traverseImpl[G[_]: Applicative, A, B](fa: Participants[A])(
+        f: A => G[B]): G[Participants[B]] = {
+      import scalaz.syntax.apply._
+      import scalaz.syntax.traverse._
+      val gb: G[Option[B]] = fa.default_participant.traverse(f)
+      val gbs: G[Map[Participant, B]] = fa.participants.traverse(f)
+      ^(gb, gbs)((b, bs) => Participants(b, bs, fa.party_participants))
+    }
+  }
 }
 
 object ParticipantsJsonProtocol extends DefaultJsonProtocol {
@@ -99,7 +127,7 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
         case _ => deserializationError("ContractId must be a string")
       }
     }
-  implicit val apiParametersFormat = jsonFormat2(ApiParameters)
+  implicit val apiParametersFormat = jsonFormat3(ApiParameters)
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
@@ -142,10 +170,18 @@ object Script {
 object Runner {
   private def connectApiParameters(
       params: ApiParameters,
-      clientConfig: LedgerClientConfiguration,
+      applicationId: ApplicationId,
+      tlsConfig: Option[TlsConfiguration],
       maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
+    val clientConfig = LedgerClientConfiguration(
+      applicationId = ApplicationId.unwrap(applicationId),
+      ledgerIdRequirement = LedgerIdRequirement.none,
+      commandClient = CommandClientConfiguration.default,
+      sslContext = tlsConfig.flatMap(_.client),
+      token = params.access_token,
+    )
     LedgerClient
       .fromBuilder(
         NettyChannelBuilder
@@ -154,43 +190,40 @@ object Runner {
         clientConfig,
       )
       .map(new GrpcLedgerClient(_))
-//    LedgerClient.singleHost(params.host, params.port, clientConfig).map(new GrpcLedgerClient(_))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(
       participantParams: Participants[ApiParameters],
-      clientConfig: LedgerClientConfiguration,
+      applicationId: ApplicationId,
+      tlsConfig: Option[TlsConfiguration],
       maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {
     for {
-      // The standard library is incredibly weird. Option is not Traversable so we have to convert to a list and back.
-      // Map is but it doesn’t return a Map so we have to call toMap afterwards.
-      defaultClient <- Future
-        .traverse(participantParams.default_participant.toList)(x =>
-          connectApiParameters(x, clientConfig, maxInboundMessageSize))
-        .map(_.headOption)
-      participantClients <- Future
-        .traverse(participantParams.participants: Map[Participant, ApiParameters])({
-          case (k, v) => connectApiParameters(v, clientConfig, maxInboundMessageSize).map((k, _))
-        })
-        .map(_.toMap)
+      defaultClient <- participantParams.default_participant.traverse(x =>
+        connectApiParameters(x, applicationId, tlsConfig, maxInboundMessageSize))
+      participantClients <- participantParams.participants.traverse(v =>
+        connectApiParameters(v, applicationId, tlsConfig, maxInboundMessageSize))
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
 
-  def jsonClients(
-      participantParams: Participants[ApiParameters],
-      token: String,
-      envIface: EnvironmentInterface)(
+  def jsonClients(participantParams: Participants[ApiParameters], envIface: EnvironmentInterface)(
       implicit ec: ExecutionContext,
       system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
     def client(params: ApiParameters) = {
-      val uri = Uri(params.host + ":" + params.port.toString)
-      new JsonLedgerClient(uri, Jwt(token), envIface, system)
+      val uri = Uri(params.host).withPort(params.port)
+      params.access_token match {
+        case None =>
+          Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
+        case Some(token) =>
+          Future.successful(new JsonLedgerClient(uri, Jwt(token), envIface, system))
+      }
+
     }
-    val defClient = participantParams.default_participant.map(client(_))
-    val otherClients = participantParams.participants.map({ case (k, v) => (k, client(v)) })
-    Future { Participants(defClient, otherClients, participantParams.party_participants) }
+    for {
+      defClient <- participantParams.default_participant.traverse(client(_))
+      otherClients <- participantParams.participants.traverse(client)
+    } yield Participants(defClient, otherClients, participantParams.party_participants)
   }
 
   // Executes a DAML script
@@ -203,8 +236,9 @@ object Runner {
       inputValue: Option[JsValue],
       initialClients: Participants[ScriptLedgerClient],
       applicationId: ApplicationId,
-      timeProvider: TimeProvider)(
+      timeMode: ScriptTimeMode)(
       implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages(darMap).right.get
@@ -231,7 +265,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner =
-      new Runner(compiledPackages, scriptAction, applicationId, timeProvider)
+      new Runner(compiledPackages, scriptAction, applicationId, timeMode)
     runner.runWithClients(initialClients)
   }
 }
@@ -240,8 +274,10 @@ class Runner(
     compiledPackages: CompiledPackages,
     script: Script.Action,
     applicationId: ApplicationId,
-    timeProvider: TimeProvider)
+    timeMode: ScriptTimeMode)
     extends StrictLogging {
+
+  private val utcClock = Clock.systemUTC()
 
   private def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
@@ -275,14 +311,21 @@ class Runner(
         SEMakeClo(Array(), 1, SELocA(0))
     }
     new CompiledPackages {
-      def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
-      def getDefinition(dref: SDefinitionRef): Option[SExpr] =
+      override def getPackage(pkgId: PackageId): Option[Package] =
+        compiledPackages.getPackage(pkgId)
+      override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
-      override def packages = compiledPackages.packages
-      def packageIds = compiledPackages.packageIds
-      override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
-      override def stackTraceMode = Compiler.FullStackTrace
-      override def profilingMode = Compiler.NoProfile
+      // FIXME: avoid override of non abstract method
+      override def packages: PartialFunction[PackageId, Package] = compiledPackages.packages
+      override def packageIds: Set[PackageId] = compiledPackages.packageIds
+      // FIXME: avoid override of non abstract method
+      override def definitions: PartialFunction[SDefinitionRef, SExpr] =
+        fromLedgerValue.orElse(compiledPackages.definitions)
+      override def stackTraceMode: Compiler.FullStackTrace.type = Compiler.FullStackTrace
+      override def profilingMode: Compiler.NoProfile.type = Compiler.NoProfile
+      override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
+        compiledPackages.packageLanguageVersion
+
     }
   }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
@@ -301,16 +344,10 @@ class Runner(
 
   def runWithClients(initialClients: Participants[ScriptLedgerClient])(
       implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
-    val machine =
-      Speedy.Machine.fromSExpr(
-        sexpr = script.expr,
-        compiledPackages = extendedCompiledPackages,
-        submissionTime = Timestamp.now(),
-        seeding = InitialSeeding.NoSeed,
-        Set.empty,
-      )
+    val machine = Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
@@ -403,7 +440,7 @@ class Runner(
                       acs <- client.query(party, tplId)
                       res <- Converter.toFuture(
                         FrontStack(acs)
-                          .traverseU(Converter
+                          .traverse(Converter
                             .fromCreated(valueTranslator, _)))
                       v <- {
                         run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
@@ -462,9 +499,83 @@ class Runner(
                       new ConverterException(s"Expected record with 2 fields but got $v"))
                 }
               }
+              case SVariant(_, "ListKnownParties", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 2 => {
+                    val continue = vals.get(1)
+                    for {
+                      participantName <- vals.get(0) match {
+                        case SOptional(Some(SText(t))) => Future.successful(Some(Participant(t)))
+                        case SOptional(None) => Future.successful(None)
+                        case v =>
+                          Future.failed(
+                            new ConverterException(s"Expected SOptional(SText) but got $v"))
+                      }
+                      client <- clients.getParticipant(participantName) match {
+                        case Right(client) => Future.successful(client)
+                        case Left(err) => Future.failed(new RuntimeException(err))
+                      }
+                      partyDetails <- client.listKnownParties()
+                      partyDetails_ <- Converter.toFuture(partyDetails.traverse(details =>
+                        Converter.fromPartyDetails(script.scriptIds, details)))
+                      v <- {
+                        run(
+                          SEApp(
+                            SEValue(continue),
+                            Array(SEValue(SList(FrontStack(partyDetails_))))))
+                      }
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 2 fields but got $v"))
+                }
+              }
               case SVariant(_, "GetTime", _, continue) => {
-                val t = Timestamp.assertFromInstant(timeProvider.getCurrentTime)
-                run(SEApp(SEValue(continue), Array(SEValue(STimestamp(t)))))
+                for {
+                  time <- timeMode match {
+                    case ScriptTimeMode.Static => {
+                      // We don’t parametrize this by participant since this
+                      // is only useful in static time mode and using the time
+                      // service with multiple participants is very dodgy.
+                      for {
+                        client <- Converter.toFuture(clients.getParticipant(None))
+                        t <- client.getStaticTime()
+                      } yield t
+                    }
+                    case ScriptTimeMode.WallClock =>
+                      Future {
+                        Timestamp.assertFromInstant(utcClock.instant())
+                      }
+                  }
+                  v <- run(SEApp(SEValue(continue), Array(SEValue(STimestamp(time)))))
+
+                } yield v
+
+              }
+              case SVariant(_, "SetTime", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 2 =>
+                    timeMode match {
+                      case ScriptTimeMode.Static =>
+                        val continue = vals.get(1)
+                        for {
+                          // We don’t parametrize this by participant since this
+                          // is only useful in static time mode and using the time
+                          // service with multiple participants is very dodgy.
+                          client <- Converter.toFuture(clients.getParticipant(None))
+                          t <- Converter.toFuture(Converter.toTimestamp(vals.get(0)))
+                          _ <- client.setStaticTime(t)
+                          v <- run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                        } yield v
+                      case ScriptTimeMode.WallClock =>
+                        Future.failed(
+                          new RuntimeException("setTime is not supported in wallclock mode"))
+
+                    }
+                  case _ =>
+                    Future.failed(new ConverterException(s"Expected SetTimePayload but got $v"))
+                }
               }
               case SVariant(_, "Sleep", _, v) => {
                 v match {

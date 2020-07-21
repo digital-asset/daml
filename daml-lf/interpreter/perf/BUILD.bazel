@@ -23,7 +23,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
     ],
 )
 
@@ -45,7 +44,64 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_binary(
+    name = "speed-nfib",
+    srcs = glob([
+        "src/main/**/LoadDarFunction.scala",
+        "src/main/**/SpeedTestNfib.scala",
+    ]),
+    data = [
+        ":Examples.dar",
+        ":Examples.dar.pp",
+    ],
+    main_class = "com.daml.lf.speedy.explore.SpeedTestNfib",
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+daml_compile(
+    name = "JsonParser",
+    srcs = glob(["daml/JsonParser.daml"]),
+)
+
+da_scala_binary(
+    name = "speed-json-parser",
+    srcs = glob([
+        "src/main/**/LoadDarFunction.scala",
+        "src/main/**/SpeedTestJsonParser.scala",
+    ]),
+    data = [
+        ":JsonParser.dar",
+        ":JsonParser.dar.pp",
+    ],
+    main_class = "com.daml.lf.speedy.explore.SpeedTestJsonParser",
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

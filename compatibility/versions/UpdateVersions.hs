@@ -4,35 +4,35 @@
 module Main (main) where
 
 import Control.Concurrent.Async
-import Control.Lens (view)
-import Crypto.Hash (hashlazy, Digest, SHA256)
-import Data.Aeson
-import Data.ByteArray.Encoding (Base(Base16), convertToBase)
+import Control.Lens ((.~), (&), (^?!), view, _Right)
+import Control.Monad
+import Crypto.Hash (digestFromByteString, hashlazy, Digest, SHA256)
+import Data.ByteArray.Encoding (Base(Base16), convertFromBase, convertToBase)
 import Data.ByteString (ByteString)
-import Data.Either (fromRight)
-import qualified Data.HashMap.Strict as HashMap
+import qualified Data.ByteString.Lazy as BSL
+import Data.Either (fromRight, rights)
+import Data.Either.Extra (eitherToMaybe)
+import Data.List
 import Data.Map (Map)
+import Data.Maybe (mapMaybe)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Network.HTTP.Client (responseTimeout, responseTimeoutMicro)
 import Network.HTTP.Simple
 import Options.Applicative
 import System.IO.Extra
+import qualified System.Process
 
 newtype Versions = Versions { getVersions :: Set Version }
     deriving Show
 
 instance Semigroup Versions where
     Versions a <> Versions b = Versions (a <> b)
-
-instance FromJSON Versions where
-    parseJSON = withObject "version object" $ \obj ->
-        either fail (pure . Versions . Set.fromList) $
-        traverse SemVer.fromText $ HashMap.keys obj
 
 minimumVersion :: Version
 minimumVersion = SemVer.incrementMajor SemVer.initial
@@ -118,21 +118,29 @@ firstMessagingPatch =
 getChecksums :: Version -> IO Checksums
 getChecksums ver = do
     putStrLn ("Requesting hashes for " <> SemVer.toString ver)
-    [ linuxHash, macosHash, windowsHash, testToolHash,
-      damlTypesHash, damlLedgerHash, damlReactHash] <-
+    req <- parseRequestThrow sha256Url
+    lines <- map T.words . T.lines . T.decodeUtf8 . BSL.toStrict . getResponseBody <$> httpLbs req
+    Just [linuxHash, macosHash, windowsHash] <- pure $
+        forM [sdkFilePath "linux", sdkFilePath "macos", sdkFilePath "windows"] $ \path -> do
+            -- This is fairly hacky but given that we only run this script
+            -- offline that seems fine for now.
+            (base16Hash : _) <- find (\line -> path == line !! 1) lines
+            byteHash <- (eitherToMaybe . convertFromBase Base16 . T.encodeUtf8) base16Hash
+            digestFromByteString @SHA256 @ByteString byteHash
+    [ testToolHash, damlTypesHash, damlLedgerHash, damlReactHash] <-
         forConcurrently
-            [ sdkUrl "linux", sdkUrl "macos", sdkUrl "windows"
-            , testToolUrl
+            [ testToolUrl
             , tsLib "types"
             , tsLib "ledger"
             , tsLib "react"
             ] getHash
     mbCreateDamlAppPatchHash <- traverse getHash mbCreateDamlAppUrl
     pure Checksums {..}
-  where sdkUrl platform =
+  where sdkFilePath platform = T.pack $
+            "./daml-sdk-" <> SemVer.toString ver <> "-" <> platform <> ".tar.gz"
+        sha256Url =
             "https://github.com/digital-asset/daml/releases/download/v" <>
-            SemVer.toString ver <> "/" <>
-            "daml-sdk-" <> SemVer.toString ver <> "-" <> platform <> ".tar.gz"
+            SemVer.toString ver <> "/sha256sums"
         testToolUrl =
             "https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/" <>
             SemVer.toString ver <> "/ledger-api-test-tool-" <> SemVer.toString ver <> ".jar"
@@ -155,14 +163,24 @@ optsParser :: Parser Opts
 optsParser = Opts
   <$> strOption (short 'o' <> help "Path to output file")
 
+getVersionsFromTags :: IO (Set Version, Set Version)
+getVersionsFromTags = do
+    tags <- lines <$> System.Process.readProcess "git" ["tag"] ""
+    let versions = Set.fromList $ rights $ mapMaybe (fmap (SemVer.fromText . T.pack) . stripPrefix "v") tags
+    return $ Set.partition (null . view SemVer.release) versions
+
 main :: IO ()
 main = do
     Opts{..} <- execParser (info optsParser fullDesc)
-    versionsReq <- parseRequestThrow "https://docs.daml.com/versions.json"
-    snapshotsReq <- parseRequestThrow "https://docs.daml.com/snapshots.json"
-    versionsResp <- httpJSON versionsReq
-    snapshotsResp <- httpJSON snapshotsReq
-    let allVersions = Versions (Set.filter (>= minimumVersion) (getVersions (getResponseBody versionsResp <> getResponseBody snapshotsResp)))
+    (stableVers, allSnapshots) <- getVersionsFromTags
+    -- List of releases that we want to filter out snapshots for even
+    -- though they do not exist.
+    let skipped = Set.fromList [SemVer.fromText "1.1.0" ^?! _Right]
+    -- Only include snapshots for which there is no following stable version.
+    -- We do not simply filter for anything > than the latest stable version
+    -- since we might have a snapshot for a bugfix release.
+    let prunedSnapshots = Set.filter (\v -> toStable v `Set.notMember` (stableVers <> skipped)) allSnapshots
+    let allVersions = Versions (Set.filter (>= minimumVersion) (stableVers <> prunedSnapshots))
     checksums <- mapM (\ver -> (ver,) <$> getChecksums ver) (Set.toList $ getVersions allVersions)
     writeFileUTF8 outputFile (T.unpack $ renderVersionsFile allVersions $ Map.fromList checksums)
-
+  where toStable v = v & SemVer.release .~ [] & SemVer.metadata .~ []

@@ -5,7 +5,7 @@ package com.daml.lf
 package crypto
 
 import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
-import com.daml.lf.value.TypedValueGenerators.{RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
 import org.scalatest.{Matchers, WordSpec}
@@ -17,7 +17,7 @@ import scala.language.implicitConversions
 
 class HashSpec extends WordSpec with Matchers {
 
-  @com.github.ghik.silencer.silent // dead code. Well, yeah
+  @com.github.ghik.silencer.silent("dead code following this construct")
   private implicit val ordNo: scalaz.Order[Nothing] = (a, _) => a // principle of explosion
 
   private val packageId0 = Ref.PackageId.assertFromString("package")

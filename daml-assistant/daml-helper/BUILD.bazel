@@ -53,11 +53,16 @@ da_haskell_binary(
     hackage_deps = [
         "base",
         "extra",
+        "filepath",
+        "safe-exceptions",
+        "typed-process",
     ],
     main_function = "DA.Daml.Helper.Main.main",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-helper-lib",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -116,6 +121,7 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "text",
+        "uuid",
         "zip-archive",
     ],
     main_function = "DA.Daml.Helper.Test.Deployment.main",

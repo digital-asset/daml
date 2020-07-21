@@ -79,6 +79,7 @@ package_app(
     name = "damlc-dist",
     binary = ":damlc",
     resources = [
+        ":daml-base-anchors.json",
         ":ghc-pkg-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
@@ -219,12 +220,12 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
-            --cpp $(location @hpp//:hpp) \
+            --cpp $(location @stackage-exe//hpp) \
             $(locations //compiler/damlc/daml-prim-src)
     """,
     tools = [
         "//compiler/damlc",
-        "@hpp",
+        "@stackage-exe//hpp",
     ],
     visibility = ["//visibility:public"],
 )
@@ -238,12 +239,12 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
-            --cpp $(location @hpp//:hpp) \
+            --cpp $(location @stackage-exe//hpp) \
             $(locations //compiler/damlc/daml-stdlib-src)
     """,
     tools = [
         "//compiler/damlc",
-        "@hpp",
+        "@stackage-exe//hpp",
     ],
     visibility = ["//visibility:public"],
 )
@@ -263,21 +264,21 @@ genrule(
         "daml-base-hoogle.txt",
     ],
     cmd = """
-        $(location //compiler/damlc) -- docs \
-            --output=daml-base-rst \
-            --input-format=json \
-            --format=Rst \
-            --exclude-instances=HasField \
-            --drop-orphan-instances \
-            --template=$(location :daml-base-rst-template) \
-            --index-template=$(location :daml-base-rst-index-template) \
-            --hoogle-template=$(location :daml-base-hoogle-template) \
-            --base-url=https://docs.daml.com/daml/stdlib \
-            --output-hoogle=$(location :daml-base-hoogle.txt) \
-            --output-anchor=$(location :daml-base-anchors.json) \
+        $(location //compiler/damlc) -- docs \\
+            --output=daml-base-rst \\
+            --input-format=json \\
+            --format=Rst \\
+            --exclude-instances=HasField \\
+            --drop-orphan-instances \\
+            --template=$(location :daml-base-rst-template) \\
+            --index-template=$(location :daml-base-rst-index-template) \\
+            --hoogle-template=$(location :daml-base-hoogle-template) \\
+            --base-url=https://docs.daml.com/daml/stdlib \\
+            --output-hoogle=$(location :daml-base-hoogle.txt) \\
+            --output-anchor=$(location :daml-base-anchors.json) \\
             $(location :daml-stdlib.json) $(location :daml-prim.json)
-        tar c daml-base-rst \
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c daml-base-rst \\
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
             | gzip -n > $(location :daml-base-rst.tar.gz)
     """,
     tools = ["//compiler/damlc"],

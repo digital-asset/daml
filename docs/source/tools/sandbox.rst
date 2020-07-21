@@ -226,3 +226,416 @@ Command-line reference
 To start Sandbox, run: ``sandbox [options] <archive>...``.
 
 To see all the available options, run ``daml sandbox --help``.
+
+Metrics
+*******
+
+Enable and configure reporting
+==============================
+
+To enable metrics and configure reporting, you can use the two following CLI options:
+
+- ``--metrics-reporter``: passing a legal value will enable reporting; the accepted values
+  are ``console``, ``csv:</path/to/metrics.csv>`` and ``graphite:<local_server_port>``.
+
+  - ``console``: prints captured metrics on the standard output
+
+  - ``csv://</path/to/metrics.csv>``: saves the captured metrics in CSV format at the specified location
+
+  - ``graphite://<server_host>[:<server_port>]``: sends captured metrics to a Graphite server. If the port
+    is omitted, the default value ``2003`` will be used.
+
+- ``--metrics-reporting-interval``: metrics are pre-aggregated on the sandbox and sent to
+  the reporter, this option allows the user to set the interval. The formats accepted are based
+  on the ISO-8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
+  The default interval is 10 seconds.
+
+Types of metrics
+================
+
+This is a list of type of metrics with all data points recorded for each.
+Use this as a reference when reading the list of metrics.
+
+Gauge
+-----
+
+An individual instantaneous measurement.
+
+Counter
+-------
+
+Number of occurrences of some event.
+
+Meter
+-----
+
+A meter tracks the number of times a given event occurred. The following data
+points are kept and reported by any meter.
+
+- ``<metric.qualified.name>.count``: number of registered data points overall
+- ``<metric.qualified.name>.m1_rate``: number of registered data points per minute
+- ``<metric.qualified.name>.m5_rate``: number of registered data points every 5 minutes
+- ``<metric.qualified.name>.m15_rate``: number of registered data points every 15 minutes
+- ``<metric.qualified.name>.mean_rate``: mean number of registered data points
+
+Histogram
+---------
+
+An histogram records aggregated statistics about collections of events.
+The exact meaning of the number depends on the metric (e.g. timers
+are histograms about the time necessary to complete an operation).
+
+- ``<metric.qualified.name>.mean``: arithmetic mean
+- ``<metric.qualified.name>.stddev``: standard deviation
+- ``<metric.qualified.name>.p50``: median
+- ``<metric.qualified.name>.p75``: 75th percentile
+- ``<metric.qualified.name>.p95``: 95th percentile
+- ``<metric.qualified.name>.p98``: 98th percentile
+- ``<metric.qualified.name>.p99``: 99th percentile
+- ``<metric.qualified.name>.p999``: 99.9th percentile
+- ``<metric.qualified.name>.min``: lowest registered value overall
+- ``<metric.qualified.name>.max``: highest registered value overall
+
+Histograms only keep a small *reservoir* of statistically relevant data points
+to ensure that metrics collection can be reasonably accurate without being
+too taxing resource-wise.
+
+Unless mentioned otherwise all histograms (including timers, mentioned below)
+use exponentially decaying reservoirs (i.e. the data is roughly relevant for
+the last five minutes of recording) to ensure that recent and possibly
+operationally relevant changes are visible through the metrics reporter.
+
+Note that ``min`` and ``max`` values are not affected by the reservoir sampling policy.
+
+You can read more about reservoir sampling and possible associated policies
+in the `Dropwizard Metrics library documentation <https://metrics.dropwizard.io/4.1.2/manual/core.html#man-core-histograms/>`__.
+
+Timers
+------
+
+A timer records all metrics registered by a meter and by an histogram, where
+the histogram records the time necessary to execute a given operation (unless
+otherwise specified, the precision is nanoseconds and the unit of measurement
+is milliseconds).
+
+Database Metrics
+----------------
+
+A "database metric" is a collection of simpler metrics that keep track of
+relevant numbers when interacting with a persistent relational store.
+
+These metrics are:
+
+- ``<metric.qualified.name>.wait`` (timer): time to acquire a connection to the database
+- ``<metric.qualified.name>.exec`` (timer): time to run the query and read the result
+- ``<metric.qualified.name>.query`` (timer): time to run the query
+- ``<metric.qualified.name>.commit`` (timer): time to perform the commit
+- ``<metric.qualified.name>.translation`` (timer): if relevant, time necessary to turn serialized DAML-LF values into in-memory objects
+
+List of metrics
+===============
+
+The following is a non-exhaustive list of selected metrics
+that can be particularly important to track. Note that not
+all the following metrics are available unless you run the
+sandbox with a PostgreSQL backend.
+
+``daml.commands.deduplicated_commands``
+---------------------------------------
+
+A meter. Number of deduplicated commands.
+
+``daml.commands.delayed_submissions``
+-------------------------------------
+
+A meter. Number of delayed submissions (submission who have been
+evaluated to transaction with a ledger time farther in
+the future than the expected latency).
+
+``daml.commands.failed_command_interpretation``
+-----------------------------------------------
+
+A meter. Number of commands that have been deemed unacceptable
+by the interpreter and thus rejected (e.g. double spends)
+
+``daml.commands.submissions``
+-----------------------------
+
+A timer. Time to fully process a submission (validation,
+deduplication and interpretation) before it's handed over
+to the ledger to be finalized (either committed or rejected).
+
+``daml.commands.valid_submissions``
+-----------------------------------
+
+A meter. Number of submission that pass validation and are
+further sent to deduplication and interpretation.
+
+``daml.commands.validation``
+----------------------------
+
+A timer. Time to validate submitted commands before they are
+fed to the DAML interpreter.
+
+
+``daml.execution.get_lf_package``
+---------------------------------
+
+A timer. Time spent by the engine fetching the packages of compiled
+DAML code necessary for interpretation.
+
+``daml.execution.lookup_active_contract_count_per_execution``
+-------------------------------------------------------------
+
+A histogram. Number of active contracts fetched for each processed transaction.
+
+``daml.execution.lookup_active_contract_per_execution``
+-------------------------------------------------------
+
+A timer. Time to fetch all active contracts necessary to process each transaction.
+
+``daml.execution.lookup_active_contract``
+-----------------------------------------
+
+A timer. Time to fetch each individual active contract during interpretation.
+
+``daml.execution.lookup_contract_key_count_per_execution``
+----------------------------------------------------------
+
+A histogram. Number of contract keys looked up for each processed transaction.
+
+``daml.execution.lookup_contract_key_per_execution``
+----------------------------------------------------
+
+A timer. Time to lookup all contract keys necessary to process each transaction.
+
+``daml.execution.lookup_contract_key``
+--------------------------------------
+
+A timer. Time to lookup each individual contract key during interpretation.
+
+``daml.execution.retry``
+------------------------
+
+A meter. Overall number of interpretation retries attempted due to
+mismatching ledger effective time.
+
+``daml.execution.total``
+------------------------
+
+A timer. Time spent interpreting a valid command into a transaction
+ready to be submitted to the ledger for finalization.
+
+``daml.index.db.connection.sandbox.pool``
+-----------------------------------------
+
+This namespace holds a number of interesting metrics about the
+connection pool used to communicate with the persistent store
+that underlies the index.
+
+These metrics include:
+
+- ``daml.index.db.connection.sandbox.pool.Wait`` (timer): time spent waiting to acquire a connection
+- ``daml.index.db.connection.sandbox.pool.Usage`` (histogram): time spent using each acquired connection
+- ``daml.index.db.connection.sandbox.pool.TotalConnections`` (gauge): number or total connections
+- ``daml.index.db.connection.sandbox.pool.IdleConnections`` (gauge): number of idle connections
+- ``daml.index.db.connection.sandbox.pool.ActiveConnections`` (gauge): number of active connections
+- ``daml.index.db.connection.sandbox.pool.PendingConnections`` (gauge): number of threads waiting for a connection
+
+``daml.index.db.deduplicate_command``
+-------------------------------------
+
+A timer. Time spent persisting deduplication information to ensure the
+continued working of the deduplication mechanism across restarts.
+
+``daml.index.db.get_active_contracts``
+--------------------------------------
+
+A database metric. Time spent retrieving a page of active contracts to be
+served from the active contract service. The page size is
+configurable, please look at the CLI reference.
+
+``daml.index.db.get_completions``
+---------------------------------
+
+A database metric. Time spent retrieving a page of command completions to be
+served from the command completion service. The page size is
+configurable, please look at the CLI reference.
+
+``daml.index.db.get_flat_transactions``
+---------------------------------------
+
+A database metric. Time spent retrieving a page of flat transactions to be
+streamed from the transaction service. The page size is
+configurable, please look at the CLI reference.
+
+``daml.index.db.get_ledger_end``
+--------------------------------
+
+A database metric. Time spent retrieving the current ledger end. The count for this metric is expected to
+be very high and always increasing as the indexed is queried for the latest updates.
+
+``daml.index.db.get_ledger_id``
+-------------------------------
+
+A database metric. Time spent retrieving the ledger identifier.
+
+``daml.index.db.get_transaction_trees``
+---------------------------------------
+
+A database metric. Time spent retrieving a page of flat transactions to be
+streamed from the transaction service. The page size is
+configurable, please look at the CLI reference.
+
+``daml.index.db.load_all_parties``
+----------------------------------
+
+A database metric. Load the currently allocated parties so that
+they are served via the party management service.
+
+``daml.index.db.load_archive``
+------------------------------
+
+A database metric. Time spent loading a package of compiled DAML code
+so that it's given to the DAML interpreter when
+needed.
+
+``daml.index.db.load_configuration_entries``
+--------------------------------------------
+
+A database metric. Time to load the current entries in the log of
+configuration entries. Used to verify whether a configuration
+has been ultimately set.
+
+``daml.index.db.load_package_entries``
+--------------------------------------
+
+A database metric. Time to load the current entries in the log of
+package uploads. Used to verify whether a package
+has been ultimately uploaded.
+
+``daml.index.db.load_packages``
+-------------------------------
+
+A database metric. Load the currently uploaded packages so that
+they are served via the package management service.
+
+``daml.index.db.load_parties``
+------------------------------
+
+A database metric. Load the currently allocated parties so that
+they are served via the party service.
+
+``daml.index.db.load_party_entries``
+------------------------------------
+
+A database metric. Time to load the current entries in the log of
+party allocations. Used to verify whether a party
+has been ultimately allocated.
+
+``daml.index.db.lookup_active_contract``
+----------------------------------------
+
+A database metric. Time to fetch one contract on the index to be used by
+the DAML interpreter to evaluate a command into a
+transaction.
+
+``daml.index.db.lookup_configuration``
+--------------------------------------
+
+A database metric. Time to fetch the configuration so that it's
+served via the configuration management service.
+
+``daml.index.db.lookup_contract_by_key``
+----------------------------------------
+
+A database metric. Time to lookup one contract key on the index to be used by
+the DAML interpreter to evaluate a command into a
+transaction.
+
+``daml.index.db.lookup_flat_transaction_by_id``
+-----------------------------------------------
+
+A database metric. Time to lookup a single flat transaction by identifier
+to be served by the transaction service.
+
+``daml.index.db.lookup_maximum_ledger_time``
+--------------------------------------------
+
+A database metric. Time spent looking up the ledger effective time of a
+transaction as the maximum ledger time of all active
+contracts involved to ensure causal monotonicity.
+
+``daml.index.db.lookup_transaction_tree_by_id``
+-----------------------------------------------
+
+A database metric. Time to lookup a single transaction tree by identifier
+to be served by the transaction service.
+
+``daml.index.db.remove_expired_deduplication_data``
+---------------------------------------------------
+
+A database metric. Time spent removing deduplication information after the expiration
+of the deduplication window. Deduplication information is persisted to
+ensure the continued working of the deduplication mechanism across restarts.
+
+``daml.index.db.stop_deduplicating_command``
+--------------------------------------------
+
+A database metric. Time spent removing deduplication information after the failure of a
+command. Deduplication information is persisted to ensure the continued
+working of the deduplication mechanism across restarts.
+
+``daml.index.db.store_configuration_entry``
+-------------------------------------------
+
+A database metric. Time spent persisting a change in the ledger configuration
+provided through the configuration management service.
+
+``daml.index.db.store_ledger_entry``
+------------------------------------
+
+A database metric. Time spent persisting a transaction that has been
+successfully interpreted and is final.
+
+``daml.index.db.store_package_entry``
+-------------------------------------
+
+A database metric. Time spent storing a DAML package uploaded through
+the package management service.
+
+``daml.index.db.store_party_entry``
+-----------------------------------
+
+A database metric. Time spent storing party information as part of the
+party allocation endpoint provided by the party
+management service.
+
+``daml.index.db.store_rejection``
+---------------------------------
+
+A database metric. Time spent persisting the information that a given
+command has been rejected.
+
+``daml.lapi``
+-------------
+
+Every metrics under this namespace is a timer, one for each
+service exposed by the Ledger API, in the format:
+
+``daml.lapi.service_name.service_endpoint``
+
+As in the following example:
+
+``daml.lapi.command_service.submit_and_wait``
+
+Single call services return the time to serve the request,
+streaming services measure the time to return the first response.
+
+``jvm``
+-------
+
+Under the ``jvm`` namespace there is a collection of metrics that
+tracks important measurements about the JVM that the sandbox is
+running on, including CPU usage, memory consumption and the
+current state of threads.

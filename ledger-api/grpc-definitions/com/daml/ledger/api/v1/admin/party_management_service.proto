@@ -60,7 +60,7 @@ service PartyManagementService {
   // the consensus layer and call rejected if the identifier is already present.
   // canton: completely different globally unique identifier is allocated.
   // Behind the scenes calls to an internal protocol are made. As that protocol
-  // is richer than the the surface protocol, the arguments take implicit values
+  // is richer than the surface protocol, the arguments take implicit values
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 }
 

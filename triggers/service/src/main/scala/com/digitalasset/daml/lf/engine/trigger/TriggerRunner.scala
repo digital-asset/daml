@@ -7,13 +7,13 @@ import akka.actor.typed.{Behavior, PostStop}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.SupervisorStrategy._
 import akka.actor.typed.Signal
-import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.ActorContext
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 
+class InitializationHalted(s: String) extends Exception(s) {}
 class InitializationException(s: String) extends Exception(s) {}
 
 object TriggerRunner {
@@ -37,20 +37,22 @@ class TriggerRunner(
 
   import TriggerRunner.{Message, Stop}
 
-  // Spawn a trigger runner impl. Supervise it. If it fails to start
-  // its runner, send it a stop message (the server will later send us
-  // a stop message in due course in this case so this actor will get
-  // garbage collected too). If it something bad happens when the
-  // trigger is running, try to restart it up to 3 times.
+  // Spawn a trigger runner impl. Supervise it. Stop immediately on
+  // initialization halted exceptions, retry any initialization or
+  // execution failure exceptions.
   private val child =
     ctx.spawn(
       Behaviors
         .supervise(
           Behaviors
-            .supervise(TriggerRunnerImpl(ctx.self, config))
-            .onFailure[InitializationException](stop))
-        .onFailure[RuntimeException](
-          restart.withLimit(config.maxFailureNumberOfRetries, config.failureRetryTimeRange)),
+            .supervise(TriggerRunnerImpl(config))
+            .onFailure[InitializationHalted](stop)
+        )
+        .onFailure(
+          restartWithBackoff(
+            config.restartConfig.minRestartInterval,
+            config.restartConfig.maxRestartInterval,
+            config.restartConfig.restartIntervalRandomFactor)),
       name
     )
 
@@ -62,7 +64,7 @@ class TriggerRunner(
 
   override def onSignal: PartialFunction[Signal, Behavior[Message]] = {
     case PostStop =>
-      logger.info(s"Trigger ${name} stopped")
+      logger.info(s"Trigger $name stopped")
       this
   }
 

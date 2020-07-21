@@ -62,7 +62,14 @@ instance Show GeneratePackageMapFun where show _ = "GeneratePackageMapFun"
 instance NFData GeneratePackageMapFun where rnf !_ = ()
 -- | This matches how GhcSessionIO is handled in ghcide.
 type instance RuleResult GeneratePackageMapIO = GeneratePackageMapFun
-type instance RuleResult GeneratePackageMap = Map UnitId LF.DalfPackage
+
+-- | We only want to force this to WHNF not to NF since that is way too slow,
+-- repeated for each file and unnecessary since decoding forces it.
+newtype PackageMap = PackageMap { getPackageMap :: Map UnitId LF.DalfPackage }
+  deriving Show
+instance NFData PackageMap where
+    rnf = rwhnf
+type instance RuleResult GeneratePackageMap = PackageMap
 type instance RuleResult GenerateStablePackages = Map (UnitId, LF.ModuleName) LF.DalfPackage
 
 data DamlGhcSession = DamlGhcSession (Maybe NormalizedFilePath)
@@ -77,7 +84,7 @@ data VirtualResource = VRScenario
     { vrScenarioFile :: !NormalizedFilePath
     , vrScenarioName :: !T.Text
     } deriving (Eq, Ord, Show, Generic)
-    -- ^ VRScenario identifies a scenario in a given file.
+    -- VRScenario identifies a scenario in a given file.
     -- This virtual resource is associated with the HTML result of
     -- interpreting the corresponding scenario.
 

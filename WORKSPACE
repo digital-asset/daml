@@ -14,7 +14,7 @@ workspace(
 # (though with the caviat that that user needs to repeat the relevant bits of
 #  magic in this file, but at least right versions of external rules are picked).
 load("//:deps.bzl", "daml_deps")
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 daml_deps()
 
@@ -330,7 +330,6 @@ nixpkgs_package(
 
 nix_ghc_deps = common_nix_file_deps + [
     "//nix:ghc.nix",
-    "//nix:with-packages-wrapper.nix",
     "//nix:overrides/ghc-8.6.5.nix",
     "//nix:overrides/ghc-8.6.3-binary.nix",
 ]
@@ -542,7 +541,7 @@ nixpkgs_package(
 #sphinx
 nixpkgs_package(
     name = "sphinx_nix",
-    attribute_path = "sphinx183",
+    attribute_path = "sphinx183-exts",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
@@ -737,10 +736,11 @@ container_deps()
 load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
 
 container_pull(
-    name = "openjdk_base",
-    registry = "docker.io",
-    repository = "openjdk",
-    tag = "8-alpine",
+    name = "java_base",
+    digest = "sha256:7cef6d99241bc86e09659d41842e3656a1cab99adf0e440a44d2858c8e52a71a",
+    registry = "gcr.io",
+    repository = "distroless/java",
+    tag = "8",
 )
 
 load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "repositories")
@@ -907,6 +907,9 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
 
@@ -969,7 +972,14 @@ java_import(
     jars = glob(["lib/**"]),
 )
 """,
-    sha256 = "2b9062eb029b12aa25b197cbe1862ac95fb7dd43d65b96121bd17a5c89fb3a19",
-    strip_prefix = "canton-0.11.0",
-    urls = ["https://www.canton.io/releases/canton-0.11.0.tar.gz"],
+    sha256 = "c1e5aff815c52b57a0c1cac13a5c3523cc1e6a63005b3b788015a96fd058c527",
+    strip_prefix = "canton-0.15.0",
+    urls = ["https://www.canton.io/releases/canton-0.15.0.tar.gz"],
+)
+
+http_file(
+    name = "ref-ledger-authentication",
+    downloaded_file_path = "ref-ledger-authentication.jar",
+    sha256 = "761b1731339acea3370baf98a3242714e0c81789d8cbb26b623bbf93ce6f80ef",
+    urls = ["https://github.com/digital-asset/ref-ledger-authenticator/releases/download/v0.0.0-snapshot-20200716.15.2b46f9f5/ref-ledger-authenticator-0.0.0-snapshot-20200716.15.2b46f9f5.jar"],
 )

@@ -14,7 +14,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.http.util.{FutureUtil, NewBoolean}
-import com.daml.http.util.IdentifierConverters.apiLedgerId
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -168,13 +167,13 @@ object HttpServiceTestFixture {
       authService: Option[AuthService] = None,
       useTls: UseTls = UseTls.NoTls
   ): SandboxConfig =
-    SandboxConfig.default.copy(
+    SandboxServer.defaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.WallClock),
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService
+      authService = authService,
     )
 
   private def clientConfig[A](
@@ -183,7 +182,7 @@ object HttpServiceTestFixture {
       useTls: UseTls = UseTls.NoTls): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = if (useTls) clientTlsConfig.client else None,
       token = token
@@ -191,13 +190,12 @@ object HttpServiceTestFixture {
 
   def jsonCodecs(client: LedgerClient)(
       implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
-    val ledgerId = apiLedgerId(client.ledgerId)
     val packageService = new PackageService(
       HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None))
     packageService
       .reload(ec)
       .flatMap(x => FutureUtil.toFuture(x))
-      .map(_ => HttpService.buildJsonCodecs(ledgerId, packageService))
+      .map(_ => HttpService.buildJsonCodecs(packageService))
   }
 
   private def stripLeft(fa: Future[HttpService.Error \/ ServerBinding])(
@@ -216,14 +214,14 @@ object HttpServiceTestFixture {
     } yield dao
 
   object UseTls extends NewBoolean.Named {
-    val Tls = True
-    val NoTls = False
+    val Tls: UseTls = True
+    val NoTls: UseTls = False
   }
   type UseTls = UseTls.T
 
   object LeakPasswords extends NewBoolean.Named {
-    val FiresheepStyle = True
-    val No = False
+    val FiresheepStyle: LeakPasswords = True
+    val No: LeakPasswords = False
   }
   type LeakPasswords = LeakPasswords.T
 

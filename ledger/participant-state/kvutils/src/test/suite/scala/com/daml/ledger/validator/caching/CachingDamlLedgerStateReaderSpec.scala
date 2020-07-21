@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator.caching
 
-import com.daml.caching.{Cache, Configuration}
+import com.daml.caching.WeightedCache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.validator.{DamlLedgerStateReader, DefaultStateKeySerializationStrategy}
@@ -19,8 +19,6 @@ class CachingDamlLedgerStateReaderSpec
     with Matchers
     with Inside
     with MockitoSugar {
-
-  private val keySerializationStrategy = DefaultStateKeySerializationStrategy
 
   "readState" should {
     "record read keys" in {
@@ -73,6 +71,8 @@ class CachingDamlLedgerStateReaderSpec
     }
   }
 
+  private val keySerializationStrategy = DefaultStateKeySerializationStrategy
+
   private lazy val aDamlStateKey = DamlStateKey.newBuilder
     .setContractId("aContractId")
     .build
@@ -81,7 +81,7 @@ class CachingDamlLedgerStateReaderSpec
 
   private def newInstance(damlLedgerStateReader: DamlLedgerStateReader, shouldCache: Boolean)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader = {
-    val cache = Cache.from[DamlStateKey, DamlStateValue](Configuration(1024))
+    val cache = WeightedCache.from[DamlStateKey, DamlStateValue](WeightedCache.Configuration(1024))
     new CachingDamlLedgerStateReader(
       cache,
       _ => shouldCache,

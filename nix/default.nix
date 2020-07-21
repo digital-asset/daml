@@ -137,12 +137,11 @@ in rec {
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 
-    sphinx-autobuild = import ./tools/sphinx-autobuild {
+    sphinx-autobuild = import ./tools/sphinx-autobuild/requirements.nix {
       inherit pkgs;
-      python37Packages = pkgs.python37Packages;
     };
 
-    sphinx183 = bazel_dependencies.sphinx183;
+    sphinx183 = bazel_dependencies.sphinx183-exts;
 
     convert = bazel_dependencies.imagemagick;
 
@@ -193,7 +192,6 @@ in rec {
     grpcurl = pkgs.grpcurl;
 
     # String mangling tooling.
-    jo   = pkgs.jo;
     jq   = bazel_dependencies.jq;
     gawk = bazel_dependencies.gawk;
     sed = pkgs.gnused;
@@ -224,8 +222,9 @@ in rec {
     # Cloud tools
     aws = pkgs.awscli;
     gcloud = pkgs.google-cloud-sdk;
-    bq     = gcloud;
+    bq = gcloud;
     gsutil = gcloud;
+    docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
     # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version

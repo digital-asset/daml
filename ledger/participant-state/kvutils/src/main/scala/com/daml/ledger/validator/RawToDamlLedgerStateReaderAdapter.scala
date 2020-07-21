@@ -13,12 +13,16 @@ private[validator] class RawToDamlLedgerStateReaderAdapter(
     keySerializationStrategy: StateKeySerializationStrategy)(
     implicit executionContext: ExecutionContext)
     extends DamlLedgerStateReader {
+  import RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
+
   override def readState(keys: Seq[DamlStateKey]): Future[Seq[Option[DamlStateValue]]] =
     ledgerStateReader
       .read(keys.map(keySerializationStrategy.serializeStateKey))
       .map(_.map(_.map(deserializeDamlStateValue)))
+}
 
-  private val deserializeDamlStateValue: LedgerStateOperations.Value => DamlStateValue =
+private[validator] object RawToDamlLedgerStateReaderAdapter {
+  val deserializeDamlStateValue: LedgerStateOperations.Value => DamlStateValue =
     Envelope
       .openStateValue(_)
       .getOrElse(sys.error("Opening enveloped DamlStateValue failed"))

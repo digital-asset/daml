@@ -15,7 +15,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
   # -5 for the random postfix:
   base_instance_name = "vsts-win"
 
-  region      = "${local.region}"
+  region      = "us-east1"
   target_size = 6
 
   version {
@@ -38,7 +38,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
 
 resource "google_compute_instance_template" "vsts-agent-windows" {
   name_prefix  = "vsts-agent-windows-"
-  machine_type = "n1-standard-8"
+  machine_type = "c2-standard-8"
   labels       = "${local.labels}"
 
   disk {
@@ -107,7 +107,7 @@ $partition | Set-Content C:\diskpart.txt
 & diskpart /s C:\diskpart.txt 2>&1 | %{ "$_" }
 
 # Create a temporary and random password for the VSTS user, forget about it once this script has finished running
-$Username = "VssAdministrator"
+$Username = "u"
 $Account = "$env:COMPUTERNAME\$Username"
 Add-Type -AssemblyName System.Web
 $Password = [System.Web.Security.Membership]::GeneratePassword(24, 0)

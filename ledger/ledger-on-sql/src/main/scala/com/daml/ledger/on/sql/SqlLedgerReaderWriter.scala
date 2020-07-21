@@ -15,8 +15,13 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset}
+import com.daml.ledger.participant.state.kvutils.api.{
+  CommitMetadata,
+  LedgerReader,
+  LedgerRecord,
+  LedgerWriter
+}
+import com.daml.ledger.participant.state.kvutils.{Bytes, OffsetBuilder}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
@@ -76,7 +81,7 @@ final class SqlLedgerReaderWriter(
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
-        KVOffset.highestIndex(startExclusive.getOrElse(StartOffset)),
+        OffsetBuilder.highestIndex(startExclusive.getOrElse(StartOffset)),
         RangeSource(
           (startExclusive, endInclusive) =>
             Source
@@ -90,7 +95,11 @@ final class SqlLedgerReaderWriter(
       )
       .map { case (_, entry) => entry }
 
-  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
+  override def commit(
+      correlationId: String,
+      envelope: Bytes,
+      metadata: CommitMetadata,
+  ): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
   private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
@@ -114,12 +123,12 @@ final class SqlLedgerReaderWriter(
 }
 
 object SqlLedgerReaderWriter {
-  private val StartOffset: Offset = KVOffset.fromLong(StartIndex)
+  private val StartOffset: Offset = OffsetBuilder.fromLong(StartIndex)
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   final class Owner(
-      initialLedgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       metrics: Metrics,
       engine: Engine,
@@ -138,8 +147,8 @@ object SqlLedgerReaderWriter {
         database <- Resource.fromFuture(
           if (resetOnStartup) uninitializedDatabase.migrateAndReset()
           else Future.successful(uninitializedDatabase.migrate()))
-        ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(initialLedgerId, database))
-        dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database)).acquire()
+        ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(ledgerId, database))
+        dispatcher <- new DispatcherOwner(database).acquire()
       } yield
         new SqlLedgerReaderWriter(
           ledgerId,
@@ -154,22 +163,20 @@ object SqlLedgerReaderWriter {
         )
   }
 
-  private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
+  private def updateOrRetrieveLedgerId(providedLedgerId: LedgerId, database: Database)(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
   ): Future[LedgerId] =
     database.inWriteTransaction("retrieve_ledger_id") { queries =>
-      val providedLedgerId =
-        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
       Future.fromTry(
         queries
           .updateOrRetrieveLedgerId(providedLedgerId)
           .flatMap { ledgerId =>
-            if (initialLedgerId.exists(_ != ledgerId)) {
+            if (providedLedgerId != ledgerId) {
               Failure(
                 new LedgerIdMismatchException(
                   domain.LedgerId(ledgerId),
-                  domain.LedgerId(initialLedgerId.get),
+                  domain.LedgerId(providedLedgerId),
                 ))
             } else {
               Success(ledgerId)
@@ -177,13 +184,26 @@ object SqlLedgerReaderWriter {
           })
     }
 
-  private def newDispatcher(database: Database)(
-      implicit executionContext: ExecutionContext,
-      logCtx: LoggingContext,
-  ): Future[Dispatcher[Index]] =
-    database
-      .inReadTransaction("read_head") { queries =>
-        Future.fromTry(queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex)))
-      }
-      .map(head => Dispatcher("sql-participant-state", StartIndex, head))
+  private final class DispatcherOwner(database: Database)(implicit logCtx: LoggingContext)
+      extends ResourceOwner[Dispatcher[Index]] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[Dispatcher[Index]] =
+      for {
+        head <- Resource.fromFuture(
+          database
+            .inReadTransaction("read_head") { queries =>
+              Future.fromTry(
+                queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex)))
+            })
+        dispatcher <- Dispatcher
+          .owner(
+            name = "sql-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = head,
+          )
+          .acquire()
+      } yield dispatcher
+  }
+
 }

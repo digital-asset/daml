@@ -78,20 +78,22 @@ There's also quite a lot going on inside the ``do`` block of the ``Redeem`` choi
 Time on DAML ledgers
 --------------------
 
-Each transaction on a DAML ledger has two timestamps called the *ledger effective time (LET)* and the *record time (RT)*. The ledger effective time is set by the submitter of a transaction, the record time is set by the consensus protocol.
+Each transaction on a DAML ledger has two timestamps called the *ledger time (LT)* and the *record time (RT)*. The ledger time is set by the participant, the record time is set by the ledger.
 
-Each DAML ledger has a policy on the allowed difference between LET and RT called the *skew*. The submitter has to take a good guess at what the record time will be. If it's too far off, the transaction will be rejected.
+Each DAML ledger has a policy on the allowed difference between LT and RT called the *skew*. The participant has to take a good guess at what the record time will be. If it's too far off, the transaction will be rejected.
 
-``getTime`` is an action that gets the LET from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18.
+``getTime`` is an action that gets the LT from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18.
 
-Suppose now that the ledger had a skew of 10 seconds, but a submission took less than 4 seconds to commit. At 18:00:05, Alice could submit a transaction with a LET of 17:59:59 to redeem an Iou. It would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:59 so ``hrs == 17``. Since RT will be before 18:00:09, ``LET - RT < 10 seconds`` and the transaction won't be rejected.
+Consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:59:55, Alice submits a transaction to redeem an Iou. One second later, the transaction is assigned a LET of 17:59:56, but then takes 10 seconds to commit and is recorded on the ledger at 18:00:06. Even though it was committed after business hours, it would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:56 so ``hrs == 17``. Since the RT is 18:00:06, ``LT - RT <= 10 seconds`` and the transaction won't be rejected.
 
 Time therefore has to be considered slightly fuzzy in DAML, with the fuzziness depending on the skew parameter.
+
+For details, see :ref:`Background concepts - time <time>`.
 
 Time in scenarios
 ~~~~~~~~~~~~~~~~~
 
-In scenarios, record and ledger effective time are always equal. You can set them using the following functions:
+In scenarios, record and ledger time are always equal. You can set them using the following functions:
 
 - ``passToDate``, which takes a date and sets the time to midnight (UTC) of that date
 - ``pass``, which takes a ``RelTime`` (a relative time) and moves the ledger by that much
@@ -99,7 +101,7 @@ In scenarios, record and ledger effective time are always equal. You can set the
 Time on ledgers
 ~~~~~~~~~~~~~~~~~
 
-On a distributed DAML ledger, there are no guarantees that ledger effective time or relative time are strictly increasing. The only guarantee is that ledger effective time is increasing with causality. That is, if a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LET of ``TX2`` is greater than or equal to that of ``TX1``:
+On a distributed DAML ledger, there are no guarantees that ledger time or record time are strictly increasing. The only guarantee is that ledger time is increasing with causality. That is, if a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LT of ``TX2`` is greater than or equal to that of ``TX1``:
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml
@@ -126,7 +128,7 @@ However, the expressions you've seen that used the ``<-`` notation are not like 
 
    now <- getTime
 
-You cannot work out the value of ``now`` based on any variable in scope. To put it another way, there is no expression ``expr`` that you could put on the right hand side of ``now = expr``. To get the ledger effective time, you must be in the context of a submitted transaction, and then look at that context.
+You cannot work out the value of ``now`` based on any variable in scope. To put it another way, there is no expression ``expr`` that you could put on the right hand side of ``now = expr``. To get the ledger time, you must be in the context of a submitted transaction, and then look at that context.
 
 Similarly, you've come across ``fetch``. If you have ``cid : ContractId Account`` in scope and you come across the expression ``fetch cid``, you can't evaluate that to an ``Account`` so you can't write ``account = fetch cid``. To do so, you'd have to have a ledger you can look that contract ID up on.
 

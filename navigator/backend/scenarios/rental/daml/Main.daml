@@ -1,11 +1,13 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE ApplicativeDo #-}
 
 module Main where
 
 import DA.Date
 import DA.Time
+
+import Daml.Script
 
 --------------------------------------------------------------------------------
 -- Basic example
@@ -69,14 +71,19 @@ oneString: List Text = cons "" nil
 
 manyStrings = explode10s (explode10s (explode10s oneString))
 
+pass : RelTime -> Script ()
+pass d = do
+  t <- getTime
+  setTime (addRelTime t d)
 
-createCounter : Party -> Text -> Scenario ()
-createCounter p i = scenario do
-  submit p do (create Counter with index = i; owner = p)
-  pass (seconds 1)
+
+createCounter : Party -> Text -> Script ()
+createCounter p i = do
+  submit p do (createCmd Counter with index = i; owner = p)
+  pass 1
   return ()
-createManyCounters : Party -> Scenario ()
-createManyCounters p = scenario do
+createManyCounters : Party -> Script ()
+createManyCounters p = do
   mapS (\i -> createCounter p i) manyStrings 
   return ()
 -}
@@ -99,11 +106,11 @@ template Counter
           create Counter with index; owner
 
 
-createCounters : Int -> Text -> Party -> Scenario ()
-createCounters 0 t p = scenario do
-  submit p do (create Counter with index = t; owner = p)
-  return ()
-createCounters i t p = scenario do
+createCounters : Int -> Text -> Party -> Commands ()
+createCounters 0 t p = do
+  createCmd Counter with index = t; owner = p
+  pure ()
+createCounters i t p = do
   createCounters (i-1) (t <> "0") p
   createCounters (i-1) (t <> "1") p
   createCounters (i-1) (t <> "2") p
@@ -114,11 +121,11 @@ createCounters i t p = scenario do
   createCounters (i-1) (t <> "7") p
   createCounters (i-1) (t <> "8") p
   createCounters (i-1) (t <> "9") p
-  return ()
+  pure ()
 
 -- Creates 10^i contracts
-createManyCounters : Int -> Party -> Scenario ()
-createManyCounters i p = createCounters i "" p
+createManyCounters : Int -> Party -> Script ()
+createManyCounters i p = submit p $ createCounters i "" p
 
 --------------------------------------------------------------------------------
 -- Types
@@ -264,32 +271,31 @@ createRList 0 t = Nil
 createRList i t = Cons {value=(t<>show i), next=(createRList (i-1) t)}
 
 --------------------------------------------------------------------------------
--- Scenario
+-- Script
 --------------------------------------------------------------------------------
 
-example =
-  scenario do
-    betina_Beakley <- getParty "Betina_Beakley"
-    scrooge_McDuck <- getParty "Scrooge_McDuck"
-    operator       <- getParty "OPERATOR"
+example = do
+    betina_Beakley <- allocatePartyWithHint "Betina_Beakley" (PartyIdHint "Betina_Beakley")
+    scrooge_McDuck <- allocatePartyWithHint "Scrooge_McDuck" (PartyIdHint "Scrooge_McDuck")
+    operator       <- allocatePartyWithHint "OPERATOR" (PartyIdHint "OPERATOR")
 
     -- Betina_Beakley offers Scrooge_McDuck room at McDuck Manor
     offer <- submit betina_Beakley do
-      create RightOfUseOffer with
+      createCmd RightOfUseOffer with
         landlord = betina_Beakley
         tenant = scrooge_McDuck
         address = "McDuck Manor, Duckburg"
         expirationDate = valDate
 
     -- Scrooge_McDuck accepts the offer, which creates a RightOfUseAgreement
-    submit scrooge_McDuck do exercise offer Accept
+    submit scrooge_McDuck do exerciseCmd offer Accept
 
     -- Operator creates 10^3 contracts
     createManyCounters 3 operator
 
     -- Complex contract
     submit operator do
-      create ParameterShowcase with
+      createCmd ParameterShowcase with
         foperator = operator
         finteger = 10
         fdecimal = 10.0
@@ -305,6 +311,6 @@ example =
 
     -- Long recursive value
     submit operator do
-      create TList with
+      createCmd TList with
         owner = operator
         value = createRList 45 "X"

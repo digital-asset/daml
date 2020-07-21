@@ -151,7 +151,7 @@ The authorizers of transactions are:
 An authorization example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The final transaction in the scenario of the the source file for this section is authorized as follows, ignoring fetches:
+The final transaction in the scenario of the source file for this section is authorized as follows, ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.
 - The root transaction has a single action, which is to exercise ``Send_Iou`` on a ``IouSender`` contract with Bob as ``sender`` and Charlie as ``receiver``. Since the controller of that choice is the ``sender``, Bob is the required authorizer.

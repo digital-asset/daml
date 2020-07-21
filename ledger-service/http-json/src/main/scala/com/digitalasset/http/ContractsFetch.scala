@@ -52,7 +52,6 @@ private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     getTermination: LedgerClientJwt.GetTermination,
-    lookupType: query.ValuePredicate.TypeLookup,
 )(implicit dblog: doobie.LogHandler)
     extends StrictLogging {
 
@@ -293,8 +292,10 @@ private[http] object ContractsFetch {
       /** Several of the graphs here have a second output guaranteed to deliver only one value.
         * This turns such a graph into a flow with the value materialized.
         */
-      def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] =
-        divertToMat(Sink.head)(Keep.right[M, Future[Z]])
+      def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] = {
+        type CK[-T] = (T, Future[Z]) => Future[Z]
+        divertToMat(Sink.head)(noM.subst[CK](Keep.right[NotUsed, Future[Z]]))
+      }
     }
   }
 

@@ -147,7 +147,7 @@ private[lf] final case class Compiler(
   /** Environment mapping names into stack positions */
   private var env = Env()
 
-  private val withLabel: (AnyRef, SExpr) => SExpr =
+  private val withLabel: (Profile.Label, SExpr) => SExpr =
     profiling match {
       case NoProfile => { (_, expr) =>
         expr
@@ -160,7 +160,9 @@ private[lf] final case class Compiler(
       }
     }
 
-  private def withOptLabel(optLabel: Option[AnyRef], expr: SExpr): SExpr =
+  private def withOptLabel[L: Profile.LabelModule.Allowed](
+      optLabel: Option[L with AnyRef],
+      expr: SExpr): SExpr =
     optLabel match {
       case Some(label) => withLabel(label, expr)
       case None => expr
@@ -264,13 +266,13 @@ private[lf] final case class Compiler(
         bf match {
           case BFoldl =>
             val ref = SEBuiltinRecursiveDefinition.FoldL
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BFoldr =>
             val ref = SEBuiltinRecursiveDefinition.FoldR
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BEqualList =>
             val ref = SEBuiltinRecursiveDefinition.EqualList
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BCoerceContractId => SEAbs.identity
           // Numeric Comparisons
           case BLessNumeric => SBLessNumeric
@@ -599,7 +601,7 @@ private[lf] final case class Compiler(
               SELet(encodeKeyWithMaintainers(key, keyTemplate)) in {
                 env = env.incrPos // key with maintainers
                 withLabel(
-                  s"<fetch_by_key ${retrieveByKey.templateId}",
+                  s"fetchByKey @${retrieveByKey.templateId.qualifiedName}",
                   SEAbs(1) {
                     env = env.incrPos // token
                     env = env.addExprVar(template.param)
@@ -713,7 +715,7 @@ private[lf] final case class Compiler(
           env = env.incrPos // $beginCommit
           SELet(party, update) in
             withLabel(
-              "<submit>",
+              "submit",
               SEAbs(1) {
                 SELet(
                   // stack: <party> <update> <token>
@@ -738,7 +740,7 @@ private[lf] final case class Compiler(
           env = env.incrPos // $beginCommit
           val update = translate(updateE)
           withLabel(
-            "<submit_must_fail>",
+            "submitMustFail",
             SEAbs(1) {
               SELet(
                 SBSBeginCommit(optLoc)(party, SEVar(1)),
@@ -755,7 +757,7 @@ private[lf] final case class Compiler(
         withEnv { _ =>
           env = env.incrPos // token
           withLabel(
-            "<get_party>",
+            "getParty",
             SEAbs(1) {
               SBSGetParty(translate(e), SEVar(1))
             }
@@ -766,7 +768,7 @@ private[lf] final case class Compiler(
         withEnv { _ =>
           env = env.incrPos // token
           withLabel(
-            "<pass>",
+            "pass",
             SEAbs(1) {
               SBSPass(translate(relTimeE), SEVar(1))
             }
@@ -887,7 +889,7 @@ private[lf] final case class Compiler(
           env = env.addExprVar(choice.selfBinder, selfBinderPos)
           val update = translate(choice.update)
           withLabel(
-            s"<exercise ${tmplId}:${cname}>",
+            s"exercise @${tmplId.qualifiedName} ${cname}",
             SEAbs(5) {
               SELet(
                 // stack: <byKey flag> <actors> <cid> <choice arg> <token>
@@ -1123,67 +1125,50 @@ private[lf] final case class Compiler(
     * The returned free variables are de bruijn indices
     * adjusted to the stack of the caller. */
   def freeVars(expr: SExpr, initiallyBound: Int): Set[Int] = {
-    var bound = initiallyBound
-    var free = Set.empty[Int]
-
-    def go(expr: SExpr): Unit =
+    def go(expr: SExpr, bound: Int, free: Set[Int]): Set[Int] =
       expr match {
         case SEVar(i) =>
-          if (i > bound)
-            free += i - bound /* adjust to caller's environment */
-        case _: SEVal => ()
-        case _: SEBuiltin => ()
-        case _: SEValue => ()
-        case _: SEBuiltinRecursiveDefinition => ()
+          if (i > bound) free + (i - bound) else free /* adjust to caller's environment */
+        case _: SEVal => free
+        case _: SEBuiltin => free
+        case _: SEValue => free
+        case _: SEBuiltinRecursiveDefinition => free
         case SELocation(_, body) =>
-          go(body)
+          go(body, bound, free)
         case SEAppGeneral(fun, args) =>
-          go(fun)
-          args.foreach(go)
+          args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAppAtomicFun(fun, args) =>
-          go(fun)
-          args.foreach(go)
+          args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAppSaturatedBuiltinFun(_, args) =>
-          args.foreach(go)
+          args.foldLeft(free)((acc, arg) => go(arg, bound, acc))
         case SEAbs(n, body) =>
-          bound += n
-          go(body)
-          bound -= n
+          go(body, bound + n, free)
         case x: SELoc =>
           throw CompilationError(s"freeVars: unexpected SELoc: $x")
         case x: SEMakeClo =>
           throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
-          go(scrut)
-          alts.foreach {
-            case SCaseAlt(pat, body) =>
-              val n = patternNArgs(pat)
-              bound += n; go(body); bound -= n
+          alts.foldLeft(go(scrut, bound, free)) {
+            case (acc, SCaseAlt(pat, body)) => go(body, bound + patternNArgs(pat), acc)
           }
         case SELet(bounds, body) =>
-          bounds.foreach { e =>
-            go(e)
-            bound += 1
+          bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
+            case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-          go(body)
-          bound -= bounds.size
         case SECatch(body, handler, fin) =>
-          go(body)
-          go(handler)
-          go(fin)
+          go(body, bound, go(handler, bound, go(fin, bound, free)))
         case SELabelClosure(_, expr) =>
-          go(expr)
+          go(expr, bound, free)
         case x: SEWronglyTypeContractId =>
           throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
         case x: SEImportValue =>
           throw CompilationError(s"unexpected SEImportValue: $x")
       }
-    go(expr)
-    free
+    go(expr, initiallyBound, Set.empty)
   }
 
   /** Validate variable references in a speedy expression */
-  // valiate that we correctly captured all free-variables, and so reference to them is
+  // validate that we correctly captured all free-variables, and so reference to them is
   // via the surrounding closure, instead of just finding them higher up on the stack
   def validate(expr0: SExpr): SExpr = {
 
@@ -1288,7 +1273,7 @@ private[lf] final case class Compiler(
       }
       SELet(coid) in
         withLabel(
-          s"<fetch ${tmplId}>",
+          s"fetch @${tmplId.qualifiedName}",
           SEAbs(1) {
             SELet(
               SBUFetch(tmplId)(
@@ -1337,7 +1322,7 @@ private[lf] final case class Compiler(
 
       SELet(arg) in
         withLabel(
-          s"<create ${tmplId}>",
+          s"create @${tmplId.qualifiedName}",
           SEAbs(1) {
             // We check precondition in a separated builtin to prevent
             // further evaluation of agreement, signatories, observers and key
@@ -1404,7 +1389,7 @@ private[lf] final case class Compiler(
       SELet(encodeKeyWithMaintainers(key, tmplKey)) in {
         env = env.incrPos // key with maintainers
         withLabel(
-          s"<exercise_by_key ${tmplId}:${choiceId}>",
+          s"exerciseByKey @${tmplId.qualifiedName} ${choiceId}",
           SEAbs(1) {
             env = env.incrPos // token
             SELet(
@@ -1435,7 +1420,7 @@ private[lf] final case class Compiler(
 
     withEnv { _ =>
       withLabel(
-        s"<create_and_exercise ${tmplId}:${choiceId}>",
+        s"createAndExercise @${tmplId.qualifiedName} ${choiceId}",
         SEAbs(1) {
           env = env.incrPos // token
           SELet(
@@ -1468,7 +1453,7 @@ private[lf] final case class Compiler(
       SELet(encodeKeyWithMaintainers(key, templateKey)) in {
         env = env.incrPos // keyWithM
         withLabel(
-          s"<lookup_by_key ${templateId}>",
+          s"lookupByKey @${templateId.qualifiedName}",
           SEAbs(1) {
             env = env.incrPos // token
             SELet(

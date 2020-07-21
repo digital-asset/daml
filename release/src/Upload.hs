@@ -1,12 +1,11 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DuplicateRecordFields #-}
 
 module Upload (
-    validateMavenArtifacts,
     uploadToMavenCentral,
     mavenConfigFromEnv,
 ) where
@@ -34,25 +33,13 @@ import           Network.HTTP.Client.TLS (mkManagerSettings, tlsManagerSettings)
 import           Network.HTTP.Simple (setRequestBasicAuth, setRequestBodyFile, setRequestBodyLBS, setRequestHeader, setRequestMethod, setRequestPath)
 import           Network.HTTP.Types.Status
 import           Path
-import Path.IO
 import           System.Environment
 import           System.IO.Temp
-import System.Exit
 
 import Types
 import Util
 
--- | Validate that the Maven artifacts to be uploaded are present.
-validateMavenArtifacts :: MonadCI m => Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
-validateMavenArtifacts releaseDir arts =
-    forM_ arts $ \(_, file) -> do
-        exists <- doesFileExist (releaseDir </> file)
-        unless exists $ do
-            $logError $ T.pack $ show file <> " is required for publishing to Maven"
-            liftIO exitFailure
-
-
--- 
+--
 -- Upload the artifacts to Maven Central
 --
 -- The artifacts are first uploaded to a staging repository on the Sonatype Open Source Repository Hosting platform
@@ -154,7 +141,7 @@ prepareStagingRepo baseRequest manager = do
     -- Note in Profile IDs
     --
     -- Currently the profile IDs are hardcoded. The IDs are fixed to the "namespaces" ('com.daml' and 'com.digitialasset')
-    -- attached to the Digitalasset accounts on the the Sonatype OSSRH.
+    -- attached to the Digitalasset accounts on the Sonatype OSSRH.
     --
 
     --

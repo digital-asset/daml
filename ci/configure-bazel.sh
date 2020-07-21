@@ -40,9 +40,15 @@ cd "$(dirname "$0")"/..
 
 step "configuring bazel"
 
+# We include the rules_haskell revision in the suffix since
+# it sometimes breaks Windows due to the lack of sandboxing.
+RULES_HASKELL_REV="$(sed -n 's/rules_haskell_version = "\(.*\)"$/\1/p' deps.bzl)"
+
 if [ ! -z "${BAZEL_CONFIG_DIR:-}" ]; then
     cd "$BAZEL_CONFIG_DIR"
 fi
+
+CACHE_URL="https://storage.googleapis.com/daml-bazel-cache"
 
 if is_windows; then
   echo "build --config windows" > .bazelrc.local
@@ -64,10 +70,13 @@ if is_windows; then
   # To avoid exceeding the maximum path limit on Windows we limit the suffix to
   # three characters.
   echo "Working directory: $PWD"
-  SUFFIX="$(echo $PWD | md5sum)"
-  SUFFIX="${SUFFIX:0:2}"
+  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -binary | openssl enc -base64)"
+  SUFFIX="${SUFFIX:0:3}"
   echo "Platform suffix: $SUFFIX"
-  echo "build --platform_suffix=-$SUFFIX" >> .bazelrc.local
+  # We include an extra version at the end that we can bump manually.
+  CACHE_SUFFIX="$SUFFIX-v6"
+  CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
+  echo "build:windows-ci --remote_http_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
@@ -77,5 +86,5 @@ if [[ "${IS_FORK}" = False ]]; then
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
   unset GOOGLE_APPLICATION_CREDENTIALS_CONTENT
   export GOOGLE_APPLICATION_CREDENTIALS
-  echo "build --remote_http_cache=https://storage.googleapis.com/daml-bazel-cache --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
+  echo "build --remote_http_cache=$CACHE_URL --remote_upload_local_results=true --google_credentials=${GOOGLE_APPLICATION_CREDENTIALS}" >> .bazelrc.local
 fi

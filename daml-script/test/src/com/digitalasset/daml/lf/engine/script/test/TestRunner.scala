@@ -8,15 +8,12 @@ import akka.stream._
 import ch.qos.logback.core.AppenderBase
 import ch.qos.logback.classic.spi.ILoggingEvent
 import java.io.File
-import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
-import scalaz.syntax.tag._
 import spray.json._
 
-import com.daml.api.util.TimeProvider
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
@@ -24,11 +21,6 @@ import com.daml.lf.speedy.SValue
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
 
 import com.daml.lf.engine.script._
 
@@ -69,22 +61,16 @@ class TestRunner(
     val participantParams: Participants[ApiParameters],
     val dar: Dar[(PackageId, Package)],
     val wallclockTime: Boolean,
-    val token: Option[String],
     val rootCa: Option[File],
 ) {
   val applicationId = ApplicationId("DAML Script Test Runner")
 
-  val clientConfig = LedgerClientConfiguration(
-    applicationId = applicationId.unwrap,
-    ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-    commandClient = CommandClientConfiguration.default,
-    sslContext = rootCa.flatMap(file =>
-      TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)).client),
-    token = token,
-  )
+  val tlsConfig =
+    rootCa.map(file => TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)))
+
   val ttl = java.time.Duration.ofSeconds(30)
-  val timeProvider: TimeProvider =
-    if (wallclockTime) TimeProvider.UTC else TimeProvider.Constant(Instant.EPOCH)
+  val timeMode: ScriptTimeMode =
+    if (wallclockTime) ScriptTimeMode.WallClock else ScriptTimeMode.Static
 
   def genericTest[A](
       // test name
@@ -108,11 +94,11 @@ class TestRunner(
     implicit val ec: ExecutionContext = system.dispatcher
 
     val clientsF =
-      Runner.connect(participantParams, clientConfig, maxInboundMessageSize)
+      Runner.connect(participantParams, applicationId, tlsConfig, maxInboundMessageSize)
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF
-      result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
+      result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeMode)
       _ <- expectedLog match {
         case None => Future.unit
         case Some(expectedLogs) =>

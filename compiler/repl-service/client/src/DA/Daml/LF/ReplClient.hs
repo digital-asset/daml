@@ -7,6 +7,7 @@
 module DA.Daml.LF.ReplClient
   ( Options(..)
   , MaxInboundMessageSize(..)
+  , ReplTimeMode(..)
   , Handle
   , withReplClient
   , loadPackage
@@ -23,6 +24,7 @@ import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import DA.PortFile
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
@@ -38,6 +40,8 @@ import System.Process
 newtype MaxInboundMessageSize = MaxInboundMessageSize Int
   deriving newtype Read
 
+data ReplTimeMode = ReplWallClock | ReplStatic
+
 data Options = Options
   { optServerJar :: FilePath
   , optLedgerHost :: String
@@ -45,6 +49,7 @@ data Options = Options
   , optMbAuthTokenFile :: Maybe FilePath
   , optMbSslConfig :: Maybe ClientSSLConfig
   , optMaxInboundMessageSize :: Maybe MaxInboundMessageSize
+  , optTimeMode :: ReplTimeMode
   , optStdout :: StdStream
   -- ^ This is intended for testing so we can redirect stdout there.
   }
@@ -89,6 +94,10 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
                            | Just ClientSSLKeyCertPair{..} <- [ clientSSLKeyCertPair tlsConf ]
                            ]
                      ]
+        , [ case optTimeMode of
+                ReplStatic -> "--static-time"
+                ReplWallClock -> "--wall-clock-time"
+          ]
         ]
     withCreateProcess replServer { std_out = optStdout } $ \_ stdout _ ph -> do
       port <- readPortFile maxRetries portFile
@@ -108,13 +117,17 @@ loadPackage Handle{..} package = do
         (Grpc.LoadPackageRequest package)
     pure (() <$ r)
 
-runScript :: Handle -> LF.Version -> LF.Module -> IO (Either BackendError ())
+runScript :: Handle -> LF.Version -> LF.Module -> IO (Either BackendError (Maybe T.Text))
 runScript Handle{..} version m = do
     r <- performRequest
         (Grpc.replServiceRunScript hClient)
         (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)))
-    pure (() <$ r)
+    pure $ fmap handleResult r
     where bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+          handleResult r =
+              let t = TL.toStrict (Grpc.runScriptResponseResult r)
+              in if T.null t then Nothing else Just t
+
 
 clearResults :: Handle -> IO (Either BackendError ())
 clearResults Handle{..} = do

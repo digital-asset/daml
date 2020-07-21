@@ -8,7 +8,6 @@
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
 module DA.Test.DamlcIntegration
   ( main
-  , mainAll
   ) where
 
 import           DA.Bazel.Runfiles
@@ -78,28 +77,33 @@ import Test.Tasty.Runners (Outcome(..), Result(..))
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
 
+newtype LfVersionOpt = LfVersionOpt Version
+  deriving (Eq)
+
+instance IsOption LfVersionOpt where
+  defaultValue = LfVersionOpt versionDefault
+  -- Tasty seems to force the value somewhere so we cannot just set this
+  -- to `error`. However, this will always be set.
+  parseValue = fmap LfVersionOpt . parseVersion
+  optionName = Tagged "daml-lf-version"
+  optionHelp = Tagged "DAML-LF version to test"
+
 main :: IO ()
-main = mainWithVersions [versionDev]
-
-mainAll :: IO ()
-mainAll = mainWithVersions (delete versionDev supportedOutputVersions)
-
-mainWithVersions :: [Version] -> IO ()
-mainWithVersions versions = do
+main = do
  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
  SS.withScenarioService Logger.makeNopHandle scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
   let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-  integrationTests <- mapM (getIntegrationTests registerTODO scenarioService) versions
-  let tests = testGroup "All" $ uniqueUniques : integrationTests
+  integrationTests <- getIntegrationTests registerTODO scenarioService
+  let tests = testGroup "All" [uniqueUniques, integrationTests]
   defaultMainWithIngredients ingredients tests
     `finally` (do
     todos <- readIORef todoRef
     putStr (unlines (DList.toList todos)))
   where ingredients =
-          includingOptions [Option (Proxy :: Proxy PackageDb)] :
+          includingOptions [Option (Proxy :: Proxy PackageDb), Option (Proxy @LfVersionOpt)] :
           defaultIngredients
 
 uniqueUniques :: TestTree
@@ -113,8 +117,8 @@ uniqueUniques = HUnit.testCase "Uniques" $
         let n = length $ nubOrd $ concat results
         n @?= 10000
 
-getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> Version -> IO TestTree
-getIntegrationTests registerTODO scenarioService version = do
+getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> IO TestTree
+getIntegrationTests registerTODO scenarioService = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
@@ -132,26 +136,30 @@ getIntegrationTests registerTODO scenarioService version = do
     createDirectoryIfMissing True outdir
 
     dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    let opts = (defaultOptions (Just version))
-          { optThreads = 0
-          , optCoreLinting = True
-          , optDlintUsage = DlintEnabled dlintDataDir False
-          }
 
     -- initialise the compiler service
     vfs <- makeVFSHandle
-    damlEnv <- mkDamlEnv opts (Just scenarioService)
     -- We use a separate service for generated files so that we can test files containing internal imports.
-    pure $
+    let tree :: TestTree
+        tree = askOption $ \(LfVersionOpt version) ->
+          let opts = (defaultOptions (Just version))
+                { optThreads = 0
+                , optCoreLinting = True
+                , optDlintUsage = DlintEnabled dlintDataDir False
+                }
+          in
+          withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
           withResource
-          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
           shutdown $ \service ->
           withResource
-          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
           shutdown $ \serviceGenerated ->
           withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase args version service outdir registerTODO) nongeneratedFiles <>
             map (testCase args version serviceGenerated outdir registerTODO) generatedFiles
+
+    pure tree
 
 newtype TestCase = TestCase ((String -> IO ()) -> IO Result)
 
@@ -227,19 +235,16 @@ data DiagnosticField
   deriving (Eq, Show)
 
 checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
-checkDiagnostics log expected got = do
-    when (got /= []) $
-        log $ T.unpack $ showDiagnostics got
-
+checkDiagnostics log expected got
     -- you require the same number of diagnostics as expected
     -- and each diagnostic is at least partially expected
-    let bad = filter
-            (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
-            expected
-    pure $ if
-      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
-      | null bad -> Nothing
-      | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
+    | length expected /= length got = do
+        logDiags
+        pure $ Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
+    | notNull bad = do
+        logDiags
+        pure $ Just $ unlines ("Could not find matching diagnostics:" : map show bad)
+    | otherwise = pure Nothing
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
           checkField (fp, _, D.Diagnostic{..}) f = case f of
             DFilePath p -> toNormalizedFilePath' p == fp
@@ -247,6 +252,10 @@ checkDiagnostics log expected got = do
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
             DMessage m -> standardizeQuotes(T.pack m) `T.isInfixOf` standardizeQuotes(T.unwords (T.words _message))
+          logDiags = log $ T.unpack $ showDiagnostics got
+          bad = filter
+            (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
+            expected
 
 ------------------------------------------------------------
 -- CLI argument handling

@@ -28,6 +28,8 @@ message RunScriptRequest {
 }
 
 message RunScriptResponse {
+  // Optional result, we render this on the client side.
+  string result = 1;
 }
 
 message ClearResultsRequest {

@@ -14,6 +14,14 @@ import scopt.Read.{intRead, stringRead}
 
 object Cli {
 
+  private def reportUsageOfDeprecatedOption[A, B](
+      option: String,
+  )(ignoredValue: A, ignoredConfig: B): B = {
+    System.err.println(
+      s"WARNING: $option has been deprecated and will be removed in a future version")
+    ignoredConfig
+  }
+
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
     val arity = 2
     val reads: String => (String, Int) = { s: String =>
@@ -67,6 +75,8 @@ object Cli {
     opt[String]("target-port")
       .optional()
       .text("DEPRECATED: this option is no longer used and has no effect")
+      .action(reportUsageOfDeprecatedOption("--target-port"))
+      .hidden()
 
     opt[String]("pem")
       .optional()
@@ -82,7 +92,7 @@ object Cli {
 
     opt[String]("cacrt")
       .optional()
-      .text("TLS: The crt file to be used as the the trusted root CA. Applied to all endpoints.")
+      .text("TLS: The crt file to be used as the trusted root CA. Applied to all endpoints.")
       .action(cacrtConfig)
 
     opt[Double](name = "timeout-scale-factor")
@@ -93,24 +103,21 @@ object Cli {
               |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
               |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
 
-    opt[Double](name = "load-scale-factor")
+    opt[String](name = "load-scale-factor")
       .optional()
-      .action((v, c) => c.copy(loadScaleFactor = v))
-      .text("""Scale factor for the load used in scale test suites. Useful to adapt the load
-              |depending on the environment and the Ledger implementation under test.
-              |Defaults to 1.0. Use numbers higher than 1.0 to increase the load,
-              |use numbers lower than 1.0 to decrease the load.""".stripMargin)
+      .text("DEPRECATED: this option is no longer used and has no effect")
+      .action(reportUsageOfDeprecatedOption("--load-scale-factor"))
+      .hidden()
 
     opt[Int](name = "concurrent-test-runs")
       .optional()
       .action((v, c) => c.copy(concurrentTestRuns = v))
-      .text("""Number of tests to run concurrently. Defaults to the number of available
-              |processors.""".stripMargin)
+      .text("Number of tests to run concurrently. Defaults to the number of available processors")
 
     opt[Unit]("verbose")
       .abbr("v")
       .action((_, c) => c.copy(verbose = true))
-      .text("Prints full stacktraces on failures.")
+      .text("Prints full stack traces on failures.")
 
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))
@@ -130,13 +137,13 @@ object Cli {
       .action((ex, c) => c.copy(excluded = c.excluded ++ ex))
       .unbounded()
       .text(
-        """A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""",
+        """A comma-separated list of exclusion prefixes. Tests whose name start with any of the given prefixes will be skipped. Can be specified multiple times, i.e. `--exclude=a,b` is the same as `--exclude=a --exclude=b`.""",
       )
 
     opt[Seq[String]]("include")
       .action((inc, c) => c.copy(included = c.included ++ inc))
       .unbounded()
-      .text("""A comma-separated list of tests that should be run.""")
+      .text("""A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`.""")
 
     opt[Seq[String]]("perf-tests")
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
@@ -146,11 +153,13 @@ object Cli {
     opt[Path]("perf-tests-report")
       .action((inc, c) => c.copy(performanceTestsReport = Some(inc)))
       .optional()
-      .text("""The path of the the benchmark report file produced by performance tests (default: stdout).""")
+      .text(
+        "The path of the benchmark report file produced by performance tests (default: stdout).")
 
     opt[Unit]("all-tests")
-      .action((_, c) => c.copy(allTests = true))
-      .text("""Run all default and optional tests. Respects the --exclude flag.""")
+      .text("DEPRECATED: All tests are always run by default.")
+      .action(reportUsageOfDeprecatedOption("--all-tests"))
+      .hidden()
 
     opt[Unit]("shuffle-participants")
       .action((_, c) => c.copy(shuffleParticipants = true))
@@ -169,6 +178,11 @@ object Cli {
            |Party names must be their hints.""".stripMargin)
 
     opt[Unit]("list")
+      .action((_, c) => c.copy(listTestSuites = true))
+      .text(
+        """Lists all available test suites that can be used in the include and exclude options. Test names always start with their suite name, so using the suite name as a prefix matches all tests in a given suite.""")
+
+    opt[Unit]("list-all")
       .action((_, c) => c.copy(listTests = true))
       .text("""Lists all available tests that can be used in the include and exclude options.""")
 

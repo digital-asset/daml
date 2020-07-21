@@ -17,8 +17,8 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.Speedy
 import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SValue
-import com.daml.lf.types.Ledger.Ledger
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
+import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 
@@ -140,31 +140,27 @@ class Context(val contextId: Context.ContextId) {
   }
 
   // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
-  private val submissionTime =
-    data.Time.Timestamp.MinValue
-  private val initialSeeding =
-    speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"scenario-service"))
+  private val txSeeding = crypto.Hash.hashPrivateKey(s"scenario-service")
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     val defns = this.defns
+    val compiledPackages =
+      PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
     for {
       defn <- defns.get(LfDefRef(identifier))
     } yield
-      Speedy.Machine
-        .build(
-          sexpr = defn,
-          compiledPackages =
-            PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile),
-          submissionTime,
-          initialSeeding,
-          Set.empty,
-        )
+      Speedy.Machine.fromScenarioSExpr(
+        compiledPackages,
+        txSeeding,
+        defn,
+        TransactionVersions.SupportedDevVersions,
+      )
   }
 
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[(Ledger, Speedy.Machine, Either[SError, SValue])] =
+  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] =
     buildMachine(
       Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
     ).map { machine =>

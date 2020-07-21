@@ -64,11 +64,11 @@ object Main {
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
       new InMemoryLedgerReaderWriter.Owner(
-        initialLedgerId = config.ledgerId,
+        ledgerId = config.ledgerId,
         config.extra.batchingLedgerWriterConfig,
         participantId = participantConfig.participantId,
         metrics = metrics,
-        stateValueCache = caching.Cache.from(
+        stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),
@@ -81,7 +81,7 @@ object Main {
     override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
       LedgerConfiguration.defaultLocalLedger
 
-    override val defaultExtraConfig: ExtraConfig = ExtraConfig.default
+    override val defaultExtraConfig: ExtraConfig = ExtraConfig.reasonableDefault
 
     override final def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
       parser

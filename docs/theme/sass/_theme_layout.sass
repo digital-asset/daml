@@ -2343,3 +2343,29 @@ div.pdf-download
 
 .cta-alt
   display: none
+
+#inpageContent
+  display: block
+  position: fixed
+  bottom: 50px
+  right: 20px
+  z-index: 999
+
+  +media($mobile)
+    display: none
+
+#popoutContent
+  +media($mobile)
+    display: none
+
+a.copybtn.o-tooltip--left
+  position: absolute
+  z-index: 9999
+  opacity: 1
+  right: 2.5em
+
+  img
+    position: absolute
+
+.btn.btn-next, .btn.btn-prev
+    padding: .4em .8em

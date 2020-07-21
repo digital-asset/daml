@@ -13,6 +13,9 @@ trait Responding extends HelloService {
   override def single(request: HelloRequest): Future[HelloResponse] =
     Future.successful(response(request))
 
+  override def fails(request: HelloRequest): Future[HelloResponse] =
+    Future.failed(new IllegalStateException(request.payload.toStringUtf8))
+
   protected def response(request: HelloRequest): HelloResponse =
     HelloResponse(request.reqInt * 2, request.payload)
 

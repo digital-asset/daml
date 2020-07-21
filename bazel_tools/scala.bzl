@@ -33,16 +33,34 @@ common_scalacopts = [
     "-target:jvm-1.8",
     "-encoding",
     "UTF-8",
+    # more detailed type errors
+    "-explaintypes",
     # more detailed information about type-erasure related warnings
     "-unchecked",
     # warn if using deprecated stuff
     "-deprecation",
     "-Xfuture",
+    # these two flags turn on source-incompatible enhancements that are always
+    # on in Scala 2.13.  Despite the naming, though, the most impactful and
+    # 2.13-like change is -Ypartial-unification.  -Xsource:2.13 only turns on
+    # some minor, but in one specific case (scala/bug#10283) essential bug fixes
+    "-Xsource:2.13",
+    "-Ypartial-unification",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
+    "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
+    "-Xlint:constant",  # / 0
+    "-Xlint:inaccessible",  # method uses invisible types
+    "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
+    "-Xlint:option-implicit",  # implicit conversion arg might be null
+    "-Xlint:package-object-classes",  # put them directly in the package
+    "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
+    "-Xlint:private-shadow",  # name shadowing
+    "-Xlint:type-parameter-shadow",  # name shadowing
+    "-Xlint:unsound-match",
     # adapted args is a deprecated feature:
     # `def foo(a: (A, B))` can be called with `foo(a, b)`.
     # properly it should be `foo((a,b))`
@@ -59,55 +77,54 @@ common_scalacopts = [
 ]
 
 plugin_deps = [
-    "@maven//:org_wartremover_wartremover_2_12",
+    "@maven//:org_wartremover_wartremover_2_12_11",
 ]
 
 common_plugins = [
-    "@maven//:org_wartremover_wartremover_2_12",
+    "@maven//:org_wartremover_wartremover_2_12_11",
 ]
 
 plugin_scalacopts = [
-    # do not enable wart remover for now, because we need to fix a lot of
-    # test code, which didn't have wart remover enabled before
     "-Xplugin-require:wartremover",
-
+] + ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
     # This lists all wartremover linting passes.
-    # "-P:wartremover:traverser:org.wartremover.warts.Any",
-    "-P:wartremover:traverser:org.wartremover.warts.AnyVal",
-    "-P:wartremover:traverser:org.wartremover.warts.ArrayEquals",
-    # "-P:wartremover:traverser:org.wartremover.warts.AsInstanceOf",
-    # "-P:wartremover:traverser:org.wartremover.warts.DefaultArguments",
-    # "-P:wartremover:traverser:org.wartremover.warts.EitherProjectionPartial",
-    "-P:wartremover:traverser:org.wartremover.warts.Enumeration",
-    # "-P:wartremover:traverser:org.wartremover.warts.Equals",
-    "-P:wartremover:traverser:org.wartremover.warts.ExplicitImplicitTypes",
-    # "-P:wartremover:traverser:org.wartremover.warts.FinalCaseClass",
-    # "-P:wartremover:traverser:org.wartremover.warts.FinalVal",
-    # "-P:wartremover:traverser:org.wartremover.warts.ImplicitConversion",
-    # "-P:wartremover:traverser:org.wartremover.warts.ImplicitParameter",
-    # "-P:wartremover:traverser:org.wartremover.warts.IsInstanceOf",
-    "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
-    "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
-    # "-P:wartremover:traverser:org.wartremover.warts.MutableDataStructures",
-    # "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-    # "-P:wartremover:traverser:org.wartremover.warts.Nothing",
-    # "-P:wartremover:traverser:org.wartremover.warts.Null",
-    "-P:wartremover:traverser:org.wartremover.warts.Option2Iterable",
-    # "-P:wartremover:traverser:org.wartremover.warts.OptionPartial",
-    # "-P:wartremover:traverser:org.wartremover.warts.Overloading",
-    "-P:wartremover:traverser:org.wartremover.warts.Product",
-    # "-P:wartremover:traverser:org.wartremover.warts.PublicInference",
-    # "-P:wartremover:traverser:org.wartremover.warts.Recursion",
-    "-P:wartremover:traverser:org.wartremover.warts.Return",
-    "-P:wartremover:traverser:org.wartremover.warts.Serializable",
-    "-P:wartremover:traverser:org.wartremover.warts.StringPlusAny",
-    # "-P:wartremover:traverser:org.wartremover.warts.Throw",
-    # "-P:wartremover:traverser:org.wartremover.warts.ToString",
-    # "-P:wartremover:traverser:org.wartremover.warts.TraversableOps",
-    # "-P:wartremover:traverser:org.wartremover.warts.TryPartial",
-    # "-P:wartremover:traverser:org.wartremover.warts.Var",
-    # "-P:wartremover:traverser:org.wartremover.warts.While",
-]
+    # "Any",
+    "AnyVal",
+    "ArrayEquals",
+    # "AsInstanceOf",
+    # "DefaultArguments",
+    # "EitherProjectionPartial",
+    "Enumeration",
+    # "Equals",
+    "ExplicitImplicitTypes",
+    # "FinalCaseClass",
+    # "FinalVal",
+    # "ImplicitConversion",
+    # "ImplicitParameter",
+    # "IsInstanceOf",
+    # "JavaConversions",
+    "JavaSerializable",
+    "LeakingSealed",
+    # "MutableDataStructures",
+    # "NonUnitStatements",
+    # "Nothing",
+    # "Null",
+    "Option2Iterable",
+    # "OptionPartial",
+    # "Overloading",
+    "Product",
+    # "PublicInference",
+    # "Recursion",
+    "Return",
+    "Serializable",
+    "StringPlusAny",
+    # "Throw",
+    # "ToString",
+    # "TraversableOps",
+    # "TryPartial",
+    # "Var",
+    # "While",
+]]
 
 # delete items from lf_scalacopts as they are restored to common_scalacopts and plugin_scalacopts
 # # calculate items to delete
@@ -346,8 +363,13 @@ def _scaladoc_jar_impl(ctx):
 
         outdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
 
+        root_content = []
+        if ctx.attr.root_content != None:
+            root_content = [ctx.files.root_content[0]]
+
         args = ctx.actions.args()
         args.add_all(["-d", outdir.path])
+        args.add_all("-doc-root-content", root_content)
         args.add("-classpath")
         args.add_joined(classpath, join_with = ":")
         args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
@@ -355,9 +377,12 @@ def _scaladoc_jar_impl(ctx):
         args.add_all(ctx.attr.scalacopts)
         args.add_all(srcFiles)
 
+        if ctx.attr.doctitle != None:
+            args.add_all(["-doc-title", ctx.attr.doctitle])
+
         ctx.actions.run(
             executable = ctx.executable._scaladoc,
-            inputs = ctx.files.srcs + classpath + pluginPaths,
+            inputs = ctx.files.srcs + classpath + pluginPaths + root_content,
             outputs = [outdir],
             arguments = [args],
             mnemonic = "ScaladocGen",
@@ -401,6 +426,7 @@ scaladoc_jar = rule(
         # generated source files that should still be included.
         "generated_srcs": attr.label_list(allow_files = True),
         "scalacopts": attr.string_list(),
+        "root_content": attr.label(allow_single_file = True),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",

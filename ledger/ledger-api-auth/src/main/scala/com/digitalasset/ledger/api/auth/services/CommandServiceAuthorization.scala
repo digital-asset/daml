@@ -17,7 +17,7 @@ import scala.concurrent.Future
 /** Note: the command service internally uses calls to the CommandSubmissionService and CommandCompletionService.
   * These calls already require authentication, but it is better to check authorization here as well.
   */
-final class CommandServiceAuthorization(
+private[daml] final class CommandServiceAuthorization(
     protected val service: CommandService with AutoCloseable,
     private val authorizer: Authorizer)
     extends CommandService
@@ -25,26 +25,35 @@ final class CommandServiceAuthorization(
     with GrpcApiService {
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
-    authorizer.requireActClaimsForParty(request.commands.map(_.party), service.submitAndWait)(
-      request)
+    authorizer.requireActClaimsForParty(
+      party = request.commands.map(_.party),
+      applicationId = request.commands.map(_.applicationId),
+      call = service.submitAndWait,
+    )(request)
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
     authorizer.requireActClaimsForParty(
-      request.commands.map(_.party),
-      service.submitAndWaitForTransaction)(request)
+      party = request.commands.map(_.party),
+      applicationId = request.commands.map(_.applicationId),
+      call = service.submitAndWaitForTransaction,
+    )(request)
 
   override def submitAndWaitForTransactionId(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] =
     authorizer.requireActClaimsForParty(
-      request.commands.map(_.party),
-      service.submitAndWaitForTransactionId)(request)
+      party = request.commands.map(_.party),
+      applicationId = request.commands.map(_.applicationId),
+      call = service.submitAndWaitForTransactionId,
+    )(request)
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
     authorizer.requireActClaimsForParty(
-      request.commands.map(_.party),
-      service.submitAndWaitForTransactionTree)(request)
+      party = request.commands.map(_.party),
+      applicationId = request.commands.map(_.applicationId),
+      call = service.submitAndWaitForTransactionTree,
+    )(request)
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, DirectExecutionContext)

@@ -8,6 +8,7 @@ import java.time.Instant
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.data.LawlessTraversals._
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.ledger.EventId
@@ -174,7 +175,8 @@ object LfEngineToApi {
 
   def lfNodeCreateToEvent(
       verbose: Boolean,
-      eventId: String,
+      trId: Ref.LedgerString,
+      nodeId: NodeId,
       node: NodeCreate.WithTxValue[Lf.ContractId],
   ): Either[String, Event] =
     for {
@@ -183,7 +185,7 @@ object LfEngineToApi {
     } yield
       Event(
         Event.Event.Created(CreatedEvent(
-          eventId = eventId,
+          eventId = EventId(trId, nodeId).toLedgerString,
           contractId = node.coid.coid,
           templateId = Some(toApiIdentifier(node.coinst.template)),
           contractKey = key,
@@ -195,25 +197,27 @@ object LfEngineToApi {
         )))
 
   def lfNodeExercisesToEvent(
-      eventId: String,
-      node: NodeExercises.WithTxValue[EventId, Lf.ContractId],
+      trId: Ref.LedgerString,
+      nodeId: NodeId,
+      node: NodeExercises.WithTxValue[NodeId, Lf.ContractId],
   ): Either[String, Event] =
     Either.cond(
       node.consuming,
       Event(
         Event.Event.Archived(
           ArchivedEvent(
-            eventId = eventId,
+            eventId = EventId(trId, nodeId).toLedgerString,
             contractId = node.targetCoid.coid,
             templateId = Some(toApiIdentifier(node.templateId)),
             witnessParties = node.stakeholders.toSeq,
-          ))),
+          ))
+      ),
       "illegal conversion of non-consuming exercise to archived event"
     )
 
   def lfNodeCreateToTreeEvent(
       verbose: Boolean,
-      eventId: String,
+      eventId: EventId,
       witnessParties: Set[Ref.Party],
       node: NodeCreate.WithTxValue[Lf.ContractId],
   ): Either[String, TreeEvent] =
@@ -223,7 +227,7 @@ object LfEngineToApi {
     } yield
       TreeEvent(
         TreeEvent.Kind.Created(CreatedEvent(
-          eventId = eventId,
+          eventId = eventId.toLedgerString,
           contractId = node.coid.coid,
           templateId = Some(toApiIdentifier(node.coinst.template)),
           contractKey = key,
@@ -236,9 +240,11 @@ object LfEngineToApi {
 
   def lfNodeExercisesToTreeEvent(
       verbose: Boolean,
-      eventId: String,
+      trId: Ref.LedgerString,
+      eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeExercises.WithTxValue[EventId, Lf.ContractId],
+      node: NodeExercises.WithTxValue[NodeId, Lf.ContractId],
+      filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {
       arg <- lfVersionedValueToApiValue(verbose, node.chosenValue)
@@ -246,7 +252,7 @@ object LfEngineToApi {
     } yield {
       TreeEvent(
         TreeEvent.Kind.Exercised(ExercisedEvent(
-          eventId = eventId,
+          eventId = eventId.toLedgerString,
           contractId = node.targetCoid.coid,
           templateId = Some(toApiIdentifier(node.templateId)),
           choice = node.choiceId,
@@ -254,7 +260,10 @@ object LfEngineToApi {
           actingParties = node.actingParties.toSeq,
           consuming = node.consuming,
           witnessParties = witnessParties.toSeq,
-          childEventIds = node.children.toSeq,
+          childEventIds = node.children.iterator
+            .filter(filterChildren)
+            .map(EventId(trId, _).toLedgerString)
+            .toSeq,
           exerciseResult = result,
         )))
     }

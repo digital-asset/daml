@@ -37,9 +37,9 @@ copyright: 2020 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
 exposed-modules: {modules}
-import-dirs: \$topdir/__ID__
-library-dirs: \$topdir/__ID__
-data-dir: \$topdir/__ID__
+import-dirs: \\$topdir/__ID__
+library-dirs: \\$topdir/__ID__
+data-dir: \\$topdir/__ID__
 depends: {depends}
 """
 
@@ -171,7 +171,7 @@ daml_package_rule = rule(
             cfg = "host",
         ),
         "cpp": attr.label(
-            default = Label("@hpp//:hpp"),
+            default = Label("@stackage-exe//hpp"),
             executable = True,
             cfg = "host",
         ),

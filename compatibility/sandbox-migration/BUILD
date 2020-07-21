@@ -4,7 +4,7 @@ load(":util.bzl", "migration_test")
 
 genrule(
     name = "migration-model",
-    srcs = ["daml/Model.daml"],
+    srcs = glob(["daml/*.daml"]),
     outs = ["migration-model.dar"],
     cmd = """
 TMP=$$(mktemp -d)
@@ -20,7 +20,9 @@ version: 1.0.0
 dependencies: [daml-stdlib, daml-prim]
 EOF
 
-cp $(location :daml/Model.daml) $$TMP/Model.daml
+cp $(location :daml/Divulgence.daml) $$TMP/Divulgence.daml
+cp $(location :daml/KeyTransfer.daml) $$TMP/KeyTransfer.daml
+cp $(location :daml/ProposeAccept.daml) $$TMP/ProposeAccept.daml
 $$DAML build --project-root $$TMP -o $$PWD/$(location :migration-model.dar)
 """,
     tools = ["@daml-sdk-1.0.0//:daml"],
@@ -29,7 +31,7 @@ $$DAML build --project-root $$TMP -o $$PWD/$(location :migration-model.dar)
 
 da_scala_binary(
     name = "migration-step",
-    srcs = ["src/com/daml/MigrationStep.scala"],
+    srcs = glob(["src/com/daml/**/*.scala"]),
     main_class = "com.daml.MigrationStep",
     resources = ["src/resources/logback.xml"],
     visibility = ["//visibility:public"],
@@ -40,7 +42,6 @@ da_scala_binary(
         "@maven//:com_daml_daml_lf_archive_reader_2_12",
         "@maven//:com_daml_daml_lf_data_2_12",
         "@maven//:com_daml_daml_lf_dev_archive_java_proto",
-        "@maven//:com_daml_daml_lf_language_2_12",
         "@maven//:com_daml_daml_lf_transaction_2_12",
         "@maven//:com_daml_ledger_api_client_2_12",
         "@maven//:com_daml_ledger_api_common_2_12",
@@ -63,7 +64,7 @@ da_scala_binary(
 
 da_haskell_binary(
     name = "sandbox-migration-runner",
-    srcs = ["SandboxMigrationRunner.hs"],
+    srcs = glob(["runner/**/*.hs"]),
     data = [
         ":migration-step",
         "@daml-sdk-0.0.0//:daml",
@@ -75,10 +76,12 @@ da_haskell_binary(
         "filepath",
         "lens",
         "lens-aeson",
+        "mtl",
         "optparse-applicative",
         "process",
         "text",
     ],
+    main_function = "Migration.Runner.main",
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/client_server/with-postgres",

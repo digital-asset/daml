@@ -5,13 +5,14 @@ package com.daml.lf
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SExpr.SDefinitionRef
 import com.daml.lf.speedy.{Compiler, SExpr}
 
 /** Trait to abstract over a collection holding onto DAML-LF package definitions + the
   * compiled speedy expressions.
   */
-trait CompiledPackages {
+abstract class CompiledPackages {
   def getPackage(pkgId: PackageId): Option[Package]
   def getDefinition(dref: SDefinitionRef): Option[SExpr]
 
@@ -20,10 +21,25 @@ trait CompiledPackages {
   def definitions: PartialFunction[SDefinitionRef, SExpr] =
     Function.unlift(this.getDefinition)
 
+  def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion]
+
   def stackTraceMode: Compiler.StackTraceMode
   def profilingMode: Compiler.ProfilingMode
 
   def compiler: Compiler = Compiler(packages, stackTraceMode, profilingMode)
+
+  // computes the newest language version used in `pkg` and all its dependencies.
+  // assumes that `maxVersionOfDependencies` is defined for all dependencies of `pkg`
+  // returns None iff the package is empty.
+  protected def computePackageLanguageVersion(
+      dependenciesPackageVersion: PartialFunction[PackageId, LanguageVersion],
+      pkg: Package,
+  ): Option[LanguageVersion] = {
+    import transaction.VersionTimeline.maxVersion
+    val moduleVersions = pkg.modules.values.iterator.map(_.languageVersion)
+    val dependencyVersions = pkg.directDeps.iterator.map(dependenciesPackageVersion)
+    (moduleVersions ++ dependencyVersions).reduceOption(maxVersion[LanguageVersion])
+  }
 }
 
 final class PureCompiledPackages private (
@@ -37,6 +53,21 @@ final class PureCompiledPackages private (
   override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
   override def stackTraceMode = stacktracing
   override def profilingMode = profiling
+
+  private[this] def sortedPkgIds: List[PackageId] = {
+    val dependencyGraph = packageIds.view
+      .flatMap(pkgId => getPackage(pkgId).map(pkg => pkgId -> pkg.directDeps).toList)
+      .toMap
+    language.Graphs
+      .topoSort(dependencyGraph)
+      .getOrElse(throw new IllegalArgumentException("cyclic package definitions"))
+  }
+
+  override val packageLanguageVersion: Map[PackageId, LanguageVersion] =
+    sortedPkgIds.foldLeft(Map.empty[PackageId, LanguageVersion])(
+      (acc, pkgId) =>
+        computePackageLanguageVersion(acc, packages(pkgId)).fold(acc)(acc.updated(pkgId, _))
+    )
 }
 
 object PureCompiledPackages {

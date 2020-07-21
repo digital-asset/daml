@@ -13,7 +13,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import com.daml.lf.CompiledPackages
-import com.daml.lf.data.Ref.Identifier
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -24,22 +23,18 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.jwt.domain.Jwt
 import java.util.UUID
-import java.time.Duration
 
 object TriggerRunnerImpl {
   case class Config(
-      server: ActorRef[Server.Message],
+      server: ActorRef[Message],
       triggerInstance: UUID,
-      triggerName: Identifier,
-      jwt: Jwt,
+      credentials: UserCredentials,
+      // TODO(SF, 2020-06-09): Add access token field here in the presence of authentication.
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
-      maxInboundMessageSize: Int,
-      maxFailureNumberOfRetries: Int,
-      failureRetryTimeRange: Duration,
+      restartConfig: TriggerRestartConfig,
       party: Party,
   )
 
@@ -48,31 +43,27 @@ object TriggerRunnerImpl {
   final private case class QueryACSFailed(cause: Throwable) extends Message
   final private case class QueriedACS(runner: Runner, acs: Seq[CreatedEvent], offset: LedgerOffset)
       extends Message
-  import Server.{
-    TriggerStarting,
-    TriggerStarted,
-    TriggerInitializationFailure,
-    TriggerRuntimeFailure
-  }
 
-  def apply(parent: ActorRef[Message], config: Config)(
+  def apply(config: Config)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): Behavior[Message] =
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
       implicit val ec: ExecutionContext = ctx.executionContext
+      val triggerInstance = config.triggerInstance
       // Report to the server that this trigger is starting.
-      val runningTrigger =
-        RunningTrigger(config.triggerInstance, config.triggerName, config.jwt, parent)
-      config.server ! TriggerStarting(runningTrigger)
-      ctx.log.info(s"Trigger ${name} is starting")
+      config.server ! TriggerStarting(triggerInstance)
+      ctx.log.info(s"Trigger $name is starting")
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,
-        ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+        ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
+        // TODO(SF, 2020-06-09): In the presence of an authorization
+        // service, get an access token and pass it through here!
+        token = None
       )
 
       // Waiting for the ACS query to finish so we can build the
@@ -81,31 +72,30 @@ object TriggerRunnerImpl {
         Behaviors.receiveMessagePartial[Message] {
           case QueryACSFailed(cause) =>
             if (wasStopped) {
-              // Report the failure to the server.
-              config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
-              // Tell our monitor there's been a failure. The
-              // monitor's supervision strategy will respond to this
-              // by writing the exception to the log and stopping this
-              // actor.
-              throw new InitializationException("User stopped")
+              // The stop endpoint can't send a message to a runner
+              // that isn't in the running triggers table so this is
+              // an odd case.
+              config.server ! TriggerInitializationFailure(triggerInstance, cause.toString)
+              // However we got here though, one thing is clear. We
+              // don't want to restart the actor.
+              throw new InitializationHalted("User stopped") // Don't retry!
             } else {
               // Report the failure to the server.
-              config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
+              config.server ! TriggerInitializationFailure(triggerInstance, cause.toString)
               // Tell our monitor there's been a failure. The
-              // monitor's supervisor strategy will respond to this by
-              // writing the exception to the log and stopping this
-              // actor.
+              // monitor's supervision strategy will respond to this
+              // (including logging the exception).
               throw new InitializationException("Couldn't start: " + cause.toString)
             }
           case QueriedACS(runner, acs, offset) =>
             if (wasStopped) {
-              // Report that we won't be going on to the server.
-              config.server ! TriggerInitializationFailure(runningTrigger, "User stopped")
-              // Tell our monitor there's been a failure. The
-              // monitor's supervisor strategy will respond to this
-              // writing the exception to the log and stopping this
-              // actor.
-              throw new InitializationException("User stopped")
+              // The stop endpoint can't send a message to a runner
+              // that isn't in the running triggers table so this is
+              // an odd case.
+              config.server ! TriggerInitializationFailure(triggerInstance, "User stopped")
+              // However we got here though, one thing is clear. We
+              // don't want to restart the actor.
+              throw new InitializationHalted("User stopped") // Don't retry!
             } else {
               // It's possible for 'runWithACS' to throw (fail to
               // construct a flow).
@@ -118,10 +108,13 @@ object TriggerRunnerImpl {
                   msgFlow = KillSwitches.single[TriggerMsg],
                   name,
                 )
-                // TODO If we are stopped we will end up causing the
-                // future to complete which will trigger a message that
-                // is sent to a now terminated actor. We should fix this
-                // somehow™.
+
+                // If we are stopped we will end up causing the future
+                // to complete which will trigger a message that is
+                // sent to a now terminated actor. In
+                // https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html#dead-letters
+                // it is explained that this is a somewhat ordinary
+                // circumstance and not to be worried about.
                 ctx.pipeToSelf(trigger) {
                   case Success(_) =>
                     Failed(new RuntimeException("Trigger exited unexpectedly"))
@@ -130,16 +123,16 @@ object TriggerRunnerImpl {
                 }
                 // Report to the server that this trigger is entering
                 // the running state.
-                config.server ! TriggerStarted(runningTrigger)
+                config.server ! TriggerStarted(triggerInstance)
                 running(killSwitch)
               } catch {
                 case cause: Throwable =>
                   // Report the failure to the server.
-                  config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
+                  config.server ! TriggerInitializationFailure(triggerInstance, cause.toString)
                   // Tell our monitor there's been a failure. The
-                  // monitor's supervisor strategy will respond to this by
-                  // writing the exception to the log and stopping this
-                  // actor.
+                  // monitor's supervisor strategy will respond to
+                  // this by writing the exception to the log and
+                  // attempting to restart this actor.
                   throw new InitializationException("Couldn't start: " + cause.toString)
               }
             }
@@ -160,11 +153,11 @@ object TriggerRunnerImpl {
               Behaviors.stopped
             case Failed(cause) =>
               // Report the failure to the server.
-              config.server ! TriggerRuntimeFailure(runningTrigger, cause.toString)
+              config.server ! TriggerRuntimeFailure(triggerInstance, cause.toString)
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this by
               // writing the exception to the log and attempting to
-              // restart this actor up to some number of times.
+              // restart this actor.
               throw new RuntimeException(cause)
           }
           .receiveSignal {
@@ -172,7 +165,7 @@ object TriggerRunnerImpl {
               // Don't think about trying to send the server a message
               // here. It won't receive it (many Bothans died to bring
               // us this information).
-              ctx.log.info(s"Trigger ${name} is stopping")
+              ctx.log.info(s"Trigger $name is stopping")
               killSwitch.shutdown
               Behaviors.stopped
             case (_, PreRestart) =>
@@ -180,7 +173,7 @@ object TriggerRunnerImpl {
               // already been informed of the earlier failure and in
               // the process of being restarted, will be informed of
               // the start along the way.
-              ctx.log.info(s"Trigger ${name} is being restarted")
+              ctx.log.info(s"Trigger $name is being restarted")
               Behaviors.same
           }
 
@@ -189,7 +182,7 @@ object TriggerRunnerImpl {
           .fromBuilder(
             NettyChannelBuilder
               .forAddress(config.ledgerConfig.host, config.ledgerConfig.port)
-              .maxInboundMessageSize(config.maxInboundMessageSize),
+              .maxInboundMessageSize(config.ledgerConfig.maxInboundMessageSize),
             clientConfig,
           )
         runner = new Runner(

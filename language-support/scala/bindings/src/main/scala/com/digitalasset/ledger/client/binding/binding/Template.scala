@@ -43,4 +43,12 @@ object Template {
     * }}}
     */
   final case class CreateForExercise[+T](value: T with Template[T])
+
+  /** Part of an `ExerciseByKey` command.
+    *
+    * {{{
+    *   Iou key foo exerciseTransfer (controller, ...)
+    * }}}
+    */
+  final case class Key[+T](encodedKey: rpcvalue.Value)
 }

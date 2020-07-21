@@ -10,7 +10,6 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
-import com.daml.api.util.TimeProvider
 import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.Statement.discard
@@ -100,7 +99,7 @@ object HttpService extends StrictLogging {
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = tlsConfig.client,
       token = tokenHolder.flatMap(_.token),
@@ -129,7 +128,6 @@ object HttpService extends StrictLogging {
         packageService.resolveTemplateId,
         LedgerClientJwt.submitAndWaitForTransaction(client),
         LedgerClientJwt.submitAndWaitForTransactionTree(client),
-        TimeProvider.UTC,
       )
 
       contractsService = new ContractsService(
@@ -156,10 +154,9 @@ object HttpService extends StrictLogging {
           () => packageService.reload(ec))
       )
 
-      (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
+      (encoder, decoder) = buildJsonCodecs(packageService)
 
       jsonEndpoints = new Endpoints(
-        ledgerId,
         allowNonHttps,
         validateJwt,
         commandService,
@@ -173,14 +170,12 @@ object HttpService extends StrictLogging {
       websocketService = new WebSocketService(
         contractsService,
         packageService.resolveTemplateId,
-        encoder,
         decoder,
         LedgerReader.damlLfTypeLookup(packageService.packageStore _),
         wsConfig,
       )
 
       websocketEndpoints = new WebsocketEndpoints(
-        ledgerId,
         validateJwt,
         websocketService,
       )
@@ -208,7 +203,7 @@ object HttpService extends StrictLogging {
   )(implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[String]] =
     Future(
       holderM
-        .traverseU { holder =>
+        .traverse { holder =>
           holder.refresh()
           holder.token
             .map(\/-(_))
@@ -239,7 +234,6 @@ object HttpService extends StrictLogging {
     jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
-      ledgerId: lar.LedgerId,
       packageService: PackageService,
   ): (DomainJsonEncoder, DomainJsonDecoder) = {
 

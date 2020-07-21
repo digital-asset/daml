@@ -4,16 +4,21 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.Node.KeyWithMaintainers
+import com.daml.lf.transaction.VersionTimeline.SpecifiedVersion
 import com.daml.lf.value.Value.VersionedValue
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
+
+import scala.collection.immutable.HashMap
 
 final case class TransactionVersion(protoValue: String)
 
 /**
   * Currently supported versions of the DAML-LF transaction specification.
   */
-object TransactionVersions
+private[lf] object TransactionVersions
     extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[TransactionVersion])(
       _.protoValue,
     ) {
@@ -30,71 +35,148 @@ object TransactionVersions
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   // We force output of recent version, but keep reading older version as long as
   // Sandbox is alive.
-  private[transaction] val minOutputVersion = TransactionVersion("10")
+  val SupportedStableVersions = VersionRange(TransactionVersion("10"), TransactionVersion("10"))
+
+  val SupportedDevVersions = SupportedStableVersions.copy(max = acceptedVersions.last)
 
   def assignVersion(
-      a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
-  ): TransactionVersion = {
+      a: GenTransaction.WithTxValue[_, Value.ContractId],
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
+  ): Either[String, TransactionVersion] = {
     require(a != null)
     import VersionTimeline.Implicits._
 
-    VersionTimeline.latestWhenAllPresent(
-      minOutputVersion,
-      // latest version used by any value
-      a.foldValues(ValueVersion("1")) { (z, vv) =>
-        VersionTimeline.maxVersion(z, vv.version)
-      },
-      // a NodeCreate with defined `key` or a NodeLookupByKey
-      // implies minimum version 3
-      if (a.nodes.values.exists {
-          case nc: Node.NodeCreate[_, _] => nc.key.isDefined
-          case _: Node.NodeLookupByKey[_, _] => true
-          case _: Node.NodeFetch[_, _] | _: Node.NodeExercises[_, _, _] => false
-        }) minKeyOrLookupByKey
-      else
-        minVersion,
-      // a NodeFetch with actingParties implies minimum version 5
-      if (a.nodes.values
-          .exists { case nf: Node.NodeFetch[_, _] => nf.actingParties.nonEmpty; case _ => false })
-        minFetchActors
-      else
-        minVersion,
-      if (a.nodes.values
-          .exists {
-            case ne: Node.NodeExercises[_, _, _] => ne.exerciseResult.isDefined
-            case _ => false
-          })
-        minExerciseResult
-      else
-        minVersion,
-      if (a.nodes.values
-          .exists {
-            case ne: Node.NodeExercises[_, _, _] => ne.key.isDefined
-            case _ => false
-          })
-        minContractKeyInExercise
-      else
-        minVersion,
-      if (a.nodes.values
-          .exists {
-            case ne: Node.NodeExercises[_, _, _] =>
-              ne.key match {
-                case Some(KeyWithMaintainers(key @ _, maintainers)) => maintainers.nonEmpty
-                case _ => false
-              }
-            case _ => false
-          })
-        minMaintainersInExercise
-      else
-        minVersion,
-      if (a.nodes.values
-          .exists {
-            case nf: Node.NodeFetch[_, _] => nf.key.isDefined
-            case _ => false
-          })
-        minContractKeyInFetch
-      else
-        minVersion,
+    val inferredVersion =
+      VersionTimeline.latestWhenAllPresent(
+        supportedVersions.min,
+        // latest version used by any value
+        a.foldValues(ValueVersion("1")) { (z, vv) =>
+          VersionTimeline.maxVersion(z, vv.version)
+        },
+        // a NodeCreate with defined `key` or a NodeLookupByKey
+        // implies minimum version 3
+        if (a.nodes.values.exists {
+            case nc: Node.NodeCreate[_, _] => nc.key.isDefined
+            case _: Node.NodeLookupByKey[_, _] => true
+            case _: Node.NodeFetch[_, _] | _: Node.NodeExercises[_, _, _] => false
+          }) minKeyOrLookupByKey
+        else
+          minVersion,
+        // a NodeFetch with actingParties implies minimum version 5
+        if (a.nodes.values
+            .exists { case nf: Node.NodeFetch[_, _] => nf.actingParties.nonEmpty; case _ => false })
+          minFetchActors
+        else
+          minVersion,
+        if (a.nodes.values
+            .exists {
+              case ne: Node.NodeExercises[_, _, _] => ne.exerciseResult.isDefined
+              case _ => false
+            })
+          minExerciseResult
+        else
+          minVersion,
+        if (a.nodes.values
+            .exists {
+              case ne: Node.NodeExercises[_, _, _] => ne.key.isDefined
+              case _ => false
+            })
+          minContractKeyInExercise
+        else
+          minVersion,
+        if (a.nodes.values
+            .exists {
+              case ne: Node.NodeExercises[_, _, _] =>
+                ne.key match {
+                  case Some(KeyWithMaintainers(key @ _, maintainers)) => maintainers.nonEmpty
+                  case _ => false
+                }
+              case _ => false
+            })
+          minMaintainersInExercise
+        else
+          minVersion,
+        if (a.nodes.values
+            .exists {
+              case nf: Node.NodeFetch[_, _] => nf.key.isDefined
+              case _ => false
+            })
+          minContractKeyInFetch
+        else
+          minVersion,
+      )
+
+    Either.cond(
+      !(supportedVersions.max precedes inferredVersion),
+      inferredVersion,
+      s"inferred version $inferredVersion is not supported"
+    )
+
+  }
+
+  def asVersionedTransaction(
+      tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
+  ): Either[String, Transaction.Transaction] =
+    for {
+      v <- assignVersion(tx, supportedVersions)
+    } yield VersionedTransaction(v, tx)
+
+  @throws[IllegalArgumentException]
+  def assertAsVersionedTransaction(
+      tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
+  ): Transaction.Transaction =
+    data.assertRight(asVersionedTransaction(tx, supportedVersions))
+
+  def assignVersions(
+      supportedTxVersions: VersionRange[TransactionVersion],
+      as: Seq[SpecifiedVersion],
+  ): Either[String, (TransactionVersion, ValueVersion)] = {
+
+    import VersionTimeline._
+    import VersionTimeline.Implicits._
+
+    val transactionVersion =
+      latestWhenAllPresent(
+        supportedTxVersions.min,
+        (SupportedStableVersions.min: SpecifiedVersion) +: as: _*,
+      )
+
+    val valueVersion =
+      latestWhenAllPresent(ValueVersions.SupportedStableVersions.min, transactionVersion)
+
+    Either.cond(
+      !(supportedTxVersions.max precedes transactionVersion),
+      transactionVersion -> valueVersion,
+      s"inferred version $transactionVersion is not supported"
     )
   }
+
+  type UnversionedNode = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
+  type VersionedNode = Node.GenNode[NodeId, Value.ContractId, VersionedValue[Value.ContractId]]
+
+  def asVersionedTransaction(
+      supportedTxVersions: VersionRange[TransactionVersion],
+      pkgLangVersions: Ref.PackageId => LanguageVersion,
+      roots: ImmArray[NodeId],
+      nodes: HashMap[NodeId, UnversionedNode],
+  ): Either[String, VersionedTransaction[NodeId, Value.ContractId]] = {
+
+    import VersionTimeline.Implicits._
+
+    val langVersions: Iterator[SpecifiedVersion] =
+      roots.reverseIterator.map(nid => pkgLangVersions(nodes(nid).templateId.packageId))
+
+    assignVersions(supportedTxVersions, langVersions.toList).map {
+      case (transactionVersion, valueVersion) =>
+        val versionNode: UnversionedNode => VersionedNode =
+          Node.GenNode.map3(identity, identity, VersionedValue(valueVersion, _))
+        VersionedTransaction(
+          transactionVersion,
+          GenTransaction(nodes = nodes.transform((_, n) => versionNode(n)), roots = roots)
+        )
+    }
+  }
+
 }

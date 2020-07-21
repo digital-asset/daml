@@ -6,8 +6,7 @@ package com.daml.lf.engine.trigger.test
 import akka.stream.scaladsl.{Flow}
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
-import com.daml.lf.speedy.SExpr
-import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
@@ -45,8 +44,8 @@ abstract class AbstractFuncTests
           failedCompletions: Long,
           activeAssets: Set[String])
 
-      def toResult(expr: SExpr): AssetResult = {
-        val fields = expr.asInstanceOf[SEValue].v.asInstanceOf[SRecord].values
+      def toResult(value: SValue): AssetResult = {
+        val fields = value.asInstanceOf[SRecord].values
         AssetResult(
           successfulCompletions = fields.get(1).asInstanceOf[SInt64].value,
           failedCompletions = fields.get(2).asInstanceOf[SInt64].value,
@@ -354,8 +353,7 @@ abstract class AbstractFuncTests
           // 1 for completion
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
         } yield {
-          assert(
-            finalState == SEValue(SList(FrontStack(SText("myexerciseid"), SText("mycreateid")))))
+          assert(finalState == SList(FrontStack(SText("myexerciseid"), SText("mycreateid"))))
         }
       }
     }
@@ -464,7 +462,7 @@ abstract class AbstractFuncTests
           // 2 heartbeats
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
         } yield {
-          assert(finalState == SEValue(SInt64(2)))
+          assert(finalState == SInt64(2))
         }
       }
     }
@@ -479,7 +477,7 @@ abstract class AbstractFuncTests
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
         } yield {
           finalState match {
-            case SEValue(SRecord(_, _, values)) if values.size == 2 =>
+            case SRecord(_, _, values) if values.size == 2 =>
               values.get(1) match {
                 case SList(items) if items.length == 2 =>
                   val t0 = items.slowApply(0).asInstanceOf[STimestamp].value

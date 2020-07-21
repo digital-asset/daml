@@ -9,18 +9,18 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.bazeltools.BazelRunfiles._
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.kvutils.KVOffset.{fromLong => toOffset}
+import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.archive.DarReader
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -30,7 +30,6 @@ import org.scalatest.Inside._
 import org.scalatest.Matchers._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
-import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,17 +55,17 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
-    newParticipantState()
+    newParticipantState(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
 
   private def newParticipantState(
-      ledgerId: Option[LedgerId] = None,
+      ledgerId: LedgerId,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
       participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
@@ -84,7 +83,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
+      newParticipantState(ledgerId = ledgerId).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -298,7 +297,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           _ <- ps
-            .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+            .submitTransaction(
+              submitterInfo(rt, alice),
+              transactionMeta(rt),
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost)
             .toScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
         } yield {
@@ -316,7 +319,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .submitTransaction(
               submitterInfo(rt, alice, commandIds._1),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
@@ -325,14 +329,16 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .submitTransaction(
               submitterInfo(rt, alice, commandIds._1),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
           result4 <- ps
             .submitTransaction(
               submitterInfo(rt, alice, commandIds._2),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
@@ -363,14 +369,16 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .submitTransaction(
               submitterInfo(rt, alice, "X1"),
               transactionMeta(rt),
-              emptyTransaction)
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost)
             .toScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
           result3 <- ps
             .submitTransaction(
               submitterInfo(rt, alice, "X2"),
               transactionMeta(rt),
-              emptyTransaction)
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost)
             .toScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
@@ -402,7 +410,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .submitTransaction(
               submitterInfo(rt, unallocatedParty),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
@@ -428,7 +437,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .submitTransaction(
               submitterInfo(rt, party = newParty),
               transactionMeta(rt),
-              emptyTransaction,
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
             )
             .toScala
           (offset4, update4) <- waitForNextUpdate(ps, Some(offset3))
@@ -586,10 +596,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       "store the ledger ID and re-use it" in {
         val ledgerId = newLedgerId()
         for {
-          retrievedLedgerId1 <- newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
+          retrievedLedgerId1 <- newParticipantState(ledgerId = ledgerId).use { ps =>
             ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
-          retrievedLedgerId2 <- newParticipantState().use { ps =>
+          retrievedLedgerId2 <- newParticipantState(ledgerId = ledgerId).use { ps =>
             ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
         } yield {
@@ -602,10 +612,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         val ledgerId = newLedgerId()
         val attemptedLedgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId = Some(ledgerId)).use { _ =>
+          _ <- newParticipantState(ledgerId = ledgerId).use { _ =>
             Future.unit
           }
-          exception <- newParticipantState(ledgerId = Some(attemptedLedgerId)).use { _ =>
+          exception <- newParticipantState(ledgerId = attemptedLedgerId).use { _ =>
             Future.unit
           }.failed
         } yield {
@@ -619,14 +629,14 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
+          _ <- newParticipantState(ledgerId = ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
                 .toScala
             } yield ()
           }
-          updates <- newParticipantState().use { ps =>
+          updates <- newParticipantState(ledgerId = ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())
@@ -670,16 +680,14 @@ object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
   private val IdleTimeout: FiniteDuration = 5.seconds
-
-  private val emptyTransaction: Transaction.Transaction =
-    GenTransaction(HashMap.empty, ImmArray.empty)
+  private val DefaultInterpretationCost = 0L
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
-  private val archives =
-    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
+  private val darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
+  private val archives = darReader.readArchiveFromFile(darFile).get.all
 
   private val alice = Ref.Party.assertFromString("alice")
 
@@ -694,9 +702,8 @@ object ParticipantStateIntegrationSpecBase {
       ledgerEffectiveTime = let,
       workflowId = Some(Ref.LedgerString.assertFromString("tests")),
       submissionTime = let.addMicros(-1000),
-      submissionSeed = Some(
-        crypto.Hash.assertFromString(
-          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
+      submissionSeed = crypto.Hash.assertFromString(
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
       optUsedPackages = Some(Set.empty),
       optNodeSeeds = None,
       optByKeyNodes = None,

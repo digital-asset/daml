@@ -7,7 +7,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
 
--- Useful references:
+-- | Useful references:
 --
 -- * DAML-LF AST: https://github.com/DACH-NY/da/blob/master/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
 -- * GHC Syntax: https://hackage.haskell.org/package/ghc-8.4.1/docs/CoreSyn.html#t:Expr
@@ -23,7 +23,7 @@
 ---------------------------------------------------------------------
 -- DICTIONARY SANITIZATION
 --
--- GHC's desugaring for default methods relies on the the fact that Haskell is
+-- GHC's desugaring for default methods relies on the fact that Haskell is
 -- lazy. In contrast, DAML-LF is strict. This mismatch causes a few problems.
 -- For instance, GHC desugars:
 --
@@ -670,7 +670,7 @@ convertBind env (name, x)
     | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
     = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
 
-    -- | Constraint tuple projections are turned into LF struct projections at use site.
+    -- Constraint tuple projections are turned into LF struct projections at use site.
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
@@ -760,6 +760,18 @@ convertExpr env0 e = do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ fsToText name) record
+    -- NOTE(SF): We also need to inline `setField` in order to get the correct
+    -- evaluation order (record first, then fields in order).
+    go env (VarIn DA_Internal_Record "setField") (LType (isStrLitTy -> Just name) : LType record@(TypeCon recordTyCon _) : LType field : _dict : args)
+        | isSingleConType recordTyCon = do
+            record' <- convertType env record
+            field' <- convertType env field
+            withTmArg env (varV1, field') args $ \x1 args ->
+                withTmArg env (varV2, record') args $ \x2 args ->
+                    pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
+        -- TODO: Also fix evaluation order for sum-of-record types.
+    -- NOTE(SF): We will need a `setFieldPrim` rule regardless, because
+    -- GeneralizedNewtypeDeriving will skip the typeclass instance.
     go env (VarIn DA_Internal_Record "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
         record' <- convertType env record
         field' <- convertType env field
@@ -1325,14 +1337,14 @@ convertCoercion env co = evalStateT (go env co) 0
             pure (to, from)
         -- NOTE(MH): This case is commented out because we don't know how to trigger
         -- it in a test case yet. In theory it should do the right thing though.
-        -- | Just (a, k_co, co') <- splitForAllCo_maybe co
-        -- , isReflCo k_co
-        -- = do
-        --     (a, k) <- lift $ convTypeVar a
-        --     (to', from') <- go env co'
-        --     let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
-        --     let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
-        --     pure (to, from)
+        --   | Just (a, k_co, co') <- splitForAllCo_maybe co
+        --   , isReflCo k_co
+        --   = do
+        --       (a, k) <- lift $ convTypeVar a
+        --       (to', from') <- go env co'
+        --       let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
+        --       let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
+        --       pure (to, from)
         -- Case (1) & (2)
         | Just (tCon, ts, field, flv) <- isSatNewTyCon s t = newtypeCoercion tCon ts field flv
         | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = swap <$> newtypeCoercion tCon ts field flv

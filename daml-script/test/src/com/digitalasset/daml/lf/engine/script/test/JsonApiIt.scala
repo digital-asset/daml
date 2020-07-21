@@ -8,21 +8,30 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import io.grpc.Channel
 import java.io.File
+
 import org.scalatest._
+
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scalaz.{-\/, \/-}
 import scalaz.syntax.traverse._
 import spray.json._
-
-import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptLedgerClient}
+import com.daml.lf.engine.script.{
+  ApiParameters,
+  Participant,
+  Participants,
+  Runner,
+  ScriptLedgerClient,
+  ScriptTimeMode,
+  Party => ScriptParty
+}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
@@ -33,18 +42,19 @@ import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
+  MockMessages,
   OwnedResource,
-  Resource => TestResource,
   SuiteResource,
   SuiteResourceManagementAroundAll,
-  MockMessages,
+  Resource => TestResource
 }
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.{GrpcClientResource, TestCommands}
+import com.daml.platform.sandbox.services.TestCommands
 import com.daml.ports.Port
 import com.daml.resources.{Resource, ResourceOwner}
 
@@ -54,6 +64,7 @@ trait JsonApiFixture
   self: Suite =>
 
   override protected def darFile = new File(rlocation("daml-script/test/script-test.dar"))
+  protected val darFileNoLedger = new File(rlocation("daml-script/test/script-test-no-ledger.dar"))
   protected def server: SandboxServer = suiteResource.value._1
   override protected def serverPort: Port = server.port
   override protected def channel: Channel = suiteResource.value._2
@@ -127,11 +138,17 @@ final class JsonApiIt
     with SuiteResourceManagementAroundAll
     with TryValues {
 
-  private val dar = DarReader().readArchiveFromFile(darFile).get.map {
-    case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
+  private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
+    val dar = DarReader().readArchiveFromFile(file).get.map {
+      case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
+    }
+    val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+    val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+    (dar, envIface)
   }
-  private val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-  private val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+
+  val (dar, envIface) = readDar(darFile)
+  val (darNoLedger, envIfaceNoLedger) = readDar(darFileNoLedger)
 
   def getToken(parties: List[String], admin: Boolean): String = {
     val payload = AuthServiceJWTPayload(
@@ -151,10 +168,25 @@ final class JsonApiIt
     }
   }
 
-  private def getClients(parties: List[String] = List(party), admin: Boolean = false) = {
-    val participantParams =
-      Participants(Some(ApiParameters("http://localhost", httpPort)), Map.empty, Map.empty)
-    Runner.jsonClients(participantParams, getToken(parties, admin), envIface)
+  private def getClients(
+      parties: List[String] = List(party),
+      defaultParty: Option[String] = None,
+      admin: Boolean = false,
+      envIface: EnvironmentInterface = envIface) = {
+    // We give the default participant some nonsense party so the checks for party mismatch fail
+    // due to the mismatch and not because the token does not allow inferring a party
+    val defaultParticipant =
+      ApiParameters("http://localhost", httpPort, Some(getToken(defaultParty.toList, true)))
+    val partyMap = parties.map(p => (ScriptParty(p), Participant(p))).toMap
+    val participantMap = parties
+      .map(
+        p =>
+          (
+            Participant(p),
+            ApiParameters("http://localhost", httpPort, Some(getToken(List(p), admin)))))
+      .toMap
+    val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
+    Runner.jsonClients(participantParams, envIface)
   }
 
   private val party = "Alice"
@@ -162,15 +194,16 @@ final class JsonApiIt
   private def run(
       clients: Participants[ScriptLedgerClient],
       name: QualifiedName,
-      inputValue: Option[JsValue] = Some(JsString(party))): Future[SValue] = {
-    val scriptId = Identifier(packageId, name)
+      inputValue: Option[JsValue] = Some(JsString(party)),
+      dar: Dar[(PackageId, Package)] = dar): Future[SValue] = {
+    val scriptId = Identifier(dar.main._1, name)
     Runner.run(
       dar,
       scriptId,
       inputValue,
       clients,
       ApplicationId(MockMessages.applicationId),
-      TimeProvider.UTC)
+      ScriptTimeMode.WallClock)
   }
 
   "DAML Script over JSON API" can {
@@ -210,7 +243,7 @@ final class JsonApiIt
     }
     "submit with party mismatch fails" in {
       for {
-        clients <- getClients()
+        clients <- getClients(defaultParty = Some("Alice"))
         exception <- recoverToExceptionIf[RuntimeException](
           run(
             clients,
@@ -223,7 +256,7 @@ final class JsonApiIt
     }
     "query with party mismatch fails" in {
       for {
-        clients <- getClients()
+        clients <- getClients(defaultParty = Some("Alice"))
         exception <- recoverToExceptionIf[RuntimeException](
           run(
             clients,
@@ -264,15 +297,37 @@ final class JsonApiIt
     }
     "allocateParty" in {
       for {
-        // TODO (MK) At the moment the JSON API requires a token with a single
-        // party even for allocating a new party.
-        clients <- getClients(parties = List("Alice"), admin = true)
+        clients <- getClients(parties = List(), admin = true)
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonAllocateParty"),
           Some(JsString("Eve")))
       } yield {
         assert(result == SParty(Party.assertFromString("Eve")))
+      }
+    }
+    "multi-party" in {
+      for {
+        clients <- getClients(parties = List("Alice", "Bob"))
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonMultiParty"),
+          Some(JsArray(JsString("Alice"), JsString("Bob"))))
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "missing template id" in {
+      for {
+        clients <- getClients(envIface = envIfaceNoLedger)
+        ex <- recoverToExceptionIf[RuntimeException](
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonMissingTemplateId"),
+            dar = darNoLedger
+          ))
+      } yield {
+        assert(ex.toString.contains("Cannot resolve template ID"))
       }
     }
   }

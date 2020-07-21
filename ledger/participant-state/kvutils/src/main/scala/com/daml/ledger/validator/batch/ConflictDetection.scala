@@ -81,20 +81,22 @@ class ConflictDetection(val damlMetrics: Metrics) {
 
       case PARTY_ALLOCATION_ENTRY | PACKAGE_UPLOAD_ENTRY | CONFIGURATION_ENTRY |
           TRANSACTION_REJECTION_ENTRY | CONFIGURATION_REJECTION_ENTRY |
-          PACKAGE_UPLOAD_REJECTION_ENTRY | PARTY_ALLOCATION_REJECTION_ENTRY =>
+          PACKAGE_UPLOAD_REJECTION_ENTRY | PARTY_ALLOCATION_REJECTION_ENTRY |
+          OUT_OF_TIME_BOUNDS_ENTRY =>
         logger.trace(s"Dropping conflicting submission (${logEntry.getPayloadCase})")
         metrics.dropped.inc()
         None
 
       case PAYLOAD_NOT_SET =>
-        sys.error("conflictDetectAndRecover: PAYLOAD_NOT_SET")
+        sys.error("detectConflictsAndRecover: PAYLOAD_NOT_SET")
     }
   }
 
   // Attempt to produce a useful message by collecting the first conflicting
   // contract id or contract key.
   private def explainConflict(conflictingKeys: Iterable[DamlStateKey]): String =
-    conflictingKeys
+    conflictingKeys.toStream
+      .sortBy(_.toByteString.asReadOnlyByteBuffer())
       .collectFirst {
         case key if key.hasContractKey =>
           // NOTE(JM): We show the template id as the other piece of data we have is the contract key

@@ -26,8 +26,12 @@ patches we backport to the 1.0 release branch).
    out the sha of the reference version (previous stable release in the same
    release branch), say `$PREV_SHA`, and run:
    ```
-   ./unreleased.sh $PREV_SHA $SHA
+   ./unreleased.sh $PREV_SHA..$SHA
    ```
+
+1. **[STABLE]** Go through the checklist at
+   https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
+   before making the release. Note that the checklist is not available publicly.
 
 1. Pull the latest master branch of the `daml` repository and create a new,
    clean branch off it. Now, we have three possible cases:
@@ -321,7 +325,7 @@ patches we backport to the 1.0 release branch).
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the scenario result appears within 30 seconds.
-   1. Add `+` at the end of line 26 after `"Alice"` and verify that you get an
+   1. Add `+` at the end of line 22 after `"Alice"` and verify that you get an
       error.
    1. Run through the tests for the getting started guide described above.
 

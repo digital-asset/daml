@@ -13,6 +13,7 @@ import qualified Data.Text as T
 import Data.Hashable
 import GHC.Generics
 import Data.String
+import qualified Data.HashMap.Strict as HMS
 
 -- | Doc text type, presumably Markdown format.
 newtype DocText = DocText { unDocText :: Text }
@@ -80,7 +81,11 @@ data Reference = Reference
 
 -- | Anchors are URL-safe (and RST-safe!) ids into the docs.
 newtype Anchor = Anchor { unAnchor :: Text }
-    deriving newtype (Eq, Ord, Show, ToJSON, ToJSONKey, FromJSON, IsString, Hashable)
+    deriving newtype (Eq, Ord, Show, ToJSON, ToJSONKey, FromJSON, FromJSONKey, IsString, Hashable)
+
+-- | A database of anchors to URL strings.
+newtype AnchorMap = AnchorMap { unAnchorMap :: HMS.HashMap Anchor String }
+    deriving newtype (Eq, Ord, Show, FromJSON)
 
 ------------------------------------------------------------
 -- | Documentation data for a module

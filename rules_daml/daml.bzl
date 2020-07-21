@@ -422,7 +422,7 @@ daml_doc_test = rule(
             executable = True,
             cfg = "host",
             allow_files = True,
-            default = Label("@hpp//:hpp"),
+            default = Label("@stackage-exe//hpp"),
         ),
         "flags": attr.string_list(
             default = [],

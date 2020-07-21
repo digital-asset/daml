@@ -84,7 +84,7 @@ If encodeDecimalAsString is set, decimals are encoded as strings, using
 the format ``-?[0-9]{1,28}(\.[0-9]{1,10})?``. If encodeDecimalAsString
 is not set, they are encoded as JSON numbers, also using the format
 ``-?[0-9]{1,28}(\.[0-9]{1,10})?``.
- 
+
 Note that the flag encodeDecimalAsString is useful because it lets
 JavaScript consumers consume Decimals safely with the standard
 JSON.parse.
@@ -128,7 +128,7 @@ Output
 If encodeInt64AsString is set, Int64s are encoded as strings, using the
 format ``-?[0-9]+``. If encodeInt64AsString is not set, they are encoded as
 JSON numbers, also using the format ``-?[0-9]+``.
- 
+
 Note that the flag encodeInt64AsString is useful because it lets
 JavaScript consumers consume Int64s safely with the standard
 ``JSON.parse``.
@@ -140,18 +140,23 @@ Input
 =====
 
 Timestamps are represented as ISO 8601 strings, rendered using the
-format ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``::
+format ``yyyy-mm-ddThh:mm:ss.ssssssZ``::
+
+    1990-11-09T04:30:23.123456Z
+    9999-12-31T23:59:59.999999Z
+
+Parsing is a little bit more flexible and uses the format
+``yyyy-mm-ddThh:mm:ss(\.s+)?Z``, i.e. it's OK to omit the microsecond part
+partially or entirely, or have more than 6 decimals. Sub-second data beyond
+microseconds will be dropped. The UTC timezone designator must be included. The
+rationale behind the inclusion of the timezone designator is minimizing the
+risk that users pass in local times. Valid examples::
 
     1990-11-09T04:30:23.1234569Z
     1990-11-09T04:30:23Z
     1990-11-09T04:30:23.123Z
     0001-01-01T00:00:00Z
     9999-12-31T23:59:59.999999Z
-
-It's OK to omit the microsecond part partially or entirely. Sub-second
-data beyond microseconds will be dropped. The UTC timezone designator
-must be included. The rationale behind the inclusion of the timezone
-designator is minimizing the risk that users pass in local times.
 
 The timestamp must be between the bounds specified by DAML-LF and ISO
 8601, [0001-01-01T00:00:00Z, 9999-12-31T23:59:59.999999Z].

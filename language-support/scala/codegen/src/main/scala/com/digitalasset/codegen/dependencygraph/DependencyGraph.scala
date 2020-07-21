@@ -39,12 +39,12 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
     val templateNodes = decls.to[ImmArraySeq].collect {
       case (qualName, InterfaceType.Template(typ, tpl)) =>
         val recDeps = typ.foldMap(Util.genTypeTopLevelDeclNames)
-        val choiceDeps = tpl.foldMap(Util.genTypeTopLevelDeclNames)
+        val choiceAndKeyDeps = tpl.foldMap(Util.genTypeTopLevelDeclNames)
         (
           qualName,
           Node(
             TemplateWrapper(DefTemplateWithRecord(typ, tpl)),
-            recDeps ++ choiceDeps,
+            recDeps ++ choiceAndKeyDeps,
             collectDepError = true))
     }
     Graph.cyclicDependencies(internalNodes = typeDeclNodes, roots = templateNodes)

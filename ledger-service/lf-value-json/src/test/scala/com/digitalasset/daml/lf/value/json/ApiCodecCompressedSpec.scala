@@ -7,7 +7,7 @@ package value.json
 import com.daml.bazeltools.BazelRunfiles._
 import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
+import value.test.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.daml.ledger.service.MetadataReader
 import org.scalactic.source

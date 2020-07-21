@@ -1,0 +1,175 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@io_bazel_rules_docker//java:image.bzl", "java_image")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "mvn_version")
+
+compile_deps = [
+    "//daml-lf/data",
+    "//language-support/scala/bindings",
+    "//ledger-service/jwt",
+    "//ledger/caching",
+    "//ledger/participant-integration-api",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-domain",
+    "//ledger/metrics",
+    "//ledger/participant-state",
+    "//libs-scala/build-info",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/direct-execution-context",
+    "//libs-scala/ports",
+    "//libs-scala/resources",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_auth0_java_jwt",
+    "@maven//:com_github_scopt_scopt_2_12",
+    "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+    "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_dropwizard_metrics_metrics_jmx",
+    "@maven//:io_netty_netty_handler",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
+]
+
+runtime_deps = [
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_h2database_h2",
+    "@maven//:org_postgresql_postgresql",
+    "@maven//:org_xerial_sqlite_jdbc",
+]
+
+da_scala_library(
+    name = "sandbox-common",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources =
+        glob(
+            ["src/main/resources/**/*"],
+            # Do not include logback.xml into the library: let the user
+            # of the sandbox-as-a-library decide how to log.
+            exclude = ["src/main/resources/logback.xml"],
+        ),
+    tags = ["maven_coordinates=com.daml:sandbox-common:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = runtime_deps,
+    deps = compile_deps,
+)
+
+alias(
+    name = "Test-1.5.dar",
+    actual = ":historical-dars/Test-1.5.dar",
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "sandbox-common-scala-tests-lib",
+    srcs = glob(["src/test/lib/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:com_h2database_h2",
+        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = [
+        ":sandbox-common",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-auth-client",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//ledger/test-common",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/timer-utils",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+test_deps = [
+    ":sandbox-common",
+    ":sandbox-common-scala-tests-lib",
+    "//bazel_tools/runfiles:scala_runfiles",
+    "//daml-lf/data",
+    "//language-support/scala/bindings",
+    "//ledger-api/rs-grpc-akka",
+    "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
+    "//ledger-api/sample-service",
+    "//ledger-api/testing-utils",
+    "//ledger/caching",
+    "//ledger/participant-integration-api",
+    "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
+    "//ledger/ledger-api-client",
+    "//ledger/ledger-api-domain",
+    "//ledger/metrics",
+    "//ledger/participant-state",
+    "//ledger/test-common",
+    "//libs-scala/grpc-utils",
+    "//libs-scala/ports",
+    "//libs-scala/postgresql-testing",
+    "//libs-scala/resources",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
+    "@maven//:com_typesafe_akka_akka_testkit_2_12",
+    "@maven//:commons_io_commons_io",
+    "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_grpc_grpc_services",
+    "@maven//:io_netty_netty_handler",
+    "@maven//:org_awaitility_awaitility",
+    "@maven//:org_flywaydb_flyway_core",
+    "@maven//:org_mockito_mockito_core",
+    "@maven//:org_mockito_mockito_scala_2_12",
+    "@maven//:org_reactivestreams_reactive_streams",
+    "@maven//:org_scalacheck_scalacheck_2_12",
+    "@maven//:org_scalactic_scalactic_2_12",
+    "@maven//:org_scalatest_scalatest_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
+]
+
+da_scala_test_suite(
+    name = "sandbox-common-tests",
+    srcs = glob(
+        ["src/test/suite/**/*.scala"],
+    ),
+    data = [
+        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    deps = test_deps,
+)
+
+exports_files([
+    "src/main/resources/logback.xml",
+    "src/main/resources/banner.txt",
+])

@@ -70,7 +70,7 @@ import SdkVersion
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
 createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot opts thisSdkVer modulePrefixes deps dataDeps
+createProjectPackageDb projectRoot (disableScenarioService -> opts) thisSdkVer modulePrefixes deps dataDeps
   | null dataDeps && all (`elem` basePackages) deps =
     -- Initializing the package db is expensive since it requires calling GenerateStablePackages and GeneratePackageMap.
     --Therefore we only do it if we actually have a dependency.
@@ -103,7 +103,7 @@ createProjectPackageDb projectRoot opts thisSdkVer modulePrefixes deps dataDeps
     mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
         (,) <$> useNoFileE GenerateStablePackages
             <*> useE GeneratePackageMap projectRoot
-    (stablePkgs, dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
+    (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
     let stablePkgIds :: Set LF.PackageId
         stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
     let dependenciesInPkgDbIds =
@@ -193,6 +193,11 @@ createProjectPackageDb projectRoot opts thisSdkVer modulePrefixes deps dataDeps
         -- reinitializing everything, we probably want to change this.
         removePathForcibly dbPath
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
+
+disableScenarioService :: Options -> Options
+disableScenarioService opts = opts
+  { optScenarioService = EnableScenarioService False
+  }
 
 toGhcModuleName :: LF.ModuleName -> GHC.ModuleName
 toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString

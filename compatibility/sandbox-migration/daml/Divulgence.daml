@@ -1,0 +1,33 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Divulgence where
+
+template Asset
+  with
+    owner: Party
+    tag: Text
+  where
+    signatory owner
+
+    nonconsuming choice Fetch: Asset
+      with
+        divulgee: Party
+      controller divulgee
+      do
+        return this
+
+template AssetDivulgence
+  with
+    divulgee: Party
+    assetOwner: Party
+  where
+    signatory divulgee
+
+    controller assetOwner can
+      nonconsuming Divulge: ()
+        with
+          divulgedAsset: ContractId Asset
+        do
+          fetch divulgedAsset
+          return ()

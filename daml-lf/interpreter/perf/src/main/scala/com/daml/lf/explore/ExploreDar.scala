@@ -8,7 +8,6 @@ package explore
 import com.daml.bazeltools.BazelRunfiles.{rlocation}
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
-import com.daml.lf.data.Time
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -90,13 +89,7 @@ object PlaySpeedy {
         val arg = SEValue(SInt64(config.argValue))
         SEApp(func, Array(arg))
       }
-      Machine.fromSExpr(
-        expr,
-        compiledPackages,
-        Time.Timestamp.now(),
-        InitialSeeding.TransactionSeed(txSeed),
-        Set.empty,
-      )
+      Machine.fromPureSExpr(compiledPackages, expr)
     }
 
     val result: SValue = {
@@ -109,8 +102,6 @@ object PlaySpeedy {
 
     println(s"Final-value: $result")
   }
-
-  private val txSeed = crypto.Hash.hashPrivateKey("ExploreDar")
 
   final case class MachineProblem(s: String) extends RuntimeException(s, null, false, false)
 

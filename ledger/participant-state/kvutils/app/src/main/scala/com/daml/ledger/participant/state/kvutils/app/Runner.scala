@@ -16,7 +16,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
+import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.akka.AkkaResourceOwner
@@ -43,9 +43,13 @@ final class Runner[T <: ReadWriteService, Extra](
         "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
       implicit val materializer: Materializer = Materializer(actorSystem)
 
+      // FIXME: https://github.com/digital-asset/daml/issues/5164
+      // This should be made configurable
+      val engineConfig = Engine.DevConfig
+
       // share engine between the kvutils committer backend and the ledger api server
       // this avoids duplicate compilation of packages as well as keeping them in memory twice
-      val sharedEngine = Engine()
+      val sharedEngine = new Engine(engineConfig)
 
       newLoggingContext { implicit logCtx =>
         for {
@@ -60,7 +64,8 @@ final class Runner[T <: ReadWriteService, Extra](
             metrics.registry.registerAll(new JvmMetricSet)
             val lfValueTranslationCache =
               LfValueTranslation.Cache.newInstrumentedInstance(
-                configuration = config.lfValueTranslationCache,
+                eventConfiguration = config.lfValueTranslationEventCache,
+                contractConfiguration = config.lfValueTranslationContractCache,
                 metrics = metrics,
               )
             for {
@@ -84,16 +89,16 @@ final class Runner[T <: ReadWriteService, Extra](
                 lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()
               _ <- new StandaloneApiServer(
+                ledgerId = config.ledgerId,
                 config = factory.apiServerConfig(participantConfig, config),
                 commandConfig = factory.commandConfig(participantConfig, config),
                 partyConfig = factory.partyConfig(config),
                 ledgerConfig = factory.ledgerConfig(config),
-                readService = readService,
-                writeService = writeService,
+                optWriteService = Some(writeService),
                 authService = factory.authService(config),
-                transformIndexService = service => new TimedIndexService(service, metrics),
                 metrics = metrics,
                 timeServiceBackend = factory.timeServiceBackend(config),
+                otherInterceptors = factory.interceptors(config),
                 engine = sharedEngine,
                 lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()

@@ -1156,7 +1156,7 @@ export interface Props {
 }
 
 export const StyledForm
-  : React.ComponentClass<React.HTMLProps<HTMLFormElement>>
+  : React.FC<React.HTMLProps<HTMLFormElement>>
   = styled.form`
   display: flex;
   flex-direction: column;

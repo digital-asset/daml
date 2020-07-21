@@ -5,6 +5,7 @@
 
 module MultiTest where
 
+import DA.List
 import Daml.Script
 
 template T
@@ -39,3 +40,13 @@ partyIdHintTest = do
   alice <- allocatePartyWithHintOn "alice" (PartyIdHint "alice") (ParticipantName "one")
   bob <- allocatePartyWithHintOn "bob" (PartyIdHint "bob") (ParticipantName "two")
   pure (alice, bob)
+
+listKnownPartiesTest : Script ([PartyDetails], [PartyDetails])
+listKnownPartiesTest = do
+  parties1 <- listKnownPartiesOn (ParticipantName "one")
+  parties2 <- listKnownPartiesOn (ParticipantName "two")
+  p1 <- allocatePartyOn "p1" (ParticipantName "one")
+  p2 <- allocatePartyOn "p2" (ParticipantName "two")
+  parties1' <- listKnownPartiesOn (ParticipantName "one")
+  parties2' <- listKnownPartiesOn (ParticipantName "two")
+  pure (sortOn displayName (parties1' \\ parties1), sortOn displayName (parties2' \\ parties2))

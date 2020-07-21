@@ -3,8 +3,10 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import java.time.Instant
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
+  DamlLogEntry,
   DamlStateKey,
   DamlStateValue
 }
@@ -22,22 +24,34 @@ private[kvutils] trait CommitContext {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
   def inputs: DamlStateMap
+
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
   private val outputOrder: mutable.ArrayBuffer[DamlStateKey] =
     mutable.ArrayBuffer()
   private val outputs: mutable.Map[DamlStateKey, DamlStateValue] =
     mutable.HashMap.empty[DamlStateKey, DamlStateValue]
+  private val accessedInputKeys: mutable.Set[DamlStateKey] = mutable.Set.empty[DamlStateKey]
 
-  def getEntryId: DamlLogEntryId
-  def getMaximumRecordTime: Timestamp
-  def getRecordTime: Timestamp
+  var minimumRecordTime: Option[Instant] = None
+  var maximumRecordTime: Option[Instant] = None
+  var deduplicateUntil: Option[Instant] = None
+
+  // Rejection log entry used for generating an out-of-time-bounds log entry in case of
+  // pre-execution.
+  var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
+
+  def getRecordTime: Option[Timestamp]
   def getParticipantId: ParticipantId
+
+  def preExecute: Boolean = getRecordTime.isEmpty
 
   /** Retrieve value from output state, or if not found, from input state. */
   def get(key: DamlStateKey): Option[DamlStateValue] =
     outputs.get(key).orElse {
-      inputs.getOrElse(key, throw Err.MissingInputState(key))
+      val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
+      accessedInputKeys += key
+      value
     }
 
   /** Set a value in the output state. */
@@ -64,6 +78,9 @@ private[kvutils] trait CommitContext {
           true
         case _ => false
       }
+
+  /** Get the accessed input key set. */
+  def getAccessedInputKeys: collection.Set[DamlStateKey] = accessedInputKeys
 
   private def inputAlreadyContains(key: DamlStateKey, value: DamlStateValue): Boolean =
     inputs.get(key).exists(_.contains(value))

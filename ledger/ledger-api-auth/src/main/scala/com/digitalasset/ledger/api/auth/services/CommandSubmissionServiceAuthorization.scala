@@ -14,7 +14,7 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.Future
 
-final class CommandSubmissionServiceAuthorization(
+private[daml] final class CommandSubmissionServiceAuthorization(
     protected val service: CommandSubmissionService with AutoCloseable,
     private val authorizer: Authorizer)
     extends CommandSubmissionService
@@ -22,7 +22,11 @@ final class CommandSubmissionServiceAuthorization(
     with GrpcApiService {
 
   override def submit(request: SubmitRequest): Future[Empty] =
-    authorizer.requireActClaimsForParty(request.commands.map(_.party), service.submit)(request)
+    authorizer.requireActClaimsForParty(
+      party = request.commands.map(_.party),
+      applicationId = request.commands.map(_.applicationId),
+      call = service.submit,
+    )(request)
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)

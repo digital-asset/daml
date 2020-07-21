@@ -17,7 +17,7 @@ set -euo pipefail
 DAMLC=$(rlocation $TEST_WORKSPACE/$1)
 JQ=$(rlocation $TEST_WORKSPACE/$2)
 TEST_DAR=$(rlocation $TEST_WORKSPACE/$3)
-MAIN_PKG_ID=$($DAMLC inspect-dar $TEST_DAR | sed '0,/^DAR archive contains the following packages:$/d' | sed -n 's/^Test-dev-1.0.0-[^"]*"\(.*\)"$/\1/p')
+MAIN_PKG_ID=$($DAMLC inspect-dar $TEST_DAR | sed '0,/^DAR archive contains the following packages:$/d' | sed -n 's/^model-tests-1.0.0-[^"]*"\(.*\)"$/\1/p')
 JSON_MAIN_PKG_ID=$($DAMLC inspect-dar --json $TEST_DAR | $JQ -r '.main_package_id')
 if [[ "$MAIN_PKG_ID" != "$JSON_MAIN_PKG_ID" ]]; then
     echo "Mismatch in package ids:"
@@ -33,7 +33,7 @@ if [[ "$KEYS" != '["name","path","version"]' ]]; then
     exit 1
 fi
 NAME=$($JQ -r '.name' <<<"$OUT")
-if [[ "$NAME" != "Test-dev" ]]; then
+if [[ "$NAME" != "model-tests" ]]; then
     echo "Unexpected name:"
     echo "$NAME"
     exit 1
@@ -45,7 +45,7 @@ if [[ "$VERSION" != "1.0.0" ]]; then
     exit 1
 fi
 PATH=$($JQ -r '.path' <<<"$OUT")
-if [[ "$PATH" != "Test-dev-1.0.0-$MAIN_PKG_ID/Test-dev-1.0.0-$MAIN_PKG_ID.dalf" ]]; then
+if [[ "$PATH" != "model-tests-1.0.0-$MAIN_PKG_ID/model-tests-1.0.0-$MAIN_PKG_ID.dalf" ]]; then
     echo "Unexpected path:"
     echo "$PATH"
     exit 1

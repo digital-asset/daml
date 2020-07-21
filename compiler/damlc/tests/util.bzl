@@ -25,19 +25,20 @@ def _damlc_compile_test_impl(ctx):
         stack_opt = stack_opt,
         heap_opt = heap_opt,
     )
+    binary = ctx.outputs.executable
     ctx.actions.write(
-        output = ctx.outputs.executable,
+        output = binary,
         content = script,
     )
 
     # To ensure the files needed by the script are available, we put them in
     # the runfiles.
+    damlc_runfiles = ctx.attr.damlc[DefaultInfo].default_runfiles
     runfiles = ctx.runfiles(
-        files =
-            ctx.files.srcs + ctx.files.main +
-            [ctx.executable.damlc],
-    )
+        files = [binary] + ctx.files.srcs + ctx.files.main,
+    ).merge(damlc_runfiles)
     return [DefaultInfo(
+        files = depset([binary]),
         runfiles = runfiles,
     )]
 
@@ -57,61 +58,3 @@ damlc_compile_test = rule(
     },
     test = True,
 )
-
-def damlc_integration_test(name, main_function):
-    da_haskell_test(
-        name = name,
-        size = "large",
-        srcs = ["src/DA/Test/DamlcIntegration.hs"],
-        src_strip_prefix = "src",
-        main_function = main_function,
-        data = [
-            "//compiler/damlc/pkg-db",
-            "//compiler/damlc/stable-packages",
-            "//compiler/scenario-service/server:scenario_service_jar",
-            "@jq_dev_env//:jq",
-            ":daml-test-files",
-            ":bond-trading",
-            ":query-lf-lib",
-        ],
-        deps = [
-            "//compiler/daml-lf-ast",
-            "//compiler/daml-lf-proto",
-            "//compiler/damlc/daml-compiler",
-            "//compiler/damlc/daml-ide-core",
-            "//compiler/damlc/daml-lf-conversion",
-            "//compiler/damlc/daml-opts:daml-opts-types",
-            "//compiler/damlc/daml-opts",
-            "//compiler/scenario-service/client",
-            "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
-            "//libs-haskell/bazel-runfiles",
-            "//libs-haskell/da-hs-base",
-            "//libs-haskell/test-utils",
-        ],
-        hackage_deps = [
-            "aeson-pretty",
-            "base",
-            "bytestring",
-            "data-default",
-            "deepseq",
-            "directory",
-            "dlist",
-            "extra",
-            "filepath",
-            "ghc-lib",
-            "ghc-lib-parser",
-            "ghcide",
-            "haskell-lsp-types",
-            "optparse-applicative",
-            "process",
-            "proto3-suite",
-            "shake",
-            "tagged",
-            "tasty",
-            "tasty-hunit",
-            "text",
-            "time",
-            "unordered-containers",
-        ],
-        visibility = ["//visibility:public"],
-    )

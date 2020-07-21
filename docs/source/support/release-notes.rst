@@ -6,9 +6,468 @@ Release notes
 
 This page contains release notes for the SDK.
 
-.. _release-1.1.0:
+.. _release-1.3.0:
 
-1.1.0 - 2020-05-13
+1.3.0 - 2020-07-16
+------------------
+
+Summary
+~~~~~~~
+
+-  The Websocket query and fetch APIs are now stable.
+-  The JSON API Server is now released as a standalone JAR file to
+   GitHub Releases.
+-  DAML Script and REPL now work in Static Time mode and can query
+   parties.
+-  DAML Studio exposes more details on how contracts were disclosed.
+-  The Trigger Service, a solution to host and manage DAML Triggers is
+   now available in Early Access.
+
+Known Issues
+~~~~~~~~~~~~
+
+The DAML Studio VSCode extension is affected by a known and recently
+fixed bug in recent VSCode versions:
+https://github.com/microsoft/vscode/issues/89038
+
+For some users this may lead to the Scenario View in VSCode not
+rendering correctly. If you are affected by this issue upgrading to
+VSCode 1.47 should resolve it.
+
+What’s New
+~~~~~~~~~~
+
+Websocket API is stable
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+The JSON API Server exposes several Websocket endpoints which allow
+clients to maintain a live view of contract data without polling.
+These endpoints have been available since before SDK 1.0 in early
+access, and are now considered stable.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  The API specification for the ``/v1/stream/query`` and
+   ``/v1/stream/fetch`` endpoints are finalized and fully
+   implemented. 
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+The final version of these endpoints is backwards compatible with SDK
+1.0 in the sense that clients of these endpoints from SDK 1.0 work
+with SDK 1.3. Thus no action needs to be taken.
+
+Standalone JSON API Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+The JSON API Server is a component intended to be run in production
+environments to supplement the lower level Ledger API with an
+easy-to-use queryable ledger state consumable by any HTTP 1.1 client,
+including web browsers. Despite this intended use case, the JSON API
+Server was only distributed as part of the SDK, which meant that the
+DAML SDK had to be installed on production servers in order to run
+the JSON API Server. Providing a stand-alone JAR distribution gives
+application operators a much leaner deployment option.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  A stand-alone JAR distribution of the JSON API Server is available
+   at
+   https://github.com/digital-asset/daml/releases/download/v1.3.0/http-json-1.3.0.jar
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This is purely additive to the distribution via the SDK so no action
+is needed. However, if you do run the JSON API Server in a test or
+production environment, this gives you a leaner and more portable way
+of doing so.
+
+More functionality in DAML Script and REPL
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+DAML Script and REPL had some limitations in key test and
+production use cases. Firstly, neither exposed the Time Service,
+which made them hard to use in static time mode. Secondly, they
+only exposed functions to allocate parties, not to query existing
+parties, which required existing parties to be passed in via a
+file, or to be obtained using unsafe functions like
+``partyFromText``. By exposing the relevant functions of the Ledger
+API in DAML Script and REPL, Ledger Time can now be queried and set
+in Static Time mode, and existing parties can be queried.
+
+In addition, it is now possible to use DAML Script and REPL with
+multiple JWTs, which in particular, means they can be used with
+multiple parties on DABL.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  DAML Script and REPL’s ``getTime`` now correctly handles time
+   changes in static time mode and returns the current time by
+   querying the time service rather than defaulting to the Unix
+   epoch.
+   This only works in static time mode and via gRPC. In wallclock
+   mode, ``getTime`` continues to return the system time in UTC. When
+   run against the JSON API in static time mode, it continues
+   returning Unix epoch.
+-  Add ``setTime`` to DAML Script and REPL which sets the ledger time
+   via the Ledger API time service.
+   This only works in static time mode and via gRPC.
+-  Add ``listKnownParties`` and ``listKnownPartiesOn`` to query the
+   corresponding ListKnownParties endpoint in the Party Management
+   service.
+-  The time mode for DAML REPL can now be specified using
+   the\ ``--static-time`` and ``--wall-clock-time`` flags.
+-  You can now use DAML Script with multiple auth tokens. This is
+   particularly useful if you are working with the JSON API where you
+   can only have one party per token or with an IAM that only
+   provides single-party tokens. The tokens are specified in the
+   participant configuration passed via ``--participant-config`` in a
+   new ``access_token`` field. The existing ``--access-token-file``
+   flag is still supported if you want to use the same token for all
+   connections. Take a look at the
+   `documentation <https://docs.daml.com/1.3.0/daml-script/index.html#running-daml-script-against-authenticated-ledgers>`__
+   for more details.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This functionality is purely additive so no action needs to be taken.
+
+More Privacy Information in DAML Studio
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+DAML Studio’s Scenario view allows developers to explore the
+transactions resulting from their DAML models in real time. One of
+the main uses of doing so is to verify that privacy is preserved as
+expected. Until now, the available views only gave information on who
+got to see a contract and through which transaction. SDK 1.3 adds
+information on the mechanism through which a party learned about a
+contract. This saves the developer the work of inferring this from
+the detailed transaction view.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  When displaying scenario results in table view in DAML Studio,
+   there’s now a new checkbox “Show Detailed Disclosure” which shows
+   indications *why* a party knows about the existence of a
+   contract:
+
+   -  ``S`` means the party is a signatory.
+   -  ``O`` means the party is an observer.
+   -  ``W`` means the party has witnessed the creation of the
+      contract.
+   -  ``D`` means the party has learned about the contract via
+      divulgence.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This functionality is purely additive so no action needs to be taken.
+
+Early Access Trigger Service
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+DAML Triggers give developers the ability to write automation of
+DAML applications in the style of database triggers using the DAML
+language itself, aiding code reuse and allowing contract
+definitions and basic automation to be packaged and shipped
+together. These triggers need to be managed at runtime, which until
+now required developers to manage individual JVM processes, raising
+the bar to actually deploying DAML Triggers in production. The
+Trigger Service provides a way to manage DAML Triggers via a simple
+REST API.
+
+The Trigger Service is currently in Alpha, meaning API changes are
+still likely, and it notably doesn’t support authentication yet.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  Added the ``daml trigger-service`` command to the SDK to start the
+   Trigger Service. More information in the
+   `documentation <https://docs.daml.com/1.3.0-snapshot.20200706.4664.0.5db06051/tools/trigger-service.html>`__.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This functionality is purely additive so no action needs to be taken.
+If you are already evaluating Triggers for your application, we
+highly recommend trying out the Trigger Service as it should ease
+their use considerably. We welcome your feedback.
+
+Minor Improvements
+^^^^^^^^^^^^^^^^^^
+
+-  The Java Binding’s ``Bot.wire`` and ``Bot.wireSimple`` now return
+   a ``Disposable``, which can be used to shut down the flows. You
+   are encouraged to call ``.dispose()`` before terminating the
+   client.
+-  Added a CLI option for specifying the initial skew parameter for
+   the time model. You can control the allowed difference between the
+   Ledger Effective Time and the Record time using the
+   ``--max-ledger-time-skew`` flag.
+-  When run with persistence, the Sandbox used to crash if the
+   database wasn’t running during startup. It now instead waits for
+   the database to start up.
+-  Additional CLI options to configure the write pipeline in Sandbox,
+   allowing operators to determine at what point back pressure is
+   applied. See ``daml sandbox --help`` for details.
+-  Initialize the loading indicators in @daml/react of ``useQuery``,
+   ``useFetchByKey`` and their streaming variants with ``true``. This
+   removes a glitch where the loading indicator was ``false`` for a
+   very brief moment when components using these hooks were mounted
+   although no data had been loaded yet. Code using these hooks does
+   not need to be adapted in response to this change.
+-  The create-daml-app example can now be run against a HTTP JSON API
+   port specified in the environment variable
+   ``REACT_APP_HTTP_JSON_PORT``
+-  Improved error messages on unsuccessful key lookups.
+
+Bug and Security Fixes
+^^^^^^^^^^^^^^^^^^^^^^
+
+-  ``damlc test --project-root`` now works with relative paths as
+   well.
+-  The Package Management Service’s ``ListKnownParties`` response’s
+   ``PartyDetails`` now properly reflects where a party is non-local
+   on distributed, multi-participant ledgers that expose parties to
+   remote participants.
+-  The application identifier in a command submission request is now
+   checked against the authorization token. See
+   https://github.com/digital-asset/daml/issues/4409.
+-  In scenarios, fetches and exercises of contract keys associated
+   with contracts not visible to the submitter are now handled
+   properly instead of showing a low-level error.
+-  Some libraries in the DAML Studio VS Code Extension were updated
+   to fix security issues. DAML Studio now requires VSCode 1.39 or
+   newer.
+-  Fix an issue in DAML Script where the ``port`` was ignored for
+   non-empty paths in the url when running DAML Script over the JSON
+   API.
+-  Fix an issue in the Ledger API indexer that could have caused a
+   crash in the presence of divulged contracts. Exclusively affects
+   DAML ledger implementations where distributed participants each
+   only see a portion of the ledger. The sandbox is not affected. See
+   https://github.com/digital-asset/daml/pull/6607.
+
+Ledger Integration Kit
+^^^^^^^^^^^^^^^^^^^^^^
+
+-  The Ledger API Test Tool ``--exclude`` and ``--include`` flags now
+   match the full test name as a prefix, rather than just suite
+   names. Test name is built by combining the suite name with a test
+   identifier, so this change should be fully backwards compatible.
+   Run with ``--list-all`` to list all tests (as opposed to just the
+   test suites with ``--list``).
+-  LfValueTranslation.Cache now requires separate configuration of
+   ``lfValueTranslationEventCache`` and
+   ``lfValueTranslationContractCache``
+-  Upgrade auth0 jwks-rsa version to 0.11.0
+-  KVUtils does not commit output keys whose value is identical to
+   input anymore
+-  The Ledger API Server + Sandbox now accepts a new time model if
+   none is set. Previously, it would erroneously be rejected because
+   the generation number submitted to was incorrectly set to ``2``
+   rather than ``1``. This would not affect most users of Sandbox or
+   other kvutils-based ledgers, as if a configuration is set
+   automatically on startup when creating a new ledger. This affects
+   users who explicitly override the initial ledger configuration
+   submit delay to something longer than a few milliseconds.
+-  Add 8 new  timer metrics to track database performance when
+   storing transactions. The overall time is measured by
+   ``daml.index.db.store_ledger_entry``.
+
+   -  Timer ``daml.index.db.store_ledger_entry.prepare_batches``:
+      measures the time for preparing batch insert/delete statements
+   -  Timer ``daml.index.db.store_ledger_entry.events_batch``:
+      measures the time for inserting events
+   -  Timer
+      ``daml.index.db.store_ledger_entry.delete_contract_witnesses_batch``: 
+      measures the time for deleting contract witnesses
+   -  Timer
+      ``daml.index.db.store_ledger_entry.delete_contracts_batch``:
+      measures the time for deleting contracts
+   -  Timer
+      ``daml.index.db.store_ledger_entry.insert_contracts_batch``:
+      measures the time for inserting contracts
+   -  Timer
+      ``daml.index.db.store_ledger_entry.insert_contract_witnesses_batch``:
+      measures the time for inserting contract witnesses
+   -  Timer ``daml.index.db.store_ledger_entry.insert_completion``:
+      measures the time for inserting the completion
+   -  Timer ``daml.index.db.store_ledger_entry.update_ledger_end``:
+      measures the time for updating the ledger end
+
+-  Added 4 new timer metrics to track DAML execution performance The
+   overall time is measured by ``daml.execution.total``
+
+   -  Timer ``daml.execution.lookup_active_contract_per_execution``:
+      measures the accumulated time spent for looking up active
+      contracts per execution
+   -  Histogram
+      ``daml.execution.lookup_active_contract_count_per_execution``:
+      measures the number of active contract lookups per execution
+   -  Timer ``daml.execution.lookup_contract_key_per_execution``:
+      measures the accumulated time spent for looking up contract
+      keys per execution
+   -  Histogram
+      ``daml.execution.lookup_contract_key_count_per_execution``:
+      measures the number of contract key lookups per execution
+
+.. _release-1.2.0:
+
+1.2.0 - 2020-06-10
+------------------
+
+Summary
+~~~~~~~
+
+-  Module prefixes can now be stored in ``daml.yaml``. This means that
+   you can use multiple versions of libraries in the same project by
+   specifying them in ``daml.yaml`` instead of with the ``--package`` command
+   line flag.
+-  A new flag, ``--max-lf-value-translation-cache-entries``, allows you to
+   set a number of events for which DAML-LF values will be cached.
+   This can help reduce latency when serving transactions.
+
+What’s New
+~~~~~~~~~~
+
+Module Prefixes
+^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+When upgrading a package using a DAML upgrade workflow, one has to
+import both the old and new version of the package as dependencies.
+If both the package and module names are the same, this used to
+require setting compiler flags. The new Module Prefixes feature gives
+an easier means of disambiguating the packages and modules.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+The compiler picks up a new block ``module-prefixes`` specified
+in ``daml.yaml``. ``module-prefixes`` takes entries of the form 
+``package: Prefix``, and modules from the package are then accessible using that
+prefix. For example, the below makes
+module ``X`` from ``foo-1.0.0`` available as ``Foo1.X``,
+and ``X`` from ``foo-2.0.0`` as ``Foo2.X``.
+
+.. code::
+
+   module-prefixes:
+     foo-1.0.0: Foo1
+     foo-2.0.0: Foo2
+
+Refer to the `documentation <https://docs.daml.com/1.2.0/daml/reference/packages.html#handling-module-name-collisions>`__ for
+detailed information.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This is a purely additive feature, so no migration is necessary. If
+your project uses the old ``--package`` compiler flag to disambiguate
+packages, you can switch to this simpler method.
+
+Minor Improvements
+~~~~~~~~~~~~~~~~~~
+
+-  The Sandbox’s ``--max-lf-value-translation-cache-entries`` option
+   allows you to set a number of events for which DAML-LF values are
+   cached. This can reduce latency in serving transactions.
+-  ``daml damlc inspect-dar`` now has a ``--json`` flag to produce
+   machine-readable output. See
+   the `documentation <https://docs.daml.com/1.2.0/daml/reference/packages.html#inspecting-dars>`__
+   for more information.
+-  The Scala bindings have gained a method, ``LedgerClient#close``, which
+   will shut down the channel and await termination. This is
+   optional; the channel will still be shut down on JVM exit if this
+   method is not called.
+-  Record dot syntax like ``rec.field1.field2`` is now handled in
+   expressions entered into the REPL.
+-  ``daml trigger``, ``daml script`` and ``daml repl`` now all support
+   the ``--max-inbound-message-size`` command line flag, which configures
+   the maximum size of transactions that can be handled.
+-  The ``createAndExerciseCmd`` command has been added to DAML Triggers.
+
+Security and Bugfixes
+~~~~~~~~~~~~~~~~~~~~~
+
+-  Dependencies have been upgraded to newer versions to avoid
+   exposure to reported security vulnerabilities.
+
+   -  Upgrade ``jackson`` version to ``2.11.0`` from ``2.9.9.3``
+   -  Upgrade ``io.grpc:grpc-xxxxx`` and ``io.netty:netty-xxx`` version
+      to latest
+   -  Upgrade ``protobuf`` and ``protobuf-java`` to 3.11.0
+
+-  A Sandbox Classic migration issue when used with postgres has been
+   fixed.
+   See `#6017 <https://github.com/digital-asset/daml/issues/6017>`__
+-  A bug where large multi-command transactions would cause a stack
+   overflow in DAML Script was fixed.
+-  The Standard Library’s ``DA.Text.splitOn`` function will now correctly
+   handle the case where the separator appears at the end but should
+   not be matched, as in ``splitOn "aa" "aaa" == ["", "a"]``.
+   See `#5786 <https://github.com/digital-asset/daml/issues/6017>`__ for
+   more details.
+-  The DAML linter, dlint, has been improved by removing some
+   Haskell-based rules not currently applicable to DAML and by
+   changing some function references.
+
+Ledger Integration Kit
+~~~~~~~~~~~~~~~~~~~~~~
+
+-  The Ledger API Server emits new metrics for the LF Value Cache. If
+   the ``--max-state-value-cache-size`` is greater than zero, the
+   following additional metrics will be recorded under the
+   ``daml.kvutils.submission.validator.state_value_cache`` namespace: 
+
+   -  ``hits``
+   -  ``misses``
+   -  ``load_successes``
+   -  ``load_failures``
+   -  ``load_total_time``
+   -  ``evictions``
+   -  ``evicted_weight``
+
+-  Added new Ledger API Server metrics
+   for ``daml.index.db.*.translation`` to measure the time spent
+   translating to and from the serialized DAML-LF values when fetched
+   from the participant index.
+-  Added new Ledger API Server metrics
+   for ``daml.index.db.*.deserialization`` to measure the duration of the
+   translation of the serialized DAML-LF values when fetched from the
+   participant index.
+-  The Ledger API Test Tool has gained
+   the ``TransactionSize`` performance benchmark test.
+
+.. _release-1.1.1:
+
+1.1.1 - 2020-05-13
 ------------------
 
 Summary
@@ -363,7 +822,7 @@ Impact and Migration
 >>>>>>>>>>>>>>>>>>>>
 
 Old applications will continue running against new ledgers, but
-ledger effective time and maximum record time set on submissions will
+ledger time and maximum record time set on submissions will
 be ignored. As soon as the client-side language bindings or compiled
 gRPC services are updated, the fields will need to be removed as they
 are no longer part of the API specification.

@@ -7,7 +7,9 @@ module ScriptTest where
 
 import DA.Action
 import DA.Assert
+import DA.Date
 import DA.Foldable hiding (length)
+import DA.List
 import DA.Time
 import Daml.Script
 
@@ -149,8 +151,8 @@ testStack = do
   results <- submit p $ replicateA 1000 (createCmd (C p 42))
   assert (length results == 1000)
 
-time : Script (Time, Time)
-time = do
+testGetTime : Script (Time, Time)
+testGetTime = do
   t1 <- getTime
   t2 <- getTime
   assert (t1 <= t2)
@@ -170,6 +172,15 @@ partyIdHintTest = do
   carol <- allocatePartyWithHint "carol" (PartyIdHint "carol")
   dan <- allocatePartyWithHint "dan" (PartyIdHint "dan")
   pure (carol, dan)
+
+listKnownPartiesTest : Script ([PartyDetails], Party)
+listKnownPartiesTest = do
+  before <- listKnownParties
+  p <- allocateParty "myparty"
+  after <- listKnownParties
+  let new = after \\ before
+  new === [PartyDetails p (Some "myparty") True]
+  pure (new, p)
 
 auth : (Party, Party) -> Script ()
 auth (alice, bob) = do
@@ -218,6 +229,18 @@ jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd
 jsonAllocateParty : Text -> Script Party
 jsonAllocateParty p = allocatePartyWithHint p (PartyIdHint p)
 
+jsonMultiParty : (Party, Party) -> Script ()
+jsonMultiParty (alice, bob) = do
+  assert (alice /= bob)
+  c <- submit alice $ createCmd (TProposal alice bob)
+  submit bob (exerciseCmd c Accept)
+  pure ()
+
+jsonMissingTemplateId : Party -> Script Int
+jsonMissingTemplateId p = do
+  cid <- submit p (createCmd $ TProposal p p)
+  snd <$> submit p (exerciseCmd cid Accept)
+
 -- maxInboundMessageSize
 
 template MessageSize
@@ -240,3 +263,9 @@ testMaxInboundMessageSize : Script () = do
   b <- submit p do createCmd (MessageSize p)
   submit p do exerciseCmd b CreateN with n = 50000
   return ()
+
+testSetTime : Script (Time, Time) = do
+  t0 <- getTime
+  setTime (time (date 2000 Feb 2) 0 1 2)
+  t1 <- getTime
+  pure (t0, t1)

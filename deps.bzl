@@ -32,12 +32,12 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 rules_scala_sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d"
 
-rules_haskell_version = "ac87721a4dbc0f7dbe731df928d322f02ed93330"
-rules_haskell_sha256 = "684f91defad36e9d6ce3ac4213864b89e8f6fe813508ae93bfe80996447a1516"
+rules_haskell_version = "eb16a5401770098a801775ea3a893b09cafe054c"
+rules_haskell_sha256 = "2fcab6b01a184435359f6bcbb9403f0457c2a4e0f1b1a4572b9d7f89d2fc5431"
 rules_nixpkgs_version = "d3c7bc94fed4001d5375632a936d743dc085c9a1"
 rules_nixpkgs_sha256 = "903c6b98aa6a298bf45a6b931e77a3313c40a0cb1b44fa00d9792f9e8aedbb35"
-buildifier_version = "0.26.0"
-buildifier_sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29"
+buildifier_version = "3.3.0"
+buildifier_sha256 = "f11fc80da0681a6d64632a850346ed2d4e5cbb0908306d9a2a2915f707048a10"
 zlib_version = "cacf7f1d4e3d44d871b605da3b647f07d718623f"
 zlib_sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45"
 rules_nodejs_version = "1.6.0"
@@ -54,8 +54,8 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "32bc69d42c49be5844650ddf81d3ac37e5f7fc8b"  # 2020-05-19
-daml_cheat_sheet_sha256 = "f21626f0eb258ad578d7a73afa2256d976fcf0680be2d5eeefbac392a9b01496"
+daml_cheat_sheet_version = "9d44b550de6c5d23096116da37ccb2fb4a90f7af"  # 2020-06-30
+daml_cheat_sheet_sha256 = "6429b73e33a7a937048c3d1316182bff0cb34b6aed30e2915875da698ee4d5c9"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -78,8 +78,6 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # This can be upstreamed.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-pgmc.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -143,6 +141,7 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
                 "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
+                "@com_github_digital_asset_daml//bazel_tools:scala-fix-jopt-simple-version.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -150,9 +149,9 @@ def daml_deps():
     if "io_bazel_rules_docker" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_docker",
-            url = "https://github.com/bazelbuild/rules_docker/releases/download/v0.12.1/rules_docker-v0.12.1.tar.gz",
-            strip_prefix = "rules_docker-0.12.1",
-            sha256 = "14ac30773fdb393ddec90e158c9ec7ebb3f8a4fd533ec2abbfd8789ad81a284b",
+            url = "https://github.com/bazelbuild/rules_docker/releases/download/v0.14.3/rules_docker-v0.14.3.tar.gz",
+            strip_prefix = "rules_docker-0.14.3",
+            sha256 = "6287241e033d247e9da5ff705dd6ef526bac39ae82f3d17de1b69f8cb313f9cd",
         )
 
     if "com_google_protobuf" not in native.existing_rules():
@@ -322,14 +321,14 @@ genrule(
   cmd = '''
     DIR=$$(dirname $(execpath _config.yml))
     $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
-    tar hc _site \
-        --owner=1000 \
-        --group=1000 \
-        --mtime=2000-01-01\ 00:00Z \
-        --no-acls \
-        --no-xattrs \
-        --no-selinux \
-        --sort=name \
+    tar hc _site \\
+        --owner=1000 \\
+        --group=1000 \\
+        --mtime=2000-01-01\\ 00:00Z \\
+        --no-acls \\
+        --no-xattrs \\
+        --no-selinux \\
+        --sort=name \\
         | gzip -n > $(OUTS)
   ''',
 )

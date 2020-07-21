@@ -13,7 +13,7 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.Future
 
-final class PartyManagementServiceAuthorization(
+private[daml] final class PartyManagementServiceAuthorization(
     protected val service: PartyManagementService with AutoCloseable,
     private val authorizer: Authorizer)
     extends PartyManagementService

@@ -73,8 +73,7 @@
   "exercise": {
     "prefix": "exercise",
     "body": [
-      "${1:contractId} <- exercise ${2:contractId} ${3:Transfer} with ${4:newOwner} = ${5:value}",
-      "$6"
+        "exercise ${1:contractId} ${2:Transfer}"
     ]
   },
   "let": {

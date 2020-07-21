@@ -16,7 +16,7 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.Future
 
-final class LedgerIdentityServiceAuthorization(
+private[daml] final class LedgerIdentityServiceAuthorization(
     protected val service: LedgerIdentityServiceGrpc.LedgerIdentityService with AutoCloseable,
     private val authorizer: Authorizer)
     extends LedgerIdentityServiceGrpc.LedgerIdentityService

@@ -15,19 +15,14 @@ showing you three things:
     3. How to write a new feature for the app (:doc:`first-feature`)
 
 We do not aim to be comprehensive in all DAML concepts and tools (covered in :doc:`Writing DAML </daml/intro/0_Intro>`) or in all deployment options (see :doc:`Deploying </deploy/index>`).
-The goal is that by the end of this tutorial, you'll have a good idea of the following:
+**For a quick overview of the most important DAML concepts used in this tutorial open** `the DAML cheat-sheet <https://docs.daml.com/cheat-sheet/>`_ **in a separate tab**. The goal is that by the end of this tutorial,
+you'll have a good idea of the following:
 
     1. What DAML contracts and ledgers are
     2. How a user interface (UI) interacts with a DAML ledger
     3. How DAML helps you build a real-life application fast.
 
 With that, let's get started!
-
-.. toctree::
-   :hidden:
-
-   app-architecture
-   first-feature
 
 Prerequisites
 *************
@@ -72,7 +67,7 @@ In order to connect the UI code to this DAML, we need to run a code generation s
 Now, changing to the ``ui`` folder, use Yarn to install the project dependencies::
 
     cd ui
-    yarn install
+    yarn install --force --frozen-lockfile
 
 This step may take a couple of moments (it's worth it!).
 You should see ``success Saved lockfile.`` in the output if everything worked as expected.

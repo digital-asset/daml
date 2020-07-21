@@ -9,7 +9,6 @@ import java.time.Duration
 import scala.util.Try
 
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
     darPath: File,
@@ -18,7 +17,7 @@ case class RunnerConfig(
     ledgerPort: Option[Int],
     participantConfig: Option[File],
     // optional so we can detect if both --static-time and --wall-clock-time are passed.
-    timeProviderType: Option[TimeProviderType],
+    timeMode: Option[ScriptTimeMode],
     commandTtl: Duration,
     inputFile: Option[File],
     outputFile: Option[File],
@@ -30,7 +29,7 @@ case class RunnerConfig(
 
 object RunnerConfig {
 
-  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+  val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
   val DefaultMaxInboundMessageSize: Int = 4194304
 
   private def validatePath(path: String, message: String): Either[String, Unit] = {
@@ -68,13 +67,13 @@ object RunnerConfig {
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
-        setTimeProviderType(c, TimeProviderType.WallClock)
+        setTimeMode(c, ScriptTimeMode.WallClock)
       }
       .text("Use wall clock time (UTC).")
 
     opt[Unit]('s', "static-time")
       .action { (_, c) =>
-        setTimeProviderType(c, TimeProviderType.Static)
+        setTimeMode(c, ScriptTimeMode.Static)
       }
       .text("Use static time.")
 
@@ -122,7 +121,7 @@ object RunnerConfig {
 
     opt[String]("cacrt")
       .optional()
-      .text("TLS: The crt file to be used as the the trusted root CA.")
+      .text("TLS: The crt file to be used as the trusted root CA.")
       .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
       .action((path, arguments) =>
         arguments.copy(tlsConfig = arguments.tlsConfig.fold(
@@ -157,8 +156,6 @@ object RunnerConfig {
         failure("Cannot specify both --ledger-host and --participant-config")
       } else if (c.ledgerHost.isEmpty && c.participantConfig.isEmpty) {
         failure("Must specify either --ledger-host or --participant-config")
-      } else if (c.jsonApi && c.accessTokenFile.isEmpty) {
-        failure("The json-api requires an access token")
       } else {
         success
       }
@@ -166,15 +163,15 @@ object RunnerConfig {
 
   }
 
-  private def setTimeProviderType(
+  private def setTimeMode(
       config: RunnerConfig,
-      timeProviderType: TimeProviderType,
+      timeMode: ScriptTimeMode,
   ): RunnerConfig = {
-    if (config.timeProviderType.exists(_ != timeProviderType)) {
+    if (config.timeMode.exists(_ != timeMode)) {
       throw new IllegalStateException(
         "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
     }
-    config.copy(timeProviderType = Some(timeProviderType))
+    config.copy(timeMode = Some(timeMode))
   }
 
   def parse(args: Array[String]): Option[RunnerConfig] =
@@ -186,7 +183,7 @@ object RunnerConfig {
         ledgerHost = None,
         ledgerPort = None,
         participantConfig = None,
-        timeProviderType = None,
+        timeMode = None,
         commandTtl = Duration.ofSeconds(30L),
         inputFile = None,
         outputFile = None,

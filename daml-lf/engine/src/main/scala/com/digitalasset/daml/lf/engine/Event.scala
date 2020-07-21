@@ -22,7 +22,7 @@ sealed trait Event[+Nid, +Cid, +Val]
     with Serializable {
   def witnesses: Set[Party]
 
-  final override protected val self: this.type = this
+  final override protected def self: this.type = this
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   final def mapContractId[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): Event[Nid, Cid2, Val2] =
@@ -31,7 +31,7 @@ sealed trait Event[+Nid, +Cid, +Val]
     Event.map3(f, identity[Cid], identity[Val])(this)
 
   final def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
-    Event.foreach3(fNid, fCid, fVal)(self)
+    Event.foreach3(fNid, fCid, fVal)(this)
 }
 
 /** Event for created contracts, follows ledger api event protocol

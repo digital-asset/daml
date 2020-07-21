@@ -34,7 +34,8 @@ sys.path.insert(0, os.path.abspath('../static'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.extlinks'
+    'sphinx.ext.extlinks',
+    'sphinx_copybutton'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -103,6 +104,8 @@ html_static_path = []
 
 # Don't show "powered by sphinx"
 html_show_sphinx = False
+
+html_show_copyright = False
 
 # Don't display the link to the sources
 html_show_sourcelink = False

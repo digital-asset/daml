@@ -3,7 +3,9 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_binary",
+    "lf_scalacopts",
 )
 
 da_scala_binary(
@@ -27,5 +29,57 @@ da_scala_binary(
         "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
+    ],
+)
+
+da_scala_binary(
+    name = "integrity-check-v2",
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/kvutils/tools/*"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.IntegrityCheckV2",
+    resources = glob(["src/main/resources/*"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//ledger/ledger-on-memory",
+        "//ledger/metrics",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
+        "//libs-scala/direct-execution-context",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "benchmark-replay",
+    srcs = glob([
+        "src/test/scala/**/Replay.scala",
+        "src/test/scala/**/Adapter.scala",
+    ]),
+    max_heap_size = "4g",
+    scalacopts = lf_scalacopts,
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_java_proto",
+        "//daml-lf/transaction-test-lib",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

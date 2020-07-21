@@ -1,3 +1,4 @@
+.bazel-cache
 dev-env/var
 scratch/
 compiler/daml-extension/node_modules/

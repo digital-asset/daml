@@ -22,10 +22,18 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
-    "succeed" in KVTest.runTest {
+    "be able to submit a party allocation" in KVTest.runTest {
       withParticipantId(p0) {
         submitPartyAllocation("ok", "alice", p0).map { logEntry =>
           logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
+        }
+      }
+    }
+
+    "be able to pre-execute a party allocation" in KVTest.runTest {
+      withParticipantId(p0) {
+        preExecutePartyAllocation("ok", "alice", p0).map { preExecutionResult =>
+          preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         }
       }
     }
@@ -72,11 +80,10 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
           DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
         logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual
           DamlPartyAllocationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
-
       }
     }
 
-    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+    "update metrics" in KVTest.runTestWithSimplePackage() {
       for {
         //Submit party twice to force one acceptance and one rejection on duplicate
         _ <- submitPartyAllocation("submission-1", "alice", p0)
@@ -89,5 +96,4 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
       }
     }
   }
-
 }

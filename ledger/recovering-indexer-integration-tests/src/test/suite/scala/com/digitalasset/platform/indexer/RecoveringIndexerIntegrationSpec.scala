@@ -12,7 +12,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
-import com.daml.caching.Cache
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
@@ -27,6 +26,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
 import com.daml.resources.ResourceOwner
@@ -188,7 +188,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     for {
       actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      participantState <- newParticipantState(Some(ledgerId), participantId)(materializer, logCtx)
+      participantState <- newParticipantState(ledgerId, participantId)(materializer, logCtx)
       _ <- new StandaloneIndexerServer(
         readService = participantState,
         config = IndexerConfig(
@@ -198,7 +198,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
           restartDelay = restartDelay,
         ),
         metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = Cache.none,
+        lfValueTranslationCache = LfValueTranslation.Cache.none,
       )(materializer, logCtx)
     } yield participantState
   }
@@ -211,7 +211,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       jdbcUrl = jdbcUrl,
       eventsPageSize = 100,
       metrics = new Metrics(new MetricRegistry),
-      lfValueTranslationCache = Cache.none,
+      lfValueTranslationCache = LfValueTranslation.Cache.none,
     )
   }
 }
@@ -226,14 +226,14 @@ object RecoveringIndexerIntegrationSpec {
     SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
-    def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+    def apply(ledgerId: LedgerId, participantId: ParticipantId)(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[ParticipantState]
   }
 
   private object SimpleParticipantState extends ParticipantStateFactory {
-    override def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] = {
@@ -243,13 +243,13 @@ object RecoveringIndexerIntegrationSpec {
         BatchingLedgerWriterConfig.reasonableDefault,
         participantId,
         metrics = metrics,
-        engine = Engine()
+        engine = Engine.DevEngine()
       ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
-    override def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] =

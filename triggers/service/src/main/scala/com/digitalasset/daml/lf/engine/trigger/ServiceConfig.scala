@@ -9,6 +9,9 @@ import java.time.Duration
 import com.daml.platform.services.time.TimeProviderType
 import scalaz.Show
 
+import scala.concurrent.duration
+import scala.concurrent.duration.FiniteDuration
+
 case class ServiceConfig(
     // For convenience, we allow passing in a DAR on startup
     // as opposed to uploading it dynamically.
@@ -17,13 +20,12 @@ case class ServiceConfig(
     ledgerHost: String,
     ledgerPort: Int,
     maxInboundMessageSize: Int,
-    // These 2 parameters mean that a failing trigger will be
-    // restarted up to n times within k seconds.
-    maxFailureNumberOfRetries: Int,
-    failureRetryTimeRange: Duration, // in seconds
+    minRestartInterval: FiniteDuration,
+    maxRestartInterval: FiniteDuration,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     init: Boolean,
+    noSecretKey: Boolean, // Default false
     jdbcConfig: Option[JdbcConfig],
 )
 
@@ -75,8 +77,8 @@ object JdbcConfig {
 object ServiceConfig {
   val DefaultHttpPort: Int = 8088
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
-  val DefaultMaxFailureNumberOfRetries: Int = 3
-  val DefaultFailureRetryTimeRange: Duration = Duration.ofSeconds(60)
+  val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
+  val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
 
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
@@ -84,22 +86,22 @@ object ServiceConfig {
     opt[String]("dar")
       .optional()
       .action((f, c) => c.copy(darPath = Some(Paths.get(f))))
-      .text("Path to the dar file containing the trigger")
+      .text("Path to the dar file containing the trigger.")
 
     opt[Int]("http-port")
       .optional()
       .action((t, c) => c.copy(httpPort = t))
-      .text(s"Optional HTTP port. Defaults to ${DefaultHttpPort}")
+      .text(s"Optional HTTP port. Defaults to ${DefaultHttpPort}.")
 
     opt[String]("ledger-host")
       .required()
       .action((t, c) => c.copy(ledgerHost = t))
-      .text("Ledger hostname")
+      .text("Ledger hostname.")
 
     opt[Int]("ledger-port")
       .required()
       .action((t, c) => c.copy(ledgerPort = t))
-      .text("Ledger port")
+      .text("Ledger port.")
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
@@ -107,18 +109,17 @@ object ServiceConfig {
       .text(
         s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}.")
 
-    opt[Int]("max-failure-number-of-retries")
-      .action((x, c) => c.copy(maxFailureNumberOfRetries = x))
+    opt[Long]("min-restart-interval")
+      .action((x, c) => c.copy(minRestartInterval = FiniteDuration(x, duration.SECONDS)))
       .optional()
       .text(
-        s"Max number of times to try to restart a failing trigger (within allowed time range). Defaults to ${DefaultMaxFailureNumberOfRetries}.")
+        s"Minimum time interval before restarting a failed trigger. Defaults to ${DefaultMinRestartInterval.toSeconds} seconds.")
 
-    opt[Long]("failure-retry-time-range")
-      .action { (t, c) =>
-        c.copy(failureRetryTimeRange = Duration.ofSeconds(t))
-      }
+    opt[Long]("max-restart-interval")
+      .action((x, c) => c.copy(maxRestartInterval = FiniteDuration(x, duration.SECONDS)))
+      .optional()
       .text(
-        "Allow up to max number of restarts of a failing trigger within this many seconds. Defaults to " + DefaultFailureRetryTimeRange.getSeconds.toString + "s.")
+        s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
 
     opt[Unit]('w', "wall-clock-time")
       .action { (t, c) =>
@@ -139,9 +140,14 @@ object ServiceConfig {
       .valueName(JdbcConfig.usage)
       .text("JDBC configuration parameters. If omitted the service runs without a database.")
 
+    opt[Unit]("no-secret-key")
+      .action((_, c) => c.copy(noSecretKey = true))
+      .text("Allow running without a secret key.")
+
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
       .text("Initialize database and terminate.")
+
   }
 
   def parse(args: Array[String]): Option[ServiceConfig] =
@@ -153,11 +159,12 @@ object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
-        maxFailureNumberOfRetries = DefaultMaxFailureNumberOfRetries,
-        failureRetryTimeRange = DefaultFailureRetryTimeRange,
+        minRestartInterval = DefaultMinRestartInterval,
+        maxRestartInterval = DefaultMaxRestartInterval,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         init = false,
+        noSecretKey = false,
         jdbcConfig = None,
       ),
     )

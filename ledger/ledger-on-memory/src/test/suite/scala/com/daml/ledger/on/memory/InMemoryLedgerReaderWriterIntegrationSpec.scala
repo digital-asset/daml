@@ -39,7 +39,7 @@ abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boo
   override val isPersistent: Boolean = false
 
   override def participantStateFactory(
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,
@@ -49,7 +49,7 @@ abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boo
       batchingLedgerWriterConfig,
       participantId,
       metrics = metrics,
-      engine = Engine()
+      engine = Engine.DevEngine()
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }
 

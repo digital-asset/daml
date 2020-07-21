@@ -23,4 +23,4 @@ if [ -z "$WITH_POSTGRES" ]; then
     echo "Faild to find with-postgres wrapper"
     exit 1
 fi
-$WITH_POSTGRES $(rlocation daml-sdk-$version/daml) sandbox $extra_args
+$WITH_POSTGRES $(rlocation daml-sdk-$version/daml) $extra_args

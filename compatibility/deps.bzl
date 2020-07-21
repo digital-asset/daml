@@ -45,6 +45,8 @@ load(
     "zlib_sha256",
     "zlib_version",
 )
+load("//:versions.bzl", "latest_stable_version", "version_sha256s")
+load("@os_info//:os_info.bzl", "os_name")
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -56,7 +58,6 @@ def daml_deps():
                 "@daml//bazel_tools:haskell-strict-source-names.patch",
                 "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                "@daml//bazel_tools:haskell-pgmc.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -129,3 +130,13 @@ def daml_deps():
             ],
             patch_args = ["-p1"],
         )
+
+    # The tests for the `platform-version` field need a proper assistant installation with
+    # multiple installed SDKs. Therefore, we fetch the (unextracted) installation
+    # tarball for the latest stable release. Together with the tarball for HEAD
+    # that gives us two SDK version to test with.
+    http_file(
+        name = "daml-sdk-tarball-latest-stable",
+        sha256 = version_sha256s[latest_stable_version][os_name],
+        urls = ["https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}.tar.gz".format(latest_stable_version, latest_stable_version, os_name)],
+    )

@@ -259,6 +259,15 @@ private[client] object OnlyPrimitive extends Primitive {
                 choiceArgument = Some(argument)
               )
             )
+          case _: ExerciseOn.OnKey[Tpl] =>
+            rpccmd.Command.Command.ExerciseByKey(
+              rpccmd.ExerciseByKeyCommand(
+                templateId = Some(templateCompanion.id.unwrap),
+                contractKey = Some((receiver: Template.Key[Tpl]).encodedKey),
+                choice = choiceId,
+                choiceArgument = Some(argument)
+              )
+            )
         }
       },
       templateCompanion

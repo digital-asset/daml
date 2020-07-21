@@ -47,6 +47,39 @@ EOF
     visibility = ["//visibility:public"],
 )
 
+# A variant of script-test that has not been uploaded to the ledger
+# to test missing template ids. We only care that this has a different package id.
+genrule(
+    name = "script-test-no-ledger",
+    srcs =
+        glob(["**/*.daml"]) + [
+            "//daml-script/daml:daml-script.dar",
+            "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+        ],
+    outs = ["script-test-no-ledger.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: script-test-no-ledger
+source: daml
+version: 0.0.2
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test-no-ledger.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
 da_scala_library(
     name = "test-lib",
     srcs = glob(
@@ -65,7 +98,9 @@ da_scala_library(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-common",
-        "//libs-scala/auth-utils",
+        #        "//libs-scala/auth-utils",
+        "//ledger/ledger-api-auth",
+        "//ledger-service/jwt",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
@@ -93,7 +128,10 @@ da_scala_test_suite(
     srcs = [
         "src/com/digitalasset/daml/lf/engine/script/test/JsonApiIt.scala",
     ],
-    data = [":script-test.dar"],
+    data = [
+        ":script-test.dar",
+        ":script-test-no-ledger.dar",
+    ],
     resources = glob(["src/main/resources/**/*"]),
     deps = [
         ":test-lib",
@@ -114,9 +152,13 @@ da_scala_test_suite(
         "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/participant-state",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
         "//libs-scala/auth-utils",
         "//libs-scala/ports",
@@ -135,7 +177,7 @@ client_server_test(
     client = ":test_client_single_participant",
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--static-time",
         "--port=0",
@@ -149,7 +191,7 @@ client_server_test(
     client_args = ["-w"],
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--wall-clock-time",
         "--port=0",
@@ -157,42 +199,24 @@ client_server_test(
     server_files = ["$(rootpath :script-test.dar)"],
 )
 
-AUTH_TOKEN = "I_CAN_HAZ_AUTH"
-
-# This is a genrule so we can replace it by something nicer that actually generates the token
-# from some readable input so we can change it more easily.
-# For now, this corresponds to a token that has admin set to false
-# and actAs to Alice, Bob
-genrule(
-    name = "test-auth-token",
-    outs = ["test-auth-token.jwt"],
-    cmd = """
-      cat <<EOF > $(location test-auth-token.jwt)
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsiYWRtaW4iOmZhbHNlLCJhY3RBcyI6WyJBbGljZSIsIkJvYiJdfX0.UYogXMZvmhzzjmsmKayaDsI2hGKh1T2Sz5l9h4tdgGM
-EOF
-    """,
-)
-
 client_server_test(
     name = "test_wallclock_time_authenticated",
     client = ":test_client_single_participant",
     client_args = [
         "-w",
-        "--access-token-file",
+        "--auth",
     ],
     client_files = [
-        "$(rootpath :test-auth-token.jwt)",
         "$(rootpath :script-test.dar)",
     ],
     data = [
         ":script-test.dar",
-        ":test-auth-token.jwt",
     ],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--wall-clock-time",
         "--port=0",
-        "--auth-jwt-hs256-unsafe={}".format(AUTH_TOKEN),
+        "--auth-jwt-hs256-unsafe=secret",
     ],
     server_files = ["$(rootpath :script-test.dar)"],
 )
@@ -213,7 +237,7 @@ client_server_test(
         "//ledger/test-common/test-certificates:server.crt",
         "//ledger/test-common/test-certificates:server.pem",
     ],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--wall-clock-time",
         "--port=0",

@@ -70,7 +70,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         metrics = metrics,
         engine,
         jdbcUrl,
-        stateValueCache = caching.Cache.from(
+        stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),

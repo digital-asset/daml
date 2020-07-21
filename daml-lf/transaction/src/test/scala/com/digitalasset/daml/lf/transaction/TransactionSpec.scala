@@ -14,7 +14,7 @@ import com.daml.lf.transaction.GenTransaction.{
 }
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.ValueGenerators.danglingRefGenNode
+import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
@@ -27,39 +27,39 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
   "isWellFormed" - {
     "detects dangling references in roots" in {
-      val tx = mkTransaction(HashMap.empty, ImmArray(V.NodeId(1)))
-      tx.isWellFormed shouldBe Set(NotWellFormedError(V.NodeId(1), DanglingNodeId))
+      val tx = mkTransaction(HashMap.empty, ImmArray(NodeId(1)))
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), DanglingNodeId))
     }
 
     "detects dangling references in children" in {
       val tx = mkTransaction(
-        HashMap(V.NodeId(1) -> dummyExerciseNode("cid1", ImmArray(V.NodeId(2)))),
-        ImmArray(V.NodeId(1)))
-      tx.isWellFormed shouldBe Set(NotWellFormedError(V.NodeId(2), DanglingNodeId))
+        HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2)))),
+        ImmArray(NodeId(1)))
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(2), DanglingNodeId))
     }
 
     "detects cycles" in {
       val tx = mkTransaction(
-        HashMap(V.NodeId(1) -> dummyExerciseNode("cid1", ImmArray(V.NodeId(1)))),
-        ImmArray(V.NodeId(1)))
-      tx.isWellFormed shouldBe Set(NotWellFormedError(V.NodeId(1), AliasedNode))
+        HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(1)))),
+        ImmArray(NodeId(1)))
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), AliasedNode))
     }
 
     "detects aliasing from roots and exercise" in {
       val tx = mkTransaction(
         HashMap(
-          V.NodeId(0) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(1))),
-          V.NodeId(1) -> dummyExerciseNode("cid1", ImmArray(V.NodeId(2))),
-          V.NodeId(2) -> dummyCreateNode("cid2"),
+          NodeId(0) -> dummyExerciseNode("cid0", ImmArray(NodeId(1))),
+          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2))),
+          NodeId(2) -> dummyCreateNode("cid2"),
         ),
-        ImmArray(V.NodeId(0), V.NodeId(2)),
+        ImmArray(NodeId(0), NodeId(2)),
       )
-      tx.isWellFormed shouldBe Set(NotWellFormedError(V.NodeId(2), AliasedNode))
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(2), AliasedNode))
     }
 
     "detects orphans" in {
-      val tx = mkTransaction(HashMap(V.NodeId(1) -> dummyCreateNode("cid1")), ImmArray.empty)
-      tx.isWellFormed shouldBe Set(NotWellFormedError(V.NodeId(1), OrphanedNode))
+      val tx = mkTransaction(HashMap(NodeId(1) -> dummyCreateNode("cid1")), ImmArray.empty)
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), OrphanedNode))
     }
   }
 
@@ -68,11 +68,11 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     "collects contract IDs" in {
       val tx = mkTransaction(
         HashMap(
-          V.NodeId(0) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(1))),
-          V.NodeId(1) -> dummyExerciseNode("cid1", ImmArray(V.NodeId(2))),
-          V.NodeId(2) -> dummyCreateNode("cid2"),
+          NodeId(0) -> dummyExerciseNode("cid0", ImmArray(NodeId(1))),
+          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2))),
+          NodeId(2) -> dummyCreateNode("cid2"),
         ),
-        ImmArray(V.NodeId(0), V.NodeId(2)),
+        ImmArray(NodeId(0), NodeId(2)),
       )
 
       def collectCids(tx: Transaction): Set[V.ContractId] = {
@@ -92,12 +92,12 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
       val tx = mkTransaction(
         HashMap(
-          V.NodeId(0) -> dummyCreateNode("cid0"),
-          V.NodeId(1) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(2))),
-          V.NodeId(2) -> dummyExerciseNode("cid1", ImmArray.empty),
-          V.NodeId(3) -> dummyCreateNode("cid2"),
+          NodeId(0) -> dummyCreateNode("cid0"),
+          NodeId(1) -> dummyExerciseNode("cid0", ImmArray(NodeId(2))),
+          NodeId(2) -> dummyExerciseNode("cid1", ImmArray.empty),
+          NodeId(3) -> dummyCreateNode("cid2"),
         ),
-        ImmArray(V.NodeId(0), V.NodeId(1), V.NodeId(3)),
+        ImmArray(NodeId(0), NodeId(1), NodeId(3)),
       )
 
       val result = tx.foldInExecutionOrder(List.empty[String])(
@@ -168,11 +168,11 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
       val tx = mkTransaction(
         HashMap(
-          V.NodeId(0) -> dummyCreateNode("cid1"),
-          V.NodeId(0) -> dummyExerciseNode("cid1", ImmArray(V.NodeId(0))),
-          V.NodeId(1) -> dummyExerciseNode("cid2", ImmArray(V.NodeId(1))),
+          NodeId(0) -> dummyCreateNode("cid1"),
+          NodeId(0) -> dummyExerciseNode("cid1", ImmArray(NodeId(0))),
+          NodeId(1) -> dummyExerciseNode("cid2", ImmArray(NodeId(1))),
         ),
-        ImmArray(V.NodeId(0), V.NodeId(1)),
+        ImmArray(NodeId(0), NodeId(1)),
       )
 
       val suffix1 = Bytes.assertFromString("01")
@@ -206,17 +206,17 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
 object TransactionSpec {
   private[this] type Value = V[V.ContractId]
-  type Transaction = GenTransaction[V.NodeId, V.ContractId, Value]
+  type Transaction = GenTransaction[NodeId, V.ContractId, Value]
   def mkTransaction(
-      nodes: HashMap[V.NodeId, GenNode[V.NodeId, V.ContractId, Value]],
-      roots: ImmArray[V.NodeId],
+      nodes: HashMap[NodeId, GenNode[NodeId, V.ContractId, Value]],
+      roots: ImmArray[NodeId],
   ): Transaction = GenTransaction(nodes, roots)
 
   def dummyExerciseNode(
       cid: V.ContractId,
-      children: ImmArray[V.NodeId],
+      children: ImmArray[NodeId],
       hasExerciseResult: Boolean = true,
-  ): NodeExercises[V.NodeId, V.ContractId, Value] =
+  ): NodeExercises[NodeId, V.ContractId, Value] =
     NodeExercises(
       targetCoid = cid,
       templateId = Ref.Identifier(

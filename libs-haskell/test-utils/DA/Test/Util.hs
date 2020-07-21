@@ -13,6 +13,9 @@ module DA.Test.Util (
     withDevNull,
     assertFileExists,
     assertFileDoesNotExist,
+    limitJvmMemory,
+    defaultJvmMemoryLimits,
+    JvmMemoryLimits(..),
 ) where
 
 import Control.Monad
@@ -44,7 +47,19 @@ withTempFileResource :: (IO FilePath -> TestTree) -> TestTree
 withTempFileResource f = withResource newTempFile snd (f . fmap fst)
 
 withTempDirResource :: (IO FilePath -> TestTree) -> TestTree
-withTempDirResource f = withResource newTempDir snd (f . fmap fst)
+withTempDirResource f = withResource newTempDir delete (f . fmap fst)
+  -- The delete action provided by `newTempDir` calls `removeDirectoryRecursively`
+  -- and silently swallows errors. SDK installations are marked read-only
+  -- which means that they don’t end up being removed which is obviously
+  -- not what we intend.
+  -- As usual Windows is terrible and doesn’t let you remove the SDK
+  -- if there is a process running. Simultaneously it is also terrible
+  -- at process management so we end up with running processes
+  -- since child processes aren’t torn down properly
+  -- (Bazel will kill them later when the test finishes). Therefore,
+  -- we ignore exceptions and hope for the best. On Windows that
+  -- means we still leak directories :(
+  where delete (d, _delete) = void $ tryIO $ removePathForcibly d
 
 nullDevice :: FilePath
 nullDevice
@@ -84,3 +99,23 @@ assertFileExists file = doesFileExist file >>= assertBool (file ++ " was expecte
 
 assertFileDoesNotExist :: FilePath -> IO ()
 assertFileDoesNotExist file = doesFileExist file >>= assertBool (file ++ " was expected to not exist, but does exist") . not
+
+data JvmMemoryLimits = JvmMemoryLimits
+  { initialHeapSize :: String
+  , maxHeapSize :: String
+  }
+
+defaultJvmMemoryLimits :: JvmMemoryLimits
+defaultJvmMemoryLimits = JvmMemoryLimits
+  { initialHeapSize = "128m"
+  , maxHeapSize = "256m"
+  }
+
+limitJvmMemory :: JvmMemoryLimits -> IO ()
+limitJvmMemory JvmMemoryLimits{..} = do
+    setEnv "_JAVA_OPTIONS" limits True
+  where
+    limits = unwords
+      [ "-Xms" <> initialHeapSize
+      , "-Xmx" <> maxHeapSize
+      ]

@@ -24,7 +24,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -137,13 +137,7 @@ object Trigger extends StrictLogging {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
-    val machine = Speedy.Machine.fromSExpr(
-      sexpr = heartbeat,
-      compiledPackages = compiledPackages,
-      submissionTime = Timestamp.now(),
-      seeding = InitialSeeding.NoSeed,
-      Set.empty,
-    )
+    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)
     Machine.stepToValue(machine) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
@@ -160,14 +154,7 @@ object Trigger extends StrictLogging {
     val registeredTemplates =
       compiler.unsafeCompile(
         ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
-    val machine =
-      Speedy.Machine.fromSExpr(
-        sexpr = registeredTemplates,
-        compiledPackages = compiledPackages,
-        submissionTime = Timestamp.now(),
-        seeding = InitialSeeding.NoSeed,
-        Set.empty,
-      )
+    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages: Seq[(PackageId, Package)] = compiledPackages.packageIds
@@ -335,7 +322,7 @@ class Runner(
       name: String,
       acs: Seq[CreatedEvent],
       submit: SubmitRequest => Unit,
-  ): Sink[TriggerMsg, Future[SExpr]] = {
+  ): Sink[TriggerMsg, Future[SValue]] = {
     logger.info(s"Trigger ${name} is running as ${party}")
 
     // Compile the trigger initialState and Update LF functions to
@@ -346,29 +333,20 @@ class Runner(
     val getInitialState: SExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
-    // Prepare a speedy machine for evaluting expressions.
-    var machine: Speedy.Machine = Speedy.Machine.fromSExpr(
-      sexpr = null,
-      compiledPackages = compiledPackages,
-      submissionTime = Timestamp.now(),
-      seeding = InitialSeeding.NoSeed,
-      Set.empty,
-    )
-    // Convert the ACS to a speedy expression.
-    val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
+    // Convert the ACS to a speedy value.
+    val createdValue: SValue = converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)
       case Right(x) => x
-    })
+    }
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     // Setup an application expression of initialState on the ACS.
     val initialState: SExpr =
-      SEApp(
+      makeApp(
         getInitialState,
-        Array(
-          SEValue(SParty(Party.assertFromString(party))),
-          SEValue(STimestamp(clientTime)): SExpr,
-          createdExpr))
+        Array(SParty(Party.assertFromString(party)), STimestamp(clientTime), createdValue))
+    // Prepare a speedy machine for evaluting expressions.
+    val machine: Speedy.Machine = Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
     val value = Machine.stepToValue(machine)
@@ -412,7 +390,7 @@ class Runner(
           }
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
-      .toMat(Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
+      .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
         val messageVal = message match {
           case TransactionMsg(transaction) => {
             converter.fromTransaction(transaction) match {
@@ -435,11 +413,15 @@ class Runner(
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
         machine.setExpressionToEvaluate(
-          SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
+          makeApp(update, Array(STimestamp(clientTime): SValue, messageVal, state)))
         val value = Machine.stepToValue(machine)
         val newState = handleStepResult(value, submit)
-        SEValue(newState)
-      }))(Keep.right[NotUsed, Future[SExpr]])
+        newState
+      }))(Keep.right[NotUsed, Future[SValue]])
+  }
+
+  def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
+    SEApp(func, values.map(SEValue(_)))
   }
 
   // Query the ACS. This allows you to separate the initialization of
@@ -467,7 +449,7 @@ class Runner(
       msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
       name: String = "")(
       implicit materializer: Materializer,
-      executionContext: ExecutionContext): (T, Future[SExpr]) = {
+      executionContext: ExecutionContext): (T, Future[SValue]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
     def submit(req: SubmitRequest): Unit = {
@@ -506,7 +488,7 @@ object Runner extends StrictLogging {
       timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
       party: String
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages(darMap).right.get
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {

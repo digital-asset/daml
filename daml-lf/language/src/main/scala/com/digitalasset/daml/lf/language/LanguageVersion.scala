@@ -36,11 +36,11 @@ object LanguageVersion {
         case (LanguageVersion(leftMajor, _), LanguageVersion(rightMajor, _)) =>
           LanguageMajorVersion.ordering.compare(leftMajor, rightMajor)
     }
+
+  private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_7, v1_8, v1_dev) =
+    Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+
   object Features {
-
-    private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_7, v1_8, v1_dev) =
-      Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
-
     val default = v1_0
     val arrowType = v1_1
     val optional = v1_1
@@ -74,4 +74,5 @@ object LanguageVersion {
     val unstable = v1_dev
 
   }
+
 }

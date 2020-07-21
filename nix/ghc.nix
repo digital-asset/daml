@@ -16,11 +16,6 @@ let
           enableLibraryProfiling = args.enableLibraryProfiling or true;
           doCheck = args.doCheck or false;
       });
-      withPackages = packages: super.callPackage ./with-packages-wrapper.nix {
-          inherit (self) ghc llvmPackages;
-          inherit packages;
-      };
-      ghcWithPackages = selectFrom: withPackages (selectFrom self);
   });
 
   ghc = pkgs.callPackage ./overrides/ghc-8.6.5.nix rec {

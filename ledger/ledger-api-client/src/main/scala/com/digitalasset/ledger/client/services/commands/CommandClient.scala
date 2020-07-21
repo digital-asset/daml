@@ -26,7 +26,7 @@ import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
@@ -49,9 +49,8 @@ final class CommandClient(
     ledgerId: LedgerId,
     applicationId: String,
     config: CommandClientConfiguration,
-    timeProviderO: Option[TimeProvider] = None)(implicit esf: ExecutionSequencerFactory) {
-
-  private val logger = LoggerFactory.getLogger(getClass)
+    timeProviderO: Option[TimeProvider] = None,
+    logger: Logger = LoggerFactory.getLogger(getClass))(implicit esf: ExecutionSequencerFactory) {
 
   /**
     * Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
@@ -60,9 +59,16 @@ final class CommandClient(
   def submitSingleCommand(
       submitRequest: SubmitRequest,
       token: Option[String] = None): Future[Empty] =
+    submit(token)(submitRequest)
+
+  private def submit(token: Option[String])(submitRequest: SubmitRequest): Future[Empty] = {
+    logger.debug(
+      "Invoking grpc-submission on commandId={}",
+      submitRequest.commands.map(_.commandId).getOrElse("no-command-id"))
     LedgerClient
       .stub(commandSubmissionService, token)
       .submit(submitRequest)
+  }
 
   /**
     * Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
@@ -110,9 +116,7 @@ final class CommandClient(
       partyFilter(parties.toSet)
         .via(commandUpdaterFlow[Context])
         .viaMat(CommandTrackerFlow[Context, NotUsed](
-          CommandSubmissionFlow[(Context, String)](
-            LedgerClient.stub(commandSubmissionService, token).submit,
-            config.maxParallelSubmissions),
+          CommandSubmissionFlow[(Context, String)](submit(token), config.maxParallelSubmissions),
           offset => completionSource(parties, offset, token),
           ledgerEnd.getOffset,
           () => config.defaultDeduplicationTime,
@@ -160,10 +164,7 @@ final class CommandClient(
     : Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, SubmitRequest]]
       .via(commandUpdaterFlow)
-      .via(
-        CommandSubmissionFlow[Context](
-          LedgerClient.stub(commandSubmissionService, token).submit,
-          config.maxParallelSubmissions))
+      .via(CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions))
   }
 
   def getCompletionEnd(token: Option[String] = None): Future[CompletionEndResponse] =

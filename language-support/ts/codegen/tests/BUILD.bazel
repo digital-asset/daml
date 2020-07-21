@@ -77,7 +77,7 @@ sh_test(
         "$(location //:java)",
         "$(location //:yarn)",
         "$(location //:daml2js)",
-        "$(location //ledger/sandbox:sandbox-binary_deploy.jar)",
+        "$(location //ledger/sandbox-classic:sandbox-classic-binary_deploy.jar)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
@@ -89,7 +89,7 @@ sh_test(
         "//:java",
         "//:yarn",
         "//:daml2js",
-        "//ledger/sandbox:sandbox-binary_deploy.jar",
+        "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":build-and-lint.dar",
         "//language-support/ts/daml-types:npm_package",
@@ -101,8 +101,6 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
-    # See #6155
-    flaky = True,
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

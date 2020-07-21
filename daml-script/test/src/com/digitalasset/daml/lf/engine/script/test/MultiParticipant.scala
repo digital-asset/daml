@@ -4,14 +4,18 @@
 package com.daml.lf.engine.script.test
 
 import java.io.File
+import scala.collection.JavaConverters._
 import scalaz.syntax.traverse._
 
 import com.daml.lf.archive.Dar
 import com.daml.lf.archive.DarReader
 import com.daml.lf.archive.Decode
+import com.daml.lf.data.{FrontStack, FrontStackCons}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Ref.{Party => LedgerParty}
 import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.svalue
+import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
@@ -59,6 +63,54 @@ case class MultiPartyIdHintTest(dar: Dar[(PackageId, Package)], runner: TestRunn
   }
 }
 
+case class MultiListKnownPartiesTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"))
+  implicit def `SValue Ordering`: Ordering[SValue] = svalue.Ordering
+  def runTests() = {
+    runner.genericTest(
+      "listKnownPartiesTest",
+      scriptId,
+      None, {
+        case SRecord(_, _, vals) if vals.size == 2 =>
+          for {
+            newPartyDetails1 <- vals.get(0) match {
+              case SList(
+                  FrontStackCons(
+                    SRecord(_, _, x),
+                    FrontStackCons(SRecord(_, _, y), FrontStack()))) =>
+                // We take the tail since we only want the display name and isLocal
+                Right(Seq(x, y).map(fs => Seq(fs.asScala: _*).tail))
+              case v => Left(s"Exppected list with two elements but got $v")
+            }
+            newPartyDetails2 <- vals.get(1) match {
+              case SList(
+                  FrontStackCons(
+                    SRecord(_, _, x),
+                    FrontStackCons(SRecord(_, _, y), FrontStack()))) =>
+                Right(Seq(x, y).map(fs => Seq(fs.asScala: _*).tail))
+              case v => Left(s"Exppected list with two elements but got $v")
+            }
+            _ <- TestRunner
+              .assertEqual(
+                newPartyDetails1,
+                Seq(
+                  Seq[SValue](SOptional(Some(SText("p1"))), SBool(true)),
+                  Seq[SValue](SOptional(Some(SText("p2"))), SBool(false))),
+                "partyDetails1")
+            _ <- TestRunner
+              .assertEqual(
+                newPartyDetails2,
+                Seq(
+                  Seq[SValue](SOptional(Some(SText("p1"))), SBool(false)),
+                  Seq[SValue](SOptional(Some(SText("p2"))), SBool(true))),
+                "partyDetails2")
+          } yield ()
+      }
+    )
+  }
+}
+
 object MultiParticipant {
 
   private val configParser = new scopt.OptionParser[MultiParticipantConfig]("daml_script_test") {
@@ -99,14 +151,16 @@ object MultiParticipant {
         val participantParams = Participants(
           None,
           Seq(
-            (Participant("one"), ApiParameters("localhost", config.ledgerPort)),
-            (Participant("two"), ApiParameters("localhost", config.extraParticipantPort))).toMap,
+            (Participant("one"), ApiParameters("localhost", config.ledgerPort, None)),
+            (Participant("two"), ApiParameters("localhost", config.extraParticipantPort, None))
+          ).toMap,
           Map.empty
         )
 
-        val runner = new TestRunner(participantParams, dar, config.wallclockTime, None, None)
+        val runner = new TestRunner(participantParams, dar, config.wallclockTime, None)
         MultiTest(dar, runner).runTests()
         MultiPartyIdHintTest(dar, runner).runTests()
+        MultiListKnownPartiesTest(dar, runner).runTests()
     }
   }
 }

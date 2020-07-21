@@ -26,12 +26,11 @@ For Git commit messages, our principle is that `git log --pretty=oneline` should
 
 ## Pull request checklist
 
-- Read this document (contribution guidelines).
-- Does your PR include appropriate tests?
-- Make sure your PR title and description makes it easy for other developers to understand what the contained commits do. The title should say what the changes do. The description should expand on what it does (if not obvious from the title alone), and say why it is being done.
-- If your PR corresponds to an issue, add “Fixes #XX” to your pull request description. This will auto-close the corresponding issue when the commit is merged into master and tie the PR to the issue.
-- If your PR includes user-facing changes, the squashed commit for the PR must include in its body a section between the ``CHANGELOG_BEGIN`` and ``CHANGELOG_END`` tags that includes relevant changelog entries, where each entry starts with the component to which it belongs in square brackets. Use RST to format links as this text will be added to the changelog upon release.
-- If your PR does not include user-facing changes, you still need to include a changelog section, but it can be empty, i.e. it is valid for the `CHANGELOG_END` to be right after the `CHANGELOG_BEGIN` line.
+* Read this document (contribution guidelines).
+* Does your PR include appropriate tests?
+* Make sure your PR title and description makes it easy for other developers to understand what the contained commits do. The title should say what the changes do. The description should expand on what it does (if not obvious from the title alone), and say why it is being done.
+* If your PR corresponds to an issue, add “Fixes #XX” to your pull request description. This will auto-close the corresponding issue when the commit is merged into master and tie the PR to the issue.
+* the squashed commit for the PR **MUST** include in its body a section between the ``CHANGELOG_BEGIN`` and ``CHANGELOG_END`` tags. This section **MAY** include a list of _user-facing_ changes [Follow these guidelines on how to write a good changelog entry](#writing-a-good-changelog-entry).
 
 The following is an example of a well-formed commit, including the description (first line) and a body that includes changelog additions:
 
@@ -57,13 +56,65 @@ If you want to amend an existing changelog entry part of a PR already merged on 
 
       CHANGELOG_END
 
+If the PR contains no _user-facing_ change, the section **MUST** be there but can be left empty, as in the following example:
+
+      Fixes #6666
+
+      Improve contribution guidelines
+
+      CHANGELOG_BEGIN
+      CHANGELOG_END
+
 If you want to verify the changelog entries as described by a range of Git revisions, you can use the `unreleased.sh` script. In most cases, to see the entries added as part of commits added since branching off of `master`, you can run:
 
     ./unreleased.sh master..
 
+## Writing a good changelog entry
+
+Writing good changelog entries is **important**: as a developer, it gives visibility on your contribution; as a user, it makes clear what is new, what's changed, and how to deal with them, making the product more accessible and your work more meaningful.
+
+The raw changelog is used to compile a meaningful summary of changes across releases. This happens some time after the PR has been merged and the person taking the responsibility of summarizing new user-facing features must be in the position to easily understand the nature of the change and report it. The ideal changelog entry can be more or less incorporated verbatim in the release notes.
+
+Here are a few practical tips:
+
+* if there are no user-facing changes, keep the changelog entry list empty
+* the first term to appear should be the affected component -- [here's a list](#list-of-components-for-changelog-entries)
+* write as many changelog entries as necessary
+* don't be _too_ succinct: a single entry does **not have to** fit on a single line
+* on the other end, if the size grows beyond 5-6 lines, rather add a link to a relevant documentation or issue with more details
+* the ultimate target are end users: focus on the impact on them, tell them what's new or how to deal with a change
+
+### List of components for changelog entries
+
+This list should cover the vast majority of needs. If unsure, ask on the relevant GitHub issue or PR.
+
+  * DAML Compiler
+  * DAML on SQL
+  * DAML Studio
+  * Distribution/Releases
+  * Extractor
+  * Java Bindings
+  * Java Codegen
+  * JavaScript Client Libraries
+  * JavaScript Codegen
+  * JSON API
+  * Ledger API Specification
+  * Integration Kit †
+  * Navigator
+  * DAML REPL
+  * Sandbox
+  * Scala Bindings
+  * Scala Codegen
+  * DAML Script
+  * DAML Assistant
+  * DAML Standard Library
+  * DAML Triggers
+
+† Covers the Ledger API Test Tool and changes to libraries that affect ledger integrations (e.g. `kvutils`)
+
 ## Working with issues
 
-We use issues and [pull requests](https://help.github.com/articles/about-pull-requests/) to collaborate and track our work. Anyone is welcome to open an issue. If you just want to ask a question, please ask away on [Stack Overflow](https://stackoverflow.com/questions/tagged/daml) using the tag `daml`.
+We use issues and [pull requests](https://help.github.com/articles/about-pull-requests/) to collaborate and track our work. Anyone is welcome to open an issue. If you just want to ask a question, please ask away on [the DAML forum](https://discuss.daml.com).
 
 We encourage everyone to vote on issues that they support or not:
 

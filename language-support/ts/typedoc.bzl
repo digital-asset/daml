@@ -17,8 +17,8 @@ def ts_docs(pkg_name):
           # resolve the imported packages.
           $(location @language_support_ts_deps//typedoc/bin:typedoc) --out docs --ignoreCompilerErrors --readme README.md --stripInternal $(SRCS)
           sed -i -e 's/0.0.0-SDKVERSION/{sdk_version}/' docs/**/*.html
-          tar -hc docs \
-               --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+          tar -hc docs \\
+               --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
                | gzip -n > $@
         """,
         visibility = ["//visibility:public"],

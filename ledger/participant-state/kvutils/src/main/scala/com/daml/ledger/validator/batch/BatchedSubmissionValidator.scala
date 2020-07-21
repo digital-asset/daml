@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
+import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator
@@ -35,14 +36,14 @@ object BatchedSubmissionValidator {
       committer: KeyValueCommitting,
       conflictDetection: ConflictDetection,
       metrics: Metrics,
-      engine: Engine)(
+      ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())(
       implicit executionContext: ExecutionContext): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       committer,
-      engine,
       conflictDetection,
-      metrics
+      metrics,
+      ledgerDataExporter
     )
 
   private[validator] def apply[CommitResult](
@@ -53,7 +54,6 @@ object BatchedSubmissionValidator {
     new BatchedSubmissionValidator[CommitResult](
       params,
       new KeyValueCommitting(engine, metrics),
-      engine,
       new ConflictDetection(metrics),
       metrics)
 
@@ -73,7 +73,7 @@ object BatchedSubmissionValidator {
   // instead and remove the whole concept of log entry identifiers.
   // For now this implementation uses a sha256 hash of the submission envelope in order to generate
   // deterministic log entry IDs.
-  private def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
+  private[validator] def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
     val messageDigest = MessageDigest
       .getInstance("SHA-256")
     messageDigest.update(bytes.asReadOnlyByteBuffer())
@@ -103,9 +103,9 @@ object BatchedSubmissionValidator {
 class BatchedSubmissionValidator[CommitResult] private[validator] (
     params: BatchedSubmissionValidatorParameters,
     committer: KeyValueCommitting,
-    engine: Engine,
     conflictDetection: ConflictDetection,
-    damlMetrics: Metrics) {
+    damlMetrics: Metrics,
+    ledgerDataExporter: LedgerDataExporter = LedgerDataExporter()) {
 
   import BatchedSubmissionValidator._
 
@@ -127,6 +127,11 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       commitStrategy: CommitStrategy[CommitResult]
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
     withCorrelationIdLogged(correlationId) { implicit logCtx =>
+      ledgerDataExporter.addSubmission(
+        submissionEnvelope,
+        correlationId,
+        recordTimeInstant,
+        participantId)
       val recordTime = Time.Timestamp.assertFromInstant(recordTimeInstant)
       Timed.future(
         metrics.validateAndCommit, {
@@ -149,7 +154,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
                 participantId,
                 correlationId,
                 recordTime,
-                batchSubmissionSource(batch, correlationId),
+                batchSubmissionSource(batch),
                 ledgerStateReader,
                 commitStrategy)
 
@@ -181,7 +186,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     Source.single(Indexed(CorrelatedSubmission(correlationId, logEntryId, submission), 0L))
   }
 
-  private def batchSubmissionSource(batch: DamlSubmissionBatch, correlationId: CorrelationId)(
+  private def batchSubmissionSource(batch: DamlSubmissionBatch)(
       implicit executionContext: ExecutionContext): Source[Inputs, NotUsed] =
     Source(
       Indexed
@@ -266,6 +271,9 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       .mapAsyncUnordered[Outputs2](params.cpuParallelism) {
         _.mapFuture {
           case (correlatedSubmission, inputState) =>
+            ledgerDataExporter.addParentChild(
+              batchCorrelationId,
+              correlatedSubmission.correlationId)
             validateSubmission(participantId, recordTime, correlatedSubmission, inputState)
         }
       }
@@ -302,7 +310,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             commitStrategy)
       }
       .runWith(Sink.ignore)
-      .map(_ => ())
+      .map(_ => ledgerDataExporter.finishedProcessing(batchCorrelationId))
 
   private def fetchSubmissionInputs(
       correlatedSubmission: CorrelatedSubmission,

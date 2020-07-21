@@ -4,9 +4,10 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.ScenarioGetParty
+import com.daml.lf.transaction.TransactionVersions
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 
@@ -14,14 +15,14 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
 
   "ScenarioRunner" can {
     "mangle party names correctly" in {
+      val compiledPackages = PureCompiledPackages(Map.empty).right.get
       val e = Ast.EScenario(ScenarioGetParty(Ast.EPrimLit(Ast.PLText(("foo-bar")))))
-      val m = Speedy.Machine.fromExpr(
-        expr = e,
-        compiledPackages = PureCompiledPackages(Map.empty).right.get,
-        scenario = true,
-        submissionTime = Time.Timestamp.now(),
-        initialSeeding =
-          InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("ScenarioRunnerTest")),
+      val txSeed = crypto.Hash.hashPrivateKey("ScenarioRunnerTest")
+      val m = Speedy.Machine.fromScenarioExpr(
+        compiledPackages,
+        txSeed,
+        e,
+        TransactionVersions.SupportedDevVersions,
       )
       val sr = ScenarioRunner(m, _ + "-XXX")
       sr.run() match {

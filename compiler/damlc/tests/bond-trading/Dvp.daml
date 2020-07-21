@@ -80,7 +80,7 @@ template DvpAllocated
           assert $ bond.issuer == c.bondIssuer
           assert $ bond.isin == c.bondIsin
           assert $ bond.owner == c.seller
-          alloc <- create DvpAllocated with c; cashCid
+          _ <- create DvpAllocated with c; cashCid
           bondCid <- exercise bondCid Bond.Transfer with newOwner = c.buyer
           bondCid <- exercise bondCid Bond.Accept
 
@@ -102,7 +102,7 @@ data SettleResult = SettleResult
     notificationCid : DvpNotificationId
 
 main = scenario do
-  now <- passToDate $ date 2018 May 14
+  _ <- passToDate $ date 2018 May 14
 
    --2018-05-14T00:00Z
   acmeBank <- getParty "AcmeBank"

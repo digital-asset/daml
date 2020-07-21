@@ -167,7 +167,7 @@ sendDiagnostics fp diags = do
         event = LSP.NotPublishDiagnostics $
             LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
             LSP.PublishDiagnosticsParams uri (List diags)
-            -- ^ This is just 'publishDiagnosticsNotification' from ghcide.
+            -- This is just 'publishDiagnosticsNotification' from ghcide.
     sendEvent event
 
 -- | Get an unvalidated DALF package.
@@ -207,7 +207,7 @@ diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
 getUnstableDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getUnstableDalfDependencies files = do
     unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
-    pkgMap <- Map.unions <$> usesE GeneratePackageMap files
+    pkgMap <- Map.unions . map getPackageMap <$> usesE GeneratePackageMap files
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
@@ -250,7 +250,7 @@ generateRawDalfRule =
                     let core = cgGutsToCoreModule safeMode cgGuts details
                     setPriority priorityGenerateDalf
                     -- Generate the map from package names to package hashes
-                    pkgMap <- use_ GeneratePackageMap file
+                    PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
                     -- GHC Core to DAML LF
@@ -260,11 +260,11 @@ generateRawDalfRule =
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
-                            return ([], Just $ LF.simplifyModule world v)
+                            return ([], Just $ LF.simplifyModule world lfVersion v)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
-    pkgMap <- use_ GeneratePackageMap file
+    PackageMap pkgMap <- use_ GeneratePackageMap file
     stablePackages <- useNoFile_ GenerateStablePackages
     -- We need to dedup here to make sure that each package only appears once.
     pure $
@@ -399,7 +399,7 @@ generateSerializedDalfRule options =
                         Nothing -> pure (diags, Nothing)
                         Just core -> fmap (first (diags ++)) $ do
                             -- lf conversion
-                            pkgMap <- use_ GeneratePackageMap file
+                            PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
                             DamlEnv{envIsGenerated} <- getDamlServiceEnv
                             case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
@@ -409,8 +409,8 @@ generateSerializedDalfRule options =
                                     pkgs <- getExternalPackages file
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
                                         world = LF.initWorldSelf pkgs selfPkg
-                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) rawDalf
-                                        -- ^ NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
+                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
+                                        -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
                                         -- across modules when doing incremental builds. The reason is that our Shake rules
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated
@@ -531,7 +531,7 @@ generatePackageMapRule opts = do
                 "Options: " ++ show (optPackageDbs opts) ++ "\n" ++
                 "Errors:\n" ++ unlines (map show errs)
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
-        return (Just hash, ([], Just res))
+        return (Just hash, ([], Just (PackageMap res)))
 
 damlGhcSessionRule :: Options -> Rules ()
 damlGhcSessionRule opts@Options{..} = do
@@ -556,7 +556,7 @@ damlGhcSessionRule opts@Options{..} = do
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag base ++ extraPkgFlags ++ optPackageImports
         env <- liftIO $ runGhcFast $ do
-            setupDamlGHC opts
+            setupDamlGHC mbProjectRoot opts
             GHC.getSession
         pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
         dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
@@ -715,7 +715,7 @@ contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
     lfVersion <- getDamlLfVersion
     WhnfPackage pkg <- use_ GeneratePackage file
-    pkgMap <- use_ GeneratePackageMap file
+    PackageMap pkgMap <- use_ GeneratePackageMap file
     stablePackages <- use_ GenerateStablePackages file
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $

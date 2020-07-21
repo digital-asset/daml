@@ -18,6 +18,7 @@ else
     TMP_DIR="$BUILD_AND_LINT_TMP_DIR"
     rm -rf $TMP_DIR && mkdir -p $TMP_DIR
 fi
+export YARN_CACHE_FOLDER=$TMP_DIR/yarn
 echo "Temp directory : $TMP_DIR"
 
 # --- begin runfiles.bash initialization v2 ---
@@ -64,7 +65,8 @@ PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2js $DAR
 # Build, lint, test.
 cd build-and-lint-test
 $YARN install --pure-lockfile > /dev/null
-$YARN run build && $YARN run lint
+$YARN run build
+$YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
 # 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
 JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test

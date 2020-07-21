@@ -9,16 +9,20 @@ module Daml.Script
   , query
   , PartyIdHint (..)
   , ParticipantName (..)
+  , PartyDetails(..)
   , allocateParty
   , allocatePartyWithHint
   , allocatePartyOn
   , allocatePartyWithHintOn
+  , listKnownParties
+  , listKnownPartiesOn
   , Commands
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
   , createAndExerciseCmd
   , getTime
+  , setTime
   , sleep
   ) where
 
@@ -78,7 +82,9 @@ data ScriptF a
   = Submit (SubmitCmd a)
   | Query (QueryACS a)
   | AllocParty (AllocateParty a)
+  | ListKnownParties (ListKnownPartiesPayload a)
   | GetTime (Time -> a)
+  | SetTime (SetTimePayload a)
   | Sleep (SleepRec a)
   deriving Functor
 
@@ -93,11 +99,32 @@ data QueryACS a = QueryACS
 query : forall t. Template t => Party -> Script [(ContractId t, t)]
 query p = lift $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
 
+data SetTimePayload a = SetTimePayload
+  with
+    time : Time
+    continue : () -> a
+  deriving Functor
+
+-- | Set the time via the time service.
+--
+-- This is only supported in static time mode when running over the gRPC API.
+--
+-- Note that the time service does not support going backwards in time.
+setTime : Time -> Script ()
+setTime time = lift $ Free $ SetTime $ SetTimePayload with
+  time
+  continue = pure
+
 data AllocateParty a = AllocateParty
   { displayName : Text
   , idHint : Text
   , participant : Optional Text
   , continue : Party -> a
+  } deriving Functor
+
+data ListKnownPartiesPayload a = ListKnownPartiesPayload
+  { participant : Optional Text
+  , continue : [PartyDetails] -> a
   } deriving Functor
 
 data SleepRec a = SleepRec
@@ -151,7 +178,38 @@ allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName partic
   , continue = pure
   }
 
--- | In wallclock mode, this is UTC time. In static time mode, this is the UNIX epoch.
+-- | List the parties known to the default participant.
+listKnownParties : Script [PartyDetails]
+listKnownParties =
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload
+    { participant = None
+    , continue = pure
+    }
+
+-- | List the parties known to the given participant.
+listKnownPartiesOn : ParticipantName -> Script [PartyDetails]
+listKnownPartiesOn (ParticipantName participant) =
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload
+    { participant = Some participant
+    , continue = pure
+    }
+
+-- | The party details returned by the party management service.
+data PartyDetails = PartyDetails
+  with
+    party : Party -- ^ Party id
+    displayName : Optional Text -- ^ Optional display name
+    isLocal : Bool -- ^ True if party is hosted by the backing participant.
+  deriving (Eq, Ord, Show)
+
+-- | In wallclock mode, this is the current UTC time both over gRPC and over the JSON API.
+--
+-- In static time mode over gRPC, this will
+-- query the ledger time service for the current time when running over
+-- gRPC.
+--
+-- In static time mode over the JSON API, it will always
+-- return the Unix epoch.
 instance HasTime Script where
   getTime = lift $ Free (GetTime pure)
 

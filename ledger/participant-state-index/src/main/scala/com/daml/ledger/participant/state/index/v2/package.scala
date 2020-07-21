@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 import com.daml.ledger.api.domain._
 
-package object v2 {
+package v2 {
 
   object AcsUpdateEvent {
 

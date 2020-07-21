@@ -3,7 +3,7 @@
 
 package com.daml.codegen.lf
 
-import com.daml.codegen.lf.DamlDataTypeGen.DataType
+import com.daml.codegen.lf.DamlDataTypeGen.{DataType, VariantField}
 import com.daml.lf.iface
 import scalaz.Monoid
 import scalaz.std.list._
@@ -23,7 +23,8 @@ object UsedTypeParams {
 
   private def foldMapGenTypes[Z: Monoid](typeDecl: DataType)(f: iface.Type => Z): Z = {
     val notAGT = (s: String) => mzero[Z]
-    typeDecl.foldMap(_.bifoldMap(f)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f)))
+    (typeDecl: ScopedDataType[iface.DataType[iface.Type, VariantField]])
+      .foldMap(_.bifoldMap(f)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f)))
   }
 
   private def collectTypeParams(field: iface.Type): Set[String] = field match {

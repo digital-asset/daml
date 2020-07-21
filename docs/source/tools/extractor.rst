@@ -155,7 +155,7 @@ To see the full list of options, run the ``--help`` command, which gives the fol
     --pem <value>            TLS: The pem file to be used as the private key.
     --crt <value>            TLS: The crt file to be used as the cert chain.
                              Required if any other TLS parameters are set.
-    --cacrt <value>          TLS: The crt file to be used as the the trusted root CA.
+    --cacrt <value>          TLS: The crt file to be used as the trusted root CA.
 
   Authentication:
     --access-token-file <value>

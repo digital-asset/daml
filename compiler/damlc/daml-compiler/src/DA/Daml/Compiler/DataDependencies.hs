@@ -434,7 +434,7 @@ generateSrcFromLf env = noLoc mod
                 ]
         LF.DataEnum cons -> do
             when (length cons == 1) (void $ mkGhcType env "DamlEnum")
-                -- ^ Single constructor enums spawn a reference to
+                -- Single constructor enums spawn a reference to
                 -- GHC.Types.DamlEnum in the daml-preprocessor.
             pure
                 [ mkConDecl (occNameFor conName) (PrefixCon [])
@@ -458,7 +458,7 @@ generateSrcFromLf env = noLoc mod
         convConDetails :: LF.Type -> Gen (HsConDeclDetails GhcPs)
         convConDetails = \case
 
-            -- | variant record constructor
+            -- variant record constructor
             LF.TConApp LF.Qualified{..} _
                 | LF.TypeConName ns <- qualObject
                 , length ns == 2 ->
@@ -468,7 +468,7 @@ generateSrcFromLf env = noLoc mod
                         Just fs ->
                             RecCon . noLoc <$> mapM (uncurry (mkConDeclField env)) fs
 
-            -- | normal payload
+            -- normal payload
             ty ->
                 PrefixCon . pure . noLoc <$> convType env reexportedClasses ty
 

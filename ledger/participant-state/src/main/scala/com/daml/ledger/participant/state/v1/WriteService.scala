@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1
 import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.api.health.ReportsHealth
+import com.github.ghik.silencer.silent
 
 /** An interface to change a ledger via a participant.
   *
@@ -80,21 +81,35 @@ trait WriteService
     * time for submitting and validating large transactions before they are
     * timestamped with their record time.
     *
-    * @param submitterInfo   : the information provided by the submitter for
-    *                        correlating this submission with its acceptance or rejection on the
-    *                        associated [[ReadService]].
-    * @param transactionMeta : the meta-data accessible to all consumers of the
-    *                        transaction. See [[TransactionMeta]] for more information.
-    * @param transaction     : the submitted transaction. This transaction can contain local
-    *                        contract-ids that need suffixing. The participant state may have to
-    *                        suffix those contract-ids in order to guaranteed their global
-    *                        uniqueness. See the Contract Id specification for more detail
-    *                        daml-lf/spec/contract-id.rst.
+    * @param submitterInfo               the information provided by the submitter for
+    *                                    correlating this submission with its acceptance or rejection on the
+    *                                    associated [[ReadService]].
+    * @param transactionMeta             the meta-data accessible to all consumers of the transaction.
+    *                                    See [[TransactionMeta]] for more information.
+    * @param transaction                 the submitted transaction. This transaction can contain local
+    *                                    contract-ids that need suffixing. The participant state may have to
+    *                                    suffix those contract-ids in order to guaranteed their global
+    *                                    uniqueness. See the Contract Id specification for more detail
+    *                                    daml-lf/spec/contract-id.rst.
+    * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
+    *                                    handling submitted transactions differently.
     * @return an async result of a SubmissionResult
     */
+  @silent(
+    "method submitTransaction in trait WriteService is deprecated \\(since 1.3.0\\): Will be removed in 1.4.0")
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
-  ): CompletionStage[SubmissionResult]
+      estimatedInterpretationCost: Long,
+  ): CompletionStage[SubmissionResult] =
+    submitTransaction(submitterInfo, transactionMeta, transaction)
+
+  @deprecated("Will be removed in 1.4.0", since = "1.3.0")
+  def submitTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction,
+  ): CompletionStage[SubmissionResult] =
+    submitTransaction(submitterInfo, transactionMeta, transaction, 0)
 }

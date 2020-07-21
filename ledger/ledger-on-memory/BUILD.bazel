@@ -43,7 +43,7 @@ da_scala_test(
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
     ],
     resources = glob(["src/test/resources/*"]),
     deps = [
@@ -86,10 +86,10 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/metrics",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
-        "//ledger/sandbox",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
@@ -123,8 +123,6 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
     ],
 )
 
@@ -143,22 +141,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--all-tests",
         "--exclude=ConfigManagementServiceIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-config-management",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=ConfigManagementServiceIT",
     ],
 )
 
@@ -180,7 +163,7 @@ conformance_test(
 
 java_image(
     name = "app-image",
-    base = "@openjdk_base//image",
+    base = "@java_base//image",
     main_class = "com.daml.ledger.on.memory.Main",
     resources = ["src/app/resources/logback.xml"],
     visibility = ["//visibility:public"],

@@ -6,8 +6,8 @@
 module DA.Daml.Doc.Tests(mkTestTree)
   where
 
-import           DA.Bazel.Runfiles
-import           DA.Daml.Options.Types
+import DA.Bazel.Runfiles
+import DA.Daml.Options.Types
 
 import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
@@ -36,8 +36,8 @@ import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
 import Data.Maybe
 
-mkTestTree :: IO Tasty.TestTree
-mkTestTree = do
+mkTestTree :: AnchorMap -> IO Tasty.TestTree
+mkTestTree externalAnchors = do
 
   testDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
 
@@ -46,7 +46,7 @@ mkTestTree = do
   expectFiles <- filter isExpectationFile <$> listDirectory testDir
 
   let goldenSrcs = nubOrd $ map (flip replaceExtensions "daml") expectFiles
-  goldenTests <- mapM (fileTest . (testDir </>))  goldenSrcs
+  goldenTests <- mapM (fileTest externalAnchors  . (testDir </>))  goldenSrcs
 
   pure $ Tasty.testGroup "DA.Daml.Doc" $ unitTests <> concat goldenTests
 
@@ -285,8 +285,8 @@ runDamldoc testfile importPathM = do
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
 -- for all files found.
-fileTest :: FilePath -> IO [Tasty.TestTree]
-fileTest damlFile = do
+fileTest :: AnchorMap -> FilePath -> IO [Tasty.TestTree]
+fileTest externalAnchors damlFile = do
 
   damlFileAbs <- makeAbsolute damlFile
   let basename = dropExtension damlFileAbs
@@ -299,11 +299,12 @@ fileTest damlFile = do
     then pure []
     else do
       doc <- runDamldoc damlFile (Just $ takeDirectory damlFile)
+
       pure $ flip map expectations $ \expectation ->
         goldenVsStringDiff ("File: " <> expectation) diff expectation $ pure $
           case takeExtension expectation of
-            ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst $ renderModule doc
-            ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd $ renderModule doc
+            ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst externalAnchors $ renderModule doc
+            ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd externalAnchors $ renderModule doc
             ".json" -> AP.encodePretty' jsonConf doc
             other -> error $ "Unsupported file extension " <> other
   where

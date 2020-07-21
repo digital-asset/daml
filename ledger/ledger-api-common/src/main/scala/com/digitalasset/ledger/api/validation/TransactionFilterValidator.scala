@@ -3,15 +3,12 @@
 
 package com.daml.ledger.api.validation
 
-import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.InclusiveFilters
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.ledger.api.v1.value.Identifier
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
-import scalaz.Traverse
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
@@ -25,7 +22,7 @@ object TransactionFilterValidator {
       Left(ErrorFactories.invalidArgument("filtersByParty cannot be empty"))
     } else {
       val convertedFilters =
-        txFilter.filtersByParty.toList.traverseU {
+        txFilter.filtersByParty.toList.traverse {
           case (k, v) =>
             for {
               key <- requireParty(k)
@@ -41,8 +38,7 @@ object TransactionFilterValidator {
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
           val validatedIdents =
-            Traverse[List].traverseU[Identifier, Either[StatusRuntimeException, Ref.Identifier]](
-              inclusive.templateIds.toList)((id: Identifier) => validateIdentifier(id))
+            inclusive.templateIds.toList traverse validateIdentifier
           validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet))))
       }
   }

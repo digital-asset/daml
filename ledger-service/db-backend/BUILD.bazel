@@ -15,7 +15,6 @@ da_scala_library(
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
     scalacopts = [
-        "-Xsource:2.13",
         "-P:silencer:checkUnused",
     ] + lf_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json-db-backend:__VERSION__"],
@@ -45,13 +44,14 @@ da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    scalacopts = lf_scalacopts,
     # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":db-backend",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_ghik_silencer_lib_2_12_11",

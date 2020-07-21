@@ -15,8 +15,8 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
@@ -24,7 +24,6 @@ import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
-import scala.collection.immutable.HashMap
 import scala.concurrent.Future
 
 class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
@@ -43,9 +42,10 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       instance.submitTransaction(
         submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
-        anEmptyTransaction)
+        TransactionBuilder.EmptySubmitted,
+        anInterpretationCost)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes]())
+      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
       correlationIdCaptor.getValue should be(expectedCorrelationId)
     }
@@ -57,7 +57,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes]())
+      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(packageUploadCaptor.getValue)(_.hasPackageUploadEntry)
     }
 
@@ -68,7 +68,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes]())
+      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(configurationCaptor.getValue)(_.hasConfigurationSubmission)
     }
 
@@ -79,7 +79,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes]())
+      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(partyAllocationCaptor.getValue)(_.hasPartyAllocationEntry)
     }
   }
@@ -95,9 +95,6 @@ object KeyValueParticipantStateWriterSpec {
 
   private val aParty = Ref.Party.assertFromString("aParty")
 
-  private val anEmptyTransaction: Transaction.Transaction =
-    GenTransaction(HashMap.empty, ImmArray.empty)
-
   private val aSubmissionId: SubmissionId =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
@@ -107,11 +104,14 @@ object KeyValueParticipantStateWriterSpec {
     maxDeduplicationTime = Duration.ofDays(1),
   )
 
+  private val anInterpretationCost = 123L
+
   private def createWriter(
       envelopeCaptor: ArgumentCaptor[Bytes],
       correlationIdCaptor: ArgumentCaptor[String] = captor[String]): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(correlationIdCaptor.capture(), envelopeCaptor.capture()))
+    when(
+      writer.commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), any[CommitMetadata]))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer
@@ -129,9 +129,8 @@ object KeyValueParticipantStateWriterSpec {
     ledgerEffectiveTime = let,
     workflowId = Some(Ref.LedgerString.assertFromString("tests")),
     submissionTime = let.addMicros(1000),
-    submissionSeed = Some(
-      crypto.Hash.assertFromString(
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
+    submissionSeed = crypto.Hash.assertFromString(
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
     optUsedPackages = Some(Set.empty),
     optNodeSeeds = None,
     optByKeyNodes = None

@@ -4,8 +4,10 @@
 package com.daml.lf.iface
 
 import scalaz.std.map._
+import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
+import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
 import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
@@ -166,14 +168,14 @@ final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Noth
   def asDataType[RT, PVT]: DataType[RT, PVT] = this
 }
 
-final case class DefTemplate[+Ty](choices: Map[Ref.Name, TemplateChoice[Ty]], key: Option[Type]) {
+final case class DefTemplate[+Ty](choices: Map[Ref.Name, TemplateChoice[Ty]], key: Option[Ty]) {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
   def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
 
-  def getKey: j.Optional[Type] =
-    key.fold(j.Optional.empty[Type])(k => j.Optional.of(k))
+  def getKey: j.Optional[_ <: Ty] =
+    key.fold(j.Optional.empty[Ty])(k => j.Optional.of(k))
 }
 
 object DefTemplate {
@@ -182,13 +184,13 @@ object DefTemplate {
   implicit val `TemplateDecl traverse`: Traverse[DefTemplate] =
     new Traverse[DefTemplate] with Foldable.FromFoldMap[DefTemplate] {
       override def foldMap[A, B: Monoid](fa: DefTemplate[A])(f: A => B): B =
-        fa.choices foldMap (_ foldMap f)
+        fa.choices.foldMap(_ foldMap f) |+| (fa.key foldMap f)
 
       override def traverseImpl[G[_]: Applicative, A, B](fab: DefTemplate[A])(
-          f: A => G[B]): G[DefTemplate[B]] = {
-        Applicative[G].map(fab.choices traverse (_ traverse f))(choices =>
-          fab.copy(choices = choices))
-      }
+          f: A => G[B]): G[DefTemplate[B]] =
+        ^(fab.choices traverse (_ traverse f), fab.key traverse f) { (choices, key) =>
+          fab.copy(choices = choices, key = key)
+        }
     }
 
 }

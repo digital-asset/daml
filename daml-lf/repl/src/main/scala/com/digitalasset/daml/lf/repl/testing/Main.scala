@@ -13,7 +13,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.types.Ledger
+import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
@@ -22,6 +22,7 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
+import com.daml.lf.transaction.TransactionVersions
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -29,6 +30,7 @@ import org.jline.reader.impl.history.DefaultHistory
 
 import scala.collection.immutable.ListMap
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.Duration
 
 object Main extends App {
   // idempotent; force stdout to output in UTF-8 -- in theory it should pick it up from
@@ -64,11 +66,11 @@ object Main extends App {
     System.exit(1)
   } else {
     var replArgs = args.toList
-    var allowDev = false
+    var devMode = false
     replArgs match {
-      case "--decode-lfdev" :: rest =>
+      case "--dev" :: rest =>
         replArgs = rest
-        allowDev = true
+        devMode = true
       case _ => ()
     }
     replArgs match {
@@ -76,13 +78,13 @@ object Main extends App {
       case "--help" :: _ => usage()
       case List("repl", file) => Repl.repl(file)
       case List("testAll", file) =>
-        if (!Repl.testAll(allowDev, file)._1) System.exit(1)
+        if (!Repl.testAll(devMode, file)._1) System.exit(1)
       case List("test", id, file) =>
-        if (!Repl.test(allowDev, id, file)._1) System.exit(1)
+        if (!Repl.test(devMode, id, file)._1) System.exit(1)
       case List("profile", scenarioId, inputFile, outputFile) =>
-        if (!Repl.profile(allowDev, scenarioId, inputFile, Paths.get(outputFile))._1) System.exit(1)
+        if (!Repl.profile(devMode, scenarioId, inputFile, Paths.get(outputFile))._1) System.exit(1)
       case List("validate", file) =>
-        if (!Repl.validate(allowDev, file)._1) System.exit(1)
+        if (!Repl.validate(devMode, file)._1) System.exit(1)
       case List(possibleFile) =>
         defaultCommand(possibleFile)
       case _ =>
@@ -130,26 +132,28 @@ object Repl {
       }
   }
 
-  def testAll(allowDev: Boolean, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate fMap cmdTestAll
+  def testAll(devMode: Boolean, file: String): (Boolean, State) =
+    load(file, devMode) fMap cmdValidate fMap cmdTestAll
 
-  def test(allowDev: Boolean, id: String, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
+  def test(devMode: Boolean, id: String, file: String): (Boolean, State) =
+    load(file, devMode) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
 
   def profile(
-      allowDev: Boolean,
+      devMode: Boolean,
       scenarioId: String,
       inputFile: String,
       outputFile: Path,
   ): (Boolean, State) =
-    load(inputFile, Compiler.FullProfile) fMap cmdValidate fMap (state =>
+    load(inputFile, devMode, Compiler.FullProfile) fMap cmdValidate fMap (state =>
       cmdProfile(state, scenarioId, outputFile))
 
-  def validate(allowDev: Boolean, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate
+  def validate(devMode: Boolean, file: String): (Boolean, State) =
+    load(file, devMode) fMap cmdValidate
 
   def cmdValidate(state: State): (Boolean, State) = {
-    val validationResults = state.packages.keys.map(Validation.checkPackage(state.packages, _))
+    val (validationResults, validationTime) = time(
+      state.packages.keys.map(Validation.checkPackage(state.packages, _)))
+    System.err.println(s"${state.packages.size} package(s) validated in $validationTime ms.")
     validationResults collectFirst {
       case Left(e) =>
         println(s"Context: ${e.context}")
@@ -171,16 +175,32 @@ object Repl {
 
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
-      profiling: Compiler.ProfilingMode) {
-    private val build = Speedy.Machine
-      .newBuilder(
-        PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get,
-        Time.Timestamp.MinValue,
-        nextSeed())
-      .fold(err => sys.error(err.toString), identity)
-    def run(expr: Expr)
-      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger, SValue)]) = {
-      val machine = build(expr)
+      devMode: Boolean,
+      profiling: Compiler.ProfilingMode,
+  ) {
+    val (compiledPackages, compileTime) = time {
+      PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get
+    }
+    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
+
+    private val seed = nextSeed()
+
+    val txVersions =
+      if (devMode)
+        TransactionVersions.SupportedDevVersions
+      else
+        TransactionVersions.SupportedStableVersions
+
+    def run(expr: Expr): (
+        Speedy.Machine,
+        Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
+      val machine =
+        Speedy.Machine.fromScenarioExpr(
+          compiledPackages,
+          seed,
+          expr,
+          txVersions,
+        )
       (machine, ScenarioRunner(machine).run())
     }
   }
@@ -201,6 +221,9 @@ object Repl {
     ":testall" -> Command("run all loaded scenarios.", (s, _) => {
       cmdTestAll(s); s
     }),
+    ":devmode" -> Command(
+      "switch in devMode. This reset the state of REPL.",
+      (_, _) => initialState(devMode = true)),
     ":validate" -> Command("validate all the packages", (s, _) => { cmdValidate(s); s }),
   )
   final val commandCompleter = new ArgumentCompleter(new StringsCompleter(commands.keys.asJava))
@@ -220,12 +243,15 @@ object Repl {
     cmpl
   }
 
-  def initialState(profiling: Compiler.ProfilingMode = Compiler.NoProfile): State =
+  def initialState(
+      devMode: Boolean = false,
+      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
+  ): State =
     rebuildReader(
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty, profiling),
+        ScenarioRunnerHelper(Map.empty, devMode, profiling),
         reader = null,
         history = new DefaultHistory(),
         quit = false
@@ -348,29 +374,39 @@ object Repl {
     prettyType(typ)
   }
 
+  private def time[R](block: => R): (R, Long) = {
+    val startTime = System.nanoTime()
+    val result = block // call-by-name
+    val endTime = System.nanoTime()
+    result -> Duration.fromNanos(endTime - startTime).toMillis
+  }
+
   // Load DAML-LF packages from a set of files.
   def load(
       darFile: String,
+      devMode: Boolean = false,
       profiling: Compiler.ProfilingMode = Compiler.NoProfile,
   ): (Boolean, State) = {
-    val state = initialState(profiling)
+    val state = initialState(devMode, profiling)
     try {
-      val packages =
-        UniversalArchiveReader().readFile(new File(darFile)).get
-      val packagesMap = Map(packages.all.map {
-        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-      }: _*)
-      val (mainPkgId, mainPkgArchive) = packages.main
-      val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
+      val (packagesMap, loadingTime) = time {
+        val packages =
+          UniversalArchiveReader().readFile(new File(darFile)).get
+        Map(packages.all.map {
+          case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+        }: _*)
+      }
+
       val npkgs = packagesMap.size
       val ndefs =
         packagesMap.flatMap(_._2.modules.values.map(_.definitions.size)).sum
-      println(s"$ndefs definitions from $npkgs package(s) loaded.")
+
+      System.err.println(s"$ndefs definition(s) from $npkgs package(s) loaded in $loadingTime ms.")
 
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap, profiling)
+          scenarioRunner = ScenarioRunnerHelper(packagesMap, devMode, profiling)
         ))
     } catch {
       case ex: Throwable => {
@@ -418,14 +454,8 @@ object Repl {
           case Some(DValue(_, _, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
-            val machine =
-              Speedy.Machine.fromExpr(
-                expr = expr,
-                compiledPackages = PureCompiledPackages(state.packages).right.get,
-                scenario = false,
-                submissionTime = Time.Timestamp.now(),
-                initialSeeding = InitialSeeding.NoSeed,
-              )
+            val compiledPackages = PureCompiledPackages(state.packages).right.get
+            val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
             val valueOpt = machine.run match {
               case SResultError(err) =>

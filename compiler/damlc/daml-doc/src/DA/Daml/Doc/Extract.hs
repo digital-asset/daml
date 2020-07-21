@@ -126,7 +126,7 @@ collectDocs ds
     getNextOrPrevDoc = \case
         L _ (DocD _ (DocCommentNext str)) -> Just (docToText str)
         L _ (DocD _ (DocCommentPrev str)) -> Just (docToText str)
-            -- ^ technically this is a malformed doc, but we'll take it
+            -- technically this is a malformed doc, but we'll take it
         _ -> Nothing
 
     getPrevDoc :: LHsDecl a -> Maybe DocText
