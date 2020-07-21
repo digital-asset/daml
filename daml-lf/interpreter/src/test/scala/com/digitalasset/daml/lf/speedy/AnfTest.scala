@@ -103,6 +103,28 @@ class AnfTest extends WordSpec with Matchers {
     }
   }
 
+  "fold applied to 3 args" should {
+    "be transformed to ANF as expected" in {
+      val original = lam(3, app3(folde, arg0, arg1, arg2))
+      val expected = AExpr(lam(3, appa3(folde, arg0, arg1, arg2)))
+      testTransform(original, expected)
+    }
+  }
+
+  "fold (over)applied to 4 args" should {
+    "be transformed to ANF as expected (safely)" in {
+      val original = lam(4, app4(folde, arg0, arg1, arg2, arg3))
+      val expected =
+        AExpr(
+          lam(
+            4,
+            let1(
+              appa(folde, arg0),
+              let1(appa(stack1, arg1), let1(appa(stack1, arg2), appa(stack1, arg3))))))
+      testTransform(original, expected)
+    }
+  }
+
   "case expression: [\\a b c. if a then b else c]" should {
     "be transformed to ANF as expected" in {
       val original = lam(3, ite(arg0, arg1, arg2))
@@ -160,6 +182,12 @@ class AnfTest extends WordSpec with Matchers {
   private def ite(i: SExpr, t: SExpr, e: SExpr): SExpr =
     SECase(i, Array(SCaseAlt(patTrue, t), SCaseAlt(patFalse, e)))
 
+  def folde: SExprAtomic = SEBuiltinRecursiveDefinition.FoldL
+  def app3(func: SExpr, arg1: SExpr, arg2: SExpr, arg3: SExpr): SExpr =
+    SEAppGeneral(func, Array(arg1, arg2, arg3))
+  def app4(func: SExpr, arg1: SExpr, arg2: SExpr, arg3: SExpr, arg4: SExpr): SExpr =
+    SEAppGeneral(func, Array(arg1, arg2, arg3, arg4))
+
   // anf builders
   private def let1(rhs: SExpr, body: SExpr): SExpr =
     SELet1General(rhs, body)
@@ -172,6 +200,17 @@ class AnfTest extends WordSpec with Matchers {
 
   private def app2a(func: SExprAtomic, arg1: SExprAtomic, arg2: SExprAtomic): SExpr =
     SEAppAtomicGeneral(func, Array(arg1, arg2))
+
+  private def appa3(func: SExprAtomic, arg1: SExprAtomic, arg2: SExprAtomic, arg3: SExprAtomic): SExpr =
+    SEAppAtomicGeneral(func, Array(arg1, arg2, arg3))
+
+  private def appa4(
+      func: SExprAtomic,
+      arg1: SExprAtomic,
+      arg2: SExprAtomic,
+      arg3: SExprAtomic,
+      arg4: SExprAtomic): SExpr =
+    SEAppAtomicGeneral(func, Array(arg1, arg2, arg3, arg4))
 
   private def binopa(op: SBuiltin, x: SExprAtomic, y: SExprAtomic): SExpr =
     SEAppAtomicSaturatedBuiltin(op, Array(x, y))
@@ -187,9 +226,11 @@ class AnfTest extends WordSpec with Matchers {
     SCPVariant(Identifier.assertFromString("P:M:bool"), IdString.Name.assertFromString("False"), 2)
 
   // atoms
+
   private def arg0 = SELocA(0)
   private def arg1 = SELocA(1)
   private def arg2 = SELocA(2)
+  private def arg3 = SELocA(3)
   private def free0 = SELocF(0)
   private def stack1 = SELocS(1)
   private def stack2 = SELocS(2)

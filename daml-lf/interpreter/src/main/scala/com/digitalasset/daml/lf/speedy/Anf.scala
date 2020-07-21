@@ -278,7 +278,7 @@ private[lf] object Anf {
           func match {
             // we know that trivially in these two cases
             case _: SEBuiltin => true
-            case _: SEBuiltinRecursiveDefinition => true
+            case _: SEBuiltinRecursiveDefinition => (args.size <= 3)
             case _ => false
           }
         // It's also safe to perform ANF for applications of a single argument.
