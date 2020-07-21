@@ -115,9 +115,9 @@ party can see the contract or a ``-`` if not.
    :scale: 70%
    :align: center
 
-If you want more details, you can click the *Show archived* and *Show detailed disclosure*
-checkboxes. That will extend the table to include archived contracts as well and
-separate the reason for why a contract is visible into four categories:
+If you want more details, you can click on the *Show archived* checkbox, which extends
+the table to include archived contracts, and on the *Show detailed disclosure* checkbox,
+which displays why the contract is visible to each party, based on four categories:
 
 1. ``S``, the party sees the contract because they are a signatory on the contract.
 2. ``O``, the party sees the contract because they are an observer on the contract.
