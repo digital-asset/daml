@@ -214,14 +214,14 @@ object HttpServiceTestFixture {
     } yield dao
 
   object UseTls extends NewBoolean.Named {
-    val Tls = True
-    val NoTls = False
+    val Tls: UseTls = True
+    val NoTls: UseTls = False
   }
   type UseTls = UseTls.T
 
   object LeakPasswords extends NewBoolean.Named {
-    val FiresheepStyle = True
-    val No = False
+    val FiresheepStyle: LeakPasswords = True
+    val No: LeakPasswords = False
   }
   type LeakPasswords = LeakPasswords.T
 

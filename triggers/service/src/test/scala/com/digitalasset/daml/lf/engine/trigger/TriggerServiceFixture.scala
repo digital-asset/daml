@@ -81,7 +81,7 @@ object TriggerServiceFixture {
         channel <- Future(new Socket(host, toxiProxyPort.value))
       } yield channel.close()
     }
-    val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.value);
+    val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.value)
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
