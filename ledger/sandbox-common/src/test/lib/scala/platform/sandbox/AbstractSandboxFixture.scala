@@ -58,7 +58,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
   }
 
   protected def config: SandboxConfig =
-    SandboxConfig.default.copy(
+    SandboxConfig.defaultConfig.copy(
       port = Port.Dynamic,
       damlPackages = packageFiles,
       timeProviderType = Some(TimeProviderType.Static),

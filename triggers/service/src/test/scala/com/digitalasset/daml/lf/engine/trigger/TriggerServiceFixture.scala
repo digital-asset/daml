@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import java.io.File
+import java.net.{InetAddress, ServerSocket, Socket}
 import java.time.Duration
 
 import akka.actor.ActorSystem
@@ -11,8 +12,8 @@ import akka.actor.typed.{ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
-import com.daml.lf.archive.Dar
-import com.daml.lf.data.Ref._
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -22,21 +23,19 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref._
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-import com.daml.bazeltools.BazelRunfiles
 import com.daml.timer.RetryStrategy
+import eu.rekawek.toxiproxy._
 
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.sys.process.Process
-import java.net.{InetAddress, ServerSocket, Socket}
-
-import com.daml.daml_lf_dev.DamlLf
-import eu.rekawek.toxiproxy._
 
 object TriggerServiceFixture {
 
@@ -189,12 +188,12 @@ object TriggerServiceFixture {
       dars: List[File],
       ledgerId: LedgerId
   ): SandboxConfig =
-    SandboxConfig.default.copy(
+    SandboxServer.defaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.Static),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = None
+      authService = None,
     )
 
   private def clientConfig[A](
@@ -205,6 +204,6 @@ object TriggerServiceFixture {
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
-      token = token
+      token = token,
     )
 }

@@ -167,13 +167,13 @@ object HttpServiceTestFixture {
       authService: Option[AuthService] = None,
       useTls: UseTls = UseTls.NoTls
   ): SandboxConfig =
-    SandboxConfig.default.copy(
+    SandboxServer.defaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.WallClock),
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService
+      authService = authService,
     )
 
   private def clientConfig[A](

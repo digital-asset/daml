@@ -5,12 +5,10 @@ package com.daml
 
 import java.io.File
 import java.time.{Duration, Instant}
-import java.util.{Optional, UUID}
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
+import java.util.{Optional, UUID}
 
-import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data._
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
@@ -19,10 +17,11 @@ import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
   GetTransactionsResponse
 }
 import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
+import com.daml.ledger.javaapi.data
+import com.daml.ledger.javaapi.data._
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.google.protobuf.Empty
@@ -43,7 +42,7 @@ object TestUtil {
   def withClient(testCode: Channel => Assertion)(
       implicit executionContext: ExecutionContext
   ): Future[Assertion] = {
-    val config = SandboxConfig.default.copy(
+    val config = SandboxServer.defaultConfig.copy(
       port = Port.Dynamic,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),

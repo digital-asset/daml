@@ -8,10 +8,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.lf.PureCompiledPackages
-import com.daml.lf.archive.{Dar, DarReader, Decode}
-import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.language.Ast.Package
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -20,6 +16,10 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.language.Ast.Package
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -90,7 +90,7 @@ object TestMain extends StrictLogging {
                 case ScriptTimeMode.Static => TimeProviderType.Static
                 case ScriptTimeMode.WallClock => TimeProviderType.WallClock
               }
-              val sandboxConfig = SandboxConfig.default.copy(
+              val sandboxConfig = SandboxConfig.defaultConfig.copy(
                 port = Port.Dynamic,
                 timeProviderType = Some(timeProviderType),
               )

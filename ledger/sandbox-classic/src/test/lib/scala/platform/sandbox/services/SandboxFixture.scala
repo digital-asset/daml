@@ -5,6 +5,8 @@ package com.daml.platform.sandbox.services
 
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.ports.Port
 import com.daml.resources.ResourceOwner
@@ -16,6 +18,12 @@ import scala.concurrent.duration.DurationInt
 
 trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxServer, Channel)] {
   self: Suite =>
+
+  override protected def config: SandboxConfig =
+    super.config.copy(
+      seeding = None,
+      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    )
 
   protected def server: SandboxServer = suiteResource.value._1
 

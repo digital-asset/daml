@@ -59,7 +59,7 @@ object SandboxConfig {
   val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
     SizedCache.Configuration.none
 
-  lazy val nextDefault: SandboxConfig =
+  lazy val defaultConfig: SandboxConfig =
     SandboxConfig(
       address = None,
       port = DefaultPort,
@@ -87,9 +87,4 @@ object SandboxConfig {
       stackTraces = true,
     )
 
-  lazy val default: SandboxConfig =
-    nextDefault.copy(
-      seeding = None,
-      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    )
 }
