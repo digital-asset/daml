@@ -263,5 +263,9 @@ object KeyValueParticipantStateReaderSpec {
       logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
         singleUpdateGenerator)(
       implicit materializer: Materializer): KeyValueParticipantStateReader =
-    new KeyValueParticipantStateReader(reader, new Metrics(new MetricRegistry), logEntryToUpdate)
+    new KeyValueParticipantStateReader(
+      reader,
+      new Metrics(new MetricRegistry),
+      logEntryToUpdate,
+      () => None)
 }
