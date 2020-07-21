@@ -1816,7 +1816,6 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValScenarioBind
      ⊢ᵥₛ  'sbind' x₁ : τ₁ ← e₁ 'in' e₂
 
-
      ⊢ᵥ  e
      ⊢ᵥᵤ  u
    ——————————————————————————————————————————————————— ValScenarioCommit
@@ -2408,7 +2407,6 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpScenarioCommit
       'commit' @τ e u  ⇓  Ok ('commit' @τ v₁ v₂)
 
-
       e  ⇓  Err t
     —————————————————————————————————————————————————————————————————————— EvExpScenarioMustFailAtErr1
       'must_fail_at' @τ e u  ⇓  Err t
@@ -2430,7 +2428,6 @@ exact output.
       e  ⇓  Ok v
     —————————————————————————————————————————————————————————————————————— EvExpScenarioPass
       'pass' e  ⇓  Ok ('pass' v)
-
 
       e  ⇓  Err t
     —————————————————————————————————————————————————————————————————————— EvExpScenarioGetPartyErr
@@ -2591,7 +2588,6 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr2
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
 
-
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, 'signatories' eₛ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
@@ -2674,7 +2670,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeySucceed
      'create' @Mod:T vₜ ‖ (st₀, keys₀)
        ⇓ᵤ
-     Ok (cid, tr) ‖ (st₁,  keys₁)
+     Ok (cid, tr) ‖ (st₁, keys₁)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
@@ -2759,7 +2755,6 @@ as described by the ledger model::
      'fetch_by_key' @Mod:T e ‖ (st; keys)
         ⇓ᵤ
      Err "Lookup key not found"  ‖ (st; keys)
-
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      e  ⇓  Ok vₖ
