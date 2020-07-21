@@ -9,7 +9,15 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.{Http, HttpExt}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, StatusCodes, Uri}
+import akka.http.scaladsl.model.{
+  ContentTypes,
+  HttpEntity,
+  HttpMethods,
+  HttpRequest,
+  HttpResponse,
+  StatusCodes,
+  Uri
+}
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials, OAuth2BearerToken}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
@@ -140,11 +148,12 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
       sa <- getServiceAccount(authServiceToken)
       initialNumCreds = sa.creds.length
       () <- requestCredential(authServiceToken, sa.serviceAccount)
-      newCred <- RetryStrategy.constant(attempts = Some(3), waitTime = 4.seconds)(notFound) { (_, _) =>
-        for {
-          sa <- getServiceAccount(authServiceToken)
-          _ = if (sa.creds.length <= initialNumCreds) throw new NoSuchElementException
-        } yield sa.creds.head
+      newCred <- RetryStrategy.constant(attempts = Some(3), waitTime = 4.seconds)(notFound) {
+        (_, _) =>
+          for {
+            sa <- getServiceAccount(authServiceToken)
+            _ = if (sa.creds.length <= initialNumCreds) throw new NoSuchElementException
+          } yield sa.creds.head
       }
     } yield newCred
 
