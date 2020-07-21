@@ -3,18 +3,32 @@
 
 package com.daml.ledger.client.configuration
 
+import com.daml.ledger.client.configuration.LedgerClientConfiguration._
 import io.netty.handler.ssl.SslContext
 
 /**
-  * @param applicationId The string that will be used as an application identifier when issuing commands and retrieving transactions
-  * @param ledgerIdRequirement A [[LedgerIdRequirement]] specifying how the ledger identifier must be checked against the one returned by the LedgerIdentityService
-  * @param commandClient The [[CommandClientConfiguration]] that defines how the command client should be setup with regards to timeouts, commands in flight and command TTL
-  * @param sslContext If defined, the context will be passed on to the underlying gRPC code to ensure the communication channel is secured by TLS
-  * @param token If defined, the access token that will be passed by default, unless overridden in individual calls (mostly useful for short-lived applications)
+  * @param applicationId         The string that will be used as an application identifier when issuing commands and retrieving transactions
+  * @param ledgerIdRequirement   A [[LedgerIdRequirement]] specifying how the ledger identifier must be checked against the one returned by the LedgerIdentityService
+  * @param commandClient         The [[CommandClientConfiguration]] that defines how the command client should be setup with regards to timeouts, commands in flight and command TTL
+  * @param sslContext            If defined, the context will be passed on to the underlying gRPC code to ensure the communication channel is secured by TLS
+  * @param token                 If defined, the access token that will be passed by default, unless overridden in individual calls (mostly useful for short-lived applications)
+  * @param maxInboundMessageSize The maximum size of the response headers.
   */
 final case class LedgerClientConfiguration(
     applicationId: String,
     ledgerIdRequirement: LedgerIdRequirement,
     commandClient: CommandClientConfiguration,
     sslContext: Option[SslContext],
-    token: Option[String] = None)
+    token: Option[String] = None,
+    maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
+)
+
+object LedgerClientConfiguration {
+
+  // This needs to be large because we often include parts of the request in GRPC errors, which are
+  // returned in the response headers. A large request could lead to the client choking on the
+  // response headers if the limit is too low.
+  // The default limit set by Netty is 8 KB, which often leads to errors.
+  val DefaultMaxInboundMessageSize: Int = 1024 * 1024 // 1 MB
+
+}

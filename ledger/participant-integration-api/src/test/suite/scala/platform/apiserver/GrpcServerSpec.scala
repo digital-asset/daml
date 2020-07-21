@@ -45,6 +45,21 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers {
         }
       }
     }
+
+    "fail with a nice exception, even when the text is very long" in {
+      val length = 64 * 1024
+      val exceptionMessage = Stream.continually("x").take(length).mkString
+      resources().use { channel =>
+        val helloService = HelloServiceGrpc.stub(channel)
+        for {
+          exception <- helloService
+            .fails(HelloRequest(7, ByteString.copyFromUtf8(exceptionMessage)))
+            .failed
+        } yield {
+          exception.getMessage shouldBe s"INTERNAL: $exceptionMessage"
+        }
+      }
+    }
   }
 }
 
