@@ -2497,7 +2497,7 @@ party literals as those latter were sets.
 
 
 The operational semantics are restricted to update statements which
-are values according to ``⊢ᵥ``. In this section, all updates denoted
+are values according to ``⊢ᵥᵤ``. In this section, all updates denoted
 by the symbol ``u`` will be implicit values. In practice, what this
 means is that an interpreter implementing these semantics will need to
 evaluate the update expression first according to the operational
@@ -2541,7 +2541,7 @@ as described by the ledger model::
 
 
                                     ┌──────────────┐
-  Big-step update interpretation    │ u ‖ S₀ ⇓ᵤ ur │
+  Big-step update interpretation    │ u ‖ S₀ ⇓ᵤ ur │  (u is an update value)
                                     └──────────────┘
 
    —————————————————————————————————————————————————————————————————————— EvUpdPure
