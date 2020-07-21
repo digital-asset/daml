@@ -53,6 +53,7 @@ main = do
     -- on the PATH as mvn.cmd executes cmd.exe
     mbComSpec <- getEnv "COMSPEC"
     let mbCmdDir = takeDirectory <$> mbComSpec
+    limitJvmMemory defaultJvmMemoryLimits
     withArgs args (withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
         , ("TASTY_NUM_THREADS", Just "1")

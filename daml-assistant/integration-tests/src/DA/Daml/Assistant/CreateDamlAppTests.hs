@@ -38,6 +38,7 @@ instance IsOption ProjectName where
 main :: IO ()
 main = withTempDir $ \yarnCache -> do
     setEnv "YARN_CACHE_FOLDER" yarnCache True
+    limitJvmMemory defaultJvmMemoryLimits
     yarn : args <- getArgs
     javaPath <- locateRunfiles "local_jdk/bin"
     oldPath <- getSearchPath
