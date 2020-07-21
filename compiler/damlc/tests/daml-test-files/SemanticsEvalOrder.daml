@@ -14,6 +14,7 @@
 -- @ERROR Aborted: EvExpAppErr1 OK
 -- @ERROR Aborted: EvExpAppErr2 OK
 -- @ERROR Aborted: EvExpLetErr OK
+-- @ERROR Aborted: ghcReordersMultiLets OK
 -- @ERROR Aborted: EvExpCaseErr OK
 -- @ERROR Aborted: EvExpCase_1 OK
 -- @ERROR Aborted: EvExpCase_2 OK
@@ -69,14 +70,15 @@ evExpLetErr = scenario do
     let _ = error "EvExpLetErr OK"
     let _ = error "EvExpLetErr bad"
     error "EvExpLetErr failed"
-    -- ^ The evaluation order goes "bad" if you
-    -- use a multiple-binding "let", as in,
-    --
-    --    let _ = error "EvExpLetErr OK"
-    --        _ = error "EvExpLetErr bad"
-    --    error "EvExpLetErr failed"
-    --
-    -- This is tracked in issue #6788.
+
+-- | The following "multiple-binding let" behavior is caused by GHC.
+-- This is tracked in issue #6788. We would love to get rid of this
+-- reordering behavior, but it's very much tied with a part of GHC
+-- that we don't control. So we track this behavior here.
+ghcReordersMultiLets = scenario do
+    let _ = error "ghcReordersMultiLets failed in a good way -- close the issue & update the test"
+        _ = error "ghcReordersMultiLets OK"
+    error "ghcReordersMultiLets failed in a bad way"
 
 evExpCaseErr = scenario do
   case error "EvExpCaseErr OK" of
