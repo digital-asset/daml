@@ -116,7 +116,7 @@ For example a scenario for the :download:`Iou<daml-studio/daml/Iou.daml>` module
    :scale: 40%
    :align: center
 
-   Scenario results (click to zoom)
+   Scenario results
 
 Each transaction is the result of executing a step in the scenario. In the
 image below, the transaction ``#0`` is the result of executing the first
