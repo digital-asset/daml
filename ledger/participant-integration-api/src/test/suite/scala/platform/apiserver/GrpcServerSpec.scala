@@ -3,22 +3,22 @@
 
 package com.daml.platform.apiserver
 
-import java.net.{InetAddress, InetSocketAddress}
-import java.util.concurrent.TimeUnit
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.sampleservice.implementations.ReferenceImplementation
+import com.daml.ledger.client.GrpcChannel
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
-import com.daml.ports.{FreePort, Port}
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.ports.FreePort
+import com.daml.resources.ResourceOwner
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
-import io.grpc.netty.NettyChannelBuilder
 import org.scalatest.{AsyncWordSpec, Matchers}
-
-import scala.concurrent.{ExecutionContext, Future}
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers {
   "a GRPC server" should {
@@ -50,6 +50,15 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers {
 
 object GrpcServerSpec {
 
+  private val maxInboundMessageSize = 4 * 1024 * 1024 /* copied from the Sandbox configuration */
+
+  private val clientConfiguration = LedgerClientConfiguration(
+    applicationId = classOf[GrpcServerSpec].getSimpleName,
+    ledgerIdRequirement = LedgerIdRequirement.none,
+    commandClient = CommandClientConfiguration.default,
+    sslContext = None,
+  )
+
   private def resources(): ResourceOwner[ManagedChannel] = {
     for {
       eventLoopGroups <- new ServerEventLoopGroups.Owner(
@@ -61,29 +70,13 @@ object GrpcServerSpec {
       _ <- new GrpcServer.Owner(
         address = None,
         desiredPort = port,
-        maxInboundMessageSize = 4 * 1024 * 1024,
+        maxInboundMessageSize = maxInboundMessageSize,
         metrics = new Metrics(new MetricRegistry),
         eventLoopGroups = eventLoopGroups,
         services = Seq(new ReferenceImplementation),
       )
-      channel <- new ChannelOwner(port)
+      channel <- new GrpcChannel.Owner(port, clientConfiguration)
     } yield channel
-  }
-
-  final class ChannelOwner(port: Port) extends ResourceOwner[ManagedChannel] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[ManagedChannel] =
-      Resource(
-        Future {
-          NettyChannelBuilder
-            .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, port.value))
-            .usePlaintext()
-            .build()
-        }
-      )(channel =>
-        Future {
-          channel.shutdown().awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
-          ()
-      })
   }
 
 }
