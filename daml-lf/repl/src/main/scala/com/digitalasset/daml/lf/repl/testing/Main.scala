@@ -185,7 +185,7 @@ object Repl {
 
     private val seed = nextSeed()
 
-    val (txVersions) =
+    val txVersions =
       if (devMode)
         TransactionVersions.SupportedDevVersions
       else

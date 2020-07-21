@@ -290,13 +290,12 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
     ) {
-      compiledPackages.compiler.unsafeCompile(commands)
+      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        expr = SExpr
-          .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
+        expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
         outputTransactionVersions = config.allowedOutputTransactionVersions,
