@@ -7,7 +7,7 @@ import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
 import com.daml.lf.speedy.{SError, SValue, Speedy, PartialTransaction => SPartialTransaction}
-import com.daml.lf.transaction.{Node => N, NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId, Transaction => Tx}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
@@ -170,7 +170,7 @@ final class Conversions(
     builder.build
   }
 
-  def convertGlobalKey(globalKey: N.GlobalKey): proto.GlobalKey = {
+  def convertGlobalKey(globalKey: GlobalKey): proto.GlobalKey = {
     proto.GlobalKey.newBuilder
       .setTemplateId(convertIdentifier(globalKey.templateId))
       .setKey(convertValue(globalKey.key))

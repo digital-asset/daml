@@ -24,7 +24,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.metrics.{Metrics, Timed}

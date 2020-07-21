@@ -6,7 +6,7 @@ package com.daml.lf
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueVersions}
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -102,7 +102,7 @@ class ContractDiscriminatorFreshnessCheckSpec
     )
 
   private def globalKey(party: Ref.Party, idx: Int) =
-    Node.GlobalKey(tmplId, keyRecord(party, idx))
+    GlobalKey(tmplId, keyRecord(party, idx))
 
   private val alice = Ref.Party.assertFromString("Alice")
   private val participant = Ref.ParticipantId.assertFromString("participant")
@@ -118,7 +118,7 @@ class ContractDiscriminatorFreshnessCheckSpec
   private def submit(
       cmds: ImmArray[command.Command],
       pcs: Value.ContractId => Option[Value.ContractInst[Value.VersionedValue[ContractId]]],
-      keys: Node.GlobalKey => Option[ContractId]
+      keys: GlobalKey => Option[ContractId]
   ) =
     engine
       .submit(

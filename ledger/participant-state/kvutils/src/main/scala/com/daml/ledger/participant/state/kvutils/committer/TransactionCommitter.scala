@@ -19,7 +19,15 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{BlindingInfo, Node, NodeId, SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{
+  BlindingInfo,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  SubmittedTransaction,
+  Transaction => Tx
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
@@ -275,13 +283,13 @@ private[kvutils] class TransactionCommitter(
             (_, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _)))
             if exe.key.isDefined && exe.consuming =>
           val stateKey = Conversions.globalKeyToStateKey(
-            Node.GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
+            GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
           (allUnique, existingKeys - stateKey)
 
         case ((allUnique, existingKeys), (_, create @ Node.NodeCreate(_, _, _, _, _, _)))
             if create.key.isDefined =>
           val stateKey = Conversions.globalKeyToStateKey(
-            Node.GlobalKey(
+            GlobalKey(
               create.coinst.template,
               Conversions.forceNoContractIds(create.key.get.key.value)))
 
@@ -399,7 +407,7 @@ private[kvutils] class TransactionCommitter(
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(
           Conversions.encodeGlobalKey(
-            Node.GlobalKey
+            GlobalKey
               .build(
                 createNode.coinst.template,
                 keyWithMaintainers.key.value
@@ -547,7 +555,7 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
       inputState: DamlStateMap,
       knownKeys: Map[DamlContractKey, Value.ContractId],
-  )(key: Node.GlobalKeyWithMaintainers): Option[Value.ContractId] = {
+  )(key: GlobalKeyWithMaintainers): Option[Value.ContractId] = {
     // we don't check whether the contract is active or not, because in we might not have loaded it earlier.
     // this is not a problem, because:
     // a) if the lookup was negative and we actually found a contract,

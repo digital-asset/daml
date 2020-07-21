@@ -24,7 +24,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{Node, TransactionCommitter}
+import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -253,7 +253,7 @@ class InMemoryLedger(
         .map(_.contract)
     })
 
-  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
+  override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[ContractId]] =
     Future.successful(this.synchronized {
       acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })

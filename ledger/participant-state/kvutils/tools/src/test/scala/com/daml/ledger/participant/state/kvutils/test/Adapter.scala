@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.test
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{Transaction => Tx, Node, NodeId, SubmittedTransaction}
+import com.daml.lf.transaction.{Transaction => Tx, GlobalKey, Node, NodeId, SubmittedTransaction}
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -65,8 +65,8 @@ private[test] final class Adapter(packages: Map[Ref.PackageId, Ast.Package]) {
       arg = coinst.arg.copy(value = adapt(coinst.arg.value)),
     )
 
-  def adapt(gkey: Node.GlobalKey): Node.GlobalKey =
-    Node.GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))
+  def adapt(gkey: GlobalKey): GlobalKey =
+    GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))
 
   private[this] def adapt(value: Value[ContractId]): Value[ContractId] =
     value match {

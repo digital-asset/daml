@@ -6,7 +6,7 @@ package com.daml.lf.engine
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.Node.GlobalKeyWithMaintainers
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value._
 import scalaz.Monad
 

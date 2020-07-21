@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -77,7 +77,7 @@ trait LedgerReadDao extends ReportsHealth {
     * @param forParty the party for which the contract must be visible
     * @return the optional ContractId
     */
-  def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]]
+  def lookupKey(key: GlobalKey, forParty: Party): Future[Option[ContractId]]
 
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
