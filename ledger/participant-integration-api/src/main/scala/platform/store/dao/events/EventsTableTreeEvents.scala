@@ -111,65 +111,55 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "exercise_child_event_ids",
   ).mkString(", ")
 
-  def prepareLookupTransactionTreeById(sqlFunctions: SqlFunctions)(
+  def prepareLookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyLookup(sqlFunctions)(transactionId, _),
-      multi = multiPartyLookup(sqlFunctions)(transactionId, _),
+      single = singlePartyLookup(transactionId, _),
+      multi = multiPartyLookup(transactionId, _),
     )
 
-  private def singlePartyLookup(sqlFunctions: SqlFunctions)(
+  private def singlePartyLookup(
       transactionId: TransactionId,
       requestingParty: Party,
   ): SimpleSql[Row] = {
-    val witnessesWhereClause =
-      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by node_index asc"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and da_do_varchar_arrays_intersect(tree_event_witnesses::varchar[], array[$requestingParty]) order by node_index asc"
   }
 
-  private def multiPartyLookup(sqlFunctions: SqlFunctions)(
+  private def multiPartyLookup(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] = {
-    val witnessesWhereClause =
-      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
-    val filteredWitnesses =
-      sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
-    SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by node_index asc"
+    val sql = SQL"select #$selectColumns, da_varchar_arrays_intersection(tree_event_witnesses::varchar[], $requestingParties) as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and da_do_varchar_arrays_intersect(tree_event_witnesses::varchar[], $requestingParties) group by (#$groupByColumns) order by node_index asc"
+    println(s"--- $sql")
+    sql
   }
 
-  def preparePagedGetTransactionTrees(sqlFunctions: SqlFunctions)(
+  def preparePagedGetTransactionTrees(
       eventsRange: EventsRange[Long],
       requestingParties: Set[Party],
       pageSize: Int,
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyTrees(sqlFunctions)(eventsRange, _, pageSize),
-      multi = multiPartyTrees(sqlFunctions)(eventsRange, _, pageSize),
+      single = singlePartyTrees(eventsRange, _, pageSize),
+      multi = multiPartyTrees(eventsRange, _, pageSize),
     )
 
-  private def singlePartyTrees(sqlFunctions: SqlFunctions)(
+  private def singlePartyTrees(
       range: EventsRange[Long],
       requestingParty: Party,
       pageSize: Int,
   ): SimpleSql[Row] = {
-    val witnessesWhereClause =
-      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and #$witnessesWhereClause order by event_sequential_id limit $pageSize"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and da_do_varchar_arrays_intersect(tree_event_witnesses::varchar[], array[$requestingParty]) order by event_sequential_id limit $pageSize"
   }
 
-  private def multiPartyTrees(sqlFunctions: SqlFunctions)(
+  private def multiPartyTrees(
       range: EventsRange[Long],
       requestingParties: Set[Party],
       pageSize: Int,
   ): SimpleSql[Row] = {
-    val witnessesWhereClause =
-      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
-    val filteredWitnesses =
-      sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
-    SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and #$witnessesWhereClause group by (#$groupByColumns) order by event_sequential_id limit $pageSize"
+    SQL"select #$selectColumns, da_varchar_arrays_intersection(tree_event_witnesses::varchar[], $requestingParties) as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and da_do_varchar_arrays_intersect(tree_event_witnesses::varchar[], $requestingParties) group by (#$groupByColumns) order by event_sequential_id limit $pageSize"
   }
 
 }

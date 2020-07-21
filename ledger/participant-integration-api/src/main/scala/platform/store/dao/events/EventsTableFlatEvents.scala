@@ -93,64 +93,58 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "create_key_value",
     ).mkString(", ")
 
-  def prepareLookupFlatTransactionById(sqlFunctions: SqlFunctions)(
+  def prepareLookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyLookup(sqlFunctions)(transactionId, _),
-      multi = multiPartyLookup(sqlFunctions)(transactionId, _),
+      single = singlePartyLookup(transactionId, _),
+      multi = multiPartyLookup(transactionId, _),
     )
 
-  private def singlePartyLookup(sqlFunctions: SqlFunctions)(
+  private def singlePartyLookup(
       transactionId: TransactionId,
       requestingParty: Party,
   ): SimpleSql[Row] = {
-    val witnessesWhereClause =
-      sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by event_sequential_id"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and da_do_varchar_arrays_intersect(flat_event_witnesses::varchar[], array[$requestingParty]) order by event_sequential_id"
   }
 
-  private def multiPartyLookup(sqlFunctions: SqlFunctions)(
+  private def multiPartyLookup(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] = {
-    val witnessesWhereClause =
-      sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
-    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by event_sequential_id"
+    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and da_do_varchar_arrays_intersect(flat_event_witnesses::varchar[], $requestingParties) group by (#$groupByColumns) order by event_sequential_id"
   }
 
-  private def getFlatTransactionsQueries(sqlFunctions: SqlFunctions) =
+  private def getFlatTransactionsQueries =
     new EventsTableFlatEventsRangeQueries.GetTransactions(
       selectColumns = selectColumns,
       groupByColumns = groupByColumns,
-      sqlFunctions = sqlFunctions,
     )
 
-  def preparePagedGetFlatTransactions(sqlFunctions: SqlFunctions)(
+  def preparePagedGetFlatTransactions(
       range: EventsRange[Long],
       filter: FilterRelation,
       pageSize: Int,
   ): SimpleSql[Row] =
-    getFlatTransactionsQueries(sqlFunctions)(
+    getFlatTransactionsQueries(
       range,
       filter,
       pageSize,
     )
 
-  private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
+  private def getActiveContractsQueries =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
       selectColumns = selectColumns,
       groupByColumns = groupByColumns,
-      sqlFunctions = sqlFunctions
     )
 
-  def preparePagedGetActiveContracts(sqlFunctions: SqlFunctions)(
+  def preparePagedGetActiveContracts(
       range: EventsRange[(Offset, Long)],
       filter: FilterRelation,
       pageSize: Int
   ): SimpleSql[Row] =
-    getActiveContractsQueries(sqlFunctions)(
+    getActiveContractsQueries(
       range,
       filter,
       pageSize

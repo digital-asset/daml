@@ -43,8 +43,6 @@ private[dao] final class TransactionsReader(
 
   private val dbMetrics = metrics.daml.index.db
 
-  private val sqlFunctions = SqlFunctions(dbType)
-
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
@@ -76,7 +74,7 @@ private[dao] final class TransactionsReader(
       (connection: Connection) => {
         logger.debug(s"getFlatTransactions query($range)")
         EventsTable
-          .preparePagedGetFlatTransactions(sqlFunctions)(
+          .preparePagedGetFlatTransactions(
             range = range,
             filter = filter,
             pageSize = pageSize,
@@ -109,7 +107,7 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
   ): Future[Option[GetFlatTransactionResponse]] = {
     val query =
-      EventsTable.prepareLookupFlatTransactionById(sqlFunctions)(transactionId, requestingParties)
+      EventsTable.prepareLookupFlatTransactionById(transactionId, requestingParties)
     dispatcher
       .executeSql(
         databaseMetrics = dbMetrics.lookupFlatTransactionById,
@@ -142,7 +140,7 @@ private[dao] final class TransactionsReader(
       (connection: Connection) => {
         logger.debug(s"getTransactionTrees query($range)")
         EventsTable
-          .preparePagedGetTransactionTrees(sqlFunctions)(
+          .preparePagedGetTransactionTrees(
             eventsRange = range,
             requestingParties = requestingParties,
             pageSize = pageSize,
@@ -175,7 +173,7 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
   ): Future[Option[GetTransactionResponse]] = {
     val query =
-      EventsTable.prepareLookupTransactionTreeById(sqlFunctions)(transactionId, requestingParties)
+      EventsTable.prepareLookupTransactionTreeById(transactionId, requestingParties)
     dispatcher
       .executeSql(
         databaseMetrics = dbMetrics.lookupTransactionTreeById,
@@ -205,7 +203,7 @@ private[dao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => { (connection: Connection) =>
       logger.debug(s"getActiveContracts query($range)")
       EventsTable
-        .preparePagedGetActiveContracts(sqlFunctions)(
+        .preparePagedGetActiveContracts(
           range = range,
           filter = filter,
           pageSize = pageSize,
