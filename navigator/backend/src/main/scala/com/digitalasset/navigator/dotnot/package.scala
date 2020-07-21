@@ -19,7 +19,7 @@ package com.daml.navigator
   * - `path` or `property`: the list of all the pieces of the `Tree` from the `root` to a `leaf`
   * - `dotnot handler for k`: the set of all the paths and actions to be performed on an instance of `k`
   */
-package object dotnot {
+package dotnot {
 
   sealed trait DotNotFailure {
     def cursor: PropertyCursor
@@ -43,10 +43,6 @@ package object dotnot {
       extends DotNotFailure
   final case class UnknownType(name: String, cursor: PropertyCursor, value: String)
       extends DotNotFailure
-
-  type NameMatcher = String => Boolean
-  type ValueMatcher = String => Boolean
-  type Action[T, R, C] = (T, PropertyCursor, String, C) => Either[DotNotFailure, R]
 
   final case class NameMatcherToAction[T, R, C](matcher: NameMatcher, action: Action[T, R, C])
   final case class ValueMatcherToAction[T, R, C](matcher: ValueMatcher, action: Action[T, R, C])
@@ -237,6 +233,13 @@ package object dotnot {
     def const(r: R): OnLeafReady[T, R, C] =
       perform[String]((_: T, _: String) => r)
   }
+}
+
+package object dotnot {
+
+  type NameMatcher = String => Boolean
+  type ValueMatcher = String => Boolean
+  type Action[T, R, C] = (T, PropertyCursor, String, C) => Either[DotNotFailure, R]
 
   /**
     * Create a dot-notation handler for a type `T` with name `name` and with return

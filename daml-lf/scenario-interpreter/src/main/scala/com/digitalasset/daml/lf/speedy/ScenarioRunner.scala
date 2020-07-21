@@ -8,11 +8,15 @@ import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Transaction => Tx}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  SubmittedTransaction,
+  TransactionVersion,
+  Transaction => Tx
+}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.ValueVersion
 
 private case class SRunnerException(err: SError) extends RuntimeException(err.toString)

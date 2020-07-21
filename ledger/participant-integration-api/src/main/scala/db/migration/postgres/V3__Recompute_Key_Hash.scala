@@ -3,18 +3,18 @@
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
 // 'db.migration.postgres' for postgres migrations
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import java.sql.{Connection, ResultSet}
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V3__Recompute_Key_Hash extends BaseJavaMigration {
+private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
   // the number of contracts proceeded in a batch.
   private val batchSize = 10 * 1000

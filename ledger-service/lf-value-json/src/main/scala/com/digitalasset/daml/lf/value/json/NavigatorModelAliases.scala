@@ -90,7 +90,7 @@ trait NavigatorModelAliases[Cid] {
     }
 
   import scala.language.higherKinds
-  type OfCid[V[_]] = V[Cid]
+  type OfCid[F[_]] = F[Cid]
   type ApiValue = OfCid[V]
   type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
   type ApiRecord = OfCid[V.ValueRecord]

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.postgres.v25_backfill_participant_events
+package com.daml.platform.db.migration.postgres.v25_backfill_participant_events
 
 import java.sql.Connection
 import java.time.Instant
@@ -11,7 +11,7 @@ import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, Workfl
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 
-object V25TransactionsWriter extends V25TransactionsWriter {
+private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
 
   private def computeDisclosureForFlatTransaction(
       transactionId: TransactionId,
@@ -106,7 +106,7 @@ object V25TransactionsWriter extends V25TransactionsWriter {
 
 }
 
-trait V25TransactionsWriter {
+private[migration] trait V25TransactionsWriter {
 
   def apply(
       applicationId: Option[ApplicationId],

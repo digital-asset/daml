@@ -17,7 +17,6 @@ package object model extends NavigatorModelAliases[String] {
     * An opaque identifier used for templates.
     * Templates are usually identified using a composite type (see [[DamlLfIdentifier]]).
     */
-  sealed trait TemplateStringIdTag
   type TemplateStringId = String @@ TemplateStringIdTag
   val TemplateStringId = Tag.of[TemplateStringIdTag]
 
@@ -101,4 +100,8 @@ package object model extends NavigatorModelAliases[String] {
   def parseOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
     parseOpaqueIdentifier(TemplateStringId.unwrap(id))
 
+}
+
+package model {
+  sealed trait TemplateStringIdTag
 }

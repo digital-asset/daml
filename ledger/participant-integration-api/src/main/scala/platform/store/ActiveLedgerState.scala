@@ -8,7 +8,7 @@ import java.time.Instant
 import com.daml.ledger.participant.state.v1.ContractInst
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.TransactionId

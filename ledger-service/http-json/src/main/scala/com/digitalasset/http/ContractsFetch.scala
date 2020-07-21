@@ -293,7 +293,7 @@ private[http] object ContractsFetch {
         * This turns such a graph into a flow with the value materialized.
         */
       def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] = {
-        type CK[-A] = (A, Future[Z]) => Future[Z]
+        type CK[-T] = (T, Future[Z]) => Future[Z]
         divertToMat(Sink.head)(noM.subst[CK](Keep.right[NotUsed, Future[Z]]))
       }
     }

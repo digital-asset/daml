@@ -11,7 +11,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data
 import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.VersionTimeline.Implicits._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}

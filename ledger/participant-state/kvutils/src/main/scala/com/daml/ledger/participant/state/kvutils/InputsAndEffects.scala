@@ -8,8 +8,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.TransactionMeta
 import com.daml.lf.data.Ref._
-import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.Transaction
+import com.daml.lf.transaction.{GlobalKey, Node, Transaction}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
@@ -37,7 +36,8 @@ private[kvutils] object InputsAndEffects {
     */
   final case class Effects(
       consumedContracts: List[DamlStateKey],
-      createdContracts: List[(DamlStateKey, NodeCreate[ContractId, VersionedValue[ContractId]])],
+      createdContracts: List[
+        (DamlStateKey, Node.NodeCreate[ContractId, VersionedValue[ContractId]])],
       updatedContractKeys: Map[DamlStateKey, Option[ContractId]]
   )
   object Effects {
@@ -79,23 +79,23 @@ private[kvutils] object InputsAndEffects {
     tx.foreach {
       case (_, node) =>
         node match {
-          case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
+          case fetch @ Node.NodeFetch(_, _, _, _, _, _, _) =>
             addContractInput(fetch.coid)
             fetch.key.foreach { keyWithMaintainers =>
               inputs += globalKeyToStateKey(
                 GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case create @ NodeCreate(_, _, _, _, _, _) =>
+          case create @ Node.NodeCreate(_, _, _, _, _, _) =>
             create.key.foreach { keyWithMaintainers =>
               inputs += globalKeyToStateKey(
                 GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
+          case exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
             addContractInput(exe.targetCoid)
 
-          case lookup @ NodeLookupByKey(_, _, _, _) =>
+          case lookup @ Node.NodeLookupByKey(_, _, _, _) =>
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
             lookup.result.foreach(addContractInput)
@@ -116,9 +116,9 @@ private[kvutils] object InputsAndEffects {
     tx.fold(Effects.empty) {
       case (effects, (nodeId, node)) =>
         node match {
-          case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
+          case fetch @ Node.NodeFetch(_, _, _, _, _, _, _) =>
             effects
-          case create @ NodeCreate(_, _, _, _, _, _) =>
+          case create @ Node.NodeCreate(_, _, _, _, _, _) =>
             effects.copy(
               createdContracts = contractIdToStateKey(create.coid) -> create :: effects.createdContracts,
               updatedContractKeys = create.key
@@ -141,7 +141,7 @@ private[kvutils] object InputsAndEffects {
                 )
             )
 
-          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
+          case exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
             if (exe.consuming) {
               effects.copy(
                 consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,
@@ -157,7 +157,7 @@ private[kvutils] object InputsAndEffects {
             } else {
               effects
             }
-          case l @ NodeLookupByKey(_, _, _, _) =>
+          case l @ Node.NodeLookupByKey(_, _, _, _) =>
             effects
         }
     }

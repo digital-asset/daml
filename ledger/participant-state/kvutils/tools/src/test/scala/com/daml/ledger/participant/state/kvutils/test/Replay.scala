@@ -18,7 +18,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.{Ast, Util => AstUtil}
-import com.daml.lf.transaction.Node.{GlobalKey, GlobalKeyWithMaintainers}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.transaction.{
   Node,
   SubmittedTransaction,
@@ -228,7 +228,7 @@ object Replay {
     val allContractsWithKey = createsNodes.flatMap { node =>
       node.key.toList.map(
         key =>
-          node.coid -> Node.GlobalKey(
+          node.coid -> GlobalKey(
             node.coinst.template,
             key.key.value.assertNoCid(key => s"found cid in key $key")))
     }.toMap
