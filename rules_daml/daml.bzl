@@ -205,39 +205,24 @@ _extract_main_dalf = rule(
     toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 
-def _daml_validate_test_impl(ctx):
-    name = ctx.label.name
-    dar = ctx.file.dar
-    script = ctx.actions.declare_file(name + ".sh")
-    damlc = ctx.file._damlc
-    script_content = """
-      set -eou pipefail
-      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
-      DAR=$(rlocation $TEST_WORKSPACE/{dar})
-      $DAMLC validate-dar $DAR
-    """.format(
-        damlc = damlc.short_path,
-        dar = dar.short_path,
-    )
-    ctx.actions.write(
-        output = script,
-        content = script_content,
-    )
-    runfiles = ctx.runfiles(files = [dar, damlc])
-    return [DefaultInfo(executable = script, runfiles = runfiles)]
+def _daml_validate_test(
+        name,
+        dar,
+        **kwargs):
+    damlc = "//compiler/damlc"
+    sh_inline_test(
+        name = name,
+        data = [damlc, dar],
+        cmd = """\
+DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
 
-_daml_validate_test = rule(
-    implementation = _daml_validate_test_impl,
-    attrs = {
-        "dar": attr.label(
-            allow_single_file = True,
-            mandatory = True,
-            doc = "The DAR to validate.",
+$$DAMLC validate-dar $$(canonicalize_rlocation $(rootpath {dar}))
+""".format(
+            damlc = damlc,
+            dar = dar,
         ),
-        "_damlc": _damlc,
-    },
-    test = True,
-)
+        **kwargs
+    )
 
 def _inspect_dar(base):
     name = base + "-inspect"
