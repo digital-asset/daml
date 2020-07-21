@@ -24,7 +24,8 @@ module SemanticsValue where
 
 main = scenario do
     let _ : Int -> Int = (\ (x : Int) -> error "ValExpAbs")
-    -- haven't figured out how to test ValExpTyAbsNat from DAML
+    let x : forall (n:GHC.Types.Nat). Numeric n
+        x = error "ValExpTyAbsNat"
     let _ : Update Int = do
         _ <- pure ()
         error "ValUpdateBind"
