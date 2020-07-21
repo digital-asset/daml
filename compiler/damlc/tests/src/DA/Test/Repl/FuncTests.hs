@@ -71,7 +71,7 @@ main = do
         withAsync (drainHandle serviceOut serviceLineChan) $ \_ -> do
             initPackageConfig scriptDar testDars
             logger <- Logger.newStderrLogger Logger.Warning "repl-tests"
-            replLogger <- getReplLogger
+            replLogger <- newReplLogger
             withDamlIdeState options logger (replEventLogger replLogger) $ \ideState ->
                 (hspec $ functionalTests replHandle replLogger serviceLineChan options ideState) `finally`
                     -- We need to kill the process to avoid getting stuck in hGetLine on Windows.

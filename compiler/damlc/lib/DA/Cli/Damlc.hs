@@ -632,7 +632,7 @@ execRepl projectOpts opts scriptDar dars importPkgs ledgerHost ledgerPort mbAuth
                     , "data-dependencies:"
                     ] ++ ["- " <> show dar | dar <- dars]
                 initPackageDb opts (InitPkgDb True)
-                replLogger <- Repl.getReplLogger
+                replLogger <- Repl.newReplLogger
                 withDamlIdeState opts logger (Repl.replEventLogger replLogger)
                     (Repl.runRepl importPkgs opts replHandle replLogger)
 

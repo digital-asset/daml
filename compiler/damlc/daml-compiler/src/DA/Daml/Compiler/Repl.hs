@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 module DA.Daml.Compiler.Repl
-    ( getReplLogger
+    ( newReplLogger
     , runRepl
     , ReplLogger(..)
     ) where
@@ -244,8 +244,8 @@ data ReplLogger = ReplLogger
   }
 
 
-getReplLogger :: IO ReplLogger
-getReplLogger = do
+newReplLogger :: IO ReplLogger
+newReplLogger = do
     lock <- newLock
     diagsRef <- newIORef $ \diags -> printDiagnostics stdout diags
     let replEventLogger = \case
