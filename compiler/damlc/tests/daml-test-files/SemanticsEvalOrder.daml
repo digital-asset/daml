@@ -10,6 +10,7 @@
 -- the same rule, we use `R_1`, `R_2`, `R_3`, and so on. This is why there is
 -- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
 --
+-- @ERROR Aborted: EvTyAbsErasableErr OK
 -- @ERROR Aborted: overApply OK
 -- @ERROR Aborted: EvExpAppErr1 OK
 -- @ERROR Aborted: EvExpAppErr2 OK
@@ -50,6 +51,11 @@
 -- @ERROR Aborted: EvUpdCreateWithKeyErr1 OK
 -- @ERROR Aborted: EvUpdCreateWithKeyErr2 OK
 module SemanticsEvalOrder where
+
+evTyAbsErasableErr = scenario do
+    let x : forall a. a
+        x = error "EvTyAbsErasableErr OK"
+    error "EvTyAbsErasable failed"
 
 overApply = scenario do
   let f x = error "overApply OK"
