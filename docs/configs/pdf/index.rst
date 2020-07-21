@@ -40,7 +40,7 @@ Building applications
    app-dev/bindings-ts/index
    json-api/index
    DAML Script <daml-script/index>
-   DAML REPL <daml-repl/inddex>
+   DAML REPL <daml-repl/index>
    upgrade/index
    app-dev/authentication
    app-dev/ledger-api
