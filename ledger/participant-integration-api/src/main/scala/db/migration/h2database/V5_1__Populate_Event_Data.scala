@@ -3,7 +3,7 @@
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
 // 'db.migration.h2database' for h2database migrations
-package db.migration.h2database
+package com.daml.platform.db.migration.h2database
 
 import java.sql.Connection
 
@@ -13,10 +13,10 @@ import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.ledger.EventId
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.platform.store.Conversions._
-import db.migration.translation.TransactionSerializer
+import com.daml.platform.db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V5_1__Populate_Event_Data extends BaseJavaMigration {
+private[migration] class V5_1__Populate_Event_Data extends BaseJavaMigration {
 
   val SELECT_TRANSACTIONS =
     "select distinct le.transaction_id, le.transaction from contracts c join ledger_entries le  on c.transaction_id = le.transaction_id"

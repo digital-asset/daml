@@ -3,7 +3,7 @@
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
 // 'db.migration.postgres' for postgres migrations
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import java.sql.{Connection, ResultSet}
 
@@ -13,10 +13,10 @@ import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Conversions._
-import db.migration.translation.TransactionSerializer
+import com.daml.platform.db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V4_1__Collect_Parties extends BaseJavaMigration {
+private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
 
   // the number of contracts proceeded in a batch.
   private val batchSize = 10 * 1000
