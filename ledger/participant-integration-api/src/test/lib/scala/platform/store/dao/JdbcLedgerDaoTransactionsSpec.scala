@@ -11,6 +11,7 @@ import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
+import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.daml.logging.LoggingContext
@@ -23,6 +24,8 @@ import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Inside with LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
+
+  import JdbcLedgerDaoTransactionsSpec._
 
   behavior of "JdbcLedgerDao (lookupFlatTransactionById)"
 
@@ -494,6 +497,34 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  it should "fall back to limit-based query with consistent results" in {
+    import org.scalacheck.Gen
+    import scalaz.std.scalaFuture._, scalaz.std.list._
+    import JdbcLedgerDaoSuite._
+
+    val trials = 10
+    val trialData = Gen
+      .listOfN(
+        trials,
+        Gen.zip(unfilteredTxSeq(length = 1000), Gen oneOf getFlatTransactionCodePaths))
+      .sample getOrElse sys.error("impossible Gen failure")
+
+    trialData
+      .traverseFM {
+        case (boolSeq, cp) =>
+          for {
+            from <- ledgerDao.lookupLedgerEnd()
+            commands <- storeSync(boolSeq map (if (_) singleCreate else singleCreate)) // TODO replace singleCreate
+            to <- ledgerDao.lookupLedgerEnd()
+            response <- ledgerDao.transactionsReader
+              .getFlatTransactions(from, to, cp.filter, verbose = false)
+              .runWith(Sink.seq)
+            readCreates = extractAllTransactions(response) flatMap (_.events)
+          } yield readCreates.size should ===(boolSeq count identity) // TODO cp.discriminate
+      }
+      .map(_.foldLeft(1 shouldBe 1)((_, r) => r))
+  }
+
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
     for {
       from <- ledgerDao.lookupLedgerEnd()
@@ -536,4 +567,41 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     LoggingContext.newLoggingContext { implicit logCtx =>
       daoOwner(eventsPageSize = 2).acquire()
     }.asFuture
+
+  private val getFlatTransactionCodePaths: Seq[FlatTransactionCodePath] = {
+    import JdbcLedgerDaoTransactionsSpec.{FlatTransactionCodePath => Mk}
+    Seq(
+      Mk(
+        "singleWildcardParty",
+        Map(alice -> Set.empty),
+        ce => (ce.signatories ++ ce.observers) contains alice),
+      Mk(
+        "singlePartyWithTemplates",
+        Map(alice -> Set(someTemplateId)),
+        ce =>
+          ((ce.signatories ++ ce.observers) contains alice) /*TODO && ce.templateId == Some(someTemplateId.toString)*/
+      ),
+      Mk(
+        "onlyWildcardParties",
+        Map(alice -> Set.empty, bob -> Set.empty),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)),
+    )
+  }
+}
+
+private[dao] object JdbcLedgerDaoTransactionsSpec {
+  import org.scalacheck.Gen
+
+  private final case class FlatTransactionCodePath(
+      label: String,
+      filter: events.FilterRelation,
+      discriminate: lav1.event.CreatedEvent => Boolean)
+
+  private def unfilteredTxSeq(length: Int): Gen[Vector[Boolean]] =
+    Gen.oneOf(1, 2, 5, 10, 20, 50, 100) flatMap { invFreq =>
+      val frequency = 100 / invFreq
+      Gen.containerOfN[Vector, Boolean](
+        length,
+        Gen.frequency((frequency, true), (100 - frequency, false)))
+    }
 }
