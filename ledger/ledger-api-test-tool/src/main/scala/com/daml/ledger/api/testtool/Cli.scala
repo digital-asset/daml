@@ -62,6 +62,10 @@ object Cli {
   private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
   private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
+
+    private def invalidPerformanceTestName[A](name: String): Either[String, Unit] =
+      failure(s"$name is not a valid performance test name. Use `--list` to see valid names.")
+
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
         |ledger implementations based on DAML and Ledger API.""".stripMargin)
 
@@ -146,12 +150,7 @@ object Cli {
       .text("""A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`.""")
 
     opt[Seq[String]]("perf-tests")
-      .validate(tests =>
-        if (tests.forall(Tests.PerformanceTestsKeySet)) {
-          success
-        } else {
-          failure("Invalid performance test name. Use `--list` to see valid names.")
-      })
+      .validate(_.find(!Tests.PerformanceTestsKeySet(_)).fold(success)(invalidPerformanceTestName))
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
       .unbounded()
       .text("""A comma-separated list of performance tests that should be run.""")
