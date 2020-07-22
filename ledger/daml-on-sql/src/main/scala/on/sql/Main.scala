@@ -13,9 +13,10 @@ import com.daml.resources.ProgramResource
 
 object Main {
 
+  private val Name = LedgerName("DAML-on-SQL")
+
   private[sql] val defaultConfig: SandboxConfig =
     SandboxConfig.defaultConfig.copy(
-      name = LedgerName("DAML-on-SQL"),
       participantId = v1.ParticipantId.assertFromString("daml-on-sql-participant"),
       seeding = Some(Seeding.Strong),
       ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
@@ -40,7 +41,7 @@ object Main {
           "You cannot disable implicit party allocation in DAML-on-SQL.")
       }
       config.logLevel.foreach(GlobalLogLevel.set)
-      SandboxServer.owner(config)
+      SandboxServer.owner(Name, config)
     }).run()
   }
 }

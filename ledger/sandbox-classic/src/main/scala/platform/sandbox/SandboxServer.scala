@@ -34,7 +34,7 @@ import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -55,6 +55,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 object SandboxServer {
+
+  private val DefaultName = LedgerName("Sandbox")
+
   private val AsyncTolerance = 30.seconds
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -68,18 +71,21 @@ object SandboxServer {
   // repeated validation of the sames packages after each reset
   private val engine = new Engine(engineConfig)
 
+  // Only used for testing.
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
+    owner(DefaultName, config)
+
+  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
     for {
       metrics <- new MetricsReporting(
         classOf[SandboxServer].getName,
         config.metricsReporter,
         config.metricsReportingInterval,
       )
-      actorSystem <- AkkaResourceOwner.forActorSystem(() =>
-        ActorSystem(config.name.unwrap.toLowerCase()))
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- ResourceOwner
-        .forTryCloseable(() => Try(new SandboxServer(config, materializer, metrics)))
+        .forTryCloseable(() => Try(new SandboxServer(name, config, materializer, metrics)))
       // Wait for the API server to start.
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
@@ -128,9 +134,11 @@ object SandboxServer {
       seeding = None,
       ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     )
+
 }
 
 final class SandboxServer(
+    name: LedgerName,
     config: SandboxConfig,
     materializer: Materializer,
     metrics: Metrics,
@@ -138,7 +146,7 @@ final class SandboxServer(
 
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
-    this(config, materializer, new Metrics(new MetricRegistry))
+    this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
 
   // NOTE(MH): We must do this _before_ we load the first package.
   engine.setProfileDir(config.profileDir)
@@ -257,7 +265,7 @@ final class SandboxServer(
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
-          config.name,
+          name,
           config.ledgerIdMode,
           config.participantId,
           jdbcUrl,
@@ -276,7 +284,7 @@ final class SandboxServer(
 
       case None =>
         "in-memory" -> SandboxIndexAndWriteService.inMemory(
-          config.name,
+          name,
           config.ledgerIdMode,
           config.participantId,
           defaultConfiguration,
@@ -346,7 +354,8 @@ final class SandboxServer(
     } yield {
       Banner.show(Console.out)
       logger.withoutContext.info(
-        s"Initialized ${config.name} version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+        s"Initialized {} version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+        name,
         BuildInfo.Version,
         ledgerId,
         apiServer.port.toString,

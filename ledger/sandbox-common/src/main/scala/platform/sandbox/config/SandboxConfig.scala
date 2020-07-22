@@ -22,7 +22,6 @@ import com.daml.ports.Port
   * Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
-    name: LedgerName,
     address: Option[String],
     port: Port,
     portFile: Option[Path],
@@ -62,15 +61,11 @@ object SandboxConfig {
   val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
     SizedCache.Configuration.none
 
-  val DefaultName: LedgerName =
-    LedgerName("Sandbox")
-
   val DefaultParticipantId: v1.ParticipantId =
     v1.ParticipantId.assertFromString("sandbox-participant")
 
   lazy val defaultConfig: SandboxConfig =
     SandboxConfig(
-      name = DefaultName,
       address = None,
       port = DefaultPort,
       portFile = None,
