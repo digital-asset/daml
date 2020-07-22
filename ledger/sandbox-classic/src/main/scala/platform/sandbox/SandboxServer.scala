@@ -257,6 +257,7 @@ final class SandboxServer(
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
+          config.name,
           config.ledgerIdMode,
           config.participantId,
           jdbcUrl,
@@ -275,6 +276,7 @@ final class SandboxServer(
 
       case None =>
         "in-memory" -> SandboxIndexAndWriteService.inMemory(
+          config.name,
           config.ledgerIdMode,
           config.participantId,
           defaultConfiguration,
