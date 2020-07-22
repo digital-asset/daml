@@ -176,7 +176,8 @@ class AnfTest extends WordSpec with Matchers {
   private def clo1(fv: SELoc, n: Int, body: SExpr): SExpr = SEMakeClo(Array(fv), n, body)
 
   private def app(func: SExpr, arg: SExpr): SExpr = SEAppGeneral(func, Array(arg))
-  private def app2(func: SExpr, arg1: SExpr, arg2: SExpr): SExpr = SEAppGeneral(func, Array(arg1, arg2))
+  private def app2(func: SExpr, arg1: SExpr, arg2: SExpr): SExpr =
+    SEAppGeneral(func, Array(arg1, arg2))
   private def binop(op: SBuiltin, x: SExpr, y: SExpr): SExpr = SEApp(SEBuiltin(op), Array(x, y))
 
   private def ite(i: SExpr, t: SExpr, e: SExpr): SExpr =
@@ -198,7 +199,11 @@ class AnfTest extends WordSpec with Matchers {
   private def appa(func: SExprAtomic, arg: SExprAtomic): SExpr =
     SEAppAtomicGeneral(func, Array(arg))
 
-  private def appa3(func: SExprAtomic, arg1: SExprAtomic, arg2: SExprAtomic, arg3: SExprAtomic): SExpr =
+  private def appa3(
+      func: SExprAtomic,
+      arg1: SExprAtomic,
+      arg2: SExprAtomic,
+      arg3: SExprAtomic): SExpr =
     SEAppAtomicGeneral(func, Array(arg1, arg2, arg3))
 
   private def binopa(op: SBuiltin, x: SExprAtomic, y: SExprAtomic): SExpr =
