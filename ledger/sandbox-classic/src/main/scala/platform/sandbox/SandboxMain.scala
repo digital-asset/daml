@@ -9,12 +9,14 @@ import com.daml.resources.ProgramResource
 
 object SandboxMain {
   def main(args: Array[String]): Unit = {
-    val config = new Cli(SandboxServer.defaultConfig).parse(args).getOrElse(sys.exit(1))
-    if (!config.implicitPartyAllocation) {
-      throw new InvalidConfigException(
-        "This version of Sandbox does not support disabling implicit party allocation.")
-    }
-    config.logLevel.foreach(GlobalLogLevel.set)
-    new ProgramResource(SandboxServer.owner(config)).run()
+    new ProgramResource({
+      val config = new Cli(SandboxServer.defaultConfig).parse(args).getOrElse(sys.exit(1))
+      if (!config.implicitPartyAllocation) {
+        throw new InvalidConfigException(
+          "This version of Sandbox does not support disabling implicit party allocation.")
+      }
+      config.logLevel.foreach(GlobalLogLevel.set)
+      SandboxServer.owner(config)
+    }).run()
   }
 }
