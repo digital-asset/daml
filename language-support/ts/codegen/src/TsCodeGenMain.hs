@@ -478,7 +478,9 @@ data Decoder
     | DecoderObject [(T.Text, Decoder)]
     | DecoderConstant DecoderConstant
     | DecoderRef TypeRef -- ^ Reference to an object with a .decoder() method
-    | DecoderLazy Decoder
+    | DecoderLazy Decoder -- ^ Lazy decoder, we need this to avoid infinite loops
+    -- on recursive types. We insert this in every variant, Optional, List and TextMap
+    -- which are the only ways to construct terminating recursive types.
 
 data DecoderConstant
     = ConstantUndefined

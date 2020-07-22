@@ -45,6 +45,7 @@ template AllTypes with
     n0 : Numeric 0
     n5 : Numeric 5
     n10 : Decimal
+    rec : Recursive
   where
     signatory party
 
@@ -129,3 +130,9 @@ template U with
       C: ContractId T with
         do
           create T with party
+
+data Recursive = Recursive with
+    recOptional : Optional Recursive
+    recList: [Recursive]
+    recTextMap : TextMap Recursive
+  deriving (Eq, Show)

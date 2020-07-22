@@ -275,6 +275,7 @@ test('create + fetch & exercise', async () => {
     n0:  '3.0',          // Numeric 0
     n5:  '3.14159',      // Numeric 5
     n10: '3.1415926536', // Numeric 10
+    rec: {'recOptional': null, 'recList': [], 'recTextMap': {}},
   };
   const allTypesContract = await aliceLedger.create(buildAndLint.Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
