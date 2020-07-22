@@ -23,7 +23,7 @@ import com.daml.ledger.validator.batch.{
   ConflictDetection
 }
 import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader}
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 

@@ -12,7 +12,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, _}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.engine.Engine
 import com.daml.metrics.{JvmMetricSet, Metrics}
 
 import scala.collection.JavaConverters._

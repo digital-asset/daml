@@ -13,7 +13,7 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.lf.archive.DarReader
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.StandaloneApiServer
