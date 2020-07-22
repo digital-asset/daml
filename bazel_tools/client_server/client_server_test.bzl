@@ -59,10 +59,10 @@ def client_server_test(
         # Deduplicate in case any of runner, client, server are identical.
         data = depset([runner, client, server]).to_list() + data,
         cmd = """\
-runner=$$(canonicalize_rlocation "$(rootpaths {runner})")
+runner=$$(canonicalize_rlocation $$(get_exe $(rootpaths {runner})))
 runner_args="{runner_args}"
-client=$$(canonicalize_rlocation "$(rootpaths {client})")
-server=$$(canonicalize_rlocation "$(rootpaths {server})")
+client=$$(canonicalize_rlocation $$(get_exe $(rootpaths {client})))
+server=$$(canonicalize_rlocation $$(get_exe $(rootpaths {server})))
 server_args="{server_args}"
 for file in {server_files}; do
     server_args+=" $$(canonicalize_rlocation $$file)"

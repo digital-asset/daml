@@ -1,6 +1,8 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "os_name")
+
 def _sh_inline_script_impl(ctx):
     cmd = ctx.attr.cmd
     cmd = ctx.expand_location(cmd, ctx.attr.data)
@@ -11,6 +13,7 @@ def _sh_inline_script_impl(ctx):
         is_executable = True,
         substitutions = {
             "%cmd%": cmd,
+            "%os%": os_name,
         },
     )
 
