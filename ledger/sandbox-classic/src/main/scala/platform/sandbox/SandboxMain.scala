@@ -5,7 +5,6 @@ package com.daml.platform.sandbox
 
 import com.daml.platform.configuration.InvalidConfigException
 import com.daml.platform.sandbox.cli.Cli
-import com.daml.platform.sandbox.config.LedgerName
 import com.daml.resources.ProgramResource
 
 object SandboxMain {

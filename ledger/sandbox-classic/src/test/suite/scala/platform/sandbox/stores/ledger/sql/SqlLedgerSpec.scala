@@ -21,11 +21,10 @@ import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
-import com.daml.platform.sandbox.MetricsAround
-import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
+import com.daml.platform.sandbox.{LedgerName, MetricsAround}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.Resource
 import com.daml.testing.postgresql.PostgresAroundEach

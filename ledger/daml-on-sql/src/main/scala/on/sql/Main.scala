@@ -7,8 +7,8 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.configuration.{InvalidConfigException, LedgerConfiguration}
 import com.daml.platform.sandbox.cli.Cli
-import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
-import com.daml.platform.sandbox.{GlobalLogLevel, SandboxServer}
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.{GlobalLogLevel, LedgerName, SandboxServer}
 import com.daml.resources.ProgramResource
 
 object Main {
