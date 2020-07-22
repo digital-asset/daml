@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform
+package com.daml.platform.sandbox
 
 import scalaz.{@@, Tag}
 
-package sandbox {
+package config {
 
   sealed trait LedgerNameTag
 
 }
 
-package object sandbox {
+package object config {
 
   type LedgerName = String @@ LedgerNameTag
   val LedgerName: Tag.TagOf[LedgerNameTag] = Tag.of[LedgerNameTag]

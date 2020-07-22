@@ -34,7 +34,7 @@ import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
