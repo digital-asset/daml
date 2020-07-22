@@ -56,10 +56,12 @@ class Cli(name: LedgerName, defaultConfig: SandboxConfig) {
         .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
 
       opt[String]('a', "address")
+        .optional()
         .action((x, c) => c.copy(address = Some(x)))
         .text(s"Service host. Defaults to binding on localhost.")
 
       opt[Int]('p', "port")
+        .optional()
         .action((x, c) => c.copy(port = Port(x)))
         .validate(x => Port.validate(x).toEither.left.map(_.getMessage))
         .text(s"Service port. Defaults to ${SandboxConfig.DefaultPort}.")
@@ -89,25 +91,25 @@ class Cli(name: LedgerName, defaultConfig: SandboxConfig) {
           "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.")
 
       opt[Unit]('s', "static-time")
-        .action { (_, c) =>
-          setTimeProviderType(c, TimeProviderType.Static)
-        }
+        .optional()
+        .action((_, c) => setTimeProviderType(c, TimeProviderType.Static))
         .text("Use static time. When not specified, wall-clock-time is used.")
 
       opt[Unit]('w', "wall-clock-time")
-        .action { (_, c) =>
-          setTimeProviderType(c, TimeProviderType.WallClock)
-        }
+        .optional()
+        .action((_, c) => setTimeProviderType(c, TimeProviderType.WallClock))
         .text("Use wall clock time (UTC). This is the default.")
 
       // TODO(#577): Remove this flag.
       opt[Unit]("no-parity")
+        .optional()
         .action { (_, config) =>
           config
         }
         .text("Legacy flag with no effect.")
 
       opt[String](name = "scenario")
+        .optional()
         .action((x, c) => c.copy(scenario = Some(x)))
         .text(
           s"If set, $name will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
@@ -117,6 +119,7 @@ class Cli(name: LedgerName, defaultConfig: SandboxConfig) {
         )
 
       opt[Boolean](name = "implicit-party-allocation")
+        .optional()
         .action((x, c) => c.copy(implicitPartyAllocation = x))
         .text(
           s"When referring to a party that doesn't yet exist on the ledger, $name will implicitly allocate that party."
@@ -156,11 +159,13 @@ class Cli(name: LedgerName, defaultConfig: SandboxConfig) {
               Some(c.copy(clientAuth = clientAuth)))))
 
       opt[Int]("max-inbound-message-size")
+        .optional()
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text(
           s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
 
       opt[Int]("maxInboundMessageSize")
+        .optional()
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text("This flag is deprecated -- please use --max-inbound-message-size.")
 
