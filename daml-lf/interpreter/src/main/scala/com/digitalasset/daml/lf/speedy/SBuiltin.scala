@@ -1019,14 +1019,20 @@ private[lf] object SBuiltin {
               templateId,
               machine.committers,
               cbMissing = _ => machine.tryHandleException(),
-              cbPresent = { coinst =>
-                // Note that we cannot throw in this continuation -- instead
-                // set the control appropriately which will crash the machine
-                // correctly later.
-                if (coinst.template != templateId)
-                  machine.ctrl = SEWronglyTypeContractId(coid, templateId, coinst.template)
-                else
-                  machine.ctrl = SEImportValue(coinst.arg.value)
+              cbPresent = {
+                case V.ContractInst(actualTmplId, V.VersionedValue(version, arg), _) =>
+                  // Note that we cannot throw in this continuation -- instead
+                  // set the control appropriately which will crash the machine
+                  // correctly later.
+                  machine.ctrl =
+                    if (actualTmplId != templateId)
+                      SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
+                    else if (!machine.inputValueVersions.contains(version))
+                      SEDamlException(
+                        DamlEDisallowedInputValueVersion(machine.inputValueVersions, version),
+                      )
+                    else
+                      SEImportValue(arg)
               },
             ),
           )

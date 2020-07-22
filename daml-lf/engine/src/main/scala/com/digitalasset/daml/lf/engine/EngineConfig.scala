@@ -17,7 +17,21 @@ final case class EngineConfig(
     inputTransactionVersions: VersionRange[TV],
     // constrains the version of output transactions
     outputTransactionVersions: VersionRange[TV],
-)
+) {
+
+  private[lf] val inputValueVersions =
+    VersionRange(
+      TransactionVersions.assignValueVersion(inputTransactionVersions.min),
+      TransactionVersions.assignValueVersion(inputTransactionVersions.max),
+    )
+
+  private[lf] val outputValueVersions =
+    VersionRange(
+      TransactionVersions.assignValueVersion(outputTransactionVersions.min),
+      TransactionVersions.assignValueVersion(outputTransactionVersions.max),
+    )
+
+}
 
 object EngineConfig {
 

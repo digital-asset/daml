@@ -29,11 +29,12 @@ class EngineInfo(config: EngineConfig) {
   private[this] def formatInputValueVersions: String =
     format(ValueVersions.acceptedVersions.map(_.protoValue))
 
-  private[this] def formatOutputValueVersions: String = {
-    val outputValueVersions =
-      config.outputTransactionVersions.map(TransactionVersions.assignValueVersion)
-    format(ValueVersions.acceptedVersions.filter(outputValueVersions.contains).map(_.protoValue))
-  }
+  private[this] def formatOutputValueVersions: String =
+    format(
+      ValueVersions.acceptedVersions.collect {
+        case v if config.outputValueVersions.contains(v) => v.protoValue
+      }
+    )
 
   private def formatLfVersions: String = {
     val allVersions: Iterable[String] =

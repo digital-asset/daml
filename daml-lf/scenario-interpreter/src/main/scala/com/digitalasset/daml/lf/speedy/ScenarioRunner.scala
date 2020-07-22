@@ -277,6 +277,7 @@ object ScenarioRunner {
       engine.compiledPackages(),
       transactionSeed,
       scenarioExpr,
+      engine.config.inputValueVersions,
       engine.config.outputTransactionVersions,
     )
     ScenarioRunner(speedyMachine).run() match {

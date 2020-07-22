@@ -22,7 +22,6 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
-import com.daml.lf.transaction.TransactionVersions
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -185,11 +184,17 @@ object Repl {
 
     private val seed = nextSeed()
 
-    val txVersions =
+    val (inputValueVersion, outputTransactionVersions) =
       if (devMode)
-        TransactionVersions.SupportedDevOutputVersions
+        (
+          value.ValueVersions.SupportedDevVersions,
+          transaction.TransactionVersions.SupportedDevVersions
+        )
       else
-        TransactionVersions.SupportedStableOutputVersions
+        (
+          value.ValueVersions.SupportedStableVersions,
+          transaction.TransactionVersions.SupportedStableVersions,
+        )
 
     def run(expr: Expr): (
         Speedy.Machine,
@@ -199,7 +204,8 @@ object Repl {
           compiledPackages,
           seed,
           expr,
-          txVersions,
+          inputValueVersion,
+          outputTransactionVersions,
         )
       (machine, ScenarioRunner(machine).run())
     }

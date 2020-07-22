@@ -30,11 +30,15 @@ private[lf] object ValueVersions
   private[value] val minContractIdV1 = ValueVersion("7")
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
-  // We force output of recent version, but keep reading older version as long as
-  // Sandbox is alive.
-  val SupportedStableVersions = VersionRange(ValueVersion("6"), ValueVersion("6"))
+  val SupportedStableVersions: VersionRange[ValueVersion] =
+    VersionRange(ValueVersion("6"), ValueVersion("6"))
 
-  val SupportedDevVersions = SupportedStableVersions.copy(max = acceptedVersions.last)
+  val SupportedDevVersions: VersionRange[ValueVersion] =
+    SupportedStableVersions.copy(max = acceptedVersions.last)
+
+  // Empty range
+  val Empty: VersionRange[ValueVersion] =
+    VersionRange(acceptedVersions.last, acceptedVersions.head)
 
   def assignVersion[Cid](
       v0: Value[Cid],

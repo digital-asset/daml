@@ -387,16 +387,12 @@ object SExpr {
     }
   }
 
-  /** When we fetch a contract id from upstream we cannot crash in the upstream
-    * calls. Rather, we set the control to this expression and then crash when executing.
+  /** We cannot crash in the engine call back.
+    * Rather, we set the control to this expression and then crash when executing.
     */
-  final case class SEWronglyTypeContractId(
-      acoid: V.ContractId,
-      expected: TypeConName,
-      actual: TypeConName,
-  ) extends SExpr {
+  final case class SEDamlException(error: SErrorDamlException) extends SExpr {
     def execute(machine: Machine): Unit = {
-      throw DamlEWronglyTypedContract(acoid, expected, actual)
+      throw error
     }
   }
 

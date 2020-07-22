@@ -21,7 +21,7 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
   private[this] val supportedValVersions =
     ValueVersions.SupportedDevVersions.copy(min = ValueVersion("1"))
   private[this] val supportedTxVersions =
-    TransactionVersions.SupportedDevOutputVersions.copy(min = TransactionVersion("1"))
+    TransactionVersions.SupportedDevVersions.copy(min = TransactionVersion("1"))
 
   "assignVersion" should {
     "prefer picking an older version" in {
@@ -136,6 +136,18 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
         TransactionVersions.assignValueVersion(input) shouldBe expectedOutput
       }
 
+    }
+  }
+
+  "ValueVersions.Empty" should {
+    "be empty" in {
+      ValueVersions.Empty.nonEmpty shouldBe false
+    }
+  }
+
+  "TransactionVersions.Empty" should {
+    "be empty" in {
+      TransactionVersions.Empty.nonEmpty shouldBe false
     }
   }
 

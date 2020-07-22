@@ -34,16 +34,18 @@ private[lf] object TransactionVersions
   private[transaction] val minContractKeyInFetch = TransactionVersion("10")
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
-  // We force output of recent version, but keep reading older version as long as
-  // Sandbox is alive.
-  val SupportedStableOutputVersions =
+  val SupportedStableVersions: VersionRange[TransactionVersion] =
     VersionRange(TransactionVersion("10"), TransactionVersion("10"))
 
-  val SupportedDevOutputVersions = SupportedStableOutputVersions.copy(max = acceptedVersions.last)
+  val SupportedDevVersions: VersionRange[TransactionVersion] =
+    SupportedStableVersions.copy(max = acceptedVersions.last)
+
+  val Empty: VersionRange[TransactionVersion] =
+    VersionRange(acceptedVersions.last, acceptedVersions.head)
 
   def assignVersion(
       a: GenTransaction.WithTxValue[_, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = SupportedDevOutputVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
   ): Either[String, TransactionVersion] = {
     require(a != null)
     import VersionTimeline.Implicits._
@@ -118,7 +120,7 @@ private[lf] object TransactionVersions
 
   def asVersionedTransaction(
       tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = SupportedDevOutputVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
   ): Either[String, Transaction.Transaction] =
     for {
       v <- assignVersion(tx, supportedVersions)
@@ -127,7 +129,7 @@ private[lf] object TransactionVersions
   @throws[IllegalArgumentException]
   def assertAsVersionedTransaction(
       tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = SupportedDevOutputVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
   ): Transaction.Transaction =
     data.assertRight(asVersionedTransaction(tx, supportedVersions))
 
@@ -145,7 +147,7 @@ private[lf] object TransactionVersions
     val transactionVersion =
       VersionTimeline.latestWhenAllPresent(
         supportedTxVersions.min,
-        (SupportedStableOutputVersions.min: SpecifiedVersion) +: as: _*,
+        (SupportedDevVersions.min: SpecifiedVersion) +: as: _*,
       )
 
     Either.cond(
