@@ -180,6 +180,20 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     )
     runRequest(req)(Unmarshal(_).to[LedgerAccessToken])
   }
+
+  def theWholeThing(
+      username: String,
+      password: String,
+      ledgerId: String): Future[LedgerAccessToken] =
+    for {
+      token <- authorize(username, password)
+      () <- requestServiceAccount(token, ledgerId)
+      sa <- getServiceAccount(token)
+      () <- requestCredential(token, sa.serviceAccount)
+      credId <- getNewCredentialId(token, sa.serviceAccount)
+      cred <- getCredential(token, credId)
+      accessTok <- login(cred)
+    } yield accessTok
 }
 
 object AuthServiceClient {
