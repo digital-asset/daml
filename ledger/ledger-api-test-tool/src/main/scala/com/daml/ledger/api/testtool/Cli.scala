@@ -146,6 +146,12 @@ object Cli {
       .text("""A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`.""")
 
     opt[Seq[String]]("perf-tests")
+      .validate(tests =>
+        if (tests.forall(Tests.PerformanceTestsKeySet)) {
+          success
+        } else {
+          failure("Invalid performance test name, use --list to see valid performance test names")
+      })
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
       .unbounded()
       .text("""A comma-separated list of performance tests that should be run.""")
