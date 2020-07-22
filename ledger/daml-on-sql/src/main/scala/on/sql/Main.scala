@@ -5,6 +5,7 @@ package com.daml.on.sql
 
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{InvalidConfigException, LedgerConfiguration}
 import com.daml.platform.sandbox.cli.Cli
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -30,8 +31,13 @@ object Main {
 
   private[sql] def run(config: SandboxConfig): Unit = {
     new ProgramResource({
+      if (config.ledgerIdMode == LedgerIdMode.dynamic) {
+        throw new InvalidConfigException(
+          "The ledger ID is mandatory. Please set it with `--ledgerid`.")
+      }
       if (config.jdbcUrl.isEmpty) {
-        throw new InvalidConfigException("The JDBC URL is mandatory.")
+        throw new InvalidConfigException(
+          "The JDBC URL is mandatory. Please set it with `--sql-backend-jdbcurl`.")
       }
       if (config.jdbcUrl.exists(!_.startsWith("jdbc:postgresql://"))) {
         throw new InvalidConfigException(
