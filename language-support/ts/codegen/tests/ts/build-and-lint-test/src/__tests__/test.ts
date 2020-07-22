@@ -14,9 +14,11 @@ const LEDGER_ID = 'build-and-lint-test';
 const APPLICATION_ID = 'build-and-lint-test';
 const SECRET_KEY = 'secret';
 const computeToken = (party: string) => encode({
-  ledgerId: LEDGER_ID,
-  applicationId: APPLICATION_ID,
-  party,
+  "https://daml.com/ledger-api": {
+    ledgerId: LEDGER_ID,
+    applicationId: APPLICATION_ID,
+    actAs: [party],
+  },
 }, SECRET_KEY, 'HS256');
 
 const ALICE_PARTY = 'Alice';
@@ -41,9 +43,9 @@ const getEnv = (variable: string): string => {
   return result;
 }
 
-const spawnJvmAndWaitOn = async (jar: string, args: string[], resource: string): Promise<ChildProcess> => {
+const spawnJvmAndWaitOn = async (jar: string, args: string[], resource: string, jvmArgs: string[] = []): Promise<ChildProcess> => {
   const java = getEnv('JAVA');
-  const proc = spawn(java, ['-jar', jar, ...args], {stdio: "inherit",});
+  const proc = spawn(java, [...jvmArgs, '-jar', jar, ...args], {stdio: "inherit",});
   await waitOn({resources: [resource]})
   return proc;
 }
@@ -66,6 +68,8 @@ beforeAll(async () => {
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
      '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
     `file:${JSON_API_PORT_FILE}`,
+    ['-Dakka.http.server.request-timeout=60s',
+     '-Dlogback.configurationFile=' + getEnv("JSON_API_LOGBACK")],
   )
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
   jsonApiPort = parseInt(jsonApiPortData);
