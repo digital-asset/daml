@@ -4,6 +4,7 @@
 package com.daml.on.sql
 
 import com.daml.ledger.participant.state.v1
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.configuration.{InvalidConfigException, LedgerConfiguration}
 import com.daml.platform.sandbox.cli.Cli
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
@@ -12,17 +13,21 @@ import com.daml.resources.ProgramResource
 
 object Main {
 
-  private val defaultConfig: SandboxConfig =
+  private[sql] val defaultConfig: SandboxConfig =
     SandboxConfig.defaultConfig.copy(
       name = LedgerName("DAML-on-SQL"),
       participantId = v1.ParticipantId.assertFromString("daml-on-sql-participant"),
-      seeding = None,
+      seeding = Some(Seeding.Strong),
       ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     )
 
   def main(args: Array[String]): Unit = {
+    val config = new Cli(defaultConfig).parse(args).getOrElse(sys.exit(1))
+    run(config)
+  }
+
+  private[sql] def run(config: SandboxConfig): Unit = {
     new ProgramResource({
-      val config = new Cli(defaultConfig).parse(args).getOrElse(sys.exit(1))
       if (config.jdbcUrl.isEmpty) {
         throw new InvalidConfigException("The JDBC URL is mandatory.")
       }
@@ -38,5 +43,4 @@ object Main {
       SandboxServer.owner(config)
     }).run()
   }
-
 }
