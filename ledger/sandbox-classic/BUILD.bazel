@@ -287,7 +287,7 @@ SERVERS = {
             "--eager-package-loading",
             # "db_close_delay=-1" is needed so that the in-memory database is not closed
             # (and therefore lost) after the flyway migration
-            "--sql-backend-jdbcurl=jdbc:h2:mem:static_time;db_close_delay=-1",
+            "--sql-backend-jdbcurl=jdbc:h2:mem:conformance-test;db_close_delay=-1",
         ],
     },
     "postgresql": {
