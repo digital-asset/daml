@@ -10,6 +10,7 @@ import com.daml.platform.sandbox.cli.Cli
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.{GlobalLogLevel, LedgerName, SandboxServer}
 import com.daml.resources.ProgramResource
+import scalaz.syntax.tag._
 
 object Main {
 
@@ -17,7 +18,7 @@ object Main {
 
   private[sql] val defaultConfig: SandboxConfig =
     SandboxConfig.defaultConfig.copy(
-      participantId = v1.ParticipantId.assertFromString("daml-on-sql-participant"),
+      participantId = v1.ParticipantId.assertFromString(Name.unwrap.toLowerCase()),
       seeding = Some(Seeding.Strong),
       ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     )
