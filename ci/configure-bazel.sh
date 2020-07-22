@@ -74,7 +74,7 @@ if is_windows; then
   SUFFIX="${SUFFIX:0:3}"
   echo "Platform suffix: $SUFFIX"
   # We include an extra version at the end that we can bump manually.
-  CACHE_SUFFIX="$SUFFIX-v6"
+  CACHE_SUFFIX="$SUFFIX-v7"
   CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
   echo "build:windows-ci --remote_http_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
 fi
