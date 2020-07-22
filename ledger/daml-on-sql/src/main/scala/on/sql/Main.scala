@@ -15,7 +15,7 @@ import scalaz.syntax.tag._
 
 object Main {
 
-  private val Name = LedgerName("DAML-on-SQL")
+  private[sql] val Name = LedgerName("DAML-on-SQL")
 
   private[sql] val defaultConfig: SandboxConfig =
     SandboxConfig.defaultConfig.copy(
@@ -25,7 +25,7 @@ object Main {
     )
 
   def main(args: Array[String]): Unit = {
-    val config = new Cli(defaultConfig).parse(args).getOrElse(sys.exit(1))
+    val config = new Cli(Name, defaultConfig).parse(args).getOrElse(sys.exit(1))
     run(config)
   }
 

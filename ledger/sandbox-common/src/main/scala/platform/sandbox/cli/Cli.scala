@@ -19,10 +19,11 @@ import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{InvalidConfigException, MetricsReporter}
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
+import scalaz.syntax.tag._
 import scopt.{OptionParser, Read}
 
 import scala.util.Try
@@ -31,7 +32,7 @@ import scala.util.Try
 // The config object should not expose Options for mandatory fields as such
 // validations should not leave this class. Due to limitations of SCOPT as far I
 // see we either use nulls or use the mutable builder instead.
-class Cli(defaultConfig: SandboxConfig) {
+class Cli(name: LedgerName, defaultConfig: SandboxConfig) {
 
   private implicit val clientAuthRead: Read[ClientAuth] = Read.reads {
     case "none" => ClientAuth.NONE
@@ -44,8 +45,8 @@ class Cli(defaultConfig: SandboxConfig) {
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
 
   private val cmdArgParser: OptionParser[SandboxConfig] =
-    new OptionParser[SandboxConfig]("sandbox") {
-      head(s"Sandbox version ${BuildInfo.Version}")
+    new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
+      head(s"$name version ${BuildInfo.Version}")
 
       arg[File]("<archive>...")
         .optional()
@@ -56,12 +57,12 @@ class Cli(defaultConfig: SandboxConfig) {
 
       opt[String]('a', "address")
         .action((x, c) => c.copy(address = Some(x)))
-        .text("Sandbox service host. Defaults to binding on localhost.")
+        .text(s"Service host. Defaults to binding on localhost.")
 
       opt[Int]('p', "port")
         .action((x, c) => c.copy(port = Port(x)))
         .validate(x => Port.validate(x).toEither.left.map(_.getMessage))
-        .text(s"Sandbox service port. Defaults to ${SandboxConfig.DefaultPort}.")
+        .text(s"Service port. Defaults to ${SandboxConfig.DefaultPort}.")
 
       opt[File]("port-file")
         .optional()
@@ -74,12 +75,12 @@ class Cli(defaultConfig: SandboxConfig) {
         .action((id, c) =>
           c.copy(
             ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
-        .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used.")
+        .text(s"Ledger ID. If missing, a random unique ledger ID will be used.")
 
       opt[String]("participant-id")
         .optional()
         .action((id, c) => c.copy(participantId = v1.ParticipantId.assertFromString(id)))
-        .text(s"Sandbox participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
+        .text(s"Participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
 
       // TODO remove in next major release.
       opt[Unit]("dalf")
@@ -109,15 +110,18 @@ class Cli(defaultConfig: SandboxConfig) {
       opt[String](name = "scenario")
         .action((x, c) => c.copy(scenario = Some(x)))
         .text(
-          "If set, the sandbox will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
-            "Note that when using --postgres-backend the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one. " +
-            "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
-            "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
+          s"If set, $name will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
+            " Note that when using --postgres-backend the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one." +
+            " Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
+            s" Also note that instructing $name to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading)."
+        )
 
       opt[Boolean](name = "implicit-party-allocation")
         .action((x, c) => c.copy(implicitPartyAllocation = x))
-        .text("When referring to a party that doesn't yet exist on the ledger, Sandbox will implicitly allocate that party."
-          + " You can optionally disable this behavior to bring Sandbox into line with other ledgers.")
+        .text(
+          s"When referring to a party that doesn't yet exist on the ledger, $name will implicitly allocate that party."
+            + " You can optionally disable this behavior to bring Sandbox into line with other ledgers."
+        )
 
       opt[String]("pem")
         .optional()
@@ -167,7 +171,8 @@ class Cli(defaultConfig: SandboxConfig) {
 
       opt[String]("sql-backend-jdbcurl")
         .optional()
-        .text("The JDBC connection URL to a Postgres database containing the username and password as well. If present, the Sandbox will use the database to persist its data.")
+        .text(
+          s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $name will use the database to persist its data.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
       opt[String]("log-level")

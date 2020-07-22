@@ -14,7 +14,7 @@ object SandboxMain {
 
   def main(args: Array[String]): Unit = {
     new ProgramResource({
-      val config = new Cli(SandboxServer.defaultConfig).parse(args).getOrElse(sys.exit(1))
+      val config = new Cli(Name, SandboxServer.defaultConfig).parse(args).getOrElse(sys.exit(1))
       if (!config.implicitPartyAllocation) {
         throw new InvalidConfigException(
           "This version of Sandbox does not support disabling implicit party allocation.")

@@ -20,7 +20,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
     val database = createNewRandomDatabase()
     sys.addShutdownHook(disconnectFromPostgresqlServer())
     val config =
-      new Cli(defaultConfig)
+      new Cli(Main.Name, defaultConfig)
         .parse(args)
         .getOrElse(sys.exit(1))
         .copy(jdbcUrl = Some(database.url))

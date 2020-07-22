@@ -11,7 +11,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import org.apache.commons.io.FileUtils
@@ -22,28 +22,29 @@ class CliSpec extends WordSpec with Matchers {
   private val archive = rlocation("ledger/test-common/model-tests.dar")
   private val nonExistingArchive = "whatever.dar"
   private val invalidArchive = createTempFile().getAbsolutePath
+  private val name = LedgerName(classOf[CliSpec].getSimpleName)
   private val defaultConfig = SandboxConfig.defaultConfig
 
   "Cli" should {
 
     "return the input Config when no arguments are specified" in {
-      val config = new Cli(defaultConfig).parse(Array.empty)
+      val config = new Cli(name, defaultConfig).parse(Array.empty)
       config shouldEqual Some(defaultConfig)
     }
 
     "return None when an archive file does not exist" in {
-      val config = new Cli(defaultConfig).parse(Array(nonExistingArchive))
+      val config = new Cli(name, defaultConfig).parse(Array(nonExistingArchive))
       config shouldEqual None
     }
 
     "return None when an archive file is not a ZIP" in {
-      val config = new Cli(defaultConfig).parse(Array(invalidArchive))
+      val config = new Cli(name, defaultConfig).parse(Array(invalidArchive))
       config shouldEqual None
     }
 
     "return a Config with sensible defaults when mandatory arguments are given" in {
       val expectedConfig = defaultConfig.copy(damlPackages = List(new File(archive)))
-      val config = new Cli(defaultConfig).parse(Array(archive))
+      val config = new Cli(name, defaultConfig).parse(Array(archive))
       config shouldEqual Some(expectedConfig)
     }
 
@@ -87,7 +88,7 @@ class CliSpec extends WordSpec with Matchers {
     }
 
     "return None when both static and wall-clock time are given" in {
-      val config = new Cli(defaultConfig).parse(Array("--static-time", "--wall-clock-time"))
+      val config = new Cli(name, defaultConfig).parse(Array("--static-time", "--wall-clock-time"))
       config shouldEqual None
     }
 
@@ -138,7 +139,7 @@ class CliSpec extends WordSpec with Matchers {
       expectedChange: SandboxConfig => SandboxConfig
   ): Assertion = {
     val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
-    val config = new Cli(defaultConfig).parse(options ++ Array(archive))
+    val config = new Cli(name, defaultConfig).parse(options ++ Array(archive))
     config shouldEqual Some(expectedConfig)
   }
 

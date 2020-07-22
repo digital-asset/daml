@@ -54,6 +54,7 @@ da_scala_library(
         "//ledger/sandbox-common",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
