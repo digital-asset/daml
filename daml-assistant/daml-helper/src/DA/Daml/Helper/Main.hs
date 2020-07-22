@@ -27,9 +27,11 @@ import DA.Daml.Helper.Util
 
 main :: IO ()
 main = do
+    putStrLn "running daml helper"
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
+    putStrLn "changing prog name"
     withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
         hPutStrLn stderr (displayException e)
         exitFailure

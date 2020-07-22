@@ -125,6 +125,7 @@ jobs:
       - template: ci/report-end.yml
 
   - job: macOS
+    condition: false
     dependsOn:
       - da_ghc_lib
       - check_for_release
@@ -231,6 +232,7 @@ jobs:
       - template: ci/report-end.yml
 
   - job: compatibility_macos
+    condition: false
     dependsOn:
       - da_ghc_lib
       - check_for_release
