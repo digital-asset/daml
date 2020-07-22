@@ -150,7 +150,7 @@ object Cli {
         if (tests.forall(Tests.PerformanceTestsKeySet)) {
           success
         } else {
-          failure("Invalid performance test name, use --list to see valid performance test names")
+          failure("Invalid performance test name. Use `--list` to see valid names.")
       })
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
       .unbounded()
