@@ -277,7 +277,7 @@ private[lf] object Anf {
         val safeFunc =
           func match {
             // we know that trivially in these two cases
-            case _: SEBuiltin => true
+            case SEBuiltin(b) => (args.size <= b.arity)
             case _: SEBuiltinRecursiveDefinition => (args.size <= 3)
             case _ => false
           }

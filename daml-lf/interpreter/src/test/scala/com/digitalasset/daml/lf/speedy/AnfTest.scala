@@ -125,6 +125,23 @@ class AnfTest extends WordSpec with Matchers {
     }
   }
 
+  "error applied to 1 arg" should {
+    "be transformed to ANF as expected" in {
+      val original = lam(1, SEApp(SEBuiltin(SBError), Array(arg0)))
+      val expected = AExpr(lam(1, SEAppAtomicSaturatedBuiltin(SBError, Array(arg0))))
+      testTransform(original, expected)
+    }
+  }
+
+  "error (over) applied to 2 arg" should {
+    "be transformed to ANF as expected" in {
+      val original = lam(2, SEApp(SEBuiltin(SBError), Array(arg0, arg1)))
+      val expected =
+        AExpr(lam(2, SELet1Builtin(SBError, Array(arg0), appa(stack1, arg1))))
+      testTransform(original, expected)
+    }
+  }
+
   "case expression: [\\a b c. if a then b else c]" should {
     "be transformed to ANF as expected" in {
       val original = lam(3, ite(arg0, arg1, arg2))

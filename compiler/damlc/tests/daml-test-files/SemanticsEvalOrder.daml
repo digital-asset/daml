@@ -12,6 +12,7 @@
 --
 -- @ERROR Aborted: EvTyAbsErasableErr OK
 -- @ERROR Aborted: overApply OK
+-- @ERROR Aborted: errorError OK
 -- @ERROR Aborted: EvExpAppErr1 OK
 -- @ERROR Aborted: EvExpAppErr2 OK
 -- @ERROR Aborted: EvExpLetErr OK
@@ -61,6 +62,10 @@ overApply = scenario do
   let f x = error "overApply OK"
   let _ = f 1 (error "overApply Failed")
   let _ = f 1 2
+  pure ()
+
+errorError = scenario do
+  let _ = (error "errorError OK") (error "errorError Failed")
   pure ()
 
 evExpAppErr1 = scenario do
