@@ -26,7 +26,6 @@ module DA.Next.Map
 
 import Prelude hiding (lookup, null, filter, empty)
 import DA.Foldable qualified as Foldable
-import DA.Optional
 import DA.Text
 import DA.TextMap (TextMap)
 import DA.TextMap qualified as TextMap
@@ -55,17 +54,30 @@ instance MapKey Text where
   keyToText x = x
   keyFromText x = x
 
+keyFromTextNote : Text -> Text -> Text
+keyFromTextNote target t =
+  "keyFromText: could not parse " <> show t <> " as '" <> target <> "'"
+
 instance MapKey Party where
   keyToText = partyToText
-  keyFromText = fromSome . partyFromText
+  keyFromText t =
+    case partyFromText t of
+      None -> error (keyFromTextNote "Party" t)
+      Some x -> x
 
 instance MapKey Int where
   keyToText = show
-  keyFromText = fromSome . parseInt
+  keyFromText t =
+    case parseInt t of
+      None -> error (keyFromTextNote "Int" t)
+      Some x -> x
 
 instance MapKey Decimal where
   keyToText = show
-  keyFromText = fromSome . parseDecimal
+  keyFromText t =
+    case parseDecimal t of
+      None -> error (keyFromTextNote "Decimal" t)
+      Some x -> x
 
 -- | Create a map from a list of key/value pairs.
 fromList : MapKey k => [(k, v)] -> Map k v
