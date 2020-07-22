@@ -187,9 +187,9 @@ object Repl {
 
     val txVersions =
       if (devMode)
-        TransactionVersions.SupportedDevVersions
+        TransactionVersions.SupportedOutputDevVersions
       else
-        TransactionVersions.SupportedStableVersions
+        TransactionVersions.SupportedOutputStableVersions
 
     def run(expr: Expr): (
         Speedy.Machine,

@@ -36,7 +36,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     val actorSystem: ActorSystem = ActorSystem("integrity-checker")
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val engine = new Engine(Engine.DevConfig)
+    // FIXME: https://github.com/digital-asset/daml/issues/5164
+    // should not use DevEngine
+    val engine = Engine.DevEngine()
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
     val submissionValidator = BatchedSubmissionValidator[LogResult](

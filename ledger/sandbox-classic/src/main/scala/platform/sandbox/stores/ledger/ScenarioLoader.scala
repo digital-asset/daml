@@ -7,11 +7,11 @@ import java.time.Instant
 
 import com.daml.lf.{CompiledPackages, crypto}
 import com.daml.lf.data.{Relation => _, _}
-import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
 import org.slf4j.LoggerFactory
@@ -110,10 +110,6 @@ object ScenarioLoader {
     (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
   }
 
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // This should be made configurable
-  private[this] val engineConfig = Engine.DevConfig
-
   private[this] def buildScenarioLedger(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
@@ -129,7 +125,7 @@ object ScenarioLoader {
       scenarioDef = scenarioDef,
       compiledPackages = compiledPackages,
       transactionSeed = transactionSeed,
-      outputTransactionVersions = engineConfig.allowedOutputTransactionVersions,
+      outputTransactionVersions = SandboxServer.engineConfig.outputTransactionVersions,
     )
     (scenarioLedger, scenarioRef)
   }

@@ -21,7 +21,7 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
   private[this] val supportedValVersions =
     ValueVersions.SupportedDevVersions.copy(min = ValueVersion("1"))
   private[this] val supportedTxVersions =
-    TransactionVersions.SupportedDevVersions.copy(min = TransactionVersion("1"))
+    TransactionVersions.SupportedOutputDevVersions.copy(min = TransactionVersion("1"))
 
   "assignVersion" should {
     "prefer picking an older version" in {
@@ -63,11 +63,6 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
 
     import VersionTimeline.Implicits._
 
-    val txVersionToValVersion = Map(
-      TransactionVersion("10") -> ValueVersion("6"),
-      TransactionVersion("11") -> ValueVersion("7")
-    )
-
     val Seq(v1_1, v1_5, v1_6, v1_7) = Seq("1", "5", "6", "7").map(minor =>
       LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Stable(minor)))
 
@@ -87,8 +82,7 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
 
       forEvery(supportedVersionRanges) { supportedTxVersions =>
         val expectedTxVersion = supportedTxVersions.min
-        val expectedValVersion = txVersionToValVersion(expectedTxVersion)
-        val expectedOutput = Right(expectedTxVersion -> expectedValVersion)
+        val expectedOutput = Right(expectedTxVersion)
 
         TransactionVersions.assignVersions(supportedTxVersions, Seq.empty) shouldBe expectedOutput
         forEvery(langVersions) { langVersion =>
@@ -107,8 +101,7 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
 
       forEvery(supportedVersionRanges) { supportedTxVersions =>
         val expectedTxVersion = TransactionVersion("11")
-        val expectedValVersion = txVersionToValVersion(expectedTxVersion)
-        val expectedOutput = Right(expectedTxVersion -> expectedValVersion)
+        val expectedOutput = Right(expectedTxVersion)
 
         TransactionVersions.assignVersions(supportedTxVersions, Seq(v1_dev)) shouldBe expectedOutput
         forEvery(langVersions) { langVersion =>
@@ -128,6 +121,22 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
       }
     }
 
+  }
+
+  "TransactionVersions.assignValueVersion" should {
+    "be stable" in {
+
+      val testCases = Table(
+        "input" -> "output",
+        TransactionVersion("10") -> ValueVersion("6"),
+        TransactionVersion("11") -> ValueVersion("7")
+      )
+
+      forEvery(testCases) { (input, expectedOutput) =>
+        TransactionVersions.assignValueVersion(input) shouldBe expectedOutput
+      }
+
+    }
   }
 
   private[this] def assignValueVersions[Nid, Cid <: ContractId](
