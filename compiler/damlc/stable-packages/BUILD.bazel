@@ -18,6 +18,7 @@ da_haskell_binary(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-compiler",
         "//libs-haskell/da-hs-base",
     ],
 )

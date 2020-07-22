@@ -8,6 +8,25 @@ load("//bazel_tools/packaging:packaging.bzl", "package_app")
 load(":util.bzl", "ghc_pkg")
 
 da_haskell_binary(
+    name = "generate-broken",
+    srcs = ["GenerateBroken.hs"],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "text",
+        "zip",
+    ],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-package-config",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_binary(
     name = "damlc",
     srcs = ["exe/Main.hs"],
 
