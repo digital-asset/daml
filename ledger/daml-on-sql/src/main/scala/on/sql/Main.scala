@@ -35,11 +35,10 @@ object Main {
       }
       if (config.jdbcUrl.exists(!_.startsWith("jdbc:postgresql://"))) {
         throw new InvalidConfigException(
-          s"The JDBC URL, '${config.jdbcUrl.get}', is invalid. DAML-on-SQL only supports PostgreSQL.")
+          s"The JDBC URL, '${config.jdbcUrl.get}', is invalid. $Name only supports PostgreSQL.")
       }
       if (!config.implicitPartyAllocation) {
-        throw new InvalidConfigException(
-          "You cannot disable implicit party allocation in DAML-on-SQL.")
+        throw new InvalidConfigException(s"You cannot disable implicit party allocation in $Name.")
       }
       config.logLevel.foreach(GlobalLogLevel.set)
       SandboxServer.owner(Name, config)
