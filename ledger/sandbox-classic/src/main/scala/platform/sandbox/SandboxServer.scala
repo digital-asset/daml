@@ -54,7 +54,6 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 object SandboxServer {
-  private val ActorSystemName = "sandbox"
   private val AsyncTolerance = 30.seconds
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -75,7 +74,7 @@ object SandboxServer {
         config.metricsReporter,
         config.metricsReportingInterval,
       )
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName))
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(config.name.toLowerCase()))
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- ResourceOwner
         .forTryCloseable(() => Try(new SandboxServer(config, materializer, metrics)))
@@ -343,7 +342,7 @@ final class SandboxServer(
     } yield {
       Banner.show(Console.out)
       logger.withoutContext.info(
-        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+        s"Initialized ${config.name} version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
         BuildInfo.Version,
         ledgerId,
         apiServer.port.toString,

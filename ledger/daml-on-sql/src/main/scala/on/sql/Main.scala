@@ -3,15 +3,25 @@
 
 package com.daml.on.sql
 
-import com.daml.platform.configuration.InvalidConfigException
+import com.daml.lf.data.Ref
+import com.daml.platform.configuration.{InvalidConfigException, LedgerConfiguration}
 import com.daml.platform.sandbox.cli.Cli
+import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.{GlobalLogLevel, SandboxServer}
 import com.daml.resources.ProgramResource
 
 object Main {
+
+  private val defaultConfig: SandboxConfig =
+    SandboxConfig.defaultConfig.copy(
+      name = Ref.LedgerString.assertFromString("DAML-on-SQL"),
+      seeding = None,
+      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    )
+
   def main(args: Array[String]): Unit = {
     new ProgramResource({
-      val config = new Cli(SandboxServer.defaultConfig).parse(args).getOrElse(sys.exit(1))
+      val config = new Cli(defaultConfig).parse(args).getOrElse(sys.exit(1))
       if (config.jdbcUrl.isEmpty) {
         throw new InvalidConfigException("The JDBC URL is mandatory.")
       }
@@ -27,4 +37,5 @@ object Main {
       SandboxServer.owner(config)
     }).run()
   }
+
 }

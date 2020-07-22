@@ -11,7 +11,7 @@ import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
@@ -23,11 +23,12 @@ import com.daml.ports.Port
   * Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
+    name: Ref.LedgerString,
     address: Option[String],
     port: Port,
     portFile: Option[Path],
     ledgerIdMode: LedgerIdMode,
-    participantId: ParticipantId,
+    participantId: v1.ParticipantId,
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
     commandConfig: CommandConfiguration,
@@ -62,11 +63,15 @@ object SandboxConfig {
   val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
     SizedCache.Configuration.none
 
-  val DefaultParticipantId: ParticipantId =
-    Ref.ParticipantId.assertFromString("sandbox-participant")
+  val DefaultName: Ref.LedgerString =
+    Ref.LedgerString.assertFromString("Sandbox")
+
+  val DefaultParticipantId: v1.ParticipantId =
+    v1.ParticipantId.assertFromString("sandbox-participant")
 
   lazy val defaultConfig: SandboxConfig =
     SandboxConfig(
+      name = DefaultName,
       address = None,
       port = DefaultPort,
       portFile = None,
