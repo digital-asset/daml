@@ -23,7 +23,7 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
   TransactionVersions => TxVersions
 }
-import com.daml.lf.value.Value
+import com.daml.lf.value.{Value, ValueVersion}
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
@@ -1626,6 +1626,48 @@ class EngineTest
       err.msg should not include ("Boom")
       err.msg should include("precondition violation")
     }
+  }
+
+  "Engine#submit" should {
+    val cidV6 = toContractId("#cidV6")
+    val cidV7 = toContractId("#cidV7")
+    val contract = ValueRecord(
+      Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
+      ImmArray((Some[Name]("p"), ValueParty(party)))
+    )
+    val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
+    val templateId = TypeConName(basicTestsPkgId, "BasicTests:Simple")
+    val now = Time.Timestamp.now()
+    val submissionSeed = crypto.Hash.hashPrivateKey("engine check the version of input value")
+    def contracts = Map(
+      cidV6 -> ContractInst(templateId, VersionedValue(ValueVersion("6"), contract), ""),
+      cidV7 -> ContractInst(templateId, VersionedValue(ValueVersion("7"), contract), ""),
+    )
+
+    def run(cid: ContractId) = {
+      val engine = new Engine(EngineConfig.Stable)
+      val cmds = Commands(
+        submitter = party,
+        commands = ImmArray(
+          ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.empty))),
+        ledgerEffectiveTime = now,
+        commandsReference = "",
+      )
+      engine
+        .submit(cmds, participant, submissionSeed)
+        .consume(contracts.get, lookupPackage, lookupKey)
+    }
+
+    "should succeeds if fed with allowed value version" in {
+      run(cidV6) shouldBe 'right
+    }
+
+    "should succeeds if fed with disallowed value version" in {
+      val result = run(cidV7)
+      result shouldBe 'left
+      result.left.get.msg should include("Update failed due to wrong value version")
+    }
+
   }
 
   "Engine.addPackage" should {
