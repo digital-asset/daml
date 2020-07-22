@@ -14,7 +14,7 @@ da_scala_library(
     name = "daml-on-sql",
     srcs = glob(["src/main/scala/**/*.scala"]),
     # Do not include logback.xml in the library. Let the user of the library decide how to log.
-    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+    resources = ["src/main/resources/banner.txt"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_core",
@@ -39,7 +39,7 @@ da_scala_library(
     name = "daml-on-sql-test-lib",
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
     # Do not include logback.xml in the library. Let the user of the library decide how to log.
-    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+    resources = ["src/main/resources/banner.txt"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:org_postgresql_postgresql",
