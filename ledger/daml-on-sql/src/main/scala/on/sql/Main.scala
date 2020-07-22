@@ -3,6 +3,7 @@
 
 package com.daml.on.sql
 
+import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Ref
 import com.daml.platform.configuration.{InvalidConfigException, LedgerConfiguration}
 import com.daml.platform.sandbox.cli.Cli
@@ -15,6 +16,7 @@ object Main {
   private val defaultConfig: SandboxConfig =
     SandboxConfig.defaultConfig.copy(
       name = Ref.LedgerString.assertFromString("DAML-on-SQL"),
+      participantId = v1.ParticipantId.assertFromString("daml-on-sql-participant"),
       seeding = None,
       ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     )
