@@ -6,4 +6,4 @@ package com.daml.lf.speedy
 /**
   * The even more simplified AST for the speedy interpreter, following ANF transformation.
   */
-private[lf] final case class AExpr(wrapped: SExpr) extends Serializable
+final case class AExpr(wrapped: SExpr) extends Serializable
