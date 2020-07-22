@@ -608,3 +608,23 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       .runWith(Sink.seq)
 
 }
+
+object JdbcLedgerDaoSuite {
+  import scala.language.higherKinds
+  import scalaz.{Free, Monad, NaturalTransformation, Traverse}
+  import scalaz.syntax.traverse._
+
+  implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
+
+    /** Like `traverse`, but guarantees that
+      *
+      *  - `f` is evaluated left-to-right, and
+      *  - `B` from the preceding element is evaluated before `f` is invoked for
+      *    the subsequent `A`.
+      */
+    def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
+      self
+        .traverse(a => Free suspend (Free liftF f(a)))
+        .foldMap(NaturalTransformation.refl)
+  }
+}
