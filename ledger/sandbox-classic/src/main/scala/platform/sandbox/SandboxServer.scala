@@ -47,6 +47,7 @@ import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
 import com.github.ghik.silencer.silent
+import scalaz.syntax.tag._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
@@ -74,7 +75,8 @@ object SandboxServer {
         config.metricsReporter,
         config.metricsReportingInterval,
       )
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(config.name.toLowerCase()))
+      actorSystem <- AkkaResourceOwner.forActorSystem(() =>
+        ActorSystem(config.name.unwrap.toLowerCase()))
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- ResourceOwner
         .forTryCloseable(() => Try(new SandboxServer(config, materializer, metrics)))

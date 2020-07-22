@@ -13,7 +13,6 @@ import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
 import com.daml.platform.services.time.TimeProviderType
@@ -23,7 +22,7 @@ import com.daml.ports.Port
   * Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
-    name: Ref.LedgerString,
+    name: LedgerName,
     address: Option[String],
     port: Port,
     portFile: Option[Path],
@@ -63,8 +62,8 @@ object SandboxConfig {
   val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
     SizedCache.Configuration.none
 
-  val DefaultName: Ref.LedgerString =
-    Ref.LedgerString.assertFromString("Sandbox")
+  val DefaultName: LedgerName =
+    LedgerName("Sandbox")
 
   val DefaultParticipantId: v1.ParticipantId =
     v1.ParticipantId.assertFromString("sandbox-participant")
