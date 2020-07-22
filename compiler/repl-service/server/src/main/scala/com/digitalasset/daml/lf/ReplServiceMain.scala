@@ -191,7 +191,7 @@ class ReplService(
     mat: Materializer)
     extends ReplServiceGrpc.ReplServiceImplBase {
   var packages: Map[PackageId, Package] = Map.empty
-  var compiledDefinitions: Map[SDefinitionRef, AExpr] = Map.empty
+  private var compiledDefinitions: Map[SDefinitionRef, AExpr] = Map.empty
   var results: Seq[SValue] = Seq()
   implicit val ec_ = ec
   implicit val esf_ = esf

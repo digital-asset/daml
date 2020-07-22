@@ -182,10 +182,10 @@ class AnfTest extends WordSpec with Matchers {
   private def ite(i: SExpr, t: SExpr, e: SExpr): SExpr =
     SECase(i, Array(SCaseAlt(patTrue, t), SCaseAlt(patFalse, e)))
 
-  def folde: SExprAtomic = SEBuiltinRecursiveDefinition.FoldL
-  def app3(func: SExpr, arg1: SExpr, arg2: SExpr, arg3: SExpr): SExpr =
+  private def folde: SExprAtomic = SEBuiltinRecursiveDefinition.FoldL
+  private def app3(func: SExpr, arg1: SExpr, arg2: SExpr, arg3: SExpr): SExpr =
     SEAppGeneral(func, Array(arg1, arg2, arg3))
-  def app4(func: SExpr, arg1: SExpr, arg2: SExpr, arg3: SExpr, arg4: SExpr): SExpr =
+  private def app4(func: SExpr, arg1: SExpr, arg2: SExpr, arg3: SExpr, arg4: SExpr): SExpr =
     SEAppGeneral(func, Array(arg1, arg2, arg3, arg4))
 
   // anf builders
@@ -198,19 +198,8 @@ class AnfTest extends WordSpec with Matchers {
   private def appa(func: SExprAtomic, arg: SExprAtomic): SExpr =
     SEAppAtomicGeneral(func, Array(arg))
 
-  private def app2a(func: SExprAtomic, arg1: SExprAtomic, arg2: SExprAtomic): SExpr =
-    SEAppAtomicGeneral(func, Array(arg1, arg2))
-
   private def appa3(func: SExprAtomic, arg1: SExprAtomic, arg2: SExprAtomic, arg3: SExprAtomic): SExpr =
     SEAppAtomicGeneral(func, Array(arg1, arg2, arg3))
-
-  private def appa4(
-      func: SExprAtomic,
-      arg1: SExprAtomic,
-      arg2: SExprAtomic,
-      arg3: SExprAtomic,
-      arg4: SExprAtomic): SExpr =
-    SEAppAtomicGeneral(func, Array(arg1, arg2, arg3, arg4))
 
   private def binopa(op: SBuiltin, x: SExprAtomic, y: SExprAtomic): SExpr =
     SEAppAtomicSaturatedBuiltin(op, Array(x, y))
