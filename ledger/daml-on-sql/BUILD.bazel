@@ -1,0 +1,77 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@io_bazel_rules_docker//java:image.bzl", "java_image")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "mvn_version")
+
+da_scala_library(
+    name = "daml-on-sql",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    # Do not include logback.xml in the library. Let the user of the library decide how to log.
+    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = [
+        "//ledger/participant-integration-api",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-common",
+        "//libs-scala/resources",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+)
+
+da_scala_library(
+    name = "daml-on-sql-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    # Do not include logback.xml in the library. Let the user of the library decide how to log.
+    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = [
+        ":daml-on-sql",
+        "//libs-scala/postgresql-testing",
+    ],
+)
+
+da_scala_binary(
+    name = "daml-on-sql-binary",
+    main_class = "com.daml.on.sql.Main",
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    deps = [
+        ":daml-on-sql",
+    ],
+)
+
+da_scala_binary(
+    name = "daml-on-sql-ephemeral-postgresql",
+    main_class = "com.daml.on.sql.MainWithEphemeralPostgresql",
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    deps = [
+        ":daml-on-sql",
+        ":daml-on-sql-test-lib",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--port=6865",
+        "--eager-package-loading",
+    ],
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
