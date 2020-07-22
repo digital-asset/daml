@@ -84,6 +84,7 @@ sh_test(
         "$(location //language-support/ts/daml-types:npm_package)",
         "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
+        "$(location //ledger-service/http-json:release/json-api-logback.xml)",
     ],
     data = [
         "//:java",
@@ -91,6 +92,7 @@ sh_test(
         "//:daml2js",
         "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
+        "//ledger-service/http-json:release/json-api-logback.xml",
         ":build-and-lint.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
