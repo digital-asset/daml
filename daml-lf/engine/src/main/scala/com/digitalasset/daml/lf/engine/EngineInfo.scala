@@ -20,8 +20,10 @@ class EngineInfo(config: EngineConfig) {
   private[this] def formatOutputTransactionVersions: String =
     format(
       TransactionVersions.acceptedVersions
-        .filter(config.outputTransactionVersions.contains)
-        .map(_.protoValue)
+        .collect {
+          case v if config.outputTransactionVersions.contains(v) =>
+            v.protoValue
+        }
     )
 
   private[this] def formatInputValueVersions: String =
