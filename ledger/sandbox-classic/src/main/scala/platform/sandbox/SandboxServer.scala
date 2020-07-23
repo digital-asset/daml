@@ -18,6 +18,7 @@ import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -357,7 +358,7 @@ final class SandboxServer(
         timeProviderType.description,
         ledgerType,
         authService.getClass.getSimpleName,
-        config.seeding.fold("no")(_.name),
+        config.seeding.fold(Seeding.NoSeedingModeName)(_.name),
         if (config.stackTraces) "" else ", stack traces = no",
         config.profileDir match {
           case None => ""

@@ -311,9 +311,10 @@ class CommonCli(name: LedgerName) {
       seedingModes: Option[Seeding]*,
   ): CommonCli = {
     val seedingModesMap =
-      seedingModes.map(mode => (mode.map(_.name).getOrElse(NoSeedingModeName), mode)).toMap
+      seedingModes.map(mode => (mode.map(_.name).getOrElse(Seeding.NoSeedingModeName), mode)).toMap
     val allSeedingModeNames = seedingModesMap.keys.mkString(", ")
-    val defaultSeedingModeName = defaultConfig.seeding.map(_.name).getOrElse(NoSeedingModeName)
+    val defaultSeedingModeName =
+      defaultConfig.seeding.map(_.name).getOrElse(Seeding.NoSeedingModeName)
     parser
       .opt[String]("contract-id-seeding")
       .optional()
@@ -332,8 +333,6 @@ class CommonCli(name: LedgerName) {
 }
 
 object CommonCli {
-
-  private val NoSeedingModeName = "no"
 
   private def setTimeProviderType(
       config: SandboxConfig,

@@ -21,6 +21,8 @@ object SeedService {
 
   object Seeding {
 
+    val NoSeedingModeName = "no"
+
     case object Strong extends Seeding {
       override val name: String = "strong"
     }
