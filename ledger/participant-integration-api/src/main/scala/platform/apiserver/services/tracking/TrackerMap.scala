@@ -20,7 +20,8 @@ import scala.util.{Failure, Success}
   * A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
-final class TrackerMap(retentionPeriod: FiniteDuration)(implicit logCtx: LoggingContext)
+private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(
+    implicit logCtx: LoggingContext)
     extends AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -91,7 +92,7 @@ final class TrackerMap(retentionPeriod: FiniteDuration)(implicit logCtx: Logging
   }
 }
 
-object TrackerMap {
+private[services] object TrackerMap {
 
   final case class Key(application: String, party: String)
 

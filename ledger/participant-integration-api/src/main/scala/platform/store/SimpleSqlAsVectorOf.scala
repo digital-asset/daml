@@ -9,7 +9,7 @@ import anorm.{Cursor, Row, RowParser, SimpleSql}
 
 import scala.util.{Failure, Success, Try}
 
-object SimpleSqlAsVectorOf {
+private[platform] object SimpleSqlAsVectorOf {
 
   implicit final class SimpleSqlAsVectorOf(val sql: SimpleSql[Row]) extends AnyVal {
 

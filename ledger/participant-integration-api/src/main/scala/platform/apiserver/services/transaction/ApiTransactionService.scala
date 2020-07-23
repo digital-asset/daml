@@ -32,7 +32,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object ApiTransactionService {
+private[apiserver] object ApiTransactionService {
 
   def create(
       ledgerId: LedgerId,
@@ -49,7 +49,7 @@ object ApiTransactionService {
     )
 }
 
-final class ApiTransactionService private (
+private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
     parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,

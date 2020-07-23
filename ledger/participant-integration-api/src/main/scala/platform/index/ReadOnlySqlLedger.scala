@@ -27,7 +27,7 @@ import com.daml.timer.RetryStrategy
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-object ReadOnlySqlLedger {
+private[platform] object ReadOnlySqlLedger {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 

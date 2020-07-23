@@ -8,12 +8,12 @@ import java.time.Instant
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId}
 import com.daml.ledger.api.domain.PartyDetails
 
-sealed abstract class PartyLedgerEntry() extends Product with Serializable {
+private[platform] sealed abstract class PartyLedgerEntry() extends Product with Serializable {
   val submissionIdOpt: Option[SubmissionId]
   val recordTime: Instant
 }
 
-object PartyLedgerEntry {
+private[platform] object PartyLedgerEntry {
 
   final case class AllocationAccepted(
       submissionIdOpt: Option[SubmissionId],

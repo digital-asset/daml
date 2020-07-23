@@ -26,7 +26,8 @@ import scala.util.{Failure, Success}
   * Tracks SubmitAndWaitRequests.
   * @param queue The input queue to the tracking flow.
   */
-final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput]) extends Tracker {
+private[services] final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput])
+    extends Tracker {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -64,7 +65,7 @@ final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput]) 
   }
 }
 
-object TrackerImpl {
+private[services] object TrackerImpl {
 
   private val logger = LoggerFactory.getLogger(this.getClass.getName)
 

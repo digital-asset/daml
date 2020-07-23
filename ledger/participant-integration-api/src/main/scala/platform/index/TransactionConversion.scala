@@ -30,7 +30,7 @@ import com.daml.platform.store.entries.LedgerEntry
 
 import scala.annotation.tailrec
 
-object TransactionConversion {
+private[platform] object TransactionConversion {
 
   private type ContractId = lf.value.Value.ContractId
   private type Transaction = CommittedTransaction

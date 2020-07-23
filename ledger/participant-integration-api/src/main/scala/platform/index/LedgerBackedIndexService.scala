@@ -49,7 +49,7 @@ import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
 
-final class LedgerBackedIndexService(
+private[platform] final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
     participantId: ParticipantId,
 )(implicit mat: Materializer)

@@ -25,7 +25,8 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class ApiCommandCompletionService private (completionsService: IndexCompletionsService)(
+private[apiserver] final class ApiCommandCompletionService private (
+    completionsService: IndexCompletionsService)(
     implicit ec: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -55,7 +56,7 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
 
 }
 
-object ApiCommandCompletionService {
+private[apiserver] object ApiCommandCompletionService {
 
   def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
       implicit ec: ExecutionContext,

@@ -32,7 +32,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
-final class ApiConfigManagementService private (
+private[apiserver] final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
@@ -191,7 +191,7 @@ final class ApiConfigManagementService private (
 
 }
 
-object ApiConfigManagementService {
+private[apiserver] object ApiConfigManagementService {
   def createApiService(
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,

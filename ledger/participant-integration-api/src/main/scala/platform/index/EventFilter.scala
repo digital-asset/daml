@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.value.Identifier
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.api.v1.event.EventOps.EventOps
 
-object EventFilter {
+private[platform] object EventFilter {
 
   // TODO Remove all usages of domain objects
   private def toLfIdentifier(id: Identifier): Ref.Identifier =
