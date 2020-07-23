@@ -14,6 +14,10 @@ It's time to put everything you've learnt so far together into a complete and se
 
 The model in this section is not a single DAML file, but a DAML project consisting of several files that depend on each other.
 
+.. hint::
+
+  Remember that you can download all the code for this section by running ``daml new 7_Composing daml-intro-7``
+
 DAML projects
 -------------
 

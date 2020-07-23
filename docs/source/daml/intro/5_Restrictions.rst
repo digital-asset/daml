@@ -13,6 +13,10 @@ To make sense of the latter, you'll also learn more about the ``Update`` and ``S
 
 Lastly, you will learn about time on the ledger and in scenarios.
 
+.. hint::
+
+  Remember that you can download all the code for this section by running ``daml new 5_Restrictions daml-intro-5``
+
 Template preconditions
 ----------------------
 
@@ -33,6 +37,9 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you want t
   :start-after: ensure
   :end-before: -- RESTRICTED_IOU_END
 
+.. hint::
+
+  The ``T`` here stands for the ``DA.Text`` standard library which has been imported using ``import DA.Text as T``.
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml

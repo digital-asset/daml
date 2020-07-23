@@ -10,6 +10,10 @@ But what if the accountant wanted to allow the bank to change their own telephon
 
 In this section you will learn about how to define simple data transformations using *choices* and how to delegate the right to *exercise* these choices to other parties.
 
+.. hint::
+
+  Remember that you can download all the code for this section by running ``daml new 4_Transformations daml-intro-4``
+
 Choices as methods
 ------------------
 

@@ -12,6 +12,10 @@ To begin with, you're going to write a very small DAML template, which represent
 - Contracts
 - Signatories
 
+.. hint::
+
+  Remember that you can download all the code for this section by running ``daml new 1_Token daml-intro-1``
+
 DAML ledger basics
 ------------------
 
