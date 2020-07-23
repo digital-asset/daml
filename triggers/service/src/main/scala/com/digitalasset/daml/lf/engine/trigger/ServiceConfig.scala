@@ -6,6 +6,7 @@ package com.daml.lf.engine.trigger
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
+import akka.http.scaladsl.model.Uri
 import com.daml.platform.services.time.TimeProviderType
 import scalaz.Show
 
@@ -27,6 +28,7 @@ case class ServiceConfig(
     init: Boolean,
     noSecretKey: Boolean, // Default false
     jdbcConfig: Option[JdbcConfig],
+    authServiceBaseUrl: Option[Uri],
 )
 
 final case class JdbcConfig(
@@ -133,6 +135,10 @@ object ServiceConfig {
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
+    opt[Unit]("no-secret-key")
+      .action((_, c) => c.copy(noSecretKey = true))
+      .text("Allow running without a secret key.")
+
     opt[Map[String, String]]("jdbc")
       .action((x, c) =>
         c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(e => sys.error(e), identity))))
@@ -140,9 +146,10 @@ object ServiceConfig {
       .valueName(JdbcConfig.usage)
       .text("JDBC configuration parameters. If omitted the service runs without a database.")
 
-    opt[Unit]("no-secret-key")
-      .action((_, c) => c.copy(noSecretKey = true))
-      .text("Allow running without a secret key.")
+    opt[String]("auth-service-base-url")
+      .optional()
+      .action((url, c) => c.copy(authServiceBaseUrl = Some(Uri(url))))
+      .text("URL of a running service for ledger authentication.")
 
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
@@ -166,6 +173,7 @@ object ServiceConfig {
         init = false,
         noSecretKey = false,
         jdbcConfig = None,
+        authServiceBaseUrl = None,
       ),
     )
 }

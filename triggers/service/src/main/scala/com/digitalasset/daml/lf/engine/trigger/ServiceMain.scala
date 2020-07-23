@@ -44,6 +44,7 @@ object ServiceMain {
           jdbcConfig,
           initDb = false, // for tests we initialize the database in beforeEach clause
           noSecretKey,
+          authServiceBaseUrl = None,
         ),
         "TriggerService"
       )
@@ -89,7 +90,8 @@ object ServiceMain {
               encodedDar,
               config.jdbcConfig,
               config.init,
-              config.noSecretKey
+              config.noSecretKey,
+              config.authServiceBaseUrl,
             ),
             "TriggerService"
           )

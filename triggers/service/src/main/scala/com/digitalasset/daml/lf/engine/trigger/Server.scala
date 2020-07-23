@@ -17,6 +17,8 @@ import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import cats.syntax.apply._
+import cats.syntax.functor._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
@@ -42,11 +44,14 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
+import com.daml.lf.engine.trigger.TokenManagement.encrypt
+
 class Server(
     ledgerConfig: LedgerConfig,
     restartConfig: TriggerRestartConfig,
     secretKey: SecretKey,
-    triggerDao: RunningTriggerDao)(
+    triggerDao: RunningTriggerDao,
+    authServiceClient: Option[AuthServiceClient])(
     implicit ctx: ActorContext[Message],
     materializer: Materializer,
     esf: ExecutionSequencerFactory) {
@@ -104,10 +109,13 @@ class Server(
       .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
 
   private def startTrigger(
-      credentials: UserCredentials,
+      userpass: (String, String),
       triggerName: Identifier,
       existingInstance: Option[UUID] = None): Either[String, JsValue] = {
+    import cats.implicits._
+    val credentials = UserCredentials(encrypt(secretKey, userpass._1, userpass._2))
     for {
+      ledgerAccessToken <- authServiceClient.traverse(_.theWholeThing(userpass._1, userpass._2, ""))
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
       triggerInstance <- existingInstance match {
         case None =>
@@ -184,7 +192,7 @@ class Server(
               entity(as[StartParams]) {
                 params =>
                   TokenManagement
-                    .findCredentials(secretKey, request)
+                    .getBasicCredentials(request)
                     .fold(
                       message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                       credentials =>
@@ -300,6 +308,7 @@ object Server {
       jdbcConfig: Option[JdbcConfig],
       initDb: Boolean,
       noSecretKey: Boolean,
+      authServiceBaseUrl: Option[Uri],
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
     // These are required to execute methods in the Server class and are passed
@@ -339,14 +348,16 @@ object Server {
         }
     }
 
+    val authServiceClient = authServiceBaseUrl.map(AuthServiceClient(_))
+
     val (triggerDao, server): (RunningTriggerDao, Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
+        val server = new Server(ledgerConfig, restartConfig, secretKey, dao, authServiceClient)
         (dao, server)
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
+        val server = new Server(ledgerConfig, restartConfig, secretKey, dao, authServiceClient)
         val recovery: Either[String, Unit] = for {
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
