@@ -4,47 +4,48 @@
 package com.daml.platform.sandbox.cli
 
 import java.io.File
+import java.nio.file.Files
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
-import com.daml.lf.data.Ref
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
+import com.daml.platform.sandbox.cli.CommonCliSpecBase._
+import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-import org.apache.commons.io.FileUtils
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
-class CliSpec extends WordSpec with Matchers {
+import scala.collection.JavaConverters._
 
-  private val archive = rlocation("ledger/test-common/model-tests.dar")
-  private val nonExistingArchive = "whatever.dar"
-  private val invalidArchive = createTempFile().getAbsolutePath
-  private val name = LedgerName(classOf[CliSpec].getSimpleName)
-  private val defaultConfig = SandboxConfig.defaultConfig
+abstract class CommonCliSpecBase(
+    protected val cli: SandboxCli,
+    protected val requiredArgs: Array[String] = Array.empty,
+    protected val expectedDefaultConfig: Option[SandboxConfig] = None,
+) extends WordSpec
+    with Matchers {
+
+  private val defaultConfig = expectedDefaultConfig.getOrElse(cli.defaultConfig)
 
   "Cli" should {
 
-    "return the input Config when no arguments are specified" in {
-      val config = new Cli(name, defaultConfig).parse(Array.empty)
+    "return the input config when no arguments are specified (except any required arguments)" in {
+      val config = cli.parse(requiredArgs)
       config shouldEqual Some(defaultConfig)
     }
 
     "return None when an archive file does not exist" in {
-      val config = new Cli(name, defaultConfig).parse(Array(nonExistingArchive))
+      val config = cli.parse(requiredArgs ++ Array(nonExistentArchive))
       config shouldEqual None
     }
 
     "return None when an archive file is not a ZIP" in {
-      val config = new Cli(name, defaultConfig).parse(Array(invalidArchive))
+      val config = cli.parse(requiredArgs ++ Array(invalidArchive))
       config shouldEqual None
     }
 
     "return a Config with sensible defaults when mandatory arguments are given" in {
       val expectedConfig = defaultConfig.copy(damlPackages = List(new File(archive)))
-      val config = new Cli(name, defaultConfig).parse(Array(archive))
+      val config = cli.parse(requiredArgs ++ Array(archive))
       config shouldEqual Some(expectedConfig)
     }
 
@@ -58,14 +59,6 @@ class CliSpec extends WordSpec with Matchers {
       val port = "1234"
       checkOption(Array("-p", port), _.copy(port = Port(port.toInt)))
       checkOption(Array("--port", port), _.copy(port = Port(port.toInt)))
-    }
-
-    "parse the ledger ID when given" in {
-      val ledgerId = "myledger"
-      checkOption(
-        Array("--ledgerid", ledgerId),
-        _.copy(ledgerIdMode =
-          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
     }
 
     "parse the participant ID when given" in {
@@ -88,13 +81,8 @@ class CliSpec extends WordSpec with Matchers {
     }
 
     "return None when both static and wall-clock time are given" in {
-      val config = new Cli(name, defaultConfig).parse(Array("--static-time", "--wall-clock-time"))
+      val config = cli.parse(requiredArgs ++ Array("--static-time", "--wall-clock-time"))
       config shouldEqual None
-    }
-
-    "parse the scenario when given" in {
-      val scenario = "myscenario"
-      checkOption(Array("--scenario", scenario), _.copy(scenario = Some(scenario)))
     }
 
     "parse the crt file when given" in {
@@ -119,34 +107,32 @@ class CliSpec extends WordSpec with Matchers {
         _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))))
     }
 
-    "parse the jdbcurl (deprecated) when given" in {
-      val jdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
-      checkOption(Array("--jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
-    }
-
-    "parse the sql backend flag when given" in {
-      val jdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
-      checkOption(Array("--sql-backend-jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
-    }
-
     "parse the eager package loading flag when given" in {
       checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
     }
   }
 
-  private def checkOption(
-      options: Array[String],
+  protected def checkOption(
+      args: Array[String],
       expectedChange: SandboxConfig => SandboxConfig
   ): Assertion = {
     val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
-    val config = new Cli(name, defaultConfig).parse(options ++ Array(archive))
+    val config = cli.parse(requiredArgs ++ args ++ Array(archive))
     config shouldEqual Some(expectedConfig)
   }
+}
 
-  private def createTempFile(): File = {
-    val tempFile = File.createTempFile("invalid-archive", ".dar.tmp")
-    FileUtils.writeByteArrayToFile(tempFile, "NOT A ZIP".getBytes)
-    tempFile.deleteOnExit()
-    tempFile
+object CommonCliSpecBase {
+
+  private val archive = rlocation("ledger/test-common/model-tests.dar")
+  private val nonExistentArchive = "whatever.dar"
+  private val invalidArchive = {
+    val tempFile = Files.createTempFile("invalid-archive", ".dar.tmp")
+    Files.write(tempFile, Seq("NOT A ZIP").asJava)
+    tempFile.toFile.deleteOnExit()
+    tempFile.toAbsolutePath.toString
   }
+
+  val exampleJdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
+
 }

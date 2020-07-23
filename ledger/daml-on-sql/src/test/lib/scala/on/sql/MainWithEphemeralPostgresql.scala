@@ -4,14 +4,13 @@
 package com.daml.on.sql
 
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.platform.sandbox.cli.Cli
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.testing.postgresql.PostgresAround
 
 object MainWithEphemeralPostgresql extends PostgresAround {
 
   private val defaultConfig: SandboxConfig =
-    Main.defaultConfig.copy(
+    DefaultConfig.copy(
       seeding = Some(Seeding.Weak),
     )
 
@@ -20,7 +19,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
     val database = createNewRandomDatabase()
     sys.addShutdownHook(disconnectFromPostgresqlServer())
     val config =
-      new Cli(Main.Name, defaultConfig)
+      new Cli(defaultConfig)
         .parse(args)
         .getOrElse(sys.exit(1))
         .copy(jdbcUrl = Some(database.url))

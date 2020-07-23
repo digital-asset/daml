@@ -25,6 +25,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -167,7 +168,7 @@ object HttpServiceTestFixture {
       authService: Option[AuthService] = None,
       useTls: UseTls = UseTls.NoTls
   ): SandboxConfig =
-    SandboxServer.defaultConfig.copy(
+    sandbox.DefaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.WallClock),
