@@ -18,7 +18,7 @@ triangleTR_acc acc n = triangleTR_acc (acc+n) (n-1)
 
 
 
-idByMatching n =
+idByMatchingI n =
   case n of
     1 -> 1
     2 -> 1
@@ -42,9 +42,43 @@ idByMatching n =
     20 -> 1
     _ -> 1
 
-patTestInner i n =
-  if i == 0 then 0 else idByMatching n + patTestInner (i-1) n
+patTestInnerI i n =
+  if i == 0 then 0 else idByMatchingI n + patTestInnerI (i-1) n
 
-patTest10 i = patTestInner i 10
+patTestI10 i = patTestInnerI i 10
 
-patTest20 i = patTestInner i 20
+patTestInt20 i = patTestInnerI i 20
+
+
+data E = E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8 | E9 | E10
+       | E11 | E12 | E13 | E14 | E15 | E16 | E17 | E18 | E19 | E20
+
+idByMatchingE e =
+  case e of
+    E1 -> 1
+    E2 -> 1
+    E3 -> 1
+    E4 -> 1
+    E5 -> 1
+    E6 -> 1
+    E7 -> 1
+    E8 -> 1
+    E9 -> 1
+    E10 -> 1
+    E11 -> 1
+    E12 -> 1
+    E13 -> 1
+    E14 -> 1
+    E15 -> 1
+    E16 -> 1
+    E17 -> 1
+    E18 -> 1
+    E19 -> 1
+    E20 -> 1
+
+patTestInnerE i n =
+  if i == 0 then 0 else idByMatchingE n + patTestInnerE (i-1) n
+
+patTestE10 i = patTestInnerE i E10
+
+patTestE20 i = patTestInnerE i E20

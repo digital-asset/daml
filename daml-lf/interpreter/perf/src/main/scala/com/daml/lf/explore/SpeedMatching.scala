@@ -12,7 +12,7 @@ import java.io.File
 object SpeedMatching extends App {
 
   val base = "Examples"
-  val funcName: String = "patTest20"
+  val funcName: String = "patTestE20"
   val dar = s"daml-lf/interpreter/perf/${base}.dar"
   val darFile = new File(rlocation(dar))
 
@@ -22,7 +22,7 @@ object SpeedMatching extends App {
 
   println(s"Running...");
 
-  val n = 100000L
+  val n = 500000L
 
   while (true) {
     val start = System.currentTimeMillis()
