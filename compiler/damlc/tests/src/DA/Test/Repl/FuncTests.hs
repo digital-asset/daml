@@ -264,6 +264,19 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , matchOutput "^.*"
           , matchOutput "^.*"
           ]
+    , testInteraction' "let bindings"
+          [ input "let x = 1 + 1"
+          , input "x"
+          , matchOutput "2"
+          , input "let Some (x, y) = Some (23, 42)"
+          , input "x"
+          , matchOutput "23"
+          , input "y"
+          , matchOutput "42"
+          , input "let f x = x + 1"
+          , input "f 42"
+          , matchOutput "43"
+          ]
     ]
   where
     testInteraction' testName steps =
