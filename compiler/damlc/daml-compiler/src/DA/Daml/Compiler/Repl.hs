@@ -11,6 +11,7 @@ module DA.Daml.Compiler.Repl
     ) where
 
 import BasicTypes (Boxity(..))
+import Bag (bagToList, unitBag)
 import Control.Applicative
 import Control.Concurrent.Extra
 import Control.Exception.Safe
@@ -59,7 +60,7 @@ import Language.Haskell.GhclibParserEx.Parse
 import Language.Haskell.LSP.Messages
 import Lexer (ParseResult(..))
 import Module (unitIdString)
-import OccName (occName, OccSet, elemOccSet, emptyOccSet, mkOccSet, mkVarOcc)
+import OccName (OccSet, occName, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (ppr, showSDoc)
 import qualified Outputable
 import RdrName (mkRdrUnqual)
@@ -67,6 +68,7 @@ import SrcLoc (unLoc)
 import qualified System.Console.Repline as Repl
 import System.Exit
 import System.IO.Extra
+import TcEvidence (idHsWrapper)
 import Type (splitTyConApp)
 
 data Error
@@ -143,23 +145,65 @@ shadowPat vars p
 -- That ensures that the line itself fails and it
 -- avoids partial pattern match warnings on subsequent lines.
 
-toTuplePat :: Maybe (LPat GhcPs) -> LPat GhcPs
-toTuplePat Nothing = noLoc (WildPat noExt)
-toTuplePat (Just pat) = noLoc $
+toTuplePat :: [RdrName] -> LPat GhcPs
+toTuplePat [] = noLoc (WildPat noExt)
+toTuplePat [v] = noLoc (VarPat noExt $ noLoc v)
+toTuplePat vars = noLoc $
     TuplePat noExt [noLoc (VarPat noExt $ noLoc v) | v <- vars] Boxed
-  where vars = collectPatBinders pat
 
 toTupleExpr :: LPat GhcPs -> LHsExpr GhcPs
 toTupleExpr pat = noLoc $
     ExplicitTuple noExt [noLoc (Present noExt (noLoc $ HsVar noExt (noLoc v))) | v <- vars] Boxed
   where vars = collectPatBinders pat
 
--- | Split a statement into the pattern and the body.
--- For unsupported statements we return `Nothing`.
-splitStmt :: Stmt GhcPs (LHsExpr GhcPs) -> Maybe (Maybe (LPat GhcPs), LHsExpr GhcPs)
-splitStmt (BodyStmt _ expr _ _) = Just (Nothing, expr)
-splitStmt (BindStmt _ pat expr _ _) = Just (Just (ParPat noExt pat), expr)
-splitStmt _ = Nothing
+-- | Type for the statements we support.
+data SupportedStatement
+    = BodyStatement (LHsExpr GhcPs)
+    | BindStatement (LPat GhcPs) (LHsExpr GhcPs)
+    | LetStatement LetBinding
+
+data LetBinding
+    = FunBinding (Located RdrName) (MatchGroup GhcPs (LHsExpr GhcPs))
+    | PatBinding (LPat GhcPs) (GRHSs GhcPs (LHsExpr GhcPs))
+
+toLocalBinds :: LetBinding -> LHsLocalBindsLR GhcPs GhcPs
+toLocalBinds bind =
+    noLoc $ HsValBinds noExt $
+    ValBinds noExt (unitBag $ noLoc hsBind) []
+  where
+    hsBind = case bind of
+        FunBinding f mg -> FunBind
+          { fun_ext = noExt
+          , fun_id = f
+          , fun_matches = mg
+          , fun_co_fn = idHsWrapper
+          , fun_tick = []
+          }
+        PatBinding pat rhs -> PatBind
+          { pat_ext = noExt
+          , pat_lhs = pat
+          , pat_rhs = rhs
+          , pat_ticks = ([], [])
+          }
+
+validateStmt :: Stmt GhcPs (LHsExpr GhcPs) -> Maybe SupportedStatement
+validateStmt (BodyStmt _ expr _ _) = Just (BodyStatement expr)
+validateStmt (BindStmt _ pat expr _ _) = Just (BindStatement pat expr)
+validateStmt (LetStmt _ (L _ (HsValBinds _ (ValBinds _ binds _))))
+    -- We only support singleton binds for now. Anything else
+    -- is annoying to write in the repl anyway.
+    | [bind] <- bagToList binds = fmap LetStatement $ case unLoc bind of
+          FunBind{..} -> Just (FunBinding fun_id fun_matches)
+          PatBind{..} -> Just (PatBinding pat_lhs pat_rhs)
+          _ -> Nothing
+validateStmt _ = Nothing
+
+stmtBoundVars :: SupportedStatement -> [RdrName]
+stmtBoundVars (BodyStatement _) = []
+stmtBoundVars (BindStatement pat _) = collectPatBinders pat
+stmtBoundVars (LetStatement binding) = case binding of
+    FunBinding f _ -> [unLoc f]
+    PatBinding pat _ -> collectPatBinders pat
 
 -- | Sort DALF packages in topological order.
 -- I.e. if @a@ appears before @b@, then @b@ does not depend on @a@.
@@ -294,10 +338,10 @@ runRepl importPkgs opts replClient logger ideState = do
         -> ExceptT Error ReplM ()
     handleStmt dflags line stmt = do
         ReplState {imports, bindings, lineNumber} <- State.get
-        (bind, expr) <- maybe (throwError (UnsupportedStatement line)) pure (splitStmt stmt)
-        let rendering = renderModule dflags imports lineNumber bindings bind expr
+        supportedStmt <- maybe (throwError (UnsupportedStatement line)) pure (validateStmt stmt)
+        let rendering = renderModule dflags imports lineNumber bindings supportedStmt
         (lfMod, tmrModule -> tcMod) <- printDelayedDiagnostics $ case rendering of
-            BindingRendering _ t ->
+            BindingRendering t ->
                 tryTypecheck lineNumber (T.pack t)
             BodyRenderings {..} ->
                 withExceptT getLast
@@ -313,10 +357,11 @@ runRepl importPkgs opts replClient logger ideState = do
         mbResult <- withExceptT ScriptError $ ExceptT $ liftIO $
             ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
         liftIO $ whenJust mbResult T.putStrLn
-        let boundVars = maybe emptyOccSet (mkOccSet . map occName . collectPatBinders) bind
+        let boundVars = stmtBoundVars supportedStmt
+            boundVars' = mkOccSet $ map occName boundVars
         State.put $! ReplState
           { imports = imports
-          , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat bind, stmtTy)]
+          , bindings = map (first (shadowPat boundVars')) bindings <> [(toTuplePat boundVars, stmtTy)]
           , lineNumber = lineNumber + 1
           }
     printDelayedDiagnostics :: MonadIO m => ExceptT (e, [[FileDiagnostic]]) m a -> ExceptT e m a
@@ -394,7 +439,7 @@ lineModuleName i = "Line" <> show i
 
 -- | Possible ways to render a module. We take the first one that typechecks
 data ModuleRenderings
-    = BindingRendering (LPat GhcPs) String -- ^ x <- e with e :: Script a for some a
+    = BindingRendering String -- ^ x <- e with e :: Script a for some a
     | BodyRenderings
         { unitScript :: String
           -- ^ e :: Script (). Here we do not print the result.
@@ -431,36 +476,35 @@ renderModule
     -> [ImportDecl GhcPs]
     -> Int
     -> [(LPat GhcPs, Type)]
-    -> Maybe (LPat GhcPs)
-    -> LHsExpr GhcPs
+    -> SupportedStatement
     -> ModuleRenderings
-renderModule dflags imports line binds mbPat expr = case mbPat of
-    Just pat ->
-        BindingRendering pat $ unlines $
+renderModule dflags imports line binds stmt = case stmt of
+    BindStatement pat expr ->
+        BindingRendering $ unlines $
             moduleHeader dflags imports line <>
             [ exprTy "Script _"
             , exprLhs
-            , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt returnAp)
+            , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt (Just pat) expr returnAp)
             ]
-    Nothing ->
+    BodyStatement expr ->
         BodyRenderings
           { unitScript = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script ()"
               , exprLhs
-              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt returnAp)
+              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
               ]
           , printableScript = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script Text"
               , exprLhs
-              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt returnShowAp)
+              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
               ]
           , nonprintableScript = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script _"
               , exprLhs
-              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt returnAp)
+              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
               ]
           , purePrintableExpr = unlines $
               moduleHeader dflags imports line <>
@@ -470,14 +514,29 @@ renderModule dflags imports line binds mbPat expr = case mbPat of
                 returnShowAp expr
               ]
           }
+    LetStatement binding ->
+        let retExpr = case binding of
+                FunBinding f _ -> noLoc $ HsVar noExt f
+                PatBinding pat _ -> toTupleExpr pat
+        in BindingRendering $ unlines $
+          moduleHeader dflags imports line <>
+          [ exprTy "Script _"
+          , exprLhs
+          , showSDoc dflags $ Outputable.nest 2 $ ppr $ HsDo noExt DoExpr $ noLoc
+              [ noLoc $ LetStmt noExt $ toLocalBinds binding
+              , noLoc $ LastStmt noExt (returnAp retExpr) False noSyntaxExpr
+              ]
+          ]
   where
         renderPat pat = showSDoc dflags (ppr pat)
         renderTy ty = "(" <> showSDoc dflags (ppr ty) <> ") -> "
         -- build a script statement using the given wrapper (either `return` or `show`)
         -- to wrap the final result.
-        scriptStmt wrapper = HsDo noExt DoExpr $ noLoc
+        scriptStmt mbPat expr wrapper =
+          let pat = fromMaybe (noLoc $ VarPat noExt $ noLoc $ mkRdrUnqual $ mkVarOcc "result") mbPat
+          in HsDo noExt DoExpr $ noLoc
             [ noLoc $ BindStmt noExt pat expr noSyntaxExpr noSyntaxExpr
-            , noLoc $ LastStmt noExt (wrapper tupleExpr) False noSyntaxExpr
+            , noLoc $ LastStmt noExt (wrapper $ toTupleExpr pat) False noSyntaxExpr
             ]
         returnAp :: LHsExpr GhcPs -> LHsExpr GhcPs
         returnAp = noLoc . HsApp noExt returnExpr
@@ -488,8 +547,6 @@ renderModule dflags imports line binds mbPat expr = case mbPat of
             noLoc $ HsApp noExt showExpr $
             noLoc $ HsPar noExt x
         showExpr = noLoc $ HsVar noExt (noLoc $ mkRdrUnqual $ mkVarOcc "show")
-        tupleExpr = toTupleExpr pat
-        pat = fromMaybe (noLoc $ VarPat noExt $ noLoc $ mkRdrUnqual $ mkVarOcc "result") mbPat
         exprLhs = "expr " <> unwords (map (renderPat . fst) binds) <> " = "
         exprTy res = "expr : " <> concatMap (renderTy . snd) binds <> res
 

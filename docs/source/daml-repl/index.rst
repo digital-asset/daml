@@ -72,6 +72,10 @@ two forms:
    the pattern ``pat`` bindings the matches to the variables in the pattern.
    You can then use those variables on subsequent lines.
 
+4. A ``let`` binding of the form ``let pat = y``, where ``pat`` is a pattern
+   and ``y`` is a pure expression or ``let f x = y`` to define a function.
+   The bound variables can be used on subsequent lines.
+
 First create two parties: A party with the display name ``"Alice"``
 and the party id ``"alice"`` and a party with the display name
 ``"Bob"`` and the party id ``"bob"``.
