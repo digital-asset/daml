@@ -14,7 +14,7 @@ import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerTimeAwareCommandExecutor(
+private[apiserver] final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
     contractStore: ContractStore,
     maxRetries: Int,

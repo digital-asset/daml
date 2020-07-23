@@ -10,7 +10,7 @@ import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait CommandExecutor {
+private[apiserver] trait CommandExecutor {
   def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,

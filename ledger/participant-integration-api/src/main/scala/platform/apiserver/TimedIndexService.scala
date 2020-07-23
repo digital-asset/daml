@@ -37,7 +37,8 @@ import com.daml.metrics.{Metrics, Timed}
 
 import scala.concurrent.Future
 
-final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends IndexService {
+private[daml] final class TimedIndexService(delegate: IndexService, metrics: Metrics)
+    extends IndexService {
 
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
     Timed.future(metrics.daml.services.index.listLfPackages, delegate.listLfPackages())

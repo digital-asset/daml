@@ -14,7 +14,7 @@ import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-final class LedgerApiServer(
+private[daml] final class LedgerApiServer(
     apiServicesOwner: ResourceOwner[ApiServices],
     desiredPort: Port,
     maxInboundMessageSize: Int,

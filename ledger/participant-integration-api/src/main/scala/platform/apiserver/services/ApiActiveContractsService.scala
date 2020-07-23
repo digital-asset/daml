@@ -20,7 +20,7 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext
 
-final class ApiActiveContractsService private (
+private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
 )(
     implicit executionContext: ExecutionContext,
@@ -46,7 +46,7 @@ final class ApiActiveContractsService private (
     ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
-object ApiActiveContractsService {
+private[apiserver] object ApiActiveContractsService {
 
   def create(ledgerId: LedgerId, backend: ACSBackend)(
       implicit ec: ExecutionContext,

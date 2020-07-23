@@ -19,7 +19,7 @@ import io.netty.handler.ssl.SslContext
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
-object GrpcServer {
+private[apiserver] object GrpcServer {
 
   // Unfortunately, we can't get the maximum inbound message size from the client, so we don't know
   // how big this should be. This seems long enough to contain useful data, but short enough that it

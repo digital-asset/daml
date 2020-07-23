@@ -45,7 +45,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
-final class ApiCommandService private (
+private[apiserver] final class ApiCommandService private (
     services: LocalServices,
     configuration: ApiCommandService.Configuration,
     ledgerConfigProvider: LedgerConfigProvider,
@@ -157,7 +157,7 @@ final class ApiCommandService private (
   override def toString: String = ApiCommandService.getClass.getSimpleName
 }
 
-object ApiCommandService {
+private[apiserver] object ApiCommandService {
 
   def create(
       configuration: Configuration,

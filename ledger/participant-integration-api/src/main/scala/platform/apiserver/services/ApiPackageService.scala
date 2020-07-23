@@ -21,7 +21,7 @@ import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
 import scala.concurrent.Future
 
-final class ApiPackageService private (backend: IndexPackagesService)(
+private[apiserver] final class ApiPackageService private (backend: IndexPackagesService)(
     implicit logCtx: LoggingContext)
     extends PackageService
     with GrpcApiService {
@@ -90,7 +90,7 @@ final class ApiPackageService private (backend: IndexPackagesService)(
 
 }
 
-object ApiPackageService {
+private[platform] object ApiPackageService {
   def create(ledgerId: LedgerId, backend: IndexPackagesService)(
       implicit logCtx: LoggingContext): PackageService with GrpcApiService =
     new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService {
