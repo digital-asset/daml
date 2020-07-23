@@ -88,7 +88,7 @@ build:windows-ci --remote_accept_cached=true
 # The Windows CI machines have 4 physical and 8 logical cores. By default Bazel
 # will parallelize up to the number of logical cores. This can cause flakyness
 # in timing sensitive tests.
-build:windows-ci --jobs=4
+# build:windows-ci --jobs=4
 
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips
