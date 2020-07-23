@@ -183,13 +183,15 @@ object InMemoryLedgerReaderWriter {
           committer,
           metrics
         )
-      // We need to generate batched submissions for the validator in order to improve throughput.
+      // If not pre-executing, we need to generate batched submissions for the validator in order to improve throughput.
       // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
       // in-memory committer.
-      val batchingLedgerWriter = newLoggingContext { implicit logCtx =>
-        BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
+      val ledgerWriter = newLoggingContext { implicit logCtx =>
+        if (preExecute)
+          readerWriter
+        else BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
       }
-      Resource.successful(createKeyValueLedger(readerWriter, batchingLedgerWriter))
+      Resource.successful(createKeyValueLedger(readerWriter, ledgerWriter))
     }
   }
 
