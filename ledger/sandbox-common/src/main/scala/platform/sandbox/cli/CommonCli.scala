@@ -14,10 +14,12 @@ import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{InvalidConfigException, MetricsReporter}
+import com.daml.platform.sandbox.cli.CommonCli._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -42,7 +44,7 @@ class CommonCli(name: LedgerName) {
 
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
 
-  def parser: OptionParser[SandboxConfig] =
+  val parser: OptionParser[SandboxConfig] =
     new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
       head(s"$name version ${BuildInfo.Version}")
 
@@ -302,18 +304,47 @@ class CommonCli(name: LedgerName) {
             "Wall-clock time mode (`-w`/`--wall-clock-time`) and scenario initialization (`--scenario`) may not be used together.")
         else success
       })
-
-      private def setTimeProviderType(
-          config: SandboxConfig,
-          timeProviderType: TimeProviderType,
-      ): SandboxConfig = {
-        if (config.timeProviderType.exists(_ != timeProviderType)) {
-          throw new IllegalStateException(
-            "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
-        }
-        config.copy(timeProviderType = Some(timeProviderType))
-      }
     }
+
+  def withContractIdSeeding(
+      defaultConfig: SandboxConfig,
+      seedingModes: Option[Seeding]*,
+  ): CommonCli = {
+    val seedingModesMap =
+      seedingModes.map(mode => (mode.map(_.name).getOrElse(NoSeedingModeName), mode)).toMap
+    val allSeedingModeNames = seedingModesMap.keys.mkString(", ")
+    val defaultSeedingModeName = defaultConfig.seeding.map(_.name).getOrElse(NoSeedingModeName)
+    parser
+      .opt[String]("contract-id-seeding")
+      .optional()
+      .text(
+        s"""Set the seeding mode of contract IDs. Possible values are $allSeedingModeNames. Default is "$defaultSeedingModeName".""")
+      .validate(
+        v =>
+          Either.cond(
+            seedingModesMap.contains(v.toLowerCase),
+            (),
+            s"seeding mode must be one of $allSeedingModeNames"))
+      .action((text, config) => config.copy(seeding = seedingModesMap(text)))
+    this
+  }
+
+}
+
+object CommonCli {
+
+  private val NoSeedingModeName = "no"
+
+  private def setTimeProviderType(
+      config: SandboxConfig,
+      timeProviderType: TimeProviderType,
+  ): SandboxConfig = {
+    if (config.timeProviderType.exists(_ != timeProviderType)) {
+      throw new IllegalStateException(
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+    }
+    config.copy(timeProviderType = Some(timeProviderType))
+  }
 
   private def checkIfZip(f: File): Boolean = {
     import java.io.RandomAccessFile

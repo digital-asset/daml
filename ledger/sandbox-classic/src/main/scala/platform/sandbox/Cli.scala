@@ -10,29 +10,18 @@ import scopt.OptionParser
 
 private[sandbox] object Cli extends SandboxCli {
 
-  private val seedingMap = Map[String, Option[Seeding]](
-    "no" -> None,
-    "strong" -> Some(Seeding.Strong),
-    "testing-weak" -> Some(Seeding.Weak),
-    "testing-static" -> Some(Seeding.Static),
-  )
-
   override val defaultConfig: SandboxConfig = DefaultConfig
 
   override protected val parser: OptionParser[SandboxConfig] = {
-    val parser = new CommonCli(Name).parser
-    parser
-      .opt[String]("contract-id-seeding")
-      .optional()
-      .text(s"""Set the seeding of contract IDs. Possible values are ${seedingMap.keys
-        .mkString(",")}. Default is "no".""")
-      .validate(
-        v =>
-          Either.cond(
-            seedingMap.contains(v.toLowerCase),
-            (),
-            s"seeding must be ${seedingMap.keys.mkString(",")}"))
-      .action((text, config) => config.copy(seeding = seedingMap(text)))
+    val parser = new CommonCli(Name)
+      .withContractIdSeeding(
+        defaultConfig,
+        None,
+        Some(Seeding.Strong),
+        Some(Seeding.Weak),
+        Some(Seeding.Static),
+      )
+      .parser
     parser
       .opt[String](name = "scenario")
       .optional()
