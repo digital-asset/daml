@@ -5,9 +5,9 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.Fingerprint
+import com.daml.ledger.participant.state.kvutils.{Bytes, Err, Fingerprint}
 import com.daml.ledger.participant.state.v1.SubmissionResult
-import com.daml.ledger.validator.LedgerStateAccess
+import com.daml.ledger.validator.{LedgerStateAccess, StateKeySerializationStrategy}
 import com.daml.ledger.validator.LedgerStateOperations.Value
 import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 
@@ -19,6 +19,8 @@ class PostExecutingStateAccessPersistStrategy[LogResult](
   import PostExecutingStateAccessPersistStrategy._
 
   def conflictDetectAndPersist(
+      now: () => Instant,
+      keySerializationStrategy: StateKeySerializationStrategy,
       preExecutionOutput: PreExecutionOutput[RawKeyValuePairs],
       ledgerStateAccess: LedgerStateAccess[LogResult])(
       implicit executionContext: ExecutionContext): Future[SubmissionResult] =
@@ -35,14 +37,34 @@ class PostExecutingStateAccessPersistStrategy[LogResult](
         if (hasConflict) {
           throw Conflict
         } else {
-          val recordTime = Instant.now()
-          ledgerStateOperations
-            .writeState(if (respectsTimeBounds(preExecutionOutput, recordTime)) {
-              preExecutionOutput.successWriteSet
-            } else {
-              preExecutionOutput.outOfTimeBoundsWriteSet
-            })
-            .transform(_ => SubmissionResult.Acknowledged, identity)
+          val recordTime = now()
+          val withinTimeBounds = respectsTimeBounds(preExecutionOutput, recordTime)
+          val writeSet = if (withinTimeBounds) {
+            preExecutionOutput.successWriteSet.filter {
+              case (key, _) =>
+                !isLogEntrySerializedKey(key)
+            }
+          } else {
+            Seq.empty
+          }
+          val logEntry = if (withinTimeBounds) {
+            preExecutionOutput.successWriteSet
+              .find {
+                case (key, _) =>
+                  isLogEntrySerializedKey(key)
+              }
+              .getOrElse(throw Err.DecodeError(
+                "Pre-execution result",
+                "A log entry must always be present in the success write set for pre-execution but its not"))
+          } else {
+            preExecutionOutput.outOfTimeBoundsWriteSet.head
+          }
+          for {
+            _ <- ledgerStateOperations.writeState(writeSet)
+            _ <- ledgerStateOperations.appendToLog(
+              LogAppenderPreExecutingCommitStrategy.unprefixSerializedLogEntryId(logEntry._1),
+              logEntry._2)
+          } yield SubmissionResult.Acknowledged
         }
       }
     }
@@ -50,6 +72,9 @@ class PostExecutingStateAccessPersistStrategy[LogResult](
 
 object PostExecutingStateAccessPersistStrategy {
   val Conflict = new RuntimeException
+
+  private def isLogEntrySerializedKey(key: Bytes): Boolean =
+    LogAppenderPreExecutingCommitStrategy.isPrefixedSerializedLogEntryId(key)
 
   private def respectsTimeBounds(
       preExecutionOutput: PreExecutionOutput[RawKeyValuePairs],
