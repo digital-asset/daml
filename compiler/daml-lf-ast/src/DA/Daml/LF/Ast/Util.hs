@@ -1,7 +1,6 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PatternSynonyms #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 

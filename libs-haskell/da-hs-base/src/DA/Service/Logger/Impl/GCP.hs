@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GADTs #-}
 {-|
@@ -317,7 +316,7 @@ sendLogs gcp (unzip -> (entries, finalizers)) = unless (null entries) $ do
         Nothing -> Lgr.logJson (gcpFallbackLogger gcp) Lgr.Info ("Timeout while sending log request" :: T.Text)
         Just (HttpError e) -> logException gcp e
         Just ReachedDataLimit -> pure ()
-        Just SendSuccess -> sequence_ (map (void . tryAny) finalizers)
+        Just SendSuccess -> mapM_ tryAny finalizers
 
 logsHost :: BS.ByteString
 logsHost = "logs.daml.com"
@@ -456,6 +455,6 @@ sendData gcp sendRequest payload = withSentDataFile gcp $ \sentDataFile -> do
 test :: IO ()
 test = withGcpLogger (GCPConfig "test" Nothing) (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
     let lg = Lgr.logError hnd
-    let (ls :: [T.Text]) = replicate 13 $ "I like short songs!"
+    let (ls :: [T.Text]) = replicate 13 "I like short songs!"
     mapM_ lg ls
     putStrLn "Done!"

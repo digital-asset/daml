@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-} -- to enable prettyPrint
 {-# OPTIONS_GHC -Wno-orphans #-}
 

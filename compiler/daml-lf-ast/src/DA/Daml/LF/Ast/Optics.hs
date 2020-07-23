@@ -76,9 +76,9 @@ templateExpr f (Template loc tpl param precond signatories observers agreement c
   <*> (traverse . templateKeyExpr) f key
 
 templateKeyExpr :: Traversal' TemplateKey Expr
-templateKeyExpr f (TemplateKey typ body maintainers) = TemplateKey
-  <$> pure typ
-  <*> f body
+templateKeyExpr f (TemplateKey typ body maintainers) =
+  TemplateKey typ
+  <$> f body
   <*> f maintainers
 
 moduleExpr :: Traversal' Module Expr

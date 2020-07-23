@@ -2,59 +2,37 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
+load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
-def _damlc_compile_test_impl(ctx):
-    stack_opt = "-K" + ctx.attr.stack_limit if ctx.attr.stack_limit else ""
-    heap_opt = "-M" + ctx.attr.heap_limit if ctx.attr.heap_limit else ""
-    script = """
-      set -eou pipefail
+def damlc_compile_test(
+        name,
+        srcs,
+        main,
+        damlc = "//compiler/damlc",
+        stack_limit = "",
+        heap_limit = "",
+        **kwargs):
+    stack_opt = "-K" + stack_limit if stack_limit else ""
+    heap_opt = "-M" + heap_limit if heap_limit else ""
+    sh_inline_test(
+        name = name,
+        data = [damlc, main] + srcs,
+        cmd = """\
+DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+MAIN=$$(canonicalize_rlocation $(rootpath {main}))
 
-      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
-      MAIN=$(rlocation $TEST_WORKSPACE/{main})
+TMP=$$(mktemp -d)
+function cleanup() {{
+  rm -rf "$$TMP"
+}}
+trap cleanup EXIT
 
-      TMP=$(mktemp -d)
-      function cleanup() {{
-        rm -rf "$TMP"
-      }}
-      trap cleanup EXIT
-
-      $DAMLC compile $MAIN -o $TMP/out +RTS -s {stack_opt} {heap_opt}
-    """.format(
-        damlc = ctx.executable.damlc.short_path,
-        main = ctx.files.main[0].short_path,
-        stack_opt = stack_opt,
-        heap_opt = heap_opt,
-    )
-    binary = ctx.outputs.executable
-    ctx.actions.write(
-        output = binary,
-        content = script,
-    )
-
-    # To ensure the files needed by the script are available, we put them in
-    # the runfiles.
-    damlc_runfiles = ctx.attr.damlc[DefaultInfo].default_runfiles
-    runfiles = ctx.runfiles(
-        files = [binary] + ctx.files.srcs + ctx.files.main,
-    ).merge(damlc_runfiles)
-    return [DefaultInfo(
-        files = depset([binary]),
-        runfiles = runfiles,
-    )]
-
-damlc_compile_test = rule(
-    implementation = _damlc_compile_test_impl,
-    attrs = {
-        "srcs": attr.label_list(allow_files = True),
-        "main": attr.label(allow_files = True),
-        "damlc": attr.label(
-            default = Label("//compiler/damlc"),
-            executable = True,
-            cfg = "target",
-            allow_files = True,
+$$DAMLC compile $$MAIN -o $$TMP/out +RTS -s {stack_opt} {heap_opt}
+""".format(
+            damlc = damlc,
+            main = main,
+            stack_opt = stack_opt,
+            heap_opt = heap_opt,
         ),
-        "stack_limit": attr.string(),
-        "heap_limit": attr.string(),
-    },
-    test = True,
-)
+        **kwargs
+    )

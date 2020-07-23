@@ -142,8 +142,8 @@ encodeNames = encodeInternableStrings . fmap mangleName
 encodeDottedName :: Util.EitherLike P.DottedName Int32 e
                  => (a -> [T.Text]) -> a -> Encode (Just e)
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
-    Just <$>
-      Util.fromEither @P.DottedName @Int32 <$>
+    Just .
+      Util.fromEither @P.DottedName @Int32 .
       Bf.first P.DottedName <$>
       encodeDottedName' unmangled
 
@@ -193,7 +193,7 @@ encodeList encodeElem = fmap V.fromList . mapM encodeElem
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
 encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
 
-encodeQualTypeSynName' :: Qualified TypeSynName -> Encode (P.TypeSynName)
+encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
 encodeQualTypeSynName' (Qualified pref mname syn) = do
     typeSynNameModule <- encodeModuleRef pref mname
     typeSynNameName <- encodeDottedName unTypeSynName syn
@@ -202,7 +202,7 @@ encodeQualTypeSynName' (Qualified pref mname syn) = do
 encodeQualTypeSynName :: Qualified TypeSynName -> Encode (Just P.TypeSynName)
 encodeQualTypeSynName tysyn = Just <$> encodeQualTypeSynName' tysyn
 
-encodeQualTypeConName' :: Qualified TypeConName -> Encode (P.TypeConName)
+encodeQualTypeConName' :: Qualified TypeConName -> Encode P.TypeConName
 encodeQualTypeConName' (Qualified pref mname con) = do
     typeConNameModule <- encodeModuleRef pref mname
     typeConNameName <- encodeDottedName unTypeConName con
