@@ -357,7 +357,7 @@ final class SandboxServer(
         timeProviderType.description,
         ledgerType,
         authService.getClass.getSimpleName,
-        config.seeding.fold("no")(_.toString.toLowerCase),
+        config.seeding.fold("no")(_.name),
         if (config.stackTraces) "" else ", stack traces = no",
         config.profileDir match {
           case None => ""

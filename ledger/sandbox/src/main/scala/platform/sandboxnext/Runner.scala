@@ -227,7 +227,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   timeProviderType.description,
                   ledgerType,
                   authService.getClass.getSimpleName,
-                  config.seeding.get.toString.toLowerCase,
+                  config.seeding.get.name,
                   if (config.stackTraces) "" else ", stack traces = no",
                   config.profileDir match {
                     case None => ""
