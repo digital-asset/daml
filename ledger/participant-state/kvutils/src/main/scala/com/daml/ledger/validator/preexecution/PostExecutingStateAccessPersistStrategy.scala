@@ -23,7 +23,7 @@ class PostExecutingStateAccessPersistStrategy[LogResult](
       implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     ledgerStateAccess.inTransaction { ledgerStateOperations =>
       val keys = preExecutionOutput.readSet.map(_._1)
-      val preExecutionFingerprints = preExecutionOutput.readSet.map(_._1)
+      val preExecutionFingerprints = preExecutionOutput.readSet.map(_._2)
 
       val conflictFuture = for {
         values <- ledgerStateOperations.readState(keys)
