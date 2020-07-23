@@ -15,7 +15,7 @@ Lastly, you will learn about time on the ledger and in scenarios.
 
 .. hint::
 
-  Remember that you can download all the code for this section by running ``daml new 5_Restrictions daml-intro-5``
+  Remember that you can load all the code for this section into a folder called ``5_Restrictions`` by running ``daml new 5_Restrictions daml-intro-5``
 
 Template preconditions
 ----------------------

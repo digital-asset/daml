@@ -14,7 +14,7 @@ In this section you will learn about DAML's authorization rules and how to devel
 
 .. hint::
 
-  Remember that you can download all the code for this section by running ``daml new 6_Parties daml-intro-6``
+  Remember that you can load all the code for this section into a folder called ``6_Parties`` by running ``daml new 6_Parties daml-intro-6``
 
 Preventing IOU revocation
 -------------------------
