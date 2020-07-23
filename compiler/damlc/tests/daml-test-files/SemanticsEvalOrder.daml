@@ -12,7 +12,6 @@
 --
 -- @ERROR Aborted: EvTyAbsErasableErr OK
 -- @ERROR Aborted: overApply OK
--- @ERROR Aborted: errorError OK
 -- @ERROR Aborted: EvExpAppErr1 OK
 -- @ERROR Aborted: EvExpAppErr2 OK
 -- @ERROR Aborted: EvExpLetErr OK
