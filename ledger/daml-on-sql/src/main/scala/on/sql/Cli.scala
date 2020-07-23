@@ -15,7 +15,6 @@ private[sql] final class Cli(override val defaultConfig: SandboxConfig = Default
   private val seedingMap = Map[String, Option[Seeding]](
     "strong" -> Some(Seeding.Strong),
     "testing-weak" -> Some(Seeding.Weak),
-    "testing-static" -> Some(Seeding.Static),
   )
 
   override protected val parser: OptionParser[SandboxConfig] = {
