@@ -64,6 +64,7 @@ main = do
                   , mbLedgerId = Just testLedgerId
                   } $ \getSandboxPort ->
               importTests damlc scriptDar testDar getSandboxPort
+            , noLedgerTests damlc scriptDar
             ]
 
 withTokenFile :: (IO FilePath -> TestTree) -> TestTree
@@ -167,6 +168,28 @@ noPackageTests damlc scriptDar getSandboxPort = testGroup "static-time"
                    , "--script-lib"
                    , scriptDar
                    ]
+
+noLedgerTests :: FilePath -> FilePath -> TestTree
+noLedgerTests damlc scriptDar = testGroup "no ledger"
+    [ testCase "no ledger" $ do
+          out <- readCreateProcess cp $ unlines
+              [ "1 + 1"
+              , "listKnownParties"
+              , "2 + 2"
+              ]
+          out @?= unlines
+            [ "daml> 2"
+            , "daml> java.lang.RuntimeException: No default participant"
+            , "daml> 4"
+            , "daml> Goodbye."
+            ]
+    ]
+  where
+    cp = proc damlc
+        [ "repl"
+        , "--script-lib"
+        , scriptDar
+        ]
 
 testSetTime
     :: FilePath

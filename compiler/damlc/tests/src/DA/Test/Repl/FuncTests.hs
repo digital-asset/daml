@@ -63,7 +63,7 @@ main = do
     withTempFile $ \portFile ->
         withBinaryFile nullDevice WriteMode $ \devNull ->
         bracket (createSandbox portFile devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
-        ReplClient.withReplClient (ReplClient.Options replJar "localhost" (show sandboxPort) Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle mbServiceOut processHandle ->
+        ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle mbServiceOut processHandle ->
         -- TODO We could share some of this setup with the actual repl code in damlc.
         withTempDir $ \dir ->
         withCurrentDirectory dir $ do
