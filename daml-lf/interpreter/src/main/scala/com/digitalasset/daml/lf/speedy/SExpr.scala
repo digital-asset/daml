@@ -437,7 +437,7 @@ object SExpr {
     import SEBuiltinRecursiveDefinition._
 
     private val frame = Array.ofDim[SValue](0) // no free vars
-    private val arity = 3
+    val arity = 3
 
     private def body: SExpr = ref match {
       case Reference.FoldL => foldLBody

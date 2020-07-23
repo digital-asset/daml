@@ -1,12 +1,12 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR Aborted: BOOM
+-- @ERROR Aborted: OverAppliedFoldEvalOrder OK
 
 module OverAppliedFoldEvalOrder where
 
 boom = scenario do
   let id x = x
-  let boomCompose _ _ = error "BOOM"
-  let _ = foldr boomCompose id [id] (error "BANG")
+  let boomCompose _ _ = error "OverAppliedFoldEvalOrder OK"
+  let _ = foldr boomCompose id [id] (error "OverAppliedFoldEvalOrder failed")
   pure ()

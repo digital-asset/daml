@@ -64,10 +64,6 @@ overApply = scenario do
   let _ = f 1 2
   pure ()
 
-errorError = scenario do
-  let _ = (error "errorError OK") (error "errorError Failed")
-  pure ()
-
 evExpAppErr1 = scenario do
   let _ = (error "EvExpAppErr1 OK") (error "EvExpAppErr1 failed")
   pure ()
