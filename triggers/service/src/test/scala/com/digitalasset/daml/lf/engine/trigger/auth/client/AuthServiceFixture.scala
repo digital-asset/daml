@@ -47,7 +47,7 @@ object AuthServiceFixture {
 
     val host = InetAddress.getLoopbackAddress
 
-    val authServiceInstanceF: Future[(Process, Port)] = for {
+    val authServiceInstanceF: Future[(Process, Uri)] = for {
       lockedPort <- Future(LockedFreePort.find())
       (_, ledgerPort) <- adminLedgerF
       ledgerUri = Uri.from(scheme = "http", host = host.getHostAddress, port = ledgerPort.value)
@@ -64,15 +64,15 @@ object AuthServiceFixture {
       // Wait for the auth service instance to be ready to accept connections.
       _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds)((_, _) =>
         Future(lockedPort.testAndUnlock(host)))
-    } yield (process, lockedPort.port)
-
-    val testF: Future[A] = for {
-      (_, authServicePort) <- authServiceInstanceF
-      authServiceBaseUri = Uri.from(
+      authServiceBaseUrl = Uri.from(
         scheme = "http",
         host = host.getHostAddress,
-        port = authServicePort.value)
-      authServiceClient = AuthServiceClient(authServiceBaseUri)
+        port = lockedPort.port.value)
+    } yield (process, authServiceBaseUrl)
+
+    val testF: Future[A] = for {
+      (_, authServiceBaseUrl) <- authServiceInstanceF
+      authServiceClient = AuthServiceClient(authServiceBaseUrl)
       result <- testFn(authServiceClient)
     } yield result
 

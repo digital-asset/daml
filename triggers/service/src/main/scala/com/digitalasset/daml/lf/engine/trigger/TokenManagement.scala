@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.refinements.ApiTypes.Party
+//import com.daml.ledger.api.refinements.ApiTypes.Party
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.HttpRequest
 import java.nio.charset.StandardCharsets
@@ -64,9 +64,9 @@ object TokenManagement {
   // token. By construction we ensure that there will always be two
   // components and that the first component is a syntactically valid
   // party identifier (see 'findCredentials').
-  def decodeCredentials(key: SecretKey, creds: UserCredentials): (Party, Password) = {
+  def decodeCredentials(key: SecretKey, creds: UserCredentials): (String, String) = {
     val segments = decrypt(key, creds.token).token.split(":")
-    (Party(segments(0)), Password(segments(1)))
+    (segments(0), segments(1))
   }
 
   // Get the unencrypted basic credentials from the request header.

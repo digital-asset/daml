@@ -6,8 +6,8 @@ package com.daml.lf.engine.trigger
 import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
@@ -31,6 +31,7 @@ object ServiceMain {
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       noSecretKey: Boolean,
+      authServiceBaseUrl: Option[Uri],
   ): Future[(ServerBinding, ActorSystem[Message])] = {
 
     val system: ActorSystem[Message] =
@@ -44,7 +45,7 @@ object ServiceMain {
           jdbcConfig,
           initDb = false, // for tests we initialize the database in beforeEach clause
           noSecretKey,
-          authServiceBaseUrl = None,
+          authServiceBaseUrl,
         ),
         "TriggerService"
       )

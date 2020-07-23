@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.{ActorRef, Behavior, PreRestart, PostStop}
+import akka.actor.typed.{ActorRef, Behavior, PostStop, PreRestart}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.ledger.api.refinements.ApiTypes.Party
@@ -18,24 +18,21 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import java.util.UUID
+
+import com.daml.lf.engine.trigger.AuthServiceDomain.LedgerAccessToken
 
 object TriggerRunnerImpl {
   case class Config(
       server: ActorRef[Message],
       triggerInstance: UUID,
-      credentials: UserCredentials,
-      // TODO(SF, 2020-06-09): Add access token field here in the presence of authentication.
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
       party: Party,
+      ledgerAccessToken: Option[LedgerAccessToken]
   )
 
   import TriggerRunner.{Message, Stop}
@@ -61,9 +58,9 @@ object TriggerRunnerImpl {
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
-        // TODO(SF, 2020-06-09): In the presence of an authorization
-        // service, get an access token and pass it through here!
-        token = None
+        // If ledger authentication is enabled, we should have an access token
+        // given to us by our supervisor.
+        token = config.ledgerAccessToken.map(_.token)
       )
 
       // Waiting for the ACS query to finish so we can build the

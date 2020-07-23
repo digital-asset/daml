@@ -17,8 +17,6 @@ import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import cats.syntax.apply._
-import cats.syntax.functor._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
@@ -36,14 +34,17 @@ import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.Party
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
+import com.daml.lf.engine.trigger.AuthServiceDomain.LedgerAccessToken
 import com.daml.lf.engine.trigger.TokenManagement.encrypt
 
 class Server(
@@ -97,7 +98,12 @@ class Server(
 
   private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
     import cats.implicits._ // needed for traverse
-    triggers.traverse_(t => startTrigger(t.credentials, t.triggerName, Some(t.triggerInstance)))
+    triggers.traverse_(t =>
+      {
+//        val userpass = TokenManagement.decodeCredentials(secretKey, t.credentials)
+        startTrigger(("", ""), t.triggerName, Some(t.triggerInstance)).map(_ => ())
+      }
+    )
   }
 
   private def triggerRunnerName(triggerInstance: UUID): String =
@@ -112,10 +118,10 @@ class Server(
       userpass: (String, String),
       triggerName: Identifier,
       existingInstance: Option[UUID] = None): Either[String, JsValue] = {
-    import cats.implicits._
     val credentials = UserCredentials(encrypt(secretKey, userpass._1, userpass._2))
+    val ledgerAccessToken: Option[LedgerAccessToken] = authServiceClient.map(client =>
+      Await.result(client.theWholeThing(userpass._1, userpass._2, ""), 10.seconds))
     for {
-      ledgerAccessToken <- authServiceClient.traverse(_.theWholeThing(userpass._1, userpass._2, ""))
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
       triggerInstance <- existingInstance match {
         case None =>
@@ -131,12 +137,12 @@ class Server(
           new TriggerRunner.Config(
             ctx.self,
             triggerInstance,
-            credentials,
             compiledPackages,
             trigger,
             ledgerConfig,
             restartConfig,
-            party
+            Party(party),
+            ledgerAccessToken,
           ),
           triggerInstance.toString
         ),
