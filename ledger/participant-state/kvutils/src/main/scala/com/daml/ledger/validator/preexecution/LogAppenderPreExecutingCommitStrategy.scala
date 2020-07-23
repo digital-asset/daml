@@ -16,6 +16,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySerializationStrategy)(
     implicit executionContext: ExecutionContext)
     extends PreExecutingCommitStrategy[RawKeyValuePairs] {
+  import LogAppenderPreExecutingCommitStrategy._
+
   override def generateWriteSets(
       participantId: ParticipantId,
       entryId: DamlLogEntryId,
@@ -29,7 +31,7 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
             keySerializationStrategy.serializeStateKey(key) -> Envelope.enclose(value)
         }(breakOut)
       }
-      serializedLogEntryId = entryId.toByteString
+      serializedLogEntryId = LogEntryIdPrefix.concat(entryId.toByteString)
       serializedSuccessLogEntryPair <- logEntryToKeyValuePairs(
         serializedLogEntryId,
         preExecutionResult.successfulLogEntry)
@@ -52,4 +54,19 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
     val envelopedLogEntry = Envelope.enclose(logEntry)
     Seq(logEntryId -> envelopedLogEntry)
   }
+}
+
+// TODO build a proper log entry serialization framework
+object LogAppenderPreExecutingCommitStrategy {
+  private def LogEntryIdPrefix: ByteString = ByteString.copyFromUtf8("L")
+
+  private[validator] def isPrefixedSerializedLogEntryId(key: ByteString): Boolean =
+    key.startsWith(LogEntryIdPrefix)
+
+  private[validator] def unprefixSerializedLogEntryId(key: ByteString): ByteString =
+    if (key.startsWith(LogEntryIdPrefix)) {
+      key.substring(LogEntryIdPrefix.size())
+    } else {
+      throw new IllegalArgumentException(s"Input bytes are not prefixed with $LogEntryIdPrefix")
+    }
 }

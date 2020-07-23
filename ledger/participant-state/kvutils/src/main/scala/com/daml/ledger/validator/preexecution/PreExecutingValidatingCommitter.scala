@@ -61,7 +61,11 @@ class PreExecutingValidatingCommitter[LogResult](
       submissionResult <- retry {
         case PostExecutingStateAccessPersistStrategy.Conflict => true
       } { (_, _) =>
-        postExecutor.conflictDetectAndPersist(preExecutionOutput, ledgerStateAccess)
+        postExecutor.conflictDetectAndPersist(
+          now,
+          keySerializationStrategy,
+          preExecutionOutput,
+          ledgerStateAccess)
       }.transform {
         case Failure(PostExecutingStateAccessPersistStrategy.Conflict) =>
           Success(SubmissionResult.InternalError("conflict")) // TODO Figure out what's the correct return
