@@ -5,7 +5,7 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.{Err, Fingerprint}
+import com.daml.ledger.participant.state.kvutils.Fingerprint
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.LedgerStateAccess
 import com.daml.ledger.validator.LedgerStateOperations.Value
@@ -15,6 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class PostExecutingStateAccessPersistStrategy[LogResult](
     valueToFingerprint: Option[Value] => Fingerprint) {
+
   import PostExecutingStateAccessPersistStrategy._
 
   def conflictDetectAndPersist(
@@ -36,15 +37,11 @@ class PostExecutingStateAccessPersistStrategy[LogResult](
         } else {
           val recordTime = Instant.now()
           ledgerStateOperations
-            .writeState(
-              if (recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(throw Err
-                  .InternalError("Min record time can't be absent in pre-execution output"))) ||
-                recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(throw Err
-                  .InternalError("Max record time can't be absent in pre-execution output")))) {
-                preExecutionOutput.outOfTimeBoundsWriteSet
-              } else {
-                preExecutionOutput.successWriteSet
-              })
+            .writeState(if (respectsTimeBounds(preExecutionOutput, recordTime)) {
+              preExecutionOutput.successWriteSet
+            } else {
+              preExecutionOutput.outOfTimeBoundsWriteSet
+            })
             .transform(_ => SubmissionResult.Acknowledged, identity)
         }
       }
@@ -53,4 +50,10 @@ class PostExecutingStateAccessPersistStrategy[LogResult](
 
 object PostExecutingStateAccessPersistStrategy {
   val Conflict = new RuntimeException
+
+  private def respectsTimeBounds(
+      preExecutionOutput: PreExecutionOutput[RawKeyValuePairs],
+      recordTime: Instant): Boolean =
+    !recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(Instant.MIN)) &&
+      !recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(Instant.MAX))
 }
