@@ -51,12 +51,12 @@ export type Event<T extends object, K = unknown, I extends string = string> =
  */
 const decodeCreateEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<CreateEvent<T, K, I>> => jtv.object({
   templateId: jtv.constant(template.templateId),
-  contractId: ContractId(template).decoder(),
-  signatories: List(Party).decoder(),
-  observers: List(Party).decoder(),
-  agreementText: Text.decoder(),
-  key: template.keyDecoder(),
-  payload: template.decoder(),
+  contractId: ContractId(template).decoder,
+  signatories: List(Party).decoder,
+  observers: List(Party).decoder,
+  agreementText: Text.decoder,
+  key: template.keyDecoder,
+  payload: template.decoder,
 });
 
 /**
@@ -72,7 +72,7 @@ const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
  */
 const decodeArchiveEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<ArchiveEvent<T, I>> => jtv.object({
   templateId: jtv.constant(template.templateId),
-  contractId: ContractId(template).decoder(),
+  contractId: ContractId(template).decoder,
 });
 
 /**
@@ -400,7 +400,7 @@ class Ledger {
     const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
     const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
-      exerciseResult: choice.resultDecoder(),
+      exerciseResult: choice.resultDecoder,
       events: jtv.array(decodeEventUnknown),
     });
     const {exerciseResult, events} = jtv.Result.withException(responseDecoder.run(json));
@@ -438,7 +438,7 @@ class Ledger {
     const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
     const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
-      exerciseResult: choice.resultDecoder(),
+      exerciseResult: choice.resultDecoder,
       events: jtv.array(decodeEventUnknown),
     });
     const {exerciseResult, events} = jtv.Result.withException(responseDecoder.run(json));

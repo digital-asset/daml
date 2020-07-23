@@ -108,11 +108,11 @@ function promisifyStream<T extends object, K, I extends string, State>(
 
 describe('decoders for recursive types do not loop', () => {
   test('recursive enum', () => {
-    expect(buildAndLint.Main.Expr(Int).decoder().run(undefined).ok).toBe(false);
+    expect(buildAndLint.Main.Expr(Int).decoder.run(undefined).ok).toBe(false);
   });
 
   test('recursive record with guards', () => {
-    expect(buildAndLint.Main.Recursive.decoder().run(undefined).ok).toBe(false);
+    expect(buildAndLint.Main.Recursive.decoder.run(undefined).ok).toBe(false);
   });
 
   // FIXME(MH): This test does not pass yet, see https://github.com/digital-asset/daml/issues/6840
@@ -121,7 +121,7 @@ describe('decoders for recursive types do not loop', () => {
   // });
 
   test('uninhabited enum', () => {
-    expect(buildAndLint.Main.VoidEnum.decoder().run(undefined).ok).toBe(false);
+    expect(buildAndLint.Main.VoidEnum.decoder.run(undefined).ok).toBe(false);
   });
 });
 
@@ -296,6 +296,8 @@ test('create + fetch & exercise', async () => {
     n5:  '3.14159',      // Numeric 5
     n10: '3.1415926536', // Numeric 10
     rec: {'recOptional': null, 'recList': [], 'recTextMap': {}},
+    voidRecord: null,
+    voidEnum: null,
   };
   const allTypesContract = await aliceLedger.create(buildAndLint.Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
