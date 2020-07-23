@@ -60,8 +60,10 @@ two forms:
    instance of ``Show`` and not ``()``.
 
 2. A pure expression ``expr`` of type ``a`` for some type ``a`` where
-   ``a`` is an instance of ``Show``. This will evaluate ``expr``
-   and print the result.
+   ``a`` is an instance of ``Show``. This will evaluate ``expr`` and
+   print the result. If you are only interest in pure expressions you
+   can also use DAML REPL :ref:`without connecting to a ledger
+   <repl-no-ledger>`.
 
 3. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
    a variable name ``x`` to bind the result to
@@ -129,6 +131,21 @@ You can use import declarations at the prompt to import additional modules.
 
    daml> import DA.Time
    daml> debug (days 1)
+
+.. _repl-no-ledger:
+
+Using DAML REPL without a Ledger
+================================
+
+If you are only interested in pure expressions, e.g., because you want
+to test how some function behaves you can omit the ``--ledger-host``
+and ``-ledger-port`` parameters. DAML REPL will work as usual but any
+attempts to call DAML Script APIs that interact with the ledger, e.g.,
+``submit`` will result in the following error:
+
+.. code-block:: none
+
+    daml> java.lang.RuntimeException: No default participant
 
 Connecting via TLS
 ==================
