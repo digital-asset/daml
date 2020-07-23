@@ -192,6 +192,20 @@ private[lf] final case class Compiler(
     defn match {
       case DValue(_, _, body, _) =>
         val ref = LfDefRef(identifier)
+
+        val select: Boolean = false //(identifier.qualifiedName.module.toString == "Examples")
+        def showDebug(sexpr: SExpr): SExpr = {
+          import Pretty.SExpr._
+          if (select) {
+            val who = identifier.qualifiedName.toString
+            println(s"--------------------------------------------------[$who]")
+            println(prettySExpr(0)(sexpr).render(80))
+          }
+          sexpr
+        }
+        def unsafeCompile(expr: Expr): SExpr =
+          validate(closureConvert(Map.empty, showDebug(translate(expr))))
+
         List(ref -> withLabel(ref, unsafeCompile(body)))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
