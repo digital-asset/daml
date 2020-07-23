@@ -96,6 +96,9 @@ final class ApiPackageManagementService private (
         case SubmissionResult.Acknowledged =>
           pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
             case _: PackageEntry.PackageUploadAccepted =>
+              for (archive <- dar.all) {
+                logger.info(s"Package ${archive.getHash} successfully uploaded")
+              }
               Future.successful(UploadDarFileResponse())
             case PackageEntry.PackageUploadRejected(_, _, reason) =>
               Future.failed(ErrorFactories.invalidArgument(reason))
