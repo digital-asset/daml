@@ -181,7 +181,7 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     runRequest(req)(Unmarshal(_).to[LedgerAccessToken])
   }
 
-  def theWholeThing(
+  def getLedgerToken(
       username: String,
       password: String,
       ledgerId: String): Future[LedgerAccessToken] =
