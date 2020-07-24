@@ -283,7 +283,7 @@ To enable metrics and configure reporting, you can use the two following CLI opt
 - ``--metrics-reporter``: passing a legal value will enable reporting; the accepted values
   are as follows:
 
-  - ``console``: prints captured metrics on the standard output
+  - ``console``: prints captured metrics to standard output
 
   - ``csv://</path/to/metrics.csv>``: saves the captured metrics in CSV format at the specified location
 
