@@ -209,6 +209,7 @@ def daml_deps():
             urls = ["https://github.com/grpc/grpc/archive/v1.23.1.tar.gz"],
             sha256 = "dd7da002b15641e4841f20a1f3eb1e359edb69d5ccf8ac64c362823b05f523d9",
             patches = [
+                "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-apple.patch",
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
             patch_args = ["-p1"],
