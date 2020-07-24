@@ -96,7 +96,7 @@ build_and_push temp versions = do
             build version
             putStrLn $ "Pushing " <> version <> " to S3 (as subfolder)..."
             push (temp </> version) version
-            putStrLn $ "Done.")
+            putStrLn "Done.")
     where
         restore_sha io =
             Control.Exception.bracket (init <$> shell "git rev-parse HEAD")
@@ -159,7 +159,7 @@ update_top_level temp new old = do
     let to_delete = Set.toList $ old_files `Set.difference` new_files
     Control.when (not $ null to_delete) $ do
         putStrLn $ "Deleting top-level files: " <> show to_delete
-        Data.Foldable.for_ to_delete $ (\f -> do
+        Data.Foldable.for_ to_delete (\f -> do
             shell_ $ "aws s3 rm s3://docs-daml-com" </> f <> " --recursive")
         putStrLn "Done."
     putStrLn $ "Pushing " <> new <> " to top-level..."
@@ -197,7 +197,7 @@ instance JSON.FromJSON Version where
     parseJSON = JSON.withObject "Version" $ \v -> Version
         <$> v JSON..: Text.pack "prerelease"
         <*> let json_text = v JSON..: Text.pack "tag_name"
-            in (\case Left s -> error s; Right v -> v) <$> Data.SemVer.fromText <$> Text.tail <$> json_text
+            in (((\case Left s -> error s; Right v -> v) <$> Data.SemVer.fromText) . Text.tail <$> json_text)
 
 parse :: Text.Text -> Data.SemVer.Version
 parse t = (\case Left s -> (error s); Right v -> v) $ Data.SemVer.fromText t
@@ -268,12 +268,12 @@ main = do
         Exit.exitSuccess
     else do
         -- We may have added versions. We need to build and push them.
-        let added = Set.toList $ (all_versions gh_versions) `Set.difference` (all_versions s3_versions)
+        let added = Set.toList $ all_versions gh_versions `Set.difference` all_versions s3_versions
         IO.withTempDir $ \temp_dir -> do
             putStrLn $ "Versions to build: " <> show added
             build_and_push temp_dir added
-            Control.when ((top gh_versions) /= (top s3_versions)) $ do
-                putStrLn $ "Updating top-level version from " <> (top s3_versions) <> " to " <> (top gh_versions)
+            Control.when (top gh_versions /= top s3_versions) $ do
+                putStrLn $ "Updating top-level version from " <> top s3_versions <> " to " <> top gh_versions
                 fetch_if_missing temp_dir (top gh_versions)
                 fetch_if_missing temp_dir (top s3_versions)
                 update_top_level temp_dir (top gh_versions) (top s3_versions)
