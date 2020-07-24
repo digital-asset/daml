@@ -30,7 +30,7 @@ class LogAppenderPreExecutingCommitStrategySpec
       when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
         .thenReturn(expectedStateKey)
       val logEntryId = aLogEntryId()
-      val expectedLogEntryKey = logEntryId.toByteString
+      val expectedLogEntryKey = ByteString.copyFromUtf8("L").concat(logEntryId.toByteString)
       val preExecutionResult = PreExecutionResult(
         readSet = Set.empty,
         successfulLogEntry = aLogEntry,
