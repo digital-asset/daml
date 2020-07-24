@@ -148,6 +148,13 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
           .setOutOfTimeBoundsEntry(builder)
           .build
       }
+      .orElse {
+        // In case no min & max record time is set we won't be checking time bounds at post-execution
+        // so the contents of this log entry does not matter.
+        PartialFunction.condOpt((commitContext.minimumRecordTime, commitContext.maximumRecordTime)) {
+          case (None, None) => DamlLogEntry.getDefaultInstance
+        }
+      }
       .getOrElse(throw new IllegalArgumentException(
         "Committer did not set an out-of-time-bounds log entry"))
 
