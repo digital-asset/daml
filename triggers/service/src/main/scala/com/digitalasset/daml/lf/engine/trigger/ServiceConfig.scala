@@ -7,6 +7,7 @@ import java.nio.file.{Path, Paths}
 import java.time.Duration
 
 import akka.http.scaladsl.model.Uri
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.platform.services.time.TimeProviderType
 import scalaz.Show
 
@@ -20,6 +21,7 @@ case class ServiceConfig(
     httpPort: Int,
     ledgerHost: String,
     ledgerPort: Int,
+    ledgerId: LedgerId,
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
@@ -105,6 +107,10 @@ object ServiceConfig {
       .action((t, c) => c.copy(ledgerPort = t))
       .text("Ledger port.")
 
+    opt[String]("ledger-id")
+      .action((t, c) => c.copy(ledgerId = LedgerId(t)))
+      .text("Ledger ID.")
+
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
@@ -165,6 +171,7 @@ object ServiceConfig {
         httpPort = DefaultHttpPort,
         ledgerHost = null,
         ledgerPort = 0,
+        ledgerId = null,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
         maxRestartInterval = DefaultMaxRestartInterval,

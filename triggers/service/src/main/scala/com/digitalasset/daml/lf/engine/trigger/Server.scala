@@ -19,6 +19,7 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
@@ -118,7 +119,7 @@ class Server(
       existingInstance: Option[UUID] = None): Either[String, JsValue] = {
     val credentials = UserCredentials(encrypt(secretKey, userpass._1, userpass._2))
     val ledgerAccessToken: Option[LedgerAccessToken] = authServiceClient.map(client =>
-      Await.result(client.getLedgerToken(userpass._1, userpass._2, ""), 10.seconds))
+      Await.result(client.getLedgerToken(userpass._1, userpass._2, LedgerId.unwrap(ledgerConfig.ledgerId)), 10.seconds))
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
       triggerInstance <- existingInstance match {

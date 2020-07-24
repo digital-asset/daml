@@ -7,6 +7,7 @@ import java.time.Duration
 import java.util.UUID
 
 import com.daml.lf.data.Ref.Identifier
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.platform.services.time.TimeProviderType
 
 import scala.concurrent.duration.FiniteDuration
@@ -16,6 +17,7 @@ package trigger {
   case class LedgerConfig(
       host: String,
       port: Int,
+      ledgerId: LedgerId,
       timeProvider: TimeProviderType,
       commandTtl: Duration,
       maxInboundMessageSize: Int,
@@ -34,7 +36,5 @@ package trigger {
       triggerInstance: UUID,
       triggerName: Identifier,
       credentials: UserCredentials,
-      // TODO(SF, 2020-0610): Add access token field here in the
-      // presence of authentication.
   )
 }

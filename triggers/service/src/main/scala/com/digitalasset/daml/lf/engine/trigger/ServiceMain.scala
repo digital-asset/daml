@@ -73,6 +73,7 @@ object ServiceMain {
           LedgerConfig(
             config.ledgerHost,
             config.ledgerPort,
+            config.ledgerId,
             config.timeProviderType,
             config.commandTtl,
             config.maxInboundMessageSize,
