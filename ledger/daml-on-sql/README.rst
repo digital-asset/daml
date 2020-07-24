@@ -105,7 +105,7 @@ the PostgreSQL server.
 Ledger API over TLS
 ===================
 
-To protect data on-the-wire and allow using the Ledger API over untrusted networks,
+To protect data in transit and allow using the Ledger API over untrusted networks,
 the DAML-on-SQL Ledger API server implementation leverages gRPC's built-in TLS support
 to allow clients to verify the server's identity and encrypt the communication channel
 over which the Ledger API requests and responses are sent.
