@@ -405,7 +405,9 @@ def sdk_platform_test(sdk_version, platform_version):
         sandbox = sandbox,
         sandbox_args = sandbox_args,
         size = "large",
-        tags = extra_tags(sdk_version, platform_version),
+        # We see timeouts here fairly regularly so we
+        # increase the number of CPUs.
+        tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
     )
 
     # For now, we only cover the DABL usecase where
