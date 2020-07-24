@@ -13,9 +13,7 @@ trait SeedService {
 
 object SeedService {
 
-  sealed abstract class Seeding extends Product with Serializable {
-    val name: String
-
+  sealed abstract class Seeding(val name: String) extends Product with Serializable {
     override def toString: String = name
   }
 
@@ -23,17 +21,11 @@ object SeedService {
 
     val NoSeedingModeName = "no"
 
-    case object Strong extends Seeding {
-      override val name: String = "strong"
-    }
+    case object Strong extends Seeding("strong")
 
-    case object Weak extends Seeding {
-      override val name: String = "testing-weak"
-    }
+    case object Weak extends Seeding("testing-weak")
 
-    case object Static extends Seeding {
-      override val name: String = "testing-static"
-    }
+    case object Static extends Seeding("testing-static")
 
   }
 
