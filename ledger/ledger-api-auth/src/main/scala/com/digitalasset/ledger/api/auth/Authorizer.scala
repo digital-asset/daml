@@ -144,7 +144,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       authorizationError => {
         // Note: only put the claims in the context, as the request can be huge
         newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
-          logger.error(s"Permission denied. Reason: ${authorizationError.reason}.")
+          logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
         }
         permissionDenied()
       }
@@ -172,7 +172,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
               case Left(authorizationError) =>
                 // Note: only put the claims in the context, as the request can be huge
                 newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
-                  logger.error(s"Permission denied. Reason: ${authorizationError.reason}.")
+                  logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
                 }
                 observer.onError(permissionDenied())
           }
@@ -193,7 +193,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
               case Left(authorizationError) =>
                 // Note: only put the claims in the context, as the request can be huge
                 newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
-                  logger.error(s"Permission denied. Reason: ${authorizationError.reason}.")
+                  logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
                 }
                 Future.failed(permissionDenied())
           }
