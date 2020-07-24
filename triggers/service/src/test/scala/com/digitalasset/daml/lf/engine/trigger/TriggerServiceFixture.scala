@@ -65,7 +65,7 @@ object TriggerServiceFixture {
     val authServiceAdminLedger: Future[Option[(SandboxServer, Port)]] =
       if (!auth) Future(None)
       else {
-        val adminLedgerId = LedgerId("admin-ledger")
+        val adminLedgerId = LedgerId("auth-service-admin-ledger")
         for {
           ledger <- Future(
             new SandboxServer(
@@ -86,13 +86,13 @@ object TriggerServiceFixture {
     val authServiceInstanceF: Future[Option[(Process, Uri)]] =
       authServiceAdminLedger.flatMap {
         case None => Future(None)
-        case Some(adminLedger) =>
+        case Some((_, adminLedgerPort)) =>
           for {
             authServicePort <- Future(LockedFreePort.find())
             ledgerUri = Uri.from(
               scheme = "http",
               host = host.getHostAddress,
-              port = adminLedger._2.value)
+              port = adminLedgerPort.value)
             process <- Future {
               Process(
                 Seq(authServiceBinaryLoc),
@@ -240,7 +240,7 @@ object TriggerServiceFixture {
       authService = authServiceJwksUrl.map(url => AuthServiceJWT(JwksVerifier(url.toString))),
     )
 
-  private def clientConfig[A](
+  private def clientConfig(
       applicationId: ApplicationId,
       token: Option[String] = None): LedgerClientConfiguration =
     LedgerClientConfiguration(
