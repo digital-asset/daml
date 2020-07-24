@@ -14,6 +14,6 @@ object ExtraConfig {
   val reasonableDefault =
     ExtraConfig(
       batchingLedgerWriterConfig =
-        BatchingLedgerWriterConfig.reasonableDefault.copy(maxBatchConcurrentCommits = 2),
-      preExecute = false)
+        BatchingLedgerWriterConfig.reasonableDefault.copy(enableBatching = false),
+      preExecute = true)
 }
