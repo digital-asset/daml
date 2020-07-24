@@ -127,7 +127,7 @@ DAML-on-SQL allows to enable authorization, representing claims as defined by th
 `Ledger API authorization documentation <https://docs.daml.com/app-dev/authentication.html#authentication-claims>`__
 using the `JWT <https://jwt.io/>`__ format.
 
-The following command line options are available to enable authentication:
+The following command line options are available to enable authorization:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
   DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
