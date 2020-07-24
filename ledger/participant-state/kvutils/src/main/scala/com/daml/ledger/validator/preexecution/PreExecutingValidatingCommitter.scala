@@ -61,37 +61,29 @@ class PreExecutingValidatingCommitter[LogResult](
       submittingParticipantId: ParticipantId,
       ledgerStateAccess: LedgerStateAccess[LogResult])(
       implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    // Fidelity level 1: sequential pre-execution. Implemented as: the pre-post-exec pipeline is a single transaction.
-    ledgerStateAccess.inTransaction { ledgerStateOperations =>
-      for {
-        preExecutionOutput <- validator
-          .validate(
-            submissionEnvelope,
-            correlationId,
-            submittingParticipantId,
-            CachingDamlLedgerStateReaderWithFingerprints(
-              stateValueCache,
-              cacheUpdatePolicy,
-              new LedgerStateReaderWithFingerprintsFromValues(
-                ledgerStateOperations,
-                valueToFingerprint),
-              keySerializationStrategy,
-            )
+    for {
+      preExecutionOutput <- validator
+        .validate(
+          submissionEnvelope,
+          correlationId,
+          submittingParticipantId,
+          CachingDamlLedgerStateReaderWithFingerprints(
+            stateValueCache,
+            cacheUpdatePolicy,
+            new LedgerStateReaderWithFingerprintsFromValues(ledgerStateAccess, valueToFingerprint),
+            keySerializationStrategy,
           )
-        submissionResult <- retry {
-          case PostExecutionFinalizerWithFingerprintsFromValues.Conflict => true
-        } { (_, _) =>
-          postExecutionFinalizer.conflictDetectAndFinalize(
-            now,
-            preExecutionOutput,
-            ledgerStateOperations)
-        }.transform {
-          case Failure(PostExecutionFinalizerWithFingerprintsFromValues.Conflict) =>
-            Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
-          case result => result
-        }
-      } yield submissionResult
-    }
+        )
+      submissionResult <- retry {
+        case PostExecutionFinalizerWithFingerprintsFromValues.Conflict => true
+      } { (_, _) =>
+        postExecutionFinalizer.conflictDetectAndFinalize(now, preExecutionOutput, ledgerStateAccess)
+      }.transform {
+        case Failure(PostExecutionFinalizerWithFingerprintsFromValues.Conflict) =>
+          Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
+        case result => result
+      }
+    } yield submissionResult
 
   // TODO consider adding to [[RetryStrategy]] a pre-built exponential backoff strategy
   //  with custom exception processing and use it here.
