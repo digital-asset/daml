@@ -15,7 +15,6 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
-import qualified Data.List.Extra as List
 import qualified Data.List.Split as Split
 import qualified Data.Maybe as Maybe
 import qualified Data.Ord
@@ -62,7 +61,7 @@ shell_ :: String -> IO ()
 shell_ cmd = do
     Control.void $ shell cmd
 
-robustly_download_nix_packages :: String -> IO ()
+robustly_download_nix_packages :: IO ()
 robustly_download_nix_packages = do
     h (10 :: Integer)
     where
@@ -96,7 +95,7 @@ build_and_push temp versions = do
             putStrLn $ "Building " <> version <> "..."
             build version
             putStrLn $ "Pushing " <> version <> " to S3 (as subfolder)..."
-            push_to_s3 $ (temp </> version) version
+            push (temp </> version) version
             putStrLn $ "Done.")
     where
         restore_sha io =
@@ -124,7 +123,7 @@ push local remote =
 
 fetch_if_missing :: String -> String -> IO ()
 fetch_if_missing temp folder = do
-    missing <- not <$> Directory.doesDirectoryExist $ temp </> folder
+    missing <- not <$> Directory.doesDirectoryExist (temp </> folder)
     if missing then do
         putStrLn $ "Downloading " <> folder <> "..."
         shell_ $ "aws s3 cp s3://docs-daml-com" </> folder <> " " <> temp </> folder <> " --recursive"
@@ -132,12 +131,12 @@ fetch_if_missing temp folder = do
     else do
         putStrLn $ folder <> " already present."
 
-update_s3 :: Versions -> IO ()
+update_s3 :: String -> Versions -> IO ()
 update_s3 temp vs = do
     putStrLn "Updating versions.json & hidden.json..."
     create_versions_json (dropdown vs) (temp </> "versions.json")
     -- order does not matter for hidden ones
-    create_versions_json (Set.toList $ all vs `Set.difference` (Set.fromList $ dropdown vs)) (temp </> "hidden.json")
+    create_versions_json (Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)) (temp </> "hidden.json")
     shell_ $ "aws s3 cp " <> temp </> "versions.json s3://docs-daml-com/versions.json"
     shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/hidden.json"
     -- FIXME: remove after running once (and updating the reading bit in this file)
@@ -155,15 +154,15 @@ update_s3 temp vs = do
 
 update_top_level :: String -> String -> String -> IO ()
 update_top_level temp new old = do
-    new_files <- Set.fromList <$> Directory.listDirectory $ temp </> new
-    old_files <- Set.fromList <$> Directory.listDirectory $ temp </> old
+    new_files <- Set.fromList <$> Directory.listDirectory (temp </> new)
+    old_files <- Set.fromList <$> Directory.listDirectory (temp </> old)
     let to_delete = Set.toList $ old_files `Set.difference` new_files
     Control.when (not $ null to_delete) $ do
         putStrLn $ "Deleting top-level files: " <> show to_delete
         Data.Foldable.for_ to_delete $ (\f -> do
             shell_ $ "aws s3 rm s3://docs-daml-com" </> f <> " --recursive")
         putStrLn "Done."
-    putStrLn "Pushing " <> new <> " to top-level..."
+    putStrLn $ "Pushing " <> new <> " to top-level..."
     shell_ $ "aws s3 cp " <> temp </> new </> " s3://docs-daml-com/ --recursive"
     putStrLn "Done."
 
@@ -193,31 +192,15 @@ find_commit_for_version version = do
       [sha] -> return sha
       _ -> fail $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
 
-push_to_s3 :: String -> IO ()
-push_to_s3 doc_folder = do
-    putStrLn "Pushing new versions file first..."
-    shell_ $ "aws s3 cp " <> doc_folder </> "versions.json s3://docs-daml-com/versions.json --acl public-read"
-    putStrLn "Pushing to S3 bucket..."
-    shell_ $ "aws s3 sync " <> doc_folder
-             <> " s3://docs-daml-com/"
-             <> " --delete"
-             <> " --acl public-read"
-    putStrLn "Refreshing CloudFront cache..."
-    shell_ $ "aws cloudfront create-invalidation"
-             <> " --distribution-id E1U753I56ERH55"
-             <> " --paths '/*'"
-
 data Version = Version { prerelease :: Bool, tag :: Data.SemVer.Version } deriving Show
 instance JSON.FromJSON Version where
     parseJSON = JSON.withObject "Version" $ \v -> Version
         <$> v JSON..: Text.pack "prerelease"
-        <*> (Data.SemVer.fromText $ Text.tail $ v JSON..: Text.pack "tag_name")
+        <*> let json_text = v JSON..: Text.pack "tag_name"
+            in (\case Left s -> error s; Right v -> v) <$> Data.SemVer.fromText <$> Text.tail <$> json_text
 
-name :: Version -> String
-name v = Data.SemVer.toString $ tag v
-
-parse :: String -> Data.SemVer.Version
-parse s = Data.SemVer.fromText $ Text.pack s
+parse :: Text.Text -> Data.SemVer.Version
+parse t = (\case Left s -> (error s); Right v -> v) $ Data.SemVer.fromText t
 
 fetch_gh_paginated :: JSON.FromJSON a => String -> IO [a]
 fetch_gh_paginated url = do
@@ -238,14 +221,14 @@ fetch_gh_paginated url = do
                 (_, _, _, [url, rel]) -> (rel, url)
                 _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
-data Versions = Versions { top :: String, all :: Set.Set String, dropdown :: [String] }
+data Versions = Versions { top :: String, all_versions :: Set.Set String, dropdown :: [String] }
     deriving Eq
 
 versions :: [Version] -> Versions
 versions vs =
     let to_strings = map (Data.SemVer.toString . tag)
-        all = Set.fromList $ to_strings vs
-        dropdown = to_strings $ Data.List.sortOn (Data.Ord.Down . tag) $ filter (\v -> tag v >= parse "1.0.0" && not (prerelease v)) vs
+        all_versions = Set.fromList $ to_strings vs
+        dropdown = to_strings $ List.sortOn (Data.Ord.Down . tag) $ filter (\v -> tag v >= parse (Text.pack "1.0.0") && not (prerelease v)) vs
         top = head dropdown
     in Versions {..}
 
@@ -254,7 +237,7 @@ fetch_gh_versions = do
     response <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
     -- versions prior to 0.13.10 cannot be built anymore and are not present in
     -- the repo.
-    return $ versions $ filter (\v -> tag v >= parse "0.13.10") response
+    return $ versions $ filter (\v -> tag v >= parse (Text.pack "0.13.10")) response
 
 fetch_s3_versions :: IO Versions
 fetch_s3_versions = do
@@ -285,15 +268,15 @@ main = do
         Exit.exitSuccess
     else do
         -- We may have added versions. We need to build and push them.
-        let added = Set.toList $ (all gh_version) $ `Set.difference` (all s3_version)
+        let added = Set.toList $ (all_versions gh_versions) `Set.difference` (all_versions s3_versions)
         IO.withTempDir $ \temp_dir -> do
             putStrLn $ "Versions to build: " <> show added
             build_and_push temp_dir added
-            Control.when (top gh_versions) /= (top s3_versions) $ do
+            Control.when ((top gh_versions) /= (top s3_versions)) $ do
                 putStrLn $ "Updating top-level version from " <> (top s3_versions) <> " to " <> (top gh_versions)
                 fetch_if_missing temp_dir (top gh_versions)
                 fetch_if_missing temp_dir (top s3_versions)
                 update_top_level temp_dir (top gh_versions) (top s3_versions)
             putStrLn "Updating versions.json & hidden.json"
-            update_s3 gh_versions
+            update_s3 temp_dir gh_versions
         reset_cloudfront
