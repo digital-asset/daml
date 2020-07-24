@@ -6,14 +6,13 @@ package transaction
 package test
 
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.data.Ref.{ChoiceName, Name}
 import transaction.Node.GenNode
 import transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 
 import scala.collection.immutable.HashMap
 
-final class TransactionBuilder {
+final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion) {
 
   import TransactionBuilder._
 
@@ -29,7 +28,7 @@ final class TransactionBuilder {
 
   private[this] def newNode(node: Node): NodeId = {
     lazy val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
-    nodes += (nodeId -> version(node))
+    nodes += (nodeId -> versionN(node))
     nodeId
   }
 
@@ -54,7 +53,17 @@ final class TransactionBuilder {
   }
 
   def build(): Tx.Transaction = ids.synchronized {
-    TransactionVersions.assertAsVersionedTransaction(GenTransaction(nodes.result(), roots.result()))
+    import VersionTimeline.Implicits._
+    val builtNodes = nodes.result()
+    val builtRoots = roots.result()
+    val nodesVersions =
+      builtRoots.reverseIterator
+        .map(n => nodeTxVersion(builtNodes(n)): VersionTimeline.SpecifiedVersion)
+        .toSeq
+    val txVersion =
+      VersionTimeline
+        .latestWhenAllPresent(TransactionVersions.SupportedStableVersions.min, nodesVersions: _*)
+    VersionedTransaction(txVersion, GenTransaction(nodes.result(), roots.result()))
   }
 
   def buildSubmitted(): SubmittedTransaction = SubmittedTransaction(build())
@@ -62,6 +71,25 @@ final class TransactionBuilder {
   def buildCommitted(): CommittedTransaction = CommittedTransaction(build())
 
   def newCid: ContractId = ContractId.V1(newHash())
+
+  private[this] def nodeTxVersion(n: GenNode[_, _, _]) =
+    pkgTxVersion(n.templateId.packageId)
+
+  private[this] def pkgValVersion(pkgId: Ref.PackageId) = {
+    import VersionTimeline.Implicits._
+    VersionTimeline.latestWhenAllPresent(
+      ValueVersions.SupportedStableVersions.min,
+      pkgTxVersion(pkgId))
+  }
+
+  def versionContract(contract: ContractInst[Value]): ContractInst[TxValue] =
+    ContractInst.map1[Value, TxValue](versionValue(contract.template))(contract)
+
+  private[this] def versionValue(templateId: Ref.TypeConName): Value => TxValue =
+    value.Value.VersionedValue(pkgValVersion(templateId.packageId), _)
+
+  private[this] def versionN(node: Node): TxNode =
+    GenNode.map3(identity[NodeId], identity[ContractId], versionValue(node.templateId))(node)
 
 }
 
@@ -93,17 +121,22 @@ object TransactionBuilder {
 
   private val KeyWithMaintainers = transaction.Node.KeyWithMaintainers
 
-  def version(v: Value): TxValue =
-    ValueVersions.assertAsVersionedValue(v)
+  def apply(): TransactionBuilder =
+    TransactionBuilder(TransactionVersions.SupportedStableVersions.min)
 
-  def version(contract: ContractInst[Value]): ContractInst[TxValue] =
-    ContractInst.map1[Value, TxValue](version)(contract)
+  def apply(txVersion: TransactionVersion): TransactionBuilder =
+    new TransactionBuilder(_ => txVersion)
 
-  def version(key: KeyWithMaintainers): TxKeyWithMaintainers =
-    KeyWithMaintainers.map1[Value, TxValue](version)(key)
-
-  def version(node: Node): TxNode =
-    GenNode.map3(identity[NodeId], identity[ContractId], version(_: Value))(node)
+  def apply(pkgLangVersion: Ref.PackageId => language.LanguageVersion): TransactionBuilder = {
+    def pkgTxVersion(pkgId: Ref.PackageId) = {
+      import VersionTimeline.Implicits._
+      VersionTimeline.latestWhenAllPresent(
+        TransactionVersions.SupportedStableVersions.min,
+        pkgLangVersion(pkgId)
+      )
+    }
+    new TransactionBuilder(pkgTxVersion)
+  }
 
   def record(fields: (String, String)*): Value =
     LfValue.ValueRecord(
@@ -111,7 +144,7 @@ object TransactionBuilder {
       fields = ImmArray(
         fields.map {
           case (name, value) =>
-            (Some(Name.assertFromString(name)), LfValue.ValueText(value))
+            (Some(Ref.Name.assertFromString(name)), LfValue.ValueText(value))
         },
       )
     )
@@ -156,7 +189,7 @@ object TransactionBuilder {
     Exercise(
       targetCoid = contract.coid,
       templateId = contract.coinst.template,
-      choiceId = ChoiceName.assertFromString(choice),
+      choiceId = Ref.ChoiceName.assertFromString(choice),
       optLocation = None,
       consuming = consuming,
       actingParties = actingParties.map(Ref.Party.assertFromString),
@@ -188,7 +221,7 @@ object TransactionBuilder {
     )
 
   def just(node: Node, nodes: Node*): Tx.Transaction = {
-    val builder = new TransactionBuilder
+    val builder = TransactionBuilder()
     val _ = builder.add(node)
     for (node <- nodes) {
       val _ = builder.add(node)
@@ -204,7 +237,10 @@ object TransactionBuilder {
 
   // not valid transactions.
   val Empty: Tx.Transaction =
-    TransactionVersions.assertAsVersionedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
+    VersionedTransaction(
+      TransactionVersions.SupportedStableVersions.min,
+      GenTransaction(HashMap.empty, ImmArray.empty),
+    )
   val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Empty)
   val EmptyCommitted: CommittedTransaction = CommittedTransaction(Empty)
 

@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
 
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -213,7 +214,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             id = committedContract.coid.coid,
             ledgerEffectiveTime = committedContractLedgerEffectiveTime,
             key = committedContract.key.map(x =>
-              convert(committedContract.coinst.template, TxBuilder.version(x)))
+              GlobalKey.assertBuild(committedContract.coinst.template, x.key))
           )
         )
       )
