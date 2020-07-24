@@ -13,11 +13,30 @@ import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class PostExecutingPersistStrategy[LogResult](valueToFingerprint: Option[Value] => Fingerprint) {
+/**
+  * An in-transaction post-execution finalizer to be invoked as the last stage of a pre-execution pipeline that
+  * performs deferred time bound checks, detects pre-execution conflicts and persists both state changes and
+  * a suitable log entry.
+  *
+  * It access the ledger state through [[LedgerStateOperations]] that doesn't provide fingerprints along values
+  * and so it is parametric in the logic that produces a fingerprint given a value.
+  *
+  * @param valueToFingerprint The logic producing a [[Fingerprint]] given a value.
+  * @tparam LogResult The log offset type.
+  */
+class PostExecutionFinalizerWithFingerprintsFromValues[LogResult](
+    valueToFingerprint: Option[Value] => Fingerprint) {
 
-  import PostExecutingPersistStrategy._
+  import PostExecutionFinalizerWithFingerprintsFromValues._
 
-  def conflictDetectAndPersist(
+  /**
+    * @param now The logic that produces the current instant for record time bounds check and record time finality.
+    * @param preExecutionOutput The output from the pre-execution stage.
+    * @param ledgerStateOperations The operations that can access actual ledger storage as part of a transaction.
+    * @param executionContext The execution context for ledger state operations.
+    * @return The submission result (asynchronous).
+    */
+  def conflictDetectAndFinalize(
       now: () => Instant,
       preExecutionOutput: PreExecutionOutput[RawKeyValuePairs],
       ledgerStateOperations: LedgerStateOperations[LogResult],
@@ -67,7 +86,7 @@ class PostExecutingPersistStrategy[LogResult](valueToFingerprint: Option[Value] 
   }
 }
 
-object PostExecutingPersistStrategy {
+object PostExecutionFinalizerWithFingerprintsFromValues {
   val Conflict = new RuntimeException
 
   private def isLogEntrySerializedKey(key: Bytes): Boolean =
