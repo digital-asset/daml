@@ -34,7 +34,7 @@ case class TimeModel private (
     val lowerBound = minLedgerTime(recordTime)
     val upperBound = maxLedgerTime(recordTime)
     if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound))
-      Left(s"Record time $recordTime outside of range [$lowerBound, $upperBound]")
+      Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
     else
       Right(())
   }

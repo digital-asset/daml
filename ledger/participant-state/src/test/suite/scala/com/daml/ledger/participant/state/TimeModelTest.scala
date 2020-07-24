@@ -101,7 +101,7 @@ class TimeModelTest extends WordSpec with Matchers {
         val recordTime = "2000-01-01T12:30:00Z"
         val lowerBound = "2000-01-01T12:29:50Z"
         val upperBound = "2000-01-01T12:30:20Z"
-        val expectedMessage = s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
+        val expectedMessage = s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]"
 
         timeModel
           .checkTime(Instant.parse(ledgerTime), Instant.parse(recordTime)) shouldEqual Left(
