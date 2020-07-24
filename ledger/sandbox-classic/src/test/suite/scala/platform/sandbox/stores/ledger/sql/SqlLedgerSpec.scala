@@ -12,7 +12,6 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -23,7 +22,6 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.MetricsAround
 import com.daml.platform.sandbox.config.LedgerName
-import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
 import com.daml.platform.store.dao.events.LfValueTranslation
@@ -181,9 +179,7 @@ class SqlLedgerSpec
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
         initialLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
-        participantId = participantId,
         timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveLedgerState.empty,
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)
           .fold(sys.error, identity),
@@ -205,7 +201,6 @@ object SqlLedgerSpec {
   private val queueDepth = 128
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("TheParticipant")
 
   private val testArchivePath = rlocation(Paths.get("ledger/test-common/model-tests.dar"))
   private val darReader = DarReader { (_, stream) =>

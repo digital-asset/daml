@@ -7,14 +7,6 @@ import java.time.{Instant, Duration => JDuration}
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  ParticipantId,
-  SubmissionResult,
-  SubmitterInfo,
-  TimeModel,
-  TransactionMeta
-}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
@@ -24,7 +16,13 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach
 }
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  SubmissionResult,
+  SubmitterInfo,
+  TimeModel,
+  TransactionMeta
+}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -60,13 +58,12 @@ class TransactionTimeModelComplianceIT
     implicit val executionContext: ExecutionContext = system.dispatcher
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, participantId, timeProvider)
+        LedgerResource.inMemory(ledgerId, timeProvider)
       case BackendType.Postgres =>
         newLoggingContext { implicit logCtx =>
           LedgerResource.postgres(
             getClass,
             ledgerId,
-            participantId,
             timeProvider,
             metrics,
           )
@@ -209,7 +206,6 @@ object TransactionTimeModelComplianceIT {
   private val recordTime = Instant.now
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(recordTime)
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)

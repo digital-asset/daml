@@ -105,10 +105,10 @@ private[apiserver] final class LedgerConfigProvider private (
             index
               .configurationEntries(state.get._1)
               .map {
-                case (offset, domain.ConfigurationEntry.Accepted(_, _, config)) =>
+                case (offset, domain.ConfigurationEntry.Accepted(_, config)) =>
                   logger.info(s"New ledger configuration $config found at $offset")
                   configFound(offset, config)
-                case (offset, domain.ConfigurationEntry.Rejected(_, _, _, _)) =>
+                case (offset, domain.ConfigurationEntry.Rejected(_, _, _)) =>
                   logger.trace(s"New ledger configuration rejection found at $offset")
                   state.updateAndGet(previous => Some(offset) -> previous._2)
                   ()

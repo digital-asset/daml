@@ -29,7 +29,6 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
-import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
@@ -55,9 +54,7 @@ object SqlLedger {
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
       initialLedgerId: LedgerIdMode,
-      participantId: ParticipantId,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
@@ -132,9 +129,7 @@ object SqlLedger {
               initialLedgerEntries,
               timeProvider,
               packages,
-              acs,
               ledgerDao,
-              participantId,
             )
           } yield ()
         } else {
@@ -164,9 +159,7 @@ object SqlLedger {
         initialLedgerEntries: ImmArray[LedgerEntryOrBump],
         timeProvider: TimeProvider,
         packages: InMemoryPackageStore,
-        acs: InMemoryActiveLedgerState,
         ledgerDao: LedgerDao,
-        participantId: ParticipantId,
     )(implicit executionContext: ExecutionContext): Future[Unit] = {
       if (initialLedgerEntries.nonEmpty) {
         logger.info(s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
@@ -245,12 +238,10 @@ object SqlLedger {
         () =>
           new SqlLedger(
             ledgerId,
-            participantId,
             ledgerConfig,
             ledgerDao,
             dispatcher,
             timeProvider,
-            packages,
             persistenceQueue,
             transactionCommitter,
         ))
@@ -310,12 +301,10 @@ object SqlLedger {
 
 private final class SqlLedger(
     ledgerId: LedgerId,
-    participantId: ParticipantId,
     configAtInitialization: Option[Configuration],
     ledgerDao: LedgerDao,
     dispatcher: Dispatcher[Offset],
     timeProvider: TimeProvider,
-    packages: InMemoryPackageStore,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
 )(implicit mat: Materializer, logCtx: LoggingContext)
@@ -415,9 +404,9 @@ private final class SqlLedger(
           offset,
           PartyLedgerEntry.AllocationAccepted(
             Some(submissionId),
-            participantId,
             timeProvider.getCurrentTime,
-            PartyDetails(party, displayName, isLocal = true))
+            PartyDetails(party, displayName, isLocal = true),
+          ),
         )
         .map(_ => ())(DEC)
         .recover {
@@ -468,7 +457,6 @@ private final class SqlLedger(
               offset,
               recordTime,
               submissionId,
-              participantId,
               config,
               Some(s"Configuration change timed out: $mrt > $recordTime"),
             )
@@ -481,15 +469,13 @@ private final class SqlLedger(
           // we look up the current configuration again to see if it was stored successfully.
           implicit val ec: ExecutionContext = DEC
           for {
-            response <- ledgerDao
-              .storeConfigurationEntry(
-                offset,
-                recordTime,
-                submissionId,
-                participantId,
-                config,
-                None
-              )
+            response <- ledgerDao.storeConfigurationEntry(
+              offset,
+              recordTime,
+              submissionId,
+              config,
+              None,
+            )
             newConfig <- ledgerDao.lookupLedgerConfiguration()
           } yield {
             currentConfiguration.set(newConfig.map(_._2))

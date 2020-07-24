@@ -8,7 +8,6 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
@@ -32,7 +31,6 @@ object LedgerResource {
 
   def inMemory(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
@@ -42,7 +40,6 @@ object LedgerResource {
       ResourceOwner.forValue(() =>
         new InMemoryLedger(
           ledgerId = ledgerId,
-          participantId = participantId,
           timeProvider = timeProvider,
           acs0 = acs,
           transactionCommitter = StandardTransactionCommitter,
@@ -53,7 +50,6 @@ object LedgerResource {
   def postgres(
       testClass: Class[_],
       ledgerId: LedgerId,
-      participantId: ParticipantId,
       timeProvider: TimeProvider,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
@@ -70,9 +66,7 @@ object LedgerResource {
           serverRole = ServerRole.Testing(testClass),
           jdbcUrl = database.url,
           initialLedgerId = LedgerIdMode.Static(ledgerId),
-          participantId = participantId,
           timeProvider = timeProvider,
-          acs = InMemoryActiveLedgerState.empty,
           packages = packages,
           initialLedgerEntries = ImmArray.empty,
           queueDepth = 128,

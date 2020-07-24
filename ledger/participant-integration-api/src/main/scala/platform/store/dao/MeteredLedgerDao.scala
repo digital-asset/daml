@@ -177,7 +177,8 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
 
   override def storePartyEntry(
       offset: Offset,
-      partyEntry: PartyLedgerEntry): Future[PersistenceResponse] =
+      partyEntry: PartyLedgerEntry,
+  ): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storePartyEntry,
       ledgerDao.storePartyEntry(offset, partyEntry))
@@ -186,19 +187,13 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       offset: Offset,
       recordTime: Instant,
       submissionId: String,
-      participantId: ParticipantId,
       configuration: Configuration,
-      rejectionReason: Option[String]
+      rejectionReason: Option[String],
   ): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeConfigurationEntry,
-      ledgerDao.storeConfigurationEntry(
-        offset,
-        recordTime,
-        submissionId,
-        participantId,
-        configuration,
-        rejectionReason)
+      ledgerDao
+        .storeConfigurationEntry(offset, recordTime, submissionId, configuration, rejectionReason)
     )
 
   override def storePackageEntry(

@@ -8,25 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  CommandDeduplicationResult,
-  PackageDetails
-}
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId => _,
-  LedgerId => _,
-  TransactionId => _,
-  _
-}
 import com.daml.api.util.TimeProvider
-import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger
 import com.daml.ledger.api.domain.{
@@ -50,12 +32,31 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails
+}
+import com.daml.ledger.participant.state.v1.{
+  ApplicationId => _,
+  LedgerId => _,
+  TransactionId => _,
+  _
+}
+import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -63,7 +64,6 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.{ApiOffset, index}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag.ToTagOps
@@ -87,7 +87,6 @@ final case class CommandDeduplicationEntry(
   */
 class InMemoryLedger(
     val ledgerId: LedgerId,
-    participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
     transactionCommitter: TransactionCommitter,
@@ -439,19 +438,14 @@ class InMemoryLedger(
       val ids = acs.parties.keySet
       if (ids.contains(party)) {
         entries.publish(
-          InMemoryPartyEntry(
-            PartyLedgerEntry.AllocationRejected(
-              submissionId,
-              participantId,
-              timeProvider.getCurrentTime,
-              "Party already exists")))
+          InMemoryPartyEntry(PartyLedgerEntry
+            .AllocationRejected(submissionId, timeProvider.getCurrentTime, "Party already exists")))
       } else {
         acs = acs.addParty(PartyDetails(party, displayName, isLocal = true))
         entries.publish(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationAccepted(
               Some(submissionId),
-              participantId,
               timeProvider.getCurrentTime,
               PartyDetails(party, displayName, isLocal = true))))
       }
@@ -521,23 +515,22 @@ class InMemoryLedger(
               InMemoryConfigEntry(
                 ConfigurationEntry.Rejected(
                   submissionId,
-                  participantId,
                   s"Generation mismatch, expected ${currentConfig.generation + 1}, got ${config.generation}",
-                  config)))
+                  config,
+                )))
 
           case _ if recordTime.isAfter(mrt) =>
             entries.publish(
               InMemoryConfigEntry(
                 ConfigurationEntry.Rejected(
                   submissionId,
-                  participantId,
                   s"Configuration change timed out: $mrt > $recordTime",
-                  config)))
+                  config,
+                )))
             ledgerConfiguration = Some(config)
 
           case _ =>
-            entries.publish(
-              InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, participantId, config)))
+            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, config)))
             ledgerConfiguration = Some(config)
         }
         SubmissionResult.Acknowledged
