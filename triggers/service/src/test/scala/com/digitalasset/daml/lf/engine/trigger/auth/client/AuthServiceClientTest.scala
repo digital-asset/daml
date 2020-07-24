@@ -48,4 +48,15 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
         _ <- assert(error.isInstanceOf[NoSuchElementException])
       } yield succeed
     }
+
+  it should "get access tokens for the same user with different service accounts" in
+    AuthServiceFixture.withAuthServiceClient(testId) { client =>
+      for {
+        token1 <- client.getLedgerToken("username", "password", testLedgerId)
+        token2 <- client.getLedgerToken("username", "password", testLedgerId)
+        _ <- token1.token should not be empty
+        _ <- token2.token should not be empty
+        _ <- token1 should not equal token2
+      } yield succeed
+    }
 }
