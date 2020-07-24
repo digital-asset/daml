@@ -28,15 +28,18 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
+  * A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide fingerprints
+  * alongside values), parametric in the logic that produces a fingerprint given a value.
   *
-  * @param now
-  * @param keySerializationStrategy
-  * @param validator
-  * @param valueToFingerprint
-  * @param postExecutor
-  * @param stateValueCache
-  * @param cacheUpdatePolicy
-  * @param materializer
+  * @param now The record time provider.
+  * @param keySerializationStrategy The key serializer used for state keys.
+  * @param validator The pre-execution validator.
+  * @param valueToFingerprint The logic that produces a fingerprint given a value.
+  * @param postExecutionFinalizer The post-execution finalizer that will also perform conflicts detection and
+  *                               time bounds checks.
+  * @param stateValueCache The cache instance for state values.
+  * @param cacheUpdatePolicy The caching policy for values.
+  * @param materializer The Akka materializer.
   * @tparam LogResult type of the offset used for a log entry.
   */
 class PreExecutingValidatingCommitter[LogResult](
@@ -44,11 +47,14 @@ class PreExecutingValidatingCommitter[LogResult](
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: PreExecutingSubmissionValidator[RawKeyValuePairs],
     valueToFingerprint: Option[Value] => Fingerprint,
-    postExecutor: PostExecutionFinalizerWithFingerprintsFromValues[LogResult],
+    postExecutionFinalizer: PostExecutionFinalizerWithFingerprintsFromValues[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
     cacheUpdatePolicy: CacheUpdatePolicy)(implicit materializer: Materializer)
     extends StateAccessingValidatingCommitter[LogResult] {
 
+  /**
+    * Pre-executes and then finalizes a submission.
+    */
   override def commit(
       correlationId: String,
       submissionEnvelope: Bytes,
@@ -75,7 +81,10 @@ class PreExecutingValidatingCommitter[LogResult](
         submissionResult <- retry {
           case PostExecutionFinalizerWithFingerprintsFromValues.Conflict => true
         } { (_, _) =>
-          postExecutor.conflictDetectAndFinalize(now, preExecutionOutput, ledgerStateOperations)
+          postExecutionFinalizer.conflictDetectAndFinalize(
+            now,
+            preExecutionOutput,
+            ledgerStateOperations)
         }.transform {
           case Failure(PostExecutionFinalizerWithFingerprintsFromValues.Conflict) =>
             Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
@@ -84,6 +93,8 @@ class PreExecutingValidatingCommitter[LogResult](
       } yield submissionResult
     }
 
+  // TODO consider adding to [[RetryStrategy]] a pre-built exponential backoff strategy
+  //  with custom exception processing and use it here.
   private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =
     RetryStrategy.constant(attempts = Some(3), 5.seconds)
 }

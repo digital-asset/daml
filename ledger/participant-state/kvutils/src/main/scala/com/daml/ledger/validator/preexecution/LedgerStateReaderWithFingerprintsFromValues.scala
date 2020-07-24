@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *                              Only reads will be used.
   * @param valueToFingerprint The logic producing a [[Fingerprint]] given a value.
   * @param executionContext The execution context for [[ledgerStateOperations]].
-  * @tparam LogResult The log offset type for [[ledgerStateOperations]].
+  * @tparam LogResult Type of the offset used for a log entry by [[ledgerStateOperations]].
   */
 class LedgerStateReaderWithFingerprintsFromValues[LogResult](
     ledgerStateOperations: LedgerStateOperations[LogResult],

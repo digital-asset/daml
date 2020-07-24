@@ -22,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * and so it is parametric in the logic that produces a fingerprint given a value.
   *
   * @param valueToFingerprint The logic producing a [[Fingerprint]] given a value.
-  * @tparam LogResult The log offset type.
+  * @tparam LogResult Type of the offset used for a log entry.
   */
 class PostExecutionFinalizerWithFingerprintsFromValues[LogResult](
     valueToFingerprint: Option[Value] => Fingerprint) {
