@@ -253,7 +253,7 @@ loadPackages :: [(LF.PackageName, Maybe LF.PackageVersion)] -> ReplClient.Handle
 loadPackages importPkgs replClient ideState = do
     -- Load packages
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
-    Just stablePkgs <- runAction ideState (use GenerateStablePackages "Dummy.daml")
+    Just stablePkgs <- runAction ideState (useNoFile GenerateStablePackages)
     for_ (topologicalSort (toList pkgs <> toList stablePkgs)) $ \pkg -> do
         r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)
         case r of
