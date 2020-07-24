@@ -84,15 +84,15 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
-      val ctx = new CommitContext {
+      val commitContext: CommitContext = new CommitContext {
         override def getRecordTime: Option[Time.Timestamp] = recordTime
 
         override def getParticipantId: ParticipantId = participantId
 
         override val inputs: DamlStateMap = inputState
       }
-      val logEntry = runSteps(ctx, submission)
-      logEntry -> ctx.getOutputs.toMap
+      val logEntry = runSteps(commitContext, submission)
+      logEntry -> commitContext.getOutputs.toMap
     }
 
   def runWithPreExecution(
@@ -101,7 +101,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMap,
   ): PreExecutionResult =
     preExecutionRunTimer.time { () =>
-      val commitContext = new CommitContext {
+      val commitContext: CommitContext = new CommitContext {
         override def getRecordTime: Option[Time.Timestamp] = None
 
         override def getParticipantId: ParticipantId = participantId
