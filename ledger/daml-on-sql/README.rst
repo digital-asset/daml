@@ -118,13 +118,16 @@ change the client authentication mode via ``--client-auth none`` which will disa
 completely, ``--client-auth optional`` which makes it optional or specify the default
 explicitly via ``--client-auth require``.
 
-Ledger API Authentication
-=========================
+Ledger API Authorization
+========================
 
-By default, DAML-on-SQL does not use any authentication and accepts all valid Ledger API requests.
+By default, DAML-on-SQL accepts all valid Ledger API requests.
 
-To start DAML-on-SQL with authentication based on `JWT <https://jwt.io/>`__ tokens,
-use one of the following command line options:
+DAML-on-SQL allows to enable authorization, representing claims as defined by the
+`Ledger API authorization documentation <https://docs.daml.com/app-dev/authentication.html#authentication-claims>`__
+using the `JWT <https://jwt.io/>`__ format.
+
+The following command line options are available to enable authentication:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
   DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
@@ -159,53 +162,6 @@ use one of the following command line options:
 Token payload
 ^^^^^^^^^^^^^
 
-Access tokens contain information about the capabilities held by the bearer of the token. This information is represented by a *claim* to a given capability.
-
-The claims can express the following capabilities:
-
-- ``public``: ability to retrieve publicly available information, such as the ledger identity
-- ``admin``: ability to interact with admin-level services, such as package uploading and user allocation
-- ``canReadAs(p)``: ability to read information off the ledger (like the active contracts) visible to the party ``p``
-- ``canActsAs(p)``: same as ``canReadAs(p)``, with the added ability of issuing commands on behalf of the party ``p``
-
-The following table summarizes what kind of claim is required to access each Ledger API endpoint:
-
-+-------------------------------------+----------------------------+------------------------------------------+
-| Ledger API service                  | Endpoint                   | Required claim                           |
-+=====================================+============================+==========================================+
-| LedgerIdentityService               | GetLedgerIdentity          | public                                   |
-+-------------------------------------+----------------------------+------------------------------------------+
-| ActiveContractsService              | GetActiveContracts         | for each requested party p: canReadAs(p) |
-+-------------------------------------+----------------------------+------------------------------------------+
-| CommandSubmissionService            | Submit                     | for submitting party p: canActAs(p)      |
-|                                     +----------------------------+------------------------------------------+
-|                                     | CompletionEnd              | public                                   |
-|                                     +----------------------------+------------------------------------------+
-|                                     | CompletionStream           | for each requested party p: canReadAs(p) |
-+-------------------------------------+----------------------------+------------------------------------------+
-| CommandService                      | All                        | for submitting party p: canActAs(p)      |
-+-------------------------------------+----------------------------+------------------------------------------+
-| LedgerConfigurationService          | GetLedgerConfiguration     | public                                   |
-+-------------------------------------+----------------------------+------------------------------------------+
-| PackageService                      | All                        | public                                   |
-+-------------------------------------+----------------------------+------------------------------------------+
-| PackageManagementService            | All                        | admin                                    |
-+-------------------------------------+----------------------------+------------------------------------------+
-| PartyManagementService              | All                        | admin                                    |
-+-------------------------------------+----------------------------+------------------------------------------+
-| ResetService                        | All                        | admin                                    |
-+-------------------------------------+----------------------------+------------------------------------------+
-| TimeService                         | GetTime                    | public                                   |
-|                                     +----------------------------+------------------------------------------+
-|                                     | SetTime                    | admin                                    |
-+-------------------------------------+----------------------------+------------------------------------------+
-| TransactionService                  | LedgerEnd                  | public                                   |
-|                                     +----------------------------+------------------------------------------+
-|                                     | All (except LedgerEnd)     | for each requested party p: canReadAs(p) |
-+-------------------------------------+----------------------------+------------------------------------------+
-
-DAML-on-SQL uses JWTs to express these claims.
-
 The following is an example of a valid JWT payload:
 
 .. code-block:: json
@@ -226,7 +182,7 @@ where
 
 - ``ledgerId``, ``participantId``, ``applicationId`` restrict the validity of the token to the given ledger, participant, or application
 - ``exp`` is the standard JWT expiration date (in seconds since Epoch)
-- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the :ref:`authentication <authentication-claims>` documentation
+- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the Ledger API authorization documentation
 
 The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
 
