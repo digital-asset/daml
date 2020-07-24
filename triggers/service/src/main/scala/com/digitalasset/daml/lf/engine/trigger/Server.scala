@@ -98,12 +98,10 @@ class Server(
 
   private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
     import cats.implicits._ // needed for traverse
-    triggers.traverse_(t =>
-      {
-        val userpass = TokenManagement.decodeCredentials(secretKey, t.credentials)
-        startTrigger(userpass, t.triggerName, Some(t.triggerInstance))
-      }
-    )
+    triggers.traverse_(t => {
+      val userpass = TokenManagement.decodeCredentials(secretKey, t.credentials)
+      startTrigger(userpass, t.triggerName, Some(t.triggerInstance))
+    })
   }
 
   private def triggerRunnerName(triggerInstance: UUID): String =
