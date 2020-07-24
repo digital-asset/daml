@@ -146,7 +146,7 @@ use one of the following command line options:
 
 .. warning::
 
-  For testing purposes only, the following options may also be used.
+  For testing purposes only, the following option may also be used.
   None of them is considered safe for production:
 
   - ``--auth-jwt-hs256-unsafe=<secret>``.
