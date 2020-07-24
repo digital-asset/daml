@@ -127,22 +127,26 @@ To start DAML-on-SQL with authentication based on `JWT <https://jwt.io/>`__ toke
 use one of the following command line options:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
-  DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public key loaded from the given X.509 certificate file.
+  DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
+  with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
 - ``--auth-jwt-es256-crt=<filename>``.
-  DAML-on-SQL will expect all tokens to be signed with ES256 (ECDSA using P-256 and SHA-256) with the public key loaded from the given X.509 certificate file.
+  DAML-on-SQL will expect all tokens to be signed with ES256 (ECDSA using P-256 and SHA-256)
+  with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certicates (binary files) are supported.
 
 - ``--auth-jwt-es512-crt=<filename>``.
-  DAML-on-SQL will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512)     with the public key loaded from the given X.509 certificate file.
+  DAML-on-SQL will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512)
+  with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
 - ``--auth-jwt-rs256-jwks=<url>``.
-  DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
+  DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
+  with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
 
 .. warning::
 
