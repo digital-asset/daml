@@ -58,7 +58,7 @@ have available resources to validate requests, evaluate commands and prepare res
 While the PostgreSQL schema is designed to be as efficient as possible, practical
 experience has shown that having **dedicated computation and memory resources for the
 two core components** (the Ledger API server and the PostgreSQL server) allows the two
-to run interfering as little as possible with each other. Depending on the kind of
+to run without interfering with each other. Depending on the kind of
 deployment you wish to make, this can be achieved with containerization, virtualization
 or simply using physically different machines. Still, the Ledger API communicates
 abundantly with the PostgreSQL server and many Ledger API requests need to go all
