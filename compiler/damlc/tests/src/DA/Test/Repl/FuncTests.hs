@@ -214,6 +214,18 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "debug (days 1)"
           , matchServiceOutput "^.*: RelTime {microseconds = 86400000000}$"
           ]
+    , testInteraction' ":module"
+          [ input ":module + DA.Time DA.Assert"
+          , input "assertEq (days 1) (days 1)"
+          , input ":module - DA.Time"
+          , input "assertEq (days 1) (days 1)"
+          , matchOutput "^File:.*$"
+          , matchOutput "^Hidden:.*$"
+          , matchOutput "^Range:.*$"
+          , matchOutput "^Source:.*$"
+          , matchOutput "^Severity:.*$"
+          , matchOutput "^Message:.*error: Variable not in scope: days.*$"
+          ]
     , testInteraction' "error call"
           [ input "error \"foobar\""
           , matchServiceOutput "^Error: User abort: foobar$"
