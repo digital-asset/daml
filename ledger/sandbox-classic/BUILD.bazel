@@ -59,6 +59,7 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_config",
@@ -287,7 +288,7 @@ SERVERS = {
             "--eager-package-loading",
             # "db_close_delay=-1" is needed so that the in-memory database is not closed
             # (and therefore lost) after the flyway migration
-            "--sql-backend-jdbcurl=jdbc:h2:mem:static_time;db_close_delay=-1",
+            "--sql-backend-jdbcurl=jdbc:h2:mem:conformance-test;db_close_delay=-1",
         ],
     },
     "postgresql": {
