@@ -9,20 +9,16 @@ import com.daml.testing.postgresql.PostgresAround
 
 object MainWithEphemeralPostgresql extends PostgresAround {
 
-  private val defaultConfig: SandboxConfig =
-    DefaultConfig.copy(
-      seeding = Some(Seeding.Weak),
-    )
-
   def main(args: Array[String]): Unit = {
     connectToPostgresqlServer()
     val database = createNewRandomDatabase()
     sys.addShutdownHook(disconnectFromPostgresqlServer())
-    val config =
-      new Cli(defaultConfig)
-        .parse(args)
-        .getOrElse(sys.exit(1))
-        .copy(jdbcUrl = Some(database.url))
+    val defaultConfig: SandboxConfig =
+      DefaultConfig.copy(
+        seeding = Some(Seeding.Weak),
+        jdbcUrl = Some(database.url),
+      )
+    val config = new Cli(defaultConfig).parse(args).getOrElse(sys.exit(1))
     Main.run(config)
   }
 
