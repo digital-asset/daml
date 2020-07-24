@@ -33,7 +33,7 @@ class PreExecutingValidatingCommitter[LogResult](
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: PreExecutingSubmissionValidator[RawKeyValuePairs],
     valueToFingerprint: Option[Value] => Fingerprint,
-    postExecutor: PostExecutingStateAccessPersistStrategy[LogResult],
+    postExecutor: PostExecutingPersistStrategy[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
     cacheUpdatePolicy: CacheUpdatePolicy,
     metrics: Metrics)(implicit materializer: Materializer)
@@ -45,33 +45,32 @@ class PreExecutingValidatingCommitter[LogResult](
       submittingParticipantId: ParticipantId,
       ledgerStateAccess: LedgerStateAccess[LogResult])(
       implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    for {
-      preExecutionOutput <- validator
-        .validate(
-          submissionEnvelope,
-          correlationId,
-          submittingParticipantId,
-          CachingDamlLedgerStateReaderWithFingerprints(
-            stateValueCache,
-            cacheUpdatePolicy,
-            new LedgerStateAccessReaderWithFingerprints(ledgerStateAccess, valueToFingerprint),
-            keySerializationStrategy,
+    // Fidelity level 1: sequential pre-execution. Implemented as: the pre-post-exec pipeline is a single transaction.
+    ledgerStateAccess.inTransaction { ledgerStateOperations =>
+      for {
+        preExecutionOutput <- validator
+          .validate(
+            submissionEnvelope,
+            correlationId,
+            submittingParticipantId,
+            CachingDamlLedgerStateReaderWithFingerprints(
+              stateValueCache,
+              cacheUpdatePolicy,
+              new LedgerReaderWithFingerprints(ledgerStateOperations, valueToFingerprint),
+              keySerializationStrategy,
+            )
           )
-        )
-      submissionResult <- retry {
-        case PostExecutingStateAccessPersistStrategy.Conflict => true
-      } { (_, _) =>
-        postExecutor.conflictDetectAndPersist(
-          now,
-          keySerializationStrategy,
-          preExecutionOutput,
-          ledgerStateAccess)
-      }.transform {
-        case Failure(PostExecutingStateAccessPersistStrategy.Conflict) =>
-          Success(SubmissionResult.Acknowledged) // Will simply be dropped
-        case result => result
-      }
-    } yield submissionResult
+        submissionResult <- retry {
+          case PostExecutingPersistStrategy.Conflict => true
+        } { (_, _) =>
+          postExecutor.conflictDetectAndPersist(now, preExecutionOutput, ledgerStateOperations)
+        }.transform {
+          case Failure(PostExecutingPersistStrategy.Conflict) =>
+            Success(SubmissionResult.Acknowledged) // Will simply be dropped
+          case result => result
+        }
+      } yield submissionResult
+    }
 
   private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =
     RetryStrategy.constant(attempts = Some(3), 5.seconds)
