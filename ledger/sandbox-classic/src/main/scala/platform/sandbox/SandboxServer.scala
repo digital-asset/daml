@@ -18,6 +18,7 @@ import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -30,7 +31,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -128,12 +129,6 @@ object SandboxServer {
     def release()(implicit executionContext: ExecutionContext): Future[Unit] =
       apiServerResource.release()
   }
-
-  lazy val defaultConfig: SandboxConfig =
-    SandboxConfig.defaultConfig.copy(
-      seeding = None,
-      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    )
 
 }
 
@@ -363,7 +358,7 @@ final class SandboxServer(
         timeProviderType.description,
         ledgerType,
         authService.getClass.getSimpleName,
-        config.seeding.fold("no")(_.toString.toLowerCase),
+        config.seeding.fold(Seeding.NoSeedingModeName)(_.name),
         if (config.stackTraces) "" else ", stack traces = no",
         config.profileDir match {
           case None => ""

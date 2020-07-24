@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.sandbox.services.completion
+package com.daml.platform.sandboxnext.services.completion
 
 import java.io.File
 import java.nio.file.Files
@@ -32,8 +32,8 @@ import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandbox.services.TimeModelHelpers.publishATimeModel
-import com.daml.platform.sandbox.services.completion.CompletionServiceWithEmptyLedgerIT._
 import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandboxnext.services.completion.CompletionServiceWithEmptyLedgerIT._
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import io.grpc.Channel

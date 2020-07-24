@@ -12,6 +12,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.lf.engine.trigger.AuthServiceClient
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.ports.Port
 import com.daml.timer.RetryStrategy
@@ -39,7 +40,7 @@ object AuthServiceFixture {
     val adminLedgerF = for {
       ledger <- Future(
         new SandboxServer(
-          SandboxServer.defaultConfig.copy(
+          sandbox.DefaultConfig.copy(
             port = Port.Dynamic,
             ledgerIdMode = LedgerIdMode.Static(adminLedgerId),
           ),

@@ -4,20 +4,16 @@
 package com.daml.platform.sandboxnext
 
 import com.daml.platform.sandbox.GlobalLogLevel
-import com.daml.platform.sandbox.cli.Cli
-import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.resources.ProgramResource
 
 object Main {
-
-  private val Name = LedgerName("Sandbox")
 
   def main(args: Array[String]): Unit = {
     // This disables the automated shutdown by akka. we close everything in order,
     // so akka doesn't need to be clever and emit this warning when CTRL-C-ing the sandbox:
     // [CoordinatedShutdown(akka://sandbox)] Could not addJvmShutdownHook, due to: Shutdown in progress
     System.setProperty("akka.jvm-shutdown-hooks", "off")
-    val config = new Cli(Name, SandboxConfig.defaultConfig).parse(args).getOrElse(sys.exit(1))
+    val config = Cli.parse(args).getOrElse(sys.exit(1))
     config.logLevel.foreach(GlobalLogLevel.set)
     new ProgramResource(new Runner(config)).run()
   }
