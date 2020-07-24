@@ -657,8 +657,9 @@ Performance envelope
 ====================
 
 Furthermore, this implementation is regularly tested to comply
-with the DAML Ledger Implementation Performance Envelope tests
-with beta-level fidelity which ensure that DAML-on-SQL can:
+with the DAML Ledger Implementation Performance Envelope tests.
+
+In particular, the tests are run to ensure that DAML-on-SQL can:
 
 - process transactions as large as 1 MB
 - have a tail latency no greater than 1 second when issuing 20 pings
