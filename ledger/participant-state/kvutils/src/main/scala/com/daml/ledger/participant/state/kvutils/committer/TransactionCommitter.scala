@@ -190,9 +190,9 @@ private[kvutils] class TransactionCommitter(
             transactionEntry.submissionTime.toInstant,
             transactionEntry.ledgerEffectiveTime.toInstant,
             timeModel)
+          commitContext.deduplicateUntil = maybeDeduplicateUntil
           commitContext.minimumRecordTime = Some(minimumRecordTime)
           commitContext.maximumRecordTime = Some(maximumRecordTime)
-          commitContext.deduplicateUntil = maybeDeduplicateUntil
           val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
             .setTransactionRejectionEntry(
               buildRejectionLogEntry(

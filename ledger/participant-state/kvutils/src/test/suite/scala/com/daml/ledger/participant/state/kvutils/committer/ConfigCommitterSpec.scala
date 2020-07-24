@@ -55,19 +55,41 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
       }
     }
 
-    val instance = createConfigCommitter(aRecordTime)
-    val context = new FakeCommitContext(recordTime = None)
-
     "skip checking against maximum record time if record time is not available" in {
+      val instance = createConfigCommitter(aRecordTime)
+      val context = new FakeCommitContext(recordTime = None)
+
       instance.checkTtl(context, anEmptyResult) match {
         case StepContinue(_) => succeed
         case StepStop(_) => fail
       }
     }
 
-    "set the maximum record time in the context if record time is not available" in {
+    "set the maximum record time and out-of-time-bounds log entry in the context if record time is not available" in {
+      val instance = createConfigCommitter(aRecordTime)
+      val context = new FakeCommitContext(recordTime = None)
+
       instance.checkTtl(context, anEmptyResult)
+
       context.maximumRecordTime shouldEqual Some(aRecordTime.toInstant)
+      context.outOfTimeBoundsLogEntry should not be empty
+      context.outOfTimeBoundsLogEntry.foreach { actual =>
+        actual.hasRecordTime shouldBe false
+        actual.hasConfigurationRejectionEntry shouldBe true
+        actual.getConfigurationRejectionEntry.getSubmissionId shouldBe aConfigurationSubmission.getSubmissionId
+        actual.getConfigurationRejectionEntry.getParticipantId shouldBe aConfigurationSubmission.getParticipantId
+        actual.getConfigurationRejectionEntry.getConfiguration shouldBe aConfigurationSubmission.getConfiguration
+      }
+    }
+
+    "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
+      val instance = createConfigCommitter(theRecordTime)
+      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
+
+      instance.checkTtl(context, anEmptyResult)
+
+      context.preExecute shouldBe false
+      context.outOfTimeBoundsLogEntry shouldBe empty
     }
   }
 
@@ -83,7 +105,6 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasRecordTime shouldBe true
           actualLogEntry.getRecordTime shouldBe buildTimestamp(theRecordTime)
-          actualLogEntry.hasConfigurationEntry shouldBe true
       }
     }
 
@@ -97,35 +118,27 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
         case StepContinue(_) => fail
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasRecordTime shouldBe false
-          actualLogEntry.hasConfigurationEntry shouldBe true
       }
     }
 
-    "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val instance = createConfigCommitter(theRecordTime.addMicros(1000))
-      val context = new FakeCommitContext(recordTime = None)
+    "produce a log entry (pre-execution disabled or enabled)" in {
+      for (recordTimeMaybe <- Iterable(Some(aRecordTime), None)) {
+        val instance = createConfigCommitter(theRecordTime)
+        val context = new FakeCommitContext(recordTime = recordTimeMaybe)
 
-      instance.buildLogEntry(context, anEmptyResult)
+        val actual = instance.buildLogEntry(context, anEmptyResult)
 
-      context.preExecute shouldBe true
-      context.outOfTimeBoundsLogEntry should not be empty
-      context.outOfTimeBoundsLogEntry.foreach { actual =>
-        actual.hasRecordTime shouldBe false
-        actual.hasConfigurationRejectionEntry shouldBe true
-        actual.getConfigurationRejectionEntry.getSubmissionId shouldBe aConfigurationSubmission.getSubmissionId
-        actual.getConfigurationRejectionEntry.getParticipantId shouldBe aConfigurationSubmission.getParticipantId
-        actual.getConfigurationRejectionEntry.getConfiguration shouldBe aConfigurationSubmission.getConfiguration
+        actual match {
+          case StepContinue(_) => fail
+          case StepStop(actualLogEntry) =>
+            actualLogEntry.hasConfigurationEntry shouldBe true
+            val actualConfigurationEntry = actualLogEntry.getConfigurationEntry
+            actualConfigurationEntry.getSubmissionId shouldBe aConfigurationSubmission.getSubmissionId
+            actualConfigurationEntry.getParticipantId shouldBe aConfigurationSubmission.getParticipantId
+            actualConfigurationEntry.getConfiguration shouldBe aConfigurationSubmission.getConfiguration
+            context.outOfTimeBoundsLogEntry should not be defined
+        }
       }
-    }
-
-    "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val instance = createConfigCommitter(theRecordTime)
-      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
-
-      instance.buildLogEntry(context, anEmptyResult)
-
-      context.preExecute shouldBe false
-      context.outOfTimeBoundsLogEntry shouldBe empty
     }
   }
 
