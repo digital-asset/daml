@@ -23,16 +23,14 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
 
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID. */
-  private def valid(claims: Claims): Either[AuthorizationError, Unit] = {
-    val currentTime = now()
+  private def valid(claims: Claims): Either[AuthorizationError, Unit] =
     for {
-      _ <- claims.notExpired(currentTime)
+      _ <- claims.notExpired(now())
       _ <- claims.validForLedger(ledgerId)
       _ <- claims.validForParticipant(participantId)
     } yield {
       ()
     }
-  }
 
   def requirePublicClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
