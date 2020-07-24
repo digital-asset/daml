@@ -118,7 +118,10 @@ haskell_library(
 )
 """.format(version = GHCIDE_VERSION),
         patch_args = ["-p1"],
-        patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
+            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch",
+        ],
         sha256 = GHCIDE_SHA256,
         strip_prefix = "ghcide-%s" % GHCIDE_REV,
         urls = ["https://github.com/digital-asset/ghcide/archive/%s.tar.gz" % GHCIDE_REV],
