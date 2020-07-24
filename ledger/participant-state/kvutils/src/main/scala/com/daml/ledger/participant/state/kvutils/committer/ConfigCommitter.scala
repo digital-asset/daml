@@ -52,6 +52,7 @@ private[kvutils] class ConfigCommitter(
       if (ctx.preExecute) {
         // Propagate the time bounds and defer the checks to post-execution.
         ctx.maximumRecordTime = Some(maximumRecordTime.toInstant)
+        setOutOfTimeBoundsLogEntry(result.submission, ctx)
       }
       StepContinue(result)
     }
@@ -165,9 +166,6 @@ private[kvutils] class ConfigCommitter(
     val successLogEntry = buildLogEntryWithOptionalRecordTime(
       ctx.getRecordTime,
       _.setConfigurationEntry(configurationEntry))
-    if (ctx.preExecute) {
-      setOutOfTimeBoundsLogEntry(result.submission, ctx)
-    }
     StepStop(successLogEntry)
   }
 

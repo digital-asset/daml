@@ -178,22 +178,31 @@ private[kvutils] class TransactionCommitter(
                     RejectionReason.InvalidLedgerTime(reason))),
               _ => StepContinue(transactionEntry)
             )
-        case None => // Pre-execution: propagate the time bounds and defer the checks to post-execution
+        case None => // Pre-execution: propagate the time bounds and defer the checks to post-execution.
           val maybeDeduplicateUntil =
             getLedgerDeduplicateUntil(transactionEntry, commitContext)
-
-          commitContext.minimumRecordTime = Some(
-            transactionMinRecordTime(
-              transactionEntry.submissionTime.toInstant,
-              transactionEntry.ledgerEffectiveTime.toInstant,
-              maybeDeduplicateUntil,
-              timeModel))
-          commitContext.maximumRecordTime = Some(
-            transactionMaxRecordTime(
-              transactionEntry.submissionTime.toInstant,
-              transactionEntry.ledgerEffectiveTime.toInstant,
-              timeModel))
+          val minimumRecordTime = transactionMinRecordTime(
+            transactionEntry.submissionTime.toInstant,
+            transactionEntry.ledgerEffectiveTime.toInstant,
+            maybeDeduplicateUntil,
+            timeModel)
+          val maximumRecordTime = transactionMaxRecordTime(
+            transactionEntry.submissionTime.toInstant,
+            transactionEntry.ledgerEffectiveTime.toInstant,
+            timeModel)
           commitContext.deduplicateUntil = maybeDeduplicateUntil
+          commitContext.minimumRecordTime = Some(minimumRecordTime)
+          commitContext.maximumRecordTime = Some(maximumRecordTime)
+          val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+            .setTransactionRejectionEntry(
+              buildRejectionLogEntry(
+                transactionEntry,
+                RejectionReason.InvalidLedgerTime(
+                  s"Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]")
+              )
+            )
+            .build
+          commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
           StepContinue(transactionEntry)
       }
     }
