@@ -1,0 +1,48 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+pr: none
+trigger: none
+
+schedules:
+- cron: "0 6 * * Wed"
+  displayName: weekly snapshot
+  branches:
+    include:
+    - master
+  always: true
+
+jobs:
+- job: open_release_pr
+  timeoutInMinutes: 60
+  pool:
+    name: linux-pool
+    demands: assignment -equals default
+  steps:
+  - checkout: self
+    persistCredentials: true
+  - bash: ci/dev-env-install.sh
+  - bash: |
+      set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
+
+      AUTH="$(git config remote.origin.url | grep -o "://.*:.*@" | cut -c4- | rev | cut -c2- | rev)"
+
+      BRANCH=auto-release-pr-$(date -I)
+      git branch -D $BRANCH || true
+      git checkout -b $BRANCH
+      ./release.sh new snapshot
+      git add LATEST
+      RELEASE=$(head -1 LATEST | awk '{print $2}')
+      git -c user.name="Azure Pipelines DAML Build" \
+          -c user.email="support@digitalasset.com" \
+          commit \
+          -m "$(printf "release $RELEASE\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
+      git push origin $BRANCH:$BRANCH
+      curl -H "Content-Type: application/json" \
+           -u $AUTH \
+           --silent \
+           --include \
+           --location \
+           -d "{\"title\": \"release $RELEASE\", \"head\": \"$BRANCH\", \"base\": \"master\", \"body\": \"This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging.\"}" \
+           https://api.github.com/repos/digital-asset/daml/pulls
