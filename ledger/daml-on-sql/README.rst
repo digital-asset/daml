@@ -127,7 +127,7 @@ To start DAML-on-SQL with authentication based on `JWT <https://jwt.io/>`__ toke
 use one of the following command line options:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
-  \DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public key loaded from the given X.509 certificate file.
+  DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
