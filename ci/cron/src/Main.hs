@@ -1,6 +1,9 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- require to define instance ToVersion String
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+
 module Main (main) where
 
 import Data.Function ((&))
@@ -88,14 +91,14 @@ http_get url = do
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
 
-build_and_push :: String -> [String] -> IO ()
+build_and_push :: FilePath -> [Version] -> IO ()
 build_and_push temp versions = do
     restore_sha $ do
         Data.Foldable.for_ versions (\version -> do
-            putStrLn $ "Building " <> version <> "..."
+            putStrLn $ "Building " <> show version <> "..."
             build version
-            putStrLn $ "Pushing " <> version <> " to S3 (as subfolder)..."
-            push (temp </> version) version
+            putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
+            push temp $ show version
             putStrLn "Done.")
     where
         restore_sha io =
@@ -103,7 +106,7 @@ build_and_push temp versions = do
                                       (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
                                       (const io)
         build version = do
-            shell_ $ "git checkout v" <> version
+            shell_ $ "git checkout v" <> show version
             -- The release-triggering commit does not have a tag, so we need to
             -- find it by walking through the git history of the LATEST file.
             sha <- find_commit_for_version version
@@ -113,30 +116,30 @@ build_and_push temp versions = do
                 (build_helper version)
         build_helper version = do
             robustly_download_nix_packages
-            shell_ $ "DAML_SDK_RELEASE_VERSION=" <> version <> " bazel build //docs:docs"
-            shell_ $ "mkdir -p  " <> temp </> version
-            shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> temp </> version
+            shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
+            shell_ $ "mkdir -p  " <> temp </> show version
+            shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> temp </> show version
 
-push :: String -> String -> IO ()
+push :: FilePath -> FilePath -> IO ()
 push local remote =
     shell_ $ "aws s3 cp " <> local <> " " <> "s3://docs-daml-com" </> remote <> " --recursive"
 
-fetch_if_missing :: String -> String -> IO ()
-fetch_if_missing temp folder = do
-    missing <- not <$> Directory.doesDirectoryExist (temp </> folder)
+fetch_if_missing :: FilePath -> Version -> IO ()
+fetch_if_missing temp v = do
+    missing <- not <$> Directory.doesDirectoryExist (temp </> show v)
     if missing then do
-        putStrLn $ "Downloading " <> folder <> "..."
-        shell_ $ "aws s3 cp s3://docs-daml-com" </> folder <> " " <> temp </> folder <> " --recursive"
+        putStrLn $ "Downloading " <> show v <> "..."
+        shell_ $ "aws s3 cp s3://docs-daml-com" </> show v <> " " <> temp </> show v <> " --recursive"
         putStrLn "Done."
     else do
-        putStrLn $ folder <> " already present."
+        putStrLn $ show v <> " already present."
 
-update_s3 :: String -> Versions -> IO ()
+update_s3 :: FilePath -> Versions -> IO ()
 update_s3 temp vs = do
     putStrLn "Updating versions.json & hidden.json..."
     create_versions_json (dropdown vs) (temp </> "versions.json")
-    -- order does not matter for hidden ones
-    create_versions_json (Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)) (temp </> "hidden.json")
+    let hidden = (List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs))
+    create_versions_json hidden (temp </> "hidden.json")
     shell_ $ "aws s3 cp " <> temp </> "versions.json s3://docs-daml-com/versions.json"
     shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/hidden.json"
     -- FIXME: remove after running once (and updating the reading bit in this file)
@@ -147,23 +150,24 @@ update_s3 temp vs = do
             -- Not going through Aeson because it represents JSON objects as
             -- unordered maps, and here order matters.
             let versions_json = versions
+                                & map show
                                 & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
                                 & List.intercalate ", "
                                 & \s -> "{" <> s <> "}"
             writeFile file versions_json
 
-update_top_level :: String -> String -> String -> IO ()
+update_top_level :: FilePath -> Version -> Version -> IO ()
 update_top_level temp new old = do
-    new_files <- Set.fromList <$> Directory.listDirectory (temp </> new)
-    old_files <- Set.fromList <$> Directory.listDirectory (temp </> old)
+    new_files <- Set.fromList <$> Directory.listDirectory (temp </> show new)
+    old_files <- Set.fromList <$> Directory.listDirectory (temp </> show old)
     let to_delete = Set.toList $ old_files `Set.difference` new_files
     Control.when (not $ null to_delete) $ do
         putStrLn $ "Deleting top-level files: " <> show to_delete
         Data.Foldable.for_ to_delete (\f -> do
             shell_ $ "aws s3 rm s3://docs-daml-com" </> f <> " --recursive")
         putStrLn "Done."
-    putStrLn $ "Pushing " <> new <> " to top-level..."
-    shell_ $ "aws s3 cp " <> temp </> new </> " s3://docs-daml-com/ --recursive"
+    putStrLn $ "Pushing " <> show new <> " to top-level..."
+    shell_ $ "aws s3 cp " <> temp </> show new </> " s3://docs-daml-com/ --recursive"
     putStrLn "Done."
 
 reset_cloudfront :: IO ()
@@ -173,10 +177,10 @@ reset_cloudfront = do
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
 
-find_commit_for_version :: String -> IO String
+find_commit_for_version :: Version -> IO String
 find_commit_for_version version = do
-    ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
-    let expected = ver_sha <> " " <> version
+    ver_sha <- init <$> (shell $ "git rev-parse v" <> show version)
+    let expected = ver_sha <> " " <> show version
     -- git log -G 'regex' returns all the commits for which 'regex' appears in
     -- the diff. To find out the commit that "released" the version. The commit
     -- we want is a commit that added a single line, which matches the version
@@ -190,17 +194,7 @@ find_commit_for_version version = do
                      _ -> Nothing)
     case matching of
       [sha] -> return sha
-      _ -> fail $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
-
-data Version = Version { prerelease :: Bool, tag :: Data.SemVer.Version } deriving Show
-instance JSON.FromJSON Version where
-    parseJSON = JSON.withObject "Version" $ \v -> Version
-        <$> v JSON..: Text.pack "prerelease"
-        <*> let json_text = v JSON..: Text.pack "tag_name"
-            in (((\case Left s -> error s; Right v -> v) <$> Data.SemVer.fromText) . Text.tail <$> json_text)
-
-parse :: Text.Text -> Data.SemVer.Version
-parse t = (\case Left s -> (error s); Right v -> v) $ Data.SemVer.fromText t
+      _ -> fail $ "Expected single commit to match release " <> show version <> ", but instead found: " <> show matching
 
 fetch_gh_paginated :: JSON.FromJSON a => String -> IO [a]
 fetch_gh_paginated url = do
@@ -221,14 +215,32 @@ fetch_gh_paginated url = do
                 (_, _, _, [url, rel]) -> (rel, url)
                 _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
-data Versions = Versions { top :: String, all_versions :: Set.Set String, dropdown :: [String] }
+data PreVersion = PreVersion { prerelease :: Bool, tag :: Version }
+instance JSON.FromJSON PreVersion where
+    parseJSON = JSON.withObject "PreVersion" $ \v -> PreVersion
+        <$> v JSON..: "prerelease"
+        <*> let json_text = v JSON..: "tag_name"
+            in version <$> Text.tail <$> json_text
+
+data Version = Version Data.SemVer.Version
+    deriving (Ord, Eq)
+instance Show Version where
+    show (Version v) = Data.SemVer.toString v
+
+version :: Text.Text -> Version
+version t = Version $ (\case Left s -> (error s); Right v -> v) $ Data.SemVer.fromText t
+
+data Versions = Versions { top :: Version, all_versions :: Set.Set Version, dropdown :: [Version] }
     deriving Eq
 
-versions :: [Version] -> Versions
+versions :: [PreVersion] -> Versions
 versions vs =
-    let to_strings = map (Data.SemVer.toString . tag)
-        all_versions = Set.fromList $ to_strings vs
-        dropdown = to_strings $ List.sortOn (Data.Ord.Down . tag) $ filter (\v -> tag v >= parse (Text.pack "1.0.0") && not (prerelease v)) vs
+    let all_versions = Set.fromList $ map tag vs
+        dropdown = vs
+                   & filter (not . prerelease)
+                   & map tag
+                   & filter (>= version "1.0.0")
+                   & List.sortOn Data.Ord.Down
         top = head dropdown
     in Versions {..}
 
@@ -237,7 +249,7 @@ fetch_gh_versions = do
     response <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
     -- versions prior to 0.13.10 cannot be built anymore and are not present in
     -- the repo.
-    return $ versions $ filter (\v -> tag v >= parse (Text.pack "0.13.10")) response
+    return $ versions $ filter (\v -> tag v >= version "0.13.10") response
 
 fetch_s3_versions :: IO Versions
 fetch_s3_versions = do
@@ -252,7 +264,7 @@ fetch_s3_versions = do
               let type_annotated_value :: Maybe JSON.Object
                   type_annotated_value = JSON.decode $ LBS.fromString s3_raw
               case type_annotated_value of
-                  Just s3_json -> return $ map (\s -> Version prerelease (parse s)) $ H.keys s3_json
+                  Just s3_json -> return $ map (\s -> PreVersion prerelease (version s)) $ H.keys s3_json
                   Nothing -> Exit.die "Failed to get versions from s3"
 
 main :: IO ()
@@ -273,7 +285,7 @@ main = do
             putStrLn $ "Versions to build: " <> show added
             build_and_push temp_dir added
             Control.when (top gh_versions /= top s3_versions) $ do
-                putStrLn $ "Updating top-level version from " <> top s3_versions <> " to " <> top gh_versions
+                putStrLn $ "Updating top-level version from " <> (show $ top s3_versions) <> " to " <> (show $ top gh_versions)
                 fetch_if_missing temp_dir (top gh_versions)
                 fetch_if_missing temp_dir (top s3_versions)
                 update_top_level temp_dir (top gh_versions) (top s3_versions)
