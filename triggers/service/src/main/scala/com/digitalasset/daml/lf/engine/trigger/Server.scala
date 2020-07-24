@@ -100,8 +100,8 @@ class Server(
     import cats.implicits._ // needed for traverse
     triggers.traverse_(t =>
       {
-//        val userpass = TokenManagement.decodeCredentials(secretKey, t.credentials)
-        startTrigger(("", ""), t.triggerName, Some(t.triggerInstance)).map(_ => ())
+        val userpass = TokenManagement.decodeCredentials(secretKey, t.credentials)
+        startTrigger(userpass, t.triggerName, Some(t.triggerInstance))
       }
     )
   }
