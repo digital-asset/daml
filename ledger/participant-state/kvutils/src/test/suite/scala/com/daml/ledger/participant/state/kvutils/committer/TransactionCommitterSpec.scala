@@ -126,7 +126,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
         }
       }
 
-      "compute and correctly set the min/max ledger time without deduplicateUntil" in {
+      "compute and correctly set the min/max ledger time and out-of-time-bounds log entry without deduplicateUntil" in {
         val context = contextWithTimeModelAndEmptyCommandDeduplication()
         instance.validateLedgerTime(
           context,
@@ -141,7 +141,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
         }
       }
 
-      "compute and correctly set the min/max ledger time with deduplicateUntil" in {
+      "compute and correctly set the min/max ledger time and out-of-time-bounds log entry with deduplicateUntil" in {
         val context = contextWithTimeModelAndCommandDeduplication()
         instance.validateLedgerTime(
           context,

@@ -93,7 +93,7 @@ class CommitterSpec
       actualOutOfTimeBoundsLogEntry.getEntry shouldBe aRejectionLogEntry
     }
 
-    "do not throw in case no out-of-time-bounds log entry and min/max record time is set" in {
+    "do not throw in case neither out-of-time-bounds log entry nor min/max record time are set" in {
       val mockContext = mock[CommitContext]
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
       when(mockContext.getOutputs).thenReturn(Iterable.empty)
