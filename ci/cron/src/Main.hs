@@ -1,9 +1,6 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- require to define instance ToVersion String
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
-
 module Main (main) where
 
 import Data.Function ((&))
@@ -138,7 +135,7 @@ update_s3 :: FilePath -> Versions -> IO ()
 update_s3 temp vs = do
     putStrLn "Updating versions.json & hidden.json..."
     create_versions_json (dropdown vs) (temp </> "versions.json")
-    let hidden = (List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs))
+    let hidden = List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
     create_versions_json hidden (temp </> "hidden.json")
     shell_ $ "aws s3 cp " <> temp </> "versions.json s3://docs-daml-com/versions.json"
     shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/hidden.json"
@@ -220,7 +217,7 @@ instance JSON.FromJSON PreVersion where
     parseJSON = JSON.withObject "PreVersion" $ \v -> PreVersion
         <$> v JSON..: "prerelease"
         <*> let json_text = v JSON..: "tag_name"
-            in version <$> Text.tail <$> json_text
+            in (version . Text.tail <$> json_text)
 
 data Version = Version Data.SemVer.Version
     deriving (Ord, Eq)
