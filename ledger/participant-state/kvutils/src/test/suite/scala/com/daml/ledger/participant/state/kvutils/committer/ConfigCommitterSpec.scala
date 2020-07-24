@@ -76,9 +76,10 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
         actual.hasConfigurationRejectionEntry shouldBe true
-        actual.getConfigurationRejectionEntry.getSubmissionId shouldBe aConfigurationSubmission.getSubmissionId
-        actual.getConfigurationRejectionEntry.getParticipantId shouldBe aConfigurationSubmission.getParticipantId
-        actual.getConfigurationRejectionEntry.getConfiguration shouldBe aConfigurationSubmission.getConfiguration
+        val actualConfigurationRejectionEntry = actual.getConfigurationRejectionEntry
+        actualConfigurationRejectionEntry.getSubmissionId shouldBe aConfigurationSubmission.getSubmissionId
+        actualConfigurationRejectionEntry.getParticipantId shouldBe aConfigurationSubmission.getParticipantId
+        actualConfigurationRejectionEntry.getConfiguration shouldBe aConfigurationSubmission.getConfiguration
       }
     }
 
