@@ -87,44 +87,54 @@ final case class Claims(
     applicationId: Option[String] = None,
     expiration: Option[Instant] = None,
 ) {
-  def validForLedger(id: String): Boolean =
-    ledgerId.forall(_ == id)
+  def validForLedger(id: String): Either[AuthorizationError, Unit] =
+    Either.cond(ledgerId.forall(_ == id), (), AuthorizationErrorInvalidLedger(ledgerId.get, id))
 
-  def validForParticipant(id: String): Boolean =
-    participantId.forall(_ == id)
+  def validForParticipant(id: String): Either[AuthorizationError, Unit] =
+    Either.cond(
+      participantId.forall(_ == id),
+      (),
+      AuthorizationErrorInvalidParticipant(participantId.get, id))
 
-  def validForApplication(id: String): Boolean =
-    applicationId.forall(_ == id)
+  def validForApplication(id: String): Either[AuthorizationError, Unit] =
+    Either.cond(
+      applicationId.forall(_ == id),
+      (),
+      AuthorizationErrorInvalidApplication(applicationId.get, id))
 
   /** Returns false if the expiration timestamp exists and is greater than or equal to the current time */
-  def notExpired(now: Instant): Boolean =
-    expiration.forall(now.isBefore)
+  def notExpired(now: Instant): Either[AuthorizationError, Unit] =
+    Either.cond(expiration.forall(now.isBefore), (), AuthorizationErrorExpired(expiration.get, now))
 
   /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
-  def isAdmin: Boolean =
-    claims.contains(ClaimAdmin)
+  def isAdmin: Either[AuthorizationError, Unit] =
+    Either.cond(claims.contains(ClaimAdmin), (), AuthorizationErrorMissingAdminClaim())
 
   /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
-  def isPublic: Boolean =
-    claims.contains(ClaimPublic)
+  def isPublic: Either[AuthorizationError, Unit] =
+    Either.cond(claims.contains(ClaimPublic), (), AuthorizationErrorMissingPublicClaim())
 
   /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
-  def canActAs(party: String): Boolean = {
-    claims.exists {
+  def canActAs(party: String): Either[AuthorizationError, Unit] = {
+    Either.cond(claims.exists {
       case ClaimActAsAnyParty => true
       case ClaimActAsParty(p) if p == party => true
       case _ => false
-    }
+    }, (), AuthorizationErrorMissingActClaim(party))
   }
 
   /** Returns true if the set of claims authorizes the user to read data for the given party, unless the claims expired */
-  def canReadAs(party: String): Boolean = {
-    claims.exists {
-      case ClaimActAsAnyParty => true
-      case ClaimActAsParty(p) if p == party => true
-      case ClaimReadAsParty(p) if p == party => true
-      case _ => false
-    }
+  def canReadAs(party: String): Either[AuthorizationError, Unit] = {
+    Either.cond(
+      claims.exists {
+        case ClaimActAsAnyParty => true
+        case ClaimActAsParty(p) if p == party => true
+        case ClaimReadAsParty(p) if p == party => true
+        case _ => false
+      },
+      (),
+      AuthorizationErrorMissingReadClaim(party)
+    )
   }
 }
 

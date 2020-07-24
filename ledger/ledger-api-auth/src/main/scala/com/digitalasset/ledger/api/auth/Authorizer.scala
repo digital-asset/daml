@@ -14,23 +14,6 @@ import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
 import scala.concurrent.Future
 
-sealed abstract class AuthorizationResult {
-  def flatMap(f: Unit => AuthorizationResult): AuthorizationResult = this match {
-    case Authorized => f(())
-    case e: NotAuthorized => e
-  }
-  def map(f: Unit => Unit): AuthorizationResult = this match {
-    case Authorized => Authorized
-    case e: NotAuthorized => e
-  }
-  def isAuthorized: Boolean = this match {
-    case Authorized => true
-    case NotAuthorized(_) => false
-  }
-}
-case object Authorized extends AuthorizationResult
-final case class NotAuthorized(error: String) extends AuthorizationResult
-
 /** A simple helper that allows services to use authorization claims
   * that have been stored by [[AuthorizationInterceptor]].
   */
@@ -40,23 +23,23 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
 
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID. */
-  private def valid(claims: Claims): AuthorizationResult =
+  private def valid(claims: Claims): Either[AuthorizationError, Unit] = {
+    val currentTime = now()
     for {
-      _ <- if (claims.notExpired(now())) Authorized else NotAuthorized("Claims expired")
-      _ <- if (claims.validForLedger(ledgerId)) Authorized
-      else NotAuthorized(s"Claims not valid for ledgerId $ledgerId")
-      _ <- if (claims.validForParticipant(participantId)) Authorized
-      else NotAuthorized(s"Claims not valid for participantId $participantId")
+      _ <- claims.notExpired(currentTime)
+      _ <- claims.validForLedger(ledgerId)
+      _ <- claims.validForParticipant(participantId)
     } yield {
       ()
     }
+  }
 
   def requirePublicClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- if (claims.isPublic) Authorized else NotAuthorized("Public claim missing")
+        _ <- claims.isPublic
       } yield {
         ()
       }
@@ -66,7 +49,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- if (claims.isPublic) Authorized else NotAuthorized("Public claim missing")
+        _ <- claims.isPublic
       } yield {
         ()
       }
@@ -76,7 +59,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- if (claims.isAdmin) Authorized else NotAuthorized("Admin claim missing.")
+        _ <- claims.isAdmin
       } yield {
         ()
       }
@@ -92,12 +75,10 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- if (parties.forall(claims.canReadAs)) Authorized
-        else
-          NotAuthorized(
-            s"Claims do not grant read rights for all of the following parties: $parties")
-        _ <- if (applicationId.forall(claims.validForApplication)) Authorized
-        else NotAuthorized(s"Claims not valid for applicationId ${applicationId.getOrElse("")}")
+        _ <- parties.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, e) =>
+          acc.flatMap(_ => claims.canReadAs(e)))
+        _ <- applicationId.fold[Either[AuthorizationError, Unit]](Right(()))(id =>
+          claims.validForApplication(id))
       } yield {
         ()
       }
@@ -112,10 +93,8 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- if (parties.forall(claims.canReadAs)) Authorized
-        else
-          NotAuthorized(
-            s"Claims do not grant read rights for all of the following parties: $parties")
+        _ <- parties.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, e) =>
+          acc.flatMap(_ => claims.canReadAs(e)))
       } yield {
         ()
       }
@@ -131,10 +110,9 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- if (party.forall(claims.canActAs)) Authorized
-        else NotAuthorized(s"Claims do not grant act rights for party $party")
-        _ <- if (applicationId.forall(claims.validForApplication)) Authorized
-        else NotAuthorized(s"Claims not valid for applicationId ${applicationId.getOrElse("")}")
+        _ <- party.fold[Either[AuthorizationError, Unit]](Right(()))(p => claims.canActAs(p))
+        _ <- applicationId.fold[Either[AuthorizationError, Unit]](Right(()))(id =>
+          claims.validForApplication(id))
       } yield {
         ()
       }
@@ -162,17 +140,18 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     new OngoingAuthorizationObserver[Res](
       scso,
       claims,
-      _.notExpired(now()), {
+      _.notExpired(now()),
+      authorizationError => {
+        // Note: only put the claims in the context, as the request can be huge
         newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
-          logger.error(
-            "Permission denied. Reason: The given claims have expired after the result stream has started.")
+          logger.error(s"Permission denied. Reason: ${authorizationError.reason}.")
         }
         permissionDenied()
       }
     )
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
-      authorized: Claims => AuthorizationResult,
+      authorized: Claims => Either[AuthorizationError, Unit],
   ): (Req, StreamObserver[Res]) => Unit =
     (request, observer) => {
       val scso = assertServerCall(observer)
@@ -182,7 +161,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
           observer.onError(_),
           claims =>
             authorized(claims) match {
-              case Authorized =>
+              case Right(_) =>
                 call(
                   request,
                   if (claims.expiration.isDefined)
@@ -190,10 +169,10 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
                   else
                     scso
                 )
-              case NotAuthorized(reason) =>
-                newLoggingContext("Request" -> request.toString, "Claims" -> claims.toString) {
-                  implicit logCtx =>
-                    logger.error(s"Permission denied. Reason: $reason.")
+              case Left(authorizationError) =>
+                // Note: only put the claims in the context, as the request can be huge
+                newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
+                  logger.error(s"Permission denied. Reason: ${authorizationError.reason}.")
                 }
                 observer.onError(permissionDenied())
           }
@@ -201,7 +180,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     }
 
   private def authorize[Req, Res](call: Req => Future[Res])(
-      authorized: Claims => AuthorizationResult,
+      authorized: Claims => Either[AuthorizationError, Unit],
   ): Req => Future[Res] =
     request =>
       AuthorizationInterceptor
@@ -210,11 +189,11 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
           Future.failed,
           claims =>
             authorized(claims) match {
-              case Authorized => call(request)
-              case NotAuthorized(reason) =>
-                newLoggingContext("Request" -> request.toString, "Claims" -> claims.toString) {
-                  implicit logCtx =>
-                    logger.error(s"Permission denied. Reason: $reason.")
+              case Right(_) => call(request)
+              case Left(authorizationError) =>
+                // Note: only put the claims in the context, as the request can be huge
+                newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
+                  logger.error(s"Permission denied. Reason: ${authorizationError.reason}.")
                 }
                 Future.failed(permissionDenied())
           }
