@@ -21,22 +21,32 @@ import com.daml.ledger.validator.{
   StateAccessingValidatingCommitter,
   StateKeySerializationStrategy
 }
-import com.daml.metrics.Metrics
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+/**
+  *
+  * @param now
+  * @param keySerializationStrategy
+  * @param validator
+  * @param valueToFingerprint
+  * @param postExecutor
+  * @param stateValueCache
+  * @param cacheUpdatePolicy
+  * @param materializer
+  * @tparam LogResult type of the offset used for a log entry.
+  */
 class PreExecutingValidatingCommitter[LogResult](
     now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: PreExecutingSubmissionValidator[RawKeyValuePairs],
     valueToFingerprint: Option[Value] => Fingerprint,
-    postExecutor: PostExecutingPersistStrategy[LogResult],
+    postExecutor: PostExecutionFinalizerWithFingerprintsFromValues[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
-    cacheUpdatePolicy: CacheUpdatePolicy,
-    metrics: Metrics)(implicit materializer: Materializer)
+    cacheUpdatePolicy: CacheUpdatePolicy)(implicit materializer: Materializer)
     extends StateAccessingValidatingCommitter[LogResult] {
 
   override def commit(
@@ -56,17 +66,19 @@ class PreExecutingValidatingCommitter[LogResult](
             CachingDamlLedgerStateReaderWithFingerprints(
               stateValueCache,
               cacheUpdatePolicy,
-              new LedgerReaderWithFingerprints(ledgerStateOperations, valueToFingerprint),
+              new LedgerStateReaderWithFingerprintsFromValues(
+                ledgerStateOperations,
+                valueToFingerprint),
               keySerializationStrategy,
             )
           )
         submissionResult <- retry {
-          case PostExecutingPersistStrategy.Conflict => true
+          case PostExecutionFinalizerWithFingerprintsFromValues.Conflict => true
         } { (_, _) =>
-          postExecutor.conflictDetectAndPersist(now, preExecutionOutput, ledgerStateOperations)
+          postExecutor.conflictDetectAndFinalize(now, preExecutionOutput, ledgerStateOperations)
         }.transform {
-          case Failure(PostExecutingPersistStrategy.Conflict) =>
-            Success(SubmissionResult.Acknowledged) // Will simply be dropped
+          case Failure(PostExecutionFinalizerWithFingerprintsFromValues.Conflict) =>
+            Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
           case result => result
         }
       } yield submissionResult

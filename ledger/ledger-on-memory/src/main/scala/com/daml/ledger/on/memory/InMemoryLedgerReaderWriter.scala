@@ -29,7 +29,7 @@ import com.daml.ledger.validator.batch.{
 import com.daml.ledger.validator.caching.ImmutablesOnlyCacheUpdatePolicy
 import com.daml.ledger.validator.preexecution.{
   LogAppenderPreExecutingCommitStrategy,
-  PostExecutingPersistStrategy,
+  PostExecutionFinalizerWithFingerprintsFromValues,
   PreExecutingSubmissionValidator,
   PreExecutingValidatingCommitter
 }
@@ -155,10 +155,9 @@ object InMemoryLedgerReaderWriter {
           keySerializationStrategy,
           validator,
           valueToFingerprint,
-          new PostExecutingPersistStrategy[Index](valueToFingerprint),
+          new PostExecutionFinalizerWithFingerprintsFromValues[Index](valueToFingerprint),
           stateValueCache = stateValueCacheForPreExecution,
-          ImmutablesOnlyCacheUpdatePolicy,
-          metrics,
+          ImmutablesOnlyCacheUpdatePolicy
         )
       } else {
         val validator = BatchedSubmissionValidator[Index](
