@@ -365,7 +365,6 @@ jobs:
       protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
       daml-on-sql: $[ dependencies.Linux.outputs['publish.daml-on-sql'] ]
       json-api: $[ dependencies.Linux.outputs['publish.json-api'] ]
-      docs-zip: $[ dependencies.Linux.outputs['publish.docs-zip'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
@@ -415,11 +414,6 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(json-api)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(docs-zip)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |

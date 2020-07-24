@@ -72,38 +72,26 @@ steps:
   - bash: |
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
-      VERSION=${{parameters.release_tag}}
 
-      TARBALL=daml-sdk-$VERSION-${{parameters.name}}.tar.gz
+      TARBALL=daml-sdk-${{parameters.release_tag}}-${{parameters.name}}.tar.gz
       cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
       echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
 
-      PROTOS_ZIP=protobufs-$VERSION.zip
+      PROTOS_ZIP=protobufs-${{parameters.release_tag}}.zip
       cp bazel-bin/release/protobufs.zip $(Build.StagingDirectory)/$PROTOS_ZIP
       echo "##vso[task.setvariable variable=protos-zip;isOutput=true]$PROTOS_ZIP"
 
-      DAML_ON_SQL=daml-on-sql-$VERSION.jar
+      DAML_ON_SQL=daml-on-sql-${{parameters.release_tag}}.jar
       ## Not built by default
       bazel build //ledger/sandbox-classic:sandbox-classic-binary_deploy.jar
       cp bazel-bin/ledger/sandbox-classic/sandbox-classic-binary_deploy.jar $(Build.StagingDirectory)/$DAML_ON_SQL
       echo "##vso[task.setvariable variable=daml-on-sql;isOutput=true]$DAML_ON_SQL"
 
-      JSON_API=http-json-$VERSION.jar
+      JSON_API=http-json-${{parameters.release_tag}}.jar
       ## Not built by default
       bazel build //ledger-service/http-json:http-json-binary_deploy.jar
       cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $(Build.StagingDirectory)/$JSON_API
       echo "##vso[task.setvariable variable=json-api;isOutput=true]$JSON_API"
-
-      TMP=$(mktemp -d)
-      bazel build //docs:docs
-      cp bazel-bin/docs/html.tar.gz $TMP/
-      cd $TMP
-      tar xzf html.tar.gz
-      mv html $VERSION
-      zip -r docs.zip $VERSION
-      cd -
-      cp $TMP/docs.zip $(Build.StagingDirectory)/html-docs-$VERSION.zip
-      echo "##vso[task.setvariable variable=docs-zip;isOutput=true]html-docs-$VERSION.zip"
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
@@ -137,14 +125,6 @@ steps:
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.json-api)
       artifactName: $(publish.json-api)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.docs-zip)
-      artifactName: $(publish.docs-zip)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'),
