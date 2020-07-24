@@ -148,14 +148,16 @@ To exercise ``IouTransfer_Accept`` choice on the ``IouTransfer`` contract that y
 
 Fore more details on how to subscribe to receive events for a particular party, please refer to the implementation of `com.daml.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
 
-
+.. keeping this anchor around to not break existing links
 .. _scala-bindings-authentication:
 
-Authentication
-==============
+.. _scala-bindings-authorization:
+
+Authorization
+=============
 
 Some ledgers will require you to send an access token along with each request.
-To learn more about authentication, read the :doc:`Authentication </app-dev/authentication>` overview.
+To learn more about authorization, read the :doc:`Authorization </app-dev/authorization>` overview.
 
 To use the same token for all ledger API requests,
 use the ``token`` field of ``LedgerClientConfiguration``:

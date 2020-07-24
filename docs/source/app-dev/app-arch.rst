@@ -93,7 +93,7 @@ If you choose a different JavaScript based frontend framework, the packages ``@d
 connect and issue commands against your ledger.
 
 Authorization
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 When you deploy your application to a production ledger, you need to authenticate the identities of
 your users.
