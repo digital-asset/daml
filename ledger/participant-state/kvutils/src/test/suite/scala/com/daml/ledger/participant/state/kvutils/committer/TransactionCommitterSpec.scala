@@ -195,7 +195,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     "set record time in log entry when it is available" in {
       val context = new FakeCommitContext(recordTime = Some(theRecordTime))
 
-      val actual = instance.buildSuccessfulLogEntry(aTransactionEntrySummary, context)
+      val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
 
       actual.hasRecordTime shouldBe true
       actual.getRecordTime shouldBe buildTimestamp(theRecordTime)
@@ -206,7 +206,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     "skip setting record time in log entry when it is not available" in {
       val context = new FakeCommitContext(recordTime = None)
 
-      val actual = instance.buildSuccessfulLogEntry(aTransactionEntrySummary, context)
+      val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
 
       actual.hasRecordTime shouldBe false
       actual.hasTransactionEntry shouldBe true
@@ -216,7 +216,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val context = new FakeCommitContext(recordTime = None)
 
-      val _ = instance.buildSuccessfulLogEntry(aTransactionEntrySummary, context)
+      val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
 
       context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
@@ -230,7 +230,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val context = new FakeCommitContext(recordTime = Some(aRecordTime))
 
-      val _ = instance.buildSuccessfulLogEntry(aTransactionEntrySummary, context)
+      val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
