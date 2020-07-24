@@ -68,7 +68,7 @@ class PreExecutingValidatingCommitter[LogResult](
           ledgerStateAccess)
       }.transform {
         case Failure(PostExecutingStateAccessPersistStrategy.Conflict) =>
-          Success(SubmissionResult.InternalError("conflict")) // TODO Figure out what's the correct return
+          Success(SubmissionResult.Acknowledged) // Will simply be dropped
         case result => result
       }
     } yield submissionResult
