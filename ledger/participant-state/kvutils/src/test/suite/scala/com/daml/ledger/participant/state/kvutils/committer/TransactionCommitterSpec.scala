@@ -36,9 +36,6 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
   private val configurationStateValue = defaultConfigurationStateValueBuilder().build
   private val inputWithTimeModelAndEmptyCommandDeduplication =
     Map(Conversions.configurationStateKey -> Some(configurationStateValue), dedupKey -> None)
-  private val contextWithTimeModelAndEmptyCommandDeduplication = new FakeCommitContext(
-    recordTime = None,
-    inputs = inputWithTimeModelAndEmptyCommandDeduplication)
   private val aSubmissionTime = createProtobufTimestamp(seconds = 1)
   private val aLedgerEffectiveTime = createProtobufTimestamp(seconds = 2)
   private val aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes =
@@ -56,8 +53,6 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     Map(
       Conversions.configurationStateKey -> Some(configurationStateValue),
       dedupKey -> Some(dedupValue))
-  private val contextWithTimeModelAndCommandDeduplication =
-    new FakeCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
 
   "deduplicateCommand" should {
     "continue if record time is not available" in {
@@ -122,7 +117,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     "when the record time is not available" should {
       "continue" in {
         val result = instance.validateLedgerTime(
-          contextWithTimeModelAndEmptyCommandDeduplication,
+          contextWithTimeModelAndEmptyCommandDeduplication(),
           aTransactionEntrySummary)
 
         result match {
@@ -132,27 +127,36 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       }
 
       "compute and correctly set the min/max ledger time without deduplicateUntil" in {
+        val context = contextWithTimeModelAndEmptyCommandDeduplication()
         instance.validateLedgerTime(
-          contextWithTimeModelAndEmptyCommandDeduplication,
+          context,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
-        contextWithTimeModelAndEmptyCommandDeduplication.minimumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(-28))
-        contextWithTimeModelAndEmptyCommandDeduplication.maximumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(31))
-        contextWithTimeModelAndEmptyCommandDeduplication.deduplicateUntil shouldBe empty
+        context.minimumRecordTime shouldEqual Some(Instant.ofEpochSecond(-28))
+        context.maximumRecordTime shouldEqual Some(Instant.ofEpochSecond(31))
+        context.deduplicateUntil shouldBe empty
+        context.outOfTimeBoundsLogEntry should not be empty
+        context.outOfTimeBoundsLogEntry.foreach { actualOutOfTimeBoundsLogEntry =>
+          actualOutOfTimeBoundsLogEntry.hasTransactionRejectionEntry shouldBe true
+          actualOutOfTimeBoundsLogEntry.getTransactionRejectionEntry.hasInvalidLedgerTime shouldBe true
+        }
       }
 
       "compute and correctly set the min/max ledger time with deduplicateUntil" in {
+        val context = contextWithTimeModelAndCommandDeduplication()
         instance.validateLedgerTime(
-          contextWithTimeModelAndCommandDeduplication,
+          context,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
-        contextWithTimeModelAndCommandDeduplication.minimumRecordTime shouldEqual Some(
+        context.minimumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(3).plus(Timestamp.Resolution))
-        contextWithTimeModelAndCommandDeduplication.maximumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(31))
-        contextWithTimeModelAndCommandDeduplication.deduplicateUntil shouldEqual Some(
+        context.maximumRecordTime shouldEqual Some(Instant.ofEpochSecond(31))
+        context.deduplicateUntil shouldEqual Some(
           Instant.ofEpochSecond(aDeduplicateUntil.getSeconds)
         )
+        context.outOfTimeBoundsLogEntry should not be empty
+        context.outOfTimeBoundsLogEntry.foreach { actualOutOfTimeBoundsLogEntry =>
+          actualOutOfTimeBoundsLogEntry.hasTransactionRejectionEntry shouldBe true
+          actualOutOfTimeBoundsLogEntry.getTransactionRejectionEntry.hasInvalidLedgerTime shouldBe true
+        }
       }
     }
 
@@ -235,6 +239,14 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
   private def createTransactionCommitter(): TransactionCommitter =
     new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+
+  private def contextWithTimeModelAndEmptyCommandDeduplication() =
+    new FakeCommitContext(
+      recordTime = None,
+      inputs = inputWithTimeModelAndEmptyCommandDeduplication)
+
+  private def contextWithTimeModelAndCommandDeduplication() =
+    new FakeCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
 
   private def newDedupValue(deduplicationTime: Timestamp): DamlStateValue =
     DamlStateValue.newBuilder
