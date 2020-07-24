@@ -228,7 +228,7 @@ Similarly, you can use the following command for ES512 keys:
 Command-line reference
 **********************
 
-To start DAML-on-SQL, run: ``java -jar daml-on-sql-<version>.jar [options] <archive>...``.
+To start DAML-on-SQL, run: ``java -jar daml-on-sql-<version>.jar [options] ``.
 
 To see all the available options, run ``java -jar daml-on-sql-<version>.jar --help``.
 
