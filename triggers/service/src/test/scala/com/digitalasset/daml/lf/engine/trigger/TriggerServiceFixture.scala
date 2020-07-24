@@ -20,7 +20,7 @@ import com.daml.jwt.JwksVerifier
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.client.LedgerClient
+//import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
@@ -53,7 +53,7 @@ object TriggerServiceFixture {
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       auth: Boolean,
-  )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
+  )(testFn: (Uri, Proxy) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -148,14 +148,14 @@ object TriggerServiceFixture {
     // forwards to the real sandbox port.
 
     // Configure this client with the ledger's *actual* port.
-    val clientF: Future[LedgerClient] = for {
-      (_, ledgerPort, _, _, _) <- ledgerF
-      client <- LedgerClient.singleHost(
-        host.getHostName,
-        ledgerPort.value,
-        clientConfig(applicationId),
-      )
-    } yield client
+    // val clientF: Future[LedgerClient] = for {
+    //   (_, ledgerPort, _, _, _) <- ledgerF
+    //   client <- LedgerClient.singleHost(
+    //     host.getHostName,
+    //     ledgerPort.value,
+    //     clientConfig(applicationId),
+    //   )
+    // } yield client
 
     // Configure the service with the ledger's *proxy* port.
     val serviceF: Future[(ServerBinding, TypedActorSystem[Message])] = for {
@@ -191,11 +191,11 @@ object TriggerServiceFixture {
     } yield ledgerProxy
 
     val fa: Future[A] = for {
-      client <- clientF
+//      client <- clientF
       binding <- serviceF
       ledgerProxy <- ledgerProxyF
       uri = Uri.from(scheme = "http", host = "localhost", port = binding._1.localAddress.getPort)
-      a <- testFn(uri, client, ledgerProxy)
+      a <- testFn(uri, ledgerProxy)
     } yield a
 
     fa.transformWith { ta =>
