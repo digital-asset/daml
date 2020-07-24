@@ -29,7 +29,7 @@ shells, we recommend quoting the JDBC URL like so:
 
 .. code-block:: none
 
-  $ java -jar daml-on-sql-<version>.jar Main.dar --sql-backend-jdbcurl 'jdbc:postgresql://localhost/test?user=fred&password=secret'
+  $ java -jar daml-on-sql-<version>.jar --sql-backend-jdbcurl 'jdbc:postgresql://localhost/test?user=fred&password=secret'
 
 If you're not familiar with JDBC URLs, see the `PostgreSQL JDBC docs for more information <https://jdbc.postgresql.org/documentation/head/connect.html>`__.
 
