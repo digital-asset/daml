@@ -95,7 +95,7 @@ build_and_push temp versions = do
             putStrLn $ "Building " <> show version <> "..."
             build version
             putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
-            push temp $ show version
+            push (temp </> show version) $ show version
             putStrLn "Done.")
     where
         restore_sha io =
@@ -116,10 +116,8 @@ build_and_push temp versions = do
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> temp </> show version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> temp </> show version
-
-push :: FilePath -> FilePath -> IO ()
-push local remote =
-    shell_ $ "aws s3 cp " <> local <> " " <> "s3://docs-daml-com" </> remote <> " --recursive"
+        push local remote =
+            shell_ $ "aws s3 cp " <> local </> " " <> "s3://docs-daml-com" </> remote </> " --recursive --acl public-read"
 
 fetch_if_missing :: FilePath -> Version -> IO ()
 fetch_if_missing temp v = do
@@ -137,10 +135,10 @@ update_s3 temp vs = do
     create_versions_json (dropdown vs) (temp </> "versions.json")
     let hidden = List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
     create_versions_json hidden (temp </> "hidden.json")
-    shell_ $ "aws s3 cp " <> temp </> "versions.json s3://docs-daml-com/versions.json"
-    shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/hidden.json"
+    shell_ $ "aws s3 cp " <> temp </> "versions.json s3://docs-daml-com/versions.json --acl public-read"
+    shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/hidden.json --acl public-read"
     -- FIXME: remove after running once (and updating the reading bit in this file)
-    shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/snapshots.json"
+    shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/snapshots.json --acl public-read"
     putStrLn "Done."
     where
         create_versions_json versions file = do
@@ -164,7 +162,7 @@ update_top_level temp new old = do
             shell_ $ "aws s3 rm s3://docs-daml-com" </> f <> " --recursive")
         putStrLn "Done."
     putStrLn $ "Pushing " <> show new <> " to top-level..."
-    shell_ $ "aws s3 cp " <> temp </> show new </> " s3://docs-daml-com/ --recursive"
+    shell_ $ "aws s3 cp " <> temp </> show new </> " s3://docs-daml-com/ --recursive --acl public-read"
     putStrLn "Done."
 
 reset_cloudfront :: IO ()
