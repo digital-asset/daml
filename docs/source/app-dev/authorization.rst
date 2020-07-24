@@ -1,16 +1,16 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _authentication:
+.. _authorization:
 
-Authentication
-##############
+Authorization
+#############
 
 When developing DAML applications using SDK tools,
-your local setup will most likely not use any authentication -
+your local setup will most likely not verify any authorization -
 by default, any valid ledger API request will be accepted by the sandbox.
 
-To run your application against a :doc:`deployed ledger </deploy/index>`, you will need to add authentication.
+To run your application against a :doc:`deployed ledger </deploy/index>`, you will need to add authorization.
 
 Introduction
 ************
@@ -61,7 +61,10 @@ Glossary:
 - A ``token`` (or ``access token``) is a tamper-proof piece of data that contains security information, such as the user identity or its privileges.
 - A ``token issuer`` is a service that generates tokens. Also known as "authentication server" or "Identity and Access Management (IAM) system".
 
+.. this anchor is kept around to not break existing links
 .. _authentication-claims:
+
+.. _authorization-claims:
 
 Access tokens and claims
 ************************
@@ -114,7 +117,7 @@ The following table summarizes what kind of claim is required to access each Led
 Access tokens may be represented differently based on the ledger implementation.
 
 To learn how these claims are represented in the Sandbox,
-read the :ref:`sandbox <sandbox-authentication>` documentation.
+read the :ref:`sandbox <sandbox-authorization>` documentation.
 
 Getting access tokens
 *********************
@@ -124,9 +127,9 @@ This may be a manual exchange over a secure channel,
 or your application may have to request tokens at runtime using an API such as `OAuth <https://oauth.net/2/>`__.
 
 To learn how to generate access tokens for the Sandbox,
-read the :ref:`sandbox <sandbox-authentication>` documentation.
+read the :ref:`sandbox <sandbox-authorization>` documentation.
 
 Using access tokens
 *******************
 
-To learn how to use access tokens in the Scala bindings, read the :ref:`Scala bindings authentication<scala-bindings-authentication>` documentation.
+To learn how to use access tokens in the Scala bindings, read the :ref:`Scala bindings authorization<scala-bindings-authorization>` documentation.

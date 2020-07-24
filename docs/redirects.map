@@ -811,3 +811,4 @@ search.html
 getting-started/installation.htm -> /getting-started/installation.html
 gsg.html -> /getting-started/installation.html
 getting-started/quickstart.html -> /getting-started/index.html
+app-dev/authentication.html -> app-dev/authorization.html

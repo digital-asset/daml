@@ -172,14 +172,17 @@ Connecting to the ledger
 
 Before any ledger services can be accessed, a connection to the ledger must be established. This is done by creating a instance of a ``DamlLedgerClient`` using one of the factory methods ``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery``. This instance can then be used to access service clients directly, or passed to a call to ``Bot.wire`` to connect a ``Bot`` instance to the ledger.
 
+.. this anchor is kept around to not break existing links
 .. _ledger-api-java-bindings-authentication:
 
-Authenticating
-==============
+.. _ledger-api-java-bindings-authorization:
+
+Authorizing
+===========
 
 Some ledgers will require you to send an access token along with each request.
 
-To learn more about authentication, read the :doc:`Authentication </app-dev/authentication>` overview.
+To learn more about authorization, read the :doc:`Authorization </app-dev/authorization>` overview.
 
 To use the same token for all Ledger API requests, the ``DamlLedgerClient`` builders expose a ``withAccessToken`` method. This will allow you to not pass a token explicitly for every call.
 
@@ -190,7 +193,7 @@ If your application is long-lived and your tokens are bound to expire, you can r
    transactionClient.getLedgerEnd(); // Uses the token specified when constructing the client
    transactionClient.getLedgerEnd(accessToken); // Override the token for this call exclusively
 
-If you're communicating with a ledger protected by authentication it's very important to secure the communication channel to prevent your tokens to be exposed to man-in-the-middle attacks. The next chapter describes how to enable TLS.
+If you're communicating with a ledger that verifies authorization it's very important to secure the communication channel to prevent your tokens to be exposed to man-in-the-middle attacks. The next chapter describes how to enable TLS.
 
 .. _ledger-api-java-binding-connecting-securely:
 

@@ -247,12 +247,15 @@ To advance time:
   :width: 25%
   :align: center
 
+.. this anchor is kept around to not break existing links
 .. _navigator-authentication:
 
-Authenticating Navigator
-************************
+.. _navigator-authorization:
 
-If you are running Navigator against a Ledger API server that requires authentication, you must provide the access token when you start the Navigator server.
+Authorizing Navigator
+*********************
+
+If you are running Navigator against a Ledger API server that verifies authorization, you must provide the access token when you start the Navigator server.
 
 The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
 

@@ -161,8 +161,8 @@ authentication by passing ``--pem client.key --crt client.crt``. If
 ``--cacrt`` or ``--pem`` and ``--crt`` are passed TLS is automatically
 enabled so ``--tls`` is redundant.
 
-Connection to a Ledger with Authentication
-==========================================
+Connection to a Ledger with Authorization
+=========================================
 
-If your ledger requires an authentication token you can pass it via
+If your ledger requires an authorization token you can pass it via
 ``--access-token-file``.
