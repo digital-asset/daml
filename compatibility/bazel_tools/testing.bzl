@@ -119,6 +119,7 @@ def daml_ledger_test(
         name,
         sdk_version,
         daml,
+        test_dar,
         sandbox,
         sandbox_args = [],
         data = [],
@@ -141,6 +142,7 @@ def daml_ledger_test(
             sdk_version,
             #"--daml",
             "$(rootpath %s)" % daml,
+            "$(rootpath %s)" % test_dar,
             #"--certs",
             "bazel_tools/test_certificates",
             #"--sandbox",
@@ -153,6 +155,7 @@ def daml_ledger_test(
             # Deduplicate if daml and sandbox come from the same release.
             daml,
             sandbox,
+            test_dar,
         ]).to_list(),
         **kwargs
     )
@@ -185,6 +188,43 @@ $(execpath {daml}) build --project-root=$$TMP_DIR/create-daml-app -o $$PWD/$(OUT
             daml = daml,
             sdk_version = sdk_version,
             messaging_patch = messaging_patch,
+        ),
+    )
+
+    native.genrule(
+        name = "daml-ledger-test-dar-{sdk_version}".format(
+            sdk_version = version_to_name(sdk_version),
+        ),
+        outs = ["daml-ledger-test-dar-{sdk_version}.dar".format(
+            sdk_version = version_to_name(sdk_version),
+        )],
+        srcs = [messaging_patch],
+        tools = [daml, "@patch_dev_env//:patch"],
+        cmd = """\
+set -euo pipefail
+TMP_DIR=$$(mktemp -d)
+cleanup() {{ rm -rf $$TMP_DIR; }}
+trap cleanup EXIT
+cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: daml-ledger
+version: 0.0.1
+source: .
+dependencies:
+  - daml-stdlib
+  - daml-prim
+EOF
+cat << EOF > $$TMP_DIR/Main.daml
+module Main where
+template T
+  with
+    p : Party
+   where signatory p
+EOF
+$(execpath {daml}) build --project-root=$$TMP_DIR -o $$PWD/$(OUTS)
+""".format(
+            daml = daml,
+            sdk = sdk_version,
         ),
     )
 
@@ -402,6 +442,7 @@ def sdk_platform_test(sdk_version, platform_version):
         name = name,
         sdk_version = sdk_version,
         daml = daml_assistant,
+        test_dar = "daml-ledger-test-dar-{}".format(sdk_version),
         sandbox = sandbox,
         sandbox_args = sandbox_args,
         size = "large",

@@ -13,15 +13,24 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 set -euo pipefail
 
+canonicalize_rlocation() {
+    # Bazel will add a . at the beginning of locations in the root package
+    # which breaks rlocation.
+    rlocation $(realpath -L -s -m --relative-to=$PWD $TEST_WORKSPACE/$1)
+}
+
+
 RUNNER="$(rlocation "$TEST_WORKSPACE/$1")"
 SDK_VERSION="$2"
 DAML="$(rlocation "$TEST_WORKSPACE/$3")"
-CERTS="$4"
-SANDBOX="$(rlocation "$TEST_WORKSPACE/$5")"
+TEST_DAR="$(canonicalize_rlocation "$4")"
+CERTS="$5"
+SANDBOX="$(rlocation "$TEST_WORKSPACE/$6")"
 
 "$RUNNER" \
   --sdk-version "$SDK_VERSION" \
   --daml "$DAML" \
+  --test-dar "$TEST_DAR" \
   --certs "$CERTS" \
   --sandbox "$SANDBOX" \
-  "${@:6}"
+  "${@:7}"

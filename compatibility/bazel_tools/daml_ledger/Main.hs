@@ -18,7 +18,7 @@ import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
 import System.Exit
-import System.FilePath ((</>), takeBaseName)
+import System.FilePath ((</>))
 import System.IO.Extra (withTempDir,writeFileUTF8)
 import System.Process
 import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
@@ -69,12 +69,20 @@ instance IsOption CertificatesOption where
   optionName = Tagged "certs"
   optionHelp = Tagged "runfiles path to the certificates directory"
 
+newtype TestDar = TestDar FilePath
+instance IsOption TestDar where
+  defaultValue = TestDar ""
+  parseValue = Just . TestDar
+  optionName = Tagged "test-dar"
+  optionHelp = Tagged "Path to test dar"
+
 withTools :: (IO Tools -> TestTree) -> TestTree
 withTools tests = do
   askOption $ \(DamlOption damlPath) -> do
   askOption $ \(SandboxOption sandboxPath) -> do
   askOption $ \(SandboxArgsOption sandboxArgs) -> do
   askOption $ \(CertificatesOption certificatesPath) -> do
+  askOption $ \(TestDar testDar) -> do
   let createRunfiles :: IO (FilePath -> FilePath)
       createRunfiles = do
         runfiles <- Bazel.Runfiles.create
@@ -85,10 +93,12 @@ withTools tests = do
         daml <- locateRunfiles <*> pure damlPath
         sandboxBinary <- locateRunfiles <*> pure sandboxPath
         sandboxCertificates <- locateRunfiles <*> pure certificatesPath
+        testDar <- locateRunfiles <*> pure testDar
         let sandboxConfig = defaultSandboxConf
               { sandboxBinary
               , sandboxArgs
               , sandboxCertificates
+              , dars = [testDar]
               }
         pure Tools
           { daml
@@ -124,15 +134,17 @@ main = do
         , Option @SandboxOption Proxy
         , Option @SandboxArgsOption Proxy
         , Option @CertificatesOption Proxy
+        , Option @TestDar Proxy
         , Option @SdkVersion Proxy
         ]
   let ingredients = defaultIngredients ++ [includingOptions options]
   defaultMainWithIngredients ingredients $
     withTools $ \getTools -> do
     askOption $ \sdkVersion -> do
+    askOption $ \(TestDar testDar) -> do
     testGroup "Deployment"
       [ authenticatedUploadTest sdkVersion getTools
-      , unauthenticatedTests sdkVersion getTools
+      , unauthenticatedTests sdkVersion testDar getTools
       ]
 
 -- | Test `daml ledger list-parties --access-token-file`
@@ -182,11 +194,11 @@ makeSignedJwt sharedSecret = do
   let text = JWT.encodeSigned key mempty cs
   T.unpack text
 
-unauthenticatedTests :: SdkVersion -> IO Tools -> TestTree
-unauthenticatedTests sdkVersion getTools = do
+unauthenticatedTests :: SdkVersion -> FilePath -> IO Tools -> TestTree
+unauthenticatedTests sdkVersion testDar getTools = do
     withSandbox (sandboxConfig <$> getTools) $ \getSandboxPort ->
         testGroup "unauthenticated" $
-            [ fetchTest sdkVersion getTools getSandboxPort
+            [ fetchTest sdkVersion testDar getTools getSandboxPort
             ] <>
             [ timeoutTest getTools getSandboxPort | supportsTimeout sdkVersion ]
 
@@ -210,23 +222,15 @@ timeoutTest getTools getSandboxPort = do
         exit @?= ExitFailure 1
 
 -- | Test `daml ledger fetch-dar`
-fetchTest :: SdkVersion -> IO Tools -> IO Int -> TestTree
-fetchTest sdkVersion getTools getSandboxPort = do
+fetchTest :: SdkVersion -> FilePath -> IO Tools -> IO Int -> TestTree
+fetchTest sdkVersion testDar getTools getSandboxPort = do
     testCaseSteps "fetchTest" $ \step -> do
     Tools{..} <- getTools
     port <- getSandboxPort
     withTempDir $ \fetchDir -> do
       withCurrentDirectory fetchDir $ do
         writeMinimalProject sdkVersion
-        let origDar = ".daml/dist/proj1-0.0.1.dar"
-        step "build/upload"
-        callProcessSilent daml ["damlc", "build"]
-        callProcessSilent daml $
-          [ "ledger", "upload-dar"
-          , "--host", "localhost" , "--port" , show port
-          , origDar
-          ] <> ["--timeout=120" | supportsTimeout sdkVersion]
-        pid <- getMainPidOfDar daml origDar
+        pid <- getMainPidOfDar daml testDar
         step "fetch/validate"
         let fetchedDar = "fetched.dar"
         callProcessSilent daml $
@@ -255,7 +259,7 @@ fetchTest sdkVersion getTools getSandboxPort = do
 getMainPidOfDar :: FilePath -> FilePath -> IO String
 getMainPidOfDar daml fp = do
   darContents <- callProcessForStdout daml ["damlc", "inspect-dar", fp]
-  let packageName = takeBaseName fp
+  let packageName = "daml-ledger"
   let mbPackageLine =
         darContents
         & lines
