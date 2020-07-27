@@ -211,7 +211,7 @@ export type List<T> = T[];
  * Companion object of the [[List]] type.
  */
 export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
-  decoder: (): jtv.Decoder<T[]> => jtv.array(jtv.lazy(() => t.decoder())),
+  decoder: (): jtv.Decoder<T[]> => jtv.lazy(() => jtv.array(t.decoder())),
 });
 
 /**
@@ -323,7 +323,7 @@ export type TextMap<T> = { [key: string]: T };
  * Companion object of the [[TextMap]] type.
  */
 export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
-    decoder: (): jtv.Decoder<TextMap<T>> => jtv.dict(jtv.lazy(() => t.decoder())),
+    decoder: (): jtv.Decoder<TextMap<T>> => jtv.lazy(() => jtv.dict(t.decoder())),
 });
 
 // TODO(MH): `Map` type.
