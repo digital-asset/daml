@@ -48,6 +48,9 @@ function bazel() {
 # which later causes issues on Bazel init (source forest creation) on Windows. A shutdown closes workers,
 # which is a workaround for this problem.
 bazel shutdown
+# Temporary to workaround rules_nodejs update.
+bazel clean --expunge
+rm -Recurse -Force -ErrorAction Ignore node_modules
 
 # Prefetch nodejs_dev_env to avoid permission denied errors on external/nodejs_dev_env/nodejs_dev_env/node.exe
 # It isn’t clear where exactly those errors are coming from.

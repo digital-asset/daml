@@ -788,15 +788,6 @@ yarn_install(
     yarn_lock = "//:yarn.lock",
 )
 
-# Install all Bazel dependencies of the @npm packages
-load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
-
-install_bazel_dependencies()
-
-load("@npm_bazel_typescript//:index.bzl", "ts_setup_workspace")
-
-ts_setup_workspace()
-
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "daml_extension_deps",

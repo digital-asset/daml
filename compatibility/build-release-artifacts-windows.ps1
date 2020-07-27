@@ -37,6 +37,9 @@ function bazel() {
 
 
 bazel shutdown
+# Temporary to workaround rules_nodejs update.
+bazel clean --expunge
+rm -Recurse -Force -ErrorAction Ignore node_modules
 bazel fetch @nodejs_dev_env//...
 bazel build `
   `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `

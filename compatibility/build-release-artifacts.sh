@@ -17,6 +17,9 @@ eval "$(./dev-env/bin/dade-assist)"
 # before fetching it in another step.
 HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 
+# Temporary to workaround rules_nodejs update.
+bazel clean --expunge
+rm -rf node_modules
 bazel build \
   //release:sdk-release-tarball \
   //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar
