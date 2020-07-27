@@ -136,3 +136,8 @@ data Recursive = Recursive with
     recList: [Recursive]
     recTextMap : TextMap Recursive
   deriving (Eq, Show)
+
+data VoidRecord = VoidRecord with
+    inner: VoidRecord
+
+data VoidEnum = VoidEnum VoidEnum

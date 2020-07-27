@@ -6,6 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream } from  '@daml/ledger';
+import { Int } from '@daml/types';
 import pEvent from 'p-event';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
@@ -104,6 +105,25 @@ function promisifyStream<T extends object, K, I extends string, State>(
   const close = () => stream.close();
   return {next, close};
 }
+
+describe('decoders for recursive types do not loop', () => {
+  test('recursive enum', () => {
+    expect(buildAndLint.Main.Expr(Int).decoder().run(undefined).ok).toBe(false);
+  });
+
+  test('recursive record with guards', () => {
+    expect(buildAndLint.Main.Recursive.decoder().run(undefined).ok).toBe(false);
+  });
+
+  // FIXME(MH): This test does not pass yet, see https://github.com/digital-asset/daml/issues/6840
+  // test('uninhabited record', () => {
+  //   expect(buildAndLint.Main.VoidRecord.decoder().run(undefined).ok).toBe(false);
+  // });
+
+  test('uninhabited enum', () => {
+    expect(buildAndLint.Main.VoidEnum.decoder().run(undefined).ok).toBe(false);
+  });
+});
 
 test('create + fetch & exercise', async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
