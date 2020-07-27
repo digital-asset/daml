@@ -63,6 +63,12 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       }
     }
 
+  private[this] def requireForAll[T](
+      xs: TraversableOnce[T],
+      f: T => Either[AuthorizationError, Unit]): Either[AuthorizationError, Unit] = {
+    xs.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, x) => acc.flatMap(_ => f(x)))
+  }
+
   /** Wraps a streaming call to verify whether some Claims authorize to read as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
     */
@@ -73,10 +79,8 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- parties.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, e) =>
-          acc.flatMap(_ => claims.canReadAs(e)))
-        _ <- applicationId.fold[Either[AuthorizationError, Unit]](Right(()))(id =>
-          claims.validForApplication(id))
+        _ <- requireForAll(parties, party => claims.canReadAs(party))
+        _ <- applicationId.map(claims.validForApplication).getOrElse(Right(()))
       } yield {
         ()
       }
@@ -91,8 +95,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- parties.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, e) =>
-          acc.flatMap(_ => claims.canReadAs(e)))
+        _ <- requireForAll(parties, party => claims.canReadAs(party))
       } yield {
         ()
       }
@@ -108,9 +111,8 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- party.fold[Either[AuthorizationError, Unit]](Right(()))(p => claims.canActAs(p))
-        _ <- applicationId.fold[Either[AuthorizationError, Unit]](Right(()))(id =>
-          claims.validForApplication(id))
+        _ <- party.map(claims.canActAs).getOrElse(Right(()))
+        _ <- applicationId.map(claims.validForApplication).getOrElse(Right(()))
       } yield {
         ()
       }
