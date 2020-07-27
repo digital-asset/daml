@@ -34,6 +34,10 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
 
   def ppKont(k: Kont): String = k match {
     case KFinished => "KFinished"
+    case _: KArg => "KArg"
+    case _: KFun => "KFun"
+    case _: KBuiltin => "KBuiltin"
+    case _: KPap => "KPap"
     case _: KOverApp => "KOverApp"
     case _: KPushTo => "KPushTo"
     case _: KCacheVal => "KCacheVal"
@@ -60,6 +64,7 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
         case SEVar(n) => s"D#$n" //dont expect these at runtime
         case loc: SELoc => pp(loc)
         case SEAppGeneral(func, args) => s"@E(${pp(func)},${commas(args.map(pp))})"
+        case SEAppNonAtomic(func, args) => s"@N(${pp(func)},${commas(args.map(pp))})"
         case SEAppAtomicGeneral(func, args) => s"@A(${pp(func)},${commas(args.map(pp))})"
         case SEAppAtomicSaturatedBuiltin(b, args) =>
           s"@B(${pp(SEBuiltin(b))},${commas(args.map(pp))})"

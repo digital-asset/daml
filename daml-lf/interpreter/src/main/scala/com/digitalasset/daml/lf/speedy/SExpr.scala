@@ -124,6 +124,18 @@ object SExpr {
     }
   }
 
+  /** Function application: non-ANF case: 'fun' atomic; 'args' not so.
+    This case is produced by the ANF transform when it is unable to ensure
+    that the standard ANF transform will not change evaluation order. */
+  final case class SEAppNonAtomic(fun: SExprAtomic, args: Array[SExpr])
+      extends SExpr
+      with SomeArrayEquals {
+    def execute(machine: Machine): Unit = {
+      val vfun = fun.lookupValue(machine)
+      executeApplication(machine, vfun, args)
+    }
+  }
+
   /** Function application: ANF case: 'fun' and 'args' are atomic expressions */
   final case class SEAppAtomicGeneral(fun: SExprAtomic, args: Array[SExprAtomic])
       extends SExpr

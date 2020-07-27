@@ -1091,6 +1091,7 @@ private[lf] final case class Compiler(
 
       case x: SEWronglyTypeContractId => throw CompilationError(s"closureConvert: unexpected: $x")
       case x: SEImportValue => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SEAppNonAtomic => throw CompilationError(s"closureConvert: unexpected: $x")
       case x: SEAppAtomicGeneral => throw CompilationError(s"closureConvert: unexpected: $x")
       case x: SEAppAtomicSaturatedBuiltin =>
         throw CompilationError(s"closureConvert: unexpected: $x")
@@ -1158,6 +1159,7 @@ private[lf] final case class Compiler(
         case x: SEImportValue => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SELoc => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SEMakeClo => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SEAppNonAtomic => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SEAppAtomicGeneral => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SELet1General => throw CompilationError(s"freeVars: unexpected: $x")
@@ -1212,6 +1214,9 @@ private[lf] final case class Compiler(
         case _: SEBuiltin => ()
         case _: SEBuiltinRecursiveDefinition => ()
         case SEValue(v) => goV(v)
+        case SEAppNonAtomic(fun, args) =>
+          go(fun)
+          args.foreach(go)
         case SEAppAtomicGeneral(fun, args) =>
           go(fun)
           args.foreach(go)

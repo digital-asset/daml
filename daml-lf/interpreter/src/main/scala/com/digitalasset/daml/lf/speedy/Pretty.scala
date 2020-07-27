@@ -523,6 +523,10 @@ private[lf] object Pretty {
             case SBGetTime => text("$getTime")
             case _ => str(x)
           }
+        case SEAppNonAtomic(fun, args) =>
+          val prefix = prettySExpr(index)(fun) + char('(')
+          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
+            .tightBracketBy(prefix, char(')'))
         case SEAppAtomicGeneral(fun, args) =>
           val prefix = prettySExpr(index)(fun) + char('(')
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))

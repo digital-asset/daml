@@ -249,6 +249,20 @@ private[lf] object Anf {
     case SCPCons => 2
   }
 
+  private[this] def transformExps[A](depth: DepthA, env: Env, exps: List[SExpr], k: K[AExpr, A])(
+      transform: Tx[List[SExpr], A]): Trampoline[A] =
+    exps match {
+      case Nil => Bounce(() => transform(depth, Nil, k))
+      case exp :: exps =>
+        Bounce(() =>
+          transformExp(depth, env, exp, k) { (depth, anf, txK1) =>
+            Bounce(() =>
+              transformExps(depth, env, exps, txK1) { (depth, anfs, txK2) =>
+                Bounce(() => transform(depth, anf :: anfs, txK2))
+            })
+        })
+    }
+
   /** `transformExp` is the function at the heart of the ANF transformation.
     *  You can read its type as saying: "Caller, give me a general expression
     *  `exp`, (& depth/env info), and a transformation function `transform`
@@ -285,9 +299,18 @@ private[lf] object Anf {
         if (safeFunc || args.size == 1) {
           transformMultiApp[A](depth, env, func, args, k)(transform)
         } else {
+
+          val _ = (expandMultiApp _, transformMultiAppSafely _)
+
           // Otherwise we expand the multi-app into a cascade of single-apps.
           val expanded = expandMultiApp(func, args)
           transformExp(depth, env, expanded, k)(transform)
+
+          // Safe ANF by keeping non-atomic apps/
+          // requires we reinstate a whole ton of code in Speedy.scala
+          // but unfortunately it does not work
+          //transformMultiAppSafely[A](depth, env, func, args, k)(transform)
+
         }
 
       case SEMakeClo(fvs0, arity, body0) =>
@@ -344,6 +367,7 @@ private[lf] object Anf {
       case x: SEWronglyTypeContractId => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEVar => throw CompilationError(s"flatten: unexpected: $x")
 
+      case x: SEAppNonAtomic => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEAppAtomicGeneral => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"flatten: unexpected: $x")
       case x: SELet1Builtin => throw CompilationError(s"flatten: unexpected: $x")
@@ -394,6 +418,9 @@ private[lf] object Anf {
     loop(body, rhss.reverse)
   }
 
+  /* This function is used when transforming known functions.  And so we can we sure that
+   the ANF transform is safe, and will not change the evaluation order
+   */
   private[this] def transformMultiApp[A](
       depth: DepthA,
       env: Env,
@@ -408,6 +435,30 @@ private[lf] object Anf {
             val args1 = args.map(makeRelativeA(depth))
             Bounce(() => transform(depth, SEAppAtomic(func1, args1.toArray), txK))
         })
+    })
+  }
+
+  /* This function must be used when transforming an application of unknown function.  The
+   translated application is *not* in proper ANF form.
+   */
+  private[this] def transformMultiAppSafely[A](
+      depth: DepthA,
+      env: Env,
+      func: SExpr,
+      args: Array[SExpr],
+      k: K[AExpr, A])(transform: Tx[SExpr, A]): Trampoline[A] = {
+    Bounce(() =>
+      atomizeExp(depth, env, func, k) { (depth, func, txK1) =>
+        Bounce(
+          () =>
+            // we dont atomize the args here
+            transformExps(depth, env, args.toList, txK1) { (depth, anfs, txK) =>
+              val func1 = makeRelativeA(depth)(func)
+              Bounce(
+                () =>
+                  // we build a non-atomic application here
+                  transform(depth, SEAppNonAtomic(func1, anfs.toArray), txK))
+          })
     })
   }
 

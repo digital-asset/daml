@@ -18,6 +18,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
       var evarA: Int = 0,
       var evarF: Int = 0,
       var eappE: Int = 0,
+      var eappN: Int = 0,
       var eappA: Int = 0,
       var eappB: Int = 0,
       var eclose: Int = 0,
@@ -98,6 +99,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
       case _: SELocA => counts.evarA += 1
       case _: SELocF => counts.evarF += 1
       case _: SEAppGeneral => counts.eappE += 1
+      case _: SEAppNonAtomic => counts.eappN += 1
       case _: SEAppAtomicGeneral => counts.eappA += 1
       case _: SEAppAtomicSaturatedBuiltin => counts.eappB += 1
       case _: SEMakeClo => counts.eclose += 1
@@ -120,6 +122,10 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
   def classifyKont(kont: Kont, counts: Counts): Unit = {
     kont match {
       case KFinished => counts.kfinished += 1
+      case _: KBuiltin => () //TODO count
+      case _: KArg => () //TODO count
+      case _: KFun => () //TODO count
+      case _: KPap => () //TODO count
       case _: KOverApp => counts.koverapp += 1
       case _: KPushTo => counts.kpushto += 1
       case _: KCacheVal => counts.kcacheval += 1

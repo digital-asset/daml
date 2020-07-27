@@ -674,8 +674,8 @@ private[lf] object Speedy {
     }
   }
 
-  /** The function has been evaluated to a value, now start evaluating the arguments. */
-  // This code replaces `executeApplication` which is almost dead.
+  /** This function is used to enter an ANF application.  The function has been evaluated to
+    a value, and so have the arguments - they just need looking up */
   private[speedy] def enterApplication(
       machine: Machine,
       vfun: SValue,
@@ -739,6 +739,74 @@ private[lf] object Speedy {
         crash(s"Applying non-PAP: $vfun")
     }
   }
+
+  //----------------------------------------------------------------------
+  // REINSTATED CODE
+
+  /** Evaluate the first 'n' arguments in 'args'.
+    'args' will contain at least 'n' expressions, but it may contain more(!)
+
+    This is because, in the call from 'executeApplication' below, although over-applied
+    arguments are pushed into a continuation, they are not removed from the original array
+    which is passed here as 'args'.
+    */
+  private[speedy] def evaluateArguments(
+      machine: Machine,
+      actuals: util.ArrayList[SValue],
+      args: Array[SExpr],
+      n: Int) = {
+    var i = 1
+    while (i < n) {
+      val arg = args(n - i)
+      machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
+      i = i + 1
+    }
+    machine.ctrl = args(0)
+  }
+
+  private[speedy] def executeApplication(
+      machine: Machine,
+      vfun: SValue,
+      newArgs: Array[SExpr]): Unit = {
+    vfun match {
+      case SPAP(prim, actualsSoFar, arity) =>
+        val missing = arity - actualsSoFar.size
+        val newArgsLimit = Math.min(missing, newArgs.length)
+
+        val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
+        actuals.addAll(actualsSoFar)
+
+        val othersLength = newArgs.length - missing
+
+        // Not enough arguments. Push a continuation to construct the PAP.
+        if (othersLength < 0) {
+          machine.pushKont(KPap(prim, actuals, arity))
+        } else {
+          // Too many arguments: Push a continuation to re-apply the over-applied args.
+          if (othersLength > 0) {
+            val others = new Array[SExpr](othersLength)
+            System.arraycopy(newArgs, missing, others, 0, othersLength)
+            machine.pushKont(KArg(others, machine.frame, machine.actuals, machine.env.size))
+          }
+          // Now the correct number of arguments is ensured. What kind of prim do we have?
+          prim match {
+            case closure: PClosure =>
+              // Push a continuation to execute the function body when the arguments have been evaluated
+              machine.pushKont(KFun(closure, actuals, machine.env.size))
+
+            case PBuiltin(builtin) =>
+              // Push a continuation to execute the builtin when the arguments have been evaluated
+              machine.pushKont(KBuiltin(builtin, actuals, machine.env.size))
+          }
+        }
+        evaluateArguments(machine, actuals, newArgs, newArgsLimit)
+
+      case _ =>
+        crash(s"Applying non-PAP: $vfun")
+    }
+  }
+
+//----------------------------------------------------------------------
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
   private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Unit = {
@@ -829,6 +897,75 @@ private[lf] object Speedy {
       enterApplication(machine, vfun, newArgs)
     }
   }
+
+  //----------------------------------------------------------------------
+  // REINSTATED Kont forms
+
+  /** The function has been evaluated to a value. Now restore the environment and execute the application */
+  private[speedy] final case class KArg(
+      newArgs: Array[SExpr],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
+    def execute(vfun: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
+      executeApplication(machine, vfun, newArgs)
+    }
+  }
+
+  /** The function-closure and arguments have been evaluated. Now execute the body. */
+  private[speedy] final case class KFun(
+      closure: PClosure,
+      actuals: util.ArrayList[SValue],
+      envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
+    def execute(v: SValue, machine: Machine) = {
+      actuals.add(v)
+      // Set frame/actuals to allow access to the function arguments and closure free-varables.
+      machine.restoreEnv(closure.frame, actuals, envSize)
+      // Maybe push a continuation for the profiler
+      val label = closure.label
+      if (label != null) {
+        machine.profile.addOpenEvent(label)
+        machine.pushKont(KLeaveClosure(label))
+      }
+      // Start evaluating the body of the closure.
+      machine.ctrl = closure.expr
+    }
+  }
+
+  /** The builtin arguments have been evaluated. Now execute the builtin. */
+  private[speedy] final case class KBuiltin(
+      builtin: SBuiltinEffect,
+      actuals: util.ArrayList[SValue],
+      envSize: Int)
+      extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      actuals.add(v)
+      // A builtin has no free-vars, so we set the frame to null.
+      machine.restoreEnv(null, actuals, envSize)
+      try {
+        builtin.executeEffect(actuals, machine)
+      } catch {
+        // We turn arithmetic exceptions into a daml exception that can be caught.
+        case e: ArithmeticException =>
+          throw DamlEArithmeticError(e.getMessage)
+      }
+    }
+  }
+
+  /** The function's partial-arguments have been evaluated. Construct and return the PAP */
+  private[speedy] final case class KPap(prim: Prim, actuals: util.ArrayList[SValue], arity: Int)
+      extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      actuals.add(v)
+      machine.returnValue = SPAP(prim, actuals, arity)
+    }
+  }
+//----------------------------------------------------------------------
 
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.
     * This continuation is used to implement both function application and lets. In
