@@ -76,6 +76,9 @@ two forms:
    and ``y`` is a pure expression or ``let f x = y`` to define a function.
    The bound variables can be used on subsequent lines.
 
+5. Next to DAML code the REPL also understands REPL commands which are prefixed
+   by ``:``. Enter ``:help`` to see a list of supported REPL commands.
+
 First create two parties: A party with the display name ``"Alice"``
 and the party id ``"alice"`` and a party with the display name
 ``"Bob"`` and the party id ``"bob"``.
@@ -129,7 +132,9 @@ In the prompt, all modules from DALFs specified in ``--import`` are
 imported automatically. In addition to that, the ``DAML.Script``
 module is also imported and gives you access to the DAML Script API.
 
-You can use import declarations at the prompt to import additional modules.
+You can use the commands ``:module +`` and ``:module -`` to control which
+modules are imported. You can also use import declarations at the prompt to
+import additional modules.
 
 .. code-block:: none
 
