@@ -66,10 +66,9 @@ genrule(
             cp ../$$f $$dir/$$file
         done
         cd ..
-        tar c node_modules \\
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-          | gzip -n > $@
+        $(execpath //bazel_tools/sh:mktgz) $@ node_modules
     """,
+    tools = ["//bazel_tools/sh:mktgz"],
 )
 
 genrule(

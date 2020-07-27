@@ -2,3 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 exports_files(["test.sh.tpl"])
+
+sh_binary(
+    name = "mktar",
+    srcs = ["mktar.sh"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "mktgz",
+    srcs = ["mktgz.sh"],
+    visibility = ["//visibility:public"],
+)

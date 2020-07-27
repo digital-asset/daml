@@ -28,11 +28,12 @@ find $$OUT/ -name '*.template' -type f -exec sh -c 'mv "$$0" "$${0%.template}" &
 PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
 MESSAGING_PATCH=$$PWD/$(location //templates:create-daml-app-test-resources/messaging.patch)
 $$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH
-tar c create-daml-app \\
-    --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-    | gzip -n >$(location :create-daml-app-docs.tar.gz)
+$(execpath //bazel_tools/sh:mktgz) $@ create-daml-app
 """,
-    tools = ["@patch_dev_env//:patch"],
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "@patch_dev_env//:patch",
+    ],
     visibility = ["//visibility:public"],
 ) if not is_windows else None
 
@@ -101,9 +102,8 @@ EOF
         mkdir -p $$OUT/daml-patterns
         tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
 
-        tar c templates-tarball \\
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-          | gzip -n >$(location :templates-tarball.tar.gz)
+        $(execpath //bazel_tools/sh:mktgz) $@ templates-tarball
     """,
+    tools = ["//bazel_tools/sh:mktgz"],
     visibility = ["//visibility:public"],
 )
