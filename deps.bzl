@@ -29,8 +29,8 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
-rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
-rules_scala_sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d"
+rules_scala_version = "152715b05547f160a512bae9b3d9e77a4888e243"
+rules_scala_sha256 = "9b117bf591780b5665a8271d83c2530943330f06e2dd99574ca9cf538009d09d"
 
 rules_haskell_version = "eb16a5401770098a801775ea3a893b09cafe054c"
 rules_haskell_sha256 = "2fcab6b01a184435359f6bcbb9403f0457c2a4e0f1b1a4572b9d7f89d2fc5431"
@@ -142,8 +142,10 @@ def daml_deps():
             sha256 = rules_scala_sha256,
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
-                "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
-                "@com_github_digital_asset_daml//bazel_tools:scala-fix-jopt-simple-version.patch",
+                # Upstream PR at https://github.com/bazelbuild/rules_scala/pull/1082
+                # Without this patch, rootpath resolves to the JAR
+                # and not the binary wrapper.
+                "@com_github_digital_asset_daml//bazel_tools:scala-binary-rootpath.patch",
             ],
             patch_args = ["-p1"],
         )
