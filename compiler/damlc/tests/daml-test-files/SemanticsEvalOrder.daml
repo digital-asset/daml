@@ -50,12 +50,23 @@
 -- @ERROR Aborted: EvUpdCreateErr4_2 OK
 -- @ERROR Aborted: EvUpdCreateWithKeyErr1 OK
 -- @ERROR Aborted: EvUpdCreateWithKeyErr2 OK
+-- @ERROR Aborted: controllerCanAddsObserver OK
+-- @ERROR Aborted: choiceControllerDoesntAddObserver OK
+-- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_DoubleArchive)
+-- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_EvUpdExercConsumErr)
+-- @ERROR EvUpdExercNonConsumErr OK
+-- @ERROR EvUpdExercWithoutActorsErr_1 OK
+-- @ERROR EvUpdExercWithoutActorsErr_2 OK
+-- @ERROR exercise of C_BadActorCheck_1
+-- @ERROR Aborted: BadActorCheck_2 OK
+-- @ERROR Aborted: EvUpdFetchByKeyErr OK
+-- @ERROR Aborted: EvUpdLookupByKeyErr OK
 module SemanticsEvalOrder where
 
 evTyAbsErasableErr = scenario do
-    let x : forall a. a
-        x = error "EvTyAbsErasableErr OK"
-    error "EvTyAbsErasable failed"
+  let x : forall a. a
+      x = error "EvTyAbsErasableErr OK"
+  error "EvTyAbsErasable failed"
 
 overApply = scenario do
   let f x = error "overApply OK"
@@ -366,3 +377,200 @@ evUpdCreateWithKeyErr2 = scenario do
   submit p do
     create (T_EvUpdCreateWithKeyErr2 p)
     error "EvUpdCreateWithKeyErr2 failed"
+
+-- | `controller P can ...` syntax adds `P` to the observers,
+-- so if `P` causes an error, this is triggered on create,
+-- instead of on exercise.
+template T_ControllerCanAddsObserver
+  with
+    p : Party
+  where
+    signatory p
+    controller (error @Party "controllerCanAddsObserver OK") can
+      C_ControllerCanAddsObserver: ()
+        do pure ()
+
+controllerCanAddsObserver = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_ControllerCanAddsObserver p)
+    error "controllerCanAddsObserver failed"
+
+-- | `choice ... controller P ...` doesn't add `P` as observer.
+-- This test is here to contrast with the previous.
+template T_ChoiceControllerDoesntAddObserver
+  with
+    p : Party
+  where
+    signatory p
+    choice CY : ()
+      controller (error @Party "choiceControllerDoesntAddObserver failed")
+        do pure ()
+
+choiceControllerDoesntAddObserver = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_ChoiceControllerDoesntAddObserver p)
+    error "choiceControllerDoesntAddObserver OK"
+
+-- | Verify that contract inactivity is checked before interpreting
+-- the rest of the update.
+template T_DoubleArchive
+  with
+    p : Party
+  where
+    signatory p
+
+doubleArchive = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_DoubleArchive p)
+    archive c
+    archive c
+    abort "doubleArchive failed"
+
+-- | Verify that a consuming choice's update is interpreted with a
+-- ledger state where the template has already been consumed.
+template T_EvUpdExercConsumErr
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercConsumErr : ()
+      controller p
+        do
+          archive self
+          error "EvUpdExercConsumErr failed (1)"
+
+evUpdExercConsumErr = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercConsumErr p)
+    exercise c C_EvUpdExercConsumErr
+    abort "EvUpdExercConsumErr failed (2)"
+
+-- | Verify that a nonconsuming choice's update is interpreted with
+-- the original ledger state (template hasn't been consumed).
+template T_EvUpdExercNonConsumErr
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice C_EvUpdExercNonConsumErr : ()
+      controller p
+        do
+          archive self
+          error "EvUpdExercNonConsumErr OK"
+
+evUpdExercNonConsumErr = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercNonConsumErr p)
+    exercise c C_EvUpdExercNonConsumErr
+    abort "EvUpdExercNonConsumErr failed"
+
+-- | Verify that the exercising party is evaluated
+-- when the exercise is performed, not after.
+template T_EvUpdExercWithoutActorsErr_1
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercWithoutActorsErr_1 : () with
+      controller (error @Party "EvUpdExercWithoutActorsErr_1 OK")
+        do abort "EvUpdExercWithoutActorsErr_1 failed (1)"
+
+evUpdExercWithoutActorsErr_1 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercWithoutActorsErr_1 p)
+    exercise c C_EvUpdExercWithoutActorsErr_1
+    abort "EvUpdExercWithoutActorsErr_1 failed (2)"
+
+-- | Show that the exercising party is evaluated before
+-- we check that the contract is still active.
+template T_EvUpdExercWithoutActorsErr_2
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercWithoutActorsErr_2 : () with
+      controller (error @Party "EvUpdExercWithoutActorsErr_2 OK")
+        do abort "EvUpdExercWithoutActorsErr_2 failed (1)"
+
+evUpdExercWithoutActorsErr_2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercWithoutActorsErr_2 p)
+    archive c
+    exercise c C_EvUpdExercWithoutActorsErr_2
+    abort "EvUpdExercWithoutActorsErr_2 failed (2)"
+
+-- | Checks that an authorization / bad actor check occurs
+-- at some point during submission.
+template T_BadActorCheck_1
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    controller p2 can
+      C_BadActorCheck_1 : ()
+        do pure ()
+
+badActorCheck_1 = scenario do
+  p1 <- getParty "Alice"
+  p2 <- getParty "Bob"
+  submit p1 do
+    c <- create (T_BadActorCheck_1 p1 p2)
+    exercise c C_BadActorCheck_1
+  error "BadActorCheck_1 failed"
+
+-- | Checks that the bad actor does not occur before running the update,
+-- for an 'exercise_without_actor', since the exercis actor is always
+-- "correct" with respect to the choic, but there is no authorization.
+template T_BadActorCheck_2
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    controller p2 can
+      C_BadActorCheck_2 : ()
+        do error "BadActorCheck_2 OK"
+
+badActorCheck_2 = scenario do
+  p1 <- getParty "Alice"
+  p2 <- getParty "Bob"
+  submit p1 do
+    c <- create (T_BadActorCheck_2 p1 p2)
+    exercise c C_BadActorCheck_2
+  error "BadActorCheck_2 failed"
+
+template T_EvUpdFetchByKeyErr
+  with
+    p : Party
+  where
+    signatory p
+    key () : ()
+    maintainer (error @Party "EvUpdFetchByKeyErr OK")
+
+evUpdFetchByKeyErr = scenario do
+  p <- getParty "Alice"
+  submit p do
+    fetchByKey @T_EvUpdFetchByKeyErr ()
+    abort "EvUpdFetchByKeyErr failed"
+
+template T_EvUpdLookupByKeyErr
+  with
+    p : Party
+  where
+    signatory p
+    key () : ()
+    maintainer (error @Party "EvUpdLookupByKeyErr OK")
+
+evUpdLookupByKeyErr = scenario do
+  p <- getParty "Alice"
+  submit p do
+    fetchByKey @T_EvUpdLookupByKeyErr ()
+    abort "EvUpdLookupByKeyErr failed"
