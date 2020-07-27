@@ -17,8 +17,8 @@ object AuthorizationError {
       s"Expired. Claims were valid until $authorizedUntil, current time is $currentTime"
   }
 
-  final case class ExpiredOnStream() extends AuthorizationError {
-    override def reason = s"Claims have expired after the result stream has started"
+  case object ExpiredOnStream extends AuthorizationError {
+    override val reason = "Claims have expired after the result stream has started"
   }
 
   final case class InvalidLedger(authorized: String, actual: String)
@@ -39,13 +39,13 @@ object AuthorizationError {
       s"Invalid application. Claims are only valid for applicationId $authorized, actual applicationId is $actual"
   }
 
-  final case class MissingPublicClaim() extends AuthorizationError {
-    override def reason = s"Missing public claim. Claims do not authorize the use of public services"
+  case object MissingPublicClaim extends AuthorizationError {
+    override val reason = "Missing public claim. Claims do not authorize the use of public services"
   }
 
-  final case class MissingAdminClaim() extends AuthorizationError {
-    override def reason =
-      s"Missing admin claim. Claims do not authorize the use of administrative services"
+  case object MissingAdminClaim extends AuthorizationError {
+    override val reason =
+      "Missing admin claim. Claims do not authorize the use of administrative services"
   }
 
   final case class MissingReadClaim(party: String) extends AuthorizationError {

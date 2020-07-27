@@ -104,15 +104,18 @@ final case class Claims(
 
   /** Returns false if the expiration timestamp exists and is greater than or equal to the current time */
   def notExpired(now: Instant): Either[AuthorizationError, Unit] =
-    Either.cond(expiration.forall(now.isBefore), (), AuthorizationError.Expired(expiration.get, now))
+    Either.cond(
+      expiration.forall(now.isBefore),
+      (),
+      AuthorizationError.Expired(expiration.get, now))
 
   /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
   def isAdmin: Either[AuthorizationError, Unit] =
-    Either.cond(claims.contains(ClaimAdmin), (), AuthorizationError.MissingAdminClaim())
+    Either.cond(claims.contains(ClaimAdmin), (), AuthorizationError.MissingAdminClaim)
 
   /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
   def isPublic: Either[AuthorizationError, Unit] =
-    Either.cond(claims.contains(ClaimPublic), (), AuthorizationError.MissingPublicClaim())
+    Either.cond(claims.contains(ClaimPublic), (), AuthorizationError.MissingPublicClaim)
 
   /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
   def canActAs(party: String): Either[AuthorizationError, Unit] = {
