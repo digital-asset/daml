@@ -148,9 +148,6 @@ To exercise ``IouTransfer_Accept`` choice on the ``IouTransfer`` contract that y
 
 Fore more details on how to subscribe to receive events for a particular party, please refer to the implementation of `com.daml.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
 
-.. keeping this anchor around to not break existing links
-.. _scala-bindings-authentication:
-
 .. _scala-bindings-authorization:
 
 Authorization

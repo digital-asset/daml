@@ -101,9 +101,6 @@ Due to possible conflicts between the ``&`` character and various terminal shell
 
 If you're not familiar with JDBC URLs, see the JDBC docs for more information: https://jdbc.postgresql.org/documentation/head/connect.html
 
-.. keeping this anchor around to not break existing links
-.. _sandbox-authentication:
-
 .. _sandbox-authorization:
 
 Running with authentication
