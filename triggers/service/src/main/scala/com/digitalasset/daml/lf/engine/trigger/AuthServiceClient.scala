@@ -153,7 +153,7 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
           for {
             sa <- getServiceAccount(authServiceToken)
             _ = if (sa.creds.length <= initialNumCreds) throw new NoSuchElementException
-          } yield sa.creds.head
+          } yield sa.creds.head // new credential is added to the front of the list
       }
     } yield newCred
 
