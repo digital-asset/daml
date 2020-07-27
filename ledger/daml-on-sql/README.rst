@@ -86,6 +86,13 @@ health checkpoint that can be used to evaluate the health status of the Ledger A
 component. More information on the endpoint can be found at the
 `documentation for gRPC <https://github.com/grpc/grpc/blob/1.29.0/doc/health-checking.md>`__.
 
+JVM
+===
+
+*DAML on SQL* is regularly tested to run against OpenJDK 1.8.0. Although you can try to
+use a subsequent version or a JVM from a different vendor, please note that caveats may
+apply and that your specific deployment may not be supported.
+
 Security and privacy
 ********************
 
@@ -645,12 +652,21 @@ current state of threads.
 DAML Ledger Model Compliance
 ****************************
 
-Model conformance
-=================
+*DAML on SQL* is tested regularly against the DAML Ledger API Test
+Tool to verify that the ledger implements correctly the DAML semantics
+and to check its performance envelope.
+
+Semantics
+=========
 
 On top of bespoke unit and integration tests, the *DAML on SQL* is
 thoroughly tested with the Ledger API Test Tool to ensure that the
-implementation conforms with the DAML Ledger Model.
+implementation correctly implements the DAML semantics.
+
+These tests check that all the services which are part of the Ledger
+API behave as expected, with a particular attention to ensure that
+issuing commands and reading transactions respect the confidentiality
+and privacy guarantees defined by the DAML Ledger Model.
 
 Performance envelope
 ====================
