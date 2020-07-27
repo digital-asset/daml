@@ -49,7 +49,7 @@ DAML SDK documentation
    DAML Script <daml-script/index>
    DAML REPL <daml-repl/index>
    upgrade/index
-   app-dev/authentication
+   app-dev/authorization
    app-dev/ledger-api
 
 .. toctree::

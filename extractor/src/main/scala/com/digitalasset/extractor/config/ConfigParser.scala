@@ -219,11 +219,11 @@ object ConfigParser {
       TlsConfigurationCli.parse(this, colSpacer)((f, c) =>
         c copy (tlsConfiguration = f(c.tlsConfiguration)))
 
-      note("\nAuthentication:")
+      note("\nAuthorization:")
 
       opt[String]("access-token-file")
         .text(
-          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+          s"provide the path from which the access token will be read, required if the Ledger API server verifies authorization, no default")
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
         .optional()
 

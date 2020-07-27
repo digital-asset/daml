@@ -270,16 +270,15 @@ argument.
 
 .. _daml-script-auth:
 
-Running DAML Script against Authenticated Ledgers
-=================================================
+Running DAML Script against Ledgers with Authorization
+======================================================
 
-To run DAML Script against an authenticated ledger, you need to
-specify an access token. There are two ways of doing that:
+To run DAML Script against a ledger that verifies authorization,
+you need to specify an access token. There are two ways of doing that:
 
 1. Specify a single access token via ``--access-token-file
-   path/to/jwt`` authenticated ledger. This token will then be used
-   for all requests so it must provide claims for all parties that you
-   use in your script.
+   path/to/jwt``. This token will then be used for all requests so it
+   must provide claims for all parties that you use in your script.
 2. If you need multiple tokens, e.g., because you only have
    single-party tokens you can use the ``access_token`` field in the
    participant config specified via ``--participant-config``. The
@@ -313,9 +312,9 @@ To run DAML script against the JSON API you have to pass the ``--json-api`` para
 #. The JSON API only supports single-command submissions. This means
    that within a single call to ``submit`` you can only execute one
    ledger API command, e.g., one ``createCmd`` or one ``exerciseCmd``.
-#. The JSON API requires authentication tokens even when it is run
-   against an unauthenticated ledger. The section on
-   :ref:`authentication <daml-script-auth>` describes how to specify
+#. The JSON API requires authorization tokens even when it is run
+   against a ledger that doesn't verify authorization. The section on
+   :ref:`authorization <daml-script-auth>` describes how to specify
    the tokens.
 #. The tokens must contain exactly one party in ``actAs`` and/or
    ``readAs``. This party will be used for ``submit`` and
