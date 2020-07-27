@@ -69,7 +69,7 @@ object TriggerServiceFixture {
         for {
           ledger <- Future(
             new SandboxServer(
-              SandboxServer.defaultConfig.copy(
+              SandboxConfig.defaultConfig.copy(
                 port = Port.Dynamic,
                 ledgerIdMode = LedgerIdMode.Static(adminLedgerId),
               ),
