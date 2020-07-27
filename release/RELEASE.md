@@ -147,7 +147,7 @@ patches we backport to the 1.0 release branch).
        Otherwise, check out the commit that you are referencing in the `LATEST` file
        and build documentation locally via `./docs/scripts/preview.sh`.
 
-    1. Create a new project using `daml new create-daml-app create-daml-app`
+    1. Create a new project using `daml new create-daml-app --template create-daml-app`
        and switch to the project directory using `cd create-daml-app`.
 
     1. Build the project using `daml build`.
@@ -236,7 +236,7 @@ patches we backport to the 1.0 release branch).
    for now since it covers things not covered by the new GSG
    (Navigator, scenarios, Maven artifacts, …)
 
-    1. Create a new project with `daml new quickstart quickstart-java`
+    1. Create a new project with `daml new quickstart --template quickstart-java`
        and switch to it using `cd quickstart`.
 
     1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.

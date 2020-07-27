@@ -138,7 +138,7 @@ Example session
 
 .. code-block:: shell
 
-    $ daml new iou-quickstart-java quickstart-java
+    $ daml new iou-quickstart-java --template quickstart-java
     $ cd iou-quickstart-java/
     $ daml build
     $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
