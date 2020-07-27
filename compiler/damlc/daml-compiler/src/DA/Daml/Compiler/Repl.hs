@@ -74,6 +74,7 @@ import Type (splitTyConApp)
 data Error
     = ParseError MsgDoc
     | UnsupportedStatement String -- ^ E.g., pattern on the LHS
+    | NotImportedModules [ModuleName]
     | TypeError -- ^ The actual error will be in the diagnostics
     | ScriptError ReplClient.BackendError
 
@@ -83,6 +84,8 @@ renderError dflags err = case err of
         putStrLn (showSDoc dflags err)
     (UnsupportedStatement str) ->
         putStrLn ("Unsupported statement: " <> str)
+    (NotImportedModules names) ->
+        putStrLn ("Not imported, cannot remove: " <> intercalate ", " (map moduleNameString names))
     TypeError ->
         -- The error will be displayed via diagnostics.
         pure ()
@@ -325,8 +328,8 @@ runRepl importPkgs opts replClient logger ideState = do
           where
             banner = pure "daml> "
             command = replLine
-            options = []
-            prefix = Nothing
+            options = replOptions
+            prefix = Just ':'
             tabComplete = Repl.Cursor $ \_ _ -> pure []
             initialiser = pure ()
     State.evalStateT replM initReplState
@@ -393,17 +396,7 @@ runRepl importPkgs opts replClient logger ideState = do
         :: DynFlags
         -> ImportDecl GhcPs
         -> ExceptT Error ReplM ()
-    handleImport dflags imp = do
-        ReplState {imports, lineNumber} <- State.get
-        -- TODO[AH] Deduplicate imports.
-        let newImports = imp : imports
-        -- TODO[AH] Factor out the module render and typecheck step.
-        liftIO $ setBufferModified ideState (lineFilePath lineNumber)
-            $ Just $ T.pack (unlines $ moduleHeader dflags newImports lineNumber)
-        _ <- maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
-                <*> useE TypeCheck (lineFilePath lineNumber))
-        State.modify $ \s -> s { imports = newImports }
+    handleImport dflags imp = addImports dflags [imp]
     replLine :: String -> ReplM ()
     replLine line = do
         ReplState {lineNumber} <- State.get
@@ -418,6 +411,64 @@ runRepl importPkgs opts replClient logger ideState = do
         case r of
             Left err -> liftIO $ renderError dflags err
             Right () -> pure ()
+
+    mkReplOption
+        :: (DynFlags -> [String] -> ExceptT Error ReplM ())
+        -> [String] -> ReplM ()
+    mkReplOption option args = do
+        ReplState {lineNumber} <- State.get
+        dflags <- liftIO $
+            hsc_dflags . hscEnv <$>
+            runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
+        r <- runExceptT $ option dflags args
+        case r of
+            Left err -> liftIO $ renderError dflags err
+            Right () -> pure ()
+    replOptions :: [(String, [String] -> ReplM ())]
+    replOptions =
+      [ ("help", mkReplOption optHelp)
+      , ("module", mkReplOption optModule)
+      ]
+    optHelp _dflags _args = liftIO $ T.putStrLn $ T.unlines
+      [ " Commands available from the prompt:"
+      , ""
+      , "   <statement>                 evaluate/run <statement>"
+      , "   :module [+/-] <mod> ...     add or remove the modules from the import list"
+      ]
+    optModule _dflags ("-" : modules) = do
+        ReplState {imports} <- lift State.get
+        -- TODO[AH] Use a more appropriate data structure to track imports.
+        let unknown =
+              [ removed
+              | removed <- map mkModuleName modules
+              , removed `notElem` map (unLoc . ideclName) imports
+              ]
+            newImports =
+              [ simpleImportDecl imported
+              | imported <- map (unLoc . ideclName) imports
+              , imported `notElem` map mkModuleName modules
+              ]
+        unless (null unknown) $
+            throwError $ NotImportedModules unknown
+        lift $ State.modify $ \s -> s { imports = newImports }
+    optModule dflags ("+" : modules) = do
+        let imports = map (simpleImportDecl . mkModuleName) modules
+        addImports dflags imports
+    optModule dflags modules = do
+        let imports = map (simpleImportDecl . mkModuleName) modules
+        addImports dflags imports
+
+    addImports
+        :: DynFlags
+        -> [ImportDecl GhcPs]
+        -> ExceptT Error ReplM ()
+    addImports dflags additional = do
+        ReplState {imports, lineNumber} <- State.get
+        -- TODO[AH] Deduplicate imports.
+        let newImports = additional ++ imports
+        _ <- printDelayedDiagnostics $ tryTypecheck lineNumber $
+            T.pack (unlines $ moduleHeader dflags newImports lineNumber)
+        State.modify $ \s -> s { imports = newImports }
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
