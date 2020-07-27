@@ -1,8 +1,6 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE MultiWayIf #-}
-
 -- | Test driver for DAML-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.

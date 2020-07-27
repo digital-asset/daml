@@ -225,6 +225,9 @@
               {% block comments %}{% endblock %}
             </div>
             {% endif%}
+            {% if url_root != './' %}
+              {% include "footer.html" %}
+            {% endif %}
           </div>
           {%- endblock %}
         </div>
@@ -265,8 +268,6 @@
   {% else %}
   <div id="inpageContent" style="display: none;"></div>
   {% endif %}
-
-  {%- block footer %} {% endblock %}
 
 </body>
 </html>

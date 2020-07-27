@@ -31,8 +31,8 @@ import scala.util.{Failure, Success, Try}
 object ReplServiceMain extends App {
   case class Config(
       portFile: Path,
-      ledgerHost: String,
-      ledgerPort: Int,
+      ledgerHost: Option[String],
+      ledgerPort: Option[Int],
       accessTokenFile: Option[Path],
       maxInboundMessageSize: Int,
       tlsConfig: Option[TlsConfiguration],
@@ -60,12 +60,12 @@ object ReplServiceMain extends App {
         .action((portFile, c) => c.copy(portFile = Paths.get(portFile)))
 
       opt[String]("ledger-host")
-        .required()
-        .action((host, c) => c.copy(ledgerHost = host))
+        .optional()
+        .action((host, c) => c.copy(ledgerHost = Some(host)))
 
       opt[Int]("ledger-port")
-        .required()
-        .action((port, c) => c.copy(ledgerPort = port))
+        .optional()
+        .action((port, c) => c.copy(ledgerPort = Some(port)))
 
       opt[String]("access-token-file")
         .optional()
@@ -124,14 +124,23 @@ object ReplServiceMain extends App {
           setTimeMode(c, ScriptTimeMode.Static)
         }
         .text("Use static time.")
+
+      checkConfig(c =>
+        (c.ledgerHost, c.ledgerPort) match {
+          case (Some(_), None) =>
+            failure("Must specified either both --ledger-host and --ledger-port or neither")
+          case (None, Some(_)) =>
+            failure("Must specified either both --ledger-host and --ledger-port or neither")
+          case _ => success
+      })
     }
     def parse(args: Array[String]): Option[Config] =
       parser.parse(
         args,
         Config(
           portFile = null,
-          ledgerHost = null,
-          ledgerPort = 0,
+          ledgerHost = None,
+          ledgerPort = None,
           accessTokenFile = None,
           tlsConfig = None,
           maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
@@ -155,11 +164,12 @@ object ReplServiceMain extends App {
   implicit val ec: ExecutionContext = system.dispatcher
 
   val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
+  val defaultParticipant = (config.ledgerHost, config.ledgerPort) match {
+    case (Some(host), Some(port)) => Some(ApiParameters(host, port, tokenHolder.flatMap(_.token)))
+    case _ => None
+  }
   val participantParams =
-    Participants(
-      Some(ApiParameters(config.ledgerHost, config.ledgerPort, tokenHolder.flatMap(_.token))),
-      Map.empty,
-      Map.empty)
+    Participants(defaultParticipant, Map.empty, Map.empty)
   val applicationId = ApplicationId("daml repl")
   val clients = Await.result(
     Runner

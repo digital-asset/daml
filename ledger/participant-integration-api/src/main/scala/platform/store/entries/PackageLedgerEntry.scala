@@ -8,12 +8,12 @@ import java.time.Instant
 import com.daml.ledger.participant.state.v1.SubmissionId
 import com.daml.ledger.api.domain.PackageEntry
 
-sealed abstract class PackageLedgerEntry extends Product with Serializable {
+private[platform] sealed abstract class PackageLedgerEntry extends Product with Serializable {
   def submissionId: SubmissionId
   def toDomain: PackageEntry
 }
 
-object PackageLedgerEntry {
+private[platform] object PackageLedgerEntry {
 
   final case class PackageUploadAccepted(
       submissionId: SubmissionId,

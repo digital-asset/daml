@@ -45,7 +45,7 @@ import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-object ApiSubmissionService {
+private[apiserver] object ApiSubmissionService {
 
   def create(
       ledgerId: LedgerId,
@@ -93,7 +93,7 @@ object ApiSubmissionService {
 
 }
 
-final class ApiSubmissionService private (
+private[apiserver] final class ApiSubmissionService private (
     contractStore: ContractStore,
     writeService: WriteService,
     submissionService: IndexSubmissionService,

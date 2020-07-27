@@ -23,7 +23,7 @@ import scala.util.{Failure, Success}
   * @param scheduler    Used to schedule the restart operation.
   * @param restartDelay Time to wait before restarting the indexer after a failure
   */
-final class RecoveringIndexer(
+private[indexer] final class RecoveringIndexer(
     scheduler: Scheduler,
     restartDelay: FiniteDuration,
 )(implicit logCtx: LoggingContext) {

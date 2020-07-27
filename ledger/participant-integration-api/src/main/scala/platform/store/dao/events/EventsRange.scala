@@ -7,12 +7,12 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
 
 // (startExclusive, endInclusive]
-final case class EventsRange[A](startExclusive: A, endInclusive: A) {
+private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {
   def map[B](f: A => B): EventsRange[B] =
     copy(startExclusive = f(startExclusive), endInclusive = f(endInclusive))
 }
 
-object EventsRange {
+private[events] object EventsRange {
   private val EmptyLedgerEventSeqId = 0L
 
   // (0, 0] -- non-existent range

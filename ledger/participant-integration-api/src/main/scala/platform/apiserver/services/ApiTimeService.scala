@@ -26,7 +26,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
-final class ApiTimeService private (
+private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
 )(
@@ -121,7 +121,7 @@ final class ApiTimeService private (
   }
 }
 
-object ApiTimeService {
+private[apiserver] object ApiTimeService {
   def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,

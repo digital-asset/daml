@@ -11,14 +11,9 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{
-  NodeId,
-  SubmittedTransaction,
-  TransactionVersions,
-  Transaction => Tx
-}
+import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.value.{Value, ValueVersions}
+import com.daml.lf.value.Value
 import java.nio.file.{Files, Path, Paths}
 
 /**
@@ -51,7 +46,7 @@ import java.nio.file.{Files, Path, Paths}
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(config: Engine.Config = Engine.StableConfig) {
+class Engine(config: EngineConfig = EngineConfig.Stable) {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
   private[this] var profileDir: Option[Path] = None
@@ -290,16 +285,15 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
     ) {
+      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        expr = SExpr
-          .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
+        expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        supportedValueVersions = config.allowedOutputValueVersions,
-        supportedTransactionVersions = config.allowedOutputTransactionVersions,
+        outputTransactionVersions = config.outputTransactionVersions,
         validating = validating,
       )
       interpretLoop(machine, ledgerTime)
@@ -370,7 +364,10 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
       }
     }
 
-    machine.ptx.finish(machine.supportedValueVersions, machine.supportedTransactionVersions) match {
+    machine.ptx.finish(
+      machine.outputTransactionVersions,
+      compiledPackages.packageLanguageVersion,
+    ) match {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
       case Right(tx) =>
@@ -433,51 +430,6 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
 
 object Engine {
 
-  case class Config private[Engine] (
-      // constrains the version of output values
-      allowedOutputValueVersions: VersionRange[value.ValueVersion],
-      // constrains the version of output transactions
-      allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
-  ) extends NoCopy
-
-  val StableConfig: Config =
-    Config.assertBuild(
-      allowedOutputValueVersions = ValueVersions.SupportedStableVersions,
-      allowedOutputTransactionVersions = transaction.TransactionVersions.SupportedStableVersions
-    )
-
-  val DevConfig: Config =
-    new Config(
-      allowedOutputValueVersions = ValueVersions.SupportedDevVersions,
-      allowedOutputTransactionVersions = TransactionVersions.SupportedDevVersions,
-    )
-
-  object Config {
-
-    def build(
-        allowedOutputValueVersions: VersionRange[value.ValueVersion],
-        allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
-    ): Either[String, Config] =
-      Right(
-        new Config(
-          allowedOutputValueVersions = allowedOutputValueVersions intersect ValueVersions.SupportedDevVersions,
-          allowedOutputTransactionVersions = allowedOutputTransactionVersions intersect TransactionVersions.SupportedDevVersions,
-        )
-      )
-
-    def assertBuild(
-        allowedOutputValueVersions: VersionRange[value.ValueVersion],
-        allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
-    ): Config =
-      data.assertRight(
-        build(
-          allowedOutputValueVersions,
-          allowedOutputTransactionVersions,
-        )
-      )
-
-  }
-
   def initialSeeding(
       submissionSeed: crypto.Hash,
       participant: Ref.ParticipantId,
@@ -502,6 +454,6 @@ object Engine {
     }
   }
 
-  def DevEngine(): Engine = new Engine(Engine.DevConfig)
+  def DevEngine(): Engine = new Engine(EngineConfig.Dev)
 
 }

@@ -13,25 +13,26 @@ import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifie
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{InvalidConfigException, MetricsReporter}
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.cli.CommonCli._
+import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
+import scalaz.syntax.tag._
 import scopt.{OptionParser, Read}
 
 import scala.util.Try
 
-// NOTE:
-// The config object should not expose Options for mandatory fields as such
-// validations should not leave this class. Due to limitations of SCOPT as far I
-// see we either use nulls or use the mutable builder instead.
-class Cli(defaultConfig: SandboxConfig) {
+// [[SandboxConfig]] should not expose Options for mandatory fields as such validations should not
+// leave this class. Due to the limitations of scopt, we either use nulls or use the mutable builder
+// instead.
+class CommonCli(name: LedgerName) {
 
   private implicit val clientAuthRead: Read[ClientAuth] = Read.reads {
     case "none" => ClientAuth.NONE
@@ -43,9 +44,9 @@ class Cli(defaultConfig: SandboxConfig) {
 
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
 
-  private val cmdArgParser: OptionParser[SandboxConfig] =
-    new OptionParser[SandboxConfig]("sandbox") {
-      head(s"Sandbox version ${BuildInfo.Version}")
+  val parser: OptionParser[SandboxConfig] =
+    new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
+      head(s"$name version ${BuildInfo.Version}")
 
       arg[File]("<archive>...")
         .optional()
@@ -54,19 +55,33 @@ class Cli(defaultConfig: SandboxConfig) {
         .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
         .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
 
+      opt[String]('a', "address")
+        .optional()
+        .action((x, c) => c.copy(address = Some(x)))
+        .text(s"Service host. Defaults to binding on localhost.")
+
       opt[Int]('p', "port")
+        .optional()
         .action((x, c) => c.copy(port = Port(x)))
         .validate(x => Port.validate(x).toEither.left.map(_.getMessage))
-        .text(s"Sandbox service port. Defaults to ${SandboxConfig.DefaultPort}.")
+        .text(s"Service port. Defaults to ${SandboxConfig.DefaultPort}.")
 
       opt[File]("port-file")
         .optional()
         .action((f, c) => c.copy(portFile = Some(f.toPath)))
         .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
 
-      opt[String]('a', "address")
-        .action((x, c) => c.copy(address = Some(x)))
-        .text("Sandbox service host. Defaults to binding on localhost.")
+      opt[String]("ledgerid")
+        .optional()
+        .action((id, c) =>
+          c.copy(
+            ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
+        .text(s"Ledger ID. If missing, a random unique ledger ID will be used.")
+
+      opt[String]("participant-id")
+        .optional()
+        .action((id, c) => c.copy(participantId = v1.ParticipantId.assertFromString(id)))
+        .text(s"Participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
 
       // TODO remove in next major release.
       opt[Unit]("dalf")
@@ -75,36 +90,22 @@ class Cli(defaultConfig: SandboxConfig) {
           "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.")
 
       opt[Unit]('s', "static-time")
-        .action { (_, c) =>
-          setTimeProviderType(c, TimeProviderType.Static)
-        }
+        .optional()
+        .action((_, c) => setTimeProviderType(c, TimeProviderType.Static))
         .text("Use static time. When not specified, wall-clock-time is used.")
 
       opt[Unit]('w', "wall-clock-time")
-        .action { (_, c) =>
-          setTimeProviderType(c, TimeProviderType.WallClock)
-        }
+        .optional()
+        .action((_, c) => setTimeProviderType(c, TimeProviderType.WallClock))
         .text("Use wall clock time (UTC). This is the default.")
 
       // TODO(#577): Remove this flag.
       opt[Unit]("no-parity")
+        .optional()
         .action { (_, config) =>
           config
         }
         .text("Legacy flag with no effect.")
-
-      opt[String](name = "scenario")
-        .action((x, c) => c.copy(scenario = Some(x)))
-        .text(
-          "If set, the sandbox will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
-            "Note that when using --postgres-backend the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one. " +
-            "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
-            "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
-
-      opt[Boolean](name = "implicit-party-allocation")
-        .action((x, c) => c.copy(implicitPartyAllocation = x))
-        .text("When referring to a party that doesn't yet exist on the ledger, Sandbox will implicitly allocate that party."
-          + " You can optionally disable this behavior to bring Sandbox into line with other ledgers.")
 
       opt[String]("pem")
         .optional()
@@ -139,11 +140,13 @@ class Cli(defaultConfig: SandboxConfig) {
               Some(c.copy(clientAuth = clientAuth)))))
 
       opt[Int]("max-inbound-message-size")
+        .optional()
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text(
           s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
 
       opt[Int]("maxInboundMessageSize")
+        .optional()
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text("This flag is deprecated -- please use --max-inbound-message-size.")
 
@@ -154,16 +157,9 @@ class Cli(defaultConfig: SandboxConfig) {
 
       opt[String]("sql-backend-jdbcurl")
         .optional()
-        .text("The JDBC connection URL to a Postgres database containing the username and password as well. If present, the Sandbox will use the database to persist its data.")
+        .text(
+          s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $name will use the database to persist its data.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
-
-      //TODO (robert): Think about all implications of allowing users to set the ledger ID.
-      opt[String]("ledgerid")
-        .optional()
-        .action((id, c) =>
-          c.copy(
-            ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
-        .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used.")
 
       opt[String]("log-level")
         .optional()
@@ -235,24 +231,6 @@ class Cli(defaultConfig: SandboxConfig) {
           s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${SandboxConfig.DefaultEventsPageSize}.")
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
-      private val seedingMap = Map[String, Option[Seeding]](
-        "no" -> None,
-        "testing-static" -> Some(Seeding.Static),
-        "testing-weak" -> Some(Seeding.Weak),
-        "strong" -> Some(Seeding.Strong))
-
-      opt[String]("contract-id-seeding")
-        .optional()
-        .text(s"""Set the seeding of contract ids. Possible values are ${seedingMap.keys.mkString(
-          ",")}. Default is "no".""")
-        .validate(
-          v =>
-            Either.cond(
-              seedingMap.contains(v.toLowerCase),
-              (),
-              s"seeding must be ${seedingMap.keys.mkString(",")}"))
-        .action((text, config) => config.copy(seeding = seedingMap(text)))
-
       opt[MetricsReporter]("metrics-reporter")
         .optional()
         .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
@@ -316,7 +294,7 @@ class Cli(defaultConfig: SandboxConfig) {
           config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
         })
         .text(
-          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${TimeModel.reasonableDefault.minSkew.getSeconds}.")
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}.")
 
       help("help").text("Print the usage text")
 
@@ -326,18 +304,46 @@ class Cli(defaultConfig: SandboxConfig) {
             "Wall-clock time mode (`-w`/`--wall-clock-time`) and scenario initialization (`--scenario`) may not be used together.")
         else success
       })
-
-      private def setTimeProviderType(
-          config: SandboxConfig,
-          timeProviderType: TimeProviderType,
-      ): SandboxConfig = {
-        if (config.timeProviderType.exists(_ != timeProviderType)) {
-          throw new IllegalStateException(
-            "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
-        }
-        config.copy(timeProviderType = Some(timeProviderType))
-      }
     }
+
+  def withContractIdSeeding(
+      defaultConfig: SandboxConfig,
+      seedingModes: Option[Seeding]*,
+  ): CommonCli = {
+    val seedingModesMap =
+      seedingModes.map(mode => (mode.map(_.name).getOrElse(Seeding.NoSeedingModeName), mode)).toMap
+    val allSeedingModeNames = seedingModesMap.keys.mkString(", ")
+    val defaultSeedingModeName =
+      defaultConfig.seeding.map(_.name).getOrElse(Seeding.NoSeedingModeName)
+    parser
+      .opt[String]("contract-id-seeding")
+      .optional()
+      .text(
+        s"""Set the seeding mode of contract IDs. Possible values are $allSeedingModeNames. Default is "$defaultSeedingModeName".""")
+      .validate(
+        v =>
+          Either.cond(
+            seedingModesMap.contains(v.toLowerCase),
+            (),
+            s"seeding mode must be one of $allSeedingModeNames"))
+      .action((text, config) => config.copy(seeding = seedingModesMap(text)))
+    this
+  }
+
+}
+
+object CommonCli {
+
+  private def setTimeProviderType(
+      config: SandboxConfig,
+      timeProviderType: TimeProviderType,
+  ): SandboxConfig = {
+    if (config.timeProviderType.exists(_ != timeProviderType)) {
+      throw new IllegalStateException(
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+    }
+    config.copy(timeProviderType = Some(timeProviderType))
+  }
 
   private def checkIfZip(f: File): Boolean = {
     import java.io.RandomAccessFile
@@ -349,6 +355,4 @@ class Cli(defaultConfig: SandboxConfig) {
     }.getOrElse(false)
   }
 
-  def parse(args: Array[String]): Option[SandboxConfig] =
-    cmdArgParser.parse(args, defaultConfig)
 }

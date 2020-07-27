@@ -11,6 +11,7 @@ import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.services.time.TimeProviderType.Static
 import com.daml.ports.Port
@@ -25,7 +26,7 @@ object LedgerFactories {
     UniversalArchiveReader().readFile(file).map(_.all.head._1).get
 
   private def sandboxConfig(jdbcUrl: Option[String], darFiles: List[File]) =
-    SandboxServer.defaultConfig.copy(
+    sandbox.DefaultConfig.copy(
       port = Port.Dynamic,
       damlPackages = darFiles,
       ledgerIdMode =

@@ -23,6 +23,8 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//libs-scala/direct-execution-context",
         "//libs-scala/grpc-utils",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_grpc_grpc_netty",

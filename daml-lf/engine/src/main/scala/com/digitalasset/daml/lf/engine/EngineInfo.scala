@@ -7,22 +7,12 @@ import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.value.ValueVersions
 
-class EngineInfo(config: Engine.Config) {
+class EngineInfo(config: EngineConfig) {
 
   override lazy val toString: String = show
 
   lazy val show: String =
     s"DAML LF Engine supports LF versions: $formatLfVersions; Input Transaction versions: $formatInputTransactionVersions; Input Value versions: $formatInputValueVersions; Output Transaction versions: $formatOutputTransactionVersions; Output Value versions: $formatOutputValueVersions"
-
-  private[this] def formatInputValueVersions: String =
-    format(ValueVersions.acceptedVersions.map(_.protoValue))
-
-  private[this] def formatOutputValueVersions: String =
-    format(
-      ValueVersions.acceptedVersions
-        .filter(config.allowedOutputValueVersions.contains)
-        .map(_.protoValue)
-    )
 
   private[this] def formatInputTransactionVersions: String =
     format(TransactionVersions.acceptedVersions.map(_.protoValue))
@@ -30,8 +20,20 @@ class EngineInfo(config: Engine.Config) {
   private[this] def formatOutputTransactionVersions: String =
     format(
       TransactionVersions.acceptedVersions
-        .filter(config.allowedOutputTransactionVersions.contains)
-        .map(_.protoValue))
+        .collect {
+          case v if config.outputTransactionVersions.contains(v) =>
+            v.protoValue
+        }
+    )
+
+  private[this] def formatInputValueVersions: String =
+    format(ValueVersions.acceptedVersions.map(_.protoValue))
+
+  private[this] def formatOutputValueVersions: String = {
+    val outputValueVersions =
+      config.outputTransactionVersions.map(TransactionVersions.assignValueVersion)
+    format(ValueVersions.acceptedVersions.filter(outputValueVersions.contains).map(_.protoValue))
+  }
 
   private def formatLfVersions: String = {
     val allVersions: Iterable[String] =

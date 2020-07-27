@@ -32,7 +32,7 @@ import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, 
 import scala.concurrent.Future
 
 /** Defines all the functionalities a Ledger needs to provide */
-trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
+private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
 

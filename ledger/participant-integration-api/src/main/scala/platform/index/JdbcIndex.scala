@@ -13,7 +13,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.ResourceOwner
 
-object JdbcIndex {
+private[platform] object JdbcIndex {
   def owner(
       serverRole: ServerRole,
       ledgerId: LedgerId,

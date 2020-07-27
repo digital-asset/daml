@@ -916,7 +916,7 @@ private class JdbcLedgerDao(
   }
 }
 
-object JdbcLedgerDao {
+private[platform] object JdbcLedgerDao {
 
   private val DefaultNumberOfShortLivedConnections = 16
 

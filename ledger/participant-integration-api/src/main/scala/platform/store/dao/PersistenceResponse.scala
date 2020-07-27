@@ -3,9 +3,9 @@
 
 package com.daml.platform.store.dao
 
-sealed abstract class PersistenceResponse extends Product with Serializable
+private[platform] sealed abstract class PersistenceResponse extends Product with Serializable
 
-object PersistenceResponse {
+private[platform] object PersistenceResponse {
 
   case object Ok extends PersistenceResponse
 

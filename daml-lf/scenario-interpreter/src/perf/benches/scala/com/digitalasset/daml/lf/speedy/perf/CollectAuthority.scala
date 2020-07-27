@@ -19,7 +19,6 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 import com.daml.lf.transaction.TransactionVersions
-import com.daml.lf.value.ValueVersions
 import org.openjdk.jmh.annotations._
 
 class CollectAuthority {
@@ -58,8 +57,7 @@ class CollectAuthorityState {
       compiledPackages,
       seeding(),
       expr,
-      ValueVersions.SupportedDevVersions,
-      TransactionVersions.SupportedDevVersions,
+      TransactionVersions.SupportedOutputDevVersions,
     )
     the_sexpr = machine.ctrl
 

@@ -716,7 +716,7 @@ contextForFile file = do
     lfVersion <- getDamlLfVersion
     WhnfPackage pkg <- use_ GeneratePackage file
     PackageMap pkgMap <- use_ GeneratePackageMap file
-    stablePackages <- use_ GenerateStablePackages file
+    stablePackages <- useNoFile_ GenerateStablePackages
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
         NM.toList $ LF.packageModules pkg

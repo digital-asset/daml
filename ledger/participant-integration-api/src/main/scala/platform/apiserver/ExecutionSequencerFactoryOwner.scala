@@ -11,7 +11,7 @@ import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class ExecutionSequencerFactoryOwner(implicit actorSystem: ActorSystem)
+private[daml] final class ExecutionSequencerFactoryOwner(implicit actorSystem: ActorSystem)
     extends ResourceOwner[ExecutionSequencerFactory] {
   // NOTE: Pick a unique pool name as we want to allow multiple LedgerApiServer instances,
   // and it's pretty difficult to wait for the name to become available again.

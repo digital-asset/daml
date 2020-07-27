@@ -35,6 +35,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//libs-scala/timer-utils",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",

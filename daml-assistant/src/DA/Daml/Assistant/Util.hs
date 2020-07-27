@@ -25,7 +25,7 @@ throwErr msg = throwIO (assistantError msg)
 wrapErr :: Text -> IO a -> IO a
 wrapErr ctx m = m `catches`
     [ Handler $ throwIO @IO @ExitCode
-    , Handler $ \(ExitCodeException{eceExitCode}) -> exitWith eceExitCode
+    , Handler $ \ExitCodeException{eceExitCode} -> exitWith eceExitCode
     , Handler $ throwIO . addErrorContext
     , Handler $ throwIO . wrapException
     ]

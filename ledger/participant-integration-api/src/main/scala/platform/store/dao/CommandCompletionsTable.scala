@@ -17,7 +17,7 @@ import com.daml.platform.store.Conversions._
 import io.grpc.Status.Code
 import com.google.rpc.status.Status
 
-object CommandCompletionsTable {
+private[platform] object CommandCompletionsTable {
 
   import SqlParser.{int, str}
 

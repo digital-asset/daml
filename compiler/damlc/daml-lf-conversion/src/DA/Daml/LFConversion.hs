@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
@@ -265,18 +264,17 @@ convertRationalDecimal env num denom
     -- num % denom * 10^10 needs to fit within a 128bit signed number.
     -- note that we can also get negative rationals here, hence we ask for upperBound128Bit - 1 as
     -- upper limit.
-    if | 10 ^ maxPrecision `mod` denom == 0 &&
-             abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
-            pure $ EBuiltin $
-            if envLfVersion env `supports` featureNumeric
-                then BENumeric $ numericFromDecimal $ fromRational r
-                else BEDecimal $ fromRational r
-       | otherwise ->
-           unsupported
-               ("Rational is out of bounds: " ++
-                show ((fromInteger num / fromInteger denom) :: Double) ++
-                ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1]")
-               (num, denom)
+    if 10 ^ maxPrecision `mod` denom == 0 && abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 then
+        pure $ EBuiltin $
+        if envLfVersion env `supports` featureNumeric
+            then BENumeric $ numericFromDecimal $ fromRational r
+            else BEDecimal $ fromRational r
+    else
+        unsupported
+            ("Rational is out of bounds: " ++
+             show ((fromInteger num / fromInteger denom) :: Double) ++
+             ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1]")
+            (num, denom)
   where
     r = num % denom
     upperBound128Bit = 10 ^ (38 :: Integer)
@@ -613,7 +611,7 @@ convertChoice env tbinds (ChoiceData ty expr)
     let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
     ERecCon _ [(_, controllers), (_, action), _] <- convertExpr env expr
     consuming <- case consumingTy of
-        TConApp (Qualified { qualObject = TypeConName con }) _
+        TConApp Qualified { qualObject = TypeConName con } _
             | con == ["NonConsuming"] -> pure NonConsuming
             | con == ["PreConsuming"] -> pure PreConsuming
             | con == ["Consuming"] -> pure Consuming
@@ -626,8 +624,7 @@ convertChoice env tbinds (ChoiceData ty expr)
         Consuming -> update
         NonConsuming -> update
         PreConsuming ->
-          EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
-          update
+          EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) update
         PostConsuming ->
           EUpdate $ UBind (Binding (res, choiceRetTy) update) $
           EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
@@ -636,7 +633,7 @@ convertChoice env tbinds (ChoiceData ty expr)
         { chcLocation = Nothing
         , chcName = choiceName
         , chcConsuming = consuming == Consuming
-        , chcControllers = controllers `ETmApp` EVar this `ETmApp` EVar (arg)
+        , chcControllers = controllers `ETmApp` EVar this `ETmApp` EVar arg
         , chcSelfBinder = self
         , chcArgBinder = (arg, choiceTy)
         , chcReturnType = choiceRetTy
@@ -795,9 +792,9 @@ convertExpr env0 e = do
     go env (VarIn GHC_CString "fromString") (LExpr x : args)
         = fmap (, args) $ convertExpr env x
     go env (VarIn GHC_CString "unpackCString#") (LExpr (Lit (LitString x)) : args)
-        = fmap (, args) $ pure $ EBuiltin $ BEText $ unpackCString x
+        = pure $ (, args) $ EBuiltin $ BEText $ unpackCString x
     go env (VarIn GHC_CString "unpackCStringUtf8#") (LExpr (Lit (LitString x)) : args)
-        = fmap (, args) $ pure $ EBuiltin $ BEText $ unpackCStringUtf8 x
+        = pure $ (, args) $ EBuiltin $ BEText $ unpackCStringUtf8 x
     go env x@(VarIn Control_Exception_Base _) (LType t1 : LType t2 : LExpr (untick -> Lit (LitString s)) : args)
         = fmap (, args) $ do
         x' <- convertExpr env x
@@ -928,7 +925,7 @@ convertExpr env0 e = do
             pure $ mkEApps bind' [TyArg monad', TmArg dict', TyArg t1', TyArg t2', TmArg x', TmArg (ETmLam (mkVar "_", t1') y')]
 
     go env (VarIn GHC_Types "[]") (LType (TypeCon (Is "Char") []) : args)
-        = fmap (, args) $ pure $ EBuiltin (BEText T.empty)
+        = pure $ (, args) $ EBuiltin (BEText T.empty)
     go env (VarIn GHC_Types "[]") args
         = withTyArg env varT1 args $ \t args -> pure (ENil t, args)
     go env (VarIn GHC_Types ":") args =
@@ -943,10 +940,10 @@ convertExpr env0 e = do
           withTmArg env (varV1, t) args $ \x args ->
             pure (ESome t x, args)
 
-    go env (VarIn GHC_Tuple "()") args = fmap (, args) $ pure EUnit
-    go env (VarIn GHC_Types "True") args = fmap (, args) $ pure $ mkBool True
-    go env (VarIn GHC_Types "False") args = fmap (, args) $ pure $ mkBool False
-    go env (VarIn GHC_Types "I#") args = fmap (, args) $ pure $ mkIdentity TInt64
+    go env (VarIn GHC_Tuple "()") args = pure (EUnit, args)
+    go env (VarIn GHC_Types "True") args = pure (mkBool True, args)
+    go env (VarIn GHC_Types "False") args = pure (mkBool False, args)
+    go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
         -- we pretend Int and Int# are the same thing
 
     go env (Var x) args
@@ -966,8 +963,8 @@ convertExpr env0 e = do
             pkgRef <- nameToPkgRef env $ varName x
             pure $ EVal $ Qualified pkgRef (envLFModuleName env) $ convVal x
             -- some things are global, but not with a module name, so give them the current one
-        | Just y <- envLookupAlias x env = fmap (, args) $ pure y
-        | otherwise = fmap (, args) $ pure $ EVar $ convVar x
+        | Just y <- envLookupAlias x env = pure (y, args)
+        | otherwise = pure $ (, args) $ EVar $ convVar x
 
     go env (Lam name x) args
         | isTyVar name = fmap (, args) $ do
@@ -1052,7 +1049,7 @@ convertExpr env0 e = do
 
 -- | Is this a constraint tuple?
 isConstraintTupleTyCon :: TyCon -> Bool
-isConstraintTupleTyCon = maybe False (== ConstraintTuple) . tyConTuple_maybe
+isConstraintTupleTyCon = (Just ConstraintTuple ==) . tyConTuple_maybe
 
 -- | Is this an enum type?
 isEnumTyCon :: TyCon -> Bool
@@ -1723,7 +1720,7 @@ bindTypeVars :: Env -> [Var] -> ConvertM (Env, [(TypeVarName, LF.Kind)])
 bindTypeVars env vs = do
     let (ns, env') = envBindTypeVars vs env
     ks <- mapM (convertKind . tyVarKind) vs
-    pure (env', (zipExact ns ks))
+    pure (env', zipExact ns ks)
 
 convTypeVar :: Env -> Var -> ConvertM (TypeVarName, LF.Kind)
 convTypeVar env v = do

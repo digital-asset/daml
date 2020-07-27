@@ -373,11 +373,10 @@ jobs:
       - checkout: self
         persistCredentials: true
       - bash: |
-          set -euxo pipefail
+          set -euo pipefail
           if git tag v$(release_tag) $(release_sha); then
             git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
-            mkdir $(Build.StagingDirectory)/bucket
           else
             echo "##vso[task.setvariable variable=skip-github]TRUE"
           fi
@@ -409,7 +408,7 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(daml-on-sql)
-          targetPath: $(Build.StagingDirectory)/bucket
+          targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
@@ -430,10 +429,6 @@ jobs:
           sha256sum $(find . -type f | sort) > sha256sums
           # Note: relies on our release artifacts not having spaces in their
           # names. Creates a ${f}.asc with the signature for each $f.
-          for f in *; do
-              gpg --homedir $GPG_DIR -ab $f
-          done
-          cd ../bucket
           for f in *; do
               gpg --homedir $GPG_DIR -ab $f
           done
@@ -467,9 +462,9 @@ jobs:
           gcloud auth activate-service-account --key-file=$GCS_KEY
           export BOTO_CONFIG=/dev/null
 
-          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql) \
+          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql) \
                     gs://daml-binaries/daml-on-sql/$(daml-on-sql)
-          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql).asc \
+          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql).asc \
                     gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
           gsutil cp $(Build.StagingDirectory)/release/$(json-api) \
                     gs://daml-binaries/json-api/$(json-api)
@@ -478,6 +473,17 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
         condition: not(eq(variables['skip-github'], 'TRUE'))
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade-assist)"
+
+          curl -XPOST \
+               -i \
+               -H 'Content-Type: application/json' \
+               --data "{\"text\":\"Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
+               $(Slack.team-daml)
+          }
+
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
@@ -536,7 +542,7 @@ jobs:
         git -c user.name="Azure Pipelines DAML Build" \
             -c user.email="support@digitalasset.com" \
             commit \
-            -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n"))"
+            -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
         git push origin $BRANCH:$BRANCH
         curl -H "Content-Type: application/json" \
              -u $AUTH \
@@ -777,6 +783,7 @@ jobs:
     dependsOn:
       - git_sha
       - collect_build_data
+      - check_for_release
     pool:
       name: 'linux-pool'
       demands: assignment -equals default
@@ -784,6 +791,7 @@ jobs:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       status: $[ dependencies.collect_build_data.result ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
       - bash: |
           set -euo pipefail
@@ -797,6 +805,22 @@ jobs:
                    --data "{\"text\":\"<@${USER_ID}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status ${MESSAGE}.\"}" \
                    $(Slack.team-daml-ci)
           }
+
+          tell_daml() {
+              local message
+              message=$1
+              curl -XPOST \
+                   -i \
+                   -H 'Content-Type: application/json' \
+                   --data "{\"text\":\"<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/$(pr.num)|#$(pr.num)> has completed with status ${message}.\"}" \
+                   $(Slack.team-daml)
+          }
+
+          if [ "$(is_release)" == "true" ]; then
+              # releases matter to everyone
+              tell_daml "$(status)"
+              exit 0
+          fi
 
           EMAIL=$(git log -n 1 --format=%ae $(branch_sha))
           user_registered() {

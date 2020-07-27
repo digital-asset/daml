@@ -11,9 +11,9 @@ import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.daml.ledger._
 import com.daml.ledger.api.domain.RejectionReason
 
-sealed abstract class LedgerEntry extends Product with Serializable
+private[platform] sealed abstract class LedgerEntry extends Product with Serializable
 
-object LedgerEntry {
+private[platform] object LedgerEntry {
 
   final case class Rejection(
       recordTime: Instant,

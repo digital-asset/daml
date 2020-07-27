@@ -114,7 +114,7 @@ private[dao] sealed abstract class ContractsReader(
 
 }
 
-object ContractsReader {
+private[dao] object ContractsReader {
 
   private[dao] def apply(
       dispatcher: DbDispatcher,

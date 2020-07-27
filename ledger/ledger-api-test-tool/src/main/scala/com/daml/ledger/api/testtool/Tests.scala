@@ -92,4 +92,6 @@ object Tests {
         performanceEnvelopeLatencyTestKey(envelope),
         performanceEnvelopeTransactionSizeTestKey(envelope)),
     }
+
+  private[testtool] val PerformanceTestsKeySet = PerformanceTestsKeys.toSet
 }

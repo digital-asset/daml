@@ -17,7 +17,7 @@ template. Take a look at the documentation for
 
 .. code-block:: sh
 
-   daml new script-example script-example # create a project called script-example based on the template
+   daml new script-example --template script-example # create a project called script-example based on the template
    cd script-example # switch to the new project
 
 Now, build the project and start :doc:`/tools/sandbox`, the in-memory
@@ -60,8 +60,10 @@ two forms:
    instance of ``Show`` and not ``()``.
 
 2. A pure expression ``expr`` of type ``a`` for some type ``a`` where
-   ``a`` is an instance of ``Show``. This will evaluate ``expr``
-   and print the result.
+   ``a`` is an instance of ``Show``. This will evaluate ``expr`` and
+   print the result. If you are only interest in pure expressions you
+   can also use DAML REPL :ref:`without connecting to a ledger
+   <repl-no-ledger>`.
 
 3. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
    a variable name ``x`` to bind the result to
@@ -69,6 +71,13 @@ two forms:
    This will execute the script and match the result against
    the pattern ``pat`` bindings the matches to the variables in the pattern.
    You can then use those variables on subsequent lines.
+
+4. A ``let`` binding of the form ``let pat = y``, where ``pat`` is a pattern
+   and ``y`` is a pure expression or ``let f x = y`` to define a function.
+   The bound variables can be used on subsequent lines.
+
+5. Next to DAML code the REPL also understands REPL commands which are prefixed
+   by ``:``. Enter ``:help`` to see a list of supported REPL commands.
 
 First create two parties: A party with the display name ``"Alice"``
 and the party id ``"alice"`` and a party with the display name
@@ -123,12 +132,28 @@ In the prompt, all modules from DALFs specified in ``--import`` are
 imported automatically. In addition to that, the ``DAML.Script``
 module is also imported and gives you access to the DAML Script API.
 
-You can use import declarations at the prompt to import additional modules.
+```suggestion
+You can use the commands ``:module + ModA ModB …`` to import additional modules and ``:module - ModA ModB …`` to remove previously added imports. Modules can also be imported using regular import declarations instead of ``module +``.
 
 .. code-block:: none
 
    daml> import DA.Time
    daml> debug (days 1)
+
+.. _repl-no-ledger:
+
+Using DAML REPL without a Ledger
+================================
+
+If you are only interested in pure expressions, e.g., because you want
+to test how some function behaves you can omit the ``--ledger-host``
+and ``-ledger-port`` parameters. DAML REPL will work as usual but any
+attempts to call DAML Script APIs that interact with the ledger, e.g.,
+``submit`` will result in the following error:
+
+.. code-block:: none
+
+    daml> java.lang.RuntimeException: No default participant
 
 Connecting via TLS
 ==================
@@ -140,8 +165,8 @@ authentication by passing ``--pem client.key --crt client.crt``. If
 ``--cacrt`` or ``--pem`` and ``--crt`` are passed TLS is automatically
 enabled so ``--tls`` is redundant.
 
-Connection to a Ledger with Authentication
-==========================================
+Connection to a Ledger with Authorization
+=========================================
 
-If your ledger requires an authentication token you can pass it via
+If your ledger requires an authorization token you can pass it via
 ``--access-token-file``.

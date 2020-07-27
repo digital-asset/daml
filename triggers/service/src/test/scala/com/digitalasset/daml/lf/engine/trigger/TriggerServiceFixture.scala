@@ -26,6 +26,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -188,7 +189,7 @@ object TriggerServiceFixture {
       dars: List[File],
       ledgerId: LedgerId
   ): SandboxConfig =
-    SandboxServer.defaultConfig.copy(
+    sandbox.DefaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.Static),

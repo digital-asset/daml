@@ -211,7 +211,7 @@ export type List<T> = T[];
  * Companion object of the [[List]] type.
  */
 export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
-  decoder: (): jtv.Decoder<T[]> => jtv.array(t.decoder()),
+  decoder: (): jtv.Decoder<T[]> => jtv.lazy(() => jtv.array(t.decoder())),
 });
 
 /**
@@ -279,7 +279,7 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
   constructor(private payload: Serializable<T>) { }
 
   decoder(): jtv.Decoder<Optional<T>> {
-    return jtv.oneOf(jtv.constant(null), this.innerDecoder());
+      return jtv.oneOf(jtv.constant(null), jtv.lazy(() => this.innerDecoder()));
   }
 
   private innerDecoder(): jtv.Decoder<OptionalInner<T>> {
@@ -323,7 +323,7 @@ export type TextMap<T> = { [key: string]: T };
  * Companion object of the [[TextMap]] type.
  */
 export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
-  decoder: (): jtv.Decoder<TextMap<T>> => jtv.dict(t.decoder()),
+    decoder: (): jtv.Decoder<TextMap<T>> => jtv.lazy(() => jtv.dict(t.decoder())),
 });
 
 // TODO(MH): `Map` type.

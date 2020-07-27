@@ -17,10 +17,11 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
-import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.Engine
+import com.daml.lf.data.ImmArray
+import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
   StandardTransactionCommitter,
@@ -30,11 +31,11 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -46,6 +47,8 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
+import com.github.ghik.silencer.silent
+import scalaz.syntax.tag._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
@@ -53,30 +56,37 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 object SandboxServer {
-  private val ActorSystemName = "sandbox"
+
+  private val DefaultName = LedgerName("Sandbox")
+
   private val AsyncTolerance = 30.seconds
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   // FIXME: https://github.com/digital-asset/daml/issues/5164
   // This should be made configurable
-  private val engineConfig: Engine.Config = Engine.DevConfig
+  @silent("Sandbox_Classic in object EngineConfig is deprecated")
+  private[sandbox] val engineConfig: EngineConfig = EngineConfig.Sandbox_Classic
 
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
   private val engine = new Engine(engineConfig)
 
+  // Only used for testing.
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
+    owner(DefaultName, config)
+
+  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
     for {
       metrics <- new MetricsReporting(
         classOf[SandboxServer].getName,
         config.metricsReporter,
         config.metricsReportingInterval,
       )
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName))
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- ResourceOwner
-        .forTryCloseable(() => Try(new SandboxServer(config, materializer, metrics)))
+        .forTryCloseable(() => Try(new SandboxServer(name, config, materializer, metrics)))
       // Wait for the API server to start.
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
@@ -120,14 +130,10 @@ object SandboxServer {
       apiServerResource.release()
   }
 
-  lazy val defaultConfig: SandboxConfig =
-    SandboxConfig.defaultConfig.copy(
-      seeding = None,
-      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    )
 }
 
 final class SandboxServer(
+    name: LedgerName,
     config: SandboxConfig,
     materializer: Materializer,
     metrics: Metrics,
@@ -135,15 +141,11 @@ final class SandboxServer(
 
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
-    this(config, materializer, new Metrics(new MetricRegistry))
+    this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
 
   // NOTE(MH): We must do this _before_ we load the first package.
   engine.setProfileDir(config.profileDir)
   engine.enableStackTraces(config.stackTraces)
-
-  // Name of this participant
-  // TODO: Pass this info in command-line (See issue #2025)
-  val participantId: ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
   private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
@@ -258,8 +260,9 @@ final class SandboxServer(
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
+          name,
           config.ledgerIdMode,
-          participantId,
+          config.participantId,
           jdbcUrl,
           defaultConfiguration,
           timeProvider,
@@ -276,8 +279,9 @@ final class SandboxServer(
 
       case None =>
         "in-memory" -> SandboxIndexAndWriteService.inMemory(
+          name,
           config.ledgerIdMode,
-          participantId,
+          config.participantId,
           defaultConfiguration,
           timeProvider,
           acs,
@@ -294,7 +298,8 @@ final class SandboxServer(
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
         LedgerId.unwrap(ledgerId),
-        participantId)
+        config.participantId,
+      )
       healthChecks = new HealthChecks(
         "index" -> indexAndWriteService.indexService,
         "write" -> indexAndWriteService.writeService,
@@ -308,7 +313,7 @@ final class SandboxServer(
       ledgerConfiguration = config.ledgerConfig
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
       apiServicesOwner = new ApiServices.Owner(
-        participantId = participantId,
+        participantId = config.participantId,
         optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),
         indexService = new TimedIndexService(indexAndWriteService.indexService, metrics),
         authorizer = authorizer,
@@ -344,7 +349,8 @@ final class SandboxServer(
     } yield {
       Banner.show(Console.out)
       logger.withoutContext.info(
-        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+        s"Initialized {} version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+        name,
         BuildInfo.Version,
         ledgerId,
         apiServer.port.toString,
@@ -352,7 +358,7 @@ final class SandboxServer(
         timeProviderType.description,
         ledgerType,
         authService.getClass.getSimpleName,
-        config.seeding.fold("no")(_.toString.toLowerCase),
+        config.seeding.fold(Seeding.NoSeedingModeName)(_.name),
         if (config.stackTraces) "" else ", stack traces = no",
         config.profileDir match {
           case None => ""
@@ -369,7 +375,7 @@ final class SandboxServer(
   }
 
   private def start(): Future[SandboxState] = {
-    newLoggingContext(logging.participantId(participantId)) { implicit logCtx =>
+    newLoggingContext(logging.participantId(config.participantId)) { implicit logCtx =>
       val packageStore = loadDamlPackages()
       val apiServerResource = buildAndStartApiServer(
         materializer,

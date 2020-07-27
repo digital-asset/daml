@@ -14,7 +14,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 
-object Conversions {
+private[platform] object Conversions {
 
   private def stringColumnToX[X](f: String => Either[String, X]): Column[X] =
     Column.nonNull((value: Any, meta) =>

@@ -8,7 +8,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.ScenarioGetParty
 import com.daml.lf.transaction.TransactionVersions
-import com.daml.lf.value.ValueVersions
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 
@@ -23,8 +22,7 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
         compiledPackages,
         txSeed,
         e,
-        ValueVersions.SupportedDevVersions,
-        TransactionVersions.SupportedDevVersions,
+        TransactionVersions.SupportedOutputDevVersions,
       )
       val sr = ScenarioRunner(m, _ + "-XXX")
       sr.run() match {

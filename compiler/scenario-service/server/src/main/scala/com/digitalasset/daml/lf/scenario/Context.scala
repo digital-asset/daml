@@ -20,7 +20,6 @@ import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.validation.Validation
-import com.daml.lf.value.ValueVersions
 import com.google.protobuf.ByteString
 
 import scala.collection.immutable.HashMap
@@ -154,8 +153,7 @@ class Context(val contextId: Context.ContextId) {
         compiledPackages,
         txSeeding,
         defn,
-        ValueVersions.SupportedDevVersions,
-        TransactionVersions.SupportedDevVersions,
+        TransactionVersions.SupportedOutputDevVersions,
       )
   }
 

@@ -3,7 +3,6 @@
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiWayIf #-}
 module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ( Options(..)
   , TimeoutSeconds

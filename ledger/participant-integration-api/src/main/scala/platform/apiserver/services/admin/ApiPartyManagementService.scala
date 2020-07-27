@@ -31,7 +31,7 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-final class ApiPartyManagementService private (
+private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
@@ -132,7 +132,7 @@ final class ApiPartyManagementService private (
   }
 }
 
-object ApiPartyManagementService {
+private[apiserver] object ApiPartyManagementService {
   def createApiService(
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,

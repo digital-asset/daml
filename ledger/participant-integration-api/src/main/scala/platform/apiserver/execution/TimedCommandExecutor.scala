@@ -11,7 +11,7 @@ import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class TimedCommandExecutor(
+private[apiserver] class TimedCommandExecutor(
     delegate: CommandExecutor,
     metrics: Metrics,
 ) extends CommandExecutor {

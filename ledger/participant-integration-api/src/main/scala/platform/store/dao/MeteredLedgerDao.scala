@@ -29,7 +29,8 @@ import com.daml.platform.store.entries.{
 
 import scala.concurrent.Future
 
-class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics) extends LedgerReadDao {
+private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics)
+    extends LedgerReadDao {
 
   override def maxConcurrentConnections: Int = ledgerDao.maxConcurrentConnections
 
@@ -120,7 +121,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics) extends L
       ledgerDao.stopDeduplicatingCommand(commandId, submitter))
 }
 
-class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
+private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     extends MeteredLedgerReadDao(ledgerDao, metrics)
     with LedgerDao {
 

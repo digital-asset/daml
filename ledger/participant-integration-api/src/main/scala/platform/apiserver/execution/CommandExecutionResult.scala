@@ -20,7 +20,7 @@ import com.daml.lf.transaction.SubmittedTransaction
   *                                 changed after command interpretation.
   * @param interpretationTimeNanos  Wall-clock time that interpretation took for the engine.
   */
-final case class CommandExecutionResult(
+private[apiserver] final case class CommandExecutionResult(
     submitterInfo: SubmitterInfo,
     transactionMeta: TransactionMeta,
     transaction: SubmittedTransaction,

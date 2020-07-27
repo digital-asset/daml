@@ -20,15 +20,14 @@ import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
-import com.daml.ledger.client.services.admin.PackageManagementClient
-import com.daml.ledger.client.services.admin.PartyManagementClient
+import com.daml.ledger.client.services.admin.{PackageManagementClient, PartyManagementClient}
 import com.daml.ledger.client.services.commands.{CommandClient, SynchronousCommandClient}
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.transactions.TransactionClient
-import io.grpc.{Channel, ManagedChannel}
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
+import io.grpc.{Channel, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -126,15 +125,14 @@ object LedgerClient {
   def fromBuilder(builder: NettyChannelBuilder, configuration: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-    configuration.sslContext.fold(builder.usePlaintext())(
-      builder.sslContext(_).negotiationType(NegotiationType.TLS))
-    val channel = builder.build()
-    sys.addShutdownHook {
-      if (!channel.isShutdown) {
-        val _ = channel.shutdownNow()
+    val resource = new GrpcChannel.Owner(builder, configuration).acquire()
+    resource.asFuture.flatMap { channel =>
+      sys.addShutdownHook {
+        resource.release()
+        ()
       }
+      apply(channel, configuration)
     }
-    apply(channel, configuration)
   }
 
 }

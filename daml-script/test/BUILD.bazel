@@ -226,7 +226,7 @@ client_server_test(
     client = ":test_client_single_participant",
     client_args = [
         "-w",
-        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
     ],
     client_files = [
         "$(rootpath :script-test.dar)",
@@ -241,8 +241,8 @@ client_server_test(
     server_args = [
         "--wall-clock-time",
         "--port=0",
-        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
         "--client-auth=none",
     ],
     server_files = ["$(rootpath :script-test.dar)"],

@@ -3,29 +3,19 @@
 
 package com.daml.testing.postgresql
 
-import java.net.{InetAddress, ServerSocket}
-
-import com.daml.ports.Port
+import com.daml.ports
 
 import scala.annotation.tailrec
 
-private[postgresql] object FreePort {
+private[postgresql] object LockedFreePort {
 
   @tailrec
   def find(tries: Int = 10): PortLock.Locked = {
-    val socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
-    val portLock = try {
-      val port = Port(socket.getLocalPort)
-      PortLock.lock(port)
-    } finally {
-      socket.close()
-    }
-    portLock match {
+    val port = ports.FreePort.find()
+    PortLock.lock(port) match {
       case Right(locked) =>
-        socket.close()
         locked
       case Left(failure) =>
-        socket.close()
         if (tries <= 1) {
           throw failure
         } else {

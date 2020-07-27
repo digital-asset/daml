@@ -35,7 +35,7 @@ import scala.concurrent.duration.{DurationInt, DurationLong}
   * This class helps avoiding code duplication and limiting the number of
   * database lookups, as multiple services and validators require the latest ledger config.
   */
-final class LedgerConfigProvider private (
+private[apiserver] final class LedgerConfigProvider private (
     index: IndexConfigManagementService,
     optWriteService: Option[WriteService],
     timeProvider: TimeProvider,
@@ -166,7 +166,7 @@ final class LedgerConfigProvider private (
   }
 }
 
-object LedgerConfigProvider {
+private[apiserver] object LedgerConfigProvider {
 
   def create(
       index: IndexConfigManagementService,

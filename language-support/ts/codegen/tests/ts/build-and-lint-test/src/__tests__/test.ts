@@ -6,6 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream } from  '@daml/ledger';
+import { Int } from '@daml/types';
 import pEvent from 'p-event';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
@@ -14,9 +15,11 @@ const LEDGER_ID = 'build-and-lint-test';
 const APPLICATION_ID = 'build-and-lint-test';
 const SECRET_KEY = 'secret';
 const computeToken = (party: string) => encode({
-  ledgerId: LEDGER_ID,
-  applicationId: APPLICATION_ID,
-  party,
+  "https://daml.com/ledger-api": {
+    ledgerId: LEDGER_ID,
+    applicationId: APPLICATION_ID,
+    actAs: [party],
+  },
 }, SECRET_KEY, 'HS256');
 
 const ALICE_PARTY = 'Alice';
@@ -41,9 +44,9 @@ const getEnv = (variable: string): string => {
   return result;
 }
 
-const spawnJvmAndWaitOn = async (jar: string, args: string[], resource: string): Promise<ChildProcess> => {
+const spawnJvmAndWaitOn = async (jar: string, args: string[], resource: string, jvmArgs: string[] = []): Promise<ChildProcess> => {
   const java = getEnv('JAVA');
-  const proc = spawn(java, ['-jar', jar, ...args], {stdio: "inherit",});
+  const proc = spawn(java, [...jvmArgs, '-jar', jar, ...args], {stdio: "inherit",});
   await waitOn({resources: [resource]})
   return proc;
 }
@@ -66,6 +69,8 @@ beforeAll(async () => {
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
      '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
     `file:${JSON_API_PORT_FILE}`,
+    ['-Dakka.http.server.request-timeout=60s',
+     '-Dlogback.configurationFile=' + getEnv("JSON_API_LOGBACK")],
   )
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
   jsonApiPort = parseInt(jsonApiPortData);
@@ -100,6 +105,25 @@ function promisifyStream<T extends object, K, I extends string, State>(
   const close = () => stream.close();
   return {next, close};
 }
+
+describe('decoders for recursive types do not loop', () => {
+  test('recursive enum', () => {
+    expect(buildAndLint.Main.Expr(Int).decoder().run(undefined).ok).toBe(false);
+  });
+
+  test('recursive record with guards', () => {
+    expect(buildAndLint.Main.Recursive.decoder().run(undefined).ok).toBe(false);
+  });
+
+  // FIXME(MH): This test does not pass yet, see https://github.com/digital-asset/daml/issues/6840
+  // test('uninhabited record', () => {
+  //   expect(buildAndLint.Main.VoidRecord.decoder().run(undefined).ok).toBe(false);
+  // });
+
+  test('uninhabited enum', () => {
+    expect(buildAndLint.Main.VoidEnum.decoder().run(undefined).ok).toBe(false);
+  });
+});
 
 test('create + fetch & exercise', async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
@@ -271,6 +295,7 @@ test('create + fetch & exercise', async () => {
     n0:  '3.0',          // Numeric 0
     n5:  '3.14159',      // Numeric 5
     n10: '3.1415926536', // Numeric 10
+    rec: {'recOptional': null, 'recList': [], 'recTextMap': {}},
   };
   const allTypesContract = await aliceLedger.create(buildAndLint.Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
