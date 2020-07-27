@@ -4,7 +4,7 @@
 *DAML on SQL*
 #############
 
-DAML on SQL is a PostgreSQL-based DAML ledger implementation.
+*DAML on SQL* is a PostgreSQL-based DAML ledger implementation.
 
 Setup PostgreSQL and run
 ************************
