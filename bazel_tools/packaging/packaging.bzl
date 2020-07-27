@@ -12,7 +12,13 @@ def _package_app_impl(ctx):
 
     args = ctx.actions.args()
     inputs = depset([], transitive = [files, runfiles, datafiles] + [r.files for r in ctx.attr.resources])
-    tools = [ctx.executable.tar, ctx.executable.gzip] if is_windows else [ctx.executable.patchelf, ctx.executable.tar, ctx.executable.gzip]
+    tools = [
+        ctx.executable.gzip,
+        ctx.executable.mktgz,
+        ctx.executable.tar,
+    ]
+    if not is_windows:
+        tools.append(ctx.executable.patchelf)
     ctx.actions.run_shell(
         outputs = [ctx.outputs.out],
         tools = [ctx.executable.package_app] + tools,
@@ -73,6 +79,12 @@ package_app = rule(
         ),
         "patchelf": attr.label(
             default = None if is_windows else Label("@patchelf_nix//:bin/patchelf"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+        "mktgz": attr.label(
+            default = Label("//bazel_tools/sh:mktgz"),
             cfg = "host",
             executable = True,
             allow_files = True,
