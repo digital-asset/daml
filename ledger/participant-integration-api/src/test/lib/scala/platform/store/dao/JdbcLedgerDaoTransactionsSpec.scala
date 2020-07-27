@@ -514,13 +514,23 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         case (boolSeq, cp) =>
           for {
             from <- ledgerDao.lookupLedgerEnd()
-            commands <- storeSync(boolSeq map (if (_) singleCreate else singleCreate)) // TODO replace singleCreate
+            commands <- storeSync(boolSeq map (if (_) cp.makeMatching() else cp.makeNonMatching()))
+            matchingOffsets = commands zip boolSeq collect {
+              case ((off, _), true) => off.toHexString
+            }
             to <- ledgerDao.lookupLedgerEnd()
             response <- ledgerDao.transactionsReader
               .getFlatTransactions(from, to, cp.filter, verbose = false)
               .runWith(Sink.seq)
+            readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
             readCreates = extractAllTransactions(response) flatMap (_.events)
-          } yield readCreates.size should ===(boolSeq count identity) // TODO cp.discriminate
+          } yield {
+            readCreates.size should ===(boolSeq count identity)
+            // we check that the offsets from the DB match the ones we had before
+            // submission as a substitute for actually inspecting the events (indeed,
+            // so many of the events are = as written that this would not be useful)
+            readOffsets should ===(matchingOffsets)
+          }
       }
       .map(_.foldLeft(1 shouldBe 1)((_, r) => r))
   }
