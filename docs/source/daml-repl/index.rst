@@ -17,7 +17,7 @@ template. Take a look at the documentation for
 
 .. code-block:: sh
 
-   daml new script-example script-example # create a project called script-example based on the template
+   daml new script-example --template script-example # create a project called script-example based on the template
    cd script-example # switch to the new project
 
 Now, build the project and start :doc:`/tools/sandbox`, the in-memory

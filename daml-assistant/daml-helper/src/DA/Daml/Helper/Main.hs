@@ -129,11 +129,19 @@ commandParser = subparser $ fold
         <*> strOption (long "logback-config")
         <*> stdinCloseOpt
 
-    newCmd = asum
+    newCmd =
+        let tplOpts :: HasMetavar a => Mod a String
+            tplOpts =
+                metavar "TEMPLATE" <>
+                help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")
+        in asum
         [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
         , New
             <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-            <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
+            <*> optional
+                  (strOption (long "template" <> tplOpts) <|>
+                   argument str tplOpts
+                  )
         ]
 
     createDamlAppCmd =
