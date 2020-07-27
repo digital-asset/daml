@@ -74,7 +74,7 @@ import Type (splitTyConApp)
 data Error
     = ParseError MsgDoc
     | UnsupportedStatement String -- ^ E.g., pattern on the LHS
-    | UnknownModules [ModuleName]
+    | NotImportedModules [ModuleName]
     | TypeError -- ^ The actual error will be in the diagnostics
     | ScriptError ReplClient.BackendError
 
@@ -84,8 +84,8 @@ renderError dflags err = case err of
         putStrLn (showSDoc dflags err)
     (UnsupportedStatement str) ->
         putStrLn ("Unsupported statement: " <> str)
-    (UnknownModules names) ->
-        putStrLn ("Unknown modules: " <> intercalate ", " (map moduleNameString names))
+    (NotImportedModules names) ->
+        putStrLn ("Not imported, cannot remove: " <> intercalate ", " (map moduleNameString names))
     TypeError ->
         -- The error will be displayed via diagnostics.
         pure ()
@@ -449,7 +449,7 @@ runRepl importPkgs opts replClient logger ideState = do
               , imported `notElem` map mkModuleName modules
               ]
         unless (null unknown) $
-            throwError $ UnknownModules unknown
+            throwError $ NotImportedModules unknown
         lift $ State.modify $ \s -> s { imports = newImports }
     optModule dflags ("+" : modules) = do
         let imports = map (simpleImportDecl . mkModuleName) modules
