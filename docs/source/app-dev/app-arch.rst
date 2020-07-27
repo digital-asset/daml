@@ -124,10 +124,10 @@ typical DAML developer workflow is to
 
 .. image:: ./developer_workflow.svg
 
-.. _handling-submission-failures:
+.. _command-deduplication:
 
-Handle failures when submitting commands
-****************************************
+Command deduplication
+*********************
 
 The interaction of a DAML application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
 
@@ -147,6 +147,24 @@ To use command deduplication, you should:
 
 
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
+
+
+.. _handling-participant-node-failover:
+
+Handling participant node failover
+**********************************
+
+Some DAML Ledgers support exposing multiple eventually consistent Ledger API endpoints hosted by separate participant nodes.
+
+To support switching to a different participant node at run time,
+your application should keep track of the last ledger offset received from the :ref:`transaction service <transaction-service>`.
+After switching to a new participant node, subscribe to the transaction stream using the last received offset.
+If you receive the OUT_OF_RANGE error, it means the new participant node hasn't caught up with the state on the previous participant yet
+and your application should retry subscribing to the transaction stream until successful.
+
+Note that command deduplication is not guaranteed to work across participants.
+Contanct your ledger operator to find out whether you can safely resubmit all outstanding commands to the new participant.
+
 
 .. _dealing-with-time:
 
