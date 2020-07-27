@@ -53,7 +53,8 @@
 -- @ERROR Aborted: controllerCanAddsObserver OK
 -- @ERROR Aborted: choiceControllerDoesntAddObserver OK
 -- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_DoubleArchive)
--- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_EvUpdExercConsumErr)
+-- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_EvUpdExercConsumErr_1)
+-- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_EvUpdExercConsumErr_2)
 -- @ERROR EvUpdExercNonConsumErr OK
 -- @ERROR EvUpdExercWithoutActorsErr_1 OK
 -- @ERROR EvUpdExercWithoutActorsErr_2 OK
@@ -431,23 +432,43 @@ doubleArchive = scenario do
 
 -- | Verify that a consuming choice's update is interpreted with a
 -- ledger state where the template has already been consumed.
-template T_EvUpdExercConsumErr
+template T_EvUpdExercConsumErr_1
   with
     p : Party
   where
     signatory p
-    choice C_EvUpdExercConsumErr : ()
+    choice C_EvUpdExercConsumErr_1 : ()
       controller p
         do
           archive self
-          error "EvUpdExercConsumErr failed (1)"
+          error "EvUpdExercConsumErr_1 failed (1)"
 
-evUpdExercConsumErr = scenario do
+evUpdExercConsumErr_1 = scenario do
   p <- getParty "Alice"
   submit p do
-    c <- create (T_EvUpdExercConsumErr p)
-    exercise c C_EvUpdExercConsumErr
-    abort "EvUpdExercConsumErr failed (2)"
+    c <- create (T_EvUpdExercConsumErr_1 p)
+    exercise c C_EvUpdExercConsumErr_1
+    abort "EvUpdExercConsumErr_1 failed (2)"
+
+
+-- | Similar to `T_EvUpdExercConsumErr_1` but using fetch instead of archive.
+template T_EvUpdExercConsumErr_2
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercConsumErr_2 : ()
+      controller p
+        do
+          fetch self
+          error "EvUpdExercConsumErr_2 failed (1)"
+
+evUpdExercConsumErr_2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercConsumErr_2 p)
+    exercise c C_EvUpdExercConsumErr_2
+    abort "EvUpdExercConsumErr_2 failed (2)"
 
 -- | Verify that a nonconsuming choice's update is interpreted with
 -- the original ledger state (template hasn't been consumed).
