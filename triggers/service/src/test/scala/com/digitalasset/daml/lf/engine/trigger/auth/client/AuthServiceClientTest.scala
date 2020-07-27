@@ -56,6 +56,7 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
         token2 <- client.getLedgerToken("username", "password", testLedgerId)
         _ <- token1.token should not be empty
         _ <- token2.token should not be empty
+        // FIXME: These tokens are equal sometimes. Why?
         _ <- token1 should not equal token2
       } yield succeed
     }
