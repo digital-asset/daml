@@ -132,8 +132,10 @@ In the prompt, all modules from DALFs specified in ``--import`` are
 imported automatically. In addition to that, the ``DAML.Script``
 module is also imported and gives you access to the DAML Script API.
 
-```suggestion
-You can use the commands ``:module + ModA ModB …`` to import additional modules and ``:module - ModA ModB …`` to remove previously added imports. Modules can also be imported using regular import declarations instead of ``module +``.
+You can use the commands ``:module + ModA ModB …`` to import additional modules
+and ``:module - ModA ModB …`` to remove previously added imports. Modules can
+also be imported using regular import declarations instead of ``module +``.
+The command ``:show imports`` lists the currently active imports.
 
 .. code-block:: none
 

@@ -238,7 +238,9 @@ newtype Imports = Imports (Map.Map ModuleName [ImportDecl GhcPs])
 -- by an already existing import declaration, then it will not be added.
 --
 -- Subsumption of import declarations is based on the implementation of
--- 'GHCi.UI.iiSubsumes'.
+-- 'GHCi.UI.iiSubsumes'. Note, that this is not fully precise. For example,
+-- @import DA.Time (days, hours)@ should subsume @import DA.Time (hours)@, but
+-- does not because of different source locations on the imported symbols.
 importInsert :: ImportDecl GhcPs -> Imports -> Imports
 importInsert i (Imports m) = Imports $ Map.alter insert name m
   where
@@ -478,12 +480,14 @@ runRepl importPkgs opts replClient logger ideState = do
     replOptions =
       [ ("help", mkReplOption optHelp)
       , ("module", mkReplOption optModule)
+      , ("show", mkReplOption optShow)
       ]
     optHelp _dflags _args = liftIO $ T.putStrLn $ T.unlines
       [ " Commands available from the prompt:"
       , ""
       , "   <statement>                 evaluate/run <statement>"
       , "   :module [+/-] <mod> ...     add or remove the modules from the import list"
+      , "   :show imports               show the current module imports"
       ]
     optModule _dflags ("-" : names) =
         removeImports $ map mkModuleName names
@@ -491,6 +495,10 @@ runRepl importPkgs opts replClient logger ideState = do
         addImports dflags $ map (simpleImportDecl . mkModuleName) names
     optModule dflags names =
         addImports dflags $ map (simpleImportDecl . mkModuleName) names
+    optShow dflags ["imports"] = do
+        ReplState {imports} <- State.get
+        liftIO $ putStr $ unlines $ moduleImports dflags imports
+    optShow _dflags _ = liftIO $ putStrLn ":show [imports]"
 
     addImports
         :: DynFlags
@@ -549,6 +557,16 @@ data ModuleRenderings
           -- reason to run them.
         }
 
+moduleImports
+    :: DynFlags
+    -> Imports
+    -> [String]
+moduleImports dflags imports =
+    "import Daml.Script -- implicit"
+    : map renderImport (importToList imports)
+  where
+    renderImport imp = showSDoc dflags (ppr imp)
+
 moduleHeader
     :: DynFlags
     -> Imports
@@ -558,12 +576,7 @@ moduleHeader dflags imports line =
     [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
     , "{-# LANGUAGE PartialTypeSignatures #-}"
     , "module " <> lineModuleName line <> " where"
-    ] <>
-    ( "import Daml.Script"
-    : map renderImport (importToList imports)
-    )
-  where
-    renderImport imp = showSDoc dflags (ppr imp)
+    ] <> moduleImports dflags imports
 
 renderModule
     :: DynFlags
