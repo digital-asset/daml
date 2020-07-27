@@ -1,20 +1,20 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML-on-SQL
-###########
+*DAML on SQL*
+#############
 
-DAML-on-SQL is a PostgreSQL-based DAML ledger implementation.
+DAML on SQL is a PostgreSQL-based DAML ledger implementation.
 
 Setup PostgreSQL and run
 ************************
 
 Before starting, you need to perform the following steps:
 
-- create an initially empty PostgresSQL database that DAML-on-SQL can access
-- have a database user for DAML-on-SQL that has authority to execute DDL operations
+- create an initially empty PostgresSQL database that *DAML on SQL* can access
+- have a database user for *DAML on SQL* that has authority to execute DDL operations
 
-This is because DAML-on-SQL manages its own database schema,
+This is because *DAML on SQL* manages its own database schema,
 applying migrations if necessary when upgrading versions.
 
 To specify the PostgreSQL instance you wish to connect, use the
@@ -29,7 +29,7 @@ shells, we recommend quoting the JDBC URL like so:
 
 .. code-block:: none
 
-  $ java -jar daml-on-sql-<version>.jar --sql-backend-jdbcurl 'jdbc:postgresql://localhost/test?user=fred&password=secret'
+  $ java -jar dam-on-sql-<version>.jar --sql-backend-jdbcurl 'jdbc:postgresql://localhost/test?user=fred&password=secret'
 
 If you're not familiar with JDBC URLs, see the `PostgreSQL JDBC docs for more information <https://jdbc.postgresql.org/documentation/head/connect.html>`__.
 
@@ -39,31 +39,31 @@ Architecture and availability
 Processes and components
 ========================
 
-The core processes necessary to run a DAML-on-SQL deployment are:
+The core processes necessary to run a *DAML on SQL* deployment are:
 
-- the JVM-hosted standalone Ledger API server and
+- the *DAML on SQL* server and
 - the PostgreSQL server used to persist the ledger data.
 
-The Ledger API server communicates with the external world via the gRPC
-Ledger API and communicates with PostgreSQL via JDBC to persist transactions,
-keep track of active contracts, store compiled DAML packages, and so on.
+*DAML on SQL* communicates with the external world via the gRPC Ledger API
+and communicates with PostgreSQL via JDBC to persist transactions, keep
+track of active contracts, store compiled DAML packages, and so on.
 
 Core architecture considerations
 ================================
 
 A very important point to make is that the backing PostgreSQL server performs a
 lot of work which is both CPU- and IO-intensive: all (valid) Ledger API requests
-will eventually hit the database. At the same time, the Ledger API server has to
+will eventually hit the database. At the same time, the *DAML on SQL* server has to
 have available resources to validate requests, evaluate commands and prepare responses.
 While the PostgreSQL schema is designed to be as efficient as possible, practical
 experience has shown that having **dedicated computation and memory resources for the
-two core components** (the Ledger API server and the PostgreSQL server) allows the two
+two core components** (the *DAML on SQL* server and the PostgreSQL server) allows the two
 to run without interfering with each other. Depending on the kind of
 deployment you wish to make, this can be achieved with containerization, virtualization
 or simply using physically different machines. Still, the Ledger API communicates
 abundantly with the PostgreSQL server and many Ledger API requests need to go all
 the way to persist information on the database. To reduce the latency necessary to
-serve outstanding requests, **the Ledger API server and PostgreSQL server should be
+serve outstanding requests, **the *DAML on SQL* server and PostgreSQL server should be
 physically co-located**.
 
 Core availability considerations
@@ -73,19 +73,18 @@ In order to address availability concerns, it's important to understand what eac
 core components do and how they interact with each other, in particular regarding state
 and consistency.
 
-In DAML-on-SQL, the Ledger API server holds important state that affects the offset
-assigned to each transaction. This effectively means that having two Ledger API servers
-running on top of a single PostgreSQL server can lead to duplicated and inconsistent
-offsets, effectively leading to undefined (and likely broken) behavior. For this reason,
-it's important to maintain a strict 1:1 relationship between a running Ledger API server
-and a running PostgreSQL server. Note that using PostgreSQL in a high-availability
-configuration does not allow you to run additional Ledger API servers.
+Having two *DAML on SQL* servers running on top of a single PostgreSQL server can lead to
+undefined (and likely broken) behavior. For this reason, it's important to maintain a strict
+1:1 relationship between a running *DAML on SQL* server and a running PostgreSQL server.
+Note that using PostgreSQL in a high-availability configuration does not allow you to run
+additional *DAML on SQL* servers.
 
-Downtime for the Ledger API server can be minimized using a watchdog or orchestration
+Downtime for the *DAML on SQL* server can be minimized using a watchdog or orchestration
 system taking care of evaluating its health of the core components and ensuring its
-availability. The Ledger API implementation of DAML-on-SQL exposes the standard gRPC
+availability. The Ledger API implementation of *DAML on SQL* exposes the standard gRPC
 health checkpoint that can be used to evaluate the health status of the Ledger API
-component. More information on the endpoint can be found at the documentation for gRPC.
+component. More information on the endpoint can be found at the
+`documentation for gRPC <https://github.com/grpc/grpc/blob/1.29.0/doc/health-checking.md>`__.
 
 Security and privacy
 ********************
@@ -93,26 +92,26 @@ Security and privacy
 Trust assumptions
 =================
 
-In DAML-on-SQL, all data is kept centrally by the operator of the deployment.
+In *DAML on SQL*, all data is kept centrally by the operator of the deployment.
 Thus, it's their responsibility to ensure that the data is treated with the
 appropriate care so to respect confidentiality and the applicable regulations.
 
 The ledger operator is advised to use the tools available to them to not divulge
 private user data, including those documented by PostgreSQL, to protect data at
-rest and using a secure communication channel between the Ledger API server and
+rest and using a secure communication channel between the *DAML on SQL* server and
 the PostgreSQL server.
 
 Ledger API over TLS
 ===================
 
 To protect data in transit and allow using the Ledger API over untrusted networks,
-the DAML-on-SQL Ledger API server implementation leverages gRPC's built-in TLS support
-to allow clients to verify the server's identity and encrypt the communication channel
-over which the Ledger API requests and responses are sent.
+*DAML on SQL* leverages gRPC's built-in TLS support to allow clients to verify the
+server's identity and encrypt the communication channel over which the Ledger API
+requests and responses are sent.
 
 To enable TLS, you need to specify the private key for your server and the certificate
-chain via ``java -jar daml-on-sql-<version>.jar --pem server.pem --crt server.crt``.
-By default, DAML-on-SQL requires client authentication as well. You can set a custom root
+chain via ``java -jar dam-on-sql-<version>.jar --pem server.pem --crt server.crt``.
+By default, *DAML on SQL* requires client authentication as well. You can set a custom root
 CA certificate used to validate client certificates via ``--cacrt ca.crt``. You can
 change the client authentication mode via ``--client-auth none`` which will disable it
 completely, ``--client-auth optional`` which makes it optional or specify the default
@@ -121,34 +120,34 @@ explicitly via ``--client-auth require``.
 Ledger API Authorization
 ========================
 
-By default, DAML-on-SQL accepts all valid Ledger API requests.
+By default, *DAML on SQL* accepts all valid Ledger API requests.
 
-DAML-on-SQL allows to enable authorization, representing claims as defined by the
+*DAML on SQL* allows to enable authorization, representing claims as defined by the
 `Ledger API authorization documentation <https://docs.daml.com/app-dev/authentication.html#authentication-claims>`__
 using the `JWT <https://jwt.io/>`__ format.
 
 The following command line options are available to enable authorization:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
-  DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
+  *DAML on SQL* will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
   with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
 - ``--auth-jwt-es256-crt=<filename>``.
-  DAML-on-SQL will expect all tokens to be signed with ES256 (ECDSA using P-256 and SHA-256)
+  *DAML on SQL* will expect all tokens to be signed with ES256 (ECDSA using P-256 and SHA-256)
   with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certicates (binary files) are supported.
 
 - ``--auth-jwt-es512-crt=<filename>``.
-  DAML-on-SQL will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512)
+  *DAML on SQL* will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512)
   with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
 - ``--auth-jwt-rs256-jwks=<url>``.
-  DAML-on-SQL will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
+  *DAML on SQL* will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
   with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
 
 .. warning::
@@ -157,7 +156,7 @@ The following command line options are available to enable authorization:
   None of them is considered safe for production:
 
   - ``--auth-jwt-hs256-unsafe=<secret>``.
-    DAML-on-SQL will expect all tokens to be signed with HMAC256 with the given plaintext secret.
+    *DAML on SQL* will expect all tokens to be signed with HMAC256 with the given plaintext secret.
 
 Token payload
 ^^^^^^^^^^^^^
@@ -228,9 +227,9 @@ Similarly, you can use the following command for ES512 keys:
 Command-line reference
 **********************
 
-To start DAML-on-SQL, run: ``java -jar daml-on-sql-<version>.jar [options] ``.
+To start *DAML on SQL*, run: ``java -jar dam-on-sql-<version>.jar [options] ``.
 
-To see all the available options, run ``java -jar daml-on-sql-<version>.jar --help``.
+To see all the available options, run ``java -jar dam-on-sql-<version>.jar --help``.
 
 Monitoring
 **********
@@ -250,7 +249,7 @@ To enable metrics and configure reporting, you can use the two following CLI opt
   - ``graphite://<server_host>[:<server_port>][/<metric_prefix>]``: sends captured metrics to a Graphite server. If the port
     is omitted, the default value ``2003`` will be used. A ``metric_prefix`` can be specified, causing all metrics to be reported with the specified prefix.
 
-- ``--metrics-reporting-interval``: metrics are pre-aggregated on DAML-on-SQL and sent to
+- ``--metrics-reporting-interval``: metrics are pre-aggregated on *DAML on SQL* and sent to
   the reporter, this option allows the user to set the interval. The formats accepted are based
   on the ISO-8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
   The default interval is 10 seconds.
@@ -639,7 +638,7 @@ streaming services measure the time to return the first response.
 -------
 
 Under the ``jvm`` namespace there is a collection of metrics that
-tracks important measurements about the JVM that DAML-on-SQL is
+tracks important measurements about the JVM that *DAML on SQL* is
 running on, including CPU usage, memory consumption and the
 current state of threads.
 
@@ -649,7 +648,7 @@ DAML Ledger Model Compliance
 Model conformance
 =================
 
-On top of bespoke unit and integration tests, the DAML-on-SQL is
+On top of bespoke unit and integration tests, the *DAML on SQL* is
 thoroughly tested with the Ledger API Test Tool to ensure that the
 implementation conforms with the DAML Ledger Model.
 
@@ -659,7 +658,7 @@ Performance envelope
 Furthermore, this implementation is regularly tested to comply
 with the DAML Ledger Implementation Performance Envelope tests.
 
-In particular, the tests are run to ensure that DAML-on-SQL can:
+In particular, the tests are run to ensure that *DAML on SQL* can:
 
 - process transactions as large as 1 MB
 - have a tail latency no greater than 1 second when issuing 20 pings
@@ -684,7 +683,7 @@ with a 1 vCPU, 3.75 GB of RAM, 250 MB/s of network throughput, a 10 GB SDD HD,
 1.2 MB/s of R/W disk throughput, 8 RIOPS and 15 WIOPS, no automatic failover
 or disk increase, default PostgreSQL 12 configuration.
 
-- Ledger API server: a GCP N1-Standard-1 instance, with 1 vCPU, 3.75 GB
+- *DAML on SQL* server: a GCP N1-Standard-1 instance, with 1 vCPU, 3.75 GB
 of RAM, Ubuntu 20.04 LTS (64 bit), 10 GB boot disk, OpenJDK 1.8.0_242
 
 - Ledger API test tool client: a GCP F1-Micro instance, with 1 shared vCPU,
