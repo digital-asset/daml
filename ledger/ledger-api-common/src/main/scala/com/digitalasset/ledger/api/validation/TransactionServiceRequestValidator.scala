@@ -70,9 +70,7 @@ class TransactionServiceRequestValidator(
       offsetOrdering: Ordering[LedgerOffset.Absolute]): Result[Unit] =
     ledgerOffset match {
       case abs: LedgerOffset.Absolute if offsetOrdering.gt(abs, ledgerEnd) =>
-        Left(
-          invalidArgument(
-            s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"))
+        Left(outOfRange(s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"))
       case _ => Right(())
     }
 
