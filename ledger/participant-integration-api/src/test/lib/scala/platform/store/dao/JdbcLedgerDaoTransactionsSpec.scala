@@ -578,6 +578,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       daoOwner(eventsPageSize = 2).acquire()
     }.asFuture
 
+  // XXX SC much of this is repeated because we're more concerned here
+  // with whether each query is tested than whether the specifics of the
+  // predicate are accurate. To test the latter, the creation would have
+  // to have much more detail and should be a pair of Gen[Offset => LedgerEntry.Transaction]
+  // rather than a pair of simple side-effecting procedures that always
+  // produce more or less the same data.  If we aren't interested in testing
+  // the latter at any point, we can remove most of this.
   private val getFlatTransactionCodePaths: Seq[FlatTransactionCodePath] = {
     import JdbcLedgerDaoTransactionsSpec.{FlatTransactionCodePath => Mk}
     Seq(
@@ -599,6 +606,27 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       Mk(
         "onlyWildcardParties",
         Map(alice -> Set.empty, bob -> Set.empty),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(charlie))),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+      ),
+      Mk(
+        "sameTemplates",
+        Map(alice -> Set(someTemplateId), bob -> Set(someTemplateId)),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(charlie))),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+      ),
+      Mk(
+        "mixedTemplates",
+        Map(alice -> Set(someTemplateId), bob -> Set(someRecordId)),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(charlie))),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+      ),
+      Mk(
+        "mixedTemplatesWithWildcardParties",
+        Map(alice -> Set(someTemplateId), bob -> Set.empty),
         () => singleCreateP(create(_, signatories = Set(alice))),
         () => singleCreateP(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
