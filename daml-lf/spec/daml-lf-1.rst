@@ -2686,7 +2686,7 @@ as described by the ledger model::
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Err t
-   —————————————————————————————————————————————————————————————————————— EvUpdExercErr1
+   —————————————————————————————————————————————————————————————————————— EvUpdExercActorEvalErr
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
 
      'tpl' (x : T)
@@ -2707,7 +2707,7 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Err t
-   —————————————————————————————————————————————————————————————————————— EvUpdExercErr2
+   —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      Err t

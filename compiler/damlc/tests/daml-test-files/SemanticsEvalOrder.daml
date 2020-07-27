@@ -527,8 +527,8 @@ badActorCheck_1 = scenario do
   error "BadActorCheck_1 failed"
 
 -- | Checks that the bad actor does not occur before running the update,
--- for an 'exercise_without_actor', since the exercis actor is always
--- "correct" with respect to the choic, but there is no authorization.
+-- for an 'exercise_without_actor', since the exercise actor is always
+-- "correct" with respect to the choice, but there is no authorization.
 template T_BadActorCheck_2
   with
     p1 : Party
