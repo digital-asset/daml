@@ -247,9 +247,6 @@ To advance time:
   :width: 25%
   :align: center
 
-.. this anchor is kept around to not break existing links
-.. _navigator-authentication:
-
 .. _navigator-authorization:
 
 Authorizing Navigator

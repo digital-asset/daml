@@ -61,9 +61,6 @@ Glossary:
 - A ``token`` (or ``access token``) is a tamper-proof piece of data that contains security information, such as the user identity or its privileges.
 - A ``token issuer`` is a service that generates tokens. Also known as "authentication server" or "Identity and Access Management (IAM) system".
 
-.. this anchor is kept around to not break existing links
-.. _authentication-claims:
-
 .. _authorization-claims:
 
 Access tokens and claims

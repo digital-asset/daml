@@ -172,9 +172,6 @@ Connecting to the ledger
 
 Before any ledger services can be accessed, a connection to the ledger must be established. This is done by creating a instance of a ``DamlLedgerClient`` using one of the factory methods ``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery``. This instance can then be used to access service clients directly, or passed to a call to ``Bot.wire`` to connect a ``Bot`` instance to the ledger.
 
-.. this anchor is kept around to not break existing links
-.. _ledger-api-java-bindings-authentication:
-
 .. _ledger-api-java-bindings-authorization:
 
 Authorizing
