@@ -7,10 +7,9 @@ import java.time.Instant
 
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.logging.ContextualizedLogger
-import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.server.api.validation.ErrorFactories.permissionDenied
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
@@ -19,7 +18,7 @@ import scala.concurrent.Future
   */
 final class Authorizer(now: () => Instant, ledgerId: String, participantId: String) {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID. */
@@ -142,10 +141,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       claims,
       _.notExpired(now()),
       authorizationError => {
-        // Note: only put the claims in the context, as the request can be huge
-        newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
-          logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-        }
+        logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
         permissionDenied()
       }
     )
@@ -170,10 +166,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
                     scso
                 )
               case Left(authorizationError) =>
-                // Note: only put the claims in the context, as the request can be huge
-                newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
-                  logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-                }
+                logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
                 observer.onError(permissionDenied())
           }
         )
@@ -191,10 +184,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
             authorized(claims) match {
               case Right(_) => call(request)
               case Left(authorizationError) =>
-                // Note: only put the claims in the context, as the request can be huge
-                newLoggingContext("Claims" -> claims.toString) { implicit logCtx =>
-                  logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-                }
+                logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
                 Future.failed(permissionDenied())
           }
       )
