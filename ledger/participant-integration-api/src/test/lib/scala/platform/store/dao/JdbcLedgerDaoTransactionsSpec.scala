@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.transaction.NodeId
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value, Value.ContractId
 import com.daml.ledger.EventId
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -574,17 +574,25 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       Mk(
         "singleWildcardParty",
         Map(alice -> Set.empty),
-        ce => (ce.signatories ++ ce.observers) contains alice),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(bob))),
+        ce => (ce.signatories ++ ce.observers) contains alice
+      ),
       Mk(
         "singlePartyWithTemplates",
         Map(alice -> Set(someTemplateId)),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(bob))),
         ce =>
           ((ce.signatories ++ ce.observers) contains alice) /*TODO && ce.templateId == Some(someTemplateId.toString)*/
       ),
       Mk(
         "onlyWildcardParties",
         Map(alice -> Set.empty, bob -> Set.empty),
-        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(charlie))),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+      ),
     )
   }
 }
@@ -595,7 +603,11 @@ private[dao] object JdbcLedgerDaoTransactionsSpec {
   private final case class FlatTransactionCodePath(
       label: String,
       filter: events.FilterRelation,
-      discriminate: lav1.event.CreatedEvent => Boolean)
+      makeMatching: () => (Offset, LedgerEntry.Transaction),
+      makeNonMatching: () => (Offset, LedgerEntry.Transaction),
+      // XXX SC we don't need discriminate unless we test the event contents
+      // instead of just the offsets
+      discriminate: lav1.event.CreatedEvent => Boolean = _ => false)
 
   private def unfilteredTxSeq(length: Int): Gen[Vector[Boolean]] =
     Gen.oneOf(1, 2, 5, 10, 20, 50, 100) flatMap { invFreq =>

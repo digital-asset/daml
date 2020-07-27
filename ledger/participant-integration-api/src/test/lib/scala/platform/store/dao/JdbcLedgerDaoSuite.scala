@@ -97,15 +97,16 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
 
-  private def create(
+  protected final def create(
       absCid: ContractId,
+      signatories: Set[Party] = Set(alice, bob),
   ): NodeCreate[ContractId, Value[ContractId]] =
     NodeCreate(
       coid = absCid,
       coinst = someContractInstance,
       optLocation = None,
-      signatories = Set(alice, bob),
-      stakeholders = Set(alice, bob),
+      signatories = signatories,
+      stakeholders = signatories,
       key = None
     )
 
@@ -139,10 +140,12 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         set
     }
 
-  protected def singleCreate: (Offset, LedgerEntry.Transaction) = {
+  protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]])
+    : (Offset, LedgerEntry.Transaction) = {
     val txBuilder = new TransactionBuilder
     val cid = txBuilder.newCid
-    val eid = txBuilder.add(create(cid))
+    val creation = create(cid)
+    val eid = txBuilder.add(creation)
     val offset = nextOffset()
     val id = offset.toLong
     val let = Instant.now
@@ -155,9 +158,12 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       ledgerEffectiveTime = let,
       recordedAt = let,
       transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(eid -> Set("Alice", "Bob"))
+      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders))
     )
   }
+
+  protected final def singleCreate: (Offset, LedgerEntry.Transaction) =
+    singleCreateP(create(_))
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,
