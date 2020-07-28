@@ -11,6 +11,7 @@ import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
@@ -24,6 +25,8 @@ final case class SandboxConfig(
     address: Option[String],
     port: Port,
     portFile: Option[Path],
+    ledgerIdMode: LedgerIdMode,
+    participantId: v1.ParticipantId,
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
     commandConfig: CommandConfiguration,
@@ -31,7 +34,6 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
-    ledgerIdMode: LedgerIdMode,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
@@ -59,11 +61,16 @@ object SandboxConfig {
   val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
     SizedCache.Configuration.none
 
-  lazy val nextDefault: SandboxConfig =
+  val DefaultParticipantId: v1.ParticipantId =
+    v1.ParticipantId.assertFromString("sandbox-participant")
+
+  lazy val defaultConfig: SandboxConfig =
     SandboxConfig(
       address = None,
       port = DefaultPort,
       portFile = None,
+      ledgerIdMode = LedgerIdMode.Dynamic,
+      participantId = DefaultParticipantId,
       damlPackages = Nil,
       timeProviderType = None,
       commandConfig = CommandConfiguration.default,
@@ -71,7 +78,6 @@ object SandboxConfig {
       tlsConfig = None,
       scenario = None,
       implicitPartyAllocation = true,
-      ledgerIdMode = LedgerIdMode.Dynamic,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       eagerPackageLoading = false,
@@ -87,9 +93,4 @@ object SandboxConfig {
       stackTraces = true,
     )
 
-  lazy val default: SandboxConfig =
-    nextDefault.copy(
-      seeding = None,
-      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    )
 }

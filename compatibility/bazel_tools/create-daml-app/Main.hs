@@ -42,7 +42,7 @@ data Tools = Tools
 
 newtype DamlOption = DamlOption FilePath
 instance IsOption DamlOption where
-  defaultValue = DamlOption $ "daml"
+  defaultValue = DamlOption "daml"
   parseValue = Just . DamlOption
   optionName = Tagged "daml"
   optionHelp = Tagged "runfiles path to the daml executable"

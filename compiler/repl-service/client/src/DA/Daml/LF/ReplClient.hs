@@ -3,7 +3,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiWayIf #-}
 module DA.Daml.LF.ReplClient
   ( Options(..)
   , MaxInboundMessageSize(..)
@@ -44,8 +43,7 @@ data ReplTimeMode = ReplWallClock | ReplStatic
 
 data Options = Options
   { optServerJar :: FilePath
-  , optLedgerHost :: String
-  , optLedgerPort :: String
+  , optLedgerConfig :: Maybe (String, String)
   , optMbAuthTokenFile :: Maybe FilePath
   , optMbSslConfig :: Maybe ClientSSLConfig
   , optMaxInboundMessageSize :: Maybe MaxInboundMessageSize
@@ -81,8 +79,12 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
     replServer <- javaProc $ concat
         [ [ "-jar", optServerJar
           , "--port-file", portFile
-          , "--ledger-host", optLedgerHost
-          , "--ledger-port", optLedgerPort
+          ]
+        , concat
+          [ [ "--ledger-host", host
+            , "--ledger-port", port
+            ]
+          | Just (host, port) <- [optLedgerConfig]
           ]
         , [ "--access-token-file=" <> tokenFile | Just tokenFile <- [optMbAuthTokenFile] ]
         , do Just tlsConf <- [ optMbSslConfig ]

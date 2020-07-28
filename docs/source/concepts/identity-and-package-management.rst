@@ -81,15 +81,16 @@ The parties can be local (i.e., hosted by the participant) or not.
 
 .. _identifiers-and-authentication:
 
-Identifiers and Ledger Authentication
-=====================================
+Identifiers and Authorization
+=============================
 
-To issue commands or receive transactions on behalf of a newly provisioned party, an application must authenticate itself to the party's hosting participant as someone authorized to represent the party.
+To issue commands or receive transactions on behalf of a newly provisioned party, an application must provide a
+proof to the party's hosting participant that they are authorized to represent the party.
 Before the newly provisioned party can be used, the application will have to obtain a token for this party.
 The issuance of tokens is specific to each ledger and independent of the Ledger API.
 The same is true for the policy which the participants use to decide whether to accept a token.
 
-To learn more about ledger API authentication, please read the :doc:`Authentication documentation </app-dev/authentication>`.
+To learn more about Ledger API security model, please read the :doc:`Authorization documentation </app-dev/authorization>`.
 
 .. _identifiers-and-real-world:
 

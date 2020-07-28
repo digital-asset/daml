@@ -25,6 +25,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -167,13 +168,13 @@ object HttpServiceTestFixture {
       authService: Option[AuthService] = None,
       useTls: UseTls = UseTls.NoTls
   ): SandboxConfig =
-    SandboxConfig.default.copy(
+    sandbox.DefaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.WallClock),
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService
+      authService = authService,
     )
 
   private def clientConfig[A](
@@ -214,14 +215,14 @@ object HttpServiceTestFixture {
     } yield dao
 
   object UseTls extends NewBoolean.Named {
-    val Tls = True
-    val NoTls = False
+    val Tls: UseTls = True
+    val NoTls: UseTls = False
   }
   type UseTls = UseTls.T
 
   object LeakPasswords extends NewBoolean.Named {
-    val FiresheepStyle = True
-    val No = False
+    val FiresheepStyle: LeakPasswords = True
+    val No: LeakPasswords = False
   }
   type LeakPasswords = LeakPasswords.T
 

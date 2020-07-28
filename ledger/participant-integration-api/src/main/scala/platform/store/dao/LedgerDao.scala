@@ -37,7 +37,7 @@ import com.daml.platform.store.entries.{
 
 import scala.concurrent.Future
 
-trait LedgerReadDao extends ReportsHealth {
+private[platform] trait LedgerReadDao extends ReportsHealth {
 
   def maxConcurrentConnections: Int
 
@@ -151,7 +151,7 @@ trait LedgerReadDao extends ReportsHealth {
   ): Future[Unit]
 }
 
-trait LedgerWriteDao extends ReportsHealth {
+private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   def maxConcurrentConnections: Int
 
@@ -227,4 +227,4 @@ trait LedgerWriteDao extends ReportsHealth {
 
 }
 
-trait LedgerDao extends LedgerReadDao with LedgerWriteDao
+private[platform] trait LedgerDao extends LedgerReadDao with LedgerWriteDao

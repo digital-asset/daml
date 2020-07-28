@@ -25,7 +25,8 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class ApiCommandCompletionService private (completionsService: IndexCompletionsService)(
+private[apiserver] final class ApiCommandCompletionService private (
+    completionsService: IndexCompletionsService)(
     implicit ec: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -53,9 +54,12 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
+  override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
+    Ordering.by[LedgerOffset.Absolute, String](_.value)
+
 }
 
-object ApiCommandCompletionService {
+private[apiserver] object ApiCommandCompletionService {
 
   def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
       implicit ec: ExecutionContext,

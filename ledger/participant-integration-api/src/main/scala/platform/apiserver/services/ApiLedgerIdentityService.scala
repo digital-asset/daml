@@ -21,8 +21,8 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
-final class ApiLedgerIdentityService private (getLedgerId: () => Future[LedgerId])(
-    implicit logCtx: LoggingContext)
+private[apiserver] final class ApiLedgerIdentityService private (
+    getLedgerId: () => Future[LedgerId])(implicit logCtx: LoggingContext)
     extends GrpcLedgerIdentityService
     with GrpcApiService {
 
@@ -49,7 +49,7 @@ final class ApiLedgerIdentityService private (getLedgerId: () => Future[LedgerId
     LedgerIdentityServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
-object ApiLedgerIdentityService {
+private[apiserver] object ApiLedgerIdentityService {
   def create(getLedgerId: () => Future[LedgerId])(
       implicit logCtx: LoggingContext): ApiLedgerIdentityService with BindableService = {
     new ApiLedgerIdentityService(getLedgerId)

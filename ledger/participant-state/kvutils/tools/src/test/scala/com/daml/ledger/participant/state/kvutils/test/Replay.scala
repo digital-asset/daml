@@ -142,7 +142,7 @@ object Replay {
 
   private def compile(pkgs: Map[Ref.PackageId, Ast.Package]): Engine = {
     println(s"%%% compile ${pkgs.size} packages ...")
-    val engine = new Engine(Engine.DevConfig)
+    val engine = Engine.DevEngine()
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
       val r = engine
         .preloadPackage(pkgId, pkgs(pkgId))

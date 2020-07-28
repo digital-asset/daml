@@ -31,7 +31,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
-final class StoreBackedCommandExecutor(
+private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
     packagesService: IndexPackagesService,

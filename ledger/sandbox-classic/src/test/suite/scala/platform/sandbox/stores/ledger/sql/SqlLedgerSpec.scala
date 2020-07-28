@@ -22,6 +22,7 @@ import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.MetricsAround
+import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
@@ -176,6 +177,7 @@ class SqlLedgerSpec
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
     val ledger = newLoggingContext { implicit logCtx =>
       new SqlLedger.Owner(
+        name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
         initialLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),

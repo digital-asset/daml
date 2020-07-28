@@ -76,10 +76,6 @@ build:darwin --host_platform=@rules_haskell//haskell/platforms:darwin_x86_64_nix
 # and GHC's gcc on Windows
 build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 
-# Bazel 1.0 disabled the bash test-runner on Windows. However, some of our
-# test-cases are implemented as bash scripts and rely on the bash test-runner.
-build:windows --noincompatible_windows_native_test_wrapper
-
 # Caching is currently disabled on Windows.
 # See: https://github.com/tweag/rules_haskell/issues/744 for details.
 build:windows --noremote_accept_cached

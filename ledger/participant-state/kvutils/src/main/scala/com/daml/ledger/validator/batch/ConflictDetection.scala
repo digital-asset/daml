@@ -82,7 +82,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
       case PARTY_ALLOCATION_ENTRY | PACKAGE_UPLOAD_ENTRY | CONFIGURATION_ENTRY |
           TRANSACTION_REJECTION_ENTRY | CONFIGURATION_REJECTION_ENTRY |
           PACKAGE_UPLOAD_REJECTION_ENTRY | PARTY_ALLOCATION_REJECTION_ENTRY |
-          OUT_OF_TIME_BOUNDS_ENTRY =>
+          OUT_OF_TIME_BOUNDS_ENTRY | TIME_UPDATE_ENTRY =>
         logger.trace(s"Dropping conflicting submission (${logEntry.getPayloadCase})")
         metrics.dropped.inc()
         None

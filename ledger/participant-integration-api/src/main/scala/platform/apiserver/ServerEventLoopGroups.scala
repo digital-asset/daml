@@ -9,7 +9,7 @@ import io.netty.channel.{EventLoopGroup, ServerChannel}
 
 import scala.concurrent.ExecutionContext
 
-case class ServerEventLoopGroups(
+private[apiserver] case class ServerEventLoopGroups(
     worker: EventLoopGroup,
     boss: EventLoopGroup,
     channelType: Class[_ <: ServerChannel],
@@ -23,7 +23,7 @@ case class ServerEventLoopGroups(
 
 }
 
-object ServerEventLoopGroups {
+private[apiserver] object ServerEventLoopGroups {
 
   final class Owner(name: String, workerParallelism: Int, bossParallelism: Int)
       extends ResourceOwner[ServerEventLoopGroups] {

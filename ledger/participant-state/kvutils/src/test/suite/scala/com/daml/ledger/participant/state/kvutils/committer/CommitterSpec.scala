@@ -15,9 +15,14 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
-class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
+class CommitterSpec
+    extends WordSpec
+    with TableDrivenPropertyChecks
+    with Matchers
+    with MockitoSugar {
   "preExecute" should {
     "set pre-execution results from context" in {
       val mockContext = mock[CommitContext]
@@ -88,7 +93,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       actualOutOfTimeBoundsLogEntry.getEntry shouldBe aRejectionLogEntry
     }
 
-    "throw in case no out-of-time-bounds log entry is set" in {
+    "do not throw in case neither out-of-time-bounds log entry nor min/max record time are set" in {
       val mockContext = mock[CommitContext]
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
       when(mockContext.getOutputs).thenReturn(Iterable.empty)
@@ -97,8 +102,32 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.maximumRecordTime).thenReturn(None)
       val instance = createCommitter()
 
-      assertThrows[IllegalArgumentException](
-        instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext))
+      instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      succeed
+    }
+
+    "throw in case out-of-time-bounds log entry is not set but min/max record time is" in {
+      val anInstant = Instant.ofEpochSecond(1234)
+      val combinations = Table(
+        "min/max record time",
+        Some(anInstant) -> Some(anInstant),
+        Some(anInstant) -> None,
+        None -> Some(anInstant)
+      )
+
+      forAll(combinations) {
+        case (minRecordTimeMaybe, maxRecordTimeMaybe) =>
+          val mockContext = mock[CommitContext]
+          when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
+          when(mockContext.getOutputs).thenReturn(Iterable.empty)
+          when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
+          when(mockContext.minimumRecordTime).thenReturn(minRecordTimeMaybe)
+          when(mockContext.maximumRecordTime).thenReturn(maxRecordTimeMaybe)
+          val instance = createCommitter()
+
+          assertThrows[IllegalArgumentException](
+            instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext))
+      }
     }
   }
 

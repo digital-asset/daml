@@ -53,6 +53,7 @@ common_haskell_flags = [
     "-Wincomplete-uni-patterns",
     "-Wno-name-shadowing",
     "-fno-omit-yields",
+    "-fno-ignore-asserts",
     "-threaded",
     "-rtsopts",
 

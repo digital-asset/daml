@@ -231,8 +231,8 @@ which only sends the commands if it is not already in flight.
 Running a DAML Trigger
 ----------------------
 
-To try this example out, you can replicate it using ``daml new
-copy-trigger copy-trigger``. You first have to build the trigger like
+To try this example out, you can replicate it using
+``daml new copy-trigger --template copy-trigger``. You first have to build the trigger like
 you would build a regular DAML project using ``daml build``.
 Then start the sandbox and navigator using ``daml start``.
 

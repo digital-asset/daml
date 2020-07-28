@@ -28,6 +28,7 @@ import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
+import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
@@ -49,6 +50,7 @@ object SqlLedger {
   private type PersistenceQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
   final class Owner(
+      name: LedgerName,
       serverRole: ServerRole,
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
@@ -119,7 +121,7 @@ object SqlLedger {
             Future.successful(initialId)
 
           case (None, LedgerIdMode.Dynamic) =>
-            val randomLedgerId = LedgerIdGenerator.generateRandomId()
+            val randomLedgerId = new LedgerIdGenerator(name).generateRandomId()
             Future.successful(randomLedgerId)
         }
         _ <- if (initializationRequired) {

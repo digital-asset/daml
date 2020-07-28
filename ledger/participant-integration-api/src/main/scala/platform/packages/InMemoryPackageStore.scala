@@ -21,11 +21,11 @@ import scala.collection.immutable.Map
 import scala.concurrent.Future
 import scala.util.Try
 
-object InMemoryPackageStore {
+private[platform] object InMemoryPackageStore {
   def empty: InMemoryPackageStore = new InMemoryPackageStore(Map.empty, Map.empty, Map.empty)
 }
 
-case class InMemoryPackageStore(
+private[platform] case class InMemoryPackageStore(
     packageInfos: Map[PackageId, PackageDetails],
     packages: Map[PackageId, Ast.Package],
     archives: Map[PackageId, Archive]) {

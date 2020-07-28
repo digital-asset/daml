@@ -6,11 +6,11 @@ package com.daml.platform.store.entries
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.ledger.api.domain
 
-sealed abstract class ConfigurationEntry extends Product with Serializable {
+private[platform] sealed abstract class ConfigurationEntry extends Product with Serializable {
   def toDomain: domain.ConfigurationEntry
 }
 
-object ConfigurationEntry {
+private[platform] object ConfigurationEntry {
 
   final case class Accepted(
       submissionId: String,

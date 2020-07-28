@@ -28,7 +28,7 @@ import com.daml.resources.{Resource, ResourceOwner}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-final class JdbcIndexerFactory(
+private[indexer] final class JdbcIndexerFactory(
     serverRole: ServerRole,
     config: IndexerConfig,
     readService: ReadService,
@@ -116,7 +116,7 @@ final class JdbcIndexerFactory(
 /**
   * @param startExclusive The last offset received from the read service.
   */
-class JdbcIndexer private[indexer] (
+private[indexer] class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
     participantId: ParticipantId,
     ledgerDao: LedgerDao,

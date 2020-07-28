@@ -10,7 +10,7 @@ All instructions below assume that you have DAML SDK installed. If you have not 
 
 ## Create a quickstart-scala project
 ```
-daml new ./quickstart-scala quickstart-scala
+daml new ./quickstart-scala --template quickstart-scala
 ```
 This should output:
 ```

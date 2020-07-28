@@ -45,10 +45,9 @@ object IntegrityCheck extends App {
     new DataInputStream(new FileInputStream(filename))
 
   // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // This Should be made configurable.
-  private val engineConfig = Engine.DevConfig
+  // should not use DevEngine
+  private val engine = Engine.DevEngine()
 
-  val engine = new Engine(engineConfig)
   val defaultConfig = Configuration(
     generation = 0,
     timeModel = TimeModel.reasonableDefault,

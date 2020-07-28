@@ -30,7 +30,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-final class ApiPackageManagementService private (
+private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: WritePackagesService,
@@ -96,6 +96,9 @@ final class ApiPackageManagementService private (
         case SubmissionResult.Acknowledged =>
           pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
             case _: PackageEntry.PackageUploadAccepted =>
+              for (archive <- dar.all) {
+                logger.info(s"Package ${archive.getHash} successfully uploaded")
+              }
               Future.successful(UploadDarFileResponse())
             case PackageEntry.PackageUploadRejected(_, _, reason) =>
               Future.failed(ErrorFactories.invalidArgument(reason))
@@ -126,7 +129,7 @@ final class ApiPackageManagementService private (
   }
 }
 
-object ApiPackageManagementService {
+private[apiserver] object ApiPackageManagementService {
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,

@@ -10,7 +10,7 @@ import scala.util.{Failure, Success, Try}
 
 // This utility object is used as a single point to encode and decode
 // offsets sent over the API and received from the API.
-object ApiOffset {
+private[daml] object ApiOffset {
 
   val begin: Offset = Offset.fromByteArray(Array(0: Byte))
 

@@ -16,8 +16,8 @@ To deploy to a DAML ledger, run the following command from within your DAML proj
    $ daml deploy --host=<HOST> --port=<PORT> --access-token-file=<TOKEN-FILE>
 
 where ``<HOST>`` and ``<PORT>`` is the hostname and port your ledger is listening on, which defaults
-to port ``6564``. The ``<TOKEN-FILE>`` is needed if your sandbox runs with :ref:`authentication
-<authentication>` and needs to contain a JWT token with an ``admin`` claim. If your sandbox is not
+to port ``6564``. The ``<TOKEN-FILE>`` is needed if your sandbox runs with :ref:`authorization
+<authorization>` and needs to contain a JWT token with an ``admin`` claim. If your sandbox is not
 setup to use any authentication it can be omitted.
 
 Instead of passing ``--host`` and ``--port`` flags to the command above, you can add the following

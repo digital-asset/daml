@@ -12,6 +12,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import DA.Test.Util
 import System.Environment.Blank
 import System.FilePath
 import System.IO.Extra
@@ -30,6 +31,7 @@ testLedgerId = "replledger"
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
+    limitJvmMemory defaultJvmMemoryLimits
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
@@ -62,6 +64,7 @@ main = do
                   , mbLedgerId = Just testLedgerId
                   } $ \getSandboxPort ->
               importTests damlc scriptDar testDar getSandboxPort
+            , noLedgerTests damlc scriptDar
             ]
 
 withTokenFile :: (IO FilePath -> TestTree) -> TestTree
@@ -165,6 +168,28 @@ noPackageTests damlc scriptDar getSandboxPort = testGroup "static-time"
                    , "--script-lib"
                    , scriptDar
                    ]
+
+noLedgerTests :: FilePath -> FilePath -> TestTree
+noLedgerTests damlc scriptDar = testGroup "no ledger"
+    [ testCase "no ledger" $ do
+          out <- readCreateProcess cp $ unlines
+              [ "1 + 1"
+              , "listKnownParties"
+              , "2 + 2"
+              ]
+          out @?= unlines
+            [ "daml> 2"
+            , "daml> java.lang.RuntimeException: No default participant"
+            , "daml> 4"
+            , "daml> Goodbye."
+            ]
+    ]
+  where
+    cp = proc damlc
+        [ "repl"
+        , "--script-lib"
+        , scriptDar
+        ]
 
 testSetTime
     :: FilePath

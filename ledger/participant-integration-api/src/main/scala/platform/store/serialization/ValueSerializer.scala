@@ -9,7 +9,7 @@ import com.daml.lf.archive.{Decode, Reader}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 
-object ValueSerializer {
+private[platform] object ValueSerializer {
 
   def serializeValue(
       value: VersionedValue[ContractId],

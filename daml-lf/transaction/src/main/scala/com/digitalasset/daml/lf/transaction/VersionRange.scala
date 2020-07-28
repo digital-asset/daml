@@ -25,4 +25,7 @@ final case class VersionRange[V](
   def contains(v: V)(implicit ev: VersionTimeline.SubVersion[V]): Boolean =
     !((max precedes v) || (v precedes min))
 
+  def map[W](f: V => W): VersionRange[W] =
+    VersionRange(f(min), f(max))
+
 }

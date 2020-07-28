@@ -245,8 +245,6 @@ in rec {
     cli-tools = {
       inherit (pkgs) coreutils nix-info getopt;
     };
-    # Used by CI
-    minio  = pkgs.minio;
   } // (if pkgs.stdenv.isLinux then {
     # The following packages are used for CI docker based builds
     bash = pkgs.bash;

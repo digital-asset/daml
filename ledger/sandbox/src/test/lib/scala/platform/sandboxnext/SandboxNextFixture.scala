@@ -3,11 +3,9 @@
 
 package com.daml.platform.sandboxnext
 
-import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
-import com.daml.platform.sandbox.AbstractSandboxFixture
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.ports.Port
 import com.daml.resources.ResourceOwner
 import io.grpc.Channel
@@ -18,11 +16,6 @@ import scala.concurrent.duration.DurationInt
 
 trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port, Channel)] {
   self: Suite =>
-
-  override protected def config: SandboxConfig =
-    super.config.copy(
-      seeding = Some(SeedService.Seeding.Weak),
-    )
 
   override protected def serverPort: Port = suiteResource.value._1
 

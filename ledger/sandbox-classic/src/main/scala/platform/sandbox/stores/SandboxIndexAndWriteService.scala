@@ -29,6 +29,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.index.LedgerBackedIndexService
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
+import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
@@ -52,6 +53,7 @@ object SandboxIndexAndWriteService {
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
   def postgres(
+      name: LedgerName,
       initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
@@ -68,6 +70,7 @@ object SandboxIndexAndWriteService {
       lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     new SqlLedger.Owner(
+      name = name,
       serverRole = ServerRole.Sandbox,
       jdbcUrl = jdbcUrl,
       initialLedgerId = initialLedgerId,
@@ -86,6 +89,7 @@ object SandboxIndexAndWriteService {
       owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
 
   def inMemory(
+      name: LedgerName,
       initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       intialConfig: ParticipantState.Configuration,
@@ -98,7 +102,7 @@ object SandboxIndexAndWriteService {
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
     val ledger =
       new InMemoryLedger(
-        initialLedgerId.or(LedgerIdGenerator.generateRandomId()),
+        initialLedgerId.or(new LedgerIdGenerator(name).generateRandomId()),
         participantId,
         timeProvider,
         acs,

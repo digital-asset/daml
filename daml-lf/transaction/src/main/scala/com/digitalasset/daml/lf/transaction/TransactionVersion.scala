@@ -4,8 +4,12 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
+
+import scala.collection.immutable.HashMap
 
 final case class TransactionVersion(protoValue: String)
 
@@ -16,6 +20,9 @@ private[lf] object TransactionVersions
     extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[TransactionVersion])(
       _.protoValue,
     ) {
+
+  import VersionTimeline._
+  import VersionTimeline.Implicits._
 
   private[this] val minVersion = TransactionVersion("1")
   private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")
@@ -29,13 +36,14 @@ private[lf] object TransactionVersions
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   // We force output of recent version, but keep reading older version as long as
   // Sandbox is alive.
-  val SupportedStableVersions = VersionRange(TransactionVersion("10"), TransactionVersion("10"))
+  val SupportedOutputStableVersions =
+    VersionRange(TransactionVersion("10"), TransactionVersion("10"))
 
-  val SupportedDevVersions = SupportedStableVersions.copy(max = acceptedVersions.last)
+  val SupportedOutputDevVersions = SupportedOutputStableVersions.copy(max = acceptedVersions.last)
 
   def assignVersion(
       a: GenTransaction.WithTxValue[_, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedOutputDevVersions,
   ): Either[String, TransactionVersion] = {
     require(a != null)
     import VersionTimeline.Implicits._
@@ -82,7 +90,7 @@ private[lf] object TransactionVersions
             .exists {
               case ne: Node.NodeExercises[_, _, _] =>
                 ne.key match {
-                  case Some(KeyWithMaintainers(key @ _, maintainers)) => maintainers.nonEmpty
+                  case Some(Node.KeyWithMaintainers(key @ _, maintainers)) => maintainers.nonEmpty
                   case _ => false
                 }
               case _ => false
@@ -110,7 +118,7 @@ private[lf] object TransactionVersions
 
   def asVersionedTransaction(
       tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedOutputDevVersions,
   ): Either[String, Transaction.Transaction] =
     for {
       v <- assignVersion(tx, supportedVersions)
@@ -119,8 +127,57 @@ private[lf] object TransactionVersions
   @throws[IllegalArgumentException]
   def assertAsVersionedTransaction(
       tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedOutputDevVersions,
   ): Transaction.Transaction =
     data.assertRight(asVersionedTransaction(tx, supportedVersions))
+
+  private[lf] def assignValueVersion(transactionVersion: TransactionVersion): ValueVersion =
+    latestWhenAllPresent(
+      ValueVersions.SupportedStableVersions.min,
+      transactionVersion,
+    )
+
+  private[lf] def assignVersions(
+      supportedTxVersions: VersionRange[TransactionVersion],
+      as: Seq[SpecifiedVersion],
+  ): Either[String, TransactionVersion] = {
+
+    val transactionVersion =
+      VersionTimeline.latestWhenAllPresent(
+        supportedTxVersions.min,
+        (SupportedOutputStableVersions.min: SpecifiedVersion) +: as: _*,
+      )
+
+    Either.cond(
+      !(supportedTxVersions.max precedes transactionVersion),
+      transactionVersion,
+      s"inferred version $transactionVersion is not supported"
+    )
+  }
+
+  type UnversionedNode = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
+  type VersionedNode = Node.GenNode[NodeId, Value.ContractId, VersionedValue[Value.ContractId]]
+
+  def asVersionedTransaction(
+      supportedTxVersions: VersionRange[TransactionVersion],
+      pkgLangVersions: Ref.PackageId => LanguageVersion,
+      roots: ImmArray[NodeId],
+      nodes: HashMap[NodeId, UnversionedNode],
+  ): Either[String, VersionedTransaction[NodeId, Value.ContractId]] = {
+
+    import VersionTimeline.Implicits._
+
+    val langVersions: Iterator[SpecifiedVersion] =
+      roots.reverseIterator.map(nid => pkgLangVersions(nodes(nid).templateId.packageId))
+
+    assignVersions(supportedTxVersions, langVersions.toList).map { txVersion =>
+      val versionNode: UnversionedNode => VersionedNode =
+        Node.GenNode.map3(identity, identity, VersionedValue(assignValueVersion(txVersion), _))
+      VersionedTransaction(
+        txVersion,
+        GenTransaction(nodes = nodes.transform((_, n) => versionNode(n)), roots = roots)
+      )
+    }
+  }
 
 }

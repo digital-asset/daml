@@ -49,7 +49,7 @@ import scalaz.syntax.tag._
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
-trait ApiServices {
+private[daml] trait ApiServices {
   val services: Iterable[BindableService]
 
   def withServices(otherServices: immutable.Seq[BindableService]): ApiServices
@@ -62,7 +62,7 @@ private case class ApiServicesBundle(services: immutable.Seq[BindableService]) e
 
 }
 
-object ApiServices {
+private[daml] object ApiServices {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 

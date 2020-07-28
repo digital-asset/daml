@@ -15,7 +15,7 @@ import io.netty.util.concurrent.DefaultThreadFactory
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
-final class EventLoopGroupOwner(threadPoolName: String, parallelism: Int)
+private[apiserver] final class EventLoopGroupOwner(threadPoolName: String, parallelism: Int)
     extends ResourceOwner[EventLoopGroup] {
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[EventLoopGroup] =
@@ -33,7 +33,7 @@ final class EventLoopGroupOwner(threadPoolName: String, parallelism: Int)
     )
 }
 
-object EventLoopGroupOwner {
+private[apiserver] object EventLoopGroupOwner {
 
   val clientChannelType: Class[_ <: Channel] = classOf[NioSocketChannel]
 
