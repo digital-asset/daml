@@ -44,7 +44,7 @@ $LEDGER_TRIGGER_SERVICE_PID=$!
 #  curl -X POST localhost:$TRIGGER_SERVICE_HTTP_PORT/v1/start \
 #    -H "Content-type: application/json" -H "Accept: application/json" \
 #    -H "Authorization: Basic YWxpY2U6JmFsQzJsM1NEUypW" \
-#    -d '{"triggerName":"d2c239382d4875c65d03435ec9da5a349cfd7055dbf348527acfe34ca99f5eb1:TestTrigger:trigger"}'
+#    -d '{"triggerName":"eaccf634dca6887f737d1efb254c536c55288a24ced77f3036549db08f14b8c2:TestTrigger:trigger"}'
 #
 # You can get the package ID from a .dar with `damlc
 # -inspect-dar`. You can "seed" the trigger service with a DAR using

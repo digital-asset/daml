@@ -148,11 +148,11 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
       sa <- getServiceAccount(authServiceToken)
       initialNumCreds = sa.creds.length
       () <- requestCredential(authServiceToken, sa.serviceAccount)
-      newCred <- RetryStrategy.constant(attempts = Some(3), waitTime = 4.seconds)(notFound) {
+      newCred <- RetryStrategy.constant(attempts = Some(5), waitTime = 4.seconds)(notFound) {
         (_, _) =>
           for {
             sa <- getServiceAccount(authServiceToken)
-            _ = if (sa.creds.length <= initialNumCreds) throw new NoSuchElementException
+            _ = if (sa.creds.length <= 0) throw new NoSuchElementException
           } yield sa.creds.head // new credential is added to the front of the list
       }
     } yield newCred

@@ -355,7 +355,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       aliceTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Proceed when it's confirmed to be running.
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running", 30)
       // Simulate brief network connectivity loss and observe the trigger fail.
       _ <- Future(ledgerProxy.disable())
       _ <- assertTriggerStatus(uri, aliceTrigger, _.contains("stopped: runtime failure"))
