@@ -123,7 +123,7 @@ class SubmissionValidator[LogResult] private[validator] (
 
   private def commit(
       logEntryId: DamlLogEntryId,
-      ignored: StateMap,
+      ignored: Any,
       logEntryAndState: LogEntryAndState,
       stateOperations: LedgerStateOperations[LogResult],
   ): Future[LogResult] = {
