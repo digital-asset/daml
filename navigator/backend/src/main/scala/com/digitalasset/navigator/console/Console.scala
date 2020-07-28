@@ -135,11 +135,7 @@ object Console {
         val oldRegistry = state.getPartyState.map(ps => ps.packageRegistry)
 
         // Note: this call is blocking (until the user enters a line)
-        val line = state.reader.readLine(
-          leftPrompt(state),
-          rightPrompt(state),
-          null: Character,
-          null: String)
+        state.reader.readLine(leftPrompt(state), rightPrompt(state), null: Character, null: String)
         val words = List(state.reader.getParsedLine.words().asScala: _*)
 
         // Note: this call is blocking (some commands wait for asynchronous results)

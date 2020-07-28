@@ -315,7 +315,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       ledgerStateReader: DamlLedgerStateReader)(
       implicit executionContext: ExecutionContext): Future[FetchedInput] = {
     val inputKeys = correlatedSubmission.submission.getInputDamlStateList.asScala
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed.timedAndTrackedFuture(
         metrics.fetchInputs,
         metrics.fetchInputsRunning,
@@ -334,7 +334,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState)(
       implicit executionContext: ExecutionContext): Future[ValidatedSubmission] =
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed.timedAndTrackedFuture(
         metrics.validate,
         metrics.validateRunning,
@@ -392,7 +392,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       commitStrategy: CommitStrategy[CommitResult])(
       implicit executionContext: ExecutionContext): Future[Unit] = {
     val (logEntry, outputState) = logEntryAndState
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed.timedAndTrackedFuture(
         metrics.commit,
         metrics.commitRunning,

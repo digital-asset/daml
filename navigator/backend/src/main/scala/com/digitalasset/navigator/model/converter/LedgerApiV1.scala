@@ -117,8 +117,7 @@ case object LedgerApiV1 {
                   ApiTypes.TransactionId(tx.transactionId),
                   tx.eventsById,
                   ctx,
-                  ApiTypes.WorkflowId(tx.workflowId),
-                  None))
+                  ApiTypes.WorkflowId(tx.workflowId)))
         )
         .map(_.flatten)
       effectiveAt <- Converter.checkExists("Transaction.effectiveAt", tx.effectiveAt)
@@ -140,7 +139,6 @@ case object LedgerApiV1 {
       eventsById: Map[String, V1.transaction.TreeEvent],
       ctx: Context,
       workflowId: ApiTypes.WorkflowId,
-      parentId: Option[ApiTypes.EventId] = None
   ): Result[List[Model.Event]] = {
     event match {
       case V1.transaction.TreeEvent(V1.transaction.TreeEvent.Kind.Created(ev)) =>
@@ -227,15 +225,8 @@ case object LedgerApiV1 {
       children <- Converter
         .sequence(
           event.childEventIds
-            .map(
-              childId =>
-                readTreeEvent(
-                  eventsById(childId),
-                  transactionId,
-                  eventsById,
-                  ctx,
-                  workflowId,
-                  Some(ApiTypes.EventId(event.eventId))))
+            .map(childId =>
+              readTreeEvent(eventsById(childId), transactionId, eventsById, ctx, workflowId))
         )
         .map(_.flatten)
     } yield
@@ -397,7 +388,6 @@ case object LedgerApiV1 {
   private def fillInEnumTI(
       enum: V.ValueEnum,
       typ: Model.DamlLfType,
-      ctx: Context
   ): Result[V.ValueEnum] =
     for {
       typeCon <- asTypeCon(typ, enum)
@@ -419,7 +409,7 @@ case object LedgerApiV1 {
       ctx: Context
   ): Result[Model.ApiValue] =
     value match {
-      case v: V.ValueEnum => fillInEnumTI(v, typ, ctx)
+      case v: V.ValueEnum => fillInEnumTI(v, typ)
       case _: V.ValueCidlessLeaf | _: V.ValueContractId[_] => Right(value)
       case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
       case v: Model.ApiMap => fillInTextMapTI(v, typ, ctx)
@@ -535,7 +525,7 @@ case object LedgerApiV1 {
       contract <- Converter.checkExists(
         party.ledger.contract(contractId, party.packageRegistry),
         GenericConversionError(s"Contract '${Tag.unwrap(contractId)}' not found"))
-      choice <- Converter.checkExists(
+      _ <- Converter.checkExists(
         contract.template.choices.find(c => c.name == choiceId),
         GenericConversionError(s"Choice '${Tag.unwrap(choiceId)}' not found"))
       argument <- writeArgument(value)

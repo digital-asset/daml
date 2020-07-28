@@ -105,7 +105,6 @@ private[platform] object TransactionConversion {
   }
 
   private def disclosureForParties(
-      transactionId: TransactionId,
       transaction: Transaction,
       parties: Set[Ref.Party],
   ): Option[Relation[NodeId, Ref.Party]] =
@@ -201,7 +200,6 @@ private[platform] object TransactionConversion {
     val filteredTree =
       for {
         disclosure <- disclosureForParties(
-          entry.transactionId,
           entry.transaction,
           requestingParties,
         )

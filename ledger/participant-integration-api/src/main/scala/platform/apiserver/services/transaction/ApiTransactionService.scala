@@ -51,11 +51,7 @@ private[apiserver] object ApiTransactionService {
 
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
-    parallelism: Int = 4)(
-    implicit executionContext: ExecutionContext,
-    materializer: Materializer,
-    esf: ExecutionSequencerFactory,
-    logCtx: LoggingContext)
+)(implicit executionContext: ExecutionContext, logCtx: LoggingContext)
     extends TransactionService
     with ErrorFactories {
 

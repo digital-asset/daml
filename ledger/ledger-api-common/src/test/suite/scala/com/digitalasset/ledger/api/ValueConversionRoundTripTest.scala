@@ -4,7 +4,6 @@
 package com.daml.ledger.api
 
 import com.daml.lf.data.Time
-import com.daml.lf.testing.parser.Implicits._
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
@@ -20,30 +19,8 @@ class ValueConversionRoundTripTest
 
   private val recordId =
     api.Identifier(packageId, moduleName = "Mod", entityName = "Record")
-  private val emptyRecordId =
-    api.Identifier(packageId, moduleName = "Mod", entityName = "EmptyRecord")
-  private val variantId =
-    api.Identifier(packageId, moduleName = "Mod", entityName = "Variant")
-
-  private val label: String = "label"
-
-  private def record(values: api.Value*): api.Value =
-    api.Value(Sum.Record(api.Record(Some(recordId), values.zipWithIndex.map {
-      case (v, i) => api.RecordField(label + "1")
-    })))
 
   private val constructor: String = "constructor"
-
-  private def variant(value: api.Value): api.Value =
-    api.Value(Sum.Variant(api.Variant(Some(recordId), constructor, Some(value))))
-
-  private val pkg = p"""
-         module Mod {
-           record EmptyRecord = {};
-           record Record = { label1: Int64, label2: Int64, label0: Int64 };
-           variant Variant = constructor: Unit;
-         }
-         """
 
   private def roundTrip(v: api.Value): Either[String, api.Value] =
     for {

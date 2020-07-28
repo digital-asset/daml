@@ -69,10 +69,6 @@ object Config {
   def loadNavigatorConfig(
       configFile: Path,
       useDatabase: Boolean): Either[ConfigReadError, Config] = {
-    implicit val partyConfigConvert: ConfigConvert[PartyState] =
-      ConfigConvert.viaNonEmptyString[PartyState](
-        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-        t => Tag.unwrap(t.name))
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
@@ -125,10 +121,6 @@ object Config {
       ))
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
-    implicit val partyConfigConvert: ConfigConvert[PartyState] =
-      ConfigConvert.viaNonEmptyString[PartyState](
-        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-        t => Tag.unwrap(t.name))
     val config = ConfigWriter[Config].to(template(useDatabase))
     val cro = ConfigRenderOptions
       .defaults()

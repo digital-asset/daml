@@ -387,7 +387,7 @@ class PlatformStore(
       sender ! Failure(StoreException(msg))
     })(id => {
       val command = CreateCommand(commandId, index, workflowId, platformTime, id, value)
-      submitCommand(ledgerClient, party, command, sender)
+      submitCommand(party, command, sender)
     })
 
   }
@@ -429,7 +429,6 @@ class PlatformStore(
   }
 
   private def submitCommand(
-      ledgerClient: LedgerClient,
       party: PartyState,
       command: Command,
       sender: ActorRef

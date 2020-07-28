@@ -11,7 +11,6 @@ import com.daml.grpc.adapter.client.ResultAssertions
 import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.platform.hello.HelloRequest
 import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
-import io.grpc.{ClientCall, MethodDescriptor}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 
@@ -28,9 +27,6 @@ trait AkkaClientCompatibilityCheck {
   implicit protected def esf: ExecutionSequencerFactory
 
   def akkaClientCompatible(helloStub: => HelloServiceStub): Unit = {
-
-    def getCall[Req, Resp](call: MethodDescriptor[Req, Resp]): ClientCall[Req, Resp] =
-      helloStub.getChannel.newCall(call, helloStub.getCallOptions)
 
     "respond with the correct number of elements and correct content in 1-* setup" in {
       val elemsF = ClientAdapter

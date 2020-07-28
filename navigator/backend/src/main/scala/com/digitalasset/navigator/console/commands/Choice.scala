@@ -19,10 +19,7 @@ case object Choice extends SimpleCommand {
     ParameterChoiceId("choice", "Choice name")
   )
 
-  private def prettyChoice(
-      p: model.PackageRegistry,
-      t: model.Template,
-      c: model.Choice): PrettyObject = {
+  private def prettyChoice(p: model.PackageRegistry, c: model.Choice): PrettyObject = {
     PrettyObject(
       PrettyField("Name", ApiTypes.Choice.unwrap(c.name)),
       PrettyField("Consuming", c.consuming.toString),
@@ -41,7 +38,7 @@ case object Choice extends SimpleCommand {
       template <- ps.packageRegistry.templateByStringId(TemplateStringId(arg1)) ~> s"Unknown template $arg1"
       choice <- template.choices.find(c => ApiTypes.Choice.unwrap(c.name) == arg2) ~> s"Unknown choice $arg2"
     } yield {
-      (state, Pretty.yaml(prettyChoice(ps.packageRegistry, template, choice)))
+      (state, Pretty.yaml(prettyChoice(ps.packageRegistry, choice)))
     }
   }
 

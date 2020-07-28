@@ -17,7 +17,6 @@ case class PackageRegistry(
   private[this] def template(
       packageId: DamlLfRef.PackageId,
       qname: DamlLfQualifiedName,
-      r: DamlLfRecord,
       t: DamlLfIface.DefTemplate[DamlLfIface.Type]
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
@@ -46,7 +45,7 @@ case class PackageRegistry(
         }
         val templates = p.typeDecls.collect {
           case (qname, DamlLfIface.reader.InterfaceType.Template(r, t)) =>
-            DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, r, t)
+            DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, t)
         }
         p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates)
       }

@@ -11,9 +11,13 @@ da_scala_library(
     name = "bindings-akka",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     resources = glob(["src/main/resources/**/*"]),
+    scalacopts = [
+        "-P:silencer:checkUnused",
+    ],
     tags = ["maven_coordinates=com.daml:bindings-akka:__VERSION__"],
     visibility = [
         "//visibility:public",

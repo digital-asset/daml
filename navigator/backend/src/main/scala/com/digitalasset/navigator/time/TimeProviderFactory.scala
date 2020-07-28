@@ -14,8 +14,9 @@ case class TimeProviderWithType(time: TimeProvider, `type`: TimeProviderType)
 
 object TimeProviderFactory {
 
-  def apply(timeProviderType: TimeProviderType, ledgerTime: Option[StaticTime])(
-      implicit ec: ExecutionContext): Option[TimeProviderWithType] =
+  def apply(
+      timeProviderType: TimeProviderType,
+      ledgerTime: Option[StaticTime]): Option[TimeProviderWithType] =
     timeProviderType match {
       case TimeProviderType.Auto =>
         ledgerTime.fold(

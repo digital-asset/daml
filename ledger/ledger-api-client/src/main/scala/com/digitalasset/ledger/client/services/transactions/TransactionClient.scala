@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.transaction_service._
 import com.daml.ledger.client.LedgerClient
 import scalaz.syntax.tag._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStub)(
     implicit esf: ExecutionSequencerFactory) {
