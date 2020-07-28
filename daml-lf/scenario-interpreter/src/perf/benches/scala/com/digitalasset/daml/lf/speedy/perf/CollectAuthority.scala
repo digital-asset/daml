@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.lf.transaction.TransactionVersions
 import org.openjdk.jmh.annotations._
+import com.ghik.silencer.silent
 
 class CollectAuthority {
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -31,8 +32,10 @@ class CollectAuthority {
 @State(Scope.Benchmark)
 class CollectAuthorityState {
 
+  @silent(" var dar .*is never updated")
   @Param(Array("//daml-lf/scenario-interpreter/CollectAuthority.dar"))
   private var dar: String = _
+  @silent(" var scenario .*is never updated")
   @Param(Array("CollectAuthority:test"))
   private var scenario: String = _
 

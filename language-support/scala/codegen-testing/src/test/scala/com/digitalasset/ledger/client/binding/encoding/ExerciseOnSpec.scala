@@ -7,7 +7,9 @@ package encoding
 import com.daml.ledger.client.binding.{Primitive => P}
 
 import org.scalatest.{Matchers, WordSpec}
+import com.ghik.silencer.silent
 
+@silent(" exer .* is never used")
 class ExerciseOnSpec extends WordSpec with Matchers {
   import ExerciseOnSpec._
 
@@ -81,6 +83,7 @@ object ExerciseOnSpec {
       * this all works without doing that.
       */
     implicit final class `Sth syntax`[+` ExOn`](private val id: ` ExOn`) extends AnyVal {
+      @silent("(controller|exOn) .* is never used")
       def exerciseFoo(controller: P.Party)(implicit ` exOn`: ExerciseOn[` ExOn`, Sth]): Unit = ()
     }
   }
