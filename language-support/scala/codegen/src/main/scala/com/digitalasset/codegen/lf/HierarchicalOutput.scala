@@ -72,7 +72,7 @@ private[codegen] object HierarchicalOutput {
           val (subErrs, subFiles) = liftSubtrees(subtrees)(true)
           val companionMembers = subFiles flatMap (_._3)
 
-          val (generate, log, errorMsg) = codeGenElt match {
+          val (generate, log @ _, errorMsg) = codeGenElt match {
             case (templateId, -\/(templateInterface)) =>
               (
                 () =>
