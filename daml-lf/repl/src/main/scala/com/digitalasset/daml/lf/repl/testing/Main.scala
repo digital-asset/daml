@@ -209,7 +209,7 @@ object Repl {
 
   final val commands = ListMap(
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
-    ":reset" -> Command("reset the REPL.", (s, _) => initialState()),
+    ":reset" -> Command("reset the REPL.", (_, _) => initialState()),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
     ":speedy" -> Command("compile given expression to speedy and print it", (s, args) => {
       speedyCompile(s, args); s
