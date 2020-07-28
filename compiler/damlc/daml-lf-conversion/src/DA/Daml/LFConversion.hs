@@ -418,10 +418,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , n `elementOfUniqSet` consumingTypes
     -> pure []
 
-    -- Type synonyms get expanded out during conversion (see 'convertType').
-    | isTypeSynonymTyCon t
-    -> pure []
-
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
@@ -434,6 +430,11 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Type classes
     | isClassTyCon t
     -> convertClassDef env t
+
+    -- Type synonyms get expanded out during conversion (see 'convertType'), but we also
+    -- convert the synonyms we can so that we can expose them via data-dependencies.
+    | isTypeSynonymTyCon t
+    -> convertTypeSynonym env t
 
     -- Simple record types. This includes newtypes, and
     -- single constructor algebraic types with no fields or with
@@ -474,6 +475,28 @@ convertSimpleRecordDef env tycon = do
         workerDef = defNewtypeWorker (envLFModuleName env) tycon tconName con tyVars fields
 
     pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
+
+convertTypeSynonym :: Env -> TyCon -> ConvertM [Definition]
+convertTypeSynonym env tycon
+    | NameIn DA_Generics _ <- GHC.tyConName tycon
+    = pure []
+
+    | envLfVersion env `supports` featureTypeSynonyms
+    , Just (params, body) <- synTyConDefn_maybe tycon
+    , isLiftedTypeKind (tyConResKind tycon) -- accepts types and constraints
+    , not (isKindTyCon tycon)
+    = do
+        (env', tsynParams) <- bindTypeVars env params
+        tsynType <- convertType env' body
+        let tsynName = mkTypeSyn [getOccText tycon]
+        case tsynType of
+            TUnit -> pure []
+                -- We avoid converting TUnit type synonyms because it
+                -- clashes with the conversion of empty typeclasses.
+            _ -> pure [ defTypeSyn tsynName tsynParams tsynType ]
+
+    | otherwise
+    = pure []
 
 convertClassDef :: Env -> TyCon -> ConvertM [Definition]
 convertClassDef env tycon = do
