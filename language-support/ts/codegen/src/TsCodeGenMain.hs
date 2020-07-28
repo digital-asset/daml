@@ -505,7 +505,7 @@ renderDecoder = \case
         "})"
     DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
     DecoderRef t -> snd (genType t) <> ".decoder()"
-    DecoderLazy d -> "jtv.lazy(function () { return " <> renderDecoder d <> "; })"
+    DecoderLazy d -> "damlTypes.lazyMemo(function () { return " <> renderDecoder d <> "; })"
 
 data TypeDef
     = UnionDef T.Text [T.Text] [(T.Text, TypeRef)]

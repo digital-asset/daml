@@ -91,6 +91,32 @@ export const lookupTemplate = (templateId: string): Template<object> => {
 }
 
 /**
+ * @internal Turn a thunk into a memoized version of itself. The memoized thunk
+ * invokes the original thunk only on its first invocation and caches the result
+ * for later uses. We use this to implement a version of `jtv.lazy` with
+ * memoization.
+ */
+export function memo<A>(thunk: () => A): () => A {
+  let memoized: () => A = () => {
+      const cache = thunk();
+      memoized = (): A => cache;
+      return cache;
+  };
+  // NOTE(MH): Since we change `memoized` when the resultung thunk is invoked
+  // for the first time, we need to return it "by reference". Thus, we return
+  // a closure which contains a reference to `memoized`.
+  return (): A => memoized();
+}
+
+/**
+ * @internal Variation of `jtv.lazy` which memoizes the computed decoder on its
+ * first invocation.
+ */
+export function lazyMemo<A>(mkDecoder: () => jtv.Decoder<A>): jtv.Decoder<A> {
+  return jtv.lazy(memo(mkDecoder));
+}
+
+/**
  * The counterpart of DAML's `()` type.
  */
 export type Unit = {};
@@ -211,7 +237,7 @@ export type List<T> = T[];
  * Companion object of the [[List]] type.
  */
 export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
-  decoder: (): jtv.Decoder<T[]> => jtv.lazy(() => jtv.array(t.decoder())),
+  decoder: (): jtv.Decoder<T[]> => lazyMemo(() => jtv.array(t.decoder())),
 });
 
 /**
@@ -279,7 +305,7 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
   constructor(private payload: Serializable<T>) { }
 
   decoder(): jtv.Decoder<Optional<T>> {
-      return jtv.oneOf(jtv.constant(null), jtv.lazy(() => this.innerDecoder()));
+      return jtv.oneOf(jtv.constant(null), lazyMemo(() => this.innerDecoder()));
   }
 
   private innerDecoder(): jtv.Decoder<OptionalInner<T>> {
@@ -323,7 +349,7 @@ export type TextMap<T> = { [key: string]: T };
  * Companion object of the [[TextMap]] type.
  */
 export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
-    decoder: (): jtv.Decoder<TextMap<T>> => jtv.lazy(() => jtv.dict(t.decoder())),
+    decoder: (): jtv.Decoder<TextMap<T>> => lazyMemo(() => jtv.dict(t.decoder())),
 });
 
 // TODO(MH): `Map` type.
