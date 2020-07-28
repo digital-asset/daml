@@ -119,13 +119,6 @@ object Main {
 
         def changeExtension(file: File, extension: String): File = {
           val filename = file.getName
-
-          val baseName =
-            if (filename.contains("."))
-              filename.substring(0, filename.lastIndexOf('.'))
-            else
-              filename
-
           new File(file.getParentFile, filename + extension)
         }
 
