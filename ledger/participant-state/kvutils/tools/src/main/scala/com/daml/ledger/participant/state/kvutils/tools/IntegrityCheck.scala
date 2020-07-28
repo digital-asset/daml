@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, _}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
-import com.daml.metrics.JvmMetricSet
+import com.daml.metrics.{JvmMetricSet, Metrics}
 
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -50,7 +50,7 @@ object IntegrityCheck extends App {
     timeModel = TimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
-  val keyValueCommitting = new KeyValueCommitting(metricRegistry)
+  val keyValueCommitting = new KeyValueCommitting(engine, new Metrics(metricRegistry))
   var state = Map.empty[Proto.DamlStateKey, Proto.DamlStateValue]
 
   var total_t_commit = 0L
@@ -80,7 +80,6 @@ object IntegrityCheck extends App {
     val (t_commit, (logEntry2, outputState)) = Helpers.time(
       () =>
         keyValueCommitting.processSubmission(
-          engine,
           entry.getEntryId,
           Conversions.parseTimestamp(logEntry.getRecordTime),
           defaultConfig,

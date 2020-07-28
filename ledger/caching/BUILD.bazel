@@ -1,0 +1,44 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "caching",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:caching:__VERSION__"],
+    visibility = [
+        "//:__subpackages__",
+    ],
+    deps = [
+        "//ledger/metrics",
+        "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
+    ],
+)
+
+da_scala_library(
+    name = "caching-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    deps = [
+        ":caching",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)
+
+da_scala_test_suite(
+    name = "caching-tests",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    deps = [
+        ":caching",
+        ":caching-test-lib",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)

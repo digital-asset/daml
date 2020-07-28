@@ -25,6 +25,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
+        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",

@@ -18,7 +18,7 @@ import scala.reflect.runtime.universe._
   *  inner classes in the generated contract template cases.  An in
   *
   *  A decoder for ArchivedEvent`s is not require since these don't contain any information
-  *  besides the absolute contract ID of the archived contract.
+  *  besides the contract ID of the archived contract.
   */
 object EventDecoderGen {
   import LFUtil._

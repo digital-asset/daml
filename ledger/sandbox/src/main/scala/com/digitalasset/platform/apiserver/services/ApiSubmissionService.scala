@@ -7,18 +7,11 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 
 import akka.stream.Materializer
-import com.codahale.metrics.{Meter, MetricRegistry}
 import com.daml.api.util.TimeProvider
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  ContractStore,
-  IndexPartyManagementService,
-  IndexSubmissionService
-}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
@@ -26,14 +19,18 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   NotSupported,
   Overloaded
 }
-import com.daml.ledger.participant.state.v1.{SeedService, SubmissionResult, TimeModel, WriteService}
+import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  SeedService,
+  SubmissionResult,
+  WriteService
+}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.transaction.BlindingInfo
-import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -44,14 +41,11 @@ import com.daml.platform.store.ErrorCause
 import com.daml.timer.Delayed
 import io.grpc.Status
 
-import scala.collection.breakOut
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object ApiSubmissionService {
-
-  type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
 
   def create(
       ledgerId: LedgerId,
@@ -59,13 +53,13 @@ object ApiSubmissionService {
       writeService: WriteService,
       submissionService: IndexSubmissionService,
       partyManagementService: IndexPartyManagementService,
-      timeModel: TimeModel,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      seedService: Option[SeedService],
+      ledgerConfigProvider: LedgerConfigProvider,
+      seedService: SeedService,
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(
       implicit ec: ExecutionContext,
       mat: Materializer,
@@ -77,9 +71,9 @@ object ApiSubmissionService {
         writeService,
         submissionService,
         partyManagementService,
-        timeModel,
         timeProvider,
         timeProviderType,
+        ledgerConfigProvider,
         seedService,
         commandExecutor,
         configuration,
@@ -88,17 +82,12 @@ object ApiSubmissionService {
       ledgerId = ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationTime = () => configuration.maxDeduplicationTime,
-      metricRegistry = metrics,
+      maxDeduplicationTime =
+        () => ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
+      metrics = metrics,
     )
 
-  object RecordUpdate {
-    def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
-  }
-
   final case class Configuration(
-      // TODO(RA): this should be updated dynamically from the ledger configuration
-      maxDeduplicationTime: Duration,
       implicitPartyAllocation: Boolean,
   )
 
@@ -109,13 +98,13 @@ final class ApiSubmissionService private (
     writeService: WriteService,
     submissionService: IndexSubmissionService,
     partyManagementService: IndexPartyManagementService,
-    timeModel: TimeModel,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
-    seedService: Option[SeedService],
+    ledgerConfigProvider: LedgerConfigProvider,
+    seedService: SeedService,
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
-    metrics: MetricRegistry,
+    metrics: Metrics,
 )(implicit ec: ExecutionContext, mat: Materializer, logCtx: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
@@ -123,22 +112,10 @@ final class ApiSubmissionService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private object Metrics {
-
-    import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService.MetricPrefix
-
-    val failedInterpretationsMeter: Meter =
-      metrics.meter(MetricPrefix :+ "failed_command_interpretations")
-    val deduplicatedCommandsMeter: Meter =
-      metrics.meter(MetricPrefix :+ "deduplicated_commands")
-    val delayedSubmissionsMeter: Meter =
-      metrics.meter(MetricPrefix :+ "delayed_submissions")
-    val validSubmissionsMeter: Meter =
-      metrics.meter(MetricPrefix :+ "valid_submissions")
-  }
-
-  private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(
-      implicit logCtx: LoggingContext): Future[Unit] = {
+  private def deduplicateAndRecordOnLedger(
+      seed: crypto.Hash,
+      commands: ApiCommands,
+      ledgerConfig: Configuration)(implicit logCtx: LoggingContext): Future[Unit] = {
     val submittedAt = commands.submittedAt
     val deduplicateUntil = commands.deduplicateUntil
 
@@ -146,7 +123,7 @@ final class ApiSubmissionService private (
       .deduplicateCommand(commands.commandId, commands.submitter, submittedAt, deduplicateUntil)
       .flatMap {
         case CommandDeduplicationNew =>
-          recordOnLedger(seed, commands)
+          recordOnLedger(seed, commands, ledgerConfig)
             .transform(mapSubmissionResult)
             .recoverWith {
               case error =>
@@ -155,7 +132,7 @@ final class ApiSubmissionService private (
                   .transform(_ => Failure(error))
             }
         case CommandDeduplicationDuplicate(until) =>
-          Metrics.deduplicatedCommandsMeter.mark()
+          metrics.daml.commands.deduplicatedCommands.mark()
           val reason =
             s"A command with the same command ID ${commands.commandId} and submitter ${commands.submitter} was submitted before. Deduplication window until $until"
           logger.debug(reason)
@@ -171,8 +148,12 @@ final class ApiSubmissionService private (
 
       logger.trace(s"Received composite commands: $commands")
       logger.debug(s"Received composite command let ${commands.commands.ledgerEffectiveTime}.")
-      deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
-        .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
+      ledgerConfigProvider.latestConfiguration.fold[Future[Unit]](
+        Future.failed(ErrorFactories.missingLedgerConfig())
+      )(
+        ledgerConfig =>
+          deduplicateAndRecordOnLedger(seedService.nextSeed(), commands, ledgerConfig)
+            .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext))
     }
 
   private def mapSubmissionResult(result: Try[SubmissionResult])(
@@ -199,24 +180,25 @@ final class ApiSubmissionService private (
   }
 
   private def recordOnLedger(
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       commands: ApiCommands,
+      ledgerConfig: Configuration,
   )(implicit logCtx: LoggingContext): Future[SubmissionResult] =
     for {
       res <- commandExecutor.execute(commands, submissionSeed)
       transactionInfo <- res.fold(error => {
-        Metrics.failedInterpretationsMeter.mark()
+        metrics.daml.commands.failedCommandInterpretations.mark()
         Future.failed(grpcError(toStatus(error)))
       }, Future.successful)
       partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)
-      submissionResult <- submitTransaction(transactionInfo, partyAllocationResults)
+      submissionResult <- submitTransaction(transactionInfo, partyAllocationResults, ledgerConfig)
     } yield submissionResult
 
   private def allocateMissingInformees(
-      transaction: Transaction,
+      transaction: Tx.SubmittedTransaction,
   ): Future[Seq[SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
-      val parties: Set[Party] = transaction.nodes.values.flatMap(_.informeesOfNode)(breakOut)
+      val parties: Set[Party] = transaction.nodes.values.flatMap(_.informeesOfNode).toSet
       partyManagementService.getParties(parties.toSeq).flatMap { partyDetails =>
         val missingParties = parties -- partyDetails.map(_.party)
         if (missingParties.nonEmpty) {
@@ -242,6 +224,7 @@ final class ApiSubmissionService private (
   private def submitTransaction(
       transactionInfo: CommandExecutionResult,
       partyAllocationResults: Seq[SubmissionResult],
+      ledgerConfig: Configuration,
   ): Future[SubmissionResult] =
     partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
       case Some(result) =>
@@ -253,12 +236,12 @@ final class ApiSubmissionService private (
             // If the ledger time of the transaction is far in the future (farther than the expected latency),
             // the submission to the WriteService is delayed.
             val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
-              .minus(timeModel.avgTransactionLatency)
+              .minus(ledgerConfig.timeModel.avgTransactionLatency)
             val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
             if (submissionDelay.isNegative)
               submitTransaction(transactionInfo)
             else {
-              Metrics.delayedSubmissionsMeter.mark()
+              metrics.daml.commands.delayedSubmissions.mark()
               val scalaDelay = scala.concurrent.duration.Duration.fromNanos(submissionDelay.toNanos)
               Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
             }
@@ -271,7 +254,7 @@ final class ApiSubmissionService private (
   private def submitTransaction(
       result: CommandExecutionResult,
   ): Future[SubmissionResult] = {
-    Metrics.validSubmissionsMeter.mark()
+    metrics.daml.commands.validSubmissions.mark()
     writeService
       .submitTransaction(result.submitterInfo, result.transactionMeta, result.transaction)
       .toScala

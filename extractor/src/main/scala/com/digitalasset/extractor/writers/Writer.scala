@@ -22,7 +22,6 @@ trait Writer {
 object Writer {
   final case class RefreshPackages(missing: Identifier)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def apply(config: ExtractorConfig, target: Target, ledgerId: String): Writer =
     target match {
       case TextPrintTarget => new SimpleTextWriter(println)

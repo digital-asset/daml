@@ -88,7 +88,6 @@ object RetryHelper extends LazyLogging {
     }
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def logWarning(remainingAttempts: Int, e: Throwable): Unit = {
     logger.warn(
       s"Retrying after failure. Attempts remaining: $remainingAttempts. Error: ${e.getMessage}")

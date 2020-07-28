@@ -16,7 +16,7 @@ debounce delay before the \`onChange\` callback is called.
 
 export default class SearchInputGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = { value: 'Mockingbird' };
   }
   render() {

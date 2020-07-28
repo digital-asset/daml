@@ -9,15 +9,17 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
+import java.time.Clock
 import java.util.UUID
 
+import io.grpc.netty.NettyChannelBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.\/-
 import scalaz.std.either._
+import scalaz.std.list._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
-import com.daml.api.util.TimeProvider
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
@@ -25,11 +27,11 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
@@ -40,16 +42,9 @@ import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
+import ParticipantsJsonProtocol.ContractIdFormat
 
-object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false) {
-  override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
-    JsString(obj.coid)
-  override final def jsValueToApiContractId(json: JsValue) = json match {
-    case JsString(s) =>
-      AbsoluteContractId.fromString(s).fold(deserializationError(_), identity)
-    case _ => deserializationError("ContractId must be a string")
-  }
-}
+object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
 case class Participant(participant: String)
 case class Party(party: String)
@@ -95,6 +90,16 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
     }
     def write(p: Party) = JsString(p.party)
   }
+  implicit val ContractIdFormat: JsonFormat[ContractId] =
+    new JsonFormat[ContractId] {
+      override def write(obj: ContractId) =
+        JsString(obj.coid)
+      override def read(json: JsValue) = json match {
+        case JsString(s) =>
+          ContractId fromString s fold (deserializationError(_), identity)
+        case _ => deserializationError("ContractId must be a string")
+      }
+    }
   implicit val apiParametersFormat = jsonFormat2(ApiParameters)
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
@@ -111,7 +116,7 @@ object Script {
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       scriptId: Identifier): Either[String, Script] = {
-    val scriptExpr = SEVal(LfDefRef(scriptId), None)
+    val scriptExpr = SEVal(LfDefRef(scriptId))
     val scriptTy = compiledPackages
       .getPackage(scriptId.packageId)
       .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
@@ -136,15 +141,27 @@ object Script {
 }
 
 object Runner {
-  private def connectApiParameters(params: ApiParameters, clientConfig: LedgerClientConfiguration)(
+  private def connectApiParameters(
+      params: ApiParameters,
+      clientConfig: LedgerClientConfiguration,
+      maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
-    LedgerClient.singleHost(params.host, params.port, clientConfig).map(new GrpcLedgerClient(_))
+    LedgerClient
+      .fromBuilder(
+        NettyChannelBuilder
+          .forAddress(params.host, params.port)
+          .maxInboundMessageSize(maxInboundMessageSize),
+        clientConfig,
+      )
+      .map(new GrpcLedgerClient(_))
+//    LedgerClient.singleHost(params.host, params.port, clientConfig).map(new GrpcLedgerClient(_))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(
       participantParams: Participants[ApiParameters],
-      clientConfig: LedgerClientConfiguration)(
+      clientConfig: LedgerClientConfiguration,
+      maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {
     for {
@@ -152,11 +169,11 @@ object Runner {
       // Map is but it doesn’t return a Map so we have to call toMap afterwards.
       defaultClient <- Future
         .traverse(participantParams.default_participant.toList)(x =>
-          connectApiParameters(x, clientConfig))
+          connectApiParameters(x, clientConfig, maxInboundMessageSize))
         .map(_.headOption)
       participantClients <- Future
         .traverse(participantParams.participants: Map[Participant, ApiParameters])({
-          case (k, v) => connectApiParameters(v, clientConfig).map((k, _))
+          case (k, v) => connectApiParameters(v, clientConfig, maxInboundMessageSize).map((k, _))
         })
         .map(_.toMap)
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
@@ -187,8 +204,9 @@ object Runner {
       inputValue: Option[JsValue],
       initialClients: Participants[ScriptLedgerClient],
       applicationId: ApplicationId,
-      timeProvider: TimeProvider)(
+      timeMode: ScriptTimeMode)(
       implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages(darMap).right.get
@@ -215,7 +233,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner =
-      new Runner(compiledPackages, scriptAction, applicationId, timeProvider)
+      new Runner(compiledPackages, scriptAction, applicationId, timeMode)
     runner.runWithClients(initialClients)
   }
 }
@@ -224,8 +242,10 @@ class Runner(
     compiledPackages: CompiledPackages,
     script: Script.Action,
     applicationId: ApplicationId,
-    timeProvider: TimeProvider)
+    timeMode: ScriptTimeMode)
     extends StrictLogging {
+
+  private val utcClock = Clock.systemUTC()
 
   private def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
@@ -256,7 +276,7 @@ class Runner(
   private val extendedCompiledPackages = {
     val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SEMakeClo(Array(), 1, SEVar(1))
+        SEMakeClo(Array(), 1, SELocA(0))
     }
     new CompiledPackages {
       def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
@@ -265,6 +285,8 @@ class Runner(
       override def packages = compiledPackages.packages
       def packageIds = compiledPackages.packageIds
       override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
+      override def stackTraceMode = Compiler.FullStackTrace
+      override def profilingMode = Compiler.NoProfile
     }
   }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
@@ -283,241 +305,293 @@ class Runner(
 
   def runWithClients(initialClients: Participants[ScriptLedgerClient])(
       implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
-    val machine =
-      Speedy.Machine.fromSExpr(
-        sexpr = script.expr,
-        compiledPackages = extendedCompiledPackages,
-        submissionTime = Timestamp.now(),
-        seeding = InitialSeeding.NoSeed,
-      )
+    val machine = Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
 
-    // Removing the early return only makes this harder to read.
-    @SuppressWarnings(Array("org.wartremover.warts.Return"))
-    def stepToValue(): Either[RuntimeException, Unit] = {
-      while (!machine.isFinal) {
-        machine.step() match {
-          case SResultContinue => ()
-          case SResultError(err) => {
-            logger.error(Pretty.prettyError(err, machine.ptx).render(80))
-            return Left(err)
-          }
-          case res => {
-            return Left(new RuntimeException(s"Unexpected speedy result $res"))
-          }
-        }
+    def stepToValue(): Either[RuntimeException, SValue] =
+      machine.run() match {
+        case SResultFinalValue(v) =>
+          Right(v)
+        case SResultError(err) =>
+          logger.error(Pretty.prettyError(err, machine.ptx).render(80))
+          Left(err)
+        case res =>
+          Left(new RuntimeException(s"Unexpected speedy result $res"))
       }
-      Right(())
-    }
 
-    def go(): Future[SValue] = {
+    def run(expr: SExpr): Future[SValue] = {
+      machine.setExpressionToEvaluate(expr)
       stepToValue()
-        .fold(Future.failed(_), Future.successful(_))
-        .flatMap(_ =>
-          machine.toSValue match {
-            case SVariant(_, "Free", _, v) => {
-              v match {
-                case SVariant(_, "Submit", _, v) => {
-                  v match {
-                    case SRecord(_, _, vals) if vals.size == 3 => {
-                      for {
-                        freeAp <- vals.get(1) match {
-                          // Unwrap Commands newtype
-                          case SRecord(_, _, vals) if vals.size == 1 =>
-                            Future.successful(vals.get(0))
-                          case v =>
-                            Future.failed(
-                              new ConverterException(s"Expected record with 1 field but got $v"))
-                        }
-                        party <- Converter.toFuture(
-                          Converter
-                            .toParty(vals.get(0)))
-                        commands <- Converter.toFuture(
-                          Converter
-                            .toCommands(extendedCompiledPackages, freeAp))
-                        client <- Converter.toFuture(
-                          clients
-                            .getPartyParticipant(Party(party.value)))
-                        submitRes <- client.submit(applicationId, party, commands)
-                        v <- submitRes match {
-                          case Right(results) => {
-                            for {
-                              filled <- Converter.toFuture(
-                                Converter
-                                  .fillCommandResults(
-                                    extendedCompiledPackages,
-                                    lookupChoiceTy,
-                                    valueTranslator,
-                                    freeAp,
-                                    results))
-                              v <- {
-                                machine.ctrl = Speedy.CtrlExpr(filled)
-                                go()
-                              }
-                            } yield v
-                          }
-                          case Left(statusEx) => {
-                            for {
-                              res <- Converter.toFuture(
-                                Converter
-                                  .fromStatusException(script.scriptIds, statusEx))
-                              v <- {
-                                machine.ctrl =
-                                  Speedy.CtrlExpr(SEApp(SEValue(vals.get(2)), Array(SEValue(res))))
-                                go()
-                              }
-                            } yield v
-                          }
-                        }
-                      } yield v
-                    }
-                    case _ =>
-                      Future.failed(
-                        new ConverterException(s"Expected record with 2 fields but got $v"))
-                  }
-                }
-                case SVariant(_, "Query", _, v) => {
-                  v match {
-                    case SRecord(_, _, vals) if vals.size == 3 => {
-                      val continue = vals.get(2)
-                      for {
-                        party <- Converter.toFuture(
-                          Converter
-                            .toParty(vals.get(0)))
-                        tplId <- Converter.toFuture(
-                          Converter
-                            .typeRepToIdentifier(vals.get(1)))
-                        client <- Converter.toFuture(
-                          clients
-                            .getPartyParticipant(Party(party.value)))
-                        acs <- client.query(party, tplId)
-                        res <- Converter.toFuture(
-                          FrontStack(acs)
-                            .traverseU(Converter
-                              .fromCreated(valueTranslator, _)))
-                        v <- {
-                          machine.ctrl =
-                            Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
-                          go()
-                        }
-                      } yield v
-                    }
-                    case _ =>
-                      Future.failed(
-                        new ConverterException(s"Expected record with 3 fields but got $v"))
-                  }
-                }
-                case SVariant(_, "AllocParty", _, v) => {
-                  v match {
-                    case SRecord(_, _, vals) if vals.size == 4 => {
-                      val continue = vals.get(3)
-                      for {
-                        displayName <- vals.get(0) match {
-                          case SText(value) => Future.successful(value)
-                          case v =>
-                            Future.failed(new ConverterException(s"Expected SText but got $v"))
-                        }
-                        partyIdHint <- vals.get(1) match {
-                          case SText(t) => Future.successful(t)
-                          case v =>
-                            Future.failed(new ConverterException(s"Expected SText but got $v"))
-                        }
-                        participantName <- vals.get(2) match {
-                          case SOptional(Some(SText(t))) => Future.successful(Some(Participant(t)))
-                          case SOptional(None) => Future.successful(None)
-                          case v =>
-                            Future.failed(
-                              new ConverterException(s"Expected SOptional(SText) but got $v"))
-                        }
-                        client <- clients.getParticipant(participantName) match {
-                          case Right(client) => Future.successful(client)
-                          case Left(err) => Future.failed(new RuntimeException(err))
-                        }
-                        party <- client.allocateParty(partyIdHint, displayName)
-                        v <- {
-                          participantName match {
-                            case None => {
-                              // If no participant is specified, we use default_participant so we don’t need to change anything.
+        .fold(Future.failed, Future.successful)
+        .flatMap {
+          case SVariant(_, "Free", _, v) => {
+            v match {
+              case SVariant(_, "Submit", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 3 => {
+                    for {
+                      freeAp <- vals.get(1) match {
+                        // Unwrap Commands newtype
+                        case SRecord(_, _, vals) if vals.size == 1 =>
+                          Future.successful(vals.get(0))
+                        case v =>
+                          Future.failed(
+                            new ConverterException(s"Expected record with 1 field but got $v"))
+                      }
+                      party <- Converter.toFuture(
+                        Converter
+                          .toParty(vals.get(0)))
+                      commands <- Converter.toFuture(
+                        Converter
+                          .toCommands(extendedCompiledPackages, freeAp))
+                      client <- Converter.toFuture(
+                        clients
+                          .getPartyParticipant(Party(party.value)))
+                      submitRes <- client.submit(applicationId, party, commands)
+                      v <- submitRes match {
+                        case Right(results) => {
+                          for {
+                            filled <- Converter.toFuture(
+                              Converter
+                                .fillCommandResults(
+                                  extendedCompiledPackages,
+                                  lookupChoiceTy,
+                                  valueTranslator,
+                                  freeAp,
+                                  results))
+                            v <- {
+                              run(filled)
                             }
-                            case Some(participant) =>
-                              clients = clients.copy(
+                          } yield v
+                        }
+                        case Left(statusEx) => {
+                          for {
+                            res <- Converter.toFuture(
+                              Converter
+                                .fromStatusException(script.scriptIds, statusEx))
+                            v <- {
+                              run(SEApp(SEValue(vals.get(2)), Array(SEValue(res))))
+                            }
+                          } yield v
+                        }
+                      }
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 2 fields but got $v"))
+                }
+              }
+              case SVariant(_, "Query", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 3 => {
+                    val continue = vals.get(2)
+                    for {
+                      party <- Converter.toFuture(
+                        Converter
+                          .toParty(vals.get(0)))
+                      tplId <- Converter.toFuture(
+                        Converter
+                          .typeRepToIdentifier(vals.get(1)))
+                      client <- Converter.toFuture(
+                        clients
+                          .getPartyParticipant(Party(party.value)))
+                      acs <- client.query(party, tplId)
+                      res <- Converter.toFuture(
+                        FrontStack(acs)
+                          .traverseU(Converter
+                            .fromCreated(valueTranslator, _)))
+                      v <- {
+                        run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
+                      }
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 3 fields but got $v"))
+                }
+              }
+              case SVariant(_, "AllocParty", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 4 => {
+                    val continue = vals.get(3)
+                    for {
+                      displayName <- vals.get(0) match {
+                        case SText(value) => Future.successful(value)
+                        case v =>
+                          Future.failed(new ConverterException(s"Expected SText but got $v"))
+                      }
+                      partyIdHint <- vals.get(1) match {
+                        case SText(t) => Future.successful(t)
+                        case v =>
+                          Future.failed(new ConverterException(s"Expected SText but got $v"))
+                      }
+                      participantName <- vals.get(2) match {
+                        case SOptional(Some(SText(t))) => Future.successful(Some(Participant(t)))
+                        case SOptional(None) => Future.successful(None)
+                        case v =>
+                          Future.failed(
+                            new ConverterException(s"Expected SOptional(SText) but got $v"))
+                      }
+                      client <- clients.getParticipant(participantName) match {
+                        case Right(client) => Future.successful(client)
+                        case Left(err) => Future.failed(new RuntimeException(err))
+                      }
+                      party <- client.allocateParty(partyIdHint, displayName)
+                      v <- {
+                        participantName match {
+                          case None => {
+                            // If no participant is specified, we use default_participant so we don’t need to change anything.
+                          }
+                          case Some(participant) =>
+                            clients =
+                              clients.copy(
                                 party_participants = clients.party_participants + (Party(
                                   party.value) -> participant))
-                          }
-                          machine.ctrl =
-                            Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(party))))
-                          go()
                         }
-                      } yield v
-                    }
-                    case _ =>
-                      Future.failed(
-                        new ConverterException(s"Expected record with 2 fields but got $v"))
+                        run(SEApp(SEValue(continue), Array(SEValue(party))))
+                      }
+                    } yield v
                   }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 2 fields but got $v"))
                 }
-                case SVariant(_, "GetTime", _, continue) => {
-                  val t = Timestamp.assertFromInstant(timeProvider.getCurrentTime)
-                  machine.ctrl =
-                    Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(STimestamp(t)))))
-                  go()
+              }
+              case SVariant(_, "ListKnownParties", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 2 => {
+                    val continue = vals.get(1)
+                    for {
+                      participantName <- vals.get(0) match {
+                        case SOptional(Some(SText(t))) => Future.successful(Some(Participant(t)))
+                        case SOptional(None) => Future.successful(None)
+                        case v =>
+                          Future.failed(
+                            new ConverterException(s"Expected SOptional(SText) but got $v"))
+                      }
+                      client <- clients.getParticipant(participantName) match {
+                        case Right(client) => Future.successful(client)
+                        case Left(err) => Future.failed(new RuntimeException(err))
+                      }
+                      partyDetails <- client.listKnownParties()
+                      partyDetails_ <- Converter.toFuture(partyDetails.traverseU(details =>
+                        Converter.fromPartyDetails(script.scriptIds, details)))
+                      v <- {
+                        run(
+                          SEApp(
+                            SEValue(continue),
+                            Array(SEValue(SList(FrontStack(partyDetails_))))))
+                      }
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 2 fields but got $v"))
                 }
-                case SVariant(_, "Sleep", _, v) => {
-                  v match {
-                    case SRecord(_, _, vals) if vals.size == 2 => {
-                      val continue = vals.get(1)
+              }
+              case SVariant(_, "GetTime", _, continue) => {
+                for {
+                  time <- timeMode match {
+                    case ScriptTimeMode.Static => {
+                      // We don’t parametrize this by participant since this
+                      // is only useful in static time mode and using the time
+                      // service with multiple participants is very dodgy.
                       for {
-                        sleepMicros <- vals.get(0) match {
-                          case SRecord(_, _, vals) if vals.size == 1 =>
-                            vals.get(0) match {
-                              case SInt64(i) => Future.successful(i)
-                              case _ =>
-                                Future.failed(new ConverterException(s"Expected SInt64 but got $v"))
-                            }
-                          case v =>
-                            Future.failed(new ConverterException(s"Expected RelTime but got $v"))
-                        }
-                        v <- {
-                          val sleepMillis = sleepMicros / 1000
-                          val sleepNanos = (sleepMicros % 1000) * 1000
-                          Thread.sleep(sleepMillis, sleepNanos.toInt)
-                          machine.ctrl =
-                            Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SUnit))))
-                          go()
-                        }
-                      } yield v
+                        client <- Converter.toFuture(clients.getParticipant(None))
+                        t <- client.getStaticTime()
+                      } yield t
                     }
-                    case _ =>
-                      Future.failed(
-                        new ConverterException(s"Expected record with 2 fields but got $v"))
+                    case ScriptTimeMode.WallClock =>
+                      Future {
+                        Timestamp.assertFromInstant(utcClock.instant())
+                      }
                   }
-                }
-                case _ =>
-                  Future.failed(
-                    new ConverterException(s"Expected Submit, Query or AllocParty but got $v"))
+                  v <- run(SEApp(SEValue(continue), Array(SEValue(STimestamp(time)))))
+
+                } yield v
+
               }
+              case SVariant(_, "SetTime", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 2 =>
+                    timeMode match {
+                      case ScriptTimeMode.Static =>
+                        val continue = vals.get(1)
+                        for {
+                          // We don’t parametrize this by participant since this
+                          // is only useful in static time mode and using the time
+                          // service with multiple participants is very dodgy.
+                          client <- Converter.toFuture(clients.getParticipant(None))
+                          t <- Converter.toFuture(Converter.toTimestamp(vals.get(0)))
+                          _ <- client.setStaticTime(t)
+                          v <- run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                        } yield v
+                      case ScriptTimeMode.WallClock =>
+                        Future.failed(
+                          new RuntimeException("setTime is not supported in wallclock mode"))
+
+                    }
+                  case _ =>
+                    Future.failed(new ConverterException(s"Expected SetTimePayload but got $v"))
+                }
+              }
+              case SVariant(_, "Sleep", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 2 => {
+                    val continue = vals.get(1)
+                    for {
+                      sleepMicros <- vals.get(0) match {
+                        case SRecord(_, _, vals) if vals.size == 1 =>
+                          vals.get(0) match {
+                            case SInt64(i) => Future.successful(i)
+                            case _ =>
+                              Future.failed(new ConverterException(s"Expected SInt64 but got $v"))
+                          }
+                        case v =>
+                          Future.failed(new ConverterException(s"Expected RelTime but got $v"))
+                      }
+                      v <- {
+                        val sleepMillis = sleepMicros / 1000
+                        val sleepNanos = (sleepMicros % 1000) * 1000
+                        Thread.sleep(sleepMillis, sleepNanos.toInt)
+                        run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                      }
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 2 fields but got $v"))
+                }
+              }
+              case _ =>
+                Future.failed(
+                  new ConverterException(s"Expected Submit, Query or AllocParty but got $v"))
             }
-            case SVariant(_, "Pure", _, v) =>
-              v match {
-                case SRecord(_, _, vals) if vals.size == 2 => {
-                  // Unwrap the Tuple2 we get from the inlined StateT.
-                  Future { vals.get(0) }
-                }
-                case _ => Future.failed(new ConverterException(s"Expected Tuple2 but got $v"))
+          }
+          case SVariant(_, "Pure", _, v) =>
+            v match {
+              case SRecord(_, _, vals) if vals.size == 2 => {
+                // Unwrap the Tuple2 we get from the inlined StateT.
+                Future { vals.get(0) }
               }
-            case v => Future.failed(new ConverterException(s"Expected Free or Pure but got $v"))
-        })
+              case _ => Future.failed(new ConverterException(s"Expected Tuple2 but got $v"))
+            }
+          case v => Future.failed(new ConverterException(s"Expected Free or Pure but got $v"))
+        }
     }
 
     for {
-      _ <- stepToValue().fold(Future.failed(_), Future.successful(_))
-      _ <- machine.toSValue match {
+      _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
+      result <- stepToValue().fold(Future.failed, Future.successful)
+      expr <- result match {
         // Unwrap Script newtype and apply to ()
         case SRecord(_, _, vals) if vals.size == 1 => {
           vals.get(0) match {
             case SPAP(_, _, _) =>
-              machine.ctrl = Speedy.CtrlExpr(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))
-              Future.unit
+              Future(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))
             case v =>
               Future.failed(
                 new ConverterException(
@@ -528,7 +602,7 @@ class Runner(
         }
         case v => Future.failed(new ConverterException(s"Expected record with 1 field but got $v"))
       }
-      v <- go()
+      v <- run(expr)
     } yield v
   }
 }

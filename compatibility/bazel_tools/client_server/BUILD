@@ -13,23 +13,3 @@ da_haskell_binary(
     ],
     visibility = ["//visibility:public"],
 )
-
-da_haskell_binary(
-    name = "with-postgres",
-    srcs = ["WithPostgres.hs"],
-    data = [
-        "@postgresql_nix//:all",
-    ],
-    hackage_deps = [
-        "base",
-        "directory",
-        "extra",
-        "filepath",
-        "process",
-        "text",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "@rules_haskell//tools/runfiles",
-    ],
-)

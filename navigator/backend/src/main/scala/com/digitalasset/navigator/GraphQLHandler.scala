@@ -40,7 +40,6 @@ object GraphQLHandler {
   type CustomEndpoints = Set[CustomEndpoint[_]]
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 case class DefaultGraphQLHandler(
     customEndpoints: GraphQLHandler.CustomEndpoints,
     platformStore: Option[ActorRef])(

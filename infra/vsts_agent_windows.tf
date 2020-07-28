@@ -107,7 +107,7 @@ $partition | Set-Content C:\diskpart.txt
 & diskpart /s C:\diskpart.txt 2>&1 | %{ "$_" }
 
 # Create a temporary and random password for the VSTS user, forget about it once this script has finished running
-$Username = "VssAdministrator"
+$Username = "u"
 $Account = "$env:COMPUTERNAME\$Username"
 Add-Type -AssemblyName System.Web
 $Password = [System.Web.Security.Membership]::GeneratePassword(24, 0)
@@ -127,6 +127,9 @@ sc.exe config winrm start=auto
 net start winrm
 
 echo "== Installing the VSTS agent"
+
+New-Item -ItemType Directory -Path 'C:\agent'
+Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=default'
 
 $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
 choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"

@@ -23,7 +23,7 @@ private[lf] object Equality {
       h2: Iterator[Y],
       stack: FrontStack[(X, Y)],
   ): FrontStack[(X, Y)] =
-    (stack /: (h1 zip h2))(_.+:(_))
+    ((h1 zip h2) foldLeft stack)(_.+:(_))
 
   @tailrec
   private[this] def equality(stack0: FrontStack[(SValue, SValue)]): Boolean = {

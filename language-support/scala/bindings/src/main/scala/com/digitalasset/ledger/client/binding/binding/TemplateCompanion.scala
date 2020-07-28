@@ -90,7 +90,6 @@ object TemplateCompanion {
     type view[C[_]] = RecordView.Empty[C]
     override def toNamedArguments(associatedType: T) = ` arguments`()
     override def fromNamedArguments(namedArguments: rpcvalue.Record): Option[T] = Some(onlyInstance)
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def fieldEncoding(lte: LfTypeEncoding): view[lte.Field] = RecordView.Empty
     override def encoding(lte: LfTypeEncoding)(view: view[lte.Field]): lte.Out[T] =
       lte.emptyRecord(` dataTypeId`, () => onlyInstance)

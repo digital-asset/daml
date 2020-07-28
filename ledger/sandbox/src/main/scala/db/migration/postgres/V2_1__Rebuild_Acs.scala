@@ -13,28 +13,23 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{ContractInst, TransactionId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.Transaction
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
 import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.daml.platform.events.EventIdFormatter
+import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
-import com.daml.platform.store.serialization.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
+import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
+import db.migration.translation.{ContractSerializer, TransactionSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
@@ -94,7 +89,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private val SQL_REMOVE_CONTRACT_KEY =
     SQL("delete from contract_keys where contract_id={contract_id}")
 
-  private[this] def storeContractKey(key: GlobalKey, cid: AbsoluteContractId)(
+  private[this] def storeContractKey(key: GlobalKey, cid: ContractId)(
       implicit connection: Connection): Boolean =
     SQL_INSERT_CONTRACT_KEY
       .on(
@@ -105,8 +100,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       )
       .execute()
 
-  private[this] def removeContractKey(cid: AbsoluteContractId)(
-      implicit connection: Connection): Boolean =
+  private[this] def removeContractKey(cid: ContractId)(implicit connection: Connection): Boolean =
     SQL_REMOVE_CONTRACT_KEY
       .on(
         "contract_id" -> cid.coid,
@@ -114,7 +108,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       .execute()
 
   private[this] def selectContractKey(key: GlobalKey)(
-      implicit connection: Connection): Option[AbsoluteContractId] =
+      implicit connection: Connection): Option[ContractId] =
     SQL_SELECT_CONTRACT_KEY
       .on(
         "package_id" -> key.templateId.packageId,
@@ -126,7 +120,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def storeContract(offset: Long, contract: ActiveContract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
 
-  private def archiveContract(offset: Long, cid: AbsoluteContractId)(
+  private def archiveContract(offset: Long, cid: ContractId)(
       implicit connection: Connection): Boolean =
     SQL_ARCHIVE_CONTRACT
       .on(
@@ -324,102 +318,102 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def updateActiveContractSet(
       offset: Long,
       tx: LedgerEntry.Transaction,
-      globalDivulgence: Relation[AbsoluteContractId, Party])(
-      implicit connection: Connection): Unit = tx match {
-    case LedgerEntry.Transaction(
-        _,
-        transactionId,
-        _,
-        _,
-        workflowId,
-        ledgerEffectiveTime,
-        _,
-        transaction,
-        explicitDisclosure) =>
-      val mappedDisclosure = explicitDisclosure
-        .mapValues(parties => parties.map(Party.assertFromString))
+      globalDivulgence: Relation[ContractId, Party])(implicit connection: Connection): Unit =
+    tx match {
+      case LedgerEntry.Transaction(
+          _,
+          transactionId,
+          _,
+          _,
+          workflowId,
+          ledgerEffectiveTime,
+          _,
+          transaction,
+          explicitDisclosure) =>
+        val mappedDisclosure = explicitDisclosure
+          .mapValues(parties => parties.map(Party.assertFromString))
 
-      final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
+        final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
-        override def lookupContractByKey(key: GlobalKey): Option[AbsoluteContractId] =
-          selectContractKey(key)
+          override def lookupContractByKey(key: GlobalKey): Option[ContractId] =
+            selectContractKey(key)
 
-        override def lookupContractLet(cid: AbsoluteContractId) =
-          lookupActiveContractLetSync(cid)
+          override def lookupContractLet(cid: ContractId) =
+            lookupActiveContractLetSync(cid)
 
-        override def addContract(c: ActiveContract, keyO: Option[GlobalKey]) = {
-          storeContract(offset, c)
-          keyO.foreach(key => storeContractKey(key, c.id))
-          this
-        }
-
-        override def removeContract(cid: AbsoluteContractId) = {
-          archiveContract(offset, cid)
-          removeContractKey(cid)
-          this
-        }
-
-        override def addParties(parties: Set[Party]): AcsStoreAcc = {
-          // Implemented in a future migration
-          this
-        }
-
-        override def divulgeAlreadyCommittedContracts(
-            transactionId: TransactionId,
-            global: Relation[AbsoluteContractId, Party],
-            referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
-          val divulgenceParams = global
-            .flatMap {
-              case (cid, parties) =>
-                parties.map(
-                  p =>
-                    Seq[NamedParameter](
-                      "contract_id" -> cid.coid,
-                      "party" -> p,
-                      "ledger_offset" -> offset,
-                      "transaction_id" -> transactionId
-                  ))
-            }
-          // Note: the in-memory ledger only stores divulgence for contracts in the ACS.
-          // Do we need here the equivalent to 'contracts.intersectWith(global)', used in the in-memory
-          // implementation of implicitlyDisclose?
-          if (divulgenceParams.nonEmpty) {
-            executeBatchSql(SQL_BATCH_INSERT_DIVULGENCES, divulgenceParams)
+          override def addContract(c: ActiveContract, keyO: Option[GlobalKey]) = {
+            storeContract(offset, c)
+            keyO.foreach(key => storeContractKey(key, c.id))
+            this
           }
-          this
+
+          override def removeContract(cid: ContractId) = {
+            archiveContract(offset, cid)
+            removeContractKey(cid)
+            this
+          }
+
+          override def addParties(parties: Set[Party]): AcsStoreAcc = {
+            // Implemented in a future migration
+            this
+          }
+
+          override def divulgeAlreadyCommittedContracts(
+              transactionId: TransactionId,
+              global: Relation[ContractId, Party],
+              referencedContracts: List[(Value.ContractId, ContractInst)]) = {
+            val divulgenceParams = global
+              .flatMap {
+                case (cid, parties) =>
+                  parties.map(
+                    p =>
+                      Seq[NamedParameter](
+                        "contract_id" -> cid.coid,
+                        "party" -> p,
+                        "ledger_offset" -> offset,
+                        "transaction_id" -> transactionId
+                    ))
+              }
+            // Note: the in-memory ledger only stores divulgence for contracts in the ACS.
+            // Do we need here the equivalent to 'contracts.intersectWith(global)', used in the in-memory
+            // implementation of implicitlyDisclose?
+            if (divulgenceParams.nonEmpty) {
+              executeBatchSql(SQL_BATCH_INSERT_DIVULGENCES, divulgenceParams)
+            }
+            this
+          }
         }
-      }
 
-      // this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
-      val acsManager = new ActiveLedgerStateManager(new AcsStoreAcc)
+        // this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
+        val acsManager = new ActiveLedgerStateManager(new AcsStoreAcc)
 
-      // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
-      // within the current SQL transaction. All of the given functions perform side effects to update the database.
-      val atr = acsManager.addTransaction(
-        ledgerEffectiveTime,
-        transactionId,
-        workflowId,
-        tx.submittingParty,
-        transaction,
-        mappedDisclosure,
-        globalDivulgence,
-        List.empty
-      )
+        // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
+        // within the current SQL transaction. All of the given functions perform side effects to update the database.
+        val atr = acsManager.addTransaction(
+          ledgerEffectiveTime,
+          transactionId,
+          workflowId,
+          tx.submittingParty,
+          transaction,
+          mappedDisclosure,
+          globalDivulgence,
+          List.empty
+        )
 
-      atr match {
-        case Left(errs) =>
-          // Unclear how to automatically handle this, aborting the migration.
-          sys.error(
-            s"""Failed to update the active contract set for transaction '$transactionId' at offset $offset.
+        atr match {
+          case Left(errs) =>
+            // Unclear how to automatically handle this, aborting the migration.
+            sys.error(
+              s"""Failed to update the active contract set for transaction '$transactionId' at offset $offset.
                |This is most likely because the transaction should have been rejected, see https://github.com/digital-asset/daml/issues/10.
                |If this is the case, you will need to manually fix the transaction history and then retry.
                |Details: ${errs.map(_.toString).mkString(", ")}.
                |Aborting migration.
              """.stripMargin)
-        case Right(_) =>
-          ()
-      }
-  }
+          case Right(_) =>
+            ()
+        }
+    }
 
   private def storeTransaction(offset: Long, tx: LedgerEntry.Transaction)(
       implicit connection: Connection): Unit = {
@@ -434,18 +428,18 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
         "transaction" -> transactionSerializer
-          .serializeTransaction(tx.transaction)
+          .serializeTransaction(tx.transactionId, tx.transaction)
           .getOrElse(sys.error(s"failed to serialize transaction! trId: ${tx.transactionId}"))
       )
       .execute()
 
     val disclosureParams = tx.explicitDisclosure.flatMap {
-      case (eventId, parties) =>
+      case (nodeId, parties) =>
         parties.map(
           p =>
             Seq[NamedParameter](
               "transaction_id" -> tx.transactionId,
-              "event_id" -> eventId,
+              "event_id" -> EventId(tx.transactionId, nodeId),
               "party" -> p
           ))
     }
@@ -505,7 +499,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       "ledger_offset"
     )
 
-  private val DisclosureParser = (ledgerString("event_id") ~ party("party") map (flatten))
+  private val DisclosureParser = (eventId("event_id") ~ party("party") map (flatten))
 
   private def toLedgerEntry(parsedEntry: ParsedEntry)(
       implicit conn: Connection): (Long, LedgerEntry) = parsedEntry match {
@@ -537,9 +531,9 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         effectiveAt.toInstant,
         recordedAt.toInstant,
         transactionSerializer
-          .deserializeTransaction(transactionStream)
+          .deserializeTransaction(transactionId, transactionStream)
           .getOrElse(sys.error(s"failed to deserialize transaction! trId: $transactionId")),
-        disclosure
+        Relation.mapKeys(disclosure)(_.nodeId)
       )
     case ParsedEntry(
         "rejection",
@@ -597,7 +591,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   /** Note: at the time this migration was written, divulged contracts were not stored separately from active contracts.
     * This method therefore treats all contracts as active contracts.
     */
-  private def lookupActiveContractLetSync(contractId: AbsoluteContractId)(
+  private def lookupActiveContractLetSync(contractId: ContractId)(
       implicit conn: Connection): Option[LetLookup] =
     SQL_SELECT_CONTRACT_LET
       .on("contract_id" -> contractId.coid)
@@ -671,15 +665,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         lookupLedgerEntry(offset)
           .collect { case tx: LedgerEntry.Transaction => tx }
           .foreach(tx => {
-            // Recover the original transaction that can be used as input to Blinding.blind.
-            // Here we do not convert absolute contract IDs back to relative ones,
-            // as this should not affect the blinding.
-            val toCoid: AbsoluteContractId => ContractId = identity
-            val unmappedTx: Transaction.Transaction = tx.transaction
-              .mapNodeId(EventIdFormatter.split(_).get.nodeId)
-
-            val blindingInfo = Blinding.blind(unmappedTx)
-
+            val blindingInfo = Blinding.blind(tx.transaction)
             updateActiveContractSet(offset, tx, blindingInfo.globalDivulgence)
           })
       }

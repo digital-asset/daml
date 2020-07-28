@@ -41,7 +41,7 @@ case class UserFacingError(message: String)
 }
 
 /** Schema definition for the UI backend GraphQL API. */
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.JavaSerializable"))
+@SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
 final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
 
   implicit private val actorTimeout: Timeout = Timeout(60, TimeUnit.SECONDS)

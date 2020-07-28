@@ -8,7 +8,7 @@ import System.Environment.Blank (setEnv)
 import System.FilePath ((</>))
 import System.IO.Extra (withTempDir,writeFileUTF8)
 import Test.Tasty (TestTree,defaultMain,testGroup)
-import Test.Tasty.HUnit (testCaseSteps)
+import Test.Tasty.HUnit (testCase, testCaseSteps)
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BSL
@@ -26,6 +26,12 @@ import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 
 data Tools = Tools { damlc :: FilePath, damlHelper :: FilePath }
 
+-- NOTE: This test was moved to the compatibility tests in
+-- `compatibility/bazel_tools/daml_ledger/Main.hs`. This file remains for now
+-- for easier iterative testing during development. If you modify these tests
+-- then please keep them in sync with the corresponding tests in the
+-- compatibility workspace.
+
 main :: IO ()
 main = do
   -- We manipulate global state via the working directory
@@ -35,33 +41,42 @@ main = do
   damlHelper <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
   let tools = Tools {..}
   defaultMain $ testGroup "Deployment"
-    [ authenticatedUploadTest tools
+    [ authenticationTests tools
     , fetchTest tools
     ]
 
--- | Test `daml ledger upload-dar --access-token-file`
-authenticatedUploadTest :: Tools -> TestTree
-authenticatedUploadTest Tools{..} = do
-  let sharedSecret = "TheSharedSecret"
+-- | Test `daml ledger list-parties --access-token-file`
+authenticationTests :: Tools -> TestTree
+authenticationTests Tools{..} =
   withSandbox defaultSandboxConf { mbSharedSecret = Just sharedSecret } $ \getSandboxPort ->
-    testCaseSteps "authenticatedUploadTest" $ \step -> do
-    port <- getSandboxPort
-    withTempDir $ \deployDir -> do
-      withCurrentDirectory deployDir $ do
-        writeMinimalProject
-        step "build"
-        callProcessSilent damlc ["build"]
-        let dar = ".daml/dist/proj1-0.0.1.dar"
-        let tokenFile = deployDir </> "secretToken.jwt"
-        step "upload"
-        -- The trailing newline is not required but we want to test that it is supported.
-        writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
-        callProcessSilent damlHelper
-          [ "ledger", "upload-dar"
-          , "--access-token-file", tokenFile
-          , "--host", "localhost", "--port", show port
-          , dar
-          ]
+    testGroup "authentication"
+    [ testCase "Bearer prefix" $ do
+          port <- getSandboxPort
+          withTempDir $ \deployDir -> do
+            withCurrentDirectory deployDir $ do
+              let tokenFile = deployDir </> "secretToken.jwt"
+              -- The trailing newline is not required but we want to test that it is supported.
+              writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
+              callProcessSilent damlHelper
+                [ "ledger", "list-parties"
+                , "--access-token-file", tokenFile
+                , "--host", "localhost", "--port", show port
+                ]
+    , testCase "no Bearer prefix" $ do
+          port <- getSandboxPort
+          withTempDir $ \deployDir -> do
+            withCurrentDirectory deployDir $ do
+              let tokenFile = deployDir </> "secretToken.jwt"
+              -- The trailing newline is not required but we want to test that it is supported.
+              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret <> "\n")
+              callProcessSilent damlHelper
+                [ "ledger", "list-parties"
+                , "--access-token-file", tokenFile
+                , "--host", "localhost", "--port", show port
+                ]
+    ]
+  where
+    sharedSecret = "TheSharedSecret"
 
 makeSignedJwt :: String -> String
 makeSignedJwt sharedSecret = do

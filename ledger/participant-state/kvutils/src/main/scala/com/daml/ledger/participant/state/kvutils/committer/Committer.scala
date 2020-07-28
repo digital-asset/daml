@@ -3,20 +3,19 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.codahale.metrics
 import com.codahale.metrics.Timer
-import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlConfigurationEntry,
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.DamlStateMap
+import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err}
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
-import com.daml.metrics.MetricName
+import com.daml.metrics.Metrics
 import org.slf4j.{Logger, LoggerFactory}
 
 /** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.
@@ -50,16 +49,15 @@ private[committer] trait Committer[Submission, PartialResult] {
   /** The initial internal state passed to first step. */
   protected def init(ctx: CommitContext, subm: Submission): PartialResult
 
-  protected val metricRegistry: metrics.MetricRegistry
+  protected val metrics: Metrics
 
   // These are lazy because they rely on `committerName`, which is defined in the subclass and
   // therefore not set at object initialization.
-  protected final lazy val metricPrefix: MetricName = MetricPrefix :+ committerName
-  private lazy val runTimer: Timer = metricRegistry.timer(metricPrefix :+ "run_timer")
+  private lazy val runTimer: Timer = metrics.daml.kvutils.committer.runTimer(committerName)
   private lazy val stepTimers: Map[StepInfo, Timer] =
     steps.map {
       case (info, _) =>
-        info -> metricRegistry.timer(metricPrefix :+ "step_timers" :+ info)
+        info -> metrics.daml.kvutils.committer.stepTimer(committerName, info)
     }.toMap
 
   /** A committer can `run` a submission and produce a log entry and output states. */
@@ -95,9 +93,28 @@ private[committer] trait Committer[Submission, PartialResult] {
 }
 
 object Committer {
-
   type StepInfo = String
 
-  private val MetricPrefix = kvutils.MetricPrefix :+ "committer"
-
+  def getCurrentConfiguration(
+      defaultConfig: Configuration,
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
+    inputState
+      .getOrElse(
+        Conversions.configurationStateKey,
+        /* If we're retrieving configuration, we require it to at least
+         * have been declared as an input by the submitter as it is used
+         * to authorize configuration changes. */
+        throw Err.MissingInputState(Conversions.configurationStateKey)
+      )
+      .flatMap { v =>
+        val entry = v.getConfigurationEntry
+        Configuration
+          .decode(entry.getConfiguration)
+          .fold({ err =>
+            logger.error(s"Failed to parse configuration: $err, using default configuration.")
+            None
+          }, conf => Some(Some(entry) -> conf))
+      }
+      .getOrElse(None -> defaultConfig)
 }

@@ -3,7 +3,7 @@
 
 -- | DAML-LF Numeric literals, with scale attached.
 module DA.Daml.LF.Ast.Numeric
-    ( Numeric
+    ( Numeric (..)
     , NumericError (..)
     , E10
     , numeric

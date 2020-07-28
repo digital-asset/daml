@@ -85,7 +85,7 @@ object TestHelpers {
       owner: String,
       observer: String,
       additionalContractDataType: String,
-      additionalContractValue: Value[Value.AbsoluteContractId]): Value[Value.AbsoluteContractId] =
+      additionalContractValue: Value[Value.ContractId]): Value[Value.ContractId] =
     Value.ValueRecord(
       Some(templateIdWith(additionalContractDataType)),
       ImmArray(

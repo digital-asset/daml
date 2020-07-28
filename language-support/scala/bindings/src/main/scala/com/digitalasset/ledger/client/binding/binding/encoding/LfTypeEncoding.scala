@@ -51,7 +51,6 @@ trait LfTypeEncoding {
   def fields[A](fi: Field[A]): RecordFields[A]
 
   /** Convenient wrapper for `enum` and iterated `VariantCase.plus`. */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def enumAll[A](
       enumId: rpcvalue.Identifier,
       index: A => Int,
@@ -62,7 +61,6 @@ trait LfTypeEncoding {
   def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A]
 
   /** Convenient wrapper for `variant` and iterated `VariantCase.plus`. */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   final def variantAll[A](
       variantId: rpcvalue.Identifier,
       case0: VariantCases[A],
@@ -146,15 +144,12 @@ object LfTypeEncoding {
         fst.variantCase(caseName, o._1)(inject)(select),
         snd.variantCase(caseName, o._2)(inject)(select))
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val RecordFields: InvariantApply[RecordFields] =
       fst.RecordFields product snd.RecordFields
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val VariantCases: Plus[VariantCases] =
       fst.VariantCases product snd.VariantCases
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val primitive: ValuePrimitiveEncoding[Out] =
       ValuePrimitiveEncoding.product(fst.primitive, snd.primitive)
   }

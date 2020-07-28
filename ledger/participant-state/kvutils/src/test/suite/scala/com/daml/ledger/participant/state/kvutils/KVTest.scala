@@ -13,8 +13,9 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
-import com.daml.lf.transaction.Transaction
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.metrics.Metrics
 import scalaz.State
 import scalaz.std.list._
 import scalaz.syntax.traverse._
@@ -22,7 +23,6 @@ import scalaz.syntax.traverse._
 import scala.collection.JavaConverters._
 
 final case class KVTestState(
-    engine: Engine,
     participantId: ParticipantId,
     recordTime: Timestamp,
     defaultConfig: Configuration,
@@ -38,14 +38,14 @@ object KVTest {
 
   private[this] val defaultAdditionalContractDataTy = "Party"
 
-  private[kvutils] val metricRegistry = new MetricRegistry
+  private[kvutils] val metrics = new Metrics(new MetricRegistry)
 
-  private[this] val keyValueCommitting = new KeyValueCommitting(metricRegistry)
-  private[this] val keyValueSubmission = new KeyValueSubmission(metricRegistry)
+  private[this] val engine = Engine()
+  private[this] val keyValueCommitting = new KeyValueCommitting(engine, metrics)
+  private[this] val keyValueSubmission = new KeyValueSubmission(metrics)
 
   def initialTestState: KVTestState =
     KVTestState(
-      engine = Engine(),
       participantId = mkParticipantId(0),
       recordTime = Timestamp.Epoch.addMicros(1000000),
       defaultConfig = theDefaultConfig,
@@ -124,7 +124,6 @@ object KVTest {
       testState <- get[KVTestState]
       entryId <- freshEntryId
       (logEntry, newState) = keyValueCommitting.processSubmission(
-        engine = testState.engine,
         entryId = entryId,
         recordTime = testState.recordTime,
         defaultConfig = testState.defaultConfig,
@@ -164,13 +163,13 @@ object KVTest {
 
   def runCommand(
       submitter: Party,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       additionalContractDataTy: String,
       cmds: Command*,
-  ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
+  ): KVTest[(SubmittedTransaction, Tx.Metadata)] =
     for {
       s <- get[KVTestState]
-      (tx, meta) = s.engine
+      (tx, meta) = engine
         .submit(
           cmds = Commands(
             submitter = submitter,
@@ -195,19 +194,19 @@ object KVTest {
           }
         )
         .getOrElse(sys.error("Engine.submit fail"))
-    } yield tx.assertNoRelCid(_ => "Unexpected relative contract ids") -> meta
+    } yield tx -> meta
 
   def runSimpleCommand(
       submitter: Party,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       cmds: Command*,
-  ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
+  ): KVTest[(SubmittedTransaction, Tx.Metadata)] =
     runCommand(submitter, submissionSeed, defaultAdditionalContractDataTy, cmds: _*)
 
   def submitTransaction(
       submitter: Party,
-      transaction: (Transaction.AbsTransaction, Transaction.Metadata),
-      submissionSeed: Option[crypto.Hash],
+      transaction: (SubmittedTransaction, Tx.Metadata),
+      submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =

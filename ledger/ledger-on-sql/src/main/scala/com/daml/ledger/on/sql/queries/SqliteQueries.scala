@@ -38,6 +38,13 @@ final class SqliteQueries(override protected implicit val connection: Connection
     SQL"SELECT LAST_INSERT_ROWID() AS row_id"
       .as(long("row_id").single)
   }
+
+  override final def truncate(): Try[Unit] = Try {
+    SQL"delete from #$StateTable".executeUpdate()
+    SQL"delete from #$LogTable".executeUpdate()
+    SQL"delete from #$MetaTable".executeUpdate()
+    ()
+  }
 }
 
 object SqliteQueries {

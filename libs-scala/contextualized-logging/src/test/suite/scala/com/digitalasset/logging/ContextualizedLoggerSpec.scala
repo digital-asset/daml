@@ -10,7 +10,6 @@ import org.scalatest.{FlatSpec, Matchers}
 import org.slf4j.event.{EventConstants, Level}
 import org.slf4j.{Logger, Marker}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class ContextualizedLoggerSpec
     extends FlatSpec
     with Matchers

@@ -84,7 +84,6 @@ private[reporter] object JMeterXmlGenerator {
       }
     }
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     private def paramSuffix(parameters: Parameters): String = {
       val filtered: Vector[String] = parameters.axisData
         .map {

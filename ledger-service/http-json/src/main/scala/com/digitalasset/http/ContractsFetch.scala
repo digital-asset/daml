@@ -126,7 +126,6 @@ private class ContractsFetch(
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $ob0): $offset1")
     } yield offset1
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent,
   ): Exception \/ PreInsertContract = {
@@ -151,14 +150,12 @@ private class ContractsFetch(
       )
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def jsonifyInsertDeleteStep(
       a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
   ): InsertDeleteStep[Unit, PreInsertContract] =
     a.leftMap(_ => ())
       .mapPreservingIds(prepareCreatedEventStorage(_) valueOr (e => throw e))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contractsFromOffsetIo(
       jwt: Jwt,
       party: domain.Party,

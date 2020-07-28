@@ -9,6 +9,7 @@ genrule(
         "default-gitignore",
         "default-dlint-yaml",
         "skeleton/**",
+        "empty-skeleton/**",
         "create-daml-app/**",
         "quickstart-java/**",
         "quickstart-scala/**",
@@ -26,7 +27,7 @@ genrule(
         OUT=templates-tarball
 
         # templates in templates dir
-        for d in skeleton create-daml-app quickstart-scala quickstart-java; do
+        for d in skeleton empty-skeleton create-daml-app quickstart-scala quickstart-java; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             # use default .gitignore and .dlint.yaml if they don't exist in the template
@@ -47,9 +48,6 @@ EOF
         ## special cases we should work to remove
 
         # quickstart-java template
-        # right now, uses the preexisting quickstart-java rule and replaces the
-        # da.yaml template with a daml.yaml template; in the future, move
-        # everything into //templates/quickstart-java and avoid untar, rm here
         tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
 
         # quickstart-scala template

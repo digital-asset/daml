@@ -62,7 +62,9 @@ beforeAll(async () => {
 
   jsonApiProcess = await spawnJvmAndWaitOn(
     getEnv('JSON_API'),
-    ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`, '--port-file', JSON_API_PORT_FILE, '--http-port', "0", '--websocket-config', 'heartBeatPer=1'],
+    ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
+     '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
+     '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
     `file:${JSON_API_PORT_FILE}`,
   )
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });

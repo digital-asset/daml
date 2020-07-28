@@ -7,8 +7,8 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
@@ -23,8 +23,11 @@ final case class Config[Extra](
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    maxInboundMessageSize: Int,
     eventsPageSize: Int,
-    stateValueCache: caching.Configuration,
+    stateValueCache: caching.WeightedCache.Configuration,
+    lfValueTranslationEventCache: caching.SizedCache.Configuration,
+    lfValueTranslationContractCache: caching.SizedCache.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
@@ -41,6 +44,7 @@ case class ParticipantConfig(
     portFile: Option[Path],
     serverJdbcUrl: String,
     allowExistingSchemaForIndex: Boolean,
+    maxCommandsInFlight: Option[Int],
 )
 
 object ParticipantConfig {
@@ -51,7 +55,7 @@ object ParticipantConfig {
 object Config {
   val DefaultPort: Port = Port(6865)
 
-  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
@@ -59,8 +63,11 @@ object Config {
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
-      stateValueCache = caching.Configuration.none,
+      stateValueCache = caching.WeightedCache.Configuration.none,
+      lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
+      lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
@@ -95,7 +102,7 @@ object Config {
       opt[Map[String, String]]("participant")
         .minOccurs(1)
         .unbounded()
-        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url]")
+        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
@@ -103,13 +110,16 @@ object Config {
           val portFile = kv.get("port-file").map(new File(_).toPath)
           val jdbcUrl =
             kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
+          val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
           val partConfig = ParticipantConfig(
             participantId,
             address,
             port,
             portFile,
             jdbcUrl,
-            allowExistingSchemaForIndex = false)
+            allowExistingSchemaForIndex = false,
+            maxCommandsInFlight = maxCommandsInFlight
+          )
           config.copy(participants = config.participants :+ partConfig)
         })
       opt[String]("ledger-id")
@@ -138,6 +148,13 @@ object Config {
         .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
+      opt[Int]("max-inbound-message-size")
+        .optional()
+        .text(
+          s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}.")
+        .action((maxInboundMessageSize, config) =>
+          config.copy(maxInboundMessageSize = maxInboundMessageSize))
+
       opt[Int]("events-page-size")
         .optional()
         .text(
@@ -151,6 +168,18 @@ object Config {
         .action((maximumStateValueCacheSize, config) =>
           config.copy(stateValueCache =
             config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
+
+      opt[Long]("max-lf-value-translation-cache-entries")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
+        .action((maximumLfValueTranslationCacheEntries, config) =>
+          config.copy(
+            lfValueTranslationEventCache = config.lfValueTranslationEventCache.copy(
+              maximumSize = maximumLfValueTranslationCacheEntries),
+            lfValueTranslationContractCache = config.lfValueTranslationContractCache.copy(
+              maximumSize = maximumLfValueTranslationCacheEntries),
+        ))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

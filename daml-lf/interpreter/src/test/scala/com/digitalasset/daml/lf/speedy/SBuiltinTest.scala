@@ -10,7 +10,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SErrorCrash}
-import com.daml.lf.speedy.SResult.{SResultContinue, SResultError}
+import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
@@ -19,7 +19,6 @@ import org.scalatest.{FreeSpec, Matchers}
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SBuiltinTest._
@@ -795,7 +794,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   "TextMap operations" - {
 
     def buildMap[X](typ: String, l: (String, X)*) =
-      ("TEXTMAP_EMPTY @Int64" /: l) {
+      (l foldLeft "TEXTMAP_EMPTY @Int64") {
         case (acc, (k, v)) => s"""(TEXTMAP_INSERT @$typ "$k" $v $acc)"""
       }
 
@@ -909,7 +908,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   "GenMap operations" - {
 
     def buildMap[X](typ: String, l: (String, X)*) =
-      ("GENMAP_EMPTY @Text @Int64" /: l) {
+      (l foldLeft "GENMAP_EMPTY @Text @Int64") {
         case (acc, (k, v)) => s"""(GENMAP_INSERT @Text @$typ "$k" $v $acc)"""
       }
 
@@ -1447,25 +1446,17 @@ object SBuiltinTest {
   val compiledPackages =
     PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).right.get
 
-  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-
   private def eval(e: Expr): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      compiledPackages = compiledPackages,
-      scenario = false,
-      Time.Timestamp.now(),
-      Some(txSeed),
-    )
+    val machine = Speedy.Machine.fromPureExpr(compiledPackages, e)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
-      while (!machine.isFinal) machine.step() match {
-        case SResultContinue => ()
+      val value = machine.run() match {
+        case SResultFinalValue(v) => v
         case SResultError(err) => throw Goodbye(err)
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
 
-      Right(machine.toSValue)
+      Right(value)
     } catch { case Goodbye(err) => Left(err) }
   }
 

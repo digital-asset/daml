@@ -6,20 +6,19 @@ package com.daml.ledger.participant.state.kvutils.api
 import java.util.UUID
 import java.util.concurrent.CompletionStage
 
-import com.codahale.metrics.MetricRegistry
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.{Ref, Time}
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.metrics.Metrics
 
 import scala.compat.java8.FutureConverters
 
-class KeyValueParticipantStateWriter(writer: LedgerWriter, metricRegistry: MetricRegistry)
-    extends WriteService {
+class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) extends WriteService {
 
-  private val keyValueSubmission = new KeyValueSubmission(metricRegistry)
+  private val keyValueSubmission = new KeyValueSubmission(metrics)
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -30,10 +29,9 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metricRegistry: Metri
       keyValueSubmission.transactionToSubmission(
         submitterInfo,
         transactionMeta,
-        transaction.assertNoRelCid(cid => s"Unexpected relative contract id: $cid"),
+        transaction,
       )
-    val correlationId = nextSubmissionId()
-    commit(correlationId, submission)
+    commit(correlationId = submitterInfo.commandId, submission = submission)
   }
 
   override def uploadPackages(
@@ -77,8 +75,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metricRegistry: Metri
 
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
-
-  private def nextSubmissionId(): String = UUID.randomUUID().toString
 
   private def commit(
       correlationId: String,

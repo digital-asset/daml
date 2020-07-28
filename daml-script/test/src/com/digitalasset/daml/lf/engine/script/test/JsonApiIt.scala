@@ -15,12 +15,17 @@ import scalaz.{-\/, \/-}
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.DarReader
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptLedgerClient}
+import com.daml.lf.engine.script.{
+  ApiParameters,
+  Participants,
+  Runner,
+  ScriptLedgerClient,
+  ScriptTimeMode
+}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.speedy.SError._
@@ -88,18 +93,21 @@ trait JsonApiFixture
         channel <- GrpcClientResource.owner(server.port)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit ec: ExecutionContext): Resource[ServerBinding] = {
-            Resource[ServerBinding]({
+            Resource[ServerBinding] {
+              val config = new HttpService.DefaultStartSettings {
+                override val ledgerHost = "localhost"
+                override val ledgerPort = server.port.value
+                override val applicationId = ApplicationId(MockMessages.applicationId)
+                override val address = "localhost"
+                override val httpPort = 0
+                override val portFile = None
+                override val tlsConfig = TlsConfiguration(enabled = false, None, None, None)
+                override val wsConfig = None
+                override val accessTokenFile = None
+                override val allowNonHttps = true
+              }
               HttpService
-                .start(
-                  "localhost",
-                  server.port.value,
-                  ApplicationId(MockMessages.applicationId),
-                  "localhost",
-                  0,
-                  None,
-                  TlsConfiguration(enabled = false, None, None, None),
-                  None,
-                  None)(
+                .start(config)(
                   jsonApiActorSystem,
                   jsonApiMaterializer,
                   jsonApiExecutionSequencerFactory,
@@ -108,7 +116,7 @@ trait JsonApiFixture
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
                   case \/-(a) => Future.successful(a)
                 })
-            })((binding: ServerBinding) => binding.unbind().map(done => ()))
+            }((binding: ServerBinding) => binding.unbind().map(done => ()))
           }
         }
       } yield (server, channel, httpService)
@@ -167,7 +175,7 @@ final class JsonApiIt
       inputValue,
       clients,
       ApplicationId(MockMessages.applicationId),
-      TimeProvider.UTC)
+      ScriptTimeMode.WallClock)
   }
 
   "DAML Script over JSON API" can {

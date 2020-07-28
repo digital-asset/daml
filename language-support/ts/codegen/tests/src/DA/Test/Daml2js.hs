@@ -26,8 +26,9 @@ eslintVersion :: T.Text
 eslintVersion = "^6.8.0"
 
 -- Version of typescript-eslint for linting the generated code.
+-- 2.32 produces an error https://github.com/typescript-eslint/typescript-eslint/issues/2009
 typescriptEslintVersion :: T.Text
-typescriptEslintVersion = "^2.16.0"
+typescriptEslintVersion = "~2.31.0"
 
 main :: IO ()
 main = do

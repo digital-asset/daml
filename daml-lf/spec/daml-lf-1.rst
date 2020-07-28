@@ -558,10 +558,10 @@ strings as *package identifiers*.  ::
            pversion ::= PackageVersionString        -- PackageVersion
 
   V0 Contract identifiers:
-          cidV0  ∈  #[a-zA-Z0-9\._:-#/ ]+           -- V0ContractId
+          cidV0  ∈  #[a-zA-Z0-9\._:-#/ ]{0,254}     -- V0ContractId
 
   V1 Contract identifiers:
-          cidV1  ∈  00([0-9a-f][0-9a-f]){32,96}    -- V1ContractId
+          cidV1  ∈  00([0-9a-f][0-9a-f]){32,126}    -- V1ContractId
 
   Contract identifiers:
           cid := cidV0 | cidV1                      -- ContractId
@@ -573,8 +573,10 @@ those interactions. Depending on its configuration, a DAML-LF engine
 can produce V0 or V1 contract identifiers.  When configured to produce
 V0 contract identifiers, a DAML-LF compliant engine must refuse to
 load any DAML-LF >= 1.dev archives.  On the contrary, when configured
-to produce V1 contract ids, a DAML-LF compliant engine must accept to
-load any non-deprecated DAML-LF version.
+to produce V1 contract IDs, a DAML-LF compliant engine must accept to
+load any non-deprecated DAML-LF version. V1 Contract IDs allocation
+scheme is described in the `V1 Contract ID allocation
+scheme specification <./contract-id.rst>`_.
 
 Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.
@@ -794,11 +796,11 @@ module. The following feature flags are available:
  | ForbidPartyLiterals                       | Party literals are not allowed in a DAML-LF module.      |
  |                                           | (See `Party Literal restriction`_ for more details)      |
  +-------------------------------------------+----------------------------------------------------------+
- | DontDivulgeContractIdsInCreateArguments   | Contract ids captured in ``create`` arguments are not    |
+ | DontDivulgeContractIdsInCreateArguments   | contract IDs captured in ``create`` arguments are not    |
  |                                           | divulged, ``fetch`` is authorized if and only if the     |
  |                                           | authorizing parties contain at least one stakeholder of  |
- |                                           | the fetched contract id.                                 |
- |                                           | The contract id on which a choice is exercised           |
+ |                                           | the fetched contract ID.                                 |
+ |                                           | The contract ID on which a choice is exercised           |
  |                                           | is divulged to all parties that witness the choice.      |
  +-------------------------------------------+----------------------------------------------------------+
  | DontDiscloseNonConsumingChoicesToObservers| When a non-consuming choice of a contract is exercised,  |
@@ -1819,7 +1821,7 @@ types that satisfies the following rules::
     σ₁ <ₜ τ    τ <ₜ σ₂
   ——————————————————————————————————————————————————— TypeOrderTransitivity
     σ₁ <ₜ σ₂
-  
+
   ——————————————————————————————————————————————————— TypeOrderUnitBool
     'Unit' <ₜ 'Bool'
 
@@ -2234,7 +2236,7 @@ as described by the ledger model::
      'tpl' (x : T) ↦ { 'precondition' eₚ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ] ‖ E₀  ⇓  Ok 'True' ‖ E₁
      eₖ[x ↦ vₜ] ‖ E₁  ⇓  Ok vₖ ‖ E₂
-     eₘ vₜ ‖ E₁  ⇓  Ok vₘ ‖ E₂
+     eₘ vₖ ‖ E₁  ⇓  Ok vₘ ‖ E₂
      cid ∉ dom(st₀)      vₖ ∉ dom(keys₀)
      tr = 'create' (cid, Mod:T, vₜ)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'active')]
@@ -2594,7 +2596,7 @@ updates.
 
 ..
   FIXME: https://github.com/digital-asset/daml/issues/2256
-    Handle contract ids
+    Handle contract IDs
 
 
 * ``GREATER_EQ : ∀ (α:*). α → α → 'Bool'``
@@ -2785,7 +2787,7 @@ Numeric functions
   keeping the value the same. Throws an exception in case of
   overflow or precision loss.
 
-* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Int64' → 'Numeric' α₁ → 'Numeric' α₂``
+* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
   by shifting the decimal point. Thus the ouput will be equal to the input
@@ -2895,18 +2897,18 @@ String functions
 
   Returns string such as.
 
-* ``TEXT_FROM_CODE_POINTS``: 'Text' → 'List' 'Int64'
+* ``TEXT_TO_CODE_POINTS``: 'Text' → 'List' 'Int64'
 
-  Returns the list of the Unicode `codepoint
+  Returns the list of the Unicode `codepoints
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
-  string represented as integer.
+  string represented as integers.
 
   [*Available in versions >= 1.6*]
 
-* ``TEXT_TO_CODE_POINTS``: 'List' 'Int64' → 'Text'
+* ``TEXT_FROM_CODE_POINTS``: 'List' 'Int64' → 'Text'
 
-  Given a list of integer representation of Unicode codepoint,
-  return the string built from those codepoint. Throws an error
+  Given a list of integer representations of Unicode codepoints,
+  return the string built from those codepoints. Throws an error
   if one of the elements of the input list is not in the range
   from `0x000000` to `0x00D7FF` or in the range from `0x00DFFF`
   to `0x10FFFF` (bounds included).
@@ -3095,7 +3097,7 @@ ContractId functions
 
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
-  Returns the given contract id unchanged at a different type.
+  Returns the given contract ID unchanged at a different type.
 
   [*Available in versions >= 1.5*]
 
@@ -3321,7 +3323,7 @@ ordered by keys according to the comparison function ``LESS``.
     —————————————————————————————————————————————————————————————————————— EvGenMapValuesNonEmpty
       𝕆('GENMAP_KEYS' @σ @τ 〚v₀ ↦ w₀; v₁ ↦ w₁; … ; vₙ ↦ wₙ〛) =
         'Ok' (Cons @τ w₀ wₗ)
-  
+
 * ``GENMAP_SIZE : ∀ α. ∀ β.  'GenMap' α β → 'Int64'``
 
   Return the number of elements in the map.

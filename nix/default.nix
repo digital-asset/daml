@@ -113,8 +113,6 @@ in rec {
 
     node2nix  = pkgs.nodePackages.node2nix;
 
-    live-server =
-      (import ./tools/live-server { inherit pkgs; nodejs = tools.node; }).live-server;
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 
@@ -139,9 +137,8 @@ in rec {
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 
-    sphinx-autobuild = import ./tools/sphinx-autobuild {
+    sphinx-autobuild = import ./tools/sphinx-autobuild/requirements.nix {
       inherit pkgs;
-      python37Packages = pkgs.python37Packages;
     };
 
     sphinx183 = bazel_dependencies.sphinx183;
@@ -176,7 +173,6 @@ in rec {
           >&2 echo "Please run bazel inside of the dev-env"
           exit 1
       fi
-      export BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
@@ -189,13 +185,13 @@ in rec {
     # System tools
     shellcheck = pkgs.shellcheck;
     curl = bazel_dependencies.curl;
+    findutils = pkgs.findutils;
 
     patch = pkgs.patch;
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
 
     # String mangling tooling.
-    jo   = pkgs.jo;
     jq   = bazel_dependencies.jq;
     gawk = bazel_dependencies.gawk;
     sed = pkgs.gnused;
@@ -203,6 +199,7 @@ in rec {
     sha1sum = pkgs.coreutils;
     xmlstarlet = pkgs.xmlstarlet;
     grep = pkgs.gnugrep;
+    bc = pkgs.bc;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;
@@ -258,7 +255,6 @@ in rec {
     cheat = pkgs.cheat;
     coreutils = pkgs.coreutils;
     dockerd = pkgs.docker;
-    findutils = pkgs.findutils;
     ftop = pkgs.ftop;
     gcc7 = pkgs.gcc7;
     glibc = pkgs.glibc;

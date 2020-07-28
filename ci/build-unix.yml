@@ -20,16 +20,16 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
 
-  - bash: ./fmt.sh --test
-    displayName: 'Platform-agnostic lints and checks'
-    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
-
   - bash: ci/configure-bazel.sh
     displayName: 'Configure Bazel'
     env:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
+  - bash: ./fmt.sh --test
+    displayName: 'Platform-agnostic lints and checks'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
   - bash: ./build.sh "_$(uname)"
     displayName: 'Build'
@@ -67,37 +67,65 @@ steps:
     name: publish_npm_mvn
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
+                   eq(variables['Build.SourceBranchName'], 'master'),
                    eq('${{parameters.name}}', 'linux'))
   - bash: |
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
+
       TARBALL=daml-sdk-${{parameters.release_tag}}-${{parameters.name}}.tar.gz
       cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
       echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
+
       PROTOS_ZIP=protobufs-${{parameters.release_tag}}.zip
       cp bazel-bin/release/protobufs.zip $(Build.StagingDirectory)/$PROTOS_ZIP
       echo "##vso[task.setvariable variable=protos-zip;isOutput=true]$PROTOS_ZIP"
+
+      DAML_ON_SQL=daml-on-sql-${{parameters.release_tag}}.jar
+      ## Not built by default
+      bazel build //ledger/sandbox:sandbox-binary_deploy.jar
+      cp bazel-bin/ledger/sandbox/sandbox-binary_deploy.jar $(Build.StagingDirectory)/$DAML_ON_SQL
+      echo "##vso[task.setvariable variable=daml-on-sql;isOutput=true]$DAML_ON_SQL"
+
+      JSON_API=http-json-${{parameters.release_tag}}.jar
+      ## Not built by default
+      bazel build //ledger-service/http-json:http-json-binary_deploy.jar
+      cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $(Build.StagingDirectory)/$JSON_API
+      echo "##vso[task.setvariable variable=json-api;isOutput=true]$JSON_API"
+    env:
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.tarball)
       artifactName: $(publish.tarball)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.protos-zip)
       artifactName: $(publish.protos-zip)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
+                   eq(variables['Build.SourceBranchName'], 'master'),
+                   eq('${{parameters.name}}', 'linux'))
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.daml-on-sql)
+      artifactName: $(publish.daml-on-sql)
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'),
+                   eq('${{parameters.name}}', 'linux'))
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.json-api)
+      artifactName: $(publish.json-api)
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'),
                    eq('${{parameters.name}}', 'linux'))

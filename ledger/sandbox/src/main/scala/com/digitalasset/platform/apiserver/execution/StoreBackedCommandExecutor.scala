@@ -3,9 +3,9 @@
 
 package com.daml.platform.apiserver.execution
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.atomic.AtomicLong
 
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
@@ -24,7 +24,7 @@ import com.daml.lf.engine.{
 }
 import com.daml.lf.language.Ast.Package
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Timed
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
 
@@ -36,12 +36,12 @@ final class StoreBackedCommandExecutor(
     participant: Ref.ParticipantId,
     packagesService: IndexPackagesService,
     contractStore: ContractStore,
-    metricRegistry: MetricRegistry,
+    metrics: Metrics,
 ) extends CommandExecutor {
 
   override def execute(
       commands: ApiCommands,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
@@ -83,7 +83,12 @@ final class StoreBackedCommandExecutor(
       implicit ec: ExecutionContext
   ): Future[Either[DamlLfError, A]] = {
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    val lookupActiveContractTime = new AtomicLong(0L)
+    val lookupActiveContractCount = new AtomicLong(0L)
+
+    val lookupContractKeyTime = new AtomicLong(0L)
+    val lookupContractKeyCount = new AtomicLong(0L)
+
     def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] =
       result match {
         case ResultDone(r) => Future.successful(Right(r))
@@ -91,17 +96,29 @@ final class StoreBackedCommandExecutor(
         case ResultError(err) => Future.successful(Left(err))
 
         case ResultNeedContract(acoid, resume) =>
+          val start = System.nanoTime
           Timed
             .future(
-              Metrics.lookupActiveContract,
+              metrics.daml.execution.lookupActiveContract,
               contractStore.lookupActiveContract(submitter, acoid),
             )
-            .flatMap(instance => resolveStep(resume(instance)))
+            .flatMap { instance =>
+              lookupActiveContractTime.addAndGet(System.nanoTime() - start)
+              lookupActiveContractCount.incrementAndGet()
+              resolveStep(resume(instance))
+            }
 
         case ResultNeedKey(key, resume) =>
+          val start = System.nanoTime
           Timed
-            .future(Metrics.lookupContractKey, contractStore.lookupContractKey(submitter, key))
-            .flatMap(contractId => resolveStep(resume(contractId)))
+            .future(
+              metrics.daml.execution.lookupContractKey,
+              contractStore.lookupContractKey(submitter, key))
+            .flatMap { contractId =>
+              lookupContractKeyTime.addAndGet(System.nanoTime() - start)
+              lookupContractKeyCount.incrementAndGet()
+              resolveStep(resume(contractId))
+            }
 
         case ResultNeedPackage(packageId, resume) =>
           var gettingPackage = false
@@ -111,7 +128,10 @@ final class StoreBackedCommandExecutor(
           })
 
           if (gettingPackage) {
-            val future = Timed.future(Metrics.getLfPackage, packagesService.getLfPackage(packageId))
+            val future =
+              Timed.future(
+                metrics.daml.execution.getLfPackage,
+                packagesService.getLfPackage(packageId))
             future.onComplete {
               case Success(None) | Failure(_) =>
                 // Did not find the package or got an error when looking for it. Remove the promise to allow later retries.
@@ -128,13 +148,16 @@ final class StoreBackedCommandExecutor(
           }
       }
 
-    resolveStep(result)
+    resolveStep(result).andThen {
+      case _ =>
+        metrics.daml.execution.lookupActiveContractPerExecution
+          .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
+        metrics.daml.execution.lookupActiveContractCountPerExecution
+          .update(lookupActiveContractCount.get)
+        metrics.daml.execution.lookupContractKeyPerExecution
+          .update(lookupContractKeyTime.get(), TimeUnit.NANOSECONDS)
+        metrics.daml.execution.lookupContractKeyCountPerExecution
+          .update(lookupContractKeyCount.get())
+    }
   }
-
-  object Metrics {
-    val lookupActiveContract: Timer = metricRegistry.timer(MetricPrefix :+ "lookup_active_contract")
-    val lookupContractKey: Timer = metricRegistry.timer(MetricPrefix :+ "lookup_contract_key")
-    val getLfPackage: Timer = metricRegistry.timer(MetricPrefix :+ "get_lf_package")
-  }
-
 }

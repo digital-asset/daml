@@ -13,7 +13,6 @@ import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 
 import scala.concurrent.{Future, Promise, TimeoutException}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ScalaUtilIT
     extends AsyncWordSpec
     with AsyncTimeLimitedTests

@@ -100,7 +100,7 @@ it. To handle submission, the component provides an \`onSubmit\` callback.
 
 export default class ParameterFormGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = {
       value: DamlLfValueF.record(exampleRecordId, [
         {label: 'text parameter', value: DamlLfValueF.text('')},

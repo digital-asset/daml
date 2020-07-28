@@ -23,6 +23,7 @@ jobs:
     timeoutInMinutes: 20
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |

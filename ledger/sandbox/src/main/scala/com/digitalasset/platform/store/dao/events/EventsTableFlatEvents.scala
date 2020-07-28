@@ -6,74 +6,61 @@ package com.daml.platform.store.dao.events
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
-import com.daml.ledger.api.v1.event.Event
 import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
-  private def createdFlatEventParser(verbose: Boolean): RowParser[Entry[Event]] =
+  private val createdFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
-        Entry(
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+        EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
+          nodeIndex = nodeIndex,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
-          event = Event(
-            Event.Event.Created(
-              createdEvent(
-                eventId = eventId,
-                contractId = contractId,
-                templateId = templateId,
-                createArgument = createArgument,
-                createSignatories = createSignatories,
-                createObservers = createObservers,
-                createAgreementText = createAgreementText,
-                createKeyValue = createKeyValue,
-                eventWitnesses = eventWitnesses,
-                verbose = verbose,
-              )
-            )
+          event = Raw.FlatEvent.Created(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            createArgument = createArgument,
+            createSignatories = createSignatories,
+            createObservers = createObservers,
+            createAgreementText = createAgreementText,
+            createKeyValue = createKeyValue,
+            eventWitnesses = eventWitnesses,
           )
         )
     }
 
-  private val archivedFlatEventParser: RowParser[Entry[Event]] =
+  private val archivedFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
-        Entry(
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
+        EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
+          nodeIndex = nodeIndex,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
-          event = Event(
-            Event.Event.Archived(
-              archivedEvent(
-                eventId = eventId,
-                contractId = contractId,
-                templateId = templateId,
-                eventWitnesses = eventWitnesses,
-              )
-            )
+          event = Raw.FlatEvent.Archived(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            eventWitnesses = eventWitnesses,
           )
         )
     }
 
-  private val verboseFlatEventParser: RowParser[Entry[Event]] =
-    createdFlatEventParser(verbose = true) | archivedFlatEventParser
-
-  private val succinctFlatEventParser: RowParser[Entry[Event]] =
-    createdFlatEventParser(verbose = false) | archivedFlatEventParser
-
-  def flatEventParser(verbose: Boolean): RowParser[Entry[Event]] =
-    if (verbose) verboseFlatEventParser else succinctFlatEventParser
+  val rawFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent]] =
+    createdFlatEventParser | archivedFlatEventParser
 
   private val selectColumns =
     Seq(
       "event_offset",
       "transaction_id",
+      "node_index",
       "ledger_effective_time",
       "workflow_id",
       "participant_events.event_id",
@@ -85,12 +72,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "create_agreement_text",
       "create_key_value",
     ).mkString(", ")
-
-  private val witnessesAggregation =
-    "array_agg(event_witness) as event_witnesses"
-
-  private val flatEventsTable =
-    "participant_events natural join participant_event_flat_transaction_witnesses"
 
   private val orderByColumns =
     Seq("event_offset", "transaction_id", "node_index").mkString(", ")
@@ -112,60 +93,74 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "create_key_value",
     ).mkString(", ")
 
-  def prepareLookupFlatTransactionById(
+  def prepareLookupFlatTransactionById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyLookup(transactionId, _),
-      multi = multiPartyLookup(transactionId, _),
+      single = singlePartyLookup(sqlFunctions)(transactionId, _),
+      multi = multiPartyLookup(sqlFunctions)(transactionId, _),
     )
 
-  private def singlePartyLookup(
+  private def singlePartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParty: Party,
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and event_witness = $requestingParty order by #$orderByColumns"
+  ): SimpleSql[Row] = {
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by #$orderByColumns"
+  }
 
-  private def multiPartyLookup(
+  private def multiPartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns) order by #$orderByColumns"
+  ): SimpleSql[Row] = {
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
+    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by #$orderByColumns"
+  }
 
-  private val getFlatTransactionsQueries =
+  private def getFlatTransactionsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetTransactions(
       selectColumns = selectColumns,
-      witnessesAggregation = witnessesAggregation,
-      flatEventsTable = flatEventsTable,
       groupByColumns = groupByColumns,
       orderByColumns = orderByColumns,
+      sqlFunctions = sqlFunctions,
     )
 
-  def preparePagedGetFlatTransactions(
+  def preparePagedGetFlatTransactions(sqlFunctions: SqlFunctions)(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
       pageSize: Int,
-      rowOffset: Long,
+      previousEventNodeIndex: Option[Int],
   ): SimpleSql[Row] =
-    getFlatTransactionsQueries((startExclusive, endInclusive), filter, pageSize, rowOffset)
-
-  private val getActiveContractsQueries =
-    new EventsTableFlatEventsRangeQueries.GetActiveContracts(
-      selectColumns = selectColumns,
-      witnessesAggregation = witnessesAggregation,
-      flatEventsTable = flatEventsTable,
-      groupByColumns = groupByColumns,
-      orderByColumns = orderByColumns,
+    getFlatTransactionsQueries(sqlFunctions)(
+      (startExclusive, endInclusive),
+      filter,
+      pageSize,
+      previousEventNodeIndex,
     )
 
-  def preparePagedGetActiveContracts(
+  private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
+    new EventsTableFlatEventsRangeQueries.GetActiveContracts(
+      selectColumns = selectColumns,
+      groupByColumns = groupByColumns,
+      orderByColumns = orderByColumns,
+      sqlFunctions = sqlFunctions
+    )
+
+  def preparePagedGetActiveContracts(sqlFunctions: SqlFunctions)(
+      lastOffsetFromPrevPage: Offset,
       activeAt: Offset,
       filter: FilterRelation,
       pageSize: Int,
-      rowOffset: Long,
+      lastEventNodeIndexFromPrevPage: Option[Int]
   ): SimpleSql[Row] =
-    getActiveContractsQueries(activeAt, filter, pageSize, rowOffset)
-
+    getActiveContractsQueries(sqlFunctions)(
+      (lastOffsetFromPrevPage, activeAt),
+      filter,
+      pageSize,
+      lastEventNodeIndexFromPrevPage,
+    )
 }

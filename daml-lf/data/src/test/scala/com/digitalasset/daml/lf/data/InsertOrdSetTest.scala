@@ -5,7 +5,6 @@ package com.daml.lf.data
 
 import org.scalatest.{Matchers, WordSpec}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class InsertOrdSetTest extends WordSpec with Matchers {
   "toSeq" should {
     "preserve order" in {

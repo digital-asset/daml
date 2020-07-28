@@ -8,6 +8,7 @@ cpu_value = "{CPU_VALUE}"
 is_darwin = cpu_value == "darwin"
 is_linux = cpu_value == "k8"
 is_windows = cpu_value == "x64_windows"
+os_name = "macos" if is_darwin else "linux" if is_linux else "windows"
 """
 
 def _os_info_impl(repository_ctx):

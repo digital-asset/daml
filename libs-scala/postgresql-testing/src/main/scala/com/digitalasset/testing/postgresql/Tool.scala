@@ -23,7 +23,8 @@ private[postgresql] object Tool {
     else
       ""
 
-  val createdb = Tool("createdb")
-  val initdb = Tool("initdb")
-  val pg_ctl = Tool("pg_ctl")
+  val createdb: Tool = Tool("createdb")
+  val dropdb: Tool = Tool("dropdb")
+  val initdb: Tool = Tool("initdb")
+  val pg_ctl: Tool = Tool("pg_ctl")
 }

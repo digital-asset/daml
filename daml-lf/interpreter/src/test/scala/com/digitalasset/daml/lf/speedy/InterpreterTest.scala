@@ -5,7 +5,7 @@ package com.daml.lf.speedy
 
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Ref, Time}
+import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.language.Util._
@@ -22,21 +22,14 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
+  private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).right.get
+
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      compiledPackages = PureCompiledPackages(Map.empty).right.get,
-      scenario = false,
-      submissionTime = Time.Timestamp.now(),
-      transactionSeed = None,
-    )
-    while (!machine.isFinal) {
-      machine.step match {
-        case SResultContinue => ()
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
+    val machine = Speedy.Machine.fromPureExpr(noPackages, e)
+    machine.run() match {
+      case SResultFinalValue(v) => v
+      case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
     }
-    machine.toSValue
   }
 
   "evaluator behaves responsibly" should {
@@ -139,22 +132,14 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine = Speedy.Machine.fromExpr(
-        expr = list,
-        compiledPackages = PureCompiledPackages(Map.empty).right.get,
-        scenario = false,
-        submissionTime = Time.Timestamp.now(),
-        transactionSeed = None,
-      )
+      machine = Speedy.Machine.fromPureExpr(noPackages, list)
     }
     "interpret" in {
-      while (!machine.isFinal) {
-        machine.step match {
-          case SResultContinue => ()
-          case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-        }
+      val value = machine.run() match {
+        case SResultFinalValue(v) => v
+        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
-      machine.toSValue match {
+      value match {
         case SValue.SList(lst) =>
           lst.length shouldBe 100000
           val arr = lst.toImmArray
@@ -199,7 +184,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     val dummyPkg = PackageId.assertFromString("dummy")
     val ref = Identifier(dummyPkg, QualifiedName.assertFromString("Foo:bar"))
     val modName = DottedName.assertFromString("Foo")
-    val pkgs1 = PureCompiledPackages(Map.empty).right.get
+    val pkgs1 = noPackages
     val pkgs2 =
       PureCompiledPackages(
         Map(
@@ -240,26 +225,14 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     ).right.get
 
     "succeeds" in {
-      val machine = Speedy.Machine.fromExpr(
-        expr = EVal(ref),
-        compiledPackages = pkgs1,
-        scenario = false,
-        submissionTime = Time.Timestamp.now(),
-        transactionSeed = None
-      )
-      var result: SResult = SResultContinue
-      def run() = {
-        while (result == SResultContinue && !machine.isFinal) result = machine.step()
-      }
-
-      run()
+      val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
+      val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
           ref.packageId shouldBe pkgId
           cb(pkgs2)
-          result = SResultContinue
-          run()
-          machine.ctrl shouldBe Speedy.CtrlValue(SValue.SBool(true))
+          val result = machine.run()
+          result shouldBe SResultFinalValue(SValue.SBool(true))
         case _ =>
           sys.error(s"expected result to be missing definition, got $result")
       }
@@ -267,22 +240,11 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     }
 
     "crashes without definition" in {
-      val machine = Speedy.Machine.fromExpr(
-        expr = EVal(ref),
-        compiledPackages = pkgs1,
-        scenario = false,
-        submissionTime = Time.Timestamp.now(),
-        transactionSeed = None
-      )
-      var result: SResult = SResultContinue
-      def run() = {
-        while (result == SResultContinue && !machine.isFinal) result = machine.step()
-      }
-      run()
+      val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
+      val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
           ref.packageId shouldBe pkgId
-          result = SResultContinue
           try {
             cb(pkgs3)
             sys.error(s"expected crash when definition not provided")

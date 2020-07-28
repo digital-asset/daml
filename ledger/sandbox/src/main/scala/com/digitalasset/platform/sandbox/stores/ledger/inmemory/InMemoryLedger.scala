@@ -4,7 +4,6 @@
 package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -25,9 +24,9 @@ import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.{Node, TransactionCommitter}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger
 import com.daml.ledger.api.domain.{
@@ -91,22 +90,15 @@ class InMemoryLedger(
     participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
+    transactionCommitter: TransactionCommitter,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
-    initialConfig: Configuration,
 ) extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
     val l = new LedgerEntries[InMemoryEntry](_.toString)
-    l.publish(
-      InMemoryConfigEntry(
-        ConfigurationEntry.Accepted(
-          submissionId = UUID.randomUUID.toString,
-          participantId = participantId,
-          configuration = initialConfig,
-        )))
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
@@ -122,7 +114,7 @@ class InMemoryLedger(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def ledgerEntries(
+  def ledgerEntries(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     entries
@@ -185,7 +177,7 @@ class InMemoryLedger(
 
   // mutable state
   private var acs = acs0
-  private var ledgerConfiguration: Option[Configuration] = Some(initialConfig)
+  private var ledgerConfiguration: Option[Configuration] = None
   private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
 
@@ -204,50 +196,56 @@ class InMemoryLedger(
   override def ledgerEnd: Offset = entries.ledgerEnd
 
   override def activeContracts(
-      activeAt: Offset,
       filter: Map[Party, Set[Ref.Identifier]],
       verbose: Boolean,
-  ): Source[GetActiveContractsResponse, NotUsed] =
-    Source
-      .fromIterator[ActiveContract](() =>
-        acs.activeContracts.valuesIterator.flatMap(index
-          .EventFilter(_)(TransactionFilter(filter.map {
-            case (party, templates) =>
-              party -> Filters(if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
-          }))
-          .toList))
-      .map { contract =>
-        GetActiveContractsResponse(
-          workflowId = contract.workflowId.getOrElse(""),
-          activeContracts = List(
-            CreatedEvent(
-              contract.eventId,
-              contract.id.coid,
-              Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
-              contractKey = contract.key.map(
-                ck =>
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) = {
+    val (acsNow, ledgerEndNow) = this.synchronized { (acs, ledgerEnd) }
+    (
+      Source
+        .fromIterator[ActiveContract](
+          () =>
+            acsNow.activeContracts.valuesIterator.flatMap(
+              index
+                .EventFilter(_)(TransactionFilter(filter.map {
+                  case (party, templates) =>
+                    party -> Filters(
+                      if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+                }))
+                .toList))
+        .map { contract =>
+          GetActiveContractsResponse(
+            workflowId = contract.workflowId.getOrElse(""),
+            activeContracts = List(
+              CreatedEvent(
+                ledger.EventId(contract.transactionId, contract.nodeId).toLedgerString,
+                contract.id.coid,
+                Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
+                contractKey = contract.key.map(
+                  ck =>
+                    LfEngineToApi.assertOrRuntimeEx(
+                      "converting stored contract",
+                      LfEngineToApi
+                        .lfContractKeyToApiValue(verbose = verbose, ck))),
+                createArguments = Some(
                   LfEngineToApi.assertOrRuntimeEx(
                     "converting stored contract",
                     LfEngineToApi
-                      .lfContractKeyToApiValue(verbose = verbose, ck))),
-              createArguments = Some(
-                LfEngineToApi.assertOrRuntimeEx(
-                  "converting stored contract",
-                  LfEngineToApi
-                    .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value))),
-              contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
-              signatories = contract.signatories.toSeq,
-              observers = contract.observers.toSeq,
-              agreementText = Some(contract.agreementText)
+                      .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value))),
+                contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
+                signatories = contract.signatories.toSeq,
+                observers = contract.observers.toSeq,
+                agreementText = Some(contract.agreementText)
+              )
             )
           )
-        )
-      }
+        },
+      ledgerEndNow)
+  }
 
   override def lookupContract(
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
       forParty: Party
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Future.successful(this.synchronized {
       acs.activeContracts
         .get(contractId)
@@ -255,13 +253,12 @@ class InMemoryLedger(
         .map(_.contract)
     })
 
-  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
     Future.successful(this.synchronized {
       acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })
 
-  override def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId]): Future[Option[Instant]] =
+  override def lookupMaximumLedgerTime(contractIds: Set[ContractId]): Future[Option[Instant]] =
     if (contractIds.isEmpty) {
       Future.failed(
         new IllegalArgumentException(
@@ -292,6 +289,16 @@ class InMemoryLedger(
       }
     )
 
+  // Validates the given ledger time according to the ledger time model
+  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[String, Unit] = {
+    ledgerConfiguration
+      .fold[Either[String, Unit]](
+        Left("No ledger configuration available, cannot validate ledger time")
+      )(
+        config => config.timeModel.checkTime(ledgerTime, recordTime)
+      )
+  }
+
   private def handleSuccessfulTx(
       transactionId: LedgerString,
       submitterInfo: SubmitterInfo,
@@ -299,20 +306,23 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Unit = {
     val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
     val recordTime = timeProvider.getCurrentTime
-    val timeModel = ledgerConfiguration.get.timeModel
-    timeModel
-      .checkTime(ledgerTime, recordTime)
+    checkTimeModel(ledgerTime, recordTime)
       .fold(
         reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
         _ => {
-          val (transactionForIndex, disclosureForIndex, globalDivulgence) =
-            Ledger.convertToCommittedTransaction(transactionId, transaction)
+          val (committedTransaction, disclosureForIndex, globalDivulgence) =
+            Ledger
+              .convertToCommittedTransaction(
+                transactionCommitter,
+                transactionId,
+                transaction,
+              )
           val acsRes = acs.addTransaction(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,
             transactionMeta.workflowId,
             Some(submitterInfo.submitter),
-            transactionForIndex,
+            committedTransaction,
             disclosureForIndex,
             globalDivulgence,
             List.empty
@@ -333,7 +343,7 @@ class InMemoryLedger(
                   transactionMeta.workflowId,
                   transactionMeta.ledgerEffectiveTime.toInstant,
                   recordTime,
-                  transactionForIndex,
+                  committedTransaction,
                   disclosureForIndex
                 )
               entries.publish(InMemoryLedgerEntry(entry))

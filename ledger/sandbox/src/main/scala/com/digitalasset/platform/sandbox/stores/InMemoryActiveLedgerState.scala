@@ -6,46 +6,46 @@ package com.daml.platform.sandbox.stores
 import java.time.Instant
 
 import com.daml.ledger.api.domain.{PartyDetails, RejectionReason}
-import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.daml.ledger.{EventId, TransactionId, WorkflowId}
+import com.daml.ledger.participant.state.v1.ContractInst
+import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.GenTransaction
 import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.daml.platform.store._
 import scalaz.syntax.std.map._
 
 case class InMemoryActiveLedgerState(
-    activeContracts: Map[AbsoluteContractId, ActiveContract],
-    divulgedContracts: Map[AbsoluteContractId, DivulgedContract],
-    keys: Map[GlobalKey, AbsoluteContractId],
-    reverseKeys: Map[AbsoluteContractId, GlobalKey],
+    activeContracts: Map[ContractId, ActiveContract],
+    divulgedContracts: Map[ContractId, DivulgedContract],
+    keys: Map[GlobalKey, ContractId],
+    reverseKeys: Map[ContractId, GlobalKey],
     parties: Map[Party, PartyDetails])
     extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
-  def isVisibleForDivulgees(contractId: AbsoluteContractId, forParty: Party): Boolean =
+  def isVisibleForDivulgees(contractId: ContractId, forParty: Party): Boolean =
     activeContracts
       .get(contractId)
       .exists(ac => ac.witnesses.contains(forParty) || ac.divulgences.contains(forParty))
 
-  def isVisibleForStakeholders(contractId: AbsoluteContractId, forParty: Party): Boolean =
+  def isVisibleForStakeholders(contractId: ContractId, forParty: Party): Boolean =
     activeContracts
       .get(contractId)
       .exists(ac => ac.signatories.contains(forParty) || ac.observers.contains(forParty))
 
-  def lookupContractByKeyFor(key: GlobalKey, forParty: Party): Option[AbsoluteContractId] =
+  def lookupContractByKeyFor(key: GlobalKey, forParty: Party): Option[ContractId] =
     keys.get(key).filter(isVisibleForStakeholders(_, forParty))
 
-  override def lookupContractByKey(key: GlobalKey): Option[AbsoluteContractId] =
+  override def lookupContractByKey(key: GlobalKey): Option[ContractId] =
     keys.get(key)
 
-  def lookupContract(cid: AbsoluteContractId): Option[Contract] =
+  def lookupContract(cid: ContractId): Option[Contract] =
     activeContracts.get(cid).orElse[Contract](divulgedContracts.get(cid))
 
-  override def lookupContractLet(cid: AbsoluteContractId): Option[LetLookup] =
+  override def lookupContractLet(cid: ContractId): Option[LetLookup] =
     activeContracts
       .get(cid)
       .map(c => Let(c.let))
@@ -82,7 +82,7 @@ case class InMemoryActiveLedgerState(
     }
   }
 
-  override def removeContract(cid: AbsoluteContractId): InMemoryActiveLedgerState = {
+  override def removeContract(cid: ContractId): InMemoryActiveLedgerState = {
     val (newKeys, newReverseKeys) = reverseKeys.get(cid) match {
       case None => (keys, reverseKeys)
       case Some(key) => (keys - key, reverseKeys - cid)
@@ -100,24 +100,23 @@ case class InMemoryActiveLedgerState(
 
   override def divulgeAlreadyCommittedContracts(
       transactionId: TransactionId,
-      global: Relation[AbsoluteContractId, Party],
-      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
-    : InMemoryActiveLedgerState =
+      global: Relation[ContractId, Party],
+      referencedContracts: List[(Value.ContractId, ContractInst)]): InMemoryActiveLedgerState =
     if (global.nonEmpty) {
       val referencedContractsM = referencedContracts.toMap
       // Note: each entry in `global` can refer to either:
       // - a known active contract, in which case its divulgence info is updated
       // - a previously divulged contract, in which case its divulgence info is updated
       // - an unknown contract, in which case a new divulged contract is created from the corresponding info in `referencedContracts`
-      val updatedAcs: Map[AbsoluteContractId, ActiveContract] =
+      val updatedAcs: Map[ContractId, ActiveContract] =
         activeContracts.intersectWith(global) { (ac, parties) =>
           ac.copy(divulgences = ac.divulgeTo(parties, transactionId))
         }
-      val updatedDcs: Map[AbsoluteContractId, DivulgedContract] =
+      val updatedDcs: Map[ContractId, DivulgedContract] =
         divulgedContracts.intersectWith(global) { (dc, parties) =>
           dc.copy(divulgences = dc.divulgeTo(parties, transactionId))
         }
-      val newDcs = global.foldLeft(Map.empty[AbsoluteContractId, DivulgedContract]) {
+      val newDcs = global.foldLeft(Map.empty[ContractId, DivulgedContract]) {
         case (m, (cid, divulgeTo)) =>
           if (divulgeTo.isEmpty || updatedAcs.contains(cid) || updatedDcs.contains(cid))
             m
@@ -151,10 +150,10 @@ case class InMemoryActiveLedgerState(
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       submitter: Option[Party],
-      transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
-      disclosure: Relation[EventId, Party],
-      globalDivulgence: Relation[AbsoluteContractId, Party],
-      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
+      transaction: Tx.CommittedTransaction,
+      disclosure: Relation[Tx.NodeId, Party],
+      globalDivulgence: Relation[ContractId, Party],
+      referencedContracts: List[(Value.ContractId, ContractInst)]
   ): Either[Set[RejectionReason], InMemoryActiveLedgerState] =
     acManager.addTransaction(
       let,

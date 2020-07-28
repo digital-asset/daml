@@ -1,6 +1,8 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows", "os_name")
+
 runfiles_library = """
 # Copy-pasted from the Bazel Bash runfiles library v2.
 set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
@@ -14,19 +16,25 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 """
 
 def _daml_sdk_impl(ctx):
+    # The DAML assistant will mark the installed SDK read-only.
+    # This breaks Bazel horribly on Windows to the point where
+    # even `bazel clean --expunge` fails because it cannot remove
+    # the installed SDK. Therefore, we do not use the assistant to
+    # install the SDK but instead simply extract the SDK to the right
+    # location and set the symlink ourselves.
+    out_dir = ctx.path("sdk").get_child("sdk").get_child(ctx.attr.version)
     if ctx.attr.sdk_tarball:
         ctx.extract(
             ctx.attr.sdk_tarball,
-            output = "extracted-sdk",
+            output = out_dir,
             stripPrefix = "sdk-{}".format(ctx.attr.version),
         )
     elif ctx.attr.sdk_sha256:
         ctx.download_and_extract(
-            output = "extracted-sdk",
-            # TODO (MK) Make this work on other platforms.
+            output = out_dir,
             url =
-                "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-linux.tar.gz".format(ctx.attr.version, ctx.attr.version),
-            sha256 = ctx.attr.sdk_sha256,
+                "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}.tar.gz".format(ctx.attr.version, ctx.attr.version, ctx.attr.os_name),
+            sha256 = ctx.attr.sdk_sha256[ctx.attr.os_name],
             stripPrefix = "sdk-{}".format(ctx.attr.version),
         )
     else:
@@ -47,19 +55,33 @@ def _daml_sdk_impl(ctx):
         "ledger-api-test-tool.jar",
         output = "extracted-test-tool",
     )
-    ps_result = ctx.execute(
-        ["extracted-sdk/daml/daml", "install", "extracted-sdk", "--install-assistant=no"],
-        environment = {
-            "DAML_HOME": "sdk",
-        },
-    )
-    if ps_result.return_code != 0:
-        fail("Failed to install SDK.\nExit code %d.\n%s\n%s" %
-             (ps_result.return_code, ps_result.stdout, ps_result.stderr))
 
-    # At least on older SDKs, the symlinking in --install-assistant=yes does not work
-    # properly so we symlink ourselves.
-    ctx.symlink("sdk/sdk/{}/daml/daml".format(ctx.attr.version), "sdk/bin/daml")
+    if ctx.attr.create_daml_app_patch:
+        ctx.symlink(ctx.attr.create_daml_app_patch, "create_daml_app.patch")
+    elif ctx.attr.test_tool_sha256:
+        ctx.download(
+            output = "create_daml_app.patch",
+            url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
+            sha256 = ctx.attr.create_daml_app_patch_sha256,
+        )
+    else:
+        fail("Must specify either test_tool or test_tool_sha256")
+
+    for lib in ["types", "ledger", "react"]:
+        tarball_name = "daml_{}_tarball".format(lib)
+        if getattr(ctx.attr, tarball_name):
+            ctx.symlink(
+                getattr(ctx.attr, tarball_name),
+                "daml-{}.tgz".format(lib),
+            )
+        else:
+            ctx.download(
+                output = "daml-{}.tgz".format(lib),
+                url = "https://registry.npmjs.org/@daml/{}/-/{}-{}.tgz".format(lib, lib, ctx.attr.version),
+                sha256 = getattr(ctx.attr, "daml_{}_sha256".format(lib)),
+            )
+
+    ctx.symlink(out_dir.get_child("daml").get_child("daml" + (".exe" if is_windows else "")), "sdk/bin/daml")
     ctx.file(
         "sdk/daml-config.yaml",
         content =
@@ -87,6 +109,11 @@ export PATH=$JAVA_HOME/bin:$PATH
 $(rlocation daml-sdk-{version}/sdk/bin/daml) $@
 """.format(version = ctx.attr.version, runfiles_library = runfiles_library),
     )
+    ctx.template(
+        "daml.cc",
+        Label("@compatibility//bazel_tools:daml.cc.tpl"),
+        substitutions = {"{SDK_VERSION}": ctx.attr.version},
+    )
     ctx.file(
         "BUILD",
         content =
@@ -98,11 +125,11 @@ sh_binary(
   data = [":ledger-api-test-tool.jar"],
   deps = ["@bazel_tools//tools/bash/runfiles"],
 )
-sh_binary(
+cc_binary(
   name = "daml",
-  srcs = [":daml.sh"],
+  srcs = ["daml.cc"],
   data = [":sdk/bin/daml"],
-  deps = ["@bazel_tools//tools/bash/runfiles"],
+  deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
 # Needed to provide the same set of DARs to the ledger that
 # are used by the ledger API test tool.
@@ -110,6 +137,7 @@ filegroup(
     name = "dar-files",
     srcs = glob(["extracted-test-tool/ledger/test-common/**"]),
 )
+exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz", "create_daml_app.patch"])
 """,
     )
     return None
@@ -118,10 +146,19 @@ _daml_sdk = repository_rule(
     implementation = _daml_sdk_impl,
     attrs = {
         "version": attr.string(mandatory = True),
-        "sdk_sha256": attr.string(mandatory = False),
+        "os_name": attr.string(mandatory = False, default = os_name),
+        "sdk_sha256": attr.string_dict(mandatory = False),
         "sdk_tarball": attr.label(allow_single_file = True, mandatory = False),
         "test_tool_sha256": attr.string(mandatory = False),
         "test_tool": attr.label(allow_single_file = True, mandatory = False),
+        "daml_types_tarball": attr.label(allow_single_file = True, mandatory = False),
+        "daml_ledger_tarball": attr.label(allow_single_file = True, mandatory = False),
+        "daml_react_tarball": attr.label(allow_single_file = True, mandatory = False),
+        "daml_types_sha256": attr.string(mandatory = False),
+        "daml_ledger_sha256": attr.string(mandatory = False),
+        "daml_react_sha256": attr.string(mandatory = False),
+        "create_daml_app_patch": attr.label(allow_single_file = True, mandatory = False),
+        "create_daml_app_patch_sha256": attr.string(mandatory = False),
     },
 )
 
@@ -132,12 +169,16 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, ledger_api_test_tool, **kwargs):
+def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
         sdk_tarball = sdk_tarball,
         test_tool = ledger_api_test_tool,
+        daml_types_tarball = daml_types_tarball,
+        daml_ledger_tarball = daml_ledger_tarball,
+        daml_react_tarball = daml_react_tarball,
+        create_daml_app_patch = create_daml_app_patch,
         **kwargs
     )

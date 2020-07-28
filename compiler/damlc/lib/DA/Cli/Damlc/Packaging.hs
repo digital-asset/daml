@@ -69,8 +69,8 @@ import SdkVersion
 --   ledger. Based on the DAML-LF we generate dummy interface files
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
-createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
+createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
+createProjectPackageDb projectRoot opts thisSdkVer modulePrefixes deps dataDeps
   | null dataDeps && all (`elem` basePackages) deps =
     -- Initializing the package db is expensive since it requires calling GenerateStablePackages and GeneratePackageMap.
     --Therefore we only do it if we actually have a dependency.
@@ -103,7 +103,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
     mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
         (,) <$> useNoFileE GenerateStablePackages
             <*> useE GeneratePackageMap projectRoot
-    (stablePkgs, dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
+    (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
     let stablePkgIds :: Set LF.PackageId
         stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
     let dependenciesInPkgDbIds =
@@ -142,6 +142,10 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
     exposedModules <- getExposedModules opts projectRoot
 
     let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
+
+
+    validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
+
     -- Iterate over the dependency graph in topological order.
     -- We do a topological sort on the transposed graph which ensures that
     -- the packages with no dependencies come first and we
@@ -179,7 +183,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
             dependenciesInPkgDb
             exposedModules
 
-    writeMetadata projectRoot (PackageDbMetadata (mainUnitIds dependencyInfo))
+    writeMetadata projectRoot (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes)
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     clearPackageDb = do
@@ -244,8 +248,8 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   baseImports ++
                   depImps
             -- When compiling dummy interface files for a data-dependency,
-            -- we know all package flags so we don’t need to infer anything.
-            , optInferDependantPackages = InferDependantPackages False
+            -- we know all package flags so we don’t need to consult metadata.
+            , optIgnorePackageMetadata = IgnorePackageMetadata True
             }
 
     res <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
@@ -547,7 +551,7 @@ getExposedModules opts projectRoot = do
     -- do not matter and can be actively harmful since we might have picked up
     -- some from the daml.yaml if they are explicitly specified.
     opts <- pure opts
-        { optInferDependantPackages = InferDependantPackages False
+        { optIgnorePackageMetadata = IgnorePackageMetadata True
         , optPackageImports = []
         }
     hscEnv <-
@@ -650,3 +654,23 @@ decodeDalf dependenciesInPkgDb path bytes = do
 getDarsFromDependencies :: Set LF.PackageId -> [ExtractedDar] -> IO [DecodedDar]
 getDarsFromDependencies dependenciesInPkgDb depsExtracted =
     either fail pure $ mapM (decodeDar dependenciesInPkgDb) depsExtracted
+
+-- | Given the prefixes declared in daml.yaml
+-- and the list of decoded dalfs, validate that
+-- the prefixes point to packages that exist
+-- and associate them with all modules in the given package.
+-- We run this after checking for unit id collisions so we assume
+-- that the unit ids in the decoded dalfs are unique.
+prefixModules
+    :: MS.Map UnitId GHC.ModuleName
+    -> [DecodedDalf]
+    -> Either String (MS.Map UnitId (GHC.ModuleName, [LF.ModuleName]))
+prefixModules prefixes dalfs = do
+    MS.traverseWithKey f prefixes
+  where unitIdMap = MS.fromList [(decodedUnitId, decodedDalfPkg) | DecodedDalf{..} <- dalfs]
+        f unitId prefix = case MS.lookup unitId unitIdMap of
+            Nothing -> Left ("Could not find package " <> unitIdString unitId)
+            Just pkg -> Right
+                ( prefix
+                , NM.names . LF.packageModules . LF.extPackagePkg $ LF.dalfPackagePkg pkg
+                )

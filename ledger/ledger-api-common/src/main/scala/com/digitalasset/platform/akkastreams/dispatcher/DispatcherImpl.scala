@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class DispatcherImpl[Index: Ordering](
     name: String,
     zeroIndex: Index,

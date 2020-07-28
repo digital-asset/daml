@@ -15,12 +15,13 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
   ExerciseByKeyCommand,
-  ExerciseCommand
+  ExerciseCommand,
+  CreateAndExerciseCommand
 }
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
@@ -66,7 +67,7 @@ case class TriggerIds(val triggerPackageId: PackageId) {
         DottedName.assertFromString(s)))
 }
 
-case class AnyContractId(templateId: Identifier, contractId: AbsoluteContractId)
+case class AnyContractId(templateId: Identifier, contractId: ContractId)
 
 class ConverterException(message: String) extends RuntimeException(message)
 
@@ -86,16 +87,10 @@ object Converter {
   }
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    for {
-      value <- v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
-      apiRecord <- lfValueToApiRecord(true, value)
-    } yield apiRecord
+    lfValueToApiRecord(true, v.toValue)
 
   private def toLedgerValue(v: SValue): Either[String, value.Value] =
-    for {
-      value <- v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
-      apiValue <- lfValueToApiValue(true, value)
-    } yield apiValue
+    lfValueToApiValue(true, v.toValue)
 
   private def fromIdentifier(id: value.Identifier): SValue = {
     STypeRep(
@@ -143,7 +138,7 @@ object Converter {
     record(
       contractIdTy,
       ("templateId", fromTemplateTypeRep(triggerIds, templateId)),
-      ("contractId", SContractId(AbsoluteContractId.assertFromString(contractId)))
+      ("contractId", SContractId(ContractId.assertFromString(contractId)))
     )
   }
 
@@ -383,21 +378,20 @@ object Converter {
     }
   }
 
-  private def toAbsoluteContractId(v: SValue): Either[String, AbsoluteContractId] = {
+  private def toContractId(v: SValue): Either[String, ContractId] = {
     v match {
-      case SContractId(cid: AbsoluteContractId) => Right(cid)
-      case _ => Left(s"Expected AbsoluteContractId but got $v")
+      case SContractId(cid: ContractId) => Right(cid)
+      case _ => Left(s"Expected ContractId but got $v")
     }
   }
 
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 => {
+      case SRecord(_, _, vals) if vals.size == 2 =>
         for {
           templateId <- toTemplateTypeRep(vals.get(0))
-          contractId <- toAbsoluteContractId(vals.get(1))
+          contractId <- toContractId(vals.get(1))
         } yield AnyContractId(templateId, contractId)
-      }
       case _ => Left(s"Expected AnyContractId but got $v")
     }
   }
@@ -504,6 +498,30 @@ object Converter {
     }
   }
 
+  private def toCreateAndExercise(
+      triggerIds: TriggerIds,
+      v: SValue): Either[String, CreateAndExerciseCommand] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 2 => {
+        for {
+          tpl <- toAnyTemplate(vals.get(0))
+          templateId <- extractTemplateId(tpl)
+          templateArg <- toLedgerRecord(tpl)
+          choiceVal <- toAnyChoice(vals.get(1))
+          choiceName <- extractChoiceName(choiceVal)
+          choiceArg <- toLedgerValue(choiceVal)
+        } yield {
+          CreateAndExerciseCommand(
+            Some(toApiIdentifier(templateId)),
+            Some(templateArg),
+            choiceName,
+            Some(choiceArg)
+          )
+        }
+      }
+    }
+  }
+
   private def toCommand(triggerIds: TriggerIds, v: SValue): Either[String, Command] = {
     v match {
       case SVariant(_, "CreateCommand", _, createVal) =>
@@ -518,7 +536,11 @@ object Converter {
         for {
           exerciseByKey <- toExerciseByKey(triggerIds, exerciseByKeyVal)
         } yield Command().withExerciseByKey(exerciseByKey)
-      case _ => Left(s"Expected CreateCommand or ExerciseCommand but got $v")
+      case SVariant(_, "CreateAndExerciseCommand", _, createAndExerciseVal) =>
+        for {
+          createAndExercise <- toCreateAndExercise(triggerIds, createAndExerciseVal)
+        } yield Command().withCreateAndExercise(createAndExercise)
+      case _ => Left(s"Expected a Command but got $v")
     }
   }
 

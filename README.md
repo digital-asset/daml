@@ -17,8 +17,8 @@ This repository hosts all code for the [DAML smart contract language and SDK](ht
 To download DAML, follow [the installation instructions](https://docs.daml.com/getting-started/installation.html).
 Once installed, to try it out, follow the [quickstart guide](https://docs.daml.com/getting-started/quickstart.html).
 
-If you have questions about how to use DAML or how to build DAML-based solutions, please ask them 
-on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
+If you have questions about how to use DAML or how to build DAML-based solutions, please ask them on 
+[StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
 ## Contributing to DAML
 
@@ -40,7 +40,7 @@ Our builds require various development dependencies (e.g. Java, Bazel, Python), 
 
 On Linux and Mac `dev-env` can be installed with:
 
-1. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
+1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`
 2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,

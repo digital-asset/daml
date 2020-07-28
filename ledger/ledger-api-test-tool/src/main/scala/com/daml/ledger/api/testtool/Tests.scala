@@ -6,39 +6,35 @@ package com.daml.ledger.api.testtool
 import java.nio.file.Path
 
 import com.daml.ledger.api.testtool
-import com.daml.ledger.api.testtool.infrastructure.{
-  BenchmarkReporter,
-  LedgerSession,
-  LedgerTestSuite
-}
+import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, LedgerTestSuite}
 import com.daml.ledger.api.testtool.tests._
 import org.slf4j.LoggerFactory
 
 object Tests {
-  type Tests = Map[String, LedgerSession => LedgerTestSuite]
+  type Tests = Map[String, LedgerTestSuite]
 
   /**
     * These tests are safe to be run concurrently and are
     * always run by default, unless otherwise specified.
     */
   val default: Tests = Map(
-    "ActiveContractsServiceIT" -> (new ActiveContractsService(_)),
-    "CommandServiceIT" -> (new CommandService(_)),
-    "CommandSubmissionCompletionIT" -> (new CommandSubmissionCompletion(_)),
-    "CommandDeduplicationIT" -> (new CommandDeduplication(_)),
-    "ContractKeysIT" -> (new ContractKeys(_)),
-    "DivulgenceIT" -> (new Divulgence(_)),
-    "HealthServiceIT" -> (new HealthService(_)),
-    "IdentityIT" -> (new Identity(_)),
-    "LedgerConfigurationServiceIT" -> (new LedgerConfigurationService(_)),
-    "PackageManagementServiceIT" -> (new PackageManagement(_)),
-    "PackageServiceIT" -> (new Packages(_)),
-    "PartyManagementServiceIT" -> (new PartyManagement(_)),
-    "SemanticTests" -> (new SemanticTests(_)),
-    "TransactionServiceIT" -> (new TransactionService(_)),
-    "WitnessesIT" -> (new Witnesses(_)),
-    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
-    "ClosedWorldIT" -> (new ClosedWorld(_)),
+    "ActiveContractsServiceIT" -> new ActiveContractsServiceIT,
+    "CommandServiceIT" -> new CommandServiceIT,
+    "CommandSubmissionCompletionIT" -> new CommandSubmissionCompletionIT,
+    "CommandDeduplicationIT" -> new CommandDeduplicationIT,
+    "ContractKeysIT" -> new ContractKeysIT,
+    "DivulgenceIT" -> new DivulgenceIT,
+    "HealthServiceIT" -> new HealthServiceIT,
+    "IdentityIT" -> new IdentityIT,
+    "LedgerConfigurationServiceIT" -> new LedgerConfigurationServiceIT,
+    "PackageManagementServiceIT" -> new PackageManagementServiceIT,
+    "PackageServiceIT" -> new PackageServiceIT,
+    "PartyManagementServiceIT" -> new PartyManagementServiceIT,
+    "SemanticTests" -> new SemanticTests,
+    "TransactionServiceIT" -> new TransactionServiceIT,
+    "WitnessesIT" -> new WitnessesIT,
+    "WronglyTypedContractIdIT" -> new WronglyTypedContractIdIT,
+    "ClosedWorldIT" -> new ClosedWorldIT,
   )
 
   /**
@@ -48,13 +44,13 @@ object Tests {
     *
     * These are consequently not run unless otherwise specified.
     */
-  val optional: Tests = Map(
-    "ConfigManagementServiceIT" -> (new ConfigManagement(_)),
-    "LotsOfPartiesIT" -> (new LotsOfParties(_)),
-    "TransactionScaleIT" -> (new TransactionScale(_)),
+  def optional(config: Config): Tests = Map(
+    "ConfigManagementServiceIT" -> new ConfigManagementServiceIT,
+    "LotsOfPartiesIT" -> new LotsOfPartiesIT,
+    "TransactionScaleIT" -> new TransactionScaleIT(config.loadScaleFactor),
   )
 
-  val all: Tests = default ++ optional
+  def all(config: Config): Tests = default ++ optional(config)
 
   /**
     * These are performance envelope tests that also provide benchmarks and are always run
@@ -73,17 +69,22 @@ object Tests {
       {
         val throughputKey: String = performanceEnvelopeThroughputTestKey(envelope)
         val latencyKey: String = performanceEnvelopeLatencyTestKey(envelope)
+        val transactionSizeKey: String = performanceEnvelopeTransactionSizeTestKey(envelope)
         List(
-          throughputKey -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
+          throughputKey -> new testtool.tests.PerformanceEnvelope.ThroughputTest(
             logger = LoggerFactory.getLogger(throughputKey),
             envelope = envelope,
             reporter = reporter,
-          )(_)),
-          latencyKey -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
+          ),
+          latencyKey -> new testtool.tests.PerformanceEnvelope.LatencyTest(
             logger = LoggerFactory.getLogger(latencyKey),
             envelope = envelope,
             reporter = reporter,
-          )(_)),
+          ),
+          transactionSizeKey -> new testtool.tests.PerformanceEnvelope.TransactionSizeScaleTest(
+            logger = LoggerFactory.getLogger(transactionSizeKey),
+            envelope = envelope,
+          ),
         )
       }
     }
@@ -93,11 +94,14 @@ object Tests {
     s"PerformanceEnvelope.${envelope.name}.Throughput"
   private[this] def performanceEnvelopeLatencyTestKey(envelope: Envelope): String =
     s"PerformanceEnvelope.${envelope.name}.Latency"
+  private[this] def performanceEnvelopeTransactionSizeTestKey(envelope: Envelope): String =
+    s"PerformanceEnvelope.${envelope.name}.TransactionSize"
 
   private[testtool] val PerformanceTestsKeys =
     Envelope.values.flatMap { envelope =>
       List(
         performanceEnvelopeThroughputTestKey(envelope),
-        performanceEnvelopeLatencyTestKey(envelope))
+        performanceEnvelopeLatencyTestKey(envelope),
+        performanceEnvelopeTransactionSizeTestKey(envelope)),
     }
 }

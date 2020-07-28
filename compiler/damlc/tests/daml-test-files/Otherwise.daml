@@ -7,7 +7,7 @@
 module Otherwise where
 
 warning : Bool -> [a] -> [a]
-warning b [] = []
+warning _ [] = []
 warning b (x :: xs')
   | b = warning b xs'
   | otherwise = x :: xs'

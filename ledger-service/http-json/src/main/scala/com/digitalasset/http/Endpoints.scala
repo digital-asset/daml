@@ -6,7 +6,13 @@ package com.daml.http
 import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.http.scaladsl.model.headers.{
+  Authorization,
+  ModeledCustomHeader,
+  ModeledCustomHeaderCompanion,
+  OAuth2BearerToken,
+  `X-Forwarded-Proto`
+}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
@@ -32,11 +38,12 @@ import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 import scala.util.control.NonFatal
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
+    allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
     commandService: CommandService,
     contractsService: ContractsService,
@@ -363,12 +370,32 @@ class Endpoints(
         \/-((j, req.entity.dataBytes))
     }
 
-  private[http] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
-    req.headers
-      .collectFirst {
-        case Authorization(OAuth2BearerToken(token)) => Jwt(token)
-      }
-      .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
+  private[this] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
+    ensureHttpsForwarded(req) flatMap { _ =>
+      req.headers
+        .collectFirst {
+          case Authorization(OAuth2BearerToken(token)) => Jwt(token)
+        }
+        .toRightDisjunction(
+          Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
+    }
+
+  private[this] def ensureHttpsForwarded(req: HttpRequest): Unauthorized \/ Unit =
+    if (allowNonHttps || isForwardedForHttps(req.headers)) \/-(())
+    else {
+      logger.warn(nonHttpsErrorMessage)
+      \/-(())
+    }
+
+  private[this] def isForwardedForHttps(headers: Seq[HttpHeader]): Boolean =
+    headers exists {
+      case `X-Forwarded-Proto`(protocol) => protocol equalsIgnoreCase "https"
+      // the whole "custom headers" thing in akka-http is a mishmash of
+      // actually using the ModeledCustomHeaderCompanion stuff (which works)
+      // and "just use ClassTag YOLO" (which won't work)
+      case Forwarded(value) => Forwarded(value).proto contains "https"
+      case _ => false
+    }
 
   private def resolveReference(
       jwt: Jwt,
@@ -411,7 +438,7 @@ object Endpoints {
   private type ApiRecord = lav1.value.Record
   private type ApiValue = lav1.value.Value
 
-  private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+  private type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)
@@ -419,13 +446,15 @@ object Endpoints {
   private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
     JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
     for {
       b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
       c <- toJsValue(b)
     } yield c
   }
+
+  private[http] val nonHttpsErrorMessage =
+    "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
 
   private def partiesResponse(
       parties: List[domain.PartyDetails],
@@ -441,5 +470,22 @@ object Endpoints {
 
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
     SprayJson.encode(a).liftErr(ServerError)
+  }
+
+  // avoid case class to avoid using the wrong unapply in isForwardedForHttps
+  private[http] final class Forwarded(override val value: String)
+      extends ModeledCustomHeader[Forwarded] {
+    override def companion = Forwarded
+    override def renderInRequests = true
+    override def renderInResponses = false
+    // per discussion https://github.com/digital-asset/daml/pull/5660#discussion_r412539107
+    def proto: Option[String] =
+      Forwarded.re findFirstMatchIn value map (_.group(1).toLowerCase)
+  }
+
+  private[http] object Forwarded extends ModeledCustomHeaderCompanion[Forwarded] {
+    override val name = "Forwarded"
+    override def parse(value: String) = Try(new Forwarded(value))
+    private val re = raw"""(?i)proto\s*=\s*"?(https?)""".r
   }
 }

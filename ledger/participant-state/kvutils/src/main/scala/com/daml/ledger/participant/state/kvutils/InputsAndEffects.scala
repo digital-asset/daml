@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.TransactionMeta
 import com.daml.lf.data.Ref._
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.Transaction
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractId, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
 private[kvutils] object InputsAndEffects {
@@ -32,10 +32,9 @@ private[kvutils] object InputsAndEffects {
         * contracts should be created. The key should be a combination of the transaction
         * id and the relative contract id (that is, the node index).
         */
-      createdContracts: List[
-        (DamlStateKey, NodeCreate[AbsoluteContractId, VersionedValue[AbsoluteContractId]])],
+      createdContracts: List[(DamlStateKey, NodeCreate[ContractId, VersionedValue[ContractId]])],
       /** The contract keys created or updated as part of the transaction. */
-      updatedContractKeys: Map[DamlStateKey, Option[AbsoluteContractId]]
+      updatedContractKeys: Map[DamlStateKey, Option[ContractId]]
   )
   object Effects {
     val empty = Effects(List.empty, List.empty, Map.empty)
@@ -45,7 +44,7 @@ private[kvutils] object InputsAndEffects {
     * and packages.
     */
   def computeInputs(
-      tx: Transaction.AbsTransaction,
+      tx: Transaction.Transaction,
       meta: TransactionMeta,
   ): List[DamlStateKey] = {
     val inputs = mutable.LinkedHashSet[DamlStateKey]()
@@ -65,11 +64,8 @@ private[kvutils] object InputsAndEffects {
     val localContract = tx.localContracts
 
     def addContractInput(coid: ContractId): Unit =
-      coid match {
-        case acoid: AbsoluteContractId if (!localContract.isDefinedAt(acoid)) =>
-          inputs += contractIdToStateKey(acoid)
-        case _ =>
-      }
+      if (!localContract.isDefinedAt(coid))
+        inputs += contractIdToStateKey(coid)
 
     def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
       import Party.ordering
@@ -110,7 +106,7 @@ private[kvutils] object InputsAndEffects {
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
-  def computeEffects(tx: Transaction.AbsTransaction): Effects = {
+  def computeEffects(tx: Transaction.Transaction): Effects = {
     // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
     // fold bottom up (with reversed roots!) and skip creates of archived contracts.
     tx.fold(Effects.empty) {

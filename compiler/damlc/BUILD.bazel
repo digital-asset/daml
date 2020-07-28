@@ -79,6 +79,7 @@ package_app(
     name = "damlc-dist",
     binary = ":damlc",
     resources = [
+        ":daml-base-anchors.json",
         ":ghc-pkg-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
@@ -219,12 +220,12 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
-            --cpp $(location @hpp//:hpp) \
+            --cpp $(location @stackage-exe//hpp) \
             $(locations //compiler/damlc/daml-prim-src)
     """,
     tools = [
         "//compiler/damlc",
-        "@hpp",
+        "@stackage-exe//hpp",
     ],
     visibility = ["//visibility:public"],
 )
@@ -238,12 +239,12 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
-            --cpp $(location @hpp//:hpp) \
+            --cpp $(location @stackage-exe//hpp) \
             $(locations //compiler/damlc/daml-stdlib-src)
     """,
     tools = [
         "//compiler/damlc",
-        "@hpp",
+        "@stackage-exe//hpp",
     ],
     visibility = ["//visibility:public"],
 )
@@ -258,6 +259,7 @@ genrule(
         ":daml-base-rst-template",
     ],
     outs = [
+        "daml-base-anchors.json",
         "daml-base-rst.tar.gz",
         "daml-base-hoogle.txt",
     ],
@@ -273,6 +275,7 @@ genrule(
             --hoogle-template=$(location :daml-base-hoogle-template) \
             --base-url=https://docs.daml.com/daml/stdlib \
             --output-hoogle=$(location :daml-base-hoogle.txt) \
+            --output-anchor=$(location :daml-base-anchors.json) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
         tar c daml-base-rst \
             --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \

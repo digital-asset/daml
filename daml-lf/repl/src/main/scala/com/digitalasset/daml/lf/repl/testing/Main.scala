@@ -13,7 +13,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.types.Ledger
+import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
@@ -45,6 +45,7 @@ object Main extends App {
      |  repl [file]             Run the interactive repl. Load the given packages if any.
      |  test <name> [file]      Load given packages and run the named scenario with verbose output.
      |  testAll [file]          Load the given packages and run all scenarios.
+     |  profile <name> [infile] [outfile]  Run the name scenario and write a profile in speedscope.app format
      |  validate [file]         Load the given packages and validate them.
      |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
@@ -78,6 +79,8 @@ object Main extends App {
         if (!Repl.testAll(allowDev, file)._1) System.exit(1)
       case List("test", id, file) =>
         if (!Repl.test(allowDev, id, file)._1) System.exit(1)
+      case List("profile", scenarioId, inputFile, outputFile) =>
+        if (!Repl.profile(allowDev, scenarioId, inputFile, Paths.get(outputFile))._1) System.exit(1)
       case List("validate", file) =>
         if (!Repl.validate(allowDev, file)._1) System.exit(1)
       case List(possibleFile) =>
@@ -90,18 +93,11 @@ object Main extends App {
 }
 
 // The DAML-LF Read-Eval-Print-Loop
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any"
-  ))
 object Repl {
 
-  private val nextSeed = {
+  private val nextSeed =
     // We use a static seed to get reproducible run
-    val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
-    () =>
-      Some(seeding())
-  }
+    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
 
   def repl(): Unit = repl(initialState())
   def repl(darFile: String): Unit = repl(load(darFile) getOrElse initialState())
@@ -140,6 +136,15 @@ object Repl {
   def test(allowDev: Boolean, id: String, file: String): (Boolean, State) =
     load(file) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
 
+  def profile(
+      allowDev: Boolean,
+      scenarioId: String,
+      inputFile: String,
+      outputFile: Path,
+  ): (Boolean, State) =
+    load(inputFile, Compiler.FullProfile) fMap cmdValidate fMap (state =>
+      cmdProfile(state, scenarioId, outputFile))
+
   def validate(allowDev: Boolean, file: String): (Boolean, State) =
     load(file) fMap cmdValidate
 
@@ -164,13 +169,20 @@ object Repl {
       quit: Boolean
   )
 
-  case class ScenarioRunnerHelper(packages: Map[PackageId, Package]) {
-    private val build = Speedy.Machine
-      .newBuilder(PureCompiledPackages(packages).right.get, Time.Timestamp.MinValue, nextSeed())
-      .fold(err => sys.error(err.toString), identity)
-    def run(expr: Expr)
-      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) =
-      (build(expr), ScenarioRunner(build(expr)).run())
+  case class ScenarioRunnerHelper(
+      packages: Map[PackageId, Package],
+      profiling: Compiler.ProfilingMode) {
+    val compiledPackages =
+      PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get
+    private val seed = nextSeed()
+
+    def run(expr: Expr): (
+        Speedy.Machine,
+        Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
+      val machine =
+        Speedy.Machine.fromScenarioExpr(compiledPackages, seed, expr)
+      (machine, ScenarioRunner(machine).run())
+    }
   }
 
   case class Command(help: String, action: (State, Seq[String]) => State)
@@ -208,12 +220,12 @@ object Repl {
     cmpl
   }
 
-  def initialState(): State =
+  def initialState(profiling: Compiler.ProfilingMode = Compiler.NoProfile): State =
     rebuildReader(
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty),
+        ScenarioRunnerHelper(Map.empty, profiling),
         reader = null,
         history = new DefaultHistory(),
         quit = false
@@ -337,8 +349,11 @@ object Repl {
   }
 
   // Load DAML-LF packages from a set of files.
-  def load(darFile: String): (Boolean, State) = {
-    val state = initialState()
+  def load(
+      darFile: String,
+      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
+  ): (Boolean, State) = {
+    val state = initialState(profiling)
     try {
       val packages =
         UniversalArchiveReader().readFile(new File(darFile)).get
@@ -355,7 +370,7 @@ object Repl {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap)
+          scenarioRunner = ScenarioRunnerHelper(packagesMap, profiling)
         ))
     } catch {
       case ex: Throwable => {
@@ -368,7 +383,8 @@ object Repl {
   }
 
   def speedyCompile(state: State, args: Seq[String]): Unit = {
-    val defs = assertRight(Compiler.compilePackages(state.packages))
+    val defs = assertRight(
+      Compiler.compilePackages(state.packages, Compiler.FullStackTrace, Compiler.NoProfile))
     defs.get(idToRef(state, args(0))) match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list."); usage
@@ -402,42 +418,28 @@ object Repl {
           case Some(DValue(_, _, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
-            val machine =
-              Speedy.Machine.fromExpr(
-                expr = expr,
-                compiledPackages = PureCompiledPackages(state.packages).right.get,
-                scenario = false,
-                submissionTime = Time.Timestamp.now(),
-                transactionSeed = None
-              )
-            var count = 0
+            val compiledPackages = PureCompiledPackages(state.packages).right.get
+            val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
-            var errored = false
-            while (!machine.isFinal && !errored) {
-              machine.step match {
-                case SResultError(err) =>
-                  println(prettyError(err, machine.ptx).render(128))
-                  errored = true
-                case SResultContinue =>
-                  ()
-                case other =>
-                  sys.error("unimplemented callback: " + other.toString)
-              }
-              count += 1
+            val valueOpt = machine.run match {
+              case SResultError(err) =>
+                println(prettyError(err, machine.ptx).render(128))
+                None
+              case SResultFinalValue(v) =>
+                Some(v)
+              case other =>
+                sys.error("unimplemented callback: " + other.toString)
             }
             val endTime = System.nanoTime()
             val diff = (endTime - startTime) / 1000 / 1000
-            machine.print(count)
-            println(s"steps: $count")
+            machine.print(1)
             println(s"time: ${diff}ms")
-            if (!errored) {
-              val result = machine.ctrl match {
-                case Speedy.CtrlValue(sv) =>
-                  prettyValue(true)(sv.toValue).render(128)
-                case x => x.toString
-              }
-              println("result:")
-              println(result)
+            valueOpt match {
+              case None => ()
+              case Some(value) =>
+                val result = prettyValue(true)(value.toValue).render(128)
+                println("result:")
+                println(result)
             }
           case Some(_) =>
             println("Error: " + id + " not a value.")
@@ -473,7 +475,7 @@ object Repl {
           case Left((err, ledger @ _)) =>
             println(prettyError(err, machine.ptx).render(128))
             (false, state)
-          case Right((diff @ _, steps @ _, ledger)) =>
+          case Right((diff @ _, steps @ _, ledger, value @ _)) =>
             // NOTE(JM): cannot print this, output used in tests.
             //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
             println(prettyLedger(ledger).render(128))
@@ -509,7 +511,7 @@ object Repl {
                 prettyLoc(machine.lastLocation).render(128) +
                 ": " + prettyError(err, machine.ptx).render(128))
             failures += 1
-          case Right((diff, steps, ledger @ _)) =>
+          case Right((diff, steps, ledger @ _, value @ _)) =>
             successes += 1
             totalTime += diff
             totalSteps += steps
@@ -519,6 +521,31 @@ object Repl {
     println(
       s"\n$successes passed, $failures failed, total time ${totalTime.formatted("%.2f")}ms, total steps $totalSteps.")
     (failures == 0, state)
+  }
+
+  def cmdProfile(state: State, scenarioId: String, outputFile: Path): (Boolean, State) = {
+    buildExpr(state, Seq(scenarioId))
+      .map { expr =>
+        println("Warming up JVM for 10s...")
+        val start = System.nanoTime()
+        while (System.nanoTime() - start < 10L * 1000 * 1000 * 1000) {
+          state.scenarioRunner.run(expr)
+        }
+        println("Collecting profile...")
+        val (machine, errOrLedger) =
+          state.scenarioRunner.run(expr)
+        errOrLedger match {
+          case Left((err, ledger @ _)) =>
+            println(prettyError(err, machine.ptx).render(128))
+            (false, state)
+          case Right((diff @ _, steps @ _, ledger, value @ _)) =>
+            println("Writing profile...")
+            machine.profile.name = scenarioId
+            machine.profile.writeSpeedscopeJson(outputFile)
+            (true, state)
+        }
+      }
+      .getOrElse((false, state))
   }
 
   private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")

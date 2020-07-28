@@ -12,7 +12,6 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
-        "@maven//:com_github_ghik_silencer_plugin_2_12",
     ],
     scalacopts = [
         "-Xsource:2.13",
@@ -24,14 +23,12 @@ da_scala_library(
     exports = [
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "@maven//:com_github_ghik_silencer_lib_2_12",
         "@maven//:io_grpc_grpc_core",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
     deps = [
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "@maven//:com_github_ghik_silencer_lib_2_12",
         "@maven//:io_grpc_grpc_core",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],

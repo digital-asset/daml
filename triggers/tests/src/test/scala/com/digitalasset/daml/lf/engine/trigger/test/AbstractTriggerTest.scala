@@ -25,8 +25,10 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.lf.engine.trigger.RunnerConfig
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest._
+import io.grpc.netty.NettyChannelBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -39,14 +41,24 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   protected def ledgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = MockMessages.applicationId,
-      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
       token = None
     )
 
-  protected def ledgerClient()(implicit ec: ExecutionContext): Future[LedgerClient] =
-    LedgerClient.singleHost("localhost", serverPort.value, ledgerClientConfiguration)
+  protected def ledgerClient(
+      maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize)(
+      implicit ec: ExecutionContext): Future[LedgerClient] =
+    for {
+      client <- LedgerClient
+        .fromBuilder(
+          NettyChannelBuilder
+            .forAddress("localhost", serverPort.value)
+            .maxInboundMessageSize(maxInboundMessageSize),
+          ledgerClientConfiguration,
+        )
+    } yield client
 
   override protected def darFile = new File(rlocation("triggers/tests/acs.dar"))
 

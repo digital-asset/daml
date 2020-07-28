@@ -123,7 +123,7 @@ message DamlLogEntryId {
    // The entry identifier is used:
    // * to lookup the log entry when producing `Update`.
    // * as the DAML transaction identifier and rendered as hexadecimal.
-   // * as part of absolute contract identifiers.
+   // * as part of contract identifiers.
    bytes entry_id = 1;
 }
 

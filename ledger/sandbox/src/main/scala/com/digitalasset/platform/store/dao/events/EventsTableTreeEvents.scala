@@ -6,76 +6,62 @@ package com.daml.platform.store.dao.events
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
-import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.platform.store.Conversions._
+import com.daml.platform.store.dao.events.EventsTableQueries.previousOffsetWhereClauseValues
 
 private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
-  private def createdTreeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
+  private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
-        Entry(
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+        EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
+          nodeIndex = nodeIndex,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
-          event = TreeEvent(
-            TreeEvent.Kind.Created(
-              createdEvent(
-                eventId = eventId,
-                contractId = contractId,
-                templateId = templateId,
-                createArgument = createArgument,
-                createSignatories = createSignatories,
-                createObservers = createObservers,
-                createAgreementText = createAgreementText,
-                createKeyValue = createKeyValue,
-                eventWitnesses = eventWitnesses,
-                verbose = verbose,
-              )
-            )
+          event = Raw.TreeEvent.Created(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            createArgument = createArgument,
+            createSignatories = createSignatories,
+            createObservers = createObservers,
+            createAgreementText = createAgreementText,
+            createKeyValue = createKeyValue,
+            eventWitnesses = eventWitnesses,
           )
         )
     }
 
-  private def exercisedTreeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
+  private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
-        Entry(
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
+        EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
+          nodeIndex = nodeIndex,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
-          event = TreeEvent(
-            TreeEvent.Kind.Exercised(
-              exercisedEvent(
-                eventId = eventId,
-                contractId = contractId,
-                templateId = templateId,
-                exerciseConsuming = exerciseConsuming,
-                exerciseChoice = exerciseChoice,
-                exerciseArgument = exerciseArgument,
-                exerciseResult = exerciseResult,
-                exerciseActors = exerciseActors,
-                exerciseChildEventIds = exerciseChildEventIds,
-                eventWitnesses = eventWitnesses,
-                verbose = verbose,
-              )
-            )
+          event = Raw.TreeEvent.Exercised(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            exerciseConsuming = exerciseConsuming,
+            exerciseChoice = exerciseChoice,
+            exerciseArgument = exerciseArgument,
+            exerciseResult = exerciseResult,
+            exerciseActors = exerciseActors,
+            exerciseChildEventIds = exerciseChildEventIds,
+            eventWitnesses = eventWitnesses,
           )
         )
     }
 
-  private val verboseTreeEventParser: RowParser[Entry[TreeEvent]] =
-    createdTreeEventParser(verbose = true) | exercisedTreeEventParser(verbose = true)
-
-  private val succinctTreeEventParser: RowParser[Entry[TreeEvent]] =
-    createdTreeEventParser(verbose = false) | exercisedTreeEventParser(verbose = false)
-
-  def treeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
-    if (verbose) verboseTreeEventParser else succinctTreeEventParser
+  val rawTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent]] =
+    createdTreeEventParser | exercisedTreeEventParser
 
   private val selectColumns = Seq(
     "event_offset",
@@ -98,12 +84,6 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "exercise_actors",
     "exercise_child_event_ids",
   ).mkString(", ")
-
-  private val witnessesAggregation =
-    "array_agg(event_witness) as event_witnesses"
-
-  private val treeEventsTable =
-    "participant_events natural join (select event_id, event_witness from participant_event_flat_transaction_witnesses union select event_id, event_witness from participant_event_witnesses_complement) as participant_event_witnesses"
 
   private val groupByColumns = Seq(
     "event_offset",
@@ -133,55 +113,85 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   private val orderByColumns =
     Seq("event_offset", "transaction_id", "node_index").mkString(", ")
 
-  def prepareLookupTransactionTreeById(
+  def prepareLookupTransactionTreeById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyLookup(transactionId, _),
-      multi = multiPartyLookup(transactionId, _),
+      single = singlePartyLookup(sqlFunctions)(transactionId, _),
+      multi = multiPartyLookup(sqlFunctions)(transactionId, _),
     )
 
-  private def singlePartyLookup(
+  private def singlePartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParty: Party,
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$treeEventsTable where transaction_id = $transactionId and event_witness = $requestingParty order by node_index asc"
+  ): SimpleSql[Row] = {
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by node_index asc"
+  }
 
-  private def multiPartyLookup(
+  private def multiPartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$treeEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns) order by node_index asc"
+  ): SimpleSql[Row] = {
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
+    val filteredWitnesses =
+      sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
+    SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by node_index asc"
+  }
 
-  def preparePagedGetTransactionTrees(
+  def preparePagedGetTransactionTrees(sqlFunctions: SqlFunctions)(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
       pageSize: Int,
-      rowOffset: Long,
+      previousEventNodeIndex: Option[Int],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyTrees(startExclusive, endInclusive, _, pageSize, rowOffset),
-      multi = multiPartyTrees(startExclusive, endInclusive, _, pageSize, rowOffset),
+      single = singlePartyTrees(sqlFunctions)(
+        startExclusive,
+        endInclusive,
+        _,
+        pageSize,
+        previousEventNodeIndex),
+      multi = multiPartyTrees(sqlFunctions)(
+        startExclusive,
+        endInclusive,
+        _,
+        pageSize,
+        previousEventNodeIndex),
     )
 
-  private def singlePartyTrees(
+  private def singlePartyTrees(sqlFunctions: SqlFunctions)(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParty: Party,
       pageSize: Int,
-      rowOffset: Long,
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$treeEventsTable where event_offset > $startExclusive and event_offset <= $endInclusive and event_witness = $requestingParty order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+      previousEventNodeIndex: Option[Int],
+  ): SimpleSql[Row] = {
+    val (prevOffset, prevNodeIndex) =
+      previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and #$witnessesWhereClause order by (#$orderByColumns) limit $pageSize"
+  }
 
-  private def multiPartyTrees(
+  private def multiPartyTrees(sqlFunctions: SqlFunctions)(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
       pageSize: Int,
-      rowOffset: Long,
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$treeEventsTable where event_offset > $startExclusive and event_offset <= $endInclusive and event_witness in ($requestingParties) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+      previousEventNodeIndex: Option[Int],
+  ): SimpleSql[Row] = {
+    val (prevOffset, prevNodeIndex) =
+      previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
+    val filteredWitnesses =
+      sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
+    SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and #$witnessesWhereClause group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+  }
 
 }

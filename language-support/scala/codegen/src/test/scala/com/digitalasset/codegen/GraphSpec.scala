@@ -9,7 +9,6 @@ import com.daml.lf.data.Ref.QualifiedName
 import org.scalatest.{FlatSpec, Matchers}
 import dependencygraph.Graph._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class GraphSpec extends FlatSpec with Matchers {
 
   private[this] def intQualifiedName(i: Int): QualifiedName = {

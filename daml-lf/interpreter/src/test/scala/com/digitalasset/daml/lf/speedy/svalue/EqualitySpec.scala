@@ -7,9 +7,10 @@ import java.util
 
 import com.daml.lf.data.{FrontStack, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.Profile.LabelUnset
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-import com.daml.lf.value.Value.{AbsoluteContractId, NodeId, RelativeContractId}
+import com.daml.lf.value.Value.ContractId
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz._
@@ -62,11 +63,8 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
       .map(STimestamp compose Time.Timestamp.assertFromString)
   private val parties =
     List("alice", "bob").map(SParty compose Ref.Party.assertFromString)
-  private val absoluteContractId =
-    List("a", "b").map(x => SContractId(AbsoluteContractId.assertFromString("#" + x)))
-  private val relativeContractId =
-    List(0, 1).map(x => SContractId(RelativeContractId(NodeId(x))))
-  private val contractIds = absoluteContractId ++ relativeContractId
+  private val contractIds =
+    List("a", "b").map(x => SContractId(ContractId.assertFromString("#" + x)))
 
   private val enums = List(
     SEnum(EnumTypeCon, EnumCon1, 0),
@@ -176,7 +174,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   private val funs = List(
     lfFunction,
-    SPAP(PClosure(SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
+    SPAP(PClosure(LabelUnset, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
   )
 
   private def nonEquatableLists(atLeast2InEquatableValues: List[SValue]) = {

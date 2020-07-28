@@ -8,7 +8,7 @@ import java.time.Instant
 import com.daml.lf.data.Ref
 import com.daml.lf.data.LawlessTraversals._
 import com.daml.lf.iface
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
 import com.daml.ledger.api.{v1 => V1}
 import com.daml.ledger.api.refinements.ApiTypes
@@ -27,7 +27,6 @@ import scalaz.std.option._
 
 import scala.util.control.NoStackTrace
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
   // Types
@@ -452,18 +451,18 @@ case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
 
   def writeArgument(value: Model.ApiValue): Result[V1.value.Value] =
-    wrapAbsContractId(value) flatMap (vac =>
+    wrapContractId(value) flatMap (vac =>
       lfValueToApiValue(verbose = true, vac) leftMap GenericConversionError)
 
   def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] =
-    wrapAbsContractId(value) flatMap (vac =>
+    wrapContractId(value) flatMap (vac =>
       lfValueToApiRecord(verbose = true, vac) leftMap GenericConversionError)
 
-  private[this] def wrapAbsContractId(value: Model.ApiValue): Result[V[V.AbsoluteContractId]] = {
+  private[this] def wrapContractId(value: Model.ApiValue): Result[V[V.ContractId]] = {
     final class NotACoid(message: String) extends RuntimeException(message) with NoStackTrace
     // this is 100% cheating as Value should have Traverse instead
     try Right(value mapContractId { coid =>
-      AbsoluteContractId fromString coid fold (
+      ContractId fromString coid fold (
         e => throw new NotACoid(e),
         identity
       )

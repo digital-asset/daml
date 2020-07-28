@@ -70,15 +70,17 @@ object MetadataReader {
 
   def typeByName(metaData: LfMetadata)(
       name: Ref.QualifiedName): Seq[(Ref.PackageId, iface.DefDataType.FWT)] =
-    metaData.values
+    metaData.values.iterator
       .map(interface => interface.typeDecls.get(name).map(x => (interface.packageId, x.`type`)))
-      .collect { case Some(x) => x }(collection.breakOut)
+      .collect { case Some(x) => x }
+      .toSeq
 
   def templateByName(metaData: LfMetadata)(
       name: Ref.QualifiedName): Seq[(PackageId, iface.InterfaceType.Template)] =
-    metaData.values
+    metaData.values.iterator
       .map(interface => interface.typeDecls.get(name).map(x => (interface.packageId, x)))
       .collect {
         case Some((pId, x @ iface.InterfaceType.Template(_, _))) => (pId, x)
-      }(collection.breakOut)
+      }
+      .toSeq
 }

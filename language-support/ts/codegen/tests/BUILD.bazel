@@ -101,6 +101,8 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
+    # See #6155
+    flaky = True,
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

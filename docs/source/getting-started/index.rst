@@ -23,12 +23,6 @@ The goal is that by the end of this tutorial, you'll have a good idea of the fol
 
 With that, let's get started!
 
-.. toctree::
-   :hidden:
-
-   app-architecture
-   first-feature
-
 Prerequisites
 *************
 

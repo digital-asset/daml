@@ -4,7 +4,7 @@
 package com.daml.http
 package util
 
-import com.daml.lf.data.FlatSpecCheckLaws
+import com.daml.scalatest.FlatSpecCheckLaws
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.prop.TableDrivenPropertyChecks

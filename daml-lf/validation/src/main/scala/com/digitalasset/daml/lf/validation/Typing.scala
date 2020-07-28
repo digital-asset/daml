@@ -19,7 +19,7 @@ private[validation] object Typing {
   /* Typing */
 
   private def checkUniq[A](xs: Iterator[A], mkError: A => ValidationError): Unit = {
-    (Set.empty[A] /: xs)((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
+    (xs foldLeft Set.empty[A])((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
     ()
   }
 
@@ -611,6 +611,8 @@ private[validation] object Typing {
         }
 
       case CPCons(headVar, tailVar) =>
+        if (headVar == tailVar)
+          throw EClashingPatternVariables(ctx, headVar)
         scrutType match {
           case TList(elemType) =>
             introExprVar(headVar, elemType).introExprVar(tailVar, TList(elemType))

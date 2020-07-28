@@ -8,7 +8,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref, ScalazEqual}
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -28,7 +28,7 @@ object Node {
       with NodeInfo
       with value.CidContainer[GenNode[Nid, Cid, Val]] {
 
-    final override protected val self: this.type = this
+    final override protected def self: this.type = this
 
     @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     final def mapContractIdAndValue[Cid2, Val2](
@@ -49,92 +49,133 @@ object Node {
       *
       */
     def requiredAuthorizers: Set[Party]
+
+    def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit) =
+      GenNode.foreach3(fNid, fCid, fVal)(this)
   }
 
-  object GenNode
-      extends WithTxValue3[GenNode]
-      with value.CidContainer3WithDefaultCidResolver[GenNode] {
+  object GenNode extends WithTxValue3[GenNode] with value.CidContainer3[GenNode] {
+
     override private[lf] def map3[A1, A2, A3, B1, B2, B3](
         f1: A1 => B1,
         f2: A2 => B2,
         f3: A3 => B3,
     ): GenNode[A1, A2, A3] => GenNode[B1, B2, B3] = {
-      case NodeCreate(
-          coid,
-          coinst,
-          optLocation,
-          signatories,
-          stakeholders,
-          key,
+      case self @ NodeCreate(
+            coid,
+            coinst,
+            _,
+            _,
+            _,
+            key,
           ) =>
-        NodeCreate(
+        self copy (
           coid = f2(coid),
           coinst = value.Value.ContractInst.map1(f3)(coinst),
-          optLocation = optLocation,
-          signatories = signatories,
-          stakeholders = stakeholders,
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
-      case NodeFetch(
-          coid,
-          templateId,
-          optLocation,
-          actingParties,
-          signatories,
-          stakeholders,
-          key,
+      case self @ NodeFetch(
+            coid,
+            _,
+            _,
+            _,
+            _,
+            _,
+            key,
           ) =>
-        NodeFetch(
+        self copy (
           coid = f2(coid),
-          templateId = templateId,
-          optLocation = optLocation,
-          actingParties = actingParties,
-          signatories = signatories,
-          stakeholders = stakeholders,
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
-      case NodeExercises(
-          targetCoid,
-          templateId,
-          choiceId,
-          optLocation,
-          consuming,
-          actingParties,
-          chosenValue,
-          stakeholders,
-          signatories,
-          controllers,
-          children,
-          exerciseResult,
-          key,
+      case self @ NodeExercises(
+            targetCoid,
+            _,
+            _,
+            _,
+            _,
+            _,
+            chosenValue,
+            _,
+            _,
+            _,
+            children,
+            exerciseResult,
+            key,
           ) =>
-        NodeExercises(
+        self copy (
           targetCoid = f2(targetCoid),
-          templateId = templateId,
-          choiceId = choiceId,
-          optLocation = optLocation,
-          consuming = consuming,
-          actingParties = actingParties,
           chosenValue = f3(chosenValue),
-          stakeholders = stakeholders,
-          signatories = signatories,
-          controllers = controllers,
           children = children.map(f1),
           exerciseResult = exerciseResult.map(f3),
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
-      case NodeLookupByKey(
-          templateId,
-          optLocation,
-          key,
-          result,
+      case self @ NodeLookupByKey(
+            _,
+            _,
+            key,
+            result,
           ) =>
-        NodeLookupByKey(
-          templateId = templateId,
-          optLocation = optLocation,
+        self copy (
           key = KeyWithMaintainers.map1(f3)(key),
           result = result.map(f2),
         )
+    }
+
+    override private[lf] def foreach3[A, B, C](
+        f1: A => Unit,
+        f2: B => Unit,
+        f3: C => Unit,
+    ): GenNode[A, B, C] => Unit = {
+      case NodeCreate(
+          coid,
+          coinst,
+          optLocation @ _,
+          signatories @ _,
+          stakeholders @ _,
+          key,
+          ) =>
+        f2(coid)
+        value.Value.ContractInst.foreach1(f3)(coinst)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+      case NodeFetch(
+          coid,
+          templateId @ _,
+          optLocationd @ _,
+          actingPartiesd @ _,
+          signatoriesd @ _,
+          stakeholdersd @ _,
+          key,
+          ) =>
+        f2(coid)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+      case NodeExercises(
+          targetCoid,
+          templateId @ _,
+          choiceId @ _,
+          optLocation @ _,
+          consuming @ _,
+          actingParties @ _,
+          chosenValue,
+          stakeholders @ _,
+          signatories @ _,
+          controllersDifferFromActors @ _,
+          children @ _,
+          exerciseResult,
+          key,
+          ) =>
+        f2(targetCoid)
+        f3(chosenValue)
+        exerciseResult.foreach(f3)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+        children.foreach(f1)
+      case NodeLookupByKey(
+          templateId @ _,
+          optLocation @ _,
+          key,
+          result,
+          ) =>
+        KeyWithMaintainers.foreach1(f3)(key)
+        result.foreach(f2)
     }
   }
 
@@ -185,17 +226,20 @@ object Node {
       chosenValue: Val,
       stakeholders: Set[Party],
       signatories: Set[Party],
-      /** Note that here we have both actors and controllers because we use this
-        * data structure _before_ we validate the transaction. However for every
-        * valid transaction the actors must be the same as the controllers. This
-        * is why we removed the controllers field in transaction version 6.
+      /** When we decode transactions version<6, the controllers might be different
+        * from the actors.  However, such a transaction is always invalid, so we
+        * prevalidate that when decoding and report the error when we get to the
+        * actual validation stage.
         */
-      controllers: Set[Party],
+      controllersDifferFromActors: Boolean,
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
       key: Option[KeyWithMaintainers[Val]],
   ) extends GenNode[Nid, Cid, Val]
-      with NodeInfo.Exercise {}
+      with NodeInfo.Exercise {
+    @deprecated("use actingParties instead", since = "1.1.2")
+    private[daml] def controllers: actingParties.type = actingParties
+  }
 
   object NodeExercises extends WithTxValue3[NodeExercises] {
 
@@ -227,7 +271,7 @@ object Node {
         chosenValue,
         stakeholders,
         signatories,
-        actingParties,
+        controllersDifferFromActors = false,
         children,
         exerciseResult,
         key,
@@ -252,14 +296,17 @@ object Node {
   final case class KeyWithMaintainers[+Val](key: Val, maintainers: Set[Party])
       extends value.CidContainer[KeyWithMaintainers[Val]] {
 
-    override protected val self: KeyWithMaintainers[Val] = this
+    override protected def self: this.type = this
 
     @deprecated("Use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     def mapValue[Val1](f: Val => Val1): KeyWithMaintainers[Val1] =
       KeyWithMaintainers.map1(f)(this)
+
+    def foreach1(f: Val => Unit): Unit =
+      KeyWithMaintainers.foreach1(f)(this)
   }
 
-  object KeyWithMaintainers extends value.CidContainer1WithDefaultCidResolver[KeyWithMaintainers] {
+  object KeyWithMaintainers extends value.CidContainer1[KeyWithMaintainers] {
     implicit def equalInstance[Val: Equal]: Equal[KeyWithMaintainers[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._
@@ -271,6 +318,10 @@ object Node {
         f: A => B,
     ): KeyWithMaintainers[A] => KeyWithMaintainers[B] =
       x => x.copy(key = f(x.key))
+
+    override private[lf] def foreach1[A](f: A => Unit): KeyWithMaintainers[A] => Unit =
+      x => f(x.key)
+
   }
 
   final def isReplayedBy[Cid: Equal, Val: Equal](
@@ -314,7 +365,7 @@ object Node {
             chosenValue2,
             stakeholders2,
             signatories2,
-            controllers2,
+            controllersDifferFromActors2,
             _,
             exerciseResult2,
             key2,
@@ -322,7 +373,8 @@ object Node {
           import ne._
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
-          stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&
+          stakeholders == stakeholders2 && signatories == signatories2 &&
+          controllersDifferFromActors == controllersDifferFromActors2 &&
           exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2) &&
           key.fold(true)(_ => key === key2)
       }
@@ -339,7 +391,7 @@ object Node {
     */
   final class GlobalKey private (
       val templateId: Identifier,
-      val key: Value[AbsoluteContractId],
+      val key: Value[ContractId],
       val hash: Hash
   ) extends {
     override def equals(obj: Any): Boolean = obj match {
@@ -355,10 +407,10 @@ object Node {
       new GlobalKey(templateId, key, Hash.safeHashContractKey(templateId, key))
 
     // Will fail if key contains contract ids
-    def build(templateId: Identifier, key: Value[AbsoluteContractId]): Either[String, GlobalKey] =
+    def build(templateId: Identifier, key: Value[ContractId]): Either[String, GlobalKey] =
       Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
 
-    def assertBuild(templateId: Identifier, key: Value[AbsoluteContractId]): GlobalKey =
+    def assertBuild(templateId: Identifier, key: Value[ContractId]): GlobalKey =
       data.assertRight(build(templateId, key))
   }
 

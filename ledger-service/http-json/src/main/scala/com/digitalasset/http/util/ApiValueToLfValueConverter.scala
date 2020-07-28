@@ -20,7 +20,7 @@ object ApiValueToLfValueConverter {
   }
 
   type ApiValueToLfValue =
-    lav1.value.Value => Error \/ lf.value.Value[lf.value.Value.AbsoluteContractId]
+    lav1.value.Value => Error \/ lf.value.Value[lf.value.Value.ContractId]
 
   def apiValueToLfValue: ApiValueToLfValue = { a: lav1.value.Value =>
     \/.fromEither(ValueValidator.validateValue(a)).leftMap(e => Error(e))

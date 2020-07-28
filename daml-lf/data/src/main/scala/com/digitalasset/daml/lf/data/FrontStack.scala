@@ -210,3 +210,12 @@ sealed abstract class FrontStackInstances {
     equalBy(fs => toIterableForScalazInstances(fs.iterator), true)
   }
 }
+
+object FrontStackInstances {
+  import language.implicitConversions
+
+  /** Enables 2.13-style `to` calls. */
+  implicit def `FS companion to CBF`[A](
+      self: FrontStack.type): CanBuildFrom[FrontStack[_], A, FrontStack[A]] =
+    self.`FrontStack canBuildFrom`
+}

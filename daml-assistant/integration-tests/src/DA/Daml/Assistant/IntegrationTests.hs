@@ -438,7 +438,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
               waitForConnectionOnPort (threadDelay 100000) sandboxPort
               jsonApiPort :: Int <- fromIntegral <$> getFreePort
-              let jsonApiProc = (shell $ unwords ["daml", "json-api", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort]) { std_out = UseHandle devNull2, std_in = CreatePipe }
+              let jsonApiProc = (shell $ unwords ["daml", "json-api", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort, "--allow-insecure-tokens"]) { std_out = UseHandle devNull2, std_in = CreatePipe }
               withCreateProcess jsonApiProc $ \_ _ _ jsonApiPh -> race_ (waitForProcess' jsonApiProc jsonApiPh) $ do
                   let headers =
                           [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
@@ -452,6 +452,28 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                       "{\"result\":[],\"status\":200}"
                   -- waitForProcess' will block on Windows so we explicitly kill the process.
                   terminateProcess jsonApiPh
+              terminateProcess sandboxPh
+    , testCase "trigger service startup" $
+      withCurrentDirectory quickstartDir $
+      withDevNull $ \devNull1 -> do
+      withDevNull $ \devNull2 -> do
+      withDevNull $ \devNull3 -> do
+          sandboxPort :: Int <- fromIntegral <$> getFreePort
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--wall-clock-time", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
+          withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
+              waitForConnectionOnPort (threadDelay 100000) sandboxPort
+              triggerServicePort :: Int <- fromIntegral <$> getFreePort
+              let triggerServiceProc = (shell $ unwords ["daml", "trigger-service", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show triggerServicePort, "--wall-clock-time", "--no-secret-key"]) { std_out = UseHandle devNull2, std_err = UseHandle devNull3, std_in = CreatePipe }
+              withCreateProcess triggerServiceProc $ \_ _ _ triggerServicePh -> race_ (waitForProcess' triggerServiceProc triggerServicePh) $ do
+                let endpoint = "http://localhost:" <> show triggerServicePort <> "/v1/health"
+                waitForHttpServer (threadDelay 100000) endpoint []
+                req <- parseRequest endpoint
+                manager <- newManager defaultManagerSettings
+                resp <- httpLbs req manager
+                responseBody resp @?= "{\"status\":\"pass\"}"
+                -- waitForProcess' will block on Windows so we
+                -- explicitly kill the process.
+                terminateProcess triggerServicePh
               terminateProcess sandboxPh
     , testCase "mvn compile" $
       withCurrentDirectory quickstartDir $ do

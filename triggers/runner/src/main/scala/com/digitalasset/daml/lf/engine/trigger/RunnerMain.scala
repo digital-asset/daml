@@ -6,6 +6,7 @@ package com.daml.lf.engine.trigger
 import akka.actor.ActorSystem
 import akka.stream._
 import java.io.File
+import io.grpc.netty.NettyChannelBuilder
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scalaz.syntax.traverse._
@@ -78,7 +79,7 @@ object RunnerMain {
         val applicationId = ApplicationId("Trigger Runner")
         val clientConfig = LedgerClientConfiguration(
           applicationId = ApplicationId.unwrap(applicationId),
-          ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+          ledgerIdRequirement = LedgerIdRequirement.none,
           commandClient =
             CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),
           sslContext = config.tlsConfig.flatMap(_.client),
@@ -86,9 +87,14 @@ object RunnerMain {
         )
 
         val flow: Future[Unit] = for {
-          client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)(
-            ec,
-            sequencer)
+          client <- LedgerClient
+            .fromBuilder(
+              NettyChannelBuilder
+                .forAddress(config.ledgerHost, config.ledgerPort)
+                .maxInboundMessageSize(config.maxInboundMessageSize),
+              clientConfig,
+            )(ec, sequencer)
+
           _ <- Runner.run(
             dar,
             triggerId,

@@ -104,6 +104,7 @@ VSTS_TOKEN=${vsts_token}
 
 mkdir -p ~/agent
 cd ~/agent
+echo 'assignment=default' > .capabilities
 
 echo Determining matching VSTS agent...
 VSTS_AGENT_RESPONSE=$(curl -sSfL \
@@ -145,7 +146,7 @@ chown --recursive root:root /home/vsts/agent/{*.sh,bin,externals}
 
 # This needs to run inside of a user with sudo access
 echo "vsts ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/nix_installation
-su --command "sh <(curl https://nixos.org/nix/install) --daemon" --login vsts
+su --command "sh <(curl -sSfL https://nixos.org/nix/install) --daemon" --login vsts
 rm /etc/sudoers.d/nix_installation
 
 # Note: the "hydra.da-int.net" string is now part of the name of the key for
@@ -177,12 +178,6 @@ echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
   ./build.sh "_$(uname)"
 ) || true
 CACHE_WARMUP
-
-# Purge old agents
-su --login vsts <<'PURGE_OLD_AGENTS'
-cd daml && \
-VSTS_ACCOUNT=${vsts_account} VSTS_POOL=${vsts_pool} VSTS_TOKEN=${vsts_token} ./ci/azure-cleanup/purge_old_agents.py || true
-PURGE_OLD_AGENTS
 
 # Remove /home/vsts/daml folder that might be present from cache warmup
 rm -R /home/vsts/daml || true

@@ -5,35 +5,25 @@ package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
-import com.daml.metrics.{MetricName, Timed}
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.MeteredReadOnlyLedger
 
 import scala.concurrent.Future
 
-private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
+private class MeteredLedger(ledger: Ledger, metrics: Metrics)
     extends MeteredReadOnlyLedger(ledger, metrics)
     with Ledger {
-
-  private object Metrics {
-    private val prefix = MetricName.DAML :+ "index"
-
-    val publishTransaction: Timer = metrics.timer(prefix :+ "publish_transaction")
-    val publishPartyAllocation: Timer = metrics.timer(prefix :+ "publish_party_allocation")
-    val uploadPackages: Timer = metrics.timer(prefix :+ "upload_packages")
-    val publishConfiguration: Timer = metrics.timer(prefix :+ "publish_configuration")
-  }
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     Timed.future(
-      Metrics.publishTransaction,
+      metrics.daml.index.publishTransaction,
       ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
   def publishPartyAllocation(
@@ -41,7 +31,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       party: Party,
       displayName: Option[String]): Future[SubmissionResult] =
     Timed.future(
-      Metrics.publishPartyAllocation,
+      metrics.daml.index.publishPartyAllocation,
       ledger.publishPartyAllocation(submissionId, party, displayName))
 
   def uploadPackages(
@@ -50,7 +40,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       sourceDescription: Option[String],
       payload: List[Archive]): Future[SubmissionResult] =
     Timed.future(
-      Metrics.uploadPackages,
+      metrics.daml.index.uploadPackages,
       ledger.uploadPackages(submissionId, knownSince, sourceDescription, payload))
 
   override def publishConfiguration(
@@ -58,7 +48,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       submissionId: String,
       config: Configuration): Future[SubmissionResult] =
     Timed.future(
-      Metrics.publishConfiguration,
+      metrics.daml.index.publishConfiguration,
       ledger.publishConfiguration(maxRecordTime, submissionId, config))
 
   override def close(): Unit = {
@@ -68,5 +58,5 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
 }
 
 object MeteredLedger {
-  def apply(ledger: Ledger, metrics: MetricRegistry): Ledger = new MeteredLedger(ledger, metrics)
+  def apply(ledger: Ledger, metrics: Metrics): Ledger = new MeteredLedger(ledger, metrics)
 }

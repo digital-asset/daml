@@ -17,10 +17,12 @@ import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.LFConversion.UtilGHC
 import DA.Daml.Options.Types
+import qualified DA.Daml.Preprocessor.Records as Preprocessor
 import Data.Bifunctor (first)
 import qualified Data.ByteString.Lazy as BSL
 import Data.Functor.Alt
 import Data.Foldable
+import Data.Generics.Uniplate.Data (descendBi)
 import Data.Graph
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -172,8 +174,10 @@ parseReplInput input dflags =
     -- The most common input will be statements. So, we attempt parsing
     -- statements last to always emit statement parse errors on failure.
         (ReplImport . unLoc <$> tryParse (parseImport input dflags))
-    <!> (ReplStatement . unLoc <$> tryParse (parseStatement input dflags))
+    <!> (ReplStatement . preprocess . unLoc <$> tryParse (parseStatement input dflags))
   where
+    preprocess :: Stmt GhcPs (LHsExpr GhcPs) -> Stmt GhcPs (LHsExpr GhcPs)
+    preprocess = descendBi Preprocessor.onExp
     tryParse :: ParseResult a -> Either Error a
     tryParse (POk _ result) = Right result
     tryParse (PFailed _ _ errMsg) = Left (ParseError errMsg)
@@ -184,7 +188,7 @@ runRepl opts mainDar replClient ideState = do
     Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile mainDar
     (_, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
     let moduleNames = map LF.moduleName (NM.elems (LF.packageModules pkg))
-    Just pkgs <- runAction ideState (use GeneratePackageMap "Dummy.daml")
+    Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
     Just stablePkgs <- runAction ideState (use GenerateStablePackages "Dummy.daml")
     for_ (topologicalSort (toList pkgs <> toList stablePkgs)) $ \pkg -> do
         r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)

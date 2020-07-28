@@ -14,7 +14,6 @@ import Prop.exists
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
 import org.scalatest.{Matchers, WordSpec}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TimestampConversionSpec
     extends WordSpec
     with Matchers

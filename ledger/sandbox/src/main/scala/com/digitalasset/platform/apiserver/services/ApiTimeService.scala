@@ -45,7 +45,6 @@ final class ApiTimeService private (
 
   private val dispatcher = SignalDispatcher[Instant]()
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override protected def getTimeSource(request: GetTimeRequest): Source[GetTimeResponse, NotUsed] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
       Source.failed, { ledgerId =>

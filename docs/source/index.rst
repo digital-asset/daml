@@ -19,7 +19,10 @@ DAML SDK documentation
 
    Installing the SDK <getting-started/installation>
    Building Your App <getting-started/index>
+   getting-started/app-architecture
+   getting-started/first-feature
    getting-started/testing
+   Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 .. toctree::
    :titlesonly:
@@ -33,7 +36,7 @@ DAML SDK documentation
    daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
-   daml/good-daml
+   /daml/patterns
 
 .. toctree::
    :titlesonly:
@@ -102,6 +105,7 @@ DAML SDK documentation
    triggers/index
    daml-repl/index
    tools/visual
+   tools/trigger-service
 
 .. toctree::
    :titlesonly:

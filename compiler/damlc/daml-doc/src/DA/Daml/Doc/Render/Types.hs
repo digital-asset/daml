@@ -6,6 +6,7 @@ module DA.Daml.Doc.Render.Types
     ( module DA.Daml.Doc.Render.Types
     ) where
 
+import DA.Daml.Doc.Types -- for Anchor, AnchorMap
 import qualified Data.Text as T
 
 data RenderFormat = Rst | Markdown | Html
@@ -28,4 +29,5 @@ data RenderOptions = RenderOptions
     , ro_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
     , ro_hooglePath :: Maybe FilePath -- ^ path to output hoogle database
     , ro_anchorPath :: Maybe FilePath -- ^ path to output anchor table
+    , ro_externalAnchors :: AnchorMap -- ^ external input anchor table
     }

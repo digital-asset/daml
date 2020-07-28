@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream._
 import java.nio.file.Files
-import java.time.Instant
 import java.util.stream.Collectors
 import scala.collection.JavaConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -17,7 +16,6 @@ import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.daml.api.util.TimeProvider
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -32,7 +30,6 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.TokenHolder
 
 object RunnerMain {
@@ -51,13 +48,7 @@ object RunnerMain {
           Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 
         val applicationId = ApplicationId("Script Runner")
-        val timeProvider: TimeProvider =
-          config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType) match {
-            case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
-            case TimeProviderType.WallClock => TimeProvider.UTC
-            case _ =>
-              throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
-          }
+        val timeMode: ScriptTimeMode = config.timeMode.getOrElse(RunnerConfig.DefaultTimeMode)
 
         implicit val system: ActorSystem = ActorSystem("ScriptRunner")
         implicit val sequencer: ExecutionSequencerFactory =
@@ -110,18 +101,17 @@ object RunnerMain {
             val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
             val clientConfig = LedgerClientConfiguration(
               applicationId = ApplicationId.unwrap(applicationId),
-              ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+              ledgerIdRequirement = LedgerIdRequirement.none,
               commandClient = CommandClientConfiguration.default,
               sslContext = config.tlsConfig.flatMap(_.client),
               token = tokenHolder.flatMap(_.token),
             )
-            Runner.connect(participantParams, clientConfig)
+            Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize)
           }
-          result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
+          result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeMode)
           _ <- Future {
             config.outputFile.foreach { outputFile =>
-              val jsVal = LfValueCodec.apiValueToJsValue(
-                result.toValue.assertNoRelCid(rcoid => s"Unexpected relative contract id $rcoid"))
+              val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
               Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
             }
           }

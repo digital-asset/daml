@@ -88,7 +88,6 @@ object EqualityEncoding extends EqualityEncoding {
 
     override def valueBool: Fn[P.Bool] = (a1, a2) => a1 == a2
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def valueList[A: Fn]: Fn[P.List[A]] = (a1, a2) => {
       val fn = implicitly[Fn[A]]
       if (a1.length != a2.length) false

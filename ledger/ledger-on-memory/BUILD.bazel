@@ -21,12 +21,15 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -46,11 +49,14 @@ da_scala_test(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
@@ -59,6 +65,7 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
@@ -72,21 +79,22 @@ da_scala_library(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
+        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
         "//ledger/sandbox",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
@@ -111,6 +119,7 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
+        "--batching enable=true,max-batch-size-bytes=262144",
     ],
     test_tool_args = [
         "--verbose",
@@ -130,6 +139,7 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example1,port=6865",
         "--participant participant-id=example2,port=6866",
+        "--batching enable=true,max-batch-size-bytes=262144",
     ],
     test_tool_args = [
         "--verbose",
@@ -164,6 +174,7 @@ conformance_test(
         "--verbose",
         "--perf-tests=PerformanceEnvelope.Beta.Throughput",
         "--perf-tests=PerformanceEnvelope.Beta.Latency",
+        "--perf-tests=PerformanceEnvelope.Beta.TransactionSize",
     ],
 )
 

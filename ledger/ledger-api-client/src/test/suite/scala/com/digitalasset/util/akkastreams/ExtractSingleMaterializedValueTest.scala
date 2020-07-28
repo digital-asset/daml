@@ -10,7 +10,6 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Random
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ExtractSingleMaterializedValueTest
     extends WordSpec
     with Matchers

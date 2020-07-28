@@ -12,6 +12,9 @@ import com.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
 import spray.json._
+import scalaz.{@@, Equal, Order, Tag}
+import scalaz.std.string._
+import scalaz.syntax.equal._
 import scalaz.syntax.std.string._
 
 /**
@@ -27,9 +30,10 @@ import scalaz.syntax.std.string._
   * @param encodeDecimalAsString Not used yet.
   * @param encodeInt64AsString Not used yet.
   */
-abstract class ApiCodecCompressed[Cid](
-    val encodeDecimalAsString: Boolean,
-    val encodeInt64AsString: Boolean) { self =>
+class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt64AsString: Boolean)(
+    implicit readCid: JsonReader[Cid],
+    writeCid: JsonWriter[Cid],
+    orderCid: Order[Cid]) { self =>
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -64,7 +68,7 @@ abstract class ApiCodecCompressed[Cid](
   }
 
   @throws[SerializationException]
-  protected[this] def apiContractIdToJsValue(v: Cid): JsValue
+  private[this] final def apiContractIdToJsValue(v: Cid): JsValue = v.toJson
 
   private[this] def apiListToJsValue(value: V.ValueList[Cid]): JsValue =
     JsArray(value.values.map(apiValueToJsValue(_)).toImmArray.toSeq: _*)
@@ -108,7 +112,7 @@ abstract class ApiCodecCompressed[Cid](
   // ------------------------------------------------------------------------------------------------------------------
 
   @throws[DeserializationException]
-  protected[this] def jsValueToApiContractId(value: JsValue): Cid
+  private[this] final def jsValueToApiContractId(value: JsValue): Cid = value.convertTo[Cid]
 
   private[this] def jsValueToApiPrimitive(
       value: JsValue,
@@ -135,7 +139,8 @@ abstract class ApiCodecCompressed[Cid](
       case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
       case Model.DamlLfPrimType.List => {
         case JsArray(v) =>
-          V.ValueList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to[FrontStack])
+          V.ValueList(
+            v.iterator.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to(FrontStack))
       }
       case Model.DamlLfPrimType.Optional =>
         val typArg = prim.typArgs.head
@@ -157,14 +162,25 @@ abstract class ApiCodecCompressed[Cid](
             jsValueToApiValue(v, prim.typArgs.head, defs)
           }))
       }
-      case Model.DamlLfPrimType.GenMap => {
-        case JsArray(entries) =>
-          V.ValueGenMap(ImmArray(entries.map {
-            case JsArray(Vector(key, value)) =>
-              jsValueToApiValue(key, prim.typArgs(0), defs) ->
-                jsValueToApiValue(value, prim.typArgs(1), defs)
-          }))
-      }
+      case Model.DamlLfPrimType.GenMap =>
+        val Seq(kType, vType) = prim.typArgs;
+        {
+          case JsArray(entries) =>
+            implicit val keySort: Order[V[Cid] @@ defs.type] = decodedOrder(defs)
+            implicit val keySSort: math.Ordering[V[Cid] @@ defs.type] = keySort.toScalaOrdering
+            type OK[K] = Vector[(K, V[Cid])]
+            val decEntries: Vector[(V[Cid] @@ defs.type, V[Cid])] = Tag
+              .subst[V[Cid], OK, defs.type](entries.map {
+                case JsArray(Vector(key, value)) =>
+                  jsValueToApiValue(key, kType, defs) ->
+                    jsValueToApiValue(value, vType, defs)
+                case _ =>
+                  deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
+              })
+              .sortBy(_._1)
+            checkDups(decEntries)
+            V.ValueGenMap(ImmArray(Tag.unsubst[V[Cid], OK, defs.type](decEntries)))
+        }
 
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
@@ -173,6 +189,25 @@ abstract class ApiCodecCompressed[Cid](
     prim match {
       case iface.TypePrim(_, Seq(iface.TypePrim(iface.PrimType.Optional, _))) => true
       case _ => false
+    }
+
+  private[this] def decodedOrder(defs: Model.DamlLfTypeLookup): Order[V[Cid] @@ defs.type] = {
+    val scope: V.LookupVariantEnum = defs andThen (_ flatMap (_.dataType match {
+      case iface.Variant(fields) => Some(fields.toImmArray map (_._1))
+      case iface.Enum(ctors) => Some(ctors.toImmArray)
+      case iface.Record(_) => None
+    }))
+    Tag subst (Tag unsubst V.orderInstance[Cid](scope))
+  }
+
+  @throws[DeserializationException]
+  private[this] def checkDups[K: Equal, V](decEntries: Seq[(K, V)]): Unit =
+    decEntries match {
+      case (h, _) +: t =>
+        val _ = t.foldLeft(h)((p, n) =>
+          if (p /== n._1) n._1 else deserializationError(s"duplicate key: $p"))
+        ()
+      case _ => ()
     }
 
   private[this] def jsValueToApiDataType(
@@ -313,25 +348,13 @@ abstract class ApiCodecCompressed[Cid](
       encodeInt64AsString: Boolean = this.encodeInt64AsString): ApiCodecCompressed[Cid] =
     new ApiCodecCompressed[Cid](
       encodeDecimalAsString = encodeDecimalAsString,
-      encodeInt64AsString = encodeInt64AsString) {
-      override protected[this] def apiContractIdToJsValue(v: Cid): JsValue =
-        self.apiContractIdToJsValue(v)
-
-      override protected[this] def jsValueToApiContractId(value: JsValue): Cid =
-        self.jsValueToApiContractId(value)
-    }
+      encodeInt64AsString = encodeInt64AsString)
 }
+
+import DefaultJsonProtocol.StringJsonFormat
 
 object ApiCodecCompressed
     extends ApiCodecCompressed[String](encodeDecimalAsString = true, encodeInt64AsString = true) {
-
-  override protected[this] def apiContractIdToJsValue(v: String): JsValue = JsString(v)
-
-  override protected[this] def jsValueToApiContractId(value: JsValue): String = {
-    import JsonImplicits.StringJsonFormat
-    value.convertTo[String]
-  }
-
   // ------------------------------------------------------------------------------------------------------------------
   // Implicits that can be imported to write JSON
   // ------------------------------------------------------------------------------------------------------------------

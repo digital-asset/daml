@@ -24,7 +24,6 @@ object JwtDecoder {
       .flatMap(base64Decode)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
     jwt.traverse(Base64.decode).leftMap(e => Error('base64Decode, e.shows))
 }

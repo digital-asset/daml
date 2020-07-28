@@ -3,29 +3,26 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain
-import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Timed
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class TimedCommandExecutor(
     delegate: CommandExecutor,
-    metricRegistry: MetricRegistry,
+    metrics: Metrics,
 ) extends CommandExecutor {
-
-  private val timer = metricRegistry.timer(MetricPrefix :+ "total")
 
   override def execute(
       commands: domain.Commands,
-      submissionSeed: Option[Hash],
+      submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
-    Timed.future(timer, delegate.execute(commands, submissionSeed))
+    Timed.future(metrics.daml.execution.total, delegate.execute(commands, submissionSeed))
 
 }

@@ -1,0 +1,140 @@
+diff --git a/src/main/java/com/google/devtools/build/docgen/templates/attributes/common/tags.html b/src/main/java/com/google/devtools/build/docgen/templates/attributes/common/tags.html
+index 87d91de5e6..32f85a9201 100644
+--- a/src/main/java/com/google/devtools/build/docgen/templates/attributes/common/tags.html
++++ b/src/main/java/com/google/devtools/build/docgen/templates/attributes/common/tags.html
+@@ -88,8 +88,9 @@
+   <li><code>exclusive</code> keyword will force the test to be run in the
+     &quot;exclusive&quot; mode, ensuring that no other tests are running at the
+     same time. Such tests will be executed in serial fashion after all build
+-    activity and non-exclusive tests have been completed. They will also always
+-    run locally and thus without sandboxing.
++    activity and non-exclusive tests have been completed. Remote execution is
++    disabled for such tests because Bazel doesn't have control over what's
++    running on a remote machine.
+   </li>
+ 
+   <li><code>manual</code> keyword will force the test target to not be included in target pattern
+diff --git a/src/main/java/com/google/devtools/build/lib/analysis/test/TestTargetProperties.java b/src/main/java/com/google/devtools/build/lib/analysis/test/TestTargetProperties.java
+index dbbf8274a6..92084b3008 100644
+--- a/src/main/java/com/google/devtools/build/lib/analysis/test/TestTargetProperties.java
++++ b/src/main/java/com/google/devtools/build/lib/analysis/test/TestTargetProperties.java
+@@ -88,9 +88,12 @@ public class TestTargetProperties {
+ 
+     Map<String, String> executionInfo = Maps.newLinkedHashMap();
+     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
+-    if (TargetUtils.isLocalTestRule(rule) || TargetUtils.isExclusiveTestRule(rule)) {
++    if (TargetUtils.isLocalTestRule(rule)) {
+       executionInfo.put(ExecutionRequirements.LOCAL, "");
+     }
++    if (TargetUtils.isExclusiveTestRule(rule)) {
++      executionInfo.put(ExecutionRequirements.NO_REMOTE_EXEC, "");
++    }
+ 
+     if (executionRequirements != null) {
+       // This will overwrite whatever TargetUtils put there, which might be confusing.
+diff --git a/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java b/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
+index 72da2b2f85..72f70bfe58 100644
+--- a/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
++++ b/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
+@@ -993,6 +993,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
+             Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs().toList());
+       }
+       if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
++        System.err.println("DA-DEBUG: isDeclaredIn was false" + input.getExecPath().toString());
+         errors.add(input.getExecPath().toString());
+       }
+     }
+diff --git a/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java b/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
+index 157cd5f36a..fb9dbc723f 100644
+--- a/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
++++ b/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
+@@ -148,6 +148,7 @@ public class HeaderDiscovery {
+         if (execPath.startsWith(execRoot)) {
+           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
+         } else {
++          System.err.println("DA-DEBUG: Absolute path " + execPathFragment.getPathString() + " outside of execroot " + execRoot);
+           problems.add(execPathFragment.getPathString());
+           continue;
+         }
+@@ -184,6 +185,7 @@ public class HeaderDiscovery {
+ 
+       // Abort if we see files that we can't resolve, likely caused by
+       // undeclared includes or illegal include constructs.
++      System.err.println("DA-DEBUG: Valid system includes: " + permittedSystemIncludePrefixes.toString());
+       problems.add(execPathFragment.getPathString());
+     }
+     if (shouldValidateInclusions) {
+diff --git a/src/test/java/com/google/devtools/build/lib/rules/test/TestTargetPropertiesTest.java b/src/test/java/com/google/devtools/build/lib/rules/test/TestTargetPropertiesTest.java
+index 5571f5fcde..0c0b113bba 100644
+--- a/src/test/java/com/google/devtools/build/lib/rules/test/TestTargetPropertiesTest.java
++++ b/src/test/java/com/google/devtools/build/lib/rules/test/TestTargetPropertiesTest.java
+@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.test;
+ 
+ import static com.google.common.truth.Truth.assertThat;
+ 
++import com.google.devtools.build.lib.actions.ExecutionRequirements;
+ import com.google.devtools.build.lib.actions.ResourceSet;
+ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+ import com.google.devtools.build.lib.analysis.test.TestProvider;
+@@ -50,4 +51,22 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
+             .getLocalResourceUsage(testAction.getOwner().getLabel(), false);
+     assertThat(localResourceUsage.getCpuUsage()).isEqualTo(4.0);
+   }
++
++  @Test
++  public void testTestWithExclusiveDisablesRemoteExecution() throws Exception {
++    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
++    scratch.file(
++        "tests/BUILD",
++        "sh_test(",
++        "  name = 'test',",
++        "  size = 'small',",
++        "  srcs = ['test.sh'],",
++        "  tags = ['exclusive'],",
++        ")");
++    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
++    TestRunnerAction testAction =
++        (TestRunnerAction)
++            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
++    assertThat(testAction.getExecutionInfo()).isEqualTo(ExecutionRequirements.NO_REMOTE_EXEC);
++  }
+ }
+diff --git a/src/test/shell/bazel/remote/remote_execution_test.sh b/src/test/shell/bazel/remote/remote_execution_test.sh
+index 6cd04261a4..bd5415c53c 100755
+--- a/src/test/shell/bazel/remote/remote_execution_test.sh
++++ b/src/test/shell/bazel/remote/remote_execution_test.sh
+@@ -1751,6 +1751,34 @@ EOF
+   expect_log "exceeded deadline"
+ }
+ 
++function test_exclusive_tag() {
++  # Test that the exclusive tag works with the remote cache.
++  mkdir -p a
++  cat > a/success.sh <<'EOF'
++#!/bin/sh
++exit 0
++EOF
++  chmod 755 a/success.sh
++  cat > a/BUILD <<'EOF'
++sh_test(
++  name = "success_test",
++  srcs = ["success.sh"],
++  tags = ["exclusive"],
++)
++EOF
++
++  bazel test \
++    --remote_cache=grpc://localhost:${worker_port} \
++    //a:success_test || fail "Failed to test //a:success_test"
++
++  bazel test \
++    --remote_cache=grpc://localhost:${worker_port} \
++    --nocache_test_results \
++    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
++
++  expect_log "remote cache hit"
++}
++
+ # TODO(alpha): Add a test that fails remote execution when remote worker
+ # supports sandbox.
+ 

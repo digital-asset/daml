@@ -62,11 +62,14 @@ Despite its simplicity, there are quite a few things to note in this scenario:
 - Most of the variables are declared inside a ``let`` block.
 
   That's because the ``scenario do`` block expects scenario actions like ``submit`` or ``getParty``. An integer like ``123`` is not an action, it's a pure expression, something we can evaluate without any ledger. You can think of the ``let`` as turning variable declaration into an action.
-- None of the variables have annotations to say what type they are.
+- Most variables do not have annotations to say what type they are.
 
   That's because DAML is very good at *inferring* types. The compiler knows that ``123`` is an ``Int``, so if you declare ``my_int = 123``, it can infer that ``my_int`` is also an ``Int``. This means you don't have to write the type annotation ``my_int : Int = 123``.
 
-  However, if the type is ambiguous so that the compiler can't infer it, you do have to add a type annotation. And you can always choose to add them to aid readability.
+  However, if the type is ambiguous so that the compiler can't infer
+  it, you do have to add a type annotation. This is the case for
+  ``0.001`` which could be any ``Numeric n``. Here we
+  specify ``0.001 : Decimal`` which is a synonym for ``Numeric 10``. You can always choose to add type annotations to aid readability.
 - The ``assert`` function is an action that takes a boolean value and succeeds with ``True`` and fails with ``False``.
 
   Try putting ``assert False`` somewhere in a scenario and see what happens to the scenario result.

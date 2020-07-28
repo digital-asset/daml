@@ -1,6 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// Keep in sync with compatibility/bazel_tools/create-daml-app/index.test.ts
+
 import { ChildProcess, spawn, SpawnOptions } from 'child_process';
 import { promises as fs } from 'fs';
 import puppeteer, { Browser, Page } from 'puppeteer';
@@ -199,7 +201,7 @@ test('log in as a new user, log out and log back in', async () => {
   expect(usersFinal[0].payload.username).toEqual(partyName);
 
   await page.close();
-}, 20_000);
+}, 40_000);
 // LOGIN_TEST_END
 
 // This tests following users in a few different ways:
@@ -232,7 +234,9 @@ test('log in as three different users and start following each other', async () 
 
    // Add Party 3 as well and check both are in the list.
    await follow(page1, party3);
-   await page1.waitForSelector('.test-select-following');
+   await page1.waitForFunction(
+    () => document.querySelectorAll(".test-select-following").length == 2
+   );
    const followingList11 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
    expect(followingList11).toHaveLength(2);
    expect(followingList11).toContain(party2);
@@ -264,7 +268,9 @@ test('log in as three different users and start following each other', async () 
   await follow(page2, party3);
 
   // Check the following list is updated correctly.
-  await page2.waitForSelector('.test-select-following');
+  await page2.waitForFunction(
+    () => document.querySelectorAll(".test-select-following").length == 2
+  );
   const followingList2 = await page2.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
   expect(followingList2).toHaveLength(2);
   expect(followingList2).toContain(party1);

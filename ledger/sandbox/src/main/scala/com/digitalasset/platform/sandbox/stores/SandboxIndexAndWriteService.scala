@@ -9,7 +9,9 @@ import java.util.concurrent.CompletionStage
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.codahale.metrics.MetricRegistry
+import com.daml.api.util.TimeProvider
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
@@ -18,12 +20,11 @@ import com.daml.ledger.participant.state.v1.{
   _
 }
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
-import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Time}
-import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.index.LedgerBackedIndexService
@@ -33,6 +34,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
@@ -60,9 +62,11 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
       queueDepth: Int,
+      transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     SqlLedger
       .owner(
@@ -74,11 +78,12 @@ object SandboxIndexAndWriteService {
         acs = acs,
         packages = templateStore,
         initialLedgerEntries = ledgerEntries,
-        initialConfig = initialConfig,
         queueDepth = queueDepth,
+        transactionCommitter = transactionCommitter,
         startMode = startMode,
         eventsPageSize = eventsPageSize,
         metrics = metrics,
+        lfValueTranslationCache
       )
       .flatMap(ledger =>
         owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
@@ -90,8 +95,9 @@ object SandboxIndexAndWriteService {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
+      transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
     val ledger =
       new InMemoryLedger(
@@ -99,9 +105,9 @@ object SandboxIndexAndWriteService {
         participantId,
         timeProvider,
         acs,
+        transactionCommitter,
         templateStore,
         ledgerEntries,
-        intialConfig,
       )
     owner(MeteredLedger(ledger, metrics), participantId, intialConfig, timeProvider)
   }

@@ -346,7 +346,7 @@ template LookerUpByKey
     signatory p
 
     controller p can
-      nonconsuming Lookup : Maybe (ContractId WithKey)
+      nonconsuming Lookup : Optional (ContractId WithKey)
         with
           n : Int
         do
@@ -571,4 +571,21 @@ template TimeGetter with
         do
           pure $ product [1, 2, 3]
 
+template ComputeContractKeyAfterEnsureClause with
+    owner: Party
+  where
+    signatory owner
+    ensure False
+    key (error "Boom"): Party
+    maintainer key
 
+template ComputeContractKeyWhenExecutingCreate with
+    owner: Party
+  where
+    signatory owner
+
+    nonconsuming choice DontExecuteCreate: ()
+      controller owner
+      do
+        let _ignore = create ComputeContractKeyAfterEnsureClause with owner
+        pure ()

@@ -3,9 +3,10 @@
 
 package com.daml.platform.sandbox.persistence
 
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.dec.DirectExecutionContext
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.{HikariJdbcConnectionProvider, JdbcConnectionProvider}
@@ -20,18 +21,21 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
 
   private var connectionProviderResource: Resource[JdbcConnectionProvider] = _
   private var connectionProvider: JdbcConnectionProvider = _
+  private val metrics = new Metrics(SharedMetricRegistries.getOrCreate("PostgresIT"))
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    connectionProviderResource = HikariJdbcConnectionProvider
-      .owner(
-        ServerRole.Testing(getClass),
-        postgresFixture.jdbcUrl,
-        maxConnections = 4,
-        new MetricRegistry,
-      )
-      .acquire()(DirectExecutionContext)
-    connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
+    newLoggingContext { implicit logCtx =>
+      connectionProviderResource = HikariJdbcConnectionProvider
+        .owner(
+          ServerRole.Testing(getClass),
+          postgresDatabase.url,
+          maxConnections = 4,
+          new MetricRegistry,
+        )
+        .acquire()(DirectExecutionContext)
+      connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
+    }
   }
 
   override protected def afterAll(): Unit = {
@@ -42,7 +46,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
   "Postgres" when {
     "running queries using Hikari" should {
       "be accessible" in {
-        connectionProvider.runSQL { conn =>
+        connectionProvider.runSQL(metrics.test.db) { conn =>
           val resultSet = conn.createStatement().executeQuery("SELECT 1")
           resultSet.next()
           val result = resultSet.getInt(1)
@@ -55,20 +59,38 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
   "Flyway" should {
     "execute initialisation script" in {
       newLoggingContext { implicit logCtx =>
-        new FlywayMigrations(postgresFixture.jdbcUrl).migrate()(DirectExecutionContext)
+        new FlywayMigrations(postgresDatabase.url).migrate()(DirectExecutionContext)
       }.map { _ =>
-        connectionProvider.runSQL { conn =>
+        connectionProvider.runSQL(metrics.test.db) { conn =>
           def checkTableExists(table: String) = {
             val resultSet = conn.createStatement().executeQuery(s"SELECT * from $table")
             resultSet.next shouldEqual false
           }
 
-          checkTableExists("ledger_entries")
-          checkTableExists("contracts")
-          checkTableExists("disclosures")
-          checkTableExists("contract_witnesses")
+          def checkTableDoesNotExist(table: String) = {
+            val resultSet = conn.createStatement().executeQuery(s"SELECT to_regclass('$table')")
+            resultSet.next shouldEqual true
+            Option(resultSet.getString(1)) shouldEqual Option.empty[String]
+            resultSet.wasNull() shouldEqual true
+          }
+
           checkTableExists("parameters")
+          checkTableExists("configuration_entries")
+
+          checkTableExists("participant_command_completions")
+          checkTableExists("participant_command_submissions")
+          checkTableExists("participant_contract_witnesses")
+          checkTableExists("participant_contracts")
+          checkTableExists("participant_events")
+
           checkTableExists("parties")
+          checkTableExists("party_entries")
+
+          checkTableExists("packages")
+          checkTableExists("package_entries")
+
+          checkTableDoesNotExist("participant_event_flat_transaction_witnesses")
+          checkTableDoesNotExist("participant_event_transaction_tree_witnesses")
         }
       }
     }

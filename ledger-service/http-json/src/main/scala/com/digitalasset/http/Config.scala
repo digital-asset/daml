@@ -19,6 +19,8 @@ import scalaz.{Show, \/}
 import scala.concurrent.duration._
 import scala.util.Try
 
+// The internal transient scopt structure *and* StartSettings; external `start`
+// users should extend StartSettings or DefaultStartSettings themselves
 private[http] final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
@@ -31,9 +33,10 @@ private[http] final case class Config(
     tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
+    allowNonHttps: Boolean = false,
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
-)
+) extends HttpService.StartSettings
 
 private[http] object Config {
   import scala.language.postfixOps
@@ -65,12 +68,10 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalBooleanField(m: Map[String, String])(
       k: String): Either[String, Option[Boolean]] =
     m.get(k).traverse(v => parseBoolean(k)(v)).toEither
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
     m.get(k).traverse(v => parseLong(k)(v)).toEither
 

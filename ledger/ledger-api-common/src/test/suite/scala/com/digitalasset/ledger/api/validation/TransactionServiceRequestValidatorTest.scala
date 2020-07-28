@@ -18,7 +18,6 @@ import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Status.Code._
 import org.scalatest.WordSpec
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTestUtils {
 
   private val traceContext = TraceContext(traceIdHigh, traceId, spanId, parentSpanId, sampled)

@@ -10,7 +10,6 @@ import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
-import com.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import scalaz.syntax.tag._
@@ -80,7 +79,7 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        createArguments: ValueRecord[AbsoluteContractId],
+        createArguments: Lf.ValueRecord[ContractId],
         witnessParties: immutable.Set[Ref.Party],
         signatories: immutable.Set[Ref.Party],
         observers: immutable.Set[Ref.Party],
@@ -208,7 +207,7 @@ object domain {
     final case class InvalidLedgerTime(description: String) extends RejectionReason
   }
 
-  type Value = Lf[Lf.AbsoluteContractId]
+  type Value = Lf[Lf.ContractId]
 
   final case class RecordField(label: Option[Label], value: Value)
 
@@ -262,8 +261,6 @@ object domain {
 
   type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
-
-  sealed trait AbsoluteNodeIdTag
 
   case class Commands(
       ledgerId: LedgerId,

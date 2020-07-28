@@ -8,7 +8,7 @@ DAML REPL
 being designed and is *subject to breaking changes*.
 We welcome feedback about the DAML REPL on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
+or `on our forum <https://discuss.daml.com>`_ or `on Slack <https://slack.daml.com>`_.
 
 The DAML REPL allows you to use the :doc:`/daml-script/index` API
 interactively. This is useful for debugging and for interactively

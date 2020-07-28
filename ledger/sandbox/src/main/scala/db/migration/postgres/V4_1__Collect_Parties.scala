@@ -9,17 +9,14 @@ import java.sql.{Connection, ResultSet}
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
-import com.daml.lf.value.Value.AbsoluteContractId
-import com.daml.ledger.EventId
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.serialization.TransactionSerializer
+import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V4_1__Collect_Parties extends BaseJavaMigration {
-
-  private type Transaction = GenTransaction.WithTxValue[EventId, AbsoluteContractId]
 
   // the number of contracts proceeded in a batch.
   private val batchSize = 10 * 1000
@@ -31,7 +28,7 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
 
   private def loadTransactions(
       implicit connection: Connection
-  ): Iterator[(Long, Transaction)] = {
+  ): Iterator[(Long, Tx.Transaction)] = {
 
     val SQL_SELECT_LEDGER_ENTRIES =
       """SELECT
@@ -44,14 +41,15 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
 
     val rows: ResultSet = connection.createStatement().executeQuery(SQL_SELECT_LEDGER_ENTRIES)
 
-    new Iterator[(Long, Transaction)] {
+    new Iterator[(Long, Tx.Transaction)] {
 
       var hasNext: Boolean = rows.next()
 
-      def next(): (Long, Transaction) = {
+      def next(): (Long, Tx.Transaction) = {
         val ledgerOffset = rows.getLong("ledger_offset")
+        val transactionId = Ref.LedgerString.assertFromString(rows.getString("transaction_id"))
         val transaction = TransactionSerializer
-          .deserializeTransaction(rows.getBinaryStream("transaction"))
+          .deserializeTransaction(transactionId, rows.getBinaryStream("transaction"))
           .getOrElse(
             sys.error(s"failed to deserialize transaction with ledger offset $ledgerOffset"))
 
@@ -63,7 +61,7 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
 
   }
 
-  private def updateParties(transactions: Iterator[(Long, Transaction)])(
+  private def updateParties(transactions: Iterator[(Long, Tx.Transaction)])(
       implicit conn: Connection): Unit = {
 
     val SQL_INSERT_PARTY =
@@ -95,26 +93,26 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
     }
   }
 
-  private def getParties(transaction: Transaction): Set[Ref.Party] = {
+  private def getParties(transaction: Tx.Transaction): Set[Ref.Party] = {
     transaction
       .fold[Set[Ref.Party]](Set.empty) {
         case (parties, (_, node)) =>
           node match {
-            case nf: NodeFetch.WithTxValue[AbsoluteContractId] =>
+            case nf: NodeFetch.WithTxValue[ContractId] =>
               parties
                 .union(nf.signatories)
                 .union(nf.stakeholders)
                 .union(nf.actingParties.getOrElse(Set.empty))
-            case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
+            case nc: NodeCreate.WithTxValue[ContractId] =>
               parties
                 .union(nc.signatories)
                 .union(nc.stakeholders)
-            case ne: NodeExercises.WithTxValue[_, AbsoluteContractId] =>
+            case ne: NodeExercises.WithTxValue[_, ContractId] =>
               parties
                 .union(ne.signatories)
                 .union(ne.stakeholders)
                 .union(ne.actingParties)
-            case _: NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
+            case _: NodeLookupByKey.WithTxValue[ContractId] =>
               parties
           }
       }

@@ -26,11 +26,15 @@ azure-cron.yml      @garyverhaegen-da
 # Runtime
 /daml-lf/governance.rst @gerolf-da @S11001001
 /daml-lf/archive/da/    @remyhaemmerle-da @hurryabit @gerolf-da
+/daml-lf/engine/ @hurryabit @remyhaemmerle-da
+/daml-lf/interpreter/ @hurryabit @remyhaemmerle-da
+/daml-lf/repl/ @hurryabit @remyhaemmerle-da
+/daml-lf/scenario-interpreter/ @hurryabit @remyhaemmerle-da
 /daml-lf/spec/value.rst @S11001001 @gerolf-da
 /daml-lf/spec/transaction.rst @S11001001 @gerolf-da
 /daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @gerolf-da
 /daml-lf/data-scalacheck/  @S11001001
-/daml-lf/transaction-scalacheck/  @S11001001
+/daml-lf/transaction-test-lib/  @S11001001
 /daml-lf/validation/    @remyhaemmerle-da
 /daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001
 /daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001

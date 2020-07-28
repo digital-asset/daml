@@ -9,7 +9,6 @@ import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
 import org.scalatest.{FlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class LedgerIdentityClientTest extends FlatSpec with Matchers with AuthMatchers {
 
   val ledgerServices = new LedgerServices("ledger-identity-service-ledger")

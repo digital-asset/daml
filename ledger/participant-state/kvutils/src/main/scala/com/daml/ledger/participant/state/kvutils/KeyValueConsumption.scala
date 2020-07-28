@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
@@ -191,13 +192,13 @@ object KeyValueConsumption {
       case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
         wrap(RejectionReason.Disputed(rejEntry.getDisputed.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
-        wrap(RejectionReason.Inconsistent)
+        wrap(RejectionReason.Inconsistent(rejEntry.getInconsistent.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
-        wrap(RejectionReason.ResourcesExhausted)
+        wrap(RejectionReason.ResourcesExhausted(rejEntry.getResourcesExhausted.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
         List()
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
-        wrap(RejectionReason.PartyNotKnownOnLedger)
+        wrap(RejectionReason.PartyNotKnownOnLedger(rejEntry.getPartyNotKnownOnLedger.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
         wrap(
           RejectionReason.SubmitterCannotActViaParticipant(
@@ -230,12 +231,12 @@ object KeyValueConsumption {
           .filter(_.nonEmpty)
           .map(parseLedgerString("WorkflowId")),
         submissionTime = parseTimestamp(txEntry.getSubmissionTime),
-        submissionSeed = parseOptHash(txEntry.getSubmissionSeed),
+        submissionSeed = parseHash(txEntry.getSubmissionSeed),
         optUsedPackages = None,
         optNodeSeeds = None,
         optByKeyNodes = None,
       ),
-      transaction = transaction,
+      transaction = Tx.CommittedTransaction(transaction),
       transactionId = hexTxId,
       recordTime = recordTime,
       divulgedContracts = List.empty

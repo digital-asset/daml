@@ -89,8 +89,8 @@ export interface Props {
 }
 
 export default class ChoicesButton extends React.Component<Props, State> {
-  constructor() {
-    super();
+  constructor(props: Props) {
+    super(props);
     this.state = {
       open: false,
     };

@@ -42,7 +42,7 @@ const TooltipTarget = () => (
 
 export default class PopoverGuide extends React.Component<{}, {}> {
   constructor() {
-    super();
+    super({});
   }
 
   render() {

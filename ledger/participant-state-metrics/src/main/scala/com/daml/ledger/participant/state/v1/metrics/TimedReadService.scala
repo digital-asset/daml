@@ -5,22 +5,20 @@ package com.daml.ledger.participant.state.v1.metrics
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
-import com.daml.metrics.{MetricName, Timed}
+import com.daml.metrics.{Metrics, Timed}
 
-final class TimedReadService(delegate: ReadService, metrics: MetricRegistry, prefix: MetricName)
-    extends ReadService {
+final class TimedReadService(delegate: ReadService, metrics: Metrics) extends ReadService {
+
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-    time("get_ledger_initial_conditions", delegate.getLedgerInitialConditions())
+    Timed.source(
+      metrics.daml.services.read.getLedgerInitialConditions,
+      delegate.getLedgerInitialConditions())
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
-    time("state_updates", delegate.stateUpdates(beginAfter))
+    Timed.source(metrics.daml.services.read.stateUpdates, delegate.stateUpdates(beginAfter))
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
-
-  private def time[Out, Mat](name: String, source: => Source[Out, Mat]): Source[Out, Mat] =
-    Timed.source(metrics.timer(prefix :+ name), source)
 }

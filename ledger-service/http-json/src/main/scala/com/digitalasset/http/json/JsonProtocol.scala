@@ -6,7 +6,7 @@ package com.daml.http.json
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
@@ -27,8 +27,19 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
 
-  implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
+  implicit val DomainContractIdFormat: JsonFormat[domain.ContractId] =
     taggedJsonFormat[String, domain.ContractIdTag]
+
+  implicit val ContractIdFormat: JsonFormat[ContractId] =
+    new JsonFormat[ContractId] {
+      override def write(obj: ContractId) =
+        JsString(obj.coid)
+      override def read(json: JsValue) = json match {
+        case JsString(s) =>
+          ContractId fromString s fold (deserializationError(_), identity)
+        case _ => deserializationError("ContractId must be a string")
+      }
+    }
 
   implicit val OffsetFormat: JsonFormat[domain.Offset] =
     taggedJsonFormat[String, domain.OffsetTag]
@@ -64,17 +75,15 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     jsonFormat2(domain.AllocatePartyRequest)
 
   object LfValueCodec
-      extends ApiCodecCompressed[AbsoluteContractId](
+      extends ApiCodecCompressed[ContractId](
         encodeDecimalAsString = true,
         encodeInt64AsString = true)
-      with CodecAbsoluteContractIds
 
   // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
   object LfValueDatabaseCodec
-      extends ApiCodecCompressed[AbsoluteContractId](
+      extends ApiCodecCompressed[ContractId](
         encodeDecimalAsString = false,
-        encodeInt64AsString = false)
-      with CodecAbsoluteContractIds {
+        encodeInt64AsString = false) {
     private[http] def asLfValueCodec(jv: JsValue): JsValue = jv match {
       case JsObject(fields) => JsObject(fields transform ((_, v) => asLfValueCodec(v)))
       case JsArray(elements) => JsArray(elements map asLfValueCodec)
@@ -84,16 +93,6 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
         // will not have a ".0" included in their string representation.  We can't
         // tell the difference here between an int64 and a numeric
         JsString(value.bigDecimal.stripTrailingZeros.toPlainString)
-    }
-  }
-
-  sealed trait CodecAbsoluteContractIds extends ApiCodecCompressed[AbsoluteContractId] {
-    protected override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
-      JsString(obj.coid)
-    protected override final def jsValueToApiContractId(json: JsValue) = json match {
-      case JsString(s) =>
-        AbsoluteContractId fromString s fold (deserializationError(_), identity)
-      case _ => deserializationError("ContractId must be a string")
     }
   }
 

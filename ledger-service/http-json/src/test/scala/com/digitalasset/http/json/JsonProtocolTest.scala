@@ -27,9 +27,6 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
 
-import scala.collection.breakOut
-
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class JsonProtocolTest
     extends FreeSpec
     with Matchers
@@ -105,12 +102,12 @@ class JsonProtocolTest
 
   "domain.ServiceWarning" - {
     "UnknownTemplateIds serialization" in forAll(genUnknownTemplateIds) { x =>
-      val expectedTemplateIds: Vector[JsValue] = x.unknownTemplateIds.map(_.toJson)(breakOut)
+      val expectedTemplateIds: Vector[JsValue] = x.unknownTemplateIds.view.map(_.toJson).toVector
       val expected = JsObject("unknownTemplateIds" -> JsArray(expectedTemplateIds))
       x.toJson.asJsObject shouldBe expected
     }
     "UnknownParties serialization" in forAll(genUnknownParties) { x =>
-      val expectedParties: Vector[JsValue] = x.unknownParties.map(_.toJson)(breakOut)
+      val expectedParties: Vector[JsValue] = x.unknownParties.view.map(_.toJson).toVector
       val expected = JsObject("unknownParties" -> JsArray(expectedParties))
       x.toJson.asJsObject shouldBe expected
     }

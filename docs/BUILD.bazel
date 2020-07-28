@@ -28,7 +28,6 @@ genrule(
     ) + [
         # we need to list all the transitive dependencies here because of https://github.com/bazelbuild/rules_nodejs/issues/1553
         "@npm//acorn",
-        "@npm//acorn-dynamic-import",
         "@npm//acorn-node",
         "@npm//acorn-walk",
         "@npm//ansi-regex",
@@ -90,6 +89,7 @@ genrule(
         "@npm//eventemitter2",
         "@npm//events",
         "@npm//exit",
+        "@npm//fast-safe-stringify",
         "@npm//faye-websocket",
         "@npm//figures",
         "@npm//file-sync-cmp",
@@ -187,7 +187,9 @@ genrule(
         "@npm//send",
         "@npm//serve-index",
         "@npm//serve-static",
+        "@npm//setprototypeof",
         "@npm//shasum",
+        "@npm//shasum-object",
         "@npm//sprintf-js",
         "@npm//statuses",
         "@npm//stream-browserify",
@@ -333,6 +335,20 @@ genrule(
         # run twice to generate all references properly (this is a latex thing...)
         ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
         ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
+        # NOTE, if you get errors of the following form:
+        #
+        #   luaotfload | db : Font names database not found, generating new one.
+        #   luaotfload | db : This can take several minutes; please be patient.
+        #   luaotfload | db : Reload initiated (formats: otf,ttf,ttc); reason: "File not found: lmroman10-regular.".
+        #
+        # Then the error is most likely not font related. To debug the error
+        # run `bazel build` with `--sandbox_debug`, change into the sandbox
+        # directory and invoke lualatex from there. You will have to replicate
+        # the environment variable setup from above.
+        #
+        # In the past the following issues caused the error message above:
+        # - An update of sphinx in nixpkgs that had to be undone.
+        # - A missing texlive package that had to be added to the Nix derivation.
 
         # Move output to target
         mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)""".format(sdk = sdk_version),
@@ -362,6 +378,7 @@ genrule(
         "//templates:templates-tarball",
         "//templates:create-daml-app-test-resources/messaging.patch",
         "//templates:create-daml-app-test-resources/index.test.ts",
+        "@daml-cheat-sheet//:site",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -393,8 +410,19 @@ genrule(
         sed -i "s,__VERSION__,"{sdk}"," docs/configs/html/conf.py
         export LC_ALL=en_US.UTF-8
         export LANG=en_US.UTF-8
+        # Sphinx 1.8.3 triggers the following warning:
+        #
+        #   /nix/store/1v39mhhyn48s251przk2fwcvgm71vfqi-python3.7-sphinx-1.8.3/lib/python3.7/site-packages/sphinx/writers/html.py:462: FutureWarning:
+        #      The iterable returned by Node.traverse()
+        #      will become an iterator instead of a list in Docutils > 0.16.
+        #     target_node = image_nodes and image_nodes[0] or node.parent
+        #
+        # We are using an older Sphinx (1.8.3) with a more recent nixpkgs revision.
+        # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
+        # the PDF documentation due to issues with the FreeSerif font in the
+        # fontspec package. So, for now we ignore `FutureWarning`.
         WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \
-            grep -Ei "warning:" || true)
+            grep -Pi "(?<!future)warning:" || true)
 
         if [ "$$WARNINGS" != "" ]; then
             echo "$$WARNINGS"
@@ -413,6 +441,15 @@ genrule(
         tar -xzf ../$(location //language-support/ts/daml-react:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-react/
         tar -xzf ../$(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-ledger/
         tar -xzf ../$(location //language-support/ts/daml-types:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-types/
+        # The generated docs of the typescript libraries are published at two places: The npm
+        # registry and on docs.daml.com. The docs at the npm registry contain a link pointing
+        # to docs.daml.com. We remove it for the version published at docs.daml.com as it would be
+        # pointing to itself.
+        sed -i -e 's,^.*\(Comprehensive documentation\|<h2>Documentation</h2>\|0.0.0-SDKVERSION\).*$$,,' html/app-dev/bindings-ts/*/index.html
+
+        # Get the daml cheat sheet
+        mkdir -p html/cheat-sheet
+        tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html/cheat-sheet
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db

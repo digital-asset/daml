@@ -41,7 +41,6 @@ private[http] final case class InsertDeleteStep[+D, +C](
   }
 
   /** Results undefined if cid(cc) != cid(c) */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
       implicit LDS: CanBuildFrom[Map[String, D], LD, LDS],
   ): (LDS, Inserts[LC], InsertDeleteStep[DD, CC]) = {

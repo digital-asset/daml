@@ -5,10 +5,10 @@ package com.daml.platform.sandbox.perf
 
 import java.io.File
 
-import com.daml.lf.archive.UniversalArchiveReader
-import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
+import com.daml.lf.archive.UniversalArchiveReader
+import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -47,7 +47,7 @@ object LedgerFactories {
           case `mem` =>
             ResourceOwner.successful(None)
           case `sql` =>
-            PostgresResource.owner().map(fixture => Some(fixture.jdbcUrl))
+            PostgresResource.owner().map(database => Some(database.url))
         }
         server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
         channel <- GrpcClientResource.owner(server.port)

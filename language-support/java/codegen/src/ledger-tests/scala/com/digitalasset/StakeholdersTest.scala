@@ -6,7 +6,6 @@ package com.daml
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import stakeholders.{ExplicitObservers, ImplicitObservers, MixedObservers, OnlySignatories}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class StakeholdersTest extends AsyncFlatSpec with Matchers {
 
   import TestUtil._

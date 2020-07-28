@@ -1,0 +1,116 @@
+diff --git a/daml-lf/scenario-interpreter/src/perf/benches/scala/com/digitalasset/daml/lf/speedy/perf/CollectAuthority.scala b/daml-lf/scenario-interpreter/src/perf/benches/scala/com/digitalasset/daml/lf/speedy/perf/CollectAuthority.scala
+index 76689ce45..c723418a8 100644
+--- a/daml-lf/scenario-interpreter/src/perf/benches/scala/com/digitalasset/daml/lf/speedy/perf/CollectAuthority.scala
++++ b/daml-lf/scenario-interpreter/src/perf/benches/scala/com/digitalasset/daml/lf/speedy/perf/CollectAuthority.scala
+@@ -10,7 +10,11 @@ import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+ import com.daml.lf.data._
+ import com.daml.lf.data.Ref._
+ import com.daml.lf.language.Ast._
+-import com.daml.lf.speedy.Pretty._
++import com.daml.lf.speedy.SResult._
++import com.daml.lf.transaction.Transaction.Value
++import com.daml.lf.types.Ledger
++import com.daml.lf.types.Ledger._
++import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+ import java.io.File
+ import java.util.concurrent.TimeUnit
+ import org.openjdk.jmh.annotations._
+@@ -42,23 +46,90 @@ class CollectAuthorityState {
+         Some(seeding()))
+       .fold(err => sys.error(err.toString), identity)
+     expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
+-    // NOTE(MH): We run the machine once to initialize all data that is shared
+-    // between runs.
+-    val steps1 = run()
++    setup()
+   }
+ 
+-  def run(): Int = {
++  def run(): Unit = {
+     val machine = buildMachine(expr)
+-    ScenarioRunner(machine).run() match {
+-      case Left((err, _)) => sys.error(prettyError(err, machine.ptx).render(80))
+-      case Right((_, steps, _)) => steps
++    var step = 0
++    while(!machine.isFinal) {
++      machine.step() match {
++        case SResultScenarioGetParty(_, callback) => step += 1; callback(cachedParty(step))
++        case SResultScenarioCommit(_, _, _, callback) => step += 1; callback(cachedCommit(step))
++        case SResultNeedContract(_, _, _, _, callback) => step += 1; callback(cachedContract(step))
++        case SResultContinue => ()
++        case r => crash("bench run: unexpected result from speedy")
++      }
+     }
+   }
++
++  private var cachedParty: Map[Int, Party] = Map()
++  private var cachedCommit: Map[Int, SValue] = Map()
++  private var cachedContract: Map[Int, ContractInst[Value[AbsoluteContractId]]] = Map()
++
++  def setup(): Unit = {
++    cachedParty = Map()
++    cachedCommit = Map()
++    cachedContract = Map()
++    val machine = buildMachine(expr)
++    var step = 0
++    var ledger: Ledger = Ledger.initialLedger(Time.Timestamp.Epoch)
++    while (!machine.isFinal) {
++      machine.step() match {
++        case SResultContinue => ()
++        case SResultScenarioGetParty(partyText, callback) =>
++          step += 1
++          Party.fromString(partyText) match {
++            case Right(res) =>
++              cachedParty = cachedParty + (step -> res)
++              callback(res)
++            case Left(msg) =>
++              crash(s"Party.fromString failed: $msg")
++          }
++        case SResultScenarioCommit(value, tx, committers, callback) =>
++          step += 1
++          Ledger.commitTransaction(
++            committers.head,
++            ledger.currentTime,
++            machine.commitLocation,
++            tx,
++            ledger
++          ) match {
++            case Left(fas) => crash(s"commitTransaction failed: $fas")
++            case Right(result) =>
++              ledger = result.newLedger
++              val res =
++                value
++                  .mapContractId(
++                    coid =>
++                      Ledger
++                        .contractIdToAbsoluteContractId(result.transactionId, coid))
++                  cachedCommit = cachedCommit + (step -> res)
++                  callback(res)
++          }
++        case SResultNeedContract(acoid, _, committers, _, callback) =>
++          step += 1
++          val effectiveAt = ledger.currentTime
++          ledger.lookupGlobalContract(ParticipantView(committers.head), effectiveAt, acoid) match {
++            case LookupOk(_, result) =>
++              cachedContract = cachedContract + (step -> result)
++              callback(result)
++            case x =>
++              crash(s"lookupGlobalContract failed: $x")
++          }
++        case _ =>
++          crash("setup run: unexpected result from speedy")
++      }
++    }
++  }
++
++  def crash(reason: String) =
++    throw new RuntimeException(s"CollectAuthority: $reason")
+ }
+ 
+ class CollectAuthority {
+   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
+-  def bench(state: CollectAuthorityState): Int = {
++  def bench(state: CollectAuthorityState): Unit = {
+     state.run()
+   }
+ }

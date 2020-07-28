@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
-import com.daml.lf.transaction.Transaction
+import com.daml.lf.transaction.{Transaction => Tx}
 
 /**
   * The result of command execution.
@@ -22,6 +22,6 @@ import com.daml.lf.transaction.Transaction
 final case class CommandExecutionResult(
     submitterInfo: SubmitterInfo,
     transactionMeta: TransactionMeta,
-    transaction: Transaction.Transaction,
+    transaction: Tx.SubmittedTransaction,
     dependsOnLedgerTime: Boolean,
 )

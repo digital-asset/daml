@@ -30,6 +30,7 @@ import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
 import System.Directory
+import System.Environment
 import System.FilePath hiding ((<.>))
 import System.Process
 import System.Exit
@@ -119,8 +120,8 @@ mergePackageMap ps = foldM merge Map.empty ps
 
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
-main = do
-    opts@Options{..} <- execParser optionsParserInfo
+main = withProgName "daml codegen js" $ do
+    opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
     sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
     sdkVersion <- case sdkVersionOrErr of
           Left _ -> fail "Invalid SDK version"
@@ -588,7 +589,7 @@ buildPackages sdkVersion optScope optOutputDir dependencies = do
       pkgs = map (T.unpack . fst3 . nodeFromVertex) $ reverse (topSort g)
   withCurrentDirectory optOutputDir $ do
     BSL.writeFile "package.json" $ encodePretty packageJson
-    yarn ["install", "--pure-lockfile"]
+    yarn ["install"]
     createDirectoryIfMissing True $ "node_modules" </> scope
     mapM_ build pkgs
     removeFile "package.json" -- Any subsequent runs will regenerate it.
@@ -620,9 +621,12 @@ buildPackages sdkVersion optScope optOutputDir dependencies = do
       -- We need to use `shell` instead of `proc` since at least in some cases
       -- `yarn` is called `yarn.cmd` which will not be picked up by `proc`.
       -- We could hardcode `yarn.cmd` on Windows but that seems rather fragile.
-      (exitCode, _, err) <- readCreateProcessWithExitCode (shell $ unwords $ "yarn" : args) ""
+      (exitCode, out, err) <- readCreateProcessWithExitCode (shell $ unwords $ "yarn" : args) ""
       unless (exitCode == ExitSuccess) $ do
         putStrLn $ "Failure: \"yarn " <> unwords args <> "\" exited with " <> show exitCode
+        -- User reports suggest that yarn writes its errors to stdout
+        -- rather than stderr. Accordingly, we capture both.
+        putStrLn out
         putStrLn err
         exitFailure
 

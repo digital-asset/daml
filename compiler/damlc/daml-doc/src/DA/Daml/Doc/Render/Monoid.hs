@@ -76,6 +76,8 @@ data RenderEnv = RenderEnv
         -- ^ anchors defined in the same file
     , re_globalAnchors :: Map.Map Anchor FilePath
         -- ^ anchors defined in the same folder
+    , re_externalAnchors :: AnchorMap
+        -- ^ anchors defined externally
     }
 
 -- | Location of an anchor relative to the output being rendered. An anchor
@@ -96,8 +98,7 @@ anchorHyperlink anchorLoc (Anchor anchor) =
     case anchorLoc of
         SameFile -> "#" <> anchor
         SameFolder fileName -> T.concat [T.pack fileName, "#", anchor]
-        External uri -> T.pack . show $
-            uri { URI.uriFragment = "#" <> T.unpack anchor }
+        External uri -> T.pack . show $ uri
 
 -- | Find the location of an anchor by reference, if possible.
 lookupReference ::
@@ -107,21 +108,8 @@ lookupReference ::
 lookupReference RenderEnv{..} ref = asum
     [ SameFile <$ guard (Set.member (referenceAnchor ref) re_localAnchors)
     , SameFolder <$> Map.lookup (referenceAnchor ref) re_globalAnchors
-    , External <$> (packageURI =<< referencePackage ref)
+    , External <$> (URI.parseURI =<< HMS.lookup (referenceAnchor ref) (unAnchorMap re_externalAnchors))
     ]
-
--- | Map package names to URLs. In the future this should be configurable
--- but for now we are hardcoding the standard library packages which are
--- documented on docs.daml.com
-packageURI :: Packagename -> Maybe URI.URI
-packageURI (Packagename "daml-prim") = Just damlBaseURI
-packageURI (Packagename "daml-stdlib") = Just damlBaseURI
-packageURI _ = Nothing
-
-damlBaseURI :: URI.URI
-damlBaseURI = fromJust $ URI.parseURI "https://docs.daml.com/daml/stdlib/index.html"
-    -- TODO (sofia): Make this configurable, and don't include index.html,
-    -- need a way to supply (or recreate) anchor list.
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
 
@@ -138,23 +126,26 @@ getRenderAnchors = \case
     RenderDocs _ -> Set.empty
     RenderIndex _ -> Set.empty
 
-renderPage :: RenderFormatter -> RenderOut -> T.Text
-renderPage formatter output =
+renderPage :: RenderFormatter -> AnchorMap -> RenderOut -> T.Text
+renderPage formatter externalAnchors output =
     T.unlines (formatter renderEnv output)
-  where
-    renderEnv = RenderEnv
-        { re_separateModules = False
-        , re_localAnchors = getRenderAnchors output
-        , re_globalAnchors = Map.empty
-        }
+    where
+        renderEnv = RenderEnv
+          { re_separateModules = False
+          , re_localAnchors = getRenderAnchors output
+          , re_globalAnchors = Map.empty
+          , re_externalAnchors = externalAnchors
+          }
 
 -- | Render a folder of modules.
 renderFolder ::
     RenderFormatter
+    -> AnchorMap
     -> Map.Map Modulename RenderOut
     -> (T.Text, Map.Map Modulename T.Text)
-renderFolder formatter fileMap =
+renderFolder formatter externalAnchors fileMap =
     let moduleAnchors = Map.map getRenderAnchors fileMap
+        re_externalAnchors = externalAnchors
         re_separateModules = True
         re_globalAnchors = Map.fromList
             [ (anchor, moduleNameToFileName moduleName <.> "html")

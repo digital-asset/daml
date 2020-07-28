@@ -8,11 +8,11 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data.{FrontStack, Ref, Time}
+import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SError
-import com.daml.lf.speedy.SResult.{SResultContinue, SResultError}
+import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
@@ -23,6 +23,48 @@ class SpeedyTest extends WordSpec with Matchers {
 
   import SpeedyTest._
   import defaultParserParameters.{defaultPackageId => pkgId}
+
+  val pkgs = typeAndCompile(p"")
+
+  "application arguments" should {
+    "be handled correctly" in {
+      eval(
+        e"""
+        (\ (a: Int64) (b: Int64) -> SUB_INT64 a b) 88 33
+      """,
+        pkgs
+        // Test should fail if we get the order of the function arguments wrong.
+      ) shouldEqual Right(SInt64(55))
+    }
+  }
+
+  "stack variables" should {
+    "be handled correctly" in {
+      eval(
+        e"""
+        let a : Int64 = 88 in
+        let b : Int64 = 33 in
+        SUB_INT64 a b
+      """,
+        pkgs
+        // Test should fail if we access the stack with incorrect indexing.
+      ) shouldEqual Right(SInt64(55))
+    }
+  }
+
+  "free variables" should {
+    "be handled correctly" in {
+      eval(
+        e"""
+        (\(a : Int64) ->
+         let b : Int64 = 33 in
+         (\ (x: Unit) -> SUB_INT64 a b) ()) 88
+      """,
+        pkgs
+        // Test should fail if we index free-variables of a closure incorrectly.
+      ) shouldEqual Right(SInt64(55))
+    }
+  }
 
   "pattern matching" should {
 
@@ -244,32 +286,45 @@ class SpeedyTest extends WordSpec with Matchers {
     }
 
   }
+
+  "profiler" should {
+    "evaluate arguments before open event" in {
+      val events = profile(e"""
+        let f: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 1 in
+        let g: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 2 in
+        f (g 1)
+      """)
+      events should have size 4
+      events.get(0) should matchPattern { case Profile.Event(true, "g", _) => }
+      events.get(1) should matchPattern { case Profile.Event(false, "g", _) => }
+      events.get(2) should matchPattern { case Profile.Event(true, "f", _) => }
+      events.get(3) should matchPattern { case Profile.Event(false, "f", _) => }
+    }
+  }
 }
 
 object SpeedyTest {
 
-  private val txSeed = crypto.Hash.hashPrivateKey("SpeedyTest")
-
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      compiledPackages = packages,
-      scenario = false,
-      submissionTime = Time.Timestamp.now(),
-      transactionSeed = Some(txSeed),
-    )
+    val machine = Speedy.Machine.fromPureExpr(packages, e)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
-      while (!machine.isFinal) machine.step() match {
-        case SResultContinue => ()
+      val value = machine.run() match {
+        case SResultFinalValue(v) => v
         case SResultError(err) => throw Goodbye(err)
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
-
-      Right(machine.toSValue)
+      Right(value)
     } catch {
       case Goodbye(err) => Left(err)
     }
+  }
+
+  private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
+    val packages = PureCompiledPackages(Map.empty, profiling = Compiler.FullProfile).right.get
+    val machine = Speedy.Machine.fromPureExpr(packages, e)
+    machine.run()
+    machine.profile.events
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))

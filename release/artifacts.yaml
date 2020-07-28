@@ -39,7 +39,7 @@
   type: jar-proto
 - target: //daml-lf/transaction:value_java_proto
   type: jar-proto
-- target: //daml-lf/transaction-scalacheck:transaction-scalacheck
+- target: //daml-lf/transaction-test-lib:transaction-test-lib
   type: jar-scala
 - target: //daml-lf/validation:validation
   type: jar-scala
@@ -75,6 +75,8 @@
 - target: //ledger-api/rs-grpc-testing-utils:rs-grpc-testing-utils
   type: jar-scala
 - target: //ledger-api/testing-utils:testing-utils
+  type: jar-scala
+- target: //ledger/caching:caching
   type: jar-scala
 - target: //ledger/ledger-api-akka:ledger-api-akka
   type: jar-scala
@@ -140,10 +142,11 @@
   type: jar-scala
 - target: //libs-scala/resources-akka:resources-akka
   type: jar-scala
+- target: //libs-scala/scalatest-utils:scalatest-utils
+  type: jar-scala
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
 - target: //triggers/runner:trigger-runner-lib
   type: jar-scala
 - target: //libs-scala/build-info:build-info
   type: jar-scala
-

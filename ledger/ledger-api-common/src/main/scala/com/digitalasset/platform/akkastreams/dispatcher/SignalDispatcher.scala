@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
   * the signal is sent will eventually receive a signal.
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SignalDispatcher private () extends AutoCloseable {
 
   val logger = LoggerFactory.getLogger(getClass)

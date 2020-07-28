@@ -4,12 +4,10 @@
 package com.daml.lf.engine.script
 
 import java.io.FileInputStream
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.api.util.TimeProvider
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -38,6 +36,18 @@ import scala.util.{Failure, Success}
 
 object TestMain extends StrictLogging {
 
+  // We run tests sequentially for now. While tests that
+  // only access per-party state and access only state of freshly allocated parties
+  // can in principal be run in parallel that runs into resource limits at some point
+  // and doesn’t work for tests that access things like listKnownParties.
+  // Once we have a mechanism to mark tests as exclusive and control the concurrency
+  // limit we can think about running tests in parallel again.
+  def sequentialTraverse[A, B](seq: Seq[A])(f: A => Future[B])(
+      implicit ec: ExecutionContext): Future[Seq[B]] =
+    seq.foldLeft(Future.successful(Seq.empty[B])) {
+      case (acc, nxt) => acc.flatMap(bs => f(nxt).map(b => bs :+ b))
+    }
+
   def main(args: Array[String]): Unit = {
 
     TestConfig.parse(args) match {
@@ -52,17 +62,10 @@ object TestMain extends StrictLogging {
         val applicationId = ApplicationId("Script Test")
         val clientConfig = LedgerClientConfiguration(
           applicationId = ApplicationId.unwrap(applicationId),
-          ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+          ledgerIdRequirement = LedgerIdRequirement.none,
           commandClient = CommandClientConfiguration.default,
           sslContext = None
         )
-        val timeProvider: TimeProvider =
-          config.timeProviderType match {
-            case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
-            case TimeProviderType.WallClock => TimeProvider.UTC
-            case _ =>
-              throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
-          }
 
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
@@ -83,9 +86,13 @@ object TestMain extends StrictLogging {
             (jsVal.convertTo[Participants[ApiParameters]], () => Future.successful(()))
           case None =>
             val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
+              val timeProviderType = config.timeMode match {
+                case ScriptTimeMode.Static => TimeProviderType.Static
+                case ScriptTimeMode.WallClock => TimeProviderType.WallClock
+              }
               val sandboxConfig = SandboxConfig.default.copy(
                 port = Port.Dynamic,
-                timeProviderType = Some(config.timeProviderType),
+                timeProviderType = Some(timeProviderType),
               )
               val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
               val sandboxPort =
@@ -114,7 +121,9 @@ object TestMain extends StrictLogging {
               case (name, defn) => {
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
                 Script.fromIdentifier(compiledPackages, id) match {
-                  case Right(script: Script.Action) => Some((id, script))
+                  // We exclude generated identifiers starting with `$`.
+                  case Right(script: Script.Action) if name.toString.headOption != Some('$') =>
+                    Some((id, script))
                   case _ => None
                 }
               }
@@ -123,7 +132,7 @@ object TestMain extends StrictLogging {
         }
 
         val flow: Future[Boolean] = for {
-          clients <- Runner.connect(participantParams, clientConfig)
+          clients <- Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize)
           _ <- clients.getParticipant(None) match {
             case Left(err) => throw new RuntimeException(err)
             case Right(client) =>
@@ -131,26 +140,25 @@ object TestMain extends StrictLogging {
                 .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
           }
           success = new AtomicBoolean(true)
-          _ <- Future.sequence {
-            testScripts.map {
-              case (id, script) => {
-                val runner =
-                  new Runner(compiledPackages, script, applicationId, timeProvider)
-                val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
-                // Print test result and remember failure.
-                testRun.onComplete {
-                  case Failure(exception) =>
-                    success.set(false)
-                    println(s"${id.qualifiedName} FAILURE ($exception)")
-                  case Success(_) =>
-                    println(s"${id.qualifiedName} SUCCESS")
-                }
-                // Do not abort in case of failure, but complete all test runs.
-                testRun.recover {
-                  case _ => ()
-                }
+          _ <- sequentialTraverse(testScripts.toList) {
+            case (id, script) => {
+              val runner =
+                new Runner(compiledPackages, script, applicationId, config.timeMode)
+              val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
+              // Print test result and remember failure.
+              testRun.onComplete {
+                case Failure(exception) =>
+                  success.set(false)
+                  println(s"${id.qualifiedName} FAILURE ($exception)")
+                case Success(_) =>
+                  println(s"${id.qualifiedName} SUCCESS")
+              }
+              // Do not abort in case of failure, but complete all test runs.
+              testRun.recover {
+                case _ => ()
               }
             }
+
           }
         } yield success.get()
 

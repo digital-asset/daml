@@ -16,26 +16,88 @@ trigger: none
 # Targeting 6AM UTC seems to fit that.
 schedules:
 - cron: "0 6 * * *"
-  displayName: daily compat check
+  displayName: daily checks and reporting
   branches:
     include:
     - master
   always: true
 
 jobs:
+  - job: compatibility_ts_libs
+    timeoutInMinutes: 60
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - template: ../compatibility_ts_libs.yml
+      - template: ../daily_tell_slack.yml
+
   - job: compatibility
-    timeoutInMinutes: 240
+    dependsOn: compatibility_ts_libs
+    timeoutInMinutes: 360
     strategy:
       matrix:
         linux:
-          pool: 'linux-pool'
-        # macos:
-        #   pool: 'macOS-pool'
-        # windows:
-        #   pool: 'windows-pool'
+          pool: linux-pool
+        macos:
+          pool: macOS-pool
     pool:
       name: $(pool)
+      ${{ if eq(variables['pool'], 'linux-pool') }}:
+        demands: assignment -equals default
     steps:
       - checkout: self
       - template: ../compatibility.yml
-      - template: ../tell-slack-failed.yml
+      - template: ../daily_tell_slack.yml
+
+  - job: compatibility_windows
+    dependsOn: compatibility_ts_libs
+    timeoutInMinutes: 360
+    pool:
+      name: windows-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - template: ../compatibility-windows.yml
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Compatibility Logs'
+      - template: ../daily_tell_slack.yml
+
+  - job: performance_report
+    timeoutInMinutes: 120
+    pool:
+      name: "linux-pool"
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel for root workspace'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+          BASELINE="cebc26af88efef4a7c81c62b0c14353f829b755e"
+          TEST_SHA=$(cat ci/cron/perf/test_sha)
+          OUT="$(Build.StagingDirectory)/perf-results.json"
+          if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
+              # no changes, all good
+              ci/cron/perf/compare.sh $BASELINE > $OUT
+              cat $(Build.StagingDirectory)/perf-results.json
+          else
+              # the tests have changed, we need to figure out what to do with
+              # the baseline.
+              echo "Baseline no longer valid, needs manual correction." > $OUT
+          fi
+        displayName: measure perf
+      - template: ../daily_tell_slack.yml
+        parameters:
+          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'

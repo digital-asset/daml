@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
 import com.daml.lf.value.Value
+import scalaz.Order
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -74,14 +75,14 @@ object Hash {
   implicit val ordering: Ordering[Hash] =
     Ordering.by(_.bytes)
 
+  implicit val order: Order[Hash] = Order.fromScalaOrdering
+
   @throws[HashingError]
   private[lf] val aCid2Bytes: Value.ContractId => Bytes = {
-    case cid @ Value.AbsoluteContractId.V1(_, _) =>
+    case cid @ Value.ContractId.V1(_, _) =>
       cid.toBytes
-    case Value.AbsoluteContractId.V0(s) =>
+    case Value.ContractId.V0(s) =>
       Utf8.getBytes(s)
-    case Value.RelativeContractId(_) =>
-      error("Hashing of relative contract id is not supported")
   }
 
   @throws[HashingError]

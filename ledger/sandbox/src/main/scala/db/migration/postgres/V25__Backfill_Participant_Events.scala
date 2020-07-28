@@ -5,9 +5,8 @@ package db.migration.postgres
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.events.EventIdFormatter
-import com.daml.platform.store.serialization.TransactionSerializer
 import db.migration.postgres.v25_backfill_participant_events.V25TransactionsWriter
+import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V25__Backfill_Participant_Events extends BaseJavaMigration {
@@ -33,9 +32,8 @@ class V25__Backfill_Participant_Events extends BaseJavaMigration {
       val offset = Offset.fromByteArray(rows.getBytes("ledger_offset"))
 
       val transaction = TransactionSerializer
-        .deserializeTransaction(rows.getBinaryStream("transaction"))
+        .deserializeTransaction(transactionId, rows.getBinaryStream("transaction"))
         .getOrElse(sys.error(s"failed to deserialize transaction $transactionId"))
-        .mapNodeId(evId => EventIdFormatter.split(evId).map(_.nodeId).get)
 
       V25TransactionsWriter.apply(
         applicationId,

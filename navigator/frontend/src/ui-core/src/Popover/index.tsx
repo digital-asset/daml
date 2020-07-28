@@ -87,8 +87,8 @@ export default class Popover extends React.Component<Props, {}> {
   private onClickDocument: (e: MouseEvent) => void
     = (e) => this.handleDocumentClick(e);
 
-  constructor() {
-    super();
+  constructor(props: Props) {
+    super(props);
   }
 
   componentDidMount() {

@@ -8,7 +8,6 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.testtool.infrastructure.{
-  LedgerSession,
   LedgerSessionConfiguration,
   LedgerTestSuite,
   LedgerTestSuiteRunner,
@@ -39,12 +38,12 @@ object LedgerApiTestTool {
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
     if (summaries.exists(_.result.isLeft) == expectFailure) 0 else 1
 
-  private def printAvailableTests(): Unit = {
+  private def printAvailableTests(config: Config): Unit = {
     println("Tests marked with * are run by default.")
     println(
       "You can include extra tests with `--include=TEST-NAME`, or run all tests with `--all-tests`.\n")
     Tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
-    Tests.optional.keySet.toSeq.sorted.foreach(println(_))
+    Tests.optional(config).keySet.toSeq.sorted.foreach(println(_))
 
     println("\nAlternatively, you can run performance tests.")
     println(
@@ -69,7 +68,7 @@ object LedgerApiTestTool {
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
     if (config.listTests) {
-      printAvailableTests()
+      printAvailableTests(config)
       sys.exit(0)
     }
 
@@ -89,7 +88,7 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    val missingTests = (config.included ++ config.excluded).filterNot(Tests.all.contains)
+    val missingTests = (config.included ++ config.excluded).filterNot(Tests.all(config).contains)
     if (missingTests.nonEmpty) {
       println("The following tests could not be found:")
       missingTests.foreach { testName =>
@@ -99,11 +98,11 @@ object LedgerApiTestTool {
     }
 
     val included =
-      if (config.allTests) Tests.all.keySet
+      if (config.allTests) Tests.all(config).keySet
       else if (config.included.isEmpty) Tests.default.keySet
       else config.included
 
-    val testsToRun = Tests.all.filterKeys(included -- config.excluded)
+    val testsToRun = Tests.all(config).filterKeys(included -- config.excluded)
     val performanceTestsToRun =
       Tests.performanceTests(config.performanceTestsReport).filterKeys(config.performanceTests)
 
@@ -147,7 +146,7 @@ object LedgerApiTestTool {
 
   private[this] def newLedgerSuiteRunner(
       config: Config,
-      suites: Iterable[LedgerSession => LedgerTestSuite],
+      suites: Iterable[LedgerTestSuite],
       concurrencyOverride: Option[Int] = None): LedgerTestSuiteRunner =
     new LedgerTestSuiteRunner(
       LedgerSessionConfiguration(

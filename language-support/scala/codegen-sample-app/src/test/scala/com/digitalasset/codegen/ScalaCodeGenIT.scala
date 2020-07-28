@@ -46,7 +46,6 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ScalaCodeGenIT
     extends WordSpec
     with Matchers
@@ -87,7 +86,7 @@ class ScalaCodeGenIT
 
   private val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId,
-    ledgerIdRequirement = LedgerIdRequirement(ledgerId, enabled = true),
+    ledgerIdRequirement = LedgerIdRequirement.matching(ledgerId),
     commandClient = CommandClientConfiguration.default,
     sslContext = None
   )

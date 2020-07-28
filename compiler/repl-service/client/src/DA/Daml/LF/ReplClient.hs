@@ -1,11 +1,12 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
 module DA.Daml.LF.ReplClient
   ( Options(..)
+  , MaxInboundMessageSize(..)
   , Handle
   , withReplClient
   , loadPackage
@@ -34,12 +35,16 @@ import qualified System.IO as IO
 import System.IO.Extra (withTempFile)
 import System.Process
 
+newtype MaxInboundMessageSize = MaxInboundMessageSize Int
+  deriving newtype Read
+
 data Options = Options
   { optServerJar :: FilePath
   , optLedgerHost :: String
   , optLedgerPort :: String
   , optMbAuthTokenFile :: Maybe FilePath
   , optMbSslConfig :: Maybe ClientSSLConfig
+  , optMaxInboundMessageSize :: Maybe MaxInboundMessageSize
   , optStdout :: StdStream
   -- ^ This is intended for testing so we can redirect stdout there.
   }

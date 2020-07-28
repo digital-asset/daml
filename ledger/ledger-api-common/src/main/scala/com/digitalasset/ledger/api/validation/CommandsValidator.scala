@@ -35,7 +35,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       commands: ProtoCommands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Duration): Either[StatusRuntimeException, domain.Commands] =
+      maxDeduplicationTime: Option[Duration]): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(cmdLegerId))
@@ -125,7 +125,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         for {
           templateId <- requirePresence(e.value.templateId, "template_id")
           validatedTemplateId <- validateIdentifier(templateId)
-          contractId <- requireAbsoluteContractId(e.value.contractId, "contract_id")
+          contractId <- requireContractId(e.value.contractId, "contract_id")
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)

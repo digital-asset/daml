@@ -30,13 +30,20 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
+rules_scala_sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d"
 
-rules_haskell_version = "cf6beb4e3748dce6dc401a95ab8cacb803c5d944"
-rules_haskell_sha256 = "cadb4ceb63994d86343fb407a9b5eaab363af428850d1698d6c6132690ccfb71"
-rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
-rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
+rules_haskell_version = "4e0bd68f305006804d21a9ed29e03b9af704a8d0"
+rules_haskell_sha256 = "0a0ff7ceebbe6db48a7723c9e6fa6f0d60c2a0b92d177d8be89876ae6dc0fef5"
+rules_nixpkgs_version = "d3c7bc94fed4001d5375632a936d743dc085c9a1"
+rules_nixpkgs_sha256 = "903c6b98aa6a298bf45a6b931e77a3313c40a0cb1b44fa00d9792f9e8aedbb35"
 buildifier_version = "0.26.0"
 buildifier_sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29"
+zlib_version = "cacf7f1d4e3d44d871b605da3b647f07d718623f"
+zlib_sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45"
+rules_nodejs_version = "1.6.0"
+rules_nodejs_sha256 = "f9e7b9f42ae202cc2d2ce6d698ccb49a9f7f7ea572a78fd451696d03ef2ee116"
+rules_jvm_external_version = "2.8"
+rules_jvm_external_sha256 = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to DAML SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -45,6 +52,10 @@ davl_sha256 = "3e8ae2a05724093e33b7f0363381e81a7e8e9655ccb3aa47ad540ea87e814321"
 # Pinned davl relied on by damlc packaging tests.
 davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
+
+# daml cheat sheet
+daml_cheat_sheet_version = "8477f71d5745edca710dca63e70341ba399db62a"  # 2020-06-17
+daml_cheat_sheet_sha256 = "abec6cc804a5cb103e5df68913653234308da4b282bf2119d4e565807c5e37d3"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -67,6 +78,9 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+                # Remove this once it is merged upstream.
+                # https://github.com/tweag/rules_haskell/pull/1362
+                "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-import-dirs.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -79,6 +93,9 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = [
+                # Remove once https://github.com/tweag/rules_nixpkgs/pull/128
+                # has been merged
+                "@com_github_digital_asset_daml//bazel_tools:nixpkgs-hermetic-cc-toolchain.patch",
                 # On CI and locally we observe occasional segmantation faults
                 # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
                 # can cause such segmentation faults. Since Nix 2.3.2 it is
@@ -94,9 +111,9 @@ def daml_deps():
         http_archive(
             name = "com_github_madler_zlib",
             build_file = "@com_github_digital_asset_daml//3rdparty/c:zlib.BUILD",
-            strip_prefix = "zlib-cacf7f1d4e3d44d871b605da3b647f07d718623f",
-            urls = ["https://github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz"],
-            sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45",
+            strip_prefix = "zlib-{}".format(zlib_version),
+            urls = ["https://github.com/madler/zlib/archive/{}.tar.gz".format(zlib_version)],
+            sha256 = zlib_sha256,
         )
 
     if "io_bazel_rules_go" not in native.existing_rules():
@@ -112,9 +129,9 @@ def daml_deps():
     if "rules_jvm_external" not in native.existing_rules():
         http_archive(
             name = "rules_jvm_external",
-            strip_prefix = "rules_jvm_external-2.8",
-            sha256 = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad",
-            url = "https://github.com/bazelbuild/rules_jvm_external/archive/2.8.zip",
+            strip_prefix = "rules_jvm_external-{}".format(rules_jvm_external_version),
+            sha256 = rules_jvm_external_sha256,
+            url = "https://github.com/bazelbuild/rules_jvm_external/archive/{}.zip".format(rules_jvm_external_version),
         )
 
     if "io_bazel_rules_scala" not in native.existing_rules():
@@ -123,7 +140,7 @@ def daml_deps():
             url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
             type = "zip",
             strip_prefix = "rules_scala-%s" % rules_scala_version,
-            sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d",
+            sha256 = rules_scala_sha256,
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
                 "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
@@ -142,11 +159,11 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "1e622ce4b84b88b6d2cdf1db38d1a634fe2392d74f0b7b74ff98f3a51838ee53",
-            strip_prefix = "protobuf-3.8.0",
-            urls = ["https://github.com/google/protobuf/archive/v3.8.0.zip"],
+            sha256 = "60d2012e3922e429294d3a4ac31f336016514a91e5a63fd33f35743ccfe1bd7d",
+            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-deps.bzl
+            strip_prefix = "protobuf-3.11.0",
+            urls = ["https://github.com/google/protobuf/archive/v3.11.0.zip"],
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:proto-zlib-url.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -176,11 +193,12 @@ def daml_deps():
     if "build_bazel_rules_nodejs" not in native.existing_rules():
         http_archive(
             name = "build_bazel_rules_nodejs",
-            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/1.6.0/rules_nodejs-1.6.0.tar.gz"],
-            sha256 = "f9e7b9f42ae202cc2d2ce6d698ccb49a9f7f7ea572a78fd451696d03ef2ee116",
+            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
+            sha256 = rules_nodejs_sha256,
             patches = [
                 # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
                 "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
+                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_node_dependency.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -285,5 +303,36 @@ exports_files(["released/davl-v3.dar"])
             build_file_content = """
 package(default_visibility = ["//visibility:public"])
 exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
+            """,
+        )
+
+    if "daml-cheat-sheet" not in native.existing_rules():
+        http_archive(
+            name = "daml-cheat-sheet",
+            strip_prefix = "daml-cheat-sheet-{}".format(daml_cheat_sheet_version),
+            urls = ["https://github.com/digital-asset/daml-cheat-sheet/archive/{}.tar.gz".format(daml_cheat_sheet_version)],
+            sha256 = daml_cheat_sheet_sha256,
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+genrule(
+  name = "site",
+  srcs = ["_config.yml"] + glob(["**/*"],
+          exclude = ["_config.yml", "LICENSE", "WORKSPACE", "BUILD.bazel", "README.md"]),
+  outs = ["cheat-sheet.tar.gz"],
+  tools = ["@jekyll_nix//:bin/jekyll"],
+  cmd = '''
+    DIR=$$(dirname $(execpath _config.yml))
+    $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
+    tar hc _site \
+        --owner=1000 \
+        --group=1000 \
+        --mtime=2000-01-01\ 00:00Z \
+        --no-acls \
+        --no-xattrs \
+        --no-selinux \
+        --sort=name \
+        | gzip -n > $(OUTS)
+  ''',
+)
             """,
         )

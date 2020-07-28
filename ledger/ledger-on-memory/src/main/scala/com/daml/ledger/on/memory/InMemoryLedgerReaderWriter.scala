@@ -8,189 +8,147 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.api.util.TimeProvider
+import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
-import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
-import com.daml.ledger.on.memory.InMemoryState.MutableLog
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
-import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.caching.Cache
-import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
-import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.validator.LedgerStateOperations.{Key, MetricPrefix, Value}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.api._
+import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting}
+import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.daml.ledger.validator._
+import com.daml.ledger.validator.batch.{
+  BatchedSubmissionValidator,
+  BatchedSubmissionValidatorFactory,
+  ConflictDetection
+}
 import com.daml.lf.data.Ref
-import com.daml.metrics.Timed
+import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
-// Dispatcher and InMemoryState are passed in to allow for a multi-participant setup.
-final class InMemoryLedgerReaderWriter private (
-    override val ledgerId: LedgerId,
+final class InMemoryLedgerReaderWriter(
     override val participantId: ParticipantId,
-    metricRegistry: MetricRegistry,
-    timeProvider: TimeProvider,
-    stateValueCache: Cache[Bytes, DamlStateValue],
+    override val ledgerId: LedgerId,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
-)(implicit executionContext: ExecutionContext)
-    extends LedgerWriter
-    with LedgerReader {
-
-  private val committer = new ValidatingCommitter(
-    () => timeProvider.getCurrentTime,
-    SubmissionValidator
-      .createForTimeMode(
-        InMemoryLedgerStateAccess,
-        allocateNextLogEntryId = () => sequentialLogEntryId.next(),
-        stateValueCache = stateValueCache,
-        metricRegistry = metricRegistry,
-        inStaticTimeMode = timeProvider != TimeProvider.UTC
-      ),
-    dispatcher.signalNewHead,
-  )
-
-  override def currentHealth(): HealthStatus =
-    Healthy
-
+    committer: BatchedValidatingCommitter[Index],
+    metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
+    extends LedgerReader
+    with LedgerWriter {
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope, participantId)
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // so we can use `.view`
-  override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
-    dispatcher
-      .startingAt(
-        startExclusive
-          .map(KVOffset.highestIndex(_).toInt)
-          .getOrElse(StartIndex),
-        RangeSource((startExclusive, endInclusive) =>
-          Source.fromIterator(() => {
-            Timed.value(
-              Metrics.readLog,
-              state
-                .readLog(
-                  _.view.zipWithIndex.map(_.swap).slice(startExclusive + 1, endInclusive + 1))
-                .iterator)
-          }))
-      )
-      .map { case (_, updates) => updates }
-
-  object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
-    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-      state.write { (log, state) =>
-        body(
-          new TimedLedgerStateOperations(
-            new InMemoryLedgerStateOperations(log, state),
-            metricRegistry))
+    ledgerStateAccess
+      .inTransaction { ledgerStateOperations =>
+        committer
+          .commit(correlationId, envelope, participantId, ledgerStateOperations)
       }
-  }
+      .andThen {
+        case Success(SubmissionResult.Acknowledged) =>
+          dispatcher.signalNewHead(state.newHeadSinceLastWrite())
+      }
 
-  private final class InMemoryLedgerStateOperations(
-      log: InMemoryState.MutableLog,
-      state: InMemoryState.MutableState,
-  ) extends BatchingLedgerStateOperations[Index] {
-    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-      Future.successful(keys.map(state.get))
+  override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
+    reader.events(startExclusive)
 
-    override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] = {
-      state ++= keyValuePairs
-      Future.unit
-    }
+  override def currentHealth(): HealthStatus = Healthy
 
-    override def appendToLog(key: Key, value: Value): Future[Index] =
-      Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
-  }
+  private val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
 
-  private object Metrics {
-    val readLog: Timer = metricRegistry.timer(MetricPrefix :+ "log" :+ "read")
-  }
+  private val ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics)
 }
 
 object InMemoryLedgerReaderWriter {
-  type Index = Int
-
-  private val StartIndex: Index = 0
-
-  private val NamespaceLogEntries = "L"
-
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
-
-  private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
   final class SingleParticipantOwner(
       initialLedgerId: Option[LedgerId],
+      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
-      metricRegistry: MetricRegistry,
+      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+      metrics: Metrics,
+      engine: Engine,
   )(implicit materializer: Materializer)
-      extends ResourceOwner[InMemoryLedgerReaderWriter] {
+      extends ResourceOwner[KeyValueLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext
-    ): Resource[InMemoryLedgerReaderWriter] = {
+    ): Resource[KeyValueLedger] = {
       val state = InMemoryState.empty
       for {
-        dispatcher <- dispatcher.acquire()
+        dispatcher <- dispatcherOwner.acquire()
         readerWriter <- new Owner(
           initialLedgerId,
+          batchingLedgerWriterConfig,
           participantId,
-          metricRegistry,
+          metrics,
           timeProvider,
           stateValueCache,
           dispatcher,
           state,
+          engine
         ).acquire()
       } yield readerWriter
     }
   }
 
-  // passing the `dispatcher` and `state` from the outside allows us to share
-  // the backing data for the LedgerReaderWriter and therefore setup multiple participants
   final class Owner(
       initialLedgerId: Option[LedgerId],
+      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
-      metricRegistry: MetricRegistry,
+      metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
-  ) extends ResourceOwner[InMemoryLedgerReaderWriter] {
+      engine: Engine,
+  )(implicit materializer: Materializer)
+      extends ResourceOwner[KeyValueLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext
-    ): Resource[InMemoryLedgerReaderWriter] = {
+    ): Resource[KeyValueLedger] = {
       val ledgerId =
         initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-      Resource.successful(
+      val keyValueCommitting =
+        new KeyValueCommitting(
+          engine,
+          metrics,
+          inStaticTimeMode = needStaticTimeModeFor(timeProvider))
+      val validator = BatchedSubmissionValidator[Index](
+        BatchedSubmissionValidatorFactory.defaultParametersFor(
+          batchingLedgerWriterConfig.enableBatching),
+        keyValueCommitting,
+        new ConflictDetection(metrics),
+        metrics,
+        engine
+      )
+      val committer =
+        BatchedValidatingCommitter[Index](
+          () => timeProvider.getCurrentTime,
+          validator,
+          stateValueCache)
+      val readerWriter =
         new InMemoryLedgerReaderWriter(
-          ledgerId,
           participantId,
-          metricRegistry,
-          timeProvider,
-          stateValueCache,
+          ledgerId,
           dispatcher,
           state,
-        ))
+          committer,
+          metrics
+        )
+      // We need to generate batched submissions for the validator in order to improve throughput.
+      // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
+      // in-memory committer.
+      val batchingLedgerWriter = newLoggingContext { implicit logCtx =>
+        BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
+      }
+      Resource.successful(createKeyValueLedger(readerWriter, batchingLedgerWriter))
     }
   }
 
-  def dispatcher: ResourceOwner[Dispatcher[Index]] =
-    ResourceOwner.forCloseable(
-      () =>
-        Dispatcher(
-          "in-memory-key-value-participant-state",
-          zeroIndex = StartIndex,
-          headAtInitialization = StartIndex,
-      ))
-
-  private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerRecord): Index = {
-    val entryAtIndex = log.size
-    val offset = KVOffset.fromLong(entryAtIndex.toLong)
-    val entry = createEntry(offset)
-    log += entry
-    entryAtIndex
-  }
+  private def needStaticTimeModeFor(timeProvider: TimeProvider): Boolean =
+    timeProvider != TimeProvider.UTC
 }

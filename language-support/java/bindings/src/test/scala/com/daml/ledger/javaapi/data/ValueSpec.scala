@@ -13,7 +13,6 @@ import org.scalacheck.Gen
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ValueSpec
     extends FlatSpec
     with Matchers

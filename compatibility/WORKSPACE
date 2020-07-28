@@ -12,7 +12,7 @@ load("@daml//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
 
-load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows", "os_name")
 load("@daml//bazel_tools:build_environment.bzl", "build_environment")
 
 build_environment(name = "build_environment")
@@ -25,17 +25,31 @@ load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
 rules_haskell_dependencies()
 
+load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
+
+dadew(name = "dadew")
+
+load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configure")
+
+dadew_sh_posix_configure() if is_windows else None
+
+load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
 load(
     "@rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
 )
 load(
+    "@rules_haskell//haskell:ghc_bindist.bzl",
+    "haskell_register_ghc_bindists",
+)
+load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
-    "nixpkgs_cc_configure",
+    "nixpkgs_cc_configure_hermetic",
     "nixpkgs_local_repository",
     "nixpkgs_package",
     "nixpkgs_python_configure",
 )
+load("//:versions.bzl", "latest_stable_version", "sdk_versions", "version_sha256s")
 
 common_nix_file_deps = [
     "@daml//nix:bazel.nix",
@@ -64,14 +78,17 @@ nixpkgs_local_repository(
     ],
 )
 
-nixpkgs_cc_configure(
+nixpkgs_cc_configure_hermetic(
+    # We override the Bazel's autodetect toolchain to avoid accidentaly
+    # dependencies on the inhermetic autodetected builtin include paths or
+    # builds failing due to Bazel not finding `cc` in `$PATH` or `$CC`.
+    name = "local_config_cc",
     nix_file = "@daml//nix:bazel-cc-toolchain.nix",
     nix_file_deps = common_nix_file_deps + [
-        "@daml//nix:bazel-cc-toolchain.nix",
         "@daml//nix:tools/bazel-cc-toolchain/default.nix",
     ],
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_package(
     name = "glibc_locales",
@@ -87,6 +104,11 @@ filegroup(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 ) if is_linux else None
+
+haskell_register_ghc_bindists(
+    compiler_flags = [],
+    version = "8.6.5",
+) if is_windows else None
 
 haskell_register_ghc_nixpkgs(
     attribute_path = "ghcStatic",
@@ -118,11 +140,88 @@ filegroup(
 )
 
 nixpkgs_package(
+    name = "openssl_nix",
+    attribute_path = "openssl",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "openssl_dev_env",
+    nix_include = ["bin/openssl"],
+    nix_label = "@openssl_nix",
+    nix_paths = ["bin/openssl"],
+    tools = ["openssl"],
+    win_include = [
+        "usr/bin",
+        "usr/ssl",
+    ],
+    win_paths = ["usr/bin/openssl.exe"],
+    win_tool = "msys2",
+)
+
+nixpkgs_package(
     name = "hlint_nix",
     attribute_path = "hlint",
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "node_nix",
+    attribute_path = "nodejsNested",
+    build_file_content = 'exports_files(glob(["node_nix/**"]))',
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "nodejs_dev_env",
+    nix_include = [
+        "bin",
+        "include",
+        "lib",
+        "share",
+    ],
+    nix_label = "@node_nix",
+    nix_paths = [],
+    prefix = "nodejs_dev_env",
+    tools = [],
+    win_include = [
+        ".",
+    ],
+    win_paths = [],
+    win_tool = "nodejs-12.17.0",
+)
+
+node_repositories(
+    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
+    yarn_version = "1.22.4",
+)
+
+nixpkgs_package(
+    name = "patch_nix",
+    attribute_path = "gnupatch",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "patch_dev_env",
+    nix_include = ["bin/patch"],
+    nix_label = "@patch_nix",
+    nix_paths = ["bin/patch"],
+    tools = ["patch"],
+    win_include = ["usr/bin/patch.exe"],
+    win_paths = ["usr/bin/patch.exe"],
+    win_tool = "msys2",
 )
 
 load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
@@ -137,24 +236,75 @@ local_repository(
 )
 
 daml_sdk_head(
+    create_daml_app_patch = "@head_sdk//:messaging.patch",
+    daml_ledger_tarball = "@head_sdk//:daml-ledger-0.0.0.tgz",
+    daml_react_tarball = "@head_sdk//:daml-react-0.0.0.tgz",
+    daml_types_tarball = "@head_sdk//:daml-types-0.0.0.tgz",
     ledger_api_test_tool = "@head_sdk//:ledger-api-test-tool_deploy.jar",
+    os_name = os_name,
     sdk_tarball = "@head_sdk//:sdk-release-tarball.tar.gz",
 )
 
-daml_sdk(
-    sdk_sha256 = "ee7e2f50394d44fb3490068de64d37f4f87534e802717bd7e07e8767df2e4e05",
-    test_tool_sha256 = "cf66efafd9490e1256e825f377b208b8ae90151f56e411b596fbaaef91353e14",
-    version = "1.0.0",
+[
+    daml_sdk(
+        # See the explanation in UpdateVersions.hs
+        create_daml_app_patch = None if version_sha256s.get(ver).get("create_daml_app_patch") else "@daml-sdk-1.1.1//:create_daml_app.patch",
+        create_daml_app_patch_sha256 = version_sha256s.get(ver).get("create_daml_app_patch"),
+        daml_ledger_sha256 = version_sha256s.get(ver).get("daml_ledger"),
+        daml_react_sha256 = version_sha256s.get(ver).get("daml_react"),
+        daml_types_sha256 = version_sha256s.get(ver).get("daml_types"),
+        os_name = os_name,
+        sdk_sha256 = version_sha256s.get(ver),
+        test_tool_sha256 = version_sha256s.get(ver).get("test_tool"),
+        version = ver,
+    )
+    for ver in sdk_versions
+    if ver != "0.0.0"
+]
+
+load("@rules_jvm_external//:defs.bzl", "maven_install")
+
+# We base our Maven artifacts on the latest stable release
+# for now. In principle, we could setup one Maven workspace
+# per SDK version but that is a bit painful to setup and
+# seems to bring little benefit.
+maven_install(
+    name = "maven",
+    artifacts = [
+        "com.daml:bindings-akka_2.12:{}".format(latest_stable_version),
+        "com.daml:daml-lf-archive-reader_2.12:{}".format(latest_stable_version),
+        "com.daml:daml-lf-transaction_2.12:{}".format(latest_stable_version),
+        "com.daml:ledger-api-common_2.12:{}".format(latest_stable_version),
+        "com.daml:lf-value-json_2.12:{}".format(latest_stable_version),
+        "com.github.scopt:scopt_2.12:3.7.1",
+        "org.wartremover:wartremover_2.12:2.2.0",
+        "io.spray:spray-json_2.12:1.3.3",
+    ],
+    maven_install_json = "@compatibility//:maven_install.json",
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+    version_conflict_policy = "pinned",
 )
 
-daml_sdk(
-    sdk_sha256 = "aaf832ceda1a66a8469460d5a4b6c14f681ce692d4e9ef6010896febbaf4b6e1",
-    test_tool_sha256 = "762cd4836a8359dca0fb3271ba2e1d0629138f7d8d914298324418a174c5d22a",
-    version = "1.0.1-snapshot.20200417.3908.1.722bac90",
+load("@maven//:defs.bzl", "pinned_maven_install")
+
+pinned_maven_install()
+
+load(
+    "@io_bazel_rules_scala//scala:scala.bzl",
+    "scala_repositories",
 )
 
-daml_sdk(
-    sdk_sha256 = "d3bddaa903ebaebb6f714a3ac39598ba7fd71e8b80636c1275054ed7b883a0d9",
-    test_tool_sha256 = "649ecf7a7e98caef7dac20082526444b33d85dfe79b4b9b66d069ad67aac74fa",
-    version = "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-)
+scala_repositories((
+    "2.12.11",
+    {
+        "scala_compiler": "e901937dbeeae1715b231a7cfcd547a10d5bbf0dfb9d52d2886eae18b4d62ab6",
+        "scala_library": "dbfe77a3fc7a16c0c7cb6cb2b91fecec5438f2803112a744cb1b187926a138be",
+        "scala_reflect": "5f9e156aeba45ef2c4d24b303405db259082739015190b3b334811843bd90d6a",
+    },
+))
+
+load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
+
+scala_register_toolchains()

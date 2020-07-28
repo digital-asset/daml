@@ -4,7 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.lf.data._
-import com.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
+import com.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
@@ -32,8 +32,7 @@ object ValueValidator {
       })
       .map(_.toImmArray)
 
-  def validateRecord(
-      rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord[AbsoluteContractId]] =
+  def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord[ContractId]] =
     for {
       recId <- validateOptionalIdentifier(rec.recordId)
       fields <- validateRecordFields(rec.fields)
@@ -44,7 +43,7 @@ object ValueValidator {
 
   def validateValue(v0: api.Value): Either[StatusRuntimeException, domain.Value] = v0.sum match {
     case Sum.ContractId(cId) =>
-      AbsoluteContractId
+      ContractId
         .fromString(cId)
         .bimap(invalidArgument, Lf.ValueContractId(_))
     case Sum.Numeric(value) =>

@@ -8,15 +8,20 @@ load(
     "da_scala_test",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
-    name = "trigger-service-lib",
+    name = "trigger-service",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    # Uncomment this if/when the target is published to maven.
+    # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_typesafe_akka_akka_slf4j_2_12",
+        "@maven//:org_postgresql_postgresql",
+        "@maven//:org_tpolecat_doobie_postgres_2_12",
     ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -31,7 +36,9 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_actor_typed_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",
@@ -39,43 +46,54 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_grpc_grpc_netty",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_tpolecat_doobie_core_2_12",
+        "@maven//:org_tpolecat_doobie_free_2_12",
+        "@maven//:org_tpolecat_doobie_postgres_2_12",
+        "@maven//:org_typelevel_cats_core_2_12",
+        "@maven//:org_typelevel_cats_effect_2_12",
+        "@maven//:org_typelevel_cats_free_2_12",
+        "@maven//:org_typelevel_cats_kernel_2_12",
     ],
 )
 
 da_scala_binary(
-    name = "trigger-service",
+    name = "trigger-service-binary",
     main_class = "com.daml.lf.engine.trigger.ServiceMain",
     visibility = ["//visibility:public"],
     deps = [
-        ":trigger-service-lib",
+        ":trigger-service",
     ],
 )
 
 da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [":test-model.dar"],
+    data = [":test-model.dar"] + (["@toxiproxy_dev_env//:bin/toxiproxy-cmd"] if not is_windows else ["@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe"]),
+    jvm_flags = ["-Dcom.daml.toxiproxy=$(rootpath @toxiproxy_dev_env//:bin/toxiproxy-cmd)"] if not is_windows else ["-Dcom.daml.toxiproxy=$(rootpath @toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe)"],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
-        ":trigger-service-lib",
+        ":trigger-service",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
-        "//daml-lf/language",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
-        "//ledger/ledger-api-auth",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_akka_akka_actor_typed_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -94,6 +112,8 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
+      cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
+      cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -111,3 +131,5 @@ EOF
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
+
+exports_files(["release/trigger-service-logback.xml"])

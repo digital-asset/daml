@@ -27,6 +27,7 @@ class TypeSpec extends WordSpec with Matchers {
       if (!typs.isEmpty)
         sys.error(s"expected 0 arguments, got ${typs.toImmArray.length}")
 
+    @scala.annotation.tailrec
     def go(typ0: Pkg.Type, args: BackStack[Type]): Type = typ0 match {
       case Pkg.TVar(v) =>
         assertZeroArgs(args)
@@ -101,14 +102,14 @@ class TypeSpec extends WordSpec with Matchers {
   }
 
   "mapTypeVars should replace all type variables in `List (List a)`" in {
-    val result: Type = t"List (List a)".mapTypeVars(v => t"Text")
+    val result: Type = t"List (List a)".mapTypeVars(_ => t"Text")
     val expected: Type = t"List (List Text)"
 
     result shouldBe expected
   }
 
   "mapTypeVars should replace all type variables in `GenMap a b`" in {
-    val result: Type = t"GenMap a b".mapTypeVars(a => t"GenMap a b")
+    val result: Type = t"GenMap a b".mapTypeVars(_ => t"GenMap a b")
     val expected: Type = t"GenMap (GenMap a b) (GenMap a b)"
 
     result shouldBe expected

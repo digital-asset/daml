@@ -9,7 +9,6 @@ import java.time.Duration
 import scala.util.Try
 
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
     darPath: File,
@@ -18,18 +17,20 @@ case class RunnerConfig(
     ledgerPort: Option[Int],
     participantConfig: Option[File],
     // optional so we can detect if both --static-time and --wall-clock-time are passed.
-    timeProviderType: Option[TimeProviderType],
+    timeMode: Option[ScriptTimeMode],
     commandTtl: Duration,
     inputFile: Option[File],
     outputFile: Option[File],
     accessTokenFile: Option[Path],
     tlsConfig: Option[TlsConfiguration],
     jsonApi: Boolean,
+    maxInboundMessageSize: Int,
 )
 
 object RunnerConfig {
 
-  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+  val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
+  val DefaultMaxInboundMessageSize: Int = 4194304
 
   private def validatePath(path: String, message: String): Either[String, Unit] = {
     val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
@@ -66,13 +67,13 @@ object RunnerConfig {
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
-        setTimeProviderType(c, TimeProviderType.WallClock)
+        setTimeMode(c, ScriptTimeMode.WallClock)
       }
       .text("Use wall clock time (UTC).")
 
     opt[Unit]('s', "static-time")
       .action { (_, c) =>
-        setTimeProviderType(c, TimeProviderType.Static)
+        setTimeMode(c, ScriptTimeMode.Static)
       }
       .text("Use static time.")
 
@@ -140,6 +141,12 @@ object RunnerConfig {
       }
       .text("Run DAML Script via the HTTP JSON API instead of via gRPC (experimental).")
 
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize")
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -158,15 +165,15 @@ object RunnerConfig {
 
   }
 
-  private def setTimeProviderType(
+  private def setTimeMode(
       config: RunnerConfig,
-      timeProviderType: TimeProviderType,
+      timeMode: ScriptTimeMode,
   ): RunnerConfig = {
-    if (config.timeProviderType.exists(_ != timeProviderType)) {
+    if (config.timeMode.exists(_ != timeMode)) {
       throw new IllegalStateException(
         "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
     }
-    config.copy(timeProviderType = Some(timeProviderType))
+    config.copy(timeMode = Some(timeMode))
   }
 
   def parse(args: Array[String]): Option[RunnerConfig] =
@@ -178,13 +185,14 @@ object RunnerConfig {
         ledgerHost = None,
         ledgerPort = None,
         participantConfig = None,
-        timeProviderType = None,
+        timeMode = None,
         commandTtl = Duration.ofSeconds(30L),
         inputFile = None,
         outputFile = None,
         accessTokenFile = None,
         tlsConfig = None,
         jsonApi = false,
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
       )
     )
 }

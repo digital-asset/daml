@@ -4,10 +4,11 @@
 package com.daml.platform.indexer
 
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.ExecutionContext
@@ -15,7 +16,8 @@ import scala.concurrent.ExecutionContext
 final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
-    metrics: MetricRegistry,
+    metrics: Metrics,
+    lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
@@ -27,6 +29,7 @@ final class StandaloneIndexerServer(
       config,
       readService,
       metrics,
+      lfValueTranslationCache,
     )
     val indexer = new RecoveringIndexer(materializer.system.scheduler, config.restartDelay)
     config.startupMode match {
@@ -35,6 +38,13 @@ final class StandaloneIndexerServer(
       case IndexerStartupMode.MigrateAndStart =>
         Resource
           .fromFuture(indexerFactory.migrateSchema(config.allowExistingSchema))
+          .flatMap(startIndexer(indexer, _))
+          .map { _ =>
+            logger.debug("Waiting for the indexer to initialize the database.")
+          }
+      case IndexerStartupMode.ResetAndStart =>
+        Resource
+          .fromFuture(indexerFactory.resetSchema())
           .flatMap(startIndexer(indexer, _))
           .map { _ =>
             logger.debug("Waiting for the indexer to initialize the database.")

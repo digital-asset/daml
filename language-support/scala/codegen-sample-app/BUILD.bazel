@@ -130,6 +130,7 @@ da_scala_test(
         "//language-support/scala/codegen-testing",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",

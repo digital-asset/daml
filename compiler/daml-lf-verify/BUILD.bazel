@@ -1,0 +1,131 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("@os_info//:os_info.bzl", "is_windows")
+
+da_haskell_binary(
+    name = "daml-lf-verify",
+    srcs = glob(["src/**/*.hs"]),
+    data = [
+        "@z3_nix//:bin/z3",
+    ] if not is_windows else [],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "Decimal",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "hashable",
+        "lens",
+        "mtl",
+        "optparse-applicative",
+        "prettyprinter",
+        "recursion-schemes",
+        "safe",
+        "scientific",
+        "simple-smt",
+        "template-haskell",
+        "text",
+        "time",
+        "unordered-containers",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.LF.Verify.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/daml-lf-tools",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_library(
+    name = "daml-lf-verify-lib",
+    srcs = glob(["src/**/*.hs"]),
+    data = [
+        "@z3_nix//:bin/z3",
+    ] if not is_windows else [],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "Decimal",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "hashable",
+        "lens",
+        "mtl",
+        "optparse-applicative",
+        "prettyprinter",
+        "recursion-schemes",
+        "safe",
+        "scientific",
+        "simple-smt",
+        "template-haskell",
+        "text",
+        "time",
+        "unordered-containers",
+        "zip-archive",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/daml-lf-tools",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+daml_compile(
+    name = "quickstart",
+    srcs = glob(["daml/quickstart/**/*.daml"]),
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "conditionals",
+    srcs = glob(["daml/conditionals/**/*.daml"]),
+    version = "1.0.0",
+)
+
+da_haskell_test(
+    name = "verify-tests",
+    srcs = glob(["tests/**/*.hs"]),
+    data = [
+        ":conditionals.dar",
+        ":quickstart.dar",
+    ] if not is_windows else [],
+    hackage_deps = [
+        "base",
+        "containers",
+        "filepath",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.LF.Verify.Tests.mainTest",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-lf-verify-lib",
+        "//compiler/daml-lf-ast",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+) if not is_windows else None

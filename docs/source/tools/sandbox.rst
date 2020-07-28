@@ -169,7 +169,7 @@ The ``public`` claim is implicitly held by anyone bearing a valid JWT (even with
 Generating JSON Web Tokens (JWT)
 ================================
 
-To generate tokens for testing purposes, use the `jtw.io <https://jwt.io/>`__ web site.
+To generate tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ web site.
 
 
 Generating RSA keys

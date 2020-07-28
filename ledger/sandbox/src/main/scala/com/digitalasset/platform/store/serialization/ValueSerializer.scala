@@ -6,13 +6,13 @@ package com.daml.platform.store.serialization
 import java.io.InputStream
 
 import com.daml.lf.archive.{Decode, Reader}
-import com.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 
 object ValueSerializer {
 
   def serializeValue(
-      value: VersionedValue[AbsoluteContractId],
+      value: VersionedValue[ContractId],
       errorContext: => String,
   ): Array[Byte] =
     ValueCoder
@@ -22,10 +22,10 @@ object ValueSerializer {
   private def deserializeValueHelper(
       stream: InputStream,
       errorContext: => Option[String],
-  ): VersionedValue[AbsoluteContractId] =
+  ): VersionedValue[ContractId] =
     ValueCoder
       .decodeVersionedValue(
-        ValueCoder.AbsCidDecoder,
+        ValueCoder.CidDecoder,
         ValueOuterClass.VersionedValue.parseFrom(
           Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)))
       .fold(
@@ -36,13 +36,13 @@ object ValueSerializer {
 
   def deserializeValue(
       stream: InputStream,
-  ): VersionedValue[AbsoluteContractId] =
+  ): VersionedValue[ContractId] =
     deserializeValueHelper(stream, None)
 
   def deserializeValue(
       stream: InputStream,
       errorContext: => String,
-  ): VersionedValue[AbsoluteContractId] =
+  ): VersionedValue[ContractId] =
     deserializeValueHelper(stream, Some(errorContext))
 
 }

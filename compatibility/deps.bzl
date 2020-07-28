@@ -28,7 +28,23 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
-load("@daml//:deps.bzl", "buildifier_sha256", "buildifier_version", "rules_haskell_sha256", "rules_haskell_version", "rules_nixpkgs_sha256", "rules_nixpkgs_version")
+load(
+    "@daml//:deps.bzl",
+    "buildifier_sha256",
+    "buildifier_version",
+    "rules_haskell_sha256",
+    "rules_haskell_version",
+    "rules_jvm_external_sha256",
+    "rules_jvm_external_version",
+    "rules_nixpkgs_sha256",
+    "rules_nixpkgs_version",
+    "rules_nodejs_sha256",
+    "rules_nodejs_version",
+    "rules_scala_sha256",
+    "rules_scala_version",
+    "zlib_sha256",
+    "zlib_version",
+)
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -36,6 +52,13 @@ def daml_deps():
             name = "rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
+            patches = [
+                "@daml//bazel_tools:haskell-strict-source-names.patch",
+                "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
+                "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
+                "@daml//bazel_tools:haskell-ghcide-import-dirs.patch",
+            ],
+            patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
         )
 
@@ -45,6 +68,12 @@ def daml_deps():
             strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
+            patches = [
+                # Remove once https://github.com/tweag/rules_nixpkgs/pull/128
+                # has been merged
+                "@daml//bazel_tools:nixpkgs-hermetic-cc-toolchain.patch",
+            ],
+            patch_args = ["-p1"],
         )
 
     if "com_github_bazelbuild_buildtools" not in native.existing_rules():
@@ -53,4 +82,50 @@ def daml_deps():
             sha256 = buildifier_sha256,
             strip_prefix = "buildtools-{}".format(buildifier_version),
             url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
+        )
+
+    if "com_github_madler_zlib" not in native.existing_rules():
+        http_archive(
+            name = "com_github_madler_zlib",
+            build_file = "@daml//3rdparty/c:zlib.BUILD",
+            strip_prefix = "zlib-{}".format(zlib_version),
+            urls = ["https://github.com/madler/zlib/archive/{}.tar.gz".format(zlib_version)],
+            sha256 = zlib_sha256,
+        )
+
+    if "build_bazel_rules_nodejs" not in native.existing_rules():
+        http_archive(
+            name = "build_bazel_rules_nodejs",
+            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
+            sha256 = rules_nodejs_sha256,
+            patches = [
+                # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
+                "@daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
+                # Enforces a dependency of the rules_nodejs workspace on the
+                # workspace providing node.
+                "@daml//bazel_tools:rules_nodejs_node_dependency.patch",
+            ],
+            patch_args = ["-p1"],
+        )
+
+    if "rules_jvm_external" not in native.existing_rules():
+        http_archive(
+            name = "rules_jvm_external",
+            strip_prefix = "rules_jvm_external-{}".format(rules_jvm_external_version),
+            sha256 = rules_jvm_external_sha256,
+            url = "https://github.com/bazelbuild/rules_jvm_external/archive/{}.zip".format(rules_jvm_external_version),
+        )
+
+    if "io_bazel_rules_scala" not in native.existing_rules():
+        http_archive(
+            name = "io_bazel_rules_scala",
+            url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
+            type = "zip",
+            strip_prefix = "rules_scala-%s" % rules_scala_version,
+            sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d",
+            patches = [
+                "@daml//bazel_tools:scala-escape-jvmflags.patch",
+                "@daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
+            ],
+            patch_args = ["-p1"],
         )

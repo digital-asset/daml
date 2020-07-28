@@ -24,7 +24,7 @@ let
   });
 
   ghc = pkgs.callPackage ./overrides/ghc-8.6.5.nix rec {
-    bootPkgs = pkgs.haskell.packages.ghc863Binary;
+    bootPkgs = pkgs.haskell.packages.ghc865Binary;
     inherit (pkgs.python3Packages) sphinx;
     inherit (pkgs) buildLlvmPackages;
     enableIntegerSimple = true;

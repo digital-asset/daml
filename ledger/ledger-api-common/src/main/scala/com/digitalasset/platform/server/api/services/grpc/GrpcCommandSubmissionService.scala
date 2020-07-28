@@ -5,7 +5,6 @@ package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
@@ -16,11 +15,10 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest => ApiSubmitRequest
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
-import com.daml.metrics.{MetricName, Timed}
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
-import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService._
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
@@ -32,8 +30,8 @@ class GrpcCommandSubmissionService(
     ledgerId: LedgerId,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationTime: () => Duration,
-    metricRegistry: MetricRegistry,
+    maxDeduplicationTime: () => Option[Duration],
+    metrics: Metrics,
 ) extends ApiCommandSubmissionService
     with ProxyCloseable
     with GrpcApiService {
@@ -44,10 +42,10 @@ class GrpcCommandSubmissionService(
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
     Timed.future(
-      Metrics.submissionsTimer,
+      metrics.daml.commands.submissions,
       Timed
         .value(
-          Metrics.validationTimer,
+          metrics.daml.commands.validation,
           validator
             .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()))
         .fold(
@@ -58,13 +56,4 @@ class GrpcCommandSubmissionService(
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)
 
-  private object Metrics {
-    val submissionsTimer: Timer = metricRegistry.timer(MetricPrefix :+ "submissions")
-    val validationTimer: Timer = metricRegistry.timer(MetricPrefix :+ "validation")
-  }
-
-}
-
-object GrpcCommandSubmissionService {
-  val MetricPrefix: MetricName = MetricName.DAML :+ "commands"
 }

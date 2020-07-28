@@ -75,14 +75,16 @@ final case class ClaimReadAsParty(name: Ref.Party) extends Claim
   * +-------------------------------------+----------------------------+------------------------------------------+
   *
   * @param claims         List of [[Claim]]s describing the authorization this object describes.
-  * @param ledgerId       If set, the claims will only be valid on the given ledger.
-  * @param participantId  If set, the claims will only be valid on the given participant.
+  * @param ledgerId       If set, the claims will only be valid on the given ledger identifier.
+  * @param participantId  If set, the claims will only be valid on the given participant identifier.
+  * @param applicationId  If set, the claims will only be valid on the given application identifier.
   * @param expiration     If set, the claims will cease to be valid at the given time.
   */
 final case class Claims(
     claims: Seq[Claim],
     ledgerId: Option[String] = None,
     participantId: Option[String] = None,
+    applicationId: Option[String] = None,
     expiration: Option[Instant] = None,
 ) {
   def validForLedger(id: String): Boolean =
@@ -91,7 +93,10 @@ final case class Claims(
   def validForParticipant(id: String): Boolean =
     participantId.forall(_ == id)
 
-  /** Returns false if the expiration timestamp exists and is greather than or equal to the current time */
+  def validForApplication(id: String): Boolean =
+    applicationId.forall(_ == id)
+
+  /** Returns false if the expiration timestamp exists and is greater than or equal to the current time */
   def notExpired(now: Instant): Boolean =
     expiration.forall(now.isBefore)
 
@@ -126,13 +131,16 @@ final case class Claims(
 object Claims {
 
   /** A set of [[Claims]] that does not have any authorization */
-  val empty = Claims(List.empty[Claim], expiration = None, ledgerId = None, participantId = None)
+  val empty: Claims = Claims(
+    claims = List.empty[Claim],
+    ledgerId = None,
+    participantId = None,
+    applicationId = None,
+    expiration = None,
+  )
 
   /** A set of [[Claims]] that has all possible authorizations */
-  val wildcard = Claims(
-    List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty),
-    expiration = None,
-    ledgerId = None,
-    participantId = None)
+  val wildcard: Claims =
+    empty.copy(claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
 
 }

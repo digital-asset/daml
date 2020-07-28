@@ -42,7 +42,7 @@ import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
 
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Ast.Type as LF
+import qualified DA.Daml.LF.Ast.Alpha as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
 import DA.Daml.Options
@@ -148,7 +148,7 @@ safeToReexport env syn1 syn2 =
         LF.runGamma (envWorld env) (envLfVersion env) $ do
             esyn1 <- LF.expandTypeSynonyms (closedType syn1)
             esyn2 <- LF.expandTypeSynonyms (closedType syn2)
-            pure (LF.alphaEquiv esyn1 esyn2)
+            pure (LF.alphaType esyn1 esyn2)
 
   where
     -- | Turn a type synonym definition into a closed type.
@@ -164,7 +164,7 @@ isDuplicate env ty1 ty2 =
         LF.runGamma (envWorld env) (envLfVersion env) $ do
             esyn1 <- LF.expandTypeSynonyms ty1
             esyn2 <- LF.expandTypeSynonyms ty2
-            pure (LF.alphaEquiv esyn1 esyn2)
+            pure (LF.alphaType esyn1 esyn2)
 
 data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
     deriving (Eq, Ord)

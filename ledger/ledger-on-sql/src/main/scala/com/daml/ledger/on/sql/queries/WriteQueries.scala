@@ -15,4 +15,7 @@ trait WriteQueries {
   def insertRecordIntoLog(key: Key, value: Value): Try[Index]
 
   def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit]
+
+  def truncate(): Try[Unit]
+
 }

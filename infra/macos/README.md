@@ -21,15 +21,18 @@ There are a few pieces to this puzzle:
 
 The guest machine is created with a user, `vagrant`, that has passwordless
 `sudo` access and can be accessed with the default, well-known Vagrant SSH
-"private" key. While this is useful for debugging, it is crucial that the SSH
-port of the guest machine MUST NOT be accessible from outside the host machine,
-and that access to the host machine itself be appropriately restricted.
+"private" key and a well known default password. While this is useful for debugging, 
+it is crucial that the SSH port of the guest machine MUST NOT be accessible from 
+outside the host machine, and that access to the host machine itself be appropriately 
+restricted.
 
 My personal recommendation would be for the host machines to not be accessible
 from any network, and to instead be managed by physical access, if possible.
 
 The `init.sh` script creates a `vsts` user with more restricted access to run
-the CI builds.
+the CI builds. NOTE: the VSTS agent islocked down so upgrade from the Azure console 
+will fail. Expectation is that the nodes are cycled daily and will pick up latest
+Azure VSTS agent on rebuild.
 
 # Machine initialization
 

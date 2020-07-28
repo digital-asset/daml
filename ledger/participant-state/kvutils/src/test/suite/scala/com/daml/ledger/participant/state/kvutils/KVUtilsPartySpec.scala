@@ -83,15 +83,9 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
         _ <- submitPartyAllocation("submission-1", "bob", p0)
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
-        metricRegistry
-          .counter("daml.kvutils.committer.party_allocation.accepts")
-          .getCount should be >= 1L
-        metricRegistry
-          .counter("daml.kvutils.committer.party_allocation.rejections")
-          .getCount should be >= 1L
-        metricRegistry
-          .timer("daml.kvutils.committer.party_allocation.run_timer")
-          .getCount should be >= 1L
+        metrics.daml.kvutils.committer.partyAllocation.accepts.getCount should be >= 1L
+        metrics.daml.kvutils.committer.partyAllocation.rejections.getCount should be >= 1L
+        metrics.daml.kvutils.committer.runTimer("party_allocation").getCount should be >= 1L
       }
     }
   }

@@ -12,7 +12,6 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class RecordFieldsSpec extends FlatSpec with Matchers {
 
   behavior of "RecordFields"

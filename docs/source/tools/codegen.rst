@@ -95,4 +95,17 @@ and **DAML to Scala** command line configuration::
 
     $ daml codegen scala ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=scala-codegen/src/main/scala --verbosity=2
 
+In order to compile the resulting **Scala** or **Java** classes, you need to
+add the corresponding dependencies to your build tools. For **Scala**, you can
+depend on::
+
+    "com.daml" %% "bindings-scala" % 1.0.1
+
+and for **Java**, add the following **Maven** dependency::
+
+    <dependency>
+      <groupId>com.daml</groupId>
+      <artifactId>bindings-java</artifactId>
+      <version>1.0.1</version>
+    </dependency>
 

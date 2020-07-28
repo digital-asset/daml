@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.concurrent.Executors
 
-import com.codahale.metrics.{Counter, Gauge, MetricRegistry, Timer}
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, packageUploadDedupKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
@@ -13,29 +13,19 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.metrics.Metrics
 
 import scala.collection.JavaConverters._
 
 private[kvutils] class PackageCommitter(
     engine: Engine,
-    override protected val metricRegistry: MetricRegistry,
+    override protected val metrics: Metrics,
 ) extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
 
   override protected val committerName = "package_upload"
 
-  private object Metrics {
-    val preloadTimer: Timer = metricRegistry.timer(metricPrefix :+ "preload_timer")
-    val decodeTimer: Timer = metricRegistry.timer(metricPrefix :+ "decode_timer")
-    val accepts: Counter = metricRegistry.counter(metricPrefix :+ "accepts")
-    val rejections: Counter = metricRegistry.counter(metricPrefix :+ "rejections")
-    metricRegistry.gauge(
-      metricPrefix :+ "loaded_packages",
-      () =>
-        new Gauge[Int] {
-          override def getValue: Int = engine.compiledPackages().packageIds.size
-      })
-  }
+  metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
+    engine.compiledPackages().packageIds.size)
 
   private def rejectionTraceLog(
       msg: String,
@@ -130,7 +120,7 @@ private[kvutils] class PackageCommitter(
   }
 
   private val buildLogEntry: Step = (ctx, uploadEntry) => {
-    Metrics.accepts.inc()
+    metrics.daml.kvutils.committer.packageUpload.accepts.inc()
     logger.trace(
       s"Packages committed, packages=[${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}] correlationId=${uploadEntry.getSubmissionId}")
 
@@ -177,7 +167,7 @@ private[kvutils] class PackageCommitter(
       packageUploadEntry: DamlPackageUploadEntry.Builder,
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
   ): DamlLogEntry = {
-    Metrics.rejections.inc()
+    metrics.daml.kvutils.committer.packageUpload.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))
       .setPackageUploadRejectionEntry(
@@ -197,22 +187,23 @@ private[kvutils] class PackageCommitter(
     * package type-checking and preloading can be done during normal processing.
     */
   private def preload(submissionId: String, archives: Iterable[Archive]): Runnable = { () =>
-    val ctx = Metrics.preloadTimer.time()
+    val ctx = metrics.daml.kvutils.committer.packageUpload.preloadTimer.time()
     def trace(msg: String): Unit = logger.trace(s"$msg, correlationId=$submissionId")
     try {
       val loadedPackages = engine.compiledPackages().packageIds
-      val packages: Map[Ref.PackageId, Ast.Package] = Metrics.decodeTimer.time { () =>
-        archives
-          .filterNot(
-            a =>
-              Ref.PackageId
-                .fromString(a.getHash)
-                .fold(_ => false, loadedPackages.contains))
-          .map { archive =>
-            Decode.readArchiveAndVersion(archive)._1
-          }
-          .toMap
-      }
+      val packages: Map[Ref.PackageId, Ast.Package] =
+        metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
+          archives
+            .filterNot(
+              a =>
+                Ref.PackageId
+                  .fromString(a.getHash)
+                  .fold(_ => false, loadedPackages.contains))
+            .map { archive =>
+              Decode.readArchiveAndVersion(archive)._1
+            }
+            .toMap
+        }
       trace(s"Preloading engine with ${packages.size} new packages")
       packages.foreach {
         case (pkgId, pkg) =>
@@ -224,7 +215,7 @@ private[kvutils] class PackageCommitter(
               _ => sys.error("Unexpected request to keys in preloadPackage")
             )
       }
-      trace(s"Preload complete")
+      trace("Preload complete")
     } catch {
       case scala.util.control.NonFatal(err) =>
         logger.error(

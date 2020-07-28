@@ -35,6 +35,7 @@ da_haskell_library(
         "text",
         "time",
         "transformers",
+        "uniplate",
         "unordered-containers",
         "utf8-string",
         "zip",

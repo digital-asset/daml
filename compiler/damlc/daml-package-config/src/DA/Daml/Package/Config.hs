@@ -1,6 +1,8 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 -- | Types and functions for dealing with package config in daml.yaml
 module DA.Daml.Package.Config
     ( PackageConfigFields (..)
@@ -18,7 +20,12 @@ import SdkVersion
 
 import Control.Exception.Safe (throwIO)
 import Control.Monad (when)
+import qualified Data.Aeson as A
+import qualified Data.Aeson.Encoding as A
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
+import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Module as Ghc
 import System.IO (hPutStrLn, stderr)
@@ -33,6 +40,10 @@ data PackageConfigFields = PackageConfigFields
     -- we might not have a version. In `damlc build` this is always set to `Just`.
     , pDependencies :: [String]
     , pDataDependencies :: [String]
+    , pModulePrefixes :: Map Ghc.UnitId Ghc.ModuleName
+    -- ^ Map from unit ids to a prefix for all modules in that package.
+    -- If this is specified, all modules from the package will be remapped
+    -- under the given prefix.
     , pSdkVersion :: PackageSdkVersion
     }
 
@@ -52,6 +63,7 @@ parseProjectConfig project = do
     pVersion <- Just <$> queryProjectConfigRequired ["version"] project
     pDependencies <- queryProjectConfigRequired ["dependencies"] project
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+    pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     Right PackageConfigFields {..}
 
@@ -91,3 +103,23 @@ withPackageConfig projectPath f = do
     pkgConfig' <- overrideSdkVersion pkgConfig
     let pkgConfig'' = replaceSdkVersionWithGhcPkgVersion pkgConfig'
     f pkgConfig''
+
+-- | Orphans because I’m too lazy to newtype everything.
+instance A.FromJSON Ghc.ModuleName where
+    parseJSON = A.withText "ModuleName" $ \t -> pure $ Ghc.mkModuleName (T.unpack t)
+
+instance A.ToJSON Ghc.ModuleName where
+    toJSON m = A.toJSON (Ghc.moduleNameString m)
+
+instance A.FromJSON Ghc.UnitId where
+    parseJSON = A.withText "UnitId" $ \t -> pure $ Ghc.stringToUnitId (T.unpack t)
+
+instance A.FromJSONKey Ghc.UnitId where
+    fromJSONKey = A.FromJSONKeyText $ \t -> Ghc.stringToUnitId (T.unpack t)
+
+instance A.ToJSON Ghc.UnitId where
+    toJSON unitId = A.toJSON (Ghc.unitIdString unitId)
+
+instance A.ToJSONKey Ghc.UnitId where
+    toJSONKey =
+        A.ToJSONKeyText (T.pack . Ghc.unitIdString) (A.text . T.pack . Ghc.unitIdString)

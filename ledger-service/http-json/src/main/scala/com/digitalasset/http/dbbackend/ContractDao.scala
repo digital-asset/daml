@@ -15,13 +15,13 @@ import doobie.util.log
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 
+import scala.collection.compat._
 import scala.concurrent.ExecutionContext
 
 class ContractDao(xa: Connection.T) {
 
   implicit val logHandler: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
 }
@@ -67,6 +67,7 @@ object ContractDao {
         fconn.raiseError(StaleOffsetException(party, templateId, newOffset, lastOffset))
     } yield ()
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def selectContracts(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
@@ -79,7 +80,7 @@ object ContractDao {
         templateId.moduleName,
         templateId.entityName)
 
-      dbContracts <- Queries.selectContracts(party.unwrap, tpId, predicate).to[Vector]
+      dbContracts <- Queries.selectContracts(party.unwrap, tpId, predicate).to(Vector)
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
   }

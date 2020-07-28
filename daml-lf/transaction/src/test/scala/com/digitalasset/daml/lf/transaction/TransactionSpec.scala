@@ -14,7 +14,7 @@ import com.daml.lf.transaction.GenTransaction.{
 }
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.ValueGenerators.danglingRefGenNode
+import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
@@ -60,6 +60,54 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     "detects orphans" in {
       val tx = mkTransaction(HashMap(V.NodeId(1) -> dummyCreateNode("cid1")), ImmArray.empty)
       tx.isWellFormed shouldBe Set(NotWellFormedError(V.NodeId(1), OrphanedNode))
+    }
+  }
+
+  "cids" - {
+
+    "collects contract IDs" in {
+      val tx = mkTransaction(
+        HashMap(
+          V.NodeId(0) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(1))),
+          V.NodeId(1) -> dummyExerciseNode("cid1", ImmArray(V.NodeId(2))),
+          V.NodeId(2) -> dummyCreateNode("cid2"),
+        ),
+        ImmArray(V.NodeId(0), V.NodeId(2)),
+      )
+
+      def collectCids(tx: Transaction): Set[V.ContractId] = {
+        val cids = Set.newBuilder[V.ContractId]
+        tx.foreach3(_ => (), cids += _, cids ++= _.cids)
+        cids.result()
+      }
+
+      collectCids(tx) shouldBe Set[V.ContractId]("cid0", "cid1", "cid2", dummyCid)
+
+    }
+
+  }
+
+  "foldInExecutionOrder" - {
+    "should traverse the transaction in execution order" in {
+
+      val tx = mkTransaction(
+        HashMap(
+          V.NodeId(0) -> dummyCreateNode("cid0"),
+          V.NodeId(1) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(2))),
+          V.NodeId(2) -> dummyExerciseNode("cid1", ImmArray.empty),
+          V.NodeId(3) -> dummyCreateNode("cid2"),
+        ),
+        ImmArray(V.NodeId(0), V.NodeId(1), V.NodeId(3)),
+      )
+
+      val result = tx.foldInExecutionOrder(List.empty[String])(
+        (acc, nid, _) => s"exerciseBegin(${nid.index})" :: acc,
+        (acc, nid, _) => s"leaf(${nid.index})" :: acc,
+        (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
+      )
+
+      result.reverse.mkString(", ") shouldBe
+        "leaf(0), exerciseBegin(1), exerciseBegin(2), exerciseEnd(2), exerciseEnd(1), leaf(3)"
     }
   }
 
@@ -139,8 +187,8 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
       )
 
       val mapping2: V.ContractId => V.ContractId = Map(
-        cid1 -> cid1.copy(suffix = suffix1),
-        cid2 -> cid2.copy(suffix = suffix2),
+        cid1 -> V.ContractId.V1.assertBuild(cid1.discriminator, suffix1),
+        cid2 -> V.ContractId.V1.assertBuild(cid2.discriminator, suffix2),
       )
 
       dummyCreateNode("dd").coinst.suffixCid(mapping1)
@@ -165,12 +213,12 @@ object TransactionSpec {
   ): Transaction = GenTransaction(nodes, roots)
 
   def dummyExerciseNode(
-      cid: String,
+      cid: V.ContractId,
       children: ImmArray[V.NodeId],
       hasExerciseResult: Boolean = true,
   ): NodeExercises[V.NodeId, V.ContractId, Value] =
     NodeExercises(
-      targetCoid = toCid(cid),
+      targetCoid = cid,
       templateId = Ref.Identifier(
         Ref.PackageId.assertFromString("-dummyPkg-"),
         Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
@@ -182,11 +230,16 @@ object TransactionSpec {
       chosenValue = V.ValueUnit,
       stakeholders = Set.empty,
       signatories = Set.empty,
-      controllers = Set.empty,
+      controllersDifferFromActors = false,
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       key = None,
     )
+
+  val dummyCid = V.ContractId.V1.assertBuild(
+    toCid("dummyCid").discriminator,
+    Bytes.assertFromString("f00d"),
+  )
 
   def dummyCreateNode(cid: String): NodeCreate[V.ContractId, Value] =
     NodeCreate(
@@ -196,8 +249,8 @@ object TransactionSpec {
           Ref.PackageId.assertFromString("-dummyPkg-"),
           Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
         ),
-        V.ValueUnit,
-        ("dummyAgreement"),
+        V.ValueContractId(dummyCid),
+        "dummyAgreement",
       ),
       optLocation = None,
       signatories = Set.empty,
@@ -205,9 +258,9 @@ object TransactionSpec {
       key = None,
     )
 
-  private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
+  implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
-  private def toCid(s: String): V.AbsoluteContractId.V1 =
-    V.AbsoluteContractId.V1(crypto.Hash.hashPrivateKey(s))
+  implicit def toCid(s: String): V.ContractId.V1 =
+    V.ContractId.V1(crypto.Hash.hashPrivateKey(s))
 
 }

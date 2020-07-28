@@ -10,18 +10,15 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.participant.state.kvutils.app.Metrics.{
-  IndexServicePrefix,
-  ReadServicePrefix,
-  WriteServicePrefix
-}
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.lf.archive.DarReader
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
 import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
 
@@ -46,6 +43,10 @@ final class Runner[T <: ReadWriteService, Extra](
         "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
       implicit val materializer: Materializer = Materializer(actorSystem)
 
+      // share engine between the kvutils committer backend and the ledger api server
+      // this avoids duplicate compilation of packages as well as keeping them in memory twice
+      val sharedEngine = Engine()
+
       newLoggingContext { implicit logCtx =>
         for {
           // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -55,38 +56,48 @@ final class Runner[T <: ReadWriteService, Extra](
 
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
-            val metricRegistry = factory.metricRegistry(participantConfig, config)
-            metricRegistry.registerAll(new JvmMetricSet)
+            val metrics = factory.createMetrics(participantConfig, config)
+            metrics.registry.registerAll(new JvmMetricSet)
+            val lfValueTranslationCache =
+              LfValueTranslation.Cache.newInstrumentedInstance(
+                eventConfiguration = config.lfValueTranslationEventCache,
+                contractConfiguration = config.lfValueTranslationContractCache,
+                metrics = metrics,
+              )
             for {
               _ <- config.metricsReporter.fold(Resource.unit)(
                 reporter =>
                   ResourceOwner
-                    .forCloseable(() => reporter.register(metricRegistry))
+                    .forCloseable(() => reporter.register(metrics.registry))
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire())
-              ledger <- factory.readWriteServiceOwner(config, participantConfig).acquire()
-              readService = new TimedReadService(ledger, metricRegistry, ReadServicePrefix)
-              writeService = new TimedWriteService(ledger, metricRegistry, WriteServicePrefix)
+              ledger <- factory
+                .readWriteServiceOwner(config, participantConfig, sharedEngine)
+                .acquire()
+              readService = new TimedReadService(ledger, metrics)
+              writeService = new TimedWriteService(ledger, metrics)
               _ <- Resource.fromFuture(
                 Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
               _ <- new StandaloneIndexerServer(
                 readService = readService,
                 config = factory.indexerConfig(participantConfig, config),
-                metrics = metricRegistry,
+                metrics = metrics,
+                lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()
               _ <- new StandaloneApiServer(
                 config = factory.apiServerConfig(participantConfig, config),
-                commandConfig = factory.commandConfig(config),
+                commandConfig = factory.commandConfig(participantConfig, config),
                 partyConfig = factory.partyConfig(config),
-                submissionConfig = factory.submissionConfig(config),
                 ledgerConfig = factory.ledgerConfig(config),
                 readService = readService,
                 writeService = writeService,
                 authService = factory.authService(config),
-                transformIndexService =
-                  service => new TimedIndexService(service, metricRegistry, IndexServicePrefix),
-                metrics = metricRegistry,
+                transformIndexService = service => new TimedIndexService(service, metrics),
+                metrics = metrics,
                 timeServiceBackend = factory.timeServiceBackend(config),
+                otherInterceptors = factory.interceptors(config),
+                engine = sharedEngine,
+                lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()
             } yield ()
           })

@@ -18,6 +18,7 @@ import DA.Bazel.Runfiles
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Damlc.Base
 import DA.Cli.Damlc.BuildInfo
+import qualified DA.Cli.Damlc.InspectDar as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
@@ -53,6 +54,7 @@ import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.List.Split as Split
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
@@ -263,6 +265,11 @@ cmdRepl numProcessors =
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
             <*> accessTokenFileFlag
             <*> sslConfig
+            <*> optional
+                    (option auto $
+                        long "max-inbound-message-size" <>
+                        help "Optional max inbound message size in bytes."
+                    )
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
@@ -338,7 +345,12 @@ cmdInspectDar =
     command "inspect-dar" $
     info (helper <*> cmd) $ progDesc "Inspect a DAR archive" <> fullDesc
   where
-    cmd = execInspectDar <$> inputDarOpt
+    jsonOpt =
+        flag InspectDar.PlainText InspectDar.Json $
+        long "json" <> help "Output the information in JSON"
+    cmd = execInspectDar
+        <$> inputDarOpt
+        <*> jsonOpt
 
 cmdValidateDar :: Mod CommandFields Command
 cmdValidateDar =
@@ -524,7 +536,7 @@ initPackageDb opts (InitPkgDb shouldInit) =
         when isProject $ do
             projRoot <- getCurrentDirectory
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} ->
-                createProjectPackageDb (toNormalizedFilePath' projRoot) opts pSdkVersion pDependencies pDataDependencies
+                createProjectPackageDb (toNormalizedFilePath' projRoot) opts pSdkVersion pModulePrefixes pDependencies pDataDependencies
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
@@ -561,8 +573,9 @@ execRepl
     -> String -> String
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig
+    -> Maybe ReplClient.MaxInboundMessageSize
     -> Command
-execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf = Command Repl (Just projectOpts) effect
+execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
             mainDar <- makeAbsolute mainDar
@@ -573,7 +586,7 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mb
             logger <- getLogger opts "repl"
             runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
             let jar = runfilesDir </> "repl-service.jar"
-            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf Inherit) $ \replHandle _stdout _ph ->
+            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize Inherit) $ \replHandle _stdout _ph ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
                 sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
@@ -636,6 +649,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pDependencies = []
                               , pDataDependencies = []
                               , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
+                              , pModulePrefixes = Map.empty
                               }
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
@@ -689,9 +703,9 @@ execInspect inFile outFile jsonOutput lvl =
         (pkgId, lfPkg) <- errorOnLeft "Cannot decode package" $
                    Archive.decodeArchive Archive.DecodeAsMain bytes
         writeOutput outFile $ render Plain $
-          DA.Pretty.vsep
-            [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
-            , DA.Pretty.nest 2 (DA.Pretty.pPrintPrec lvl 0 lfPkg)
+          DA.Pretty.vcat
+            [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId)
+            , DA.Pretty.pPrintPrec lvl 0 lfPkg
             ]
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
@@ -699,30 +713,9 @@ errorOnLeft desc = \case
   Left err -> ioError $ userError $ unlines [ desc, show err ]
   Right x  -> return x
 
-execInspectDar :: FilePath -> Command
-execInspectDar inFile =
-  Command InspectDar Nothing effect
-  where
-    effect = do
-      bytes <- B.readFile inFile
-
-      putStrLn "DAR archive contains the following files: \n"
-      let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
-      let files = [ZipArchive.eRelativePath e | e <- ZipArchive.zEntries dar]
-      mapM_ putStrLn files
-
-      putStrLn "\nDAR archive contains the following packages: \n"
-      let dalfEntries =
-              [e | e <- ZipArchive.zEntries dar, ".dalf" `isExtensionOf` ZipArchive.eRelativePath e]
-      forM_ dalfEntries $ \dalfEntry -> do
-          let dalf = BSL.toStrict $ ZipArchive.fromEntry dalfEntry
-          pkgId <-
-              errorOnLeft
-                  ("Cannot decode package " <> ZipArchive.eRelativePath dalfEntry)
-                  (Archive.decodeArchivePackageId dalf)
-          putStrLn $
-              (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
-              show (LF.unPackageId pkgId)
+execInspectDar :: FilePath -> InspectDar.Format -> Command
+execInspectDar inFile jsonOutput =
+  Command InspectDar Nothing (InspectDar.inspectDar inFile jsonOutput)
 
 execValidateDar :: FilePath -> Command
 execValidateDar inFile =

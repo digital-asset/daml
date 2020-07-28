@@ -5,7 +5,6 @@ package com.daml.lf.repl
 
 import akka.actor.ActorSystem
 import akka.stream._
-import com.daml.api.util.TimeProvider
 import com.daml.auth.TokenHolder
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.Decode
@@ -41,6 +40,7 @@ object ReplServiceMain extends App {
       ledgerHost: String,
       ledgerPort: Int,
       accessTokenFile: Option[Path],
+      maxInboundMessageSize: Int,
       tlsConfig: Option[TlsConfiguration],
   )
   object Config {
@@ -100,6 +100,12 @@ object ReplServiceMain extends App {
         .action((path, arguments) =>
           arguments.copy(tlsConfig =
             arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+
+      opt[Int]("max-inbound-message-size")
+        .action((x, c) => c.copy(maxInboundMessageSize = x))
+        .optional()
+        .text(
+          s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
     }
     def parse(args: Array[String]): Option[Config] =
       parser.parse(
@@ -109,7 +115,9 @@ object ReplServiceMain extends App {
           ledgerHost = null,
           ledgerPort = 0,
           accessTokenFile = None,
-          tlsConfig = None)
+          tlsConfig = None,
+          maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+        )
       )
   }
 
@@ -132,17 +140,19 @@ object ReplServiceMain extends App {
   val applicationId = ApplicationId("daml repl")
   val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId.unwrap,
-    ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+    ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     sslContext = config.tlsConfig.flatMap(_.client),
     token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token),
   )
-  val clients = Await.result(Runner.connect(participantParams, clientConfig), 30.seconds)
+  val clients = Await.result(
+    Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize),
+    30.seconds)
 
   val server =
     NettyServerBuilder
       .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-      .addService(new ReplService(clients, ec, materializer))
+      .addService(new ReplService(clients, ec, sequencer, materializer))
       .maxInboundMessageSize(maxMessageSize)
       .build
   server.start()
@@ -157,12 +167,14 @@ object ReplServiceMain extends App {
 class ReplService(
     val clients: Participants[ScriptLedgerClient],
     ec: ExecutionContext,
+    esf: ExecutionSequencerFactory,
     mat: Materializer)
     extends ReplServiceGrpc.ReplServiceImplBase {
   var packages: Map[PackageId, Package] = Map.empty
   var compiledDefinitions: Map[SDefinitionRef, SExpr] = Map.empty
   var results: Seq[SValue] = Seq()
   implicit val ec_ = ec
+  implicit val esf_ = esf
   implicit val mat_ = mat
 
   private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
@@ -172,7 +184,11 @@ class ReplService(
       respObs: StreamObserver[LoadPackageResponse]): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     packages = packages + (pkgId -> pkg)
-    compiledDefinitions = compiledDefinitions ++ Compiler(packages).unsafeCompilePackage(pkgId)
+    compiledDefinitions = compiledDefinitions ++ Compiler(
+      packages,
+      Compiler.FullStackTrace,
+      Compiler.NoProfile)
+      .unsafeCompilePackage(pkgId)
     respObs.onNext(LoadPackageResponse.newBuilder.build)
     respObs.onCompleted()
   }
@@ -201,20 +217,25 @@ class ReplService(
 
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
-        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
-      None)
+        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))))
     if (!results.isEmpty) {
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }
 
     val allPkgs = packages + (homePackageId -> pkg)
-    val defs = Compiler(allPkgs).unsafeCompilePackage(homePackageId)
-    val compiledPackages = PureCompiledPackages(allPkgs, compiledDefinitions ++ defs)
+    val defs = Compiler(allPkgs, Compiler.FullStackTrace, Compiler.NoProfile)
+      .unsafeCompilePackage(homePackageId)
+    val compiledPackages =
+      PureCompiledPackages(
+        allPkgs,
+        compiledDefinitions ++ defs,
+        Compiler.FullStackTrace,
+        Compiler.NoProfile)
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ApplicationId("daml repl"),
-      TimeProvider.UTC)
+      ScriptTimeMode.WallClock)
     runner.runWithClients(clients).onComplete {
       case Failure(e: SError.SError) =>
         // The error here is already printed by the logger in stepToValue.

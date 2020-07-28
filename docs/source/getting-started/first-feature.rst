@@ -9,7 +9,7 @@ This will give us a better idea how to develop DAML applications using our templ
 
 At the moment, our app lets us follow users in the network, but we have no way to communicate with them!
 Let's fix that by adding a *direct messaging* feature.
-This should let users that follow each other send messages, repsecting *authorization* and *privacy*.
+This should let users that follow each other send messages, respecting *authorization* and *privacy*.
 This means:
 
     1. You cannot send a message to someone unless they have given you the authority by following you back.
@@ -115,11 +115,10 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
   :start-after: // MESSAGELIST_BEGIN
   :end-before: // MESSAGELIST_END
 
-First we get the ``username`` of the current user with the ``useParty`` hook.
-Then ``messagesResult`` gets the stream of all ``Message`` contracts where the ``receiver`` is our ``username``.
+In the component body, ``messagesResult`` gets the stream of all ``Message`` contracts visible to the current user.
 The streaming aspect means that we don't need to reload the page when new messages come in.
-We extract the *payload* of every ``Message`` contract (the data as opposed to metadata like the contract ID) in ``messages``.
-The rest of the component simply constructs a React ``List`` element with an item for each message.
+For each contract in the stream, we destructure the *payload* (the data as opposed to metadata like the contract ID) into the ``{sender, receiver, content}`` object pattern.
+Then we construct a ``ListItem`` UI element with the details of the message.
 
 There is one important point about privacy here.
 No matter how we write our ``Message`` query in the UI code, it is impossible to break the privacy rules given by the DAML model.
@@ -139,19 +138,20 @@ Again we show the entire component here; you should copy this into a new ``Messa
   :start-after: // MESSAGEEDIT_BEGIN
   :end-before: // MESSAGEEDIT_END
 
-You will first notice a ``Props`` type near the top of the file with a single ``following`` field.
+You will first notice a ``Props`` type near the top of the file with a single ``followers`` field.
 A *prop* in React is an input to a component; in this case a list of users from which to select the message receiver.
 The prop will be passed down from the ``MainView`` component, reusing the work required to query users from the ledger.
-You can see this ``following`` field bound at the start of the ``MessageEdit`` component.
+You can see this ``followers`` field bound at the start of the ``MessageEdit`` component.
 
 We use the React ``useState`` hook to get and set the current choices of message ``receiver`` and ``content``.
 The DAML-specific ``useLedger`` hook gives us an object we can use to perform ledger operations.
-The call to ``ledger.exerciseByKey`` in ``sendMessage`` looks up the ``User`` contract with the receiver's username and exercises ``SendMessage`` with the appropriate arguments.
-The ``sendMessage`` wrapper reports potential errors to the user, and ``submitMessage`` additionally uses the ``isSubmitting`` state to ensure message requests are processed one at a time.
+The call to ``ledger.exerciseByKey`` in ``submitMessage`` looks up the ``User`` contract with the receiver's username and exercises the ``SendMessage`` choice with the appropriate arguments.
+If the choice fails, the ``catch`` block reports the error in a dialog box.
+Additionally, ``submitMessage`` sets the ``isSubmitting`` state so that the *Send* button is disabled while the request is processed.
 The result of a successful call to ``submitMessage`` is a new ``Message`` contract created on the ledger.
 
 The return value of this component is the React ``Form`` element.
-This contains a dropdown menu to select a receiver from the ``following``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
+This contains a dropdown menu to select a receiver from the ``followers``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
 
 There is again an important point here, in this case about how *authorization* is enforced.
 Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who is not following us (even if you could somehow access their ``User`` contract).
@@ -228,11 +228,7 @@ Next Steps
 ==========
 
 We've gone through the process of setting up a full-stack DAML app and implementing a useful feature end to end.
-Have a think about how you might further improve or extend this app.
-For example, you might have noticed that your list of messages can get out of order.
-You could add a timestamp to the ``Message`` template and sort messages in the ``MessageList`` component so your most recent are at the top.
-Of course there are many more features you could imagine (just think of your favourite social media app).
-
-Hopefully this exercise gives you a sense of the power and ease of building DAML apps.
-Explore the documentation to learn more, and keep shipping DAML apps.
-Have fun!
+As the next step we encourage you to really dig into the fundamentals of DAML and understand its core concepts such as parties, signatories, observers, and controllers.
+You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/learn/fundamental-concepts>`_.
+After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.
+Last but not least learn how to deploy your application to a ledger hosted on `project:DABL <https://daml.com/learn/getting-started/deploy-to-dabl/>`_.

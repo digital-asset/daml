@@ -37,7 +37,6 @@ import spray.json.JsValue
 import scala.annotation.tailrec
 import scala.language.higherKinds
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object domain {
 
   case class Error(id: Symbol, message: String)
@@ -48,7 +47,7 @@ object domain {
     }
   }
 
-  type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+  type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
   case class JwtPayload(ledgerId: LedgerId, applicationId: ApplicationId, party: Party)
 

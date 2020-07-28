@@ -13,9 +13,7 @@ import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
@@ -29,53 +27,113 @@ import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.timer.RetryStrategy
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent._
+import scala.concurrent.duration._
+import scala.sys.process.Process
+import java.net.{InetAddress, ServerSocket, Socket}
+
+import com.daml.daml_lf_dev.DamlLf
+import eu.rekawek.toxiproxy._
 
 object TriggerServiceFixture {
+
+  // Might throw IOException (unlikely). Best effort. There's a small
+  // chance that having found one, it gets taken before we get to use
+  // it.
+  private def findFreePort(): Port = {
+    val socket = new ServerSocket(Port(0).value)
+    try {
+      Port(socket.getLocalPort)
+    } finally {
+      socket.close()
+    }
+  }
 
   def withTriggerService[A](
       testName: String,
       dars: List[File],
-      dar: Option[Dar[(PackageId, Package)]],
-  )(testFn: (Uri, LedgerClient) => Future[A])(
+      encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      jdbcConfig: Option[JdbcConfig],
+  )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
+    // Launch a toxiproxy instance. Wait on it to be ready to accept
+    // connections.
+    val host = InetAddress.getLoopbackAddress
+    val toxiProxyExe = BazelRunfiles.rlocation(System.getProperty("com.daml.toxiproxy"))
+    val toxiProxyPort = findFreePort()
+    val toxiProxyProc = Process(Seq(toxiProxyExe, "--port", toxiProxyPort.value.toString)).run()
+    RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
+      for {
+        channel <- Future(new Socket(host, toxiProxyPort.value))
+      } yield channel.close()
+    }
+    val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.value);
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
     val ledgerF = for {
       ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
-      port <- ledger.portF
-    } yield (ledger, port.value)
+      sandboxPort <- ledger.portF
+      ledgerPort = sandboxPort.value
+      ledgerProxyPort = findFreePort()
+      ledgerProxy = toxiProxyClient.createProxy(
+        "sandbox",
+        s"${host.getHostName}:$ledgerProxyPort",
+        s"${host.getHostName}:$ledgerPort")
+    } yield (ledger, ledgerPort, ledgerProxyPort, ledgerProxy)
+    // 'ledgerProxyPort' is managed by the toxiproxy instance and
+    // forwards to the real sandbox port.
 
+    // Configure this client with the ledger's *actual* port.
     val clientF: Future[LedgerClient] = for {
-      (_, ledgerPort) <- ledgerF
-      client <- LedgerClient.singleHost("localhost", ledgerPort, clientConfig(applicationId))
+      (_, ledgerPort, _, _) <- ledgerF
+      client <- LedgerClient.singleHost(host.getHostName, ledgerPort, clientConfig(applicationId))
     } yield client
 
+    // Configure the service with the ledger's *proxy* port.
     val serviceF: Future[(ServerBinding, TypedActorSystem[Server.Message])] = for {
-      (_, ledgerPort) <- ledgerF
+      (_, _, ledgerProxyPort, _) <- ledgerF
       ledgerConfig = LedgerConfig(
-        "localhost",
-        ledgerPort,
+        host.getHostName,
+        ledgerProxyPort.value,
         TimeProviderType.Static,
         Duration.ofSeconds(30))
-      service <- ServiceMain.startServer("localhost", 0, ledgerConfig, dar)
+      service <- ServiceMain.startServer(
+        host.getHostName,
+        Port(0).value,
+        ledgerConfig,
+        ServiceConfig.DefaultMaxInboundMessageSize,
+        ServiceConfig.DefaultMaxFailureNumberOfRetries,
+        ServiceConfig.DefaultFailureRetryTimeRange,
+        encodedDar,
+        jdbcConfig,
+        noSecretKey = true // That's ok, use the default.
+      )
     } yield service
+
+    // For adding toxics.
+    val ledgerProxyF: Future[Proxy] = for {
+      (_, _, _, ledgerProxy) <- ledgerF
+    } yield ledgerProxy
 
     val fa: Future[A] = for {
       client <- clientF
       binding <- serviceF
+      ledgerProxy <- ledgerProxyF
       uri = Uri.from(scheme = "http", host = "localhost", port = binding._1.localAddress.getPort)
-      a <- testFn(uri, client)
+      a <- testFn(uri, client, ledgerProxy)
     } yield a
 
     fa.onComplete { _ =>
       serviceF.foreach({ case (_, system) => system ! Server.Stop })
       ledgerF.foreach(_._1.close())
+      toxiProxyProc.destroy
     }
 
     fa
@@ -84,15 +142,14 @@ object TriggerServiceFixture {
   private def ledgerConfig(
       ledgerPort: Port,
       dars: List[File],
-      ledgerId: LedgerId,
-      authService: Option[AuthService] = None
+      ledgerId: LedgerId
   ): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.Static),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService
+      authService = None
     )
 
   private def clientConfig[A](
@@ -100,7 +157,7 @@ object TriggerServiceFixture {
       token: Option[String] = None): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
       token = token

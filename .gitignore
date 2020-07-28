@@ -1,95 +1,69 @@
+# private configuration
+.envrc.private
+
+# Artifacts
+dist
+.interfaces
+*.log
+target
+*.tgz
+
+# DAML
+.daml/
+
+# dev-env
+/dev-env/var/
+
+# Bazel
+.bazel-cache
+/bazel-*
+/compatibility/bazel-*
+/compatibility/.bazelrc
+/compatibility/head_sdk/
+.bazelrc.local
+.bazelproject
+
+# node.js
+node_modules/
+
+
+### Operating Systems ###
+
+# macOS
 .DS_Store
 ._.DS_Store
-.stack-work
-pkgs/*/.stack-work
-workspaces/*/.stack-work
-distribution-work
+
+
+### Editors ###
+
+# Eclipse
+.classpath
+.factorypath
+.project
+.settings
+
+# Emacs
+\#*\#
+.\#*\#
+*~
+
+# Ensime
+.ensime
+.ensime_cache
+
+# IntelliJ IDEA
 .idea
-.envrc.private
+.ijwb
 *.iml
 *.ipr
 *.iws
-.*.sw?
-.sw?
-*.pyc
-*.o
-*.hi
-dist/
-cache/
-target/
-target-sbt/
-build/
-result
-.project
-.build
-/ci-out/
-**/codex.tags
-/hscope.out
-._thesis.pdf
-\#*\#
-.\#*\#
-*.tix
-.da-*-gui-state
-/pkgs/generated
-TAGS
-tags
-/result-*
-**/.settings
-**/.classpath
-**/.factorypath
-*.tgz
-*.tar.gz
-ghc-bindist
-*.result.xml
-**/.ensime
-**/.ensime_cache
-ensime.sbt
-pipelinePerformance.xml
-**/database_test.manifest
-.ghci
-.ghcid
-*.log
-.buckd
-buck-out
-.buckconfig.local
-haskell-style-check.txt
-da-daml-equities-library.txt
-*.egg-info/
-.flattened-pom.xml
+out
+
+# Vim
 *~
-*.orig
-venv
-trace.*.dat
-node_modules/
-/out/
-.hpc
-hpc-report/
-/results
-**/latency.csv
-**/summary-report.txt
-.scannerwork/
-**/dump-*.txt
-**/*tests.xml
-ledger-api/.bin
-*.db
+*.swo
+*.swp
+
+# Visual Studio Code
 .vscode
-.m2/
-.history/
-**/.history/
-### Bazel: https://www.gitignore.io/api/bazel ###
-/bazel-*
-/compatibility/bazel-*
-.bazelrc.local
-.ijwb
-.bazelproject
-.bazel-cache
-.rattle
-daml-lf/project
-daml-lf/gen
-daml-lf/build.sbt
-.markdown-preview.html
-compiler/damlc/output
-language-support/hs/bindings/gen
-language-support/hs/bindings/*.cabal
-language-support/hs/bindings/examples/nim/*.cabal
-.daml/
+

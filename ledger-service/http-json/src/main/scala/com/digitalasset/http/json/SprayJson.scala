@@ -11,7 +11,6 @@ import spray.json.{JsValue, JsonReader, _}
 
 import scala.language.higherKinds
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SprayJson {
   sealed abstract class Error extends Product with Serializable
   final case class JsonReaderError(value: String, message: String) extends Error

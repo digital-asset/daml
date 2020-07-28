@@ -15,6 +15,7 @@ import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifie
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.MetricsReporter
 import com.daml.platform.configuration.Readers._
@@ -77,13 +78,13 @@ object Cli {
         .action { (_, c) =>
           setTimeProviderType(c, TimeProviderType.Static)
         }
-        .text("Use static time, configured with TimeService through gRPC.")
+        .text("Use static time. When not specified, wall-clock-time is used.")
 
       opt[Unit]('w', "wall-clock-time")
         .action { (_, c) =>
           setTimeProviderType(c, TimeProviderType.WallClock)
         }
-        .text("Use wall clock time (UTC). When not provided, static time is used.")
+        .text("Use wall clock time (UTC). This is the default.")
 
       // TODO(#577): Remove this flag.
       opt[Unit]("no-parity")
@@ -137,10 +138,14 @@ object Cli {
             .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
               Some(c.copy(clientAuth = clientAuth)))))
 
-      opt[Int]("maxInboundMessageSize")
+      opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text(
           s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
+
+      opt[Int]("maxInboundMessageSize")
+        .action((x, c) => c.copy(maxInboundMessageSize = x))
+        .text("This flag is deprecated -- please use --max-inbound-message-size.")
 
       opt[String]("jdbcurl")
         .optional()
@@ -257,6 +262,57 @@ object Cli {
         .optional()
         .action((interval, config) => config.copy(metricsReportingInterval = interval))
         .hidden()
+
+      opt[Int]("max-commands-in-flight")
+        .optional()
+        .action((value, config) =>
+          config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value)))
+        .text("Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256.")
+
+      opt[Int]("max-parallel-submissions")
+        .optional()
+        .action((value, config) =>
+          config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value)))
+        .text("Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512.")
+
+      opt[Int]("input-buffer-size")
+        .optional()
+        .action((value, config) =>
+          config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value)))
+        .text("The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512.")
+
+      opt[Long]("max-lf-value-translation-cache-entries")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
+        .action(
+          (maximumLfValueTranslationCacheEntries, config) =>
+            config.copy(
+              lfValueTranslationEventCacheConfiguration =
+                config.lfValueTranslationEventCacheConfiguration
+                  .copy(maximumSize = maximumLfValueTranslationCacheEntries),
+              lfValueTranslationContractCacheConfiguration =
+                config.lfValueTranslationContractCacheConfiguration
+                  .copy(maximumSize = maximumLfValueTranslationCacheEntries)
+          )
+        )
+
+      opt[File]("profile-dir")
+        .hidden()
+        .optional()
+        .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
+        .text("Enable profiling and write the profiles into the given directory.")
+
+      opt[Long]("max-ledger-time-skew")
+        .optional()
+        .action((value, config) => {
+          val timeModel = config.ledgerConfig.initialConfiguration.timeModel
+            .copy(minSkew = Duration.ofSeconds(value), maxSkew = Duration.ofSeconds(value))
+          val ledgerConfig = config.ledgerConfig.initialConfiguration.copy(timeModel = timeModel)
+          config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
+        })
+        .text(
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${TimeModel.reasonableDefault.minSkew.getSeconds}.")
 
       help("help").text("Print the usage text")
 

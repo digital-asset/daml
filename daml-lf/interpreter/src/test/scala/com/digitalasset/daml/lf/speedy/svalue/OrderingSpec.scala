@@ -6,18 +6,19 @@ package svalue
 
 import java.util
 
-import com.daml.lf.crypto
 import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.speedy.SExpr.SEImportValue
+import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
-import com.daml.lf.value.TypedValueGenerators.genAddend
-import com.daml.lf.value.ValueGenerators.absCoidGen
+import com.daml.lf.value.test.TypedValueGenerators.genAddend
+import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
-import org.scalacheck.Arbitrary
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{
+  Checkers,
   GeneratorDrivenPropertyChecks,
   TableDrivenPropertyChecks,
   TableFor1,
@@ -26,6 +27,7 @@ import org.scalatest.prop.{
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.{Order, Tag}
 import scalaz.syntax.order._
+import scalaz.scalacheck.{ScalazProperties => SzP}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -36,6 +38,7 @@ import scala.util.Random
 class OrderingSpec
     extends WordSpec
     with Matchers
+    with Checkers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
 
@@ -85,12 +88,9 @@ class OrderingSpec
     ).map(STimestamp compose Time.Timestamp.assertFromString)
   private val parties =
     List("alice", "bob", "carol").map(SParty compose Ref.Party.assertFromString)
-  private val absoluteContractId =
+  private val contractIds =
     List("a", "b", "c")
-      .map(x => SContractId(Value.AbsoluteContractId.assertFromString("#" + x)))
-//  private val relativeContractId =
-//    List(0, 1).map(x => SContractId(Value.RelativeContractId(Value.NodeId(x))))
-  private val contractIds = absoluteContractId //++ relativeContractId
+      .map(x => SContractId(Value.ContractId.assertFromString("#" + x)))
 
   private val enums =
     List(EnumCon1, EnumCon2, EnumCon3).zipWithIndex.map {
@@ -325,11 +325,32 @@ class OrderingSpec
     Table("any", anys: _*),
   )
 
+  private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
+    import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
+    implicit val ordNo
+      : Order[Nothing] = Order order [Nothing]((_: Any, _: Any) => sys.error("impossible"))
+    def r(name: String, va: VA)(sv: va.Inj[Nothing] => SValue) =
+      (name, va.injarb[Nothing].arbitrary map sv)
+    Table(
+      ("comparable value subset", "generator"),
+      Seq(
+        r("Int64", VA.int64)(SInt64),
+        r("Text", VA.text)(SText),
+        r("Int64 Option List", VA.list(VA.optional(VA.int64))) { loi =>
+          SList(loi.map(oi => SOptional(oi map SInt64)).to[FrontStack])
+        },
+      ) ++
+        comparableCoidsGen.zipWithIndex.map {
+          case (g, ix) => (s"ContractId $ix", g map SContractId)
+        }: _*
+    )
+  }
+
   private val lfFunction = SPAP(PBuiltin(SBuiltin.SBAddInt64), ArrayList(SInt64(1)), 2)
 
   private val funs = List(
     lfFunction,
-    SPAP(PClosure(SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
+    SPAP(PClosure(Profile.LabelUnset, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
   )
 
   private def nonEquatableLists(atLeast2InEquatableValues: List[SValue]) = {
@@ -436,17 +457,26 @@ class OrderingSpec
       }
     }
 
+    "be lawful on each subset" in forEvery(randomComparableValues) { (_, svGen) =>
+      implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
+      implicit val svalueArb: Arbitrary[SValue] = Arbitrary(svGen)
+      forEvery(Table(("law", "prop"), SzP.order.laws[SValue].properties: _*)) { (_, p) =>
+        check(p, minSuccessful(50))
+      }
+    }
   }
 
   // A problem in this test *usually* indicates changes that need to be made
   // in Value.orderInstance or TypedValueGenerators, rather than to svalue.Ordering.
   // The tests are here as this is difficult to test outside daml-lf/interpreter.
   "txn Value Ordering" should {
-    import Value.{AbsoluteContractId => Cid}
-    implicit val cidArb: Arbitrary[Cid] = Arbitrary(absCoidGen)
+    import Value.{ContractId => Cid}
+    // SContractId V1 ordering is nontotal so arbitrary generation of them is unsafe to use
+    implicit val cidArb: Arbitrary[Cid] = Arbitrary(cidV0Gen)
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
     val EmptyScope: Value.LookupVariantEnum = _ => None
+
     "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
       import va.{injarb, injshrink}
       implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
@@ -458,20 +488,26 @@ class OrderingSpec
         (a ?|? b, ta ?|? tb) should ===((bySvalue, bySvalue))
       }
     }
+
+    "match global ContractId ordering" in forEvery(Table("gen", comparableCoidsGen: _*)) {
+      coidGen =>
+        forAll(coidGen, coidGen, minSuccessful(50)) { (a, b) =>
+          Cid.`Cid Order`.order(a, b) should ===(cidOrd.order(a, b))
+        }
+    }
   }
 
   private def ArrayList[X](as: X*): util.ArrayList[X] =
     new util.ArrayList[X](as.asJava)
 
-  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-  private def dummyMachine = Speedy.Machine fromExpr (
-    expr = e"NA:na ()",
-    compiledPackages = PureCompiledPackages(Map.empty, Map.empty),
-    scenario = false,
-    Time.Timestamp.now(),
-    Some(txSeed),
-  )
+  private val noPackages =
+    PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile)
 
-  private def translatePrimValue(v: Value[Value.ContractId]) =
-    SBuiltin.translateValue(dummyMachine, v).value
+  private def translatePrimValue(v: Value[Value.ContractId]) = {
+    val machine = Speedy.Machine.fromPureSExpr(noPackages, SEImportValue(v))
+    machine.run() match {
+      case SResultFinalValue(value) => value
+      case _ => throw new Error(s"error while translating value $v")
+    }
+  }
 }

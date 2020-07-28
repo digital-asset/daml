@@ -43,11 +43,11 @@ object Ast {
 
     /** Infix alias for repeated [[EApp]] application. */
     @inline final def eApp(arg: Expr, args: Expr*): EApp =
-      (EApp(this, arg) /: args)(EApp)
+      (args foldLeft EApp(this, arg))(EApp)
 
     /** Infix alias for repeated [[ETyApp]] application. */
     @inline final def eTyApp(typ: Type, typs: Type*): ETyApp =
-      (ETyApp(this, typ) /: typs)(ETyApp)
+      (typs foldLeft ETyApp(this, typ))(ETyApp)
   }
 
   /** Reference to a variable in current lexical scope. */

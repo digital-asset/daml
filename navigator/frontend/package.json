@@ -27,11 +27,11 @@
     "@types/color": "1.0.3",
     "@types/deep-equal": "1.0.0",
     "@types/lodash": "4.14.76",
-    "@types/react": "^16.0.5",
+    "@types/react": "~16.0.5",
     "@types/react-autosuggest": "8.0.1",
     "@types/react-dom": "^15.5.0",
     "@types/react-overlays": "0.8.4",
-    "@types/react-redux": "^5.0.8",
+    "@types/react-redux": "^5.0.8 <5.0.13",
     "@types/react-virtualized": "9.7.4",
     "@types/route-parser": "0.0.0",
     "@types/uuidjs": "3.3.2",
@@ -58,7 +58,7 @@
     "webpack-dev-server": "3.9.0"
   },
   "dependencies": {
-    "apollo-client": "1.4.1",
+    "apollo-client": "~1.4.1",
     "babel-standalone": "^6.26.0",
     "color": "1.0.3",
     "deep-equal": "~1.0.1",
@@ -76,11 +76,15 @@
     "react-redux": "^5.0.5",
     "react-virtualized": "^9.9.0",
     "redux": "^3.7.0",
-    "redux-thunk": "^2.2.0",
+    "redux-thunk": "~2.2.0",
     "route-parser": "0.0.5",
     "styled-components": "2.1.0",
     "typescript-collections": "1.2.5",
     "uuidjs": "3.5.3",
     "whatwg-fetch": "^2.0.3"
+  },
+  "resolutions": {
+    "**/@types/react": "~16.0.0",
+    "**/apollo-client": "~1.4.0"
   }
 }

@@ -3,55 +3,34 @@
 
 package com.daml.platform.store.dao.events
 
+import java.sql.Connection
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter}
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, DivulgedContract}
+import anorm.SqlParser.int
+import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
-import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
+import com.daml.platform.store.dao.events.RawBatch.PartialParameters
 
-private[events] sealed abstract class ContractsTable {
+import scala.util.{Failure, Success, Try}
+
+private[events] sealed abstract class ContractsTable extends PostCommitValidationData {
 
   protected val insertContractQuery: String
-
-  private def insertContractQuery(
-      contractId: ContractId,
-      templateId: Identifier,
-      createArgument: Value,
-      createLedgerEffectiveTime: Option[Instant],
-      stakeholders: Set[Party],
-      key: Option[Key],
-  ): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "contract_id" -> contractId,
-      "template_id" -> templateId,
-      "create_argument" -> serialize(
-        value = createArgument,
-        errorContext = s"Cannot serialize create argument for $contractId",
-      ),
-      "create_ledger_effective_time" -> createLedgerEffectiveTime,
-      "create_stakeholders" -> stakeholders.toArray[String],
-      "create_key_hash" -> key.map(_.hash),
-    )
 
   private val deleteContractQuery =
     s"delete from participant_contracts where contract_id = {contract_id}"
   private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter]("contract_id" -> contractId)
 
-  case class PreparedBatches private (
-      insertions: Option[(Set[ContractId], BatchSql)],
-      deletions: Option[(Set[ContractId], BatchSql)],
-      transientContracts: Set[ContractId],
-  )
-
   private case class AccumulatingBatches(
-      insertions: Map[ContractId, Vector[NamedParameter]],
+      insertions: Map[ContractId, PartialParameters],
       deletions: Map[ContractId, Vector[NamedParameter]],
       transientContracts: Set[ContractId],
   ) {
 
-    def insert(contractId: ContractId, insertion: Vector[NamedParameter]): AccumulatingBatches =
+    def insert(contractId: ContractId, insertion: PartialParameters): AccumulatingBatches =
       copy(insertions = insertions.updated(contractId, insertion))
 
     // If the batch contains the contractId, remove the insertion.
@@ -64,6 +43,20 @@ private[events] sealed abstract class ContractsTable {
         )
       else
         copy(deletions = deletions.updated(contractId, deletion))
+
+    private def prepareRawNonEmpty(
+        query: String,
+        contractIdToParameters: Map[ContractId, PartialParameters],
+    ): Option[(Set[ContractId], RawBatch)] = {
+      if (contractIdToParameters.nonEmpty) {
+        val contractIds = contractIdToParameters.keySet
+        val parameters = contractIdToParameters.valuesIterator.toVector
+        val batch = new RawBatch(query, parameters)
+        Some(contractIds -> batch)
+      } else {
+        None
+      }
+    }
 
     private def prepareNonEmpty(
         query: String,
@@ -79,30 +72,90 @@ private[events] sealed abstract class ContractsTable {
       }
     }
 
-    def prepare: PreparedBatches =
-      PreparedBatches(
-        insertions = prepareNonEmpty(insertContractQuery, insertions),
+    def prepare: RawBatches =
+      new RawBatches(
+        insertions = prepareRawNonEmpty(insertContractQuery, insertions),
         deletions = prepareNonEmpty(deleteContractQuery, deletions),
         transientContracts = transientContracts,
       )
 
   }
 
+  final class RawBatches private[ContractsTable] (
+      val insertions: Option[(Set[ContractId], RawBatch)],
+      val deletions: Option[(Set[ContractId], BatchSql)],
+      val transientContracts: Set[ContractId],
+  ) {
+    def applySerialization(lfValueTranslation: LfValueTranslation): SerializedBatches =
+      new SerializedBatches(
+        insertions = insertions.map {
+          case (ids, rawBatch) => (ids, rawBatch.applySerialization(lfValueTranslation))
+        },
+        deletions = deletions,
+        transientContracts = transientContracts,
+      )
+  }
+
+  final class SerializedBatches private[ContractsTable] (
+      val insertions: Option[(Set[ContractId], Vector[Vector[NamedParameter]])],
+      val deletions: Option[(Set[ContractId], BatchSql)],
+      val transientContracts: Set[ContractId],
+  ) {
+    def applyBatching(): PreparedBatches =
+      new PreparedBatches(
+        insertions = insertions.map {
+          case (ids, params) => (ids, BatchSql(insertContractQuery, params.head, params.tail: _*))
+        },
+        deletions = deletions,
+        transientContracts = transientContracts,
+      )
+  }
+
+  final class PreparedBatches(
+      val insertions: Option[(Set[ContractId], BatchSql)],
+      val deletions: Option[(Set[ContractId], BatchSql)],
+      val transientContracts: Set[ContractId],
+  )
+
   def prepareBatchInsert(
       ledgerEffectiveTime: Instant,
-      transaction: Transaction,
-      divulgedContracts: Iterable[(ContractId, Contract)],
-  ): PreparedBatches = {
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract],
+  ): RawBatches = {
+
+    /** Add divulged contracts.
+      * - If a divulged contracts is also created in the same transaction, the divulged contract will
+      *   be replaced by the regular contract through [[AccumulatingBatches.insert]].
+      * - If a divulged contract was created or divulged before, the existing contract will not be replaced by the
+      *   new divulged contract because the SQL query uses 'ON CONFLICT DO NOTHING'.
+      * - It can never happen that [[divulgedContracts]] contains archived contracts, even if the archive event is
+      *   not visible to this participant.
+      * - It can never happen that [[divulgedContracts]] contains contracts for which the create event will
+      *   appear to this participant in a future transaction.
+      * */
+    val divulgedContractsInsertions =
+      divulgedContracts.iterator
+        .map(
+          contract =>
+            contract.contractId -> new RawBatch.Contract(
+              contractId = contract.contractId,
+              templateId = contract.contractInst.template,
+              createArgument = contract.contractInst.arg,
+              createLedgerEffectiveTime = None,
+              stakeholders = Set.empty,
+              key = None,
+          ))
+        .toMap
 
     // Add the locally created contracts, ensuring that _transient_
     // contracts are not inserted in the first place
     val locallyCreatedContracts =
       transaction
-        .fold(AccumulatingBatches(Map.empty, Map.empty, Set.empty)) {
+        .fold(AccumulatingBatches(divulgedContractsInsertions, Map.empty, Set.empty)) {
           case (batches, (_, node: Create)) =>
             batches.insert(
               contractId = node.coid,
-              insertion = insertContractQuery(
+              insertion = new RawBatch.Contract(
                 contractId = node.coid,
                 templateId = node.coinst.template,
                 createArgument = node.coinst.arg,
@@ -120,28 +173,27 @@ private[events] sealed abstract class ContractsTable {
             batches // ignore any event which is neither a create nor a consuming exercise
         }
 
-    // Divulged contracts are inserted _after_ locally created contracts to make sure they are
-    // not skipped if consumed in this transaction due to the logic that prevents the insertion
-    // of transient contracts (a divulged contract _must_ be inserted, regardless of whether it's
-    // consumed or not).
-    val divulgedContractsInsertions =
-      divulgedContracts.iterator.collect {
-        case (contractId, contract) if !locallyCreatedContracts.insertions.contains(contractId) =>
-          contractId -> insertContractQuery(
-            contractId = contractId,
-            templateId = contract.template,
-            createArgument = contract.arg,
-            createLedgerEffectiveTime = None,
-            stakeholders = Set.empty,
-            key = None,
-          )
-      }.toMap
-
-    locallyCreatedContracts
-      .copy(insertions = locallyCreatedContracts.insertions ++ divulgedContractsInsertions)
-      .prepare
-
+    locallyCreatedContracts.prepare
   }
+
+  override final def lookupContractKeyGlobally(key: Key)(
+      implicit connection: Connection): Option[ContractId] =
+    SQL"select participant_contracts.contract_id from participant_contracts where create_key_hash = ${key.hash}"
+      .as(contractId("contract_id").singleOpt)
+
+  override final def lookupMaximumLedgerTime(ids: Set[ContractId])(
+      implicit connection: Connection): Try[Option[Instant]] =
+    if (ids.isEmpty) {
+      Failure(ContractsTable.emptyContractIds)
+    } else {
+      SQL"select max(create_ledger_effective_time) as max_create_ledger_effective_time, count(*) as num_contracts from participant_contracts where participant_contracts.contract_id in ($ids)"
+        .as(
+          (instant("max_create_ledger_effective_time").? ~ int("num_contracts")).single
+            .map {
+              case result ~ numContracts if numContracts == ids.size => Success(result)
+              case _ => Failure(ContractsTable.notFound(ids))
+            })
+    }
 
 }
 
@@ -162,5 +214,15 @@ private[events] object ContractsTable {
     override protected val insertContractQuery: String =
       s"merge into participant_contracts using dual on contract_id = {contract_id} when not matched then insert (contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})"
   }
+
+  private def emptyContractIds: Throwable =
+    new IllegalArgumentException(
+      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
+    )
+
+  private def notFound(contractIds: Set[ContractId]): Throwable =
+    new IllegalArgumentException(
+      s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
+    )
 
 }

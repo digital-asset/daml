@@ -22,31 +22,14 @@ steps:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: 'typescript-libs'
+      targetPath: $(Build.SourcesDirectory)/compatibility/head_sdk
   - bash: |
       set -euo pipefail
-      ./compatibility/build-release-artifacts.sh $(Build.StagingDirectory)
+      ./compatibility/build-release-artifacts.sh
     displayName: 'Build release artifacts'
-  # At the moment the indirection of first publishing and then downloading
-  # artifacts is not strictly necessary. However, we have some artifacts
-  # that are platform independent where this could come in handy
-  # (e.g. build the typescript libraries on Linux and fetch them on
-  # windows) so we use this from the start.
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/sdk-release-tarball.tar.gz
-      artifactName: sdk-release-tarball.tar.gz
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/ledger-api-test-tool_deploy.jar
-      artifactName: ledger-api-test-tool_deploy.jar
-  - task: DownloadPipelineArtifact@0
-    inputs:
-      artifactName: sdk-release-tarball.tar.gz
-      targetPath: compatibility/head_sdk
-  - task: DownloadPipelineArtifact@0
-    inputs:
-      artifactName: ledger-api-test-tool_deploy.jar
-      targetPath: compatibility/head_sdk
   - bash: |
       set -eou pipefail
       ./compatibility/test.sh ${{ parameters.test_flags }}

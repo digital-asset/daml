@@ -9,7 +9,6 @@ import java.util.{Timer, TimerTask}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestException
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
@@ -35,7 +34,7 @@ object LedgerTestSuiteRunner {
 
 final class LedgerTestSuiteRunner(
     config: LedgerSessionConfiguration,
-    suiteConstructors: Vector[LedgerSession => LedgerTestSuite],
+    suites: Vector[LedgerTestSuite],
     identifierSuffix: String,
     suiteTimeoutScale: Double,
     concurrentTestRuns: Int,
@@ -83,8 +82,6 @@ final class LedgerTestSuiteRunner(
     startedTest
       .map[Either[Result.Failure, Result.Success]](duration => Right(Result.Succeeded(duration)))
       .recover[Either[Result.Failure, Result.Success]] {
-        case SkipTestException(reason) =>
-          Right(Result.Skipped(reason))
         case _: TimeoutException =>
           Left(Result.TimedOut)
         case failure: AssertionError =>
@@ -106,7 +103,7 @@ final class LedgerTestSuiteRunner(
       result: Either[Result.Failure, Result.Success])(
       implicit ec: ExecutionContext,
   ): LedgerTestSummary =
-    LedgerTestSummary(suite.name, test.description, suite.session.config, result)
+    LedgerTestSummary(suite.name, test.description, config, result)
 
   private def run(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext,
@@ -120,7 +117,6 @@ final class LedgerTestSuiteRunner(
 
     val participantSessionManager = new ParticipantSessionManager
     val ledgerSession = new LedgerSession(config, participantSessionManager)
-    val suites = suiteConstructors.map(constructor => constructor(ledgerSession))
     val testCount = suites.map(_.tests.size).sum
 
     logger.info(s"Running $testCount tests, ${math.min(testCount, concurrentTestRuns)} at a time.")
@@ -131,7 +127,7 @@ final class LedgerTestSuiteRunner(
     Source(tests)
       .mapAsyncUnordered(concurrentTestRuns) {
         case ((suite, test), index) =>
-          run(test, suite.session).map(testResult => (suite, test, testResult) -> index)
+          run(test, ledgerSession).map(testResult => (suite, test, testResult) -> index)
       }
       .map {
         case ((suite, test, testResult), index) => summarize(suite, test, testResult) -> index

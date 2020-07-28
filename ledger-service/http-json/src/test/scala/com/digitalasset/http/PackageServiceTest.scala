@@ -124,5 +124,5 @@ class PackageServiceTest
     !(toNoPkgSet(as) exists toNoPkgSet(bs))
 
   private def toNoPkgSet(xs: List[domain.TemplateId.RequiredPkg]): Set[domain.TemplateId.NoPkg] =
-    xs.map(_ copy (packageId = ()))(collection.breakOut)
+    xs.iterator.map(_ copy (packageId = ())).toSet
 }

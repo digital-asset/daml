@@ -7,7 +7,7 @@ import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.value.ValueGenerators.{party => partyGen}
+import com.daml.lf.value.test.ValueGenerators.{party => partyGen}
 import com.daml.extractor.config.CustomScoptReaders._
 import com.daml.extractor.config.ExtractorConfig
 import com.daml.extractor.services.ExtractorFixtureAroundAll
@@ -25,7 +25,6 @@ import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scopt.Read
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class MultiPartySpec
     extends FlatSpec
     with Suite

@@ -3,11 +3,15 @@
 
 package com.daml.ledger.on.memory
 
+import com.daml.ledger.participant.state.kvutils.api.BatchingLedgerWriterConfig
+
 final case class ExtraConfig(
-    maxInboundMessageSize: Int
+    batchingLedgerWriterConfig: BatchingLedgerWriterConfig
 )
 
 object ExtraConfig {
-  val defaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
-  val default = ExtraConfig(defaultMaxInboundMessageSize)
+  val default =
+    ExtraConfig(
+      batchingLedgerWriterConfig =
+        BatchingLedgerWriterConfig.reasonableDefault.copy(maxBatchConcurrentCommits = 2))
 }

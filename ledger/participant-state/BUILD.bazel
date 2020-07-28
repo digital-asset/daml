@@ -41,5 +41,6 @@ da_scala_test(
         ":participant-state",
         "//daml-lf/transaction",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

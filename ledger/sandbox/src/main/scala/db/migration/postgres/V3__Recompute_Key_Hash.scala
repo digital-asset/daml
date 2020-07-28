@@ -10,7 +10,7 @@ import java.sql.{Connection, ResultSet}
 import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
@@ -27,7 +27,7 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
   private def loadContractKeys(
       implicit connection: Connection
-  ): Iterator[(AbsoluteContractId, GlobalKey)] = {
+  ): Iterator[(ContractId, GlobalKey)] = {
 
     val SQL_SELECT_CONTRACT_KEYS =
       """
@@ -44,12 +44,12 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
     val rows: ResultSet = connection.createStatement().executeQuery(SQL_SELECT_CONTRACT_KEYS)
 
-    new Iterator[(AbsoluteContractId, GlobalKey)] {
+    new Iterator[(ContractId, GlobalKey)] {
 
       var hasNext: Boolean = rows.next()
 
-      def next(): (AbsoluteContractId, GlobalKey) = {
-        val contractId = AbsoluteContractId.assertFromString(rows.getString("contract_id"))
+      def next(): (ContractId, GlobalKey) = {
+        val contractId = ContractId.assertFromString(rows.getString("contract_id"))
         val templateId = Ref.Identifier(
           packageId = Ref.PackageId.assertFromString(rows.getString("package_id")),
           qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name"))
@@ -65,7 +65,7 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
   }
 
-  private def updateKeyHashed(contractKeys: Iterator[(AbsoluteContractId, GlobalKey)])(
+  private def updateKeyHashed(contractKeys: Iterator[(ContractId, GlobalKey)])(
       implicit conn: Connection): Unit = {
 
     val SQL_UPDATE_CONTRACT_KEYS_HASH =

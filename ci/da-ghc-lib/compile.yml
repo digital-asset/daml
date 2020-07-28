@@ -1,0 +1,73 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+- name: final_job_name
+
+jobs:
+
+- job: ${{ parameters.final_job_name }}
+  pool:
+    vmImage: 'Ubuntu 16.04'
+  variables:
+    ghc-lib-sha: 'd2eadb7ef4a6d4f33a6a04056d2e57f11a59ef0f'
+    base-sha: '9c787d4d24f2b515934c8503ee2bbd7cfac4da20'
+    patches: '0d86e4898d6ed03e23f3975e3043021687dd7e80 833ca63be2ab14871874ccb6974921e8952802e9'
+    flavor: 'ghc-8.8.1'
+  steps:
+  - checkout: self
+  - bash: |
+      set -euo pipefail
+
+      CACHE_KEY="$(find ci/da-ghc-lib -type f -print0 | sort -z | xargs -r0 md5sum | md5sum | awk '{print $1}')"
+      LIB="da-ghc-lib/ghc-lib-$CACHE_KEY.tar.gz"
+      PARSER="da-ghc-lib/ghc-lib-parser-$CACHE_KEY.tar.gz"
+      URL_BASE="https://daml-binaries.da-ext.net"
+      LIB_STATUS="$(curl -Is "$URL_BASE/$LIB" | head -1 | awk '{print $2}')"
+      PARSER_STATUS="$(curl -Is "$URL_BASE/$PARSER" | head -1 | awk '{print $2}')"
+      if [ "200" = "$LIB_STATUS" ] && [ "200" = "$PARSER_STATUS" ]; then
+          echo "Both artifacts exist; no need to run."
+          exit 0
+      fi
+
+      DIR="$(pwd)"
+      WORKDIR="$(mktemp -d -p "$(pwd)")"
+      cleanup() {
+          rm -rf "$WORKDIR"
+      }
+      trap cleanup EXIT
+
+      cd $WORKDIR
+
+      git clone https://github.com/digital-asset/ghc-lib.git
+      cd ghc-lib
+      git checkout $(ghc-lib-sha)
+      stack runhaskell --package extra \
+                       --package optparse-applicative \
+                       CI.hs \
+                       -- \
+                         --da \
+                         --merge-base-sha=$(base-sha) \
+                         $(for p in $(patches); do echo -n "--patch $p "; done) \
+                         --gen-flavor=$(flavor) \
+            | tee log
+      VERSION=$(cat log | tail -1)
+
+      GCS_KEY=$(mktemp)
+      cleanup() {
+          rm -rf $GCS_KEY
+          rm -rf "$WORKDIR"
+      }
+      trap cleanup EXIT
+      # This will break on external PRs.
+      echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+      gcloud auth activate-service-account --key-file=$GCS_KEY
+      BOTO_CONFIG=/dev/null gsutil cp -n "ghc-lib-${VERSION}.tar.gz" "gs://daml-binaries/$LIB"
+      BOTO_CONFIG=/dev/null gsutil cp -n "ghc-lib-parser-${VERSION}.tar.gz" "gs://daml-binaries/$PARSER"
+      echo "Please add(/replace) the following lines to stack-snapshot.yaml:"
+      echo "  - archive: $URL_BASE/$LIB"
+      echo "    sha256: \"$(sha256sum ghc-lib-${VERSION}.tar.gz | awk '{print $1}')\""
+      echo "  - archive: $URL_BASE/$PARSER"
+      echo "    sha256: \"$(sha256sum ghc-lib-parser-${VERSION}.tar.gz | awk '{print $1}')\""
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

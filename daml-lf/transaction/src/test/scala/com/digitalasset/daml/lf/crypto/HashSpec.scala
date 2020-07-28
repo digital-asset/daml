@@ -5,7 +5,7 @@ package com.daml.lf
 package crypto
 
 import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
-import com.daml.lf.value.TypedValueGenerators.{RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
 import org.scalatest.{Matchers, WordSpec}
@@ -15,7 +15,6 @@ import shapeless.{Coproduct => HSum}
 
 import scala.language.implicitConversions
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class HashSpec extends WordSpec with Matchers {
 
   @com.github.ghik.silencer.silent // dead code. Well, yeah
@@ -305,7 +304,7 @@ class HashSpec extends WordSpec with Matchers {
 
     "stable " in {
 
-      type V = Value[AbsoluteContractId]
+      type V = Value[ContractId]
 
       val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -347,10 +346,7 @@ class HashSpec extends WordSpec with Matchers {
           "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
           "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
         ).map { str =>
-          // irrelevant in this context, never sorted
-          implicit val ordV1: VA.contractId.IntroCtx[AbsoluteContractId.V1] =
-            (_, _) => scalaz.Ordering.LT
-          VA.contractId.inj(AbsoluteContractId.V1 assertFromString str)
+          VA.contractId.inj(ContractId.V1 assertFromString str)
         }
 
       val enumT1 = VA.enum("Color", List("Red", "Green"))._2
@@ -471,9 +467,9 @@ class HashSpec extends WordSpec with Matchers {
           | 274830656c6f7de1daf729d11c57c40ef271a101a831d89e45f034ce7bd71d9d
           |ValueParty(bob)
           | dc1f0fc026d3200a1781f0989dd1801022e028e8afe5d953a033e6d35e8ea50b
-          |ValueContractId(AbsoluteContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
+          |ValueContractId(ContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
           | 0649b1e1e7f34be457c44146e449299109167b9199101349873142ed05878b96
-          |ValueContractId(AbsoluteContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
+          |ValueContractId(ContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
           | 0b8c0cc8ebbd56e275b60cf73133387322a42448986dc3858b31eef23098e8e8
           |ValueOptional(None)
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086

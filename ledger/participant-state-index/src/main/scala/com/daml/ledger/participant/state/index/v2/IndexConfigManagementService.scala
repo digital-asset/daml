@@ -23,7 +23,7 @@ trait IndexConfigManagementService {
   def lookupConfiguration(): Future[Option[(LedgerOffset.Absolute, Configuration)]]
 
   /** Retrieve configuration entries. */
-  def configurationEntries(
-      startExclusive: Option[LedgerOffset.Absolute]): Source[ConfigurationEntry, NotUsed]
+  def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])
+    : Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed]
 
 }

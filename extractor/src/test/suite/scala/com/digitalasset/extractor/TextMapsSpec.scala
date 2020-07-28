@@ -13,7 +13,6 @@ import io.circe.parser._
 import org.scalatest._
 import scalaz.Scalaz._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TextMapsSpec
     extends FlatSpec
     with Suite

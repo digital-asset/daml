@@ -11,7 +11,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
+import com.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -111,19 +111,19 @@ object Ordering extends scala.math.Ordering[SValue] {
   private def compareText(text1: String, text2: String): Int =
     Utf8.Ordering.compare(text1, text2)
 
-  private def compareAbsCid(cid1: AbsoluteContractId, cid2: AbsoluteContractId): Int =
+  private def compareCid(cid1: ContractId, cid2: ContractId): Int =
     (cid1, cid2) match {
-      case (AbsoluteContractId.V0(s1), AbsoluteContractId.V0(s2)) =>
+      case (ContractId.V0(s1), ContractId.V0(s2)) =>
         s1 compareTo s2
-      case (AbsoluteContractId.V0(_), AbsoluteContractId.V1(_, _)) =>
+      case (ContractId.V0(_), ContractId.V1(_, _)) =>
         -1
-      case (AbsoluteContractId.V1(_, _), AbsoluteContractId.V0(_)) =>
+      case (ContractId.V1(_, _), ContractId.V0(_)) =>
         +1
-      case (AbsoluteContractId.V1(hash1, suffix1), AbsoluteContractId.V1(hash2, suffix2)) =>
+      case (ContractId.V1(hash1, suffix1), ContractId.V1(hash2, suffix2)) =>
         val c1 = crypto.Hash.ordering.compare(hash1, hash2)
         if (c1 != 0)
           c1
-        else if (suffix1.isEmpty != suffix2.isEmpty)
+        else if (suffix1.isEmpty == suffix2.isEmpty)
           Bytes.ordering.compare(suffix1, suffix2)
         else
           throw SErrorCrash("Conflicting discriminators between a local and global contract id")
@@ -169,9 +169,9 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SParty(p2) =>
               (compareText(p1, p2)) -> ImmArray.empty
           }
-          case SContractId(coid1: AbsoluteContractId) => {
-            case SContractId(coid2: AbsoluteContractId) =>
-              compareAbsCid(coid1, coid2) -> ImmArray.empty
+          case SContractId(coid1: ContractId) => {
+            case SContractId(coid2: ContractId) =>
+              compareCid(coid1, coid2) -> ImmArray.empty
           }
           case STypeRep(t1) => {
             case STypeRep(t2) =>
@@ -218,10 +218,6 @@ object Ordering extends scala.math.Ordering[SValue] {
           case SAny(t1, v1) => {
             case SAny(t2, v2) =>
               compareType(t1, t2) -> ImmArray((v1, v2))
-          }
-          case SContractId(RelativeContractId(_)) => {
-            case SContractId(RelativeContractId(_)) =>
-              throw SErrorCrash("relative contract id are not comparable")
           }
           case SPAP(_, _, _) => {
             case SPAP(_, _, _) =>

@@ -105,7 +105,7 @@ object InterfaceReader {
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
   private[reader] def foldModule(module: Ast.Module): State =
-    (State() /: module.definitions) {
+    (module.definitions foldLeft State()) {
       case (state, (name, Ast.DDataType(true, params, dataType))) =>
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq

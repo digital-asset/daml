@@ -8,16 +8,12 @@ import java.nio.file.Path
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
+import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  LedgerConfiguration,
-  MetricsReporter,
-  SubmissionConfiguration
-}
+import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
@@ -30,8 +26,7 @@ final case class SandboxConfig(
     portFile: Option[Path],
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
-    commandConfig: CommandConfiguration, //TODO: this should go to the file config
-    submissionConfig: SubmissionConfiguration,
+    commandConfig: CommandConfiguration,
     ledgerConfig: LedgerConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
@@ -46,6 +41,9 @@ final case class SandboxConfig(
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     eventsPageSize: Int,
+    lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
+    lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
+    profileDir: Option[Path],
 )
 
 object SandboxConfig {
@@ -57,6 +55,9 @@ object SandboxConfig {
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
+  val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
+    SizedCache.Configuration.none
+
   lazy val nextDefault: SandboxConfig =
     SandboxConfig(
       address = None,
@@ -65,8 +66,7 @@ object SandboxConfig {
       damlPackages = Nil,
       timeProviderType = None,
       commandConfig = CommandConfiguration.default,
-      submissionConfig = SubmissionConfiguration.default,
-      ledgerConfig = LedgerConfiguration.default,
+      ledgerConfig = LedgerConfiguration.defaultLocalLedger,
       tlsConfig = None,
       scenario = None,
       implicitPartyAllocation = true,
@@ -80,10 +80,14 @@ object SandboxConfig {
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
       eventsPageSize = DefaultEventsPageSize,
+      lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
+      lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
+      profileDir = None,
     )
 
   lazy val default: SandboxConfig =
     nextDefault.copy(
       seeding = None,
+      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     )
 }

@@ -57,20 +57,34 @@ object HttpService extends StrictLogging {
 
   final case class Error(message: String)
 
+  // defined separately from Config so
+  //  1. it is absolutely lexically apparent what `import startSettings._` means
+  //  2. avoid incorporating other Config'd things into "the shared args to start"
+  trait StartSettings {
+    val ledgerHost: String
+    val ledgerPort: Int
+    val applicationId: ApplicationId
+    val address: String
+    val httpPort: Int
+    val portFile: Option[Path]
+    val tlsConfig: TlsConfiguration
+    val wsConfig: Option[WebsocketConfig]
+    val accessTokenFile: Option[Path]
+    val allowNonHttps: Boolean
+    val staticContentConfig: Option[StaticContentConfig]
+    val packageReloadInterval: FiniteDuration
+    val maxInboundMessageSize: Int
+  }
+
+  trait DefaultStartSettings extends StartSettings {
+    override val staticContentConfig: Option[StaticContentConfig] = None
+    override val packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval
+    override val maxInboundMessageSize: Int = DefaultMaxInboundMessageSize
+  }
+
   def start(
-      ledgerHost: String,
-      ledgerPort: Int,
-      applicationId: ApplicationId,
-      address: String,
-      httpPort: Int,
-      portFile: Option[Path],
-      tlsConfig: TlsConfiguration,
-      wsConfig: Option[WebsocketConfig],
-      accessTokenFile: Option[Path],
+      startSettings: StartSettings,
       contractDao: Option[ContractDao] = None,
-      staticContentConfig: Option[StaticContentConfig] = None,
-      packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
-      maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       validateJwt: EndpointsCompanion.ValidateJwt = decodeJwt,
   )(
       implicit asys: ActorSystem,
@@ -78,6 +92,7 @@ object HttpService extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[Error \/ ServerBinding] = {
+    import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys)
 
@@ -85,7 +100,7 @@ object HttpService extends StrictLogging {
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = tlsConfig.client,
       token = tokenHolder.flatMap(_.token),
@@ -145,6 +160,7 @@ object HttpService extends StrictLogging {
 
       jsonEndpoints = new Endpoints(
         ledgerId,
+        allowNonHttps,
         validateJwt,
         commandService,
         contractsService,
@@ -187,7 +203,6 @@ object HttpService extends StrictLogging {
     bindingEt.run: Future[Error \/ ServerBinding]
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def refreshToken(
       holderM: Option[TokenHolder],
   )(implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[String]] =
@@ -201,7 +216,6 @@ object HttpService extends StrictLogging {
         },
     )
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def doLoad(packageClient: PackageClient, ids: Set[String], tokenM: Option[String])(
       implicit ec: ExecutionContext,
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
@@ -209,7 +223,6 @@ object HttpService extends StrictLogging {
       .loadPackageStoreUpdates(packageClient, tokenM)(ids)
       .map(_.leftMap(e => PackageService.ServerError(e)))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def loadPackageStoreUpdates(
       packageClient: PackageClient,
       holderM: Option[TokenHolder],

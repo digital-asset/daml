@@ -15,7 +15,6 @@ import wolpertinger.{Color, Wolpertinger}
 
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CodegenLedgerTest extends AsyncFlatSpec with Matchers {
 
   import TestUtil._

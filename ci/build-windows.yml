@@ -51,21 +51,18 @@ steps:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.installer)
       artifactName: $(publish.installer)
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.tarball)
       artifactName: $(publish.tarball)

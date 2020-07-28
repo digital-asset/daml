@@ -1,0 +1,316 @@
+diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
+index e44f9b45..6f73fa8f 100644
+--- a/haskell/cabal.bzl
++++ b/haskell/cabal.bzl
+@@ -249,11 +249,9 @@ def _prepare_cabal_inputs(
+             depset(transitive_link_libs),
+             depset(transitive_haddocks),
+             setup_dep_info.interface_dirs,
+-            setup_dep_info.static_libraries,
+-            setup_dep_info.dynamic_libraries,
++            setup_dep_info.hs_libraries,
+             dep_info.interface_dirs,
+-            dep_info.static_libraries,
+-            dep_info.dynamic_libraries,
++            dep_info.hs_libraries,
+             tool_inputs,
+         ],
+     )
+@@ -338,13 +336,19 @@ def _haskell_cabal_library_impl(ctx):
+     else:
+         haddock_file = None
+         haddock_html_dir = None
+-    static_library_filename = "_install/lib/libHS{}.a".format(package_id)
+-    if with_profiling:
+-        static_library_filename = "_install/lib/libHS{}_p.a".format(package_id)
+-    static_library = hs.actions.declare_file(
+-        static_library_filename,
++    vanilla_library = hs.actions.declare_file(
++        "_install/lib/libHS{}.a".format(package_id),
+         sibling = cabal,
+     )
++    if with_profiling:
++        profiling_library = hs.actions.declare_file(
++            "_install/lib/libHS{}_p.a".format(package_id),
++            sibling = cabal,
++        )
++        static_library = profiling_library
++    else:
++        profiling_library = None
++        static_library = vanilla_library
+     if hs.toolchain.is_static:
+         dynamic_library = None
+     else:
+@@ -387,13 +391,15 @@ def _haskell_cabal_library_impl(ctx):
+     outputs = [
+         package_database,
+         interfaces_dir,
+-        static_library,
++        vanilla_library,
+         data_dir,
+     ]
+     if ctx.attr.haddock:
+         outputs.extend([haddock_file, haddock_html_dir])
+     if dynamic_library != None:
+         outputs.append(dynamic_library)
++    if with_profiling:
++        outputs.append(profiling_library)
+     ctx.actions.run(
+         executable = c.cabal_wrapper,
+         arguments = [c.args],
+@@ -419,15 +425,11 @@ def _haskell_cabal_library_impl(ctx):
+         source_files = depset(),
+         extra_source_files = depset(),
+         import_dirs = set.empty(),
+-        static_libraries = depset(
+-            direct = [static_library],
+-            transitive = [dep_info.static_libraries],
++        hs_libraries = depset(
++            direct = [lib for lib in [vanilla_library, dynamic_library, profiling_library] if lib],
++            transitive = [dep_info.hs_libraries],
+             order = "topological",
+         ),
+-        dynamic_libraries = depset(
+-            direct = [dynamic_library] if dynamic_library != None else [],
+-            transitive = [dep_info.dynamic_libraries],
+-        ),
+         interface_dirs = depset([interfaces_dir], transitive = [dep_info.interface_dirs]),
+         compile_flags = [],
+     )
+@@ -668,8 +670,7 @@ def _haskell_cabal_binary_impl(ctx):
+         source_files = depset(),
+         extra_source_files = depset(),
+         import_dirs = set.empty(),
+-        static_libraries = dep_info.static_libraries,
+-        dynamic_libraries = dep_info.dynamic_libraries,
++        hs_libraries = dep_info.hs_libraries,
+         interface_dirs = dep_info.interface_dirs,
+         compile_flags = [],
+     )
+diff --git a/haskell/doctest.bzl b/haskell/doctest.bzl
+index 1578efbc..2e32d3fe 100644
+--- a/haskell/doctest.bzl
++++ b/haskell/doctest.bzl
+@@ -128,7 +128,7 @@ def _haskell_doctest_single(target, ctx):
+             hs_info.package_databases,
+             hs_info.interface_dirs,
+             hs_info.extra_source_files,
+-            hs_info.dynamic_libraries,
++            hs_info.hs_libraries,
+             cc_info.compilation_context.headers,
+             depset(get_ghci_library_files(hs, cc_libraries_info, cc.transitive_libraries)),
+             depset(
+diff --git a/haskell/haddock.bzl b/haskell/haddock.bzl
+index 18265c08..dfcff942 100644
+--- a/haskell/haddock.bzl
++++ b/haskell/haddock.bzl
+@@ -162,7 +162,7 @@ def _haskell_doc_aspect_impl(target, ctx):
+             target[HaskellInfo].interface_dirs,
+             target[HaskellInfo].source_files,
+             target[HaskellInfo].extra_source_files,
+-            target[HaskellInfo].dynamic_libraries,
++            target[HaskellInfo].hs_libraries,
+             depset(cc_libraries),
+             depset(transitive = [depset(i) for i in transitive_haddocks.values()]),
+             target[CcInfo].compilation_context.headers,
+diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
+index 5bec4abc..b31790fc 100644
+--- a/haskell/private/actions/compile.bzl
++++ b/haskell/private/actions/compile.bzl
+@@ -347,12 +347,10 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+             depset(cc.hdrs),
+             dep_info.package_databases,
+             dep_info.interface_dirs,
+-            dep_info.static_libraries,
+-            dep_info.dynamic_libraries,
++            dep_info.hs_libraries,
+             plugin_dep_info.package_databases,
+             plugin_dep_info.interface_dirs,
+-            plugin_dep_info.static_libraries,
+-            plugin_dep_info.dynamic_libraries,
++            plugin_dep_info.hs_libraries,
+             depset(get_ghci_library_files(hs, cc.cc_libraries_info, cc.transitive_libraries + cc.plugin_libraries)),
+             java.inputs,
+             preprocessors.inputs,
+diff --git a/haskell/private/actions/info.bzl b/haskell/private/actions/info.bzl
+index 692b4906..ab4e5f84 100644
+--- a/haskell/private/actions/info.bzl
++++ b/haskell/private/actions/info.bzl
+@@ -133,7 +133,7 @@ def library_info_output_groups(
+             transitive = [
+                 hs_info.package_databases,
+                 hs_info.interface_dirs,
+-                hs_info.dynamic_libraries,
++                hs_info.hs_libraries,
+             ],
+         ),
+         "haskell_library_info": depset([proto_file]),
+diff --git a/haskell/private/actions/link.bzl b/haskell/private/actions/link.bzl
+index e9782573..18ac11b1 100644
+--- a/haskell/private/actions/link.bzl
++++ b/haskell/private/actions/link.bzl
+@@ -129,8 +129,7 @@ def link_binary(
+         inputs = depset(transitive = [
+             depset(extra_srcs),
+             dep_info.package_databases,
+-            dep_info.dynamic_libraries,
+-            dep_info.static_libraries,
++            dep_info.hs_libraries,
+             depset([cache_file] + object_files),
+             pkg_info_inputs,
+             depset(static_libs + dynamic_libs),
+@@ -248,7 +247,7 @@ def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, object_files, my_p
+         inputs = depset([cache_file] + object_files, transitive = [
+             extra_srcs,
+             dep_info.package_databases,
+-            dep_info.dynamic_libraries,
++            dep_info.hs_libraries,
+             pkg_info_inputs,
+             depset(static_libs + dynamic_libs),
+         ]),
+diff --git a/haskell/private/dependencies.bzl b/haskell/private/dependencies.bzl
+index f7090725..33a97e64 100644
+--- a/haskell/private/dependencies.bzl
++++ b/haskell/private/dependencies.bzl
+@@ -21,13 +21,8 @@ def gather_dep_info(ctx, deps):
+         for dep in deps
+         if HaskellInfo in dep
+     ])
+-    static_libraries = depset(transitive = [
+-        dep[HaskellInfo].static_libraries
+-        for dep in deps
+-        if HaskellInfo in dep
+-    ])
+-    dynamic_libraries = depset(transitive = [
+-        dep[HaskellInfo].dynamic_libraries
++    hs_libraries = depset(transitive = [
++        dep[HaskellInfo].hs_libraries
+         for dep in deps
+         if HaskellInfo in dep
+     ])
+@@ -62,8 +57,7 @@ def gather_dep_info(ctx, deps):
+     acc = HaskellInfo(
+         package_databases = package_databases,
+         version_macros = set.empty(),
+-        static_libraries = static_libraries,
+-        dynamic_libraries = dynamic_libraries,
++        hs_libraries = hs_libraries,
+         interface_dirs = interface_dirs,
+         source_files = source_files,
+         import_dirs = import_dirs,
+@@ -79,8 +73,7 @@ def gather_dep_info(ctx, deps):
+             acc = HaskellInfo(
+                 package_databases = acc.package_databases,
+                 version_macros = set.mutable_union(acc.version_macros, binfo.version_macros),
+-                static_libraries = depset(transitive = [acc.static_libraries, binfo.static_libraries]),
+-                dynamic_libraries = acc.dynamic_libraries,
++                hs_libraries = depset(transitive = [acc.hs_libraries, binfo.hs_libraries]),
+                 interface_dirs = acc.interface_dirs,
+                 import_dirs = import_dirs,
+                 compile_flags = compile_flags,
+@@ -97,8 +90,7 @@ def gather_dep_info(ctx, deps):
+                 import_dirs = acc.import_dirs,
+                 source_files = acc.source_files,
+                 compile_flags = acc.compile_flags,
+-                static_libraries = acc.static_libraries,
+-                dynamic_libraries = acc.dynamic_libraries,
++                hs_libraries = acc.hs_libraries,
+                 extra_source_files = acc.extra_source_files,
+                 interface_dirs = acc.interface_dirs,
+             )
+diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
+index 7ddb4625..a53b2d62 100644
+--- a/haskell/private/haskell_impl.bzl
++++ b/haskell/private/haskell_impl.bzl
+@@ -232,8 +232,7 @@ def _haskell_binary_common_impl(ctx, is_test):
+         source_files = c.source_files,
+         extra_source_files = c.extra_source_files,
+         import_dirs = c.import_dirs,
+-        static_libraries = dep_info.static_libraries,
+-        dynamic_libraries = dep_info.dynamic_libraries,
++        hs_libraries = dep_info.hs_libraries,
+         interface_dirs = dep_info.interface_dirs,
+         compile_flags = c.compile_flags,
+     )
+@@ -405,19 +404,8 @@ def haskell_library_impl(ctx):
+             my_pkg_id,
+             with_profiling = with_profiling,
+         )
+-
+-        # NOTE We have to use lists for static libraries because the order is
+-        # important for linker. Linker searches for unresolved symbols to the
+-        # left, i.e. you first feed a library which has unresolved symbols and
+-        # then you feed the library which resolves the symbols.
+-        static_libraries = depset(
+-            direct = [static_library],
+-            transitive = [dep_info.static_libraries],
+-            order = "topological",
+-        )
+     else:
+         static_library = None
+-        static_libraries = dep_info.static_libraries
+ 
+     if with_shared and srcs_files:
+         dynamic_library = link_library_dynamic(
+@@ -430,10 +418,8 @@ def haskell_library_impl(ctx):
+             my_pkg_id,
+             user_compile_flags,
+         )
+-        dynamic_libraries = depset([dynamic_library], transitive = [dep_info.dynamic_libraries])
+     else:
+         dynamic_library = None
+-        dynamic_libraries = dep_info.dynamic_libraries
+ 
+     conf_file, cache_file = package(
+         hs,
+@@ -468,8 +454,10 @@ def haskell_library_impl(ctx):
+         source_files = c.source_files,
+         extra_source_files = c.extra_source_files,
+         import_dirs = set.mutable_union(c.import_dirs, export_infos.import_dirs),
+-        static_libraries = depset(transitive = [static_libraries, export_infos.static_libraries]),
+-        dynamic_libraries = depset(transitive = [dynamic_libraries, export_infos.dynamic_libraries]),
++        hs_libraries = depset(
++            direct = [lib for lib in [static_library, dynamic_library] if lib],
++            transitive = [dep_info.hs_libraries, export_infos.hs_libraries],
++        ),
+         interface_dirs = depset(transitive = [interface_dirs, export_infos.interface_dirs]),
+         compile_flags = c.compile_flags,
+     )
+@@ -815,8 +803,8 @@ def haskell_import_impl(ctx):
+         source_files = depset(),
+         extra_source_files = depset(),
+         import_dirs = set.empty(),
+-        static_libraries = depset(),
+-        dynamic_libraries = depset(),
++        # XXX: Track toolchain library files of all relevant GHC ways.
++        hs_libraries = depset(),
+         interface_dirs = depset(),
+         compile_flags = [],
+     )
+diff --git a/haskell/providers.bzl b/haskell/providers.bzl
+index fb220e16..ab2cc586 100644
+--- a/haskell/providers.bzl
++++ b/haskell/providers.bzl
+@@ -8,8 +8,7 @@ HaskellInfo = provider(
+         "import_dirs": "Import hierarchy roots.",
+         "source_files": "Depset of files that contain Haskell modules.",
+         "extra_source_files": "Depset of non-Haskell source files.",
+-        "static_libraries": "Ordered collection of compiled library archives.",
+-        "dynamic_libraries": "Depset of dynamic libraries.",
++        "hs_libraries": "Depset of compiled Haskell libraries in all available GHC ways.",
+         "interface_dirs": "Depset of interface dirs belonging to the packages.",
+         "compile_flags": "Arguments that were used to compile the code.",
+     },
+diff --git a/tests/library-linkstatic-flag/get_library_files.bzl b/tests/library-linkstatic-flag/get_library_files.bzl
+index 0c73965c..e3413ecf 100644
+--- a/tests/library-linkstatic-flag/get_library_files.bzl
++++ b/tests/library-linkstatic-flag/get_library_files.bzl
+@@ -12,7 +12,7 @@ def _get_libraries_as_runfiles_impl(ctx):
+     return [DefaultInfo(
+         # not necessarily complete
+         files = depset(
+-            transitive = [bi.static_libraries, bi.dynamic_libraries],
++            transitive = [bi.hs_libraries],
+         ),
+     )]
+ 

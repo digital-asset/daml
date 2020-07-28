@@ -39,7 +39,6 @@ private object SimpleHttpServer {
   }
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class JwksSpec extends FlatSpec with Matchers {
 
   private def generateToken(keyId: String, privateKey: RSAPrivateKey) = {

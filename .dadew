@@ -3,16 +3,17 @@
     "manifests": "dev-env\\windows\\manifests",
     "tools": [
         "7zip",
-        "java-openjdk-8u201",
-        "msys2",
-        "curl-7.65.3",
-        "cacert",
-        "vcredist-14.0.23026",
         "bazel",
-        "nodejs-10.16.3",
-        "python-3.8.2",
-        "nsis-3.04",
+        "cacert",
+        "curl-7.65.3",
+        "java-openjdk-8u201",
         "maven-3.6.1",
-        "stack"
+        "msys2",
+        "nodejs-12.17.0",
+        "nsis-3.04",
+        "python-3.8.2",
+        "stack",
+        "toxiproxy",
+        "vcredist-14.24.28127.4"
     ]
 }

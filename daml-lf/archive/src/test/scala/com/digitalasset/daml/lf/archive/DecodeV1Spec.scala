@@ -20,7 +20,6 @@ import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
 
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class DecodeV1Spec
     extends WordSpec
     with Matchers
@@ -615,7 +614,7 @@ class DecodeV1Spec
     "translate generic comparison builtins as is if version < 1.9" in {
       forEvery(preGenericComparisonVersion) { version =>
         val decoder = moduleDecoder(version)
-        forEvery(genericComparisonBuiltinCases) { (proto, scala) =>
+        forEvery(genericComparisonBuiltinCases) { (proto, _) =>
           a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }

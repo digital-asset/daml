@@ -48,7 +48,7 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
     newOffset
   }
 
-  private val dispatcher = Dispatcher[Offset]("inmemory-ledger", Offset.begin, ledgerEnd)
+  private val dispatcher = Dispatcher[Offset]("inmemory-ledger", Offset.beforeBegin, ledgerEnd)
 
   def getSource(
       startExclusive: Option[Offset],

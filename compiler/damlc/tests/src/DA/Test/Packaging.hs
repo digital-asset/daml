@@ -762,6 +762,56 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             , "foo = f"
             ]
           withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
+    , testCaseSteps "module-prefixes" $ \step -> withTempDir $ \dir -> do
+          step "Create dep1"
+          createDirectoryIfMissing True (dir </> "dep1")
+          writeFileUTF8 (dir </> "dep1" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: dep"
+            , "version: 1.0.0"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (dir </> "dep1" </> "A.daml") $ unlines
+            [ "module A where"
+            , "dep1 = 0"
+            ]
+          callProcessSilent damlc ["build", "--project-root", dir </> "dep1", "-o", "dep1.dar"]
+          createDirectoryIfMissing True (dir </> "dep2")
+          writeFileUTF8 (dir </> "dep2" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: dep"
+            , "version: 2.0.0"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (dir </> "dep2" </> "A.daml") $ unlines
+            [ "module A where"
+            , "dep2 = 0"
+            ]
+          callProcessSilent damlc ["build", "--project-root", dir </> "dep2", "-o", "dep2.dar"]
+          step "Building main"
+          createDirectoryIfMissing True (dir </> "main")
+          writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies:"
+            , "  - " <> show (dir </> "dep1" </> "dep1.dar")
+            , "  - " <> show (dir </> "dep2" </> "dep2.dar")
+            , "module-prefixes:"
+            , "  dep-1.0.0: Dep1"
+            , "  dep-2.0.0: Dep2"
+            ]
+          writeFileUTF8 (dir </> "main" </> "A.daml") $ unlines
+            [ "module A where"
+            , "import Dep1.A"
+            , "import Dep2.A"
+            , "main = dep1 + dep2"
+            ]
+          callProcessSilent damlc ["build", "--project-root", dir </> "main", "-o", "main.dar"]
     ] <>
     [ lfVersionTests damlc
     , dataDependencyTests tools

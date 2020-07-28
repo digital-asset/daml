@@ -26,7 +26,7 @@ da_haskell_test(
     ],
 )
 
-# Tests for damlc visual
+# Tests for the dar reader
 da_haskell_test(
     name = "daml-lf-reader",
     srcs = ["src/DarReaderTest.hs"],
@@ -41,6 +41,38 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         "//compiler/daml-lf-reader",
+    ],
+)
+
+# Tests for visualization
+da_haskell_test(
+    name = "visualization",
+    srcs = ["src/DamlcVisualize.hs"],
+    data = [
+        "//compiler/damlc",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "either",
+        "extra",
+        "filepath",
+        "tasty",
+        "tasty-expected-failure",
+        "tasty-hunit",
+        "zip-archive",
+    ],
+    main_function = "DamlcVisualize.main",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/damlc/daml-ide-core:ide-testing",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
     ],
 )
 
@@ -87,11 +119,14 @@ da_haskell_test(
     srcs = ["src/DA/Test/DamlDoc.hs"],
     data = [
         ":daml-test-files",
+        "//compiler/damlc:daml-base-anchors.json",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
     ],
     hackage_deps = [
         "base",
+        "containers",
+        "filepath",
         "tasty-hunit",
         "text",
     ],
@@ -100,7 +135,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -410,6 +447,38 @@ damlc_compile_test(
     stack_limit = "100K" if is_windows else "70K",
 )
 
+da_haskell_binary(
+    name = "generate-package-pattern-match",
+    srcs = ["src/DA/Test/GeneratePackagePatternMatch.hs"],
+    hackage_deps = [
+        "base",
+        "directory",
+        "filepath",
+    ],
+    main_function = "DA.Test.GeneratePackagePatternMatch.main",
+    src_strip_prefix = "src",
+)
+
+# This is an SH test since damlc_compile_test does not support packages so far.
+sh_test(
+    name = "package-pattern-match-perf",
+    srcs = ["src/package-pattern-match-perf.sh"],
+    args = [
+        "$(location //compiler/damlc)",
+        "$(location :generate-package-pattern-match)",
+    ],
+    data = [
+        ":generate-package-pattern-match",
+        "//compiler/damlc",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 filegroup(
     name = "daml-test-files",
     srcs = glob(["daml-test-files/**"]),
@@ -452,6 +521,27 @@ sh_test(
         "//compiler/damlc",
         "//compiler/damlc/pkg-db",
         "@com_google_protobuf//:protoc",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "inspect-dar",
+    srcs = ["src/inspect-dar.sh"],
+    args = [
+        "$(rootpath //compiler/damlc)",
+        "$(rootpath @jq_dev_env//:jq)",
+        "$(rootpath //ledger/test-common:Test-dev.dar)",
+    ],
+    data = [
+        "//compiler/damlc",
+        "//ledger/test-common:Test-dev.dar",
+        "@jq_dev_env//:jq",
     ],
     toolchains = [
         "@rules_sh//sh/posix:make_variables",

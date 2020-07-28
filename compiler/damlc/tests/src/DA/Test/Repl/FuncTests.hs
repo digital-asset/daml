@@ -62,7 +62,7 @@ main = do
     withTempFile $ \portFile ->
         withBinaryFile nullDevice WriteMode $ \devNull ->
         bracket (createSandbox portFile devNull defaultSandboxConf { dars = [testDar] }) destroySandbox $ \SandboxResource{sandboxPort} ->
-        ReplClient.withReplClient (ReplClient.Options replJar "localhost" (show sandboxPort) Nothing Nothing CreatePipe) $ \replHandle mbServiceOut processHandle ->
+        ReplClient.withReplClient (ReplClient.Options replJar "localhost" (show sandboxPort) Nothing Nothing Nothing CreatePipe) $ \replHandle mbServiceOut processHandle ->
         -- TODO We could share some of this setup with the actual repl code in damlc.
         withTempDir $ \dir ->
         withCurrentDirectory dir $ do
@@ -91,7 +91,7 @@ initPackageConfig scriptDar testDar = do
         ]
     withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
         dir <- getCurrentDirectory
-        createProjectPackageDb (toNormalizedFilePath' dir) options pSdkVersion pDependencies pDataDependencies
+        createProjectPackageDb (toNormalizedFilePath' dir) options pSdkVersion pModulePrefixes pDependencies pDataDependencies
 
 drainHandle :: Handle -> Chan String -> IO ()
 drainHandle handle chan = forever $ do
@@ -222,6 +222,15 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
     , testInteraction' "abort call"
           [ input "abort \"foobar\""
           , matchServiceOutput "^Error: User abort: foobar$"
+          ]
+    , testInteraction' "record dot syntax"
+          [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice\")"
+          , input "bob <- allocatePartyWithHint \"Bob\" (PartyIdHint \"bob\")"
+          , input "proposal <- pure (T alice bob)"
+          , input "debug proposal.proposer"
+          , matchServiceOutput "'alice'"
+          , input "debug proposal.accepter"
+          , matchServiceOutput "'bob'"
           ]
     ]
   where

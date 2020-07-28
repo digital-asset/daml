@@ -17,7 +17,6 @@ import org.scalatest._
 
 import scala.concurrent.duration._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionSingleTableSpec
     extends FlatSpec
     with Suite

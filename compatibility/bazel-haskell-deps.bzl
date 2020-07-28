@@ -15,11 +15,12 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
+load("@dadew//:dadew.bzl", "dadew_tool_home")
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
 
-    use_integer_simple = True
+    use_integer_simple = not is_windows
 
     stack_snapshot(
         name = "stackage",
@@ -28,6 +29,8 @@ def daml_haskell_deps():
         },
         flags = dicts.add(
             {
+                "cryptonite": ["-integer-gmp"],
+                "hashable": ["-integer-gmp"],
                 "integer-logarithms": ["-integer-gmp"],
                 "text": ["integer-simple"],
                 "scientific": ["integer-simple"],
@@ -36,18 +39,52 @@ def daml_haskell_deps():
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
+            "aeson",
+            "aeson-extra",
+            "async",
             "base",
+            "bytestring",
+            "conduit",
+            "conduit-extra",
+            "containers",
+            "cryptonite",
             "directory",
             "extra",
             "filepath",
+            "http-client",
+            "http-conduit",
+            "jwt",
+            "lens",
+            "lens-aeson",
+            "memory",
+            "mtl",
             "monad-loops",
             "network",
+            "optparse-applicative",
             "process",
+            "safe",
             "safe-exceptions",
+            "semver",
             "split",
+            "tagged",
+            "tar-conduit",
+            "tasty",
+            "tasty-hunit",
             "text",
+            "optparse-applicative",
+            "unix-compat",
+            "unordered-containers",
         ] + (["unix"] if not is_windows else ["Win32"]),
-        stack = None,
+        stack = "@stack_windows//:stack.exe" if is_windows else None,
         tools = [
         ],
     )
+
+    if is_windows:
+        native.new_local_repository(
+            name = "stack_windows",
+            build_file_content = """
+exports_files(["stack.exe"], visibility = ["//visibility:public"])
+""",
+            path = dadew_tool_home("stack"),
+        )

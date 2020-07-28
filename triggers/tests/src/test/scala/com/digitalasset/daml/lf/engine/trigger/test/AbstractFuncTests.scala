@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.commands.CreateCommand
@@ -19,6 +19,7 @@ import org.scalatest._
 import scalaz.syntax.traverse._
 
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.engine.trigger.RunnerConfig
 
 abstract class AbstractFuncTests
     extends AsyncWordSpec
@@ -53,8 +54,7 @@ abstract class AbstractFuncTests
             .get(0)
             .asInstanceOf[SList]
             .list
-            .map(x =>
-              x.asInstanceOf[SContractId].value.asInstanceOf[AbsoluteContractId].coid.toString)
+            .map(x => x.asInstanceOf[SContractId].value.asInstanceOf[ContractId].coid.toString)
             .toSet
         )
       }
@@ -271,6 +271,48 @@ abstract class AbstractFuncTests
         } yield {
           assert(acs(tId).length == 1)
           assert(acs(tPrimeId).length == 1)
+        }
+      }
+    }
+
+    "CreateAndExercise" should {
+      val triggerId = QualifiedName.assertFromString("CreateAndExercise:createAndExerciseTrigger")
+      val tId = LedgerApi.Identifier(packageId, "CreateAndExercise", "T")
+      val uId = LedgerApi.Identifier(packageId, "CreateAndExercise", "U")
+      "createAndExercise" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+          (acs, offset) <- runner.queryACS()
+          // 1 for create and exercise
+          // 1 for completion
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          acs <- queryACS(client, party)
+        } yield {
+          assert(acs(tId).length == 1)
+          assert(acs(uId).length == 1)
+        }
+      }
+    }
+
+    "MaxMessageSizeTests" should {
+      val triggerId =
+        QualifiedName.assertFromString("MaxInboundMessageTest:maxInboundMessageSizeTrigger")
+      val tId = LedgerApi.Identifier(packageId, "MaxInboundMessageTest", "MessageSize")
+      "fail" in {
+        for {
+          client <- ledgerClient(
+            maxInboundMessageSize = 5 * RunnerConfig.DefaultMaxInboundMessageSize)
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+          (acs, offset) <- runner.queryACS()
+          // 1 for create and exercise
+          // 1 for completion
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          acs <- queryACS(client, party)
+        } yield {
+          assert(acs(tId).length == 50001)
         }
       }
     }

@@ -19,12 +19,6 @@ import scala.collection.immutable.{HashMap, TreeMap}
   * machine. In addition to the usual types present in the LF value,
   * this also contains partially applied functions (SPAP).
   */
-
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-  ),
-)
 sealed trait SValue {
 
   import SValue._
@@ -88,8 +82,8 @@ sealed trait SValue {
       case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
       case SPAP(prim, args, arity) =>
         val prim2 = prim match {
-          case PClosure(expr, vars) =>
-            PClosure(expr, vars.map(_.mapContractId(f)))
+          case PClosure(label, expr, vars) =>
+            PClosure(label, expr, vars.map(_.mapContractId(f)))
           case other => other
         }
         val args2 = mapArrayList(args, _.mapContractId(f))
@@ -120,18 +114,30 @@ object SValue {
   /** "Primitives" that can be applied. */
   sealed trait Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
-  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals {
-    override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
+
+  /** A closure consisting of an expression together with the values the
+    * expression is closing over.
+    * The [[label]] field is only used during profiling. During non-profiling
+    * runs it is always set to [[null]].
+    * During profiling, whenever a closure whose [[label]] has been set is
+    * entered, we write an "open event" with the label and when the closure is
+    * left, we write a "close event" with the same label.
+    */
+  final case class PClosure(label: Profile.Label, expr: SExpr, frame: Array[SValue])
+      extends Prim
+      with SomeArrayEquals {
+    override def toString: String = s"PClosure($expr, ${frame.mkString("[", ",", "]")})"
   }
 
-  /** A partially (or fully) applied primitive.
-    * This is constructed when an argument is applied. When it becomes fully
-    * applied (args.size == arity), the machine will apply the arguments to the primitive.
-    * If the primitive is a closure, the arguments are pushed to the environment and the
-    * closure body is entered.
+  /** A partially applied primitive.
+    * An SPAP is *never* fully applied. This is asserted on construction.
     */
-  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue {
-    override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
+  final case class SPAP(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends SValue {
+    if (actuals.size >= arity) {
+      throw SErrorCrash(s"SPAP: unexpected actuals.size >= arity")
+    }
+    override def toString: String =
+      s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))

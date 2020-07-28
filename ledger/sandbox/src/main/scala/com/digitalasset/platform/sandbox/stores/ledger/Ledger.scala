@@ -10,13 +10,9 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.GenTransaction
-import com.daml.lf.transaction.Transaction.NodeId
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.transaction.{Transaction => Tx, TransactionCommitter}
+import com.daml.lf.value.Value.ContractId
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.EventId
-import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
@@ -55,17 +51,16 @@ trait Ledger extends ReadOnlyLedger {
 
 object Ledger {
 
-  type TransactionForIndex =
-    GenTransaction[EventId, AbsoluteContractId, Value.VersionedValue[AbsoluteContractId]]
-  type DisclosureForIndex = Map[EventId, Set[Party]]
-  type GlobalDivulgence = Relation[AbsoluteContractId, Party]
+  type GlobalDivulgence = Relation[ContractId, Party]
 
-  def convertToCommittedTransaction(transactionId: TransactionId, transaction: SubmittedTransaction)
-    : (TransactionForIndex, DisclosureForIndex, GlobalDivulgence) = {
+  def convertToCommittedTransaction(
+      committer: TransactionCommitter,
+      transactionId: TransactionId,
+      transaction: SubmittedTransaction
+  ): (CommittedTransaction, Relation[Tx.NodeId, Party], GlobalDivulgence) = {
 
     // First we "commit" the transaction by converting all relative contractIds to absolute ones
-    val committedTransaction: GenTransaction.WithTxValue[NodeId, AbsoluteContractId] =
-      transaction.resolveRelCid(EventIdFormatter.makeAbs(transactionId))
+    val committedTransaction = committer.commitTransaction(transactionId, transaction)
 
     // here we just need to align the type for blinding
     val blindingInfo = Blinding.blind(committedTransaction)
@@ -77,14 +72,8 @@ object Ledger {
     )
 
     // convert LF NodeId to Index EventId
-    val disclosureForIndex: Map[EventId, Set[Party]] = blindingInfo.disclosure.map {
-      case (nodeId, parties) =>
-        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
-    }
+    val disclosureForIndex = blindingInfo.disclosure
 
-    val transactionForIndex: TransactionForIndex =
-      committedTransaction.mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _))
-
-    (transactionForIndex, disclosureForIndex, blindingInfo.globalDivulgence)
+    (committedTransaction, disclosureForIndex, blindingInfo.globalDivulgence)
   }
 }

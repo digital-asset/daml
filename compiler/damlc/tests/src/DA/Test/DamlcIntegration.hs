@@ -227,19 +227,16 @@ data DiagnosticField
   deriving (Eq, Show)
 
 checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
-checkDiagnostics log expected got = do
-    when (got /= []) $
-        log $ T.unpack $ showDiagnostics got
-
+checkDiagnostics log expected got
     -- you require the same number of diagnostics as expected
     -- and each diagnostic is at least partially expected
-    let bad = filter
-            (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
-            expected
-    pure $ if
-      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
-      | null bad -> Nothing
-      | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
+    | length expected /= length got = do
+        logDiags
+        pure $ Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
+    | notNull bad = do
+        logDiags
+        pure $ Just $ unlines ("Could not find matching diagnostics:" : map show bad)
+    | otherwise = pure Nothing
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
           checkField (fp, _, D.Diagnostic{..}) f = case f of
             DFilePath p -> toNormalizedFilePath' p == fp
@@ -247,6 +244,10 @@ checkDiagnostics log expected got = do
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
             DMessage m -> standardizeQuotes(T.pack m) `T.isInfixOf` standardizeQuotes(T.unwords (T.words _message))
+          logDiags = log $ T.unpack $ showDiagnostics got
+          bad = filter
+            (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
+            expected
 
 ------------------------------------------------------------
 -- CLI argument handling

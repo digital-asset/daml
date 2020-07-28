@@ -41,9 +41,9 @@ sealed trait Result[+A] extends Product with Serializable {
 
   // quick and dirty way to consume a Result
   def consume(
-      pcs: AbsoluteContractId => Option[ContractInst[VersionedValue[AbsoluteContractId]]],
+      pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
       packages: PackageId => Option[Package],
-      keys: GlobalKey => Option[AbsoluteContractId]): Either[Error, A] = {
+      keys: GlobalKey => Option[ContractId]): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
       res match {
@@ -72,8 +72,8 @@ final case class ResultError(err: Error) extends Result[Nothing]
   * </ul>
   */
 final case class ResultNeedContract[A](
-    acoid: AbsoluteContractId,
-    resume: Option[ContractInst[VersionedValue[AbsoluteContractId]]] => Result[A])
+    acoid: ContractId,
+    resume: Option[ContractInst[VersionedValue[ContractId]]] => Result[A])
     extends Result[A]
 
 /**
@@ -87,7 +87,7 @@ final case class ResultNeedContract[A](
 final case class ResultNeedPackage[A](packageId: PackageId, resume: Option[Package] => Result[A])
     extends Result[A]
 
-final case class ResultNeedKey[A](key: GlobalKey, resume: Option[AbsoluteContractId] => Result[A])
+final case class ResultNeedKey[A](key: GlobalKey, resume: Option[ContractId] => Result[A])
     extends Result[A]
 
 object Result {
@@ -151,8 +151,8 @@ object Result {
     )
 
   def needContract[A](
-      acoid: AbsoluteContractId,
-      resume: ContractInst[VersionedValue[AbsoluteContractId]] => Result[A]) =
+      acoid: ContractId,
+      resume: ContractInst[VersionedValue[ContractId]] => Result[A]) =
     ResultNeedContract(acoid, {
       case None => ResultError(Error(s"dependency error: couldn't find contract $acoid"))
       case Some(contract) => resume(contract)

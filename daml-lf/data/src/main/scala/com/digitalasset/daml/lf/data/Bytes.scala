@@ -5,6 +5,7 @@ package com.daml.lf.data
 
 import java.io.InputStream
 import java.nio.ByteBuffer
+import scalaz.Order
 
 import com.google.protobuf.ByteString
 
@@ -44,6 +45,8 @@ object Bytes {
     (x, y) =>
       comparator.compare(x.value, y.value)
   }
+
+  implicit val order: Order[Bytes] = Order.fromScalaOrdering
 
   def fromByteString(value: ByteString): Bytes =
     new Bytes(value)

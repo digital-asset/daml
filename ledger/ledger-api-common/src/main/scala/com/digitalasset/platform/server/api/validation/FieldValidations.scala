@@ -6,7 +6,7 @@ package com.daml.platform.server.api.validation
 import java.time.Duration
 
 import com.daml.lf.data.Ref
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.platform.server.api.validation.ErrorFactories._
@@ -69,12 +69,12 @@ trait FieldValidations {
   def requireLedgerString(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
     Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
-  def requireAbsoluteContractId(
+  def requireContractId(
       s: String,
       fieldName: String
-  ): Either[StatusRuntimeException, AbsoluteContractId] =
+  ): Either[StatusRuntimeException, ContractId] =
     if (s.isEmpty) Left(missingField(fieldName))
-    else AbsoluteContractId.fromString(s).left.map(invalidField(fieldName, _))
+    else ContractId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireDottedName(
       s: String,
@@ -92,21 +92,24 @@ trait FieldValidations {
 
   def validateDeduplicationTime(
       durationO: Option[com.google.protobuf.duration.Duration],
-      maxDeduplicationTime: Duration,
-      fieldName: String): Either[StatusRuntimeException, Duration] = durationO match {
-    case None =>
-      Right(maxDeduplicationTime)
-    case Some(duration) =>
-      val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
-      if (result.isNegative)
-        Left(invalidField(fieldName, "Duration must be positive"))
-      else if (result.compareTo(maxDeduplicationTime) > 0)
-        Left(invalidField(
-          fieldName,
-          s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
-      else
-        Right(result)
-  }
+      maxDeduplicationTimeO: Option[Duration],
+      fieldName: String): Either[StatusRuntimeException, Duration] =
+    maxDeduplicationTimeO.fold[Either[StatusRuntimeException, Duration]](
+      Left(missingLedgerConfig()))(maxDeduplicationTime =>
+      durationO match {
+        case None =>
+          Right(maxDeduplicationTime)
+        case Some(duration) =>
+          val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
+          if (result.isNegative)
+            Left(invalidField(fieldName, "Duration must be positive"))
+          else if (result.compareTo(maxDeduplicationTime) > 0)
+            Left(invalidField(
+              fieldName,
+              s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
+          else
+            Right(result)
+    })
 
   def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {

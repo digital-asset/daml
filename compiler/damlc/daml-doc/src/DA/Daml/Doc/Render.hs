@@ -53,6 +53,7 @@ renderDocs ro@RenderOptions{..} mods = do
                 Html -> (renderMd, GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable])
         templateText = fromMaybe (defaultTemplate ro_format) ro_template
         renderMap = Map.fromList [(md_name mod, renderModule mod) | mod <- mods]
+        externalAnchors = ro_externalAnchors
 
     template <- compileTemplate "template" templateText
 
@@ -62,12 +63,12 @@ renderDocs ro@RenderOptions{..} mods = do
                 . T.encodeUtf8
                 . renderTemplate ro template
                 . postProcessing
-                . renderPage formatter
+                . renderPage formatter externalAnchors
                 $ fold renderMap
 
         RenderToFolder path -> do
             let
-                (outputIndex, outputMap) = renderFolder formatter renderMap
+                (outputIndex, outputMap) = renderFolder formatter externalAnchors renderMap
                 extension =
                     case ro_format of
                         Markdown -> "md"

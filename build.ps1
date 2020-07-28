@@ -17,7 +17,7 @@ $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFAC
 # If a previous build was forcefully terminated, then stack's lock file might
 # not have been cleaned up properly leading to errors of the form
 #
-#   user error (hTryLock: lock already exists: C:\Users\VssAdministrator\AppData\Roaming\stack\pantry\hackage\hackage-security-lock)
+#   user error (hTryLock: lock already exists: C:\Users\u\AppData\Roaming\stack\pantry\hackage\hackage-security-lock)
 #
 # The package cache might be corrupted and just removing the lock might lead to
 # errors as below, so we just nuke the entire stack cache.
@@ -53,7 +53,7 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel build //...
+bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
 bazel shutdown
 

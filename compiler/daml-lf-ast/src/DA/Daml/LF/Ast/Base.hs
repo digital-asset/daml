@@ -36,14 +36,14 @@ infixr 1 `KArrow`
 -- > [a-zA-Z0-9]+
 newtype PackageId = PackageId{unPackageId :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData)
+    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey)
 
 -- | Name for a module. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
 newtype ModuleName = ModuleName{unModuleName :: [T.Text]}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Name for a type synonym. Must match the regex
 --
@@ -113,14 +113,14 @@ newtype PartyLiteral = PartyLiteral{unPartyLiteral :: T.Text}
 -- > [a-zA-Z0-9_-]+
 newtype PackageName = PackageName{unPackageName :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, FromJSON)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Human-readable version of a package. Must match the regex
 --
 -- > (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*
 newtype PackageVersion = PackageVersion{unPackageVersion :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, FromJSON)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Reference to a package.
 data PackageRef

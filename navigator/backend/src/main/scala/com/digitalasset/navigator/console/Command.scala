@@ -47,7 +47,6 @@ object Command {
     }
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def printParams(params: List[Parameter]): String = {
     val width = 20
     val lines = params

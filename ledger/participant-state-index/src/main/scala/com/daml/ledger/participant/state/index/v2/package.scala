@@ -18,12 +18,12 @@ package object v2 {
     final case class Create(
         transactionId: TransactionId,
         eventId: EventId,
-        contractId: Value.AbsoluteContractId,
+        contractId: Value.ContractId,
         templateId: Ref.Identifier,
-        argument: Value.VersionedValue[Value.AbsoluteContractId],
+        argument: Value.VersionedValue[Value.ContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Ref.Party],
-        contractKey: Option[Value.VersionedValue[Value.AbsoluteContractId]],
+        contractKey: Option[Value.VersionedValue[Value.ContractId]],
         signatories: Set[Ref.Party],
         observers: Set[Ref.Party],
         agreementText: String

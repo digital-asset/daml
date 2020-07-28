@@ -4,12 +4,12 @@
 package com.daml.lf
 package value
 
-import data.{FrontStack, ImmArray, Ref, Unnatural}
+import data.{Bytes, FrontStack, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
-import ValueGenerators.{idGen, nameGen}
-import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
-
+import test.ValueGenerators.{coidGen, idGen, nameGen}
+import test.TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
+import com.daml.scalatest.Unnatural
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FreeSpec, Inside, Matchers}
@@ -21,7 +21,6 @@ import scalaz.scalacheck.{ScalazProperties => SzP}
 import scalaz.scalacheck.ScalaCheckBinding._
 import shapeless.syntax.singleton._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ValueSpec
     extends FreeSpec
     with Matchers
@@ -79,36 +78,31 @@ class ValueSpec
 
       }
 
-      "ensureNoRelCid is used " in {
-        val value = VersionedValue(
-          ValueVersions.minVersion,
-          ValueContractId(AbsoluteContractId.assertFromString("#0:0")),
-        )
-        val contract = ContractInst(tmplId, value, "agreed")
-        value.ensureNoRelCid.map(_.version) shouldBe Right(ValueVersions.minVersion)
-        contract.ensureNoRelCid.map(_.arg.version) shouldBe Right(ValueVersions.minVersion)
-      }
+    }
 
-      "resolveRelCidV0 is used" in {
-        val value = VersionedValue(
-          ValueVersions.minVersion,
-          ValueContractId(ValueContractId(RelativeContractId(NodeId(0)))),
-        )
-        val contract = ContractInst(tmplId, value, "agreed")
-        val resolver: RelativeContractId => Ref.ContractIdString = {
-          case RelativeContractId(NodeId(idx)) =>
-            Ref.ContractIdString.assertFromString(s"#0:$idx")
-        }
-        value.resolveRelCid(resolver).version shouldBe ValueVersions.minVersion
-        contract.resolveRelCid(resolver).arg.version shouldBe ValueVersions.minVersion
-      }
+  }
+
+  "ContractID.V1.build" - {
+
+    "rejects too long suffix" in {
+
+      def suffix(size: Int) =
+        Bytes.fromByteArray(Array.iterate(0.toByte, size)(b => (b + 1).toByte))
+
+      val hash = crypto.Hash.hashPrivateKey("some hash")
+      import ContractId.V1.build
+      build(hash, suffix(0)) shouldBe 'right
+      build(hash, suffix(94)) shouldBe 'right
+      build(hash, suffix(95)) shouldBe 'left
+      build(hash, suffix(96)) shouldBe 'left
+      build(hash, suffix(127)) shouldBe 'left
 
     }
 
   }
 
   "Equal" - {
-    import com.daml.lf.value.ValueGenerators._
+    import com.daml.lf.value.test.ValueGenerators._
     import org.scalacheck.Arbitrary
     type T = VersionedValue[Unnatural[ContractId]]
     implicit val arbT: Arbitrary[T] =
@@ -118,6 +112,14 @@ class ValueSpec
 
     "results preserve natural == results" in forAll { (a: T, b: T) =>
       scalaz.Equal[T].equal(a, b) shouldBe (a == b)
+    }
+  }
+
+  "ContractId" - {
+    type T = ContractId
+    implicit val arbT: Arbitrary[T] = Arbitrary(coidGen)
+    "Order" - {
+      "obeys Order laws" in checkLaws(SzP.order.laws[T])
     }
   }
 
@@ -153,10 +155,6 @@ class ValueSpec
       "obeys order laws" in forAll(genAddend, minSuccessful(100)) { va =>
         implicit val arb: Arbitrary[T] = va.injarb[Cid] map (va.inj(_))
         checkLaws(SzP.order.laws[T])
-      }
-
-      "preserves base order" in forAll(genAddend, minSuccessful(100)) { va =>
-        checkOrderPreserved[Cid](va, EmptyScope)
       }
     }
 
@@ -214,7 +212,6 @@ class ValueSpec
 
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object ValueSpec {
   private val fooSpec =
     'quux ->> VA.int64 :: 'baz ->> VA.int64 :: RNil

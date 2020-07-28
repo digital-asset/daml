@@ -308,11 +308,14 @@ final case class EExpectedOptionType(context: Context, typ: Type) extends Valida
 final case class EEmptyCase(context: Context) extends ValidationError {
   protected def prettyInternal: String = "empty case"
 }
+final case class EClashingPatternVariables(context: Context, varName: ExprVarName)
+    extends ValidationError {
+  protected def prettyInternal: String = s"$varName is used more than one in pattern"
+}
 final case class EExpectedTemplatableType(context: Context, conName: TypeConName)
     extends ValidationError {
   protected def prettyInternal: String =
     s"expected monomorphic record type in template definition, but found: ${conName.qualifiedName}"
-
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"

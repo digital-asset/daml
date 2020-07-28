@@ -3,31 +3,21 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.metrics.Timed
+import com.daml.metrics.{Metrics, Timed}
 
 import scala.concurrent.Future
 
-class TimedLedgerWriter(delegate: LedgerWriter, metricRegistry: MetricRegistry)
-    extends LedgerWriter {
+class TimedLedgerWriter(delegate: LedgerWriter, metrics: Metrics) extends LedgerWriter {
 
   override def participantId: ParticipantId =
     delegate.participantId
 
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
-    Timed.future(Metrics.commit, delegate.commit(correlationId, envelope))
+    Timed.future(metrics.daml.kvutils.writer.commit, delegate.commit(correlationId, envelope))
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
-
-  private object Metrics {
-    private val Prefix = kvutils.MetricPrefix :+ "writer"
-
-    val commit: Timer = metricRegistry.timer(Prefix :+ "commit")
-  }
-
 }

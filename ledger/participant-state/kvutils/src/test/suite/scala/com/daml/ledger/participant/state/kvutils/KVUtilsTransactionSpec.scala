@@ -15,7 +15,7 @@ import com.daml.lf.data.{FrontStack, Ref, SortedLookupList}
 import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
-  AbsoluteContractId,
+  ContractId,
   ValueList,
   ValueOptional,
   ValueParty,
@@ -37,7 +37,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     val eve = party("Eve")
     val bobValue = ValueParty(bob)
 
-    val templateArgs: Map[String, Value[AbsoluteContractId]] = Map(
+    val templateArgs: Map[String, Value[ContractId]] = Map(
       "Party" -> bobValue,
       "Option Party" -> ValueOptional(Some(bobValue)),
       "List Party" -> ValueList(FrontStack(bobValue)),
@@ -59,9 +59,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       // "GenMap Unit Party" -> Value.ValueGenMap(FrontStack(ValueUnit -> bobValue).toImmArray),
     )
 
-    def createCmd(
-        templateId: Ref.Identifier,
-        templateArg: Value[Value.AbsoluteContractId]): Command =
+    def createCmd(templateId: Ref.Identifier, templateArg: Value[Value.ContractId]): Command =
       CreateCommand(templateId, templateArg)
 
     val simpleTemplateId = templateIdWith("Party")
@@ -71,13 +69,13 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     def exerciseCmd(coid: String, templateId: Ref.Identifier): Command =
       ExerciseCommand(
         templateId,
-        Value.AbsoluteContractId.assertFromString(coid),
+        Value.ContractId.assertFromString(coid),
         simpleConsumeChoiceid,
         ValueUnit)
 
     def createAndExerciseCmd(
         templateId: Ref.Identifier,
-        templateArg: Value[Value.AbsoluteContractId]): Command =
+        templateArg: Value[Value.ContractId]): Command =
       CreateAndExerciseCommand(templateId, templateArg, simpleConsumeChoiceid, ValueUnit)
 
     val p0 = mkParticipantId(0)
@@ -120,7 +118,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
       for {
         transaction1 <- runSimpleCommand(alice, seeds(0), simpleCreateCmd)
         result <- submitTransaction(
@@ -135,7 +133,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           .nodes
           .values
           .head
-          .asInstanceOf[NodeCreate[AbsoluteContractId, _]]
+          .asInstanceOf[NodeCreate[ContractId, _]]
           .coid
 
         transaction2 <- runSimpleCommand(alice, seeds(1), exerciseCmd(coid.coid, simpleTemplateId))
@@ -264,15 +262,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
-        metricRegistry
-          .counter("daml.kvutils.committer.transaction.accepts")
-          .getCount should be >= 1L
-        metricRegistry
-          .counter(s"daml.kvutils.committer.transaction.rejections_${disputed.name}")
-          .getCount should be >= 1L
-        metricRegistry
-          .timer("daml.kvutils.committer.transaction.run_timer")
-          .getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.accepts.getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.rejection(disputed.name).getCount should be >= 1L
+        metrics.daml.kvutils.committer.runTimer("transaction").getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.interpretTimer.getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.runTimer.getCount should be >= 1L
       }
     }
 
@@ -283,7 +277,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
 
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
@@ -342,5 +336,5 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
   }
 
-  private def hash(s: String) = Some(crypto.Hash.hashPrivateKey(s))
+  private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 }

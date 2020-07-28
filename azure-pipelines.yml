@@ -25,6 +25,7 @@ jobs:
   - job: git_sha
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - bash: |
           set -euo pipefail
@@ -48,20 +49,21 @@ jobs:
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
           set -euo pipefail
 
-          has_changed_infra_folder () {
-              git diff $(fork_sha) $(branch_sha) --name-only | grep -q '^infra/'
+          has_changed () {
+              git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1"
           }
 
           fail_if_missing_std_change_label () {
               curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
           }
 
-          if has_changed_infra_folder; then
+          if has_changed "infra/" || has_changed "LATEST"; then
               fail_if_missing_std_change_label
           fi
         env:
@@ -75,12 +77,18 @@ jobs:
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: ci/check-changelog.sh $(fork_sha)
 
+  - template: ci/da-ghc-lib/compile.yml
+    parameters:
+      final_job_name: da_ghc_lib
+
   - job: Linux
     dependsOn:
+      - da_ghc_lib
       - check_for_release
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -90,6 +98,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -117,10 +126,11 @@ jobs:
 
   - job: macOS
     dependsOn:
+      - da_ghc_lib
       - check_for_release
     timeoutInMinutes: 360
     pool:
-      name: 'macOS-pool'
+      name: macOS-pool
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -145,9 +155,15 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
+  - template: ci/patch_bazel_windows/compile.yml
+    parameters:
+      final_job_name: patch_bazel_windows
+
   - job: Windows
     dependsOn:
+      - da_ghc_lib
       - check_for_release
+      - patch_bazel_windows
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -156,6 +172,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -169,17 +186,40 @@ jobs:
         parameters:
           release_tag: $(release_tag)
           is_release: variables.is_release
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Logs'
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
-  - job: compatibility
+  - job: compatibility_ts_libs
     dependsOn:
+      - da_ghc_lib
       - check_for_release
     timeoutInMinutes: 60
     pool:
-      name: 'linux-pool'
+      name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility_ts_libs.yml
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: compatibility_linux
+    dependsOn:
+      - da_ghc_lib
+      - check_for_release
+      - compatibility_ts_libs
+    timeoutInMinutes: 60
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -189,6 +229,47 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
+  - job: compatibility_macos
+    dependsOn:
+      - da_ghc_lib
+      - check_for_release
+      - compatibility_ts_libs
+    timeoutInMinutes: 60
+    pool:
+      name: macOS-pool
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility.yml
+        parameters:
+          test_flags: '--quick'
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: compatibility_windows
+    dependsOn:
+      - da_ghc_lib
+      - check_for_release
+      - compatibility_ts_libs
+      - patch_bazel_windows
+    timeoutInMinutes: 60
+    pool:
+      name: 'windows-pool'
+      demands: assignment -equals default
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility-windows.yml
+        parameters:
+          test_flags: '--quick'
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Compatibility Logs'
+
   - job: check_for_release
     dependsOn:
       - git_sha
@@ -197,35 +278,81 @@ jobs:
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     steps:
       - bash: |
           set -euo pipefail
 
           ./release.sh check
 
-          is_release_commit() {
-              changed="$(git diff-tree --no-commit-id --name-only -r $(branch_sha) $(fork_sha) | sort)"
+          changes_release_files() {
+              changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha) $(branch_sha) | sort)"
               stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
               snapshot="LATEST"
               [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
           }
 
-          if is_release_commit; then
-              echo "##vso[task.setvariable variable=is_release;isOutput=true]true"
-              echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(branch_sha)"
-              echo "##vso[task.setvariable variable=release_sha;isOutput=true]$(cat LATEST | awk '{print $1}')"
-              echo "##vso[task.setvariable variable=release_tag;isOutput=true]$(cat LATEST | awk '{print $2}')"
+          changes_one_line_in_latest() {
+              changed="$(git diff-tree --no-commit-id --numstat -r $(fork_sha) $(branch_sha) -- LATEST | awk '{print $1 "_" $2}')"
+              add_one="1_0"
+              change_one="1_1"
+              [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
+          }
+
+          setvar() {
+              echo "Setting '$1' to '$2'"
+              echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
+          }
+
+          added_line() {
+              echo "$(git diff $(fork_sha) $(branch_sha) -- LATEST | tail -n+6 | grep '^\+' | cut -c2-)"
+          }
+
+          if changes_release_files; then
+              if changes_one_line_in_latest; then
+                  setvar is_release true
+                  setvar trigger_sha $(branch_sha)
+                  setvar release_sha "$(added_line | awk '{print $1}')"
+                  setvar release_tag "$(added_line | awk '{print $2}')"
+              else
+                  echo "Release commit should only add one version."
+                  exit 1
+              fi
           else
-              echo "##vso[task.setvariable variable=is_release;isOutput=true]false"
+              setvar is_release false
           fi
         name: out
+
+  - job: check_perf_test
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    condition: eq(variables['Build.Reason'], 'IndividualCI')
+    steps:
+    - bash: |
+        TEST_SHA=$(cat ci/cron/perf/test_sha)
+        LAST_CHANGES=$(git log -n1 --format=%H daml-lf/scenario-interpreter/src/perf)
+        CURRENT_SHA=$(git rev-parse HEAD)
+        if [ "$TEST_SHA" != "$LAST_CHANGES" ]; then
+            if [ "$LAST_CHANGES" = "$CURRENT_SHA" ]; then
+                curl -XPOST \
+                     -i \
+                     -H 'Content-Type: application/json' \
+                     --data "{\"text\":\"<!here> Perf tests seem to have changed. Please manually check:\n\`\`\`\ngit diff $TEST_SHA $LAST_CHANGES -- daml-lf/scenario-interpreter/src/perf\n\`\`\`\nand update accordingly. If the change is benign, update \`ci/cron/perf/test_sha\` to \`$LAST_CHANGES\`. With no intervention, you will no longer get performance reports.\"}" \
+                     $(Slack.team-daml)
+            else
+                echo "Changes detected, but not from this commit."
+            fi
+        else
+            echo "No change detected."
+        fi
+      displayName: check perf changes
 
   - job: release
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       vmImage: "Ubuntu-16.04"
     variables:
@@ -234,6 +361,8 @@ jobs:
       windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
       windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
       protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
+      daml-on-sql: $[ dependencies.Linux.outputs['publish.daml-on-sql'] ]
+      json-api: $[ dependencies.Linux.outputs['publish.json-api'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
@@ -274,6 +403,16 @@ jobs:
           artifactName: $(protos-zip)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(daml-on-sql)
+          targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(json-api)
+          targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail
           KEY_FILE=$(mktemp)
@@ -285,6 +424,7 @@ jobs:
           echo "$GPG_KEY" | base64 -d > $KEY_FILE
           gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
           cd $(Build.StagingDirectory)/release
+          sha256sum $(find . -type f | sort) > sha256sums
           # Note: relies on our release artifacts not having spaces in their
           # names. Creates a ${f}.asc with the signature for each $f.
           for f in *; do
@@ -302,9 +442,34 @@ jobs:
           tag: 'v$(release_tag)'
           assets: $(Build.StagingDirectory)/release/*
           assetUploadMode: 'replace'
-          title: 'v$(release_tag)'
+          title: '$(release_tag)'
           addChangeLog: false
           isPrerelease: true
+          releaseNotesSource: 'input'
+          releaseNotes: "This is a pre-release. Use at your own risk."
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - bash: |
+          set -euo pipefail
+
+          GCS_KEY=$(mktemp)
+          cleanup () {
+              rm -f $GCS_KEY
+          }
+          trap cleanup EXIT
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY
+          export BOTO_CONFIG=/dev/null
+
+          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql) \
+                    gs://daml-binaries/daml-on-sql/$(daml-on-sql)
+          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql).asc \
+                    gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
+          gsutil cp $(Build.StagingDirectory)/release/$(json-api) \
+                    gs://daml-binaries/json-api/$(json-api)
+          gsutil cp $(Build.StagingDirectory)/release/$(json-api).asc \
+                    gs://daml-binaries/json-api/$(json-api).asc
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - template: ci/tell-slack-failed.yml
         parameters:
@@ -312,12 +477,13 @@ jobs:
       - template: ci/report-end.yml
 
   - job: write_ledger_dump
-    dependsOn: [ "check_for_release" ]
+    dependsOn:
+      - check_for_release
+      - da_ghc_lib
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
@@ -332,7 +498,7 @@ jobs:
 
           sudo mkdir -p /nix
           sudo chown $USER /nix
-          curl -sfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
+          curl -sSfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
           eval "$(dev-env/bin/dade-assist)"
           GCS_KEY=$(mktemp)
           cleanup () {
@@ -361,8 +527,12 @@ jobs:
       - release
       - write_ledger_dump
       - git_sha
+      - compatibility_macos
+      - compatibility_linux
+      - compatibility_windows
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     variables:
       Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
       Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
@@ -384,6 +554,18 @@ jobs:
       dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
       dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
       dump.status: $[ dependencies.write_ledger_dump.result ]
+      compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
+      compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
+      compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
+      compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
+      compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
+      compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
+      compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
+      compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
+      compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
+      compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
+      compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
+      compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
 
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       master_sha: $[ dependencies.git_sha.outputs['out.master'] ]
@@ -422,7 +604,19 @@ jobs:
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
-                                "status": "$(release.status)"}},
+                                "status": "$(release.status)"},
+                    "compatibility_linux": {"start": "$(compatibility_linux.start)",
+                                            "machine": "$(compatibility_linux.machine)",
+                                            "end": "$(compatibility_linux.end)",
+                                            "status": "$(compatibility_linux.status)"},
+                    "compatibility_macos": {"start": "$(compatibility_macos.start)",
+                                            "machine": "$(compatibility_macos.machine)",
+                                            "end": "$(compatibility_macos.end)",
+                                            "status": "$(compatibility_macos.status)"},
+                    "compatibility_windows": {"start": "$(compatibility_windows.start)",
+                                              "machine": "$(compatibility_windows.machine)",
+                                              "end": "$(compatibility_windows.end)",
+                                              "status": "$(compatibility_windows.status)"}},
            "id": "$(Build.BuildId)",
            "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
            "name": "$(Build.DefinitionName)",
@@ -470,6 +664,9 @@ jobs:
           if [[ "$(Linux.status)" != "Succeeded"
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
+              || "$(compatibility_linux.status)" != "Succeeded"
+              || "$(compatibility_macos.status)" != "Succeeded"
+              || "$(compatibility_windows.status)" != "Succeeded"
               || "$(dump.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1
@@ -485,12 +682,13 @@ jobs:
           PR_BRANCH: $(pr.branch)
 
   - job: notify_user
-    condition: eq(variables['Build.Reason'], 'PullRequest')
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
     dependsOn:
       - git_sha
       - collect_build_data
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     variables:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]

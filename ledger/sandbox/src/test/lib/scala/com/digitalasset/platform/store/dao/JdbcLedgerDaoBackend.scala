@@ -4,13 +4,15 @@
 package com.daml.platform.store.dao
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.{DbType, FlywayMigrations}
-import com.daml.resources.Resource
+import com.daml.resources.{Resource, ResourceOwner}
 import org.scalatest.Suite
 
 import scala.concurrent.duration.DurationInt
@@ -20,6 +22,16 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
 
   protected def dbType: DbType
   protected def jdbcUrl: String
+
+  protected def daoOwner(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
+    JdbcLedgerDao
+      .writeOwner(
+        serverRole = ServerRole.Testing(getClass),
+        jdbcUrl = jdbcUrl,
+        eventsPageSize = 100,
+        metrics = new Metrics(new MetricRegistry),
+        lfValueTranslationCache = LfValueTranslation.Cache.none,
+      )
 
   protected final var ledgerDao: LedgerDao = _
 
@@ -32,15 +44,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
     resource = newLoggingContext { implicit logCtx =>
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
-        dao <- JdbcLedgerDao
-          .writeOwner(
-            serverRole = ServerRole.Testing(getClass),
-            jdbcUrl = jdbcUrl,
-            eventsPageSize = 100,
-            metrics = new MetricRegistry,
-          )
-          .acquire()
-        _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger"), Offset.begin))
+        dao <- daoOwner.acquire()
+        _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger")))
       } yield dao
     }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)

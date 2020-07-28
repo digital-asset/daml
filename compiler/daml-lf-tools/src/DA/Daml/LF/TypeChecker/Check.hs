@@ -30,6 +30,7 @@
 module DA.Daml.LF.TypeChecker.Check
     ( checkModule
     , expandTypeSynonyms
+    , typeOf'
     ) where
 
 import Data.Hashable
@@ -45,6 +46,7 @@ import           Safe.Exact (zipExactMay)
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
+import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
@@ -413,11 +415,12 @@ introCasePattern scrutType patn cont = case patn of
   CPNil -> do
     _ :: Type <- match _TList (EExpectedListType scrutType) scrutType
     cont
-  CPCons headVar tailVar -> do
-    elemType <- match _TList (EExpectedListType scrutType) scrutType
-    -- NOTE(MH): The second 'introExprVar' will catch the bad case @headVar ==
-    -- tailVar@.
-    introExprVar headVar elemType $ introExprVar tailVar (TList elemType) cont
+  CPCons headVar tailVar
+    | headVar == tailVar ->
+        throwWithContext (EClashingPatternVariables headVar)
+    | otherwise -> do
+        elemType <- match _TList (EExpectedListType scrutType) scrutType
+        introExprVar headVar elemType $ introExprVar tailVar (TList elemType) cont
   CPDefault -> cont
   CPSome bodyVar -> do
     bodyType <- match _TOptional (EExpectedOptionalType scrutType) scrutType
@@ -599,7 +602,7 @@ checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do
   exprType <- typeOf expr
   typX <- expandTypeSynonyms typ
-  unless (alphaEquiv exprType typX) $
+  unless (alphaType exprType typX) $
     throwWithContext ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
   pure exprType
 

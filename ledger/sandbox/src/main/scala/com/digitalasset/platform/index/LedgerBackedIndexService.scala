@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
@@ -61,10 +61,9 @@ abstract class LedgerBackedIndexService(
       filter: TransactionFilter,
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
-    val ledgerEnd = ledger.ledgerEnd
-    ledger
-      .activeContracts(ledgerEnd, convertFilter(filter), verbose)
-      .concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
+    val (acs, ledgerEnd) = ledger
+      .activeContracts(convertFilter(filter), verbose)
+    acs.concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
   }
 
   override def transactionTrees(
@@ -109,7 +108,7 @@ abstract class LedgerBackedIndexService(
     lazy val currentEnd: Offset = ledger.ledgerEnd
     domainOffset: LedgerOffset =>
       domainOffset match {
-        case LedgerOffset.LedgerBegin => Source.single(Offset.begin)
+        case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
         case LedgerOffset.LedgerEnd => Source.single(currentEnd)
         case LedgerOffset.Absolute(offset) =>
           ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
@@ -183,17 +182,17 @@ abstract class LedgerBackedIndexService(
 
   override def lookupActiveContract(
       submitter: Ref.Party,
-      contractId: AbsoluteContractId,
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+      contractId: ContractId,
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     ledger.lookupContract(contractId, submitter)
 
-  override def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Option[Instant]] =
+  override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] =
     ledger.lookupMaximumLedgerTime(ids)
 
   override def lookupContractKey(
       submitter: Party,
       key: GlobalKey,
-  ): Future[Option[AbsoluteContractId]] =
+  ): Future[Option[ContractId]] =
     ledger.lookupKey(key, submitter)
 
   // PartyManagementService
@@ -235,14 +234,16 @@ abstract class LedgerBackedIndexService(
       .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
 
   /** Retrieve configuration entries. */
-  override def configurationEntries(
-      startExclusive: Option[LedgerOffset.Absolute]): Source[domain.ConfigurationEntry, NotUsed] =
+  override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])
+    : Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
     Source
       .future(
         startExclusive
           .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
           .getOrElse(Future.successful(None)))
-      .flatMapConcat(ledger.configurationEntries(_).map(_._2.toDomain))
+      .flatMapConcat(ledger.configurationEntries(_).map {
+        case (offset, config) => toAbsolute(offset) -> config.toDomain
+      })
 
   /** Deduplicate commands */
   override def deduplicateCommand(

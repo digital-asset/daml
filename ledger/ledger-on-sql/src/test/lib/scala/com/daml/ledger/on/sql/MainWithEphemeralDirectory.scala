@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ReadWriteService,
   Runner
 }
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.resources.{ProgramResource, Resource, ResourceOwner}
 import scopt.OptionParser
@@ -37,16 +38,18 @@ object MainWithEphemeralDirectory {
 
     override def readWriteServiceOwner(
         config: Config[ExtraConfig],
-        participantConfig: ParticipantConfig
+        participantConfig: ParticipantConfig,
+        engine: Engine,
     )(
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ReadWriteService] =
-      new Owner(config, participantConfig)
+      new Owner(config, participantConfig, engine)
 
     class Owner(
         config: Config[ExtraConfig],
-        participantConfig: ParticipantConfig
+        participantConfig: ParticipantConfig,
+        engine: Engine,
     )(implicit materializer: Materializer, logCtx: LoggingContext)
         extends ResourceOwner[ReadWriteService] {
       override def acquire()(
@@ -58,6 +61,7 @@ object MainWithEphemeralDirectory {
           .readWriteServiceOwner(
             config.copy(extra = config.extra.copy(jdbcUrl = jdbcUrl)),
             participantConfig,
+            engine,
           )
           .acquire()
       }

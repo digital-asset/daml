@@ -17,7 +17,6 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.Speedy
 import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SValue
-import com.daml.lf.types.Ledger.Ledger
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
@@ -109,7 +108,8 @@ class Context(val contextId: Context.ContextId) {
         // if any change we recompile everything
         extPackages --= unloadPackages
         extPackages ++= newPackages
-        extDefns = assert(Compiler.compilePackages(extPackages))
+        extDefns =
+          assert(Compiler.compilePackages(extPackages, Compiler.FullStackTrace, Compiler.NoProfile))
         modDefns = HashMap.empty
         modules.values
       } else {
@@ -118,7 +118,7 @@ class Context(val contextId: Context.ContextId) {
       }
 
     val pkgs = allPackages
-    val compiler = Compiler(pkgs)
+    val compiler = Compiler(pkgs, Compiler.FullStackTrace, Compiler.NoProfile)
 
     modulesToCompile.foreach { mod =>
       if (!omitValidation)
@@ -139,35 +139,27 @@ class Context(val contextId: Context.ContextId) {
   }
 
   // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
-  private val submissionTime =
-    data.Time.Timestamp.MinValue
-  private val initialSeeding =
-    speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"scenario-service"))
+  private val txSeeding = crypto.Hash.hashPrivateKey(s"scenario-service")
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     val defns = this.defns
+    val compiledPackages =
+      PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
     for {
       defn <- defns.get(LfDefRef(identifier))
-    } yield
-      Speedy.Machine
-        .build(
-          sexpr = defn,
-          compiledPackages = PureCompiledPackages(allPackages, defns),
-          submissionTime,
-          initialSeeding,
-        )
+    } yield Speedy.Machine.fromScenarioSExpr(compiledPackages, txSeeding, defn)
   }
 
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[(Ledger, Speedy.Machine, Either[SError, SValue])] =
+  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] =
     buildMachine(
       Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
     ).map { machine =>
       ScenarioRunner(machine).run() match {
-        case Right((diff @ _, steps @ _, ledger)) =>
-          (ledger, machine, Right(machine.toSValue))
+        case Right((diff @ _, steps @ _, ledger, value)) =>
+          (ledger, machine, Right(value))
         case Left((err, ledger)) =>
           (ledger, machine, Left(err))
       }

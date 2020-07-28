@@ -12,25 +12,35 @@ def _client_server_test_impl(ctx):
         output = wrapper,
         content = """#!/usr/bin/env bash
 set -eou pipefail
+canonicalize_rlocation() {{
+  # Note (MK): This is a fun one: Let’s say $TEST_WORKSPACE is "compatibility"
+  # and the argument points to a target from an external workspace, e.g.,
+  # @daml-sdk-0.0.0//:daml. Then the short path will point to
+  # ../daml-sdk-0.0.0/daml. Putting things together we end up with
+  # compatibility/../daml-sdk-0.0.0/daml. On Linux and MacOS this works
+  # just fine. However, on windows we need to normalize the path
+  # or rlocation will fail to find the path in the manifest file.
+  rlocation $(realpath -L -s -m --relative-to=$PWD $TEST_WORKSPACE/$1)
+}}
 
-runner=$(rlocation "$TEST_WORKSPACE/{runner}")
+runner=$(canonicalize_rlocation "{runner}")
 runner_args="{runner_args}"
-client=$(rlocation "$TEST_WORKSPACE/{client}")
-server=$(rlocation "$TEST_WORKSPACE/{server}")
+client=$(canonicalize_rlocation "{client}")
+server=$(canonicalize_rlocation "{server}")
 server_args="{server_args}"
 for file in {server_files}; do
-    server_args+=" $(rlocation $TEST_WORKSPACE/$file)"
+    server_args+=" $(canonicalize_rlocation $file)"
 done
 
 client_args="$@"
 if [ -z "$client_args" ]; then
     client_args="{client_args}"
     for file in {client_files}; do
-        client_args+=" $(rlocation $TEST_WORKSPACE/$file)"
+        client_args+=" $(canonicalize_rlocation $file)"
     done
 fi
 
-$runner "$client" "$client_args" "$server" "$server_args" "$runner_args"
+$runner $client "$client_args" $server "$server_args" "$runner_args"
 """.format(
             runner = ctx.executable.runner.short_path,
             runner_args = _expand_args(ctx, ctx.attr.runner_args),

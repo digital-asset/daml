@@ -59,6 +59,7 @@ da_haskell_library(
         "aeson-pretty",
         "base",
         "bytestring",
+        "containers",
         "directory",
         "extra",
         "filepath",

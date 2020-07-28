@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers}
 
 private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
@@ -20,7 +20,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
       result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, alice)
     } yield {
       // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someContractInstance.copy(agreementText = ""))
+      result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
     }
   }
 
@@ -29,13 +29,13 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
       (_, tx) <- store(singleCreate)
       create = nonTransient(tx).loneElement
       _ <- store(
-        divulgedContracts = Map((create, someContractInstance) -> Set(charlie)),
+        divulgedContracts = Map((create, someVersionedContractInstance) -> Set(charlie)),
         offsetAndTx = divulgeAlreadyCommittedContract(id = create, divulgees = Set(charlie)),
       )
       result <- ledgerDao.lookupActiveOrDivulgedContract(create, charlie)
     } yield {
       // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someContractInstance.copy(agreementText = ""))
+      result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
     }
   }
 
@@ -49,7 +49,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
   }
 
   it should "prevent retrieving the maximum ledger time if some contracts are not found" in {
-    val randomContractId = AbsoluteContractId.assertFromString(s"#random-${UUID.randomUUID}")
+    val randomContractId = ContractId.assertFromString(s"#random-${UUID.randomUUID}")
     for {
       failure <- ledgerDao.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
@@ -72,13 +72,13 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
   }
 
   it should "allow the retrieval of the maximum ledger time even when there are divulged contracts" in {
-    val divulgedContractId = AbsoluteContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
+    val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
     for {
       (_, _) <- store(
         divulgedContracts = Map(
-          (divulgedContractId, someContractInstance) -> Set(charlie)
+          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
-        offsetAndTx = singleExercise(divulgedContractId)
+        offsetAndTx = emptyTransaction(alice)
       )
       (_, tx) <- store(singleCreate)
       contractIds = nonTransient(tx) + divulgedContractId
@@ -91,17 +91,36 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
   }
 
   it should "allow the retrieval of the maximum ledger time even when there are only divulged contracts" in {
-    val divulgedContractId = AbsoluteContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
+    val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
     for {
       (_, _) <- store(
         divulgedContracts = Map(
-          (divulgedContractId, someContractInstance) -> Set(charlie)
+          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
-        offsetAndTx = singleExercise(divulgedContractId)
+        offsetAndTx = emptyTransaction(alice)
       )
       result <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId))
     } yield {
       result shouldBe None
+    }
+  }
+
+  it should "not allow the retrieval of the maximum ledger time of archived divulged contracts" in {
+    val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
+    for {
+      // This divulges and archives a contract in the same transaction
+      (_, _) <- store(
+        divulgedContracts = Map(
+          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
+        ),
+        offsetAndTx = singleExercise(divulgedContractId)
+      )
+      failure <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
+    } yield {
+      failure shouldBe an[IllegalArgumentException]
+      failure.getMessage should startWith(
+        "One or more of the following contract identifiers has been found"
+      )
     }
   }
 

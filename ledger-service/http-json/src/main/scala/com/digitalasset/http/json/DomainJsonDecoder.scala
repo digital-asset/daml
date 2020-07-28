@@ -28,7 +28,6 @@ class DomainJsonDecoder(
 
   import com.daml.http.util.ErrorOps._
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeCreateCommand(a: JsValue)(implicit ev1: JsonReader[domain.CreateCommand[JsValue]])
     : JsonError \/ domain.CreateCommand[lav1.value.Record] = {
     val err = "DomainJsonDecoder_decodeCreateCommand"
@@ -43,7 +42,6 @@ class DomainJsonDecoder(
     } yield fv
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsValue]): JsonError \/ F[lav1.value.Value] = {
     for {
@@ -52,7 +50,6 @@ class DomainJsonDecoder(
     } yield apiValue
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeUnderlyingValuesToLf[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsValue]): JsonError \/ F[domain.LfValue] = {
     for {
@@ -87,7 +84,6 @@ class DomainJsonDecoder(
         \/-(c)
     }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeExerciseCommand(a: JsValue)(
       implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])
     : JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
@@ -106,7 +102,6 @@ class DomainJsonDecoder(
 
     } yield cmd1
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeCreateAndExerciseCommand(a: JsValue)(
       implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
     : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] = {

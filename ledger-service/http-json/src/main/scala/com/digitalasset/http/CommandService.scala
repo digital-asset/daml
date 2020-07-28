@@ -42,7 +42,6 @@ class CommandService(
 
   import CommandService._
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def create(jwt: Jwt, jwtPayload: JwtPayload, input: CreateCommand[lav1.value.Record])
     : Future[Error \/ ActiveContract[lav1.value.Value]] = {
 
@@ -56,7 +55,6 @@ class CommandService(
     et.run
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -167,7 +165,6 @@ class CommandService(
         Error('activeContracts, s"Received response without transaction: $response"))
       .flatMap(activeContracts)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(
       tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
     Transactions
@@ -182,7 +179,6 @@ class CommandService(
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
       .flatMap(contracts)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(
       tx: lav1.transaction.TransactionTree): Error \/ List[Contract[lav1.value.Value]] =
     Contract.fromTransactionTree(tx).leftMap(e => Error('contracts, e.shows)).map(_.toList)

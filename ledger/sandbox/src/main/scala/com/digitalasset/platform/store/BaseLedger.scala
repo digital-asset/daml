@@ -16,7 +16,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.TransactionId
@@ -34,12 +34,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.LedgerReadDao
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -55,24 +50,14 @@ abstract class BaseLedger(
 
   protected final val dispatcher: Dispatcher[Offset] = Dispatcher[Offset](
     "sql-ledger",
-    Offset.begin,
+    Offset.beforeBegin,
     headAtInitialization
   )
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
     ledgerDao.lookupKey(key, forParty)
-
-  override def ledgerEntries(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] = {
-    dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
-      RangeSource(ledgerDao.getLedgerEntries),
-      endInclusive
-    )
-  }
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -81,7 +66,7 @@ abstract class BaseLedger(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
+      startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
       endInclusive
     )
@@ -92,7 +77,7 @@ abstract class BaseLedger(
       requestingParties: Set[Party],
       verbose: Boolean): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
+      startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(
         ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)),
       endInclusive
@@ -106,22 +91,23 @@ abstract class BaseLedger(
       applicationId: ApplicationId,
       parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
+      startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
       endInclusive
     )
 
   override def activeContracts(
-      activeAt: Offset,
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  ): Source[GetActiveContractsResponse, NotUsed] =
-    ledgerDao.transactionsReader.getActiveContracts(activeAt, filter, verbose)
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) = {
+    val activeAt = ledgerEnd
+    (ledgerDao.transactionsReader.getActiveContracts(activeAt, filter, verbose), activeAt)
+  }
 
   override def lookupContract(
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
       forParty: Party
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
 
   override def lookupFlatTransactionById(
@@ -137,7 +123,7 @@ abstract class BaseLedger(
     ledgerDao.transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
 
   override def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]] =
     ledgerDao.lookupMaximumLedgerTime(contractIds)
 
@@ -172,7 +158,7 @@ abstract class BaseLedger(
   override def configurationEntries(
       startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
+      startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.getConfigurationEntries))
 
   override def deduplicateCommand(

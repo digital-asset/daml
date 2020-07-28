@@ -19,8 +19,8 @@ object RejectionReason {
     * See https://docs.daml.com/concepts/ledger-model/ledger-integrity.html
     * for the definition of ledger consistency.
     */
-  final case object Inconsistent extends RejectionReason {
-    override def description: String = "Inconsistent"
+  final case class Inconsistent(reason: String) extends RejectionReason {
+    override def description: String = s"Inconsistent: $reason"
   }
 
   /** The transaction has been disputed.
@@ -30,14 +30,14 @@ object RejectionReason {
     * in the submission or validation logic, or due to malicious behaviour.
     */
   final case class Disputed(reason: String) extends RejectionReason {
-    override def description: String = "Disputed: " + reason
+    override def description: String = s"Disputed: $reason"
   }
 
   /** The Participant node did not have sufficient resources with the
     * ledger to submit the transaction.
     */
-  final case object ResourcesExhausted extends RejectionReason {
-    override def description: String = "Resources exhausted"
+  final case class ResourcesExhausted(reason: String) extends RejectionReason {
+    override def description: String = s"Resources exhausted: $reason"
   }
 
   /** A party mentioned as a stakeholder or actor has not been on-boarded on
@@ -49,19 +49,19 @@ object RejectionReason {
     * identity-manager.
     *
     */
-  final case object PartyNotKnownOnLedger extends RejectionReason {
-    override def description: String = "Party not known on ledger"
+  final case class PartyNotKnownOnLedger(reason: String) extends RejectionReason {
+    override def description: String = s"Party not known on ledger: $reason"
   }
 
   /** The submitter cannot act via this participant.
     *
-    * @param details: details on why the submitter cannot act; e.g., because
+    * @param reason: details on why the submitter cannot act; e.g., because
     *   it is not hosted on the participant or because its write access to
     *   the ledger has been deactivated.
     *
     */
-  final case class SubmitterCannotActViaParticipant(details: String) extends RejectionReason {
-    override def description: String = "Submitter cannot act via participant: " + details
+  final case class SubmitterCannotActViaParticipant(reason: String) extends RejectionReason {
+    override def description: String = s"Submitter cannot act via participant: $reason"
   }
 
   /** The ledger time of the transaction submission violated one of the
@@ -73,6 +73,6 @@ object RejectionReason {
     *    to the ledger time of any contract used by the transaction.
     */
   final case class InvalidLedgerTime(reason: String) extends RejectionReason {
-    override def description: String = "Invalid ledger time: " + reason
+    override def description: String = s"Invalid ledger time: $reason"
   }
 }

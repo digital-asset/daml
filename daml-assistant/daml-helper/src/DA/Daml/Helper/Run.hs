@@ -640,7 +640,8 @@ withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO
 withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "json-api-logback.xml")
     let jsonApiArgs =
-            ["--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort] <> args
+            ["--ledger-host", "localhost", "--ledger-port", show sandboxPort,
+             "--http-port", show jsonApiPort, "--allow-insecure-tokens"] <> args
     withJar damlSdkJar [logbackArg] ("json-api":jsonApiArgs) $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
         -- The secret doesn’t matter here

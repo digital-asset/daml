@@ -14,7 +14,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.TransactionId
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
@@ -27,12 +27,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
 
@@ -40,10 +35,6 @@ import scala.concurrent.Future
 trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
-
-  def ledgerEntries(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed]
 
   def flatTransactions(
       startExclusive: Option[Offset],
@@ -68,21 +59,20 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       parties: Set[Ref.Party]): Source[(Offset, CompletionStreamResponse), NotUsed]
 
   def activeContracts(
-      activeAt: Offset,
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  ): Source[GetActiveContractsResponse, NotUsed]
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset)
 
   def lookupContract(
-      contractId: Value.AbsoluteContractId,
+      contractId: Value.ContractId,
       forParty: Party
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
   def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]]
 
-  def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
+  def lookupKey(key: GlobalKey, forParty: Party): Future[Option[ContractId]]
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,

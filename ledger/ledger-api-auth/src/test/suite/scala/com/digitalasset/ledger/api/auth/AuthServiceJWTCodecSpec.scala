@@ -11,7 +11,6 @@ import spray.json._
 import java.time.Instant
 import scala.util.{Success, Try}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class AuthServiceJWTCodecSpec
     extends WordSpec
     with Matchers

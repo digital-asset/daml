@@ -14,18 +14,18 @@ def install_java_deps():
             "args4j:args4j:2.33",
             "ch.qos.logback:logback-classic:1.2.3",
             "ch.qos.logback:logback-core:1.2.3",
-            "com.auth0:java-jwt:3.8.2",
-            "com.auth0:jwks-rsa:0.8.3",
+            "com.auth0:java-jwt:3.10.3",
+            "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_2.12:2.3.2",
-            "com.fasterxml.jackson.core:jackson-annotations:2.9.0",
-            "com.fasterxml.jackson.core:jackson-core:2.9.9",
-            "com.fasterxml.jackson.core:jackson-databind:2.9.9.3",
-            "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9",
-            "com.fasterxml.jackson.module:jackson-module-parameter-names:2.9.9",
-            "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.9.9",
+            "com.fasterxml.jackson.core:jackson-annotations:2.11.0",
+            "com.fasterxml.jackson.core:jackson-core:2.11.0",
+            "com.fasterxml.jackson.core:jackson-databind:2.11.0",
+            "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.11.0",
+            "com.fasterxml.jackson.module:jackson-module-parameter-names:2.11.0",
+            "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.11.0",
             "com.github.ben-manes.caffeine:caffeine:2.8.0",
-            "com.github.ghik:silencer-lib_2.12:1.3.1",
-            "com.github.ghik:silencer-plugin_2.12:1.3.1",
+            "com.github.ghik:silencer-lib_2.12.11:1.6.0",
+            "com.github.ghik:silencer-plugin_2.12.11:1.6.0",
             "com.github.mpilquist:simulacrum_2.12:0.10.0",
             "com.github.pureconfig:pureconfig_2.12:0.8.0",
             "com.github.scopt:scopt_2.12:3.7.1",
@@ -35,7 +35,6 @@ def install_java_deps():
             "com.google.code.gson:gson:2.8.2",
             "com.google.guava:guava:24.0-jre",
             "com.google.j2objc:j2objc-annotations:1.1",
-            "com.google.protobuf:protobuf-java:3.8.0",
             "com.h2database:h2:1.4.200",
             "com.lihaoyi:pprint_2.12:0.5.3",
             "commons-io:commons-io:2.5",
@@ -43,11 +42,6 @@ def install_java_deps():
             "com.squareup:javapoet:1.11.1",
             "com.storm-enroute:scalameter_2.12:0.10.1",
             "com.storm-enroute:scalameter-core_2.12:0.10.1",
-            "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
-            "com.thesamet.scalapb:lenses_2.12:0.9.0",
-            "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
-            "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
-            "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
             "com.typesafe.akka:akka-actor_2.12:2.6.1",
             "com.typesafe.akka:akka-actor-typed_2.12:2.6.1",
             "com.typesafe.akka:akka-http_2.12:10.1.11",
@@ -63,6 +57,7 @@ def install_java_deps():
             "com.typesafe.slick:slick_2.12:3.3.0",
             "com.typesafe.slick:slick-hikaricp_2.12:3.3.0",
             "com.zaxxer:HikariCP:3.2.0",
+            "eu.rekawek.toxiproxy:toxiproxy-java:2.1.3",
             "io.circe:circe-core_2.12:0.10.0",
             "io.circe:circe-generic_2.12:0.10.0",
             "io.circe:circe-parser_2.12:0.10.0",
@@ -71,20 +66,48 @@ def install_java_deps():
             "io.dropwizard.metrics:metrics-graphite:4.1.2",
             "io.dropwizard.metrics:metrics-jmx:4.1.2",
             "io.dropwizard.metrics:metrics-jvm:4.1.2",
-            "io.grpc:grpc-api:1.22.1",
-            "io.grpc:grpc-core:1.22.1",
-            "io.grpc:grpc-netty:1.22.1",
-            "io.grpc:grpc-protobuf:1.22.1",
-            "io.grpc:grpc-services:1.22.1",
-            "io.grpc:grpc-stub:1.22.1",
-            "io.netty:netty-codec-http2:4.1.37.Final",
-            "io.netty:netty-handler:4.1.37.Final",
-            "io.netty:netty-handler-proxy:4.1.37.Final",
-            "io.netty:netty-resolver:4.1.37.Final",
-            "io.netty:netty-tcnative-boringssl-static:2.0.25.Final",
+
+            # Bumping versions of io.grpc:* has a few implications:
+            # 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
+            #    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
+            #    ScalaPB also depends on a version of protobuf-java, but for the most part we expect here a
+            #    version mismatch between ScalaPBs declared protobuf-java dependency and the version on the
+            #    classpath doesn't matter.
+            #
+            # 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
+            # in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
+            #
+            # * io.grpc:grpc-netty
+            # * io.netty:netty-handler
+            # * io.netty:netty-tcnative-boringssl-static
+            #
+            # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
+            # need to be updated with careful consideration.
+            # grpc
+            "io.grpc:grpc-api:1.29.0",
+            "io.grpc:grpc-core:1.29.0",
+            "io.grpc:grpc-netty:1.29.0",
+            "io.grpc:grpc-protobuf:1.29.0",
+            "io.grpc:grpc-services:1.29.0",
+            "io.grpc:grpc-stub:1.29.0",
+            # netty
+            "io.netty:netty-codec-http2:4.1.48.Final",
+            "io.netty:netty-handler:4.1.48.Final",
+            "io.netty:netty-handler-proxy:4.1.48.Final",
+            "io.netty:netty-resolver:4.1.48.Final",
+            "io.netty:netty-tcnative-boringssl-static:2.0.30.Final",
+            # protobuf
+            "com.google.protobuf:protobuf-java:3.11.0",
+            #scalapb
+            "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
+            "com.thesamet.scalapb:lenses_2.12:0.9.0",
+            "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
+            "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
+            "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
+            # ---- end of grpc-protobuf-netty block
             "io.protostuff:protostuff-core:1.5.2",
             "io.reactivex.rxjava2:rxjava:2.2.1",
-            "io.spray:spray-json_2.12:1.3.3",
+            "io.spray:spray-json_2.12:1.3.5",
             "io.zipkin.brave:brave:4.6.0",
             "io.zipkin.reporter:zipkin-sender-okhttp3:1.0.4",
             "javax.annotation:javax.annotation-api:1.2",
@@ -98,7 +121,7 @@ def install_java_deps():
             "org.checkerframework:checker:2.5.4",
             "org.flywaydb:flyway-core:6.2.0",
             "org.freemarker:freemarker-gae:2.3.28",
-            "org.gnieh:diffson-spray-json_2.12:3.1.0",
+            "org.gnieh:diffson-spray-json_2.12:3.1.1",
             "org.hamcrest:hamcrest-all:1.3",
             "org.jline:jline:3.7.1",
             "org.jline:jline-reader:3.7.1",
@@ -122,8 +145,9 @@ def install_java_deps():
             "org.reactivestreams:reactive-streams:1.0.2",
             "org.reactivestreams:reactive-streams-tck:1.0.2",
             "org.sangria-graphql:sangria_2.12:1.4.2",
-            "org.sangria-graphql:sangria-spray-json_2.12:1.0.1",
+            "org.sangria-graphql:sangria-spray-json_2.12:1.0.2",
             "org.scalacheck:scalacheck_2.12:1.14.0",
+            "org.scala-lang.modules:scala-collection-compat_2.12:2.1.6",
             "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0",
             "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
             "org.scalameta:contrib_2.12:1.8.0",

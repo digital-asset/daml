@@ -20,6 +20,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 }
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.DbInfo
@@ -63,6 +64,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       timeProviderType = Some(TimeProviderType.Static),
       scenario = scenario,
       ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
+      seeding = Some(Seeding.Weak),
     )
 
   protected def packageFiles: List[File] = List(darFile)

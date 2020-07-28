@@ -6,7 +6,6 @@ package com.daml.lf.codegen.backend.java.inner
 import org.scalatest.{FlatSpec, Matchers}
 import org.slf4j.MDC
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class TrackLineageSpec extends FlatSpec with Matchers {
 
   behavior of "TrackLineage.of"

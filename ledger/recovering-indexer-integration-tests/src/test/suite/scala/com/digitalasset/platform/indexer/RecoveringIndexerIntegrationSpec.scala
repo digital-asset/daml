@@ -13,14 +13,20 @@ import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.api.{
+  BatchingLedgerWriterConfig,
+  KeyValueParticipantState
+}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
 import com.daml.resources.ResourceOwner
@@ -191,7 +197,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
-        metrics = new MetricRegistry,
+        metrics = new Metrics(new MetricRegistry),
+        lfValueTranslationCache = LfValueTranslation.Cache.none,
       )(materializer, logCtx)
     } yield participantState
   }
@@ -203,7 +210,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
       eventsPageSize = 100,
-      metrics = new MetricRegistry,
+      metrics = new Metrics(new MetricRegistry),
+      lfValueTranslationCache = LfValueTranslation.Cache.none,
     )
   }
 }
@@ -229,13 +237,14 @@ object RecoveringIndexerIntegrationSpec {
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] = {
-      val metricRegistry = new MetricRegistry
+      val metrics = new Metrics(new MetricRegistry)
       new InMemoryLedgerReaderWriter.SingleParticipantOwner(
         ledgerId,
+        BatchingLedgerWriterConfig.reasonableDefault,
         participantId,
-        metricRegistry = metricRegistry,
-      ).map(readerWriter =>
-        new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
+        metrics = metrics,
+        engine = Engine()
+      ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
   }
 

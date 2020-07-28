@@ -3,23 +3,23 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.time.Duration
-
 import akka.stream.Materializer
-import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
+import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
-  PartyConfiguration,
-  SubmissionConfiguration
+  PartyConfiguration
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.resources.ResourceOwner
+import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
 trait ConfigProvider[ExtraConfig] {
@@ -51,42 +51,49 @@ trait ConfigProvider[ExtraConfig] {
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
       tlsConfig = config.tlsConfig,
-      maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize = config.maxInboundMessageSize,
       eventsPageSize = config.eventsPageSize,
       portFile = participantConfig.portFile,
-      seeding = Some(config.seeding),
+      seeding = config.seeding,
     )
 
-  def commandConfig(config: Config[ExtraConfig]): CommandConfiguration =
-    CommandConfiguration.default
+  def commandConfig(
+      participantConfig: ParticipantConfig,
+      config: Config[ExtraConfig]): CommandConfiguration = {
+    val defaultMaxCommandsInFlight = CommandConfiguration.default.maxCommandsInFlight
+
+    CommandConfiguration.default.copy(
+      maxCommandsInFlight =
+        participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight),
+    )
+  }
 
   def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default
 
-  def submissionConfig(config: Config[ExtraConfig]): SubmissionConfiguration =
-    SubmissionConfiguration.default
-
   def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
-    LedgerConfiguration.default.copy(
-      initialConfigurationSubmitDelay = Duration.ofSeconds(5)
-    )
+    LedgerConfiguration.defaultRemote
 
   def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 
   def authService(config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
 
-  def metricRegistry(
+  def interceptors(config: Config[ExtraConfig]): List[ServerInterceptor] =
+    List.empty
+
+  def createMetrics(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig],
-  ): MetricRegistry =
-    SharedMetricRegistries.getOrCreate(participantConfig.participantId)
+  ): Metrics =
+    new Metrics(SharedMetricRegistries.getOrCreate(participantConfig.participantId))
 }
 
 trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[ExtraConfig] {
   def readServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RS]
 }
 
@@ -94,6 +101,7 @@ trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider
   def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[WS]
 }
 
@@ -104,18 +112,21 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
   override final def readServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig)
+    readWriteServiceOwner(config, participantConfig, engine)
 
   override final def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig)
+    readWriteServiceOwner(config, participantConfig, engine)
 
   def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS]
 }
 
@@ -128,22 +139,24 @@ object LedgerFactory {
     override final def readWriteServiceOwner(
         config: Config[Unit],
         participantConfig: ParticipantConfig,
+        engine: Engine,
     )(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
-        readerWriter <- owner(config, participantConfig)
+        readerWriter <- owner(config, participantConfig, engine)
       } yield
         new KeyValueParticipantState(
           readerWriter,
           readerWriter,
-          metricRegistry(participantConfig, config),
+          createMetrics(participantConfig, config),
         )
 
     def owner(
         value: Config[Unit],
         config: ParticipantConfig,
+        engine: Engine,
     )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[KVL]
 
     override final def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =

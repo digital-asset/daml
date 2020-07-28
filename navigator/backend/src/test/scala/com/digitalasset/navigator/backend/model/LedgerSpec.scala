@@ -10,11 +10,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.Product",
-    "org.wartremover.warts.Serializable"))
+@SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 class LedgerSpec extends WordSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 

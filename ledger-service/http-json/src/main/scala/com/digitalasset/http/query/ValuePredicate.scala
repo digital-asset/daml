@@ -70,7 +70,6 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     go(this)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def toSqlWhereClause: Fragment = {
     import dbbackend.Queries.Implicits._ // JsValue support
     type Path = Fragment
@@ -181,7 +180,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
 
 object ValuePredicate {
   type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
-  type LfV = V[V.AbsoluteContractId]
+  type LfV = V[V.ContractId]
   type SqlWhereClause = Vector[Fragment]
 
   val AlwaysFails: SqlWhereClause = Vector(sql"1 = 2")
@@ -379,7 +378,6 @@ object ValuePredicate {
       @inline def unapply(it: JsValue): Option[A] = scalar.lift(it)
     }
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def unapply(it: JsValue): Option[PredicateParseError \/ Boundaries[A]] =
       it match {
         case JsObject(fields) if fields.keySet exists keys =>

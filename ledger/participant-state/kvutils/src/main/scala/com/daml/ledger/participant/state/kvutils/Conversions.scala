@@ -9,15 +9,13 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmitterInfo}
 import com.daml.lf.crypto
 import com.daml.lf.data
-import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.VersionTimeline.Implicits._
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractId, RelativeContractId, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
-import com.google.common.io.BaseEncoding
 import com.google.protobuf.Empty
 
 /** Utilities for converting between protobuf messages and our scala
@@ -34,23 +32,15 @@ private[state] object Conversions {
   def packageStateKey(packageId: PackageId): DamlStateKey =
     DamlStateKey.newBuilder.setPackageId(packageId).build
 
-  def toAbsCoid(txId: DamlLogEntryId, coid: RelativeContractId): Ref.ContractIdString = {
-    val hexTxId =
-      BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
-    // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
-    // [[absoluteContractIdToStateKey]].
-    Ref.ContractIdString.assertFromString(s"#$hexTxId:${coid.txnid.index}")
-  }
-
-  def contractIdToStateKey(acoid: AbsoluteContractId): DamlStateKey =
+  def contractIdToStateKey(acoid: ContractId): DamlStateKey =
     DamlStateKey.newBuilder
       .setContractId(acoid.coid)
       .build
 
-  def decodeContractId(coid: String): AbsoluteContractId =
-    AbsoluteContractId.assertFromString(coid)
+  def decodeContractId(coid: String): ContractId =
+    ContractId.assertFromString(coid)
 
-  def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId =
+  def stateKeyToContractId(key: DamlStateKey): ContractId =
     decodeContractId(key.getContractId)
 
   def encodeGlobalKey(key: GlobalKey): DamlContractKey = {
@@ -151,12 +141,6 @@ private[state] object Conversions {
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
     crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))
 
-  def parseOptHash(a: com.google.protobuf.ByteString): Option[crypto.Hash] =
-    if (a.isEmpty)
-      None
-    else
-      Some(crypto.Hash.assertFromBytes(data.Bytes.fromByteString(a)))
-
   def buildDuration(dur: Duration): com.google.protobuf.Duration = {
     com.google.protobuf.Duration.newBuilder
       .setSeconds(dur.getSeconds)
@@ -168,61 +152,51 @@ private[state] object Conversions {
     Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
   }
 
-  def encodeTransaction(tx: Transaction.AbsTransaction): TransactionOuterClass.Transaction = {
-    TransactionCoder
-      .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx)
-      .fold(err => throw Err.EncodeError("Transaction", err.errorMessage), identity)
-  }
+  private def assertDecode[X](context: => String, x: Either[ValueCoder.DecodeError, X]): X =
+    x.fold(err => throw Err.DecodeError(context, err.errorMessage), identity)
 
-  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.AbsTransaction = {
-    TransactionCoder
-      .decodeVersionedTransaction(
-        TransactionCoder.NidDecoder,
-        ValueCoder.AbsCidDecoder,
-        tx
-      )
-      .fold(err => throw Err.DecodeError("Transaction", err.errorMessage), _.transaction)
-  }
+  private def assertEncode[X](context: => String, x: Either[ValueCoder.EncodeError, X]): X =
+    x.fold(err => throw Err.EncodeError(context, err.errorMessage), identity)
 
-  def decodeVersionedValue(
-      protoValue: ValueOuterClass.VersionedValue): VersionedValue[AbsoluteContractId] =
-    ValueCoder
-      .decodeVersionedValue(ValueCoder.CidDecoder, protoValue)
-      .fold(
-        err => throw Err.DecodeError("ContractInstance", err.errorMessage),
-        value =>
-          value.ensureNoRelCid
-            .fold(
-              _ =>
-                throw Err.InternalError(
-                  "Relative contract identifier encountered in contract key!"),
-              identity
-          )
-      )
+  def encodeTransaction(tx: Transaction.Transaction): TransactionOuterClass.Transaction =
+    assertEncode(
+      "Transaction",
+      TransactionCoder.encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx),
+    )
+
+  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.Transaction =
+    assertDecode(
+      "Transaction",
+      TransactionCoder
+        .decodeTransaction(
+          TransactionCoder.NidDecoder,
+          ValueCoder.CidDecoder,
+          tx
+        ),
+    )
+
+  def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue[ContractId] =
+    assertDecode(
+      "ContractInstance",
+      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, protoValue),
+    )
 
   def decodeContractInstance(coinst: TransactionOuterClass.ContractInstance)
-    : Value.ContractInst[VersionedValue[AbsoluteContractId]] =
-    TransactionCoder
-      .decodeContractInstance(ValueCoder.CidDecoder, coinst)
-      .fold(
-        err => throw Err.DecodeError("ContractInstance", err.errorMessage),
-        coinst =>
-          coinst.ensureNoRelCid
-            .fold(
-              _ =>
-                throw Err.InternalError(
-                  "Relative contract identifier encountered in contract key!"),
-              identity
-          )
-      )
+    : Value.ContractInst[VersionedValue[ContractId]] =
+    assertDecode(
+      "ContractInstance",
+      TransactionCoder
+        .decodeContractInstance(ValueCoder.CidDecoder, coinst)
+    )
 
-  def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[AbsoluteContractId]])
+  def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[Value.ContractId]])
     : TransactionOuterClass.ContractInstance =
-    TransactionCoder
-      .encodeContractInstance(ValueCoder.CidEncoder, coinst)
-      .fold(err => throw Err.InternalError(s"encodeContractInstance failed: $err"), identity)
+    assertEncode(
+      "ContractInstance",
+      TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst)
+    )
 
-  def forceNoContractIds(v: Value[ContractId]): Value[Nothing] =
+  def forceNoContractIds(v: Value[Value.ContractId]): Value[Nothing] =
     v.ensureNoCid.fold(
       coid => throw Err.InternalError(s"Contract identifier '$coid' encountered in contract key"),
       identity,
@@ -234,15 +208,15 @@ private[state] object Conversions {
       coidString: String,
       coidStruct: ValueOuterClass.ContractId,
   ): DamlStateKey =
-    ValueCoder.AbsCidDecoder
-      .decode(
-        sv = transactionVersion,
-        stringForm = coidString,
-        structForm = coidStruct,
+    contractIdToStateKey(
+      assertDecode(
+        "ContractId",
+        ValueCoder.CidDecoder.decode(
+          sv = transactionVersion,
+          stringForm = coidString,
+          structForm = coidStruct,
+        ),
       )
-      .fold(
-        err => throw Err.DecodeError("ContractId", s"Cannot decode contract id: $err"),
-        contractIdToStateKey
-      )
+    )
 
 }

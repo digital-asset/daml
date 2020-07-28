@@ -71,7 +71,7 @@ export function useQuery<T extends object, K, I extends string>(template: Templa
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
   const state = useDamlState();
-  const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: false});
+  const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: true});
   useEffect(() => {
     setResult({contracts: [], loading: true});
     const query = queryFactory ? queryFactory() : undefined;
@@ -115,7 +115,7 @@ export type FetchResult<T extends object, K, I extends string> = {
  */
 export function useFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
   const state = useDamlState();
-  const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: false});
+  const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: true});
   useEffect(() => {
     const key = keyFactory();
     setResult({contract: null, loading: true});
@@ -147,7 +147,7 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
-  const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: false});
+  const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: true});
   const state = useDamlState();
   useEffect(() => {
     setResult({contracts: [], loading: true});
@@ -183,7 +183,7 @@ export function useStreamQuery<T extends object, K, I extends string>(template: 
  * @return The matching (unique) contract.
  */
 export function useStreamFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
-  const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: false});
+  const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: true});
   const state = useDamlState();
   useEffect(() => {
     setResult({contract: null, loading: true});

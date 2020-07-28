@@ -9,6 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Ref
+import com.daml.metrics.Metrics
 import org.scalatest.{Matchers, WordSpec}
 
 class KVUtilsConfigSpec extends WordSpec with Matchers {
@@ -18,7 +19,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
   "configuration" should {
 
     "be able to build, pack, unpack and parse" in {
-      val keyValueSubmission = new KeyValueSubmission(new MetricRegistry)
+      val keyValueSubmission = new KeyValueSubmission(new Metrics(new MetricRegistry))
       val subm = keyValueSubmission.unpackDamlSubmission(
         keyValueSubmission.packDamlSubmission(keyValueSubmission.configurationToSubmission(
           maxRecordTime = theRecordTime,
@@ -163,9 +164,9 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         }, submissionId = Ref.LedgerString.assertFromString("submission-id-1"))
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
-        metricRegistry.counter("daml.kvutils.committer.config.accepts").getCount should be >= 1L
-        metricRegistry.counter("daml.kvutils.committer.config.rejections").getCount should be >= 1L
-        metricRegistry.timer("daml.kvutils.committer.config.run_timer").getCount should be >= 1L
+        metrics.daml.kvutils.committer.config.accepts.getCount should be >= 1L
+        metrics.daml.kvutils.committer.config.rejections.getCount should be >= 1L
+        metrics.daml.kvutils.committer.runTimer("config").getCount should be >= 1L
       }
     }
   }

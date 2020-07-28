@@ -27,7 +27,6 @@ class JMeterReporter[T: Numeric](clazz: Class[_]) extends Reporter[T] {
     transformer.transform(source, console)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def report(results: Tree[CurveData[T]], persistor: Persistor): Boolean = {
 
     // resultDir is global setting

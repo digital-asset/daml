@@ -28,6 +28,8 @@ genrule(
       cp -L $(location :daml/ACS.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Retry.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ExerciseByKey.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/CreateAndExercise.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MaxInboundMessageTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Numeric.daml) $$TMP_DIR/daml
       cp -L $(location :daml/CommandId.daml) $$TMP_DIR/daml
       cp -L $(location :daml/PendingSet.daml) $$TMP_DIR/daml
@@ -112,6 +114,7 @@ da_scala_test(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",

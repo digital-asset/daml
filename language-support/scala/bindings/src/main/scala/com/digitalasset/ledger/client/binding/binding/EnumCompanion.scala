@@ -29,7 +29,6 @@ abstract class EnumCompanion[T](implicit isEnum: T <~< EnumRef) extends ValueRef
       rpcValues(isEnum(enum).index)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   implicit final lazy val `the enum LfEncodable`: LfEncodable[T] = new LfEncodable[T] {
 
     private[this] val cases = OneAnd(firstValue, otherValues).map(x => isEnum(x).constructor -> x)

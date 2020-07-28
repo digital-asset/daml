@@ -5,16 +5,23 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.data.{BackStack, Bytes, ImmArray, Time}
-import com.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
-import com.daml.lf.value.Value
+import com.daml.lf.data.{BackStack, ImmArray, Time}
+import com.daml.lf.transaction.{
+  GenTransaction,
+  Node,
+  TransactionVersion,
+  TransactionVersions,
+  Transaction => Tx
+}
+import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
 
-import scala.collection.breakOut
 import scala.collection.immutable.HashMap
 
 object PartialTransaction {
 
   type NodeIdx = Value.NodeIdx
+  type Node = Node.GenNode[Value.NodeId, Value.ContractId, Value[Value.ContractId]]
+  type LeafNode = Node.LeafOnlyNode[Value.ContractId, Value[Value.ContractId]]
 
   /** Contexts of the transaction graph builder, which we use to record
     * the sub-transaction structure due to 'exercises' statements.
@@ -22,11 +29,11 @@ object PartialTransaction {
   final class Context private (
       val exeContext: Option[ExercisesContext], // empty if root context
       val children: BackStack[Value.NodeId],
-      protected val childrenSeeds: Int => Option[crypto.Hash]
+      protected val childrenSeeds: Int => crypto.Hash
   ) {
     def addChild(child: Value.NodeId): Context =
       new Context(exeContext, children :+ child, childrenSeeds)
-    def nextChildrenSeed: Option[crypto.Hash] =
+    def nextChildrenSeed: crypto.Hash =
       childrenSeeds(children.length)
   }
 
@@ -34,28 +41,32 @@ object PartialTransaction {
 
     def apply(initialSeeds: InitialSeeding): Context =
       initialSeeds match {
-        case InitialSeeding.NoSeed =>
-          new Context(None, BackStack.empty, _ => None)
         case InitialSeeding.TransactionSeed(seed) =>
           new Context(None, BackStack.empty, childrenSeeds(seed))
         case InitialSeeding.RootNodeSeeds(seeds) =>
           new Context(
             None,
             BackStack.empty,
-            i => if (0 <= i && i < seeds.length) seeds(i) else None
+            i =>
+              (if (0 <= i && i < seeds.length) seeds(i) else None)
+                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided"))
           )
+        case InitialSeeding.NoSeed =>
+          new Context(
+            None,
+            BackStack.empty,
+            _ => throw new RuntimeException(s"the machine is not configure to create transaction"))
       }
 
     def apply(exeContext: ExercisesContext) =
       new Context(
         Some(exeContext),
         BackStack.empty,
-        exeContext.parent.nextChildrenSeed
-          .fold[Int => Option[crypto.Hash]](_ => None)(childrenSeeds),
+        childrenSeeds(exeContext.parent.nextChildrenSeed),
       )
 
     private def childrenSeeds(seed: crypto.Hash)(i: Int) =
-      Some(crypto.Hash.deriveNodeSeed(seed, i))
+      crypto.Hash.deriveNodeSeed(seed, i)
 
   }
 
@@ -83,12 +94,12 @@ object PartialTransaction {
   case class ExercisesContext(
       targetId: Value.ContractId,
       templateId: TypeConName,
-      contractKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      contractKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
       actingParties: Set[Party],
-      chosenValue: Tx.Value[Value.ContractId],
+      chosenValue: Value[Value.ContractId],
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
@@ -109,8 +120,6 @@ object PartialTransaction {
     context = Context(initialSeeds),
     aborted = None,
     keys = Map.empty,
-    localContracts = Map.empty,
-    globalContracts = Map.empty,
   )
 
 }
@@ -134,33 +143,26 @@ object PartialTransaction {
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
   *  @param keys A local store of the contract keys. Note that this contains
-  *              info both about relative and absolute contract ids. We must
-  *              do this because absolute contract ids can be archived as
+  *              info both about relative and contract ids. We must
+  *              do this because contract ids can be archived as
   *              part of execution, and we must record these archivals locally.
   *              Note: it is important for keys that we know to not be present
   *              to be present as [[None]]. The reason for this is that we must
-  *              record the "no key" information for absolute contract ids that
+  *              record the "no key" information for contract ids that
   *              we archive. This is not an optimization and is required for
   *              correct semantics, since otherwise lookups for keys for
-  *              locally archived absolute contract ids will succeed wrongly.
-  * @param localContracts A map that associates to each contract created the
-  *                      node in which it was created.
-  * @param globalContracts A map that associates to each fetched AbsoluteContractId.V1
-  *                       contract id its respective contract instance.
-  *                       other format of contract ids are not cached.
+  *              locally archived contract ids will succeed wrongly.
   */
 case class PartialTransaction(
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
-    nodes: HashMap[Value.NodeId, Tx.Node],
+    nodes: HashMap[Value.NodeId, PartialTransaction.Node],
     nodeSeeds: BackStack[(Value.NodeId, crypto.Hash)],
     byKeyNodes: BackStack[Value.NodeId],
     consumedBy: Map[Value.ContractId, Value.NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     keys: Map[Node.GlobalKey, Option[Value.ContractId]],
-    localContracts: Map[Value.ContractId, Value.NodeId],
-    globalContracts: Map[crypto.Hash, Map[Bytes, Tx.ContractInst[Value.ContractId]]],
 ) {
 
   import PartialTransaction._
@@ -172,7 +174,7 @@ case class PartialTransaction(
 
       def addToStringBuilder(
           nid: Value.NodeId,
-          node: Node.GenNode.WithTxValue[Value.NodeId, Value.ContractId],
+          node: Node,
           rootPrefix: String,
       ): Unit = {
         sb.append(rootPrefix)
@@ -191,10 +193,10 @@ case class PartialTransaction(
       // roots field is not initialized when this method is executed on a failed transaction,
       // so we need to compute them.
       val rootNodes = {
-        val allChildNodeIds: Set[Value.NodeId] = nodes.values.flatMap {
+        val allChildNodeIds: Set[Value.NodeId] = nodes.values.iterator.flatMap {
           case _: Node.LeafOnlyNode[_, _] => Nil
           case ex: Node.NodeExercises[Value.NodeId, _, _] => ex.children.toSeq
-        }(breakOut)
+        }.toSet
 
         nodes.keySet diff allChildNodeIds
       }
@@ -214,71 +216,43 @@ case class PartialTransaction(
     *  the 'PartialTransaction' is not yet complete or has been
     *  aborted.
     */
-  def finish: Either[PartialTransaction, Tx.Transaction] =
+  def finish(
+      supportedValueVersions: VersionRange[ValueVersion],
+      supportedTransactionVersions: VersionRange[TransactionVersion],
+  ): Either[PartialTransaction, Tx.SubmittedTransaction] = {
+
+    val versionNode: Node => Tx.Node =
+      Node.GenNode.map3(
+        identity,
+        identity,
+        ValueVersions.asVersionedValue(_, supportedValueVersions).fold(SError.crash, identity),
+      )
+
     Either.cond(
       context.exeContext.isEmpty && aborted.isEmpty,
-      GenTransaction(nodes = nodes, roots = context.children.toImmArray),
+      Tx.SubmittedTransaction(
+        TransactionVersions
+          .asVersionedTransaction(
+            GenTransaction(
+              nodes = nodes.transform((_, n) => versionNode(n)),
+              roots = context.children.toImmArray),
+            supportedTransactionVersions,
+          )
+          .fold(SError.crash, identity)
+      ),
       this
     )
-
-  private def lookupLocalContract(
-      lcoid: Value.ContractId,
-  ): Option[Tx.ContractInst[Value.ContractId]] =
-    for {
-      nid <- localContracts.get(lcoid)
-      node <- nodes.get(nid)
-      coinst <- node match {
-        case create: Node.NodeCreate.WithTxValue[Value.ContractId] =>
-          Some(create.coinst)
-        case _: Node.NodeExercises[_, _, _] | _: Node.NodeFetch[_, _] |
-            _: Node.NodeLookupByKey[_, _] =>
-          None
-      }
-    } yield coinst
-
-  private def lookupGlobalContract(
-      gcoid: Value.ContractId
-  ): Option[Tx.ContractInst[Value.ContractId]] =
-    gcoid match {
-      case Value.AbsoluteContractId.V1(discriminator, suffix) =>
-        globalContracts.get(discriminator).flatMap(_.get(suffix))
-      case _ =>
-        None
-    }
-
-  def lookupCachedContract(
-      coid: Value.ContractId
-  ): Option[Tx.ContractInst[Value.ContractId]] =
-    lookupLocalContract(coid).orElse(lookupGlobalContract(coid))
-
-  /** Update the globalContract if coid is an `Value.AbsoluteContractId.V1`,
-    *  idempotent otherwise.
-    */
-  def cachedContract(
-      coid: Value.ContractId,
-      contract: Tx.ContractInst[Value.ContractId]
-  ): PartialTransaction =
-    coid match {
-      case Value.AbsoluteContractId.V1(discriminator, suffix) =>
-        copy(
-          globalContracts = globalContracts.updated(
-            discriminator,
-            globalContracts.getOrElse(discriminator, Map.empty).updated(suffix, contract)
-          )
-        )
-      case _ =>
-        this
-    }
+  }
 
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
     */
   def insertCreate(
-      coinst: Tx.ContractInst[Value.ContractId],
+      coinst: Value.ContractInst[Value[Value.ContractId]],
       optLocation: Option[Location],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
   ): Either[String, (Value.ContractId, PartialTransaction)] = {
     val serializableErrs = serializable(coinst.arg)
     if (serializableErrs.nonEmpty) {
@@ -289,10 +263,8 @@ case class PartialTransaction(
     } else {
       val nodeSeed = context.nextChildrenSeed
       val discriminator =
-        nodeSeed.map(crypto.Hash.deriveContractDiscriminator(_, submissionTime, stakeholders))
-      val cid = discriminator.fold[Value.ContractId](
-        Value.RelativeContractId(Value.NodeId(nextNodeIdx))
-      )(Value.AbsoluteContractId.V1(_))
+        crypto.Hash.deriveContractDiscriminator(nodeSeed, submissionTime, stakeholders)
+      val cid = Value.ContractId.V1(discriminator)
       val createNode = Node.NodeCreate(
         cid,
         coinst,
@@ -306,8 +278,7 @@ case class PartialTransaction(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
-        nodeSeeds = nodeSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nid -> s)),
-        localContracts = localContracts.updated(cid, nid)
+        nodeSeeds = nodeSeeds :+ (nid -> nodeSeed),
       )
 
       // if we have a contract key being added, include it in the list of
@@ -315,13 +286,13 @@ case class PartialTransaction(
       key match {
         case None => Right((cid, ptx))
         case Some(kWithM) =>
-          val ck = Node.GlobalKey(coinst.template, kWithM.key.value)
+          val ck = Node.GlobalKey(coinst.template, kWithM.key)
           Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
       }
     }
   }
 
-  def serializable(a: Tx.Value[Value.ContractId]): ImmArray[String] = a.value.serializable()
+  def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
       coid: Value.ContractId,
@@ -330,7 +301,7 @@ case class PartialTransaction(
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
   ): PartialTransaction =
     mustBeActive(
@@ -353,7 +324,7 @@ case class PartialTransaction(
   def insertLookup(
       templateId: TypeConName,
       optLocation: Option[Location],
-      key: Node.KeyWithMaintainers[Tx.Value[Nothing]],
+      key: Node.KeyWithMaintainers[Value[Nothing]],
       result: Option[Value.ContractId],
   ): PartialTransaction =
     insertLeafNode(Node.NodeLookupByKey(templateId, optLocation, key, result), byKey = true)
@@ -368,9 +339,9 @@ case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
-      mbKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      mbKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
-      chosenValue: Tx.Value[Value.ContractId],
+      chosenValue: Value[Value.ContractId],
   ): Either[String, PartialTransaction] = {
     val serializableErrs = serializable(chosenValue)
     if (serializableErrs.nonEmpty) {
@@ -409,7 +380,7 @@ case class PartialTransaction(
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
             keys = mbKey match {
               case Some(kWithM) if consuming =>
-                keys.updated(Node.GlobalKey(templateId, kWithM.key.value), None)
+                keys.updated(Node.GlobalKey(templateId, kWithM.key), None)
               case _ => keys
             },
           ),
@@ -418,7 +389,7 @@ case class PartialTransaction(
     }
   }
 
-  def endExercises(value: Tx.Value[Value.ContractId]): PartialTransaction =
+  def endExercises(value: Value[Value.ContractId]): PartialTransaction =
     context.exeContext match {
       case Some(ec) =>
         val exerciseNode = Node.NodeExercises(
@@ -431,7 +402,7 @@ case class PartialTransaction(
           chosenValue = ec.chosenValue,
           stakeholders = ec.stakeholders,
           signatories = ec.signatories,
-          controllers = ec.controllers,
+          controllersDifferFromActors = ec.controllers != ec.actingParties,
           children = context.children.toImmArray,
           exerciseResult = Some(value),
           key = ec.contractKey,
@@ -441,7 +412,7 @@ case class PartialTransaction(
         copy(
           context = ec.parent.addChild(nodeId),
           nodes = nodes.updated(nodeId, exerciseNode),
-          nodeSeeds = nodeSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nodeId -> s)),
+          nodeSeeds = nodeSeeds :+ (nodeId -> nodeSeed),
         )
       case None =>
         noteAbort(Tx.EndExerciseInRootContext)
@@ -467,7 +438,7 @@ case class PartialTransaction(
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(node: Tx.LeafNode, byKey: Boolean): PartialTransaction = {
+  def insertLeafNode(node: LeafNode, byKey: Boolean): PartialTransaction = {
     val nid = Value.NodeId(nextNodeIdx)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
@@ -482,12 +453,8 @@ case class PartialTransaction(
 sealed abstract class InitialSeeding extends Product with Serializable
 
 object InitialSeeding {
-  def apply(transactionSeed: Option[crypto.Hash]): InitialSeeding =
-    transactionSeed match {
-      case None => NoSeed
-      case Some(hash) => TransactionSeed(hash)
-    }
-
+  // NoSeed may be used to initialize machines that are not intended to create transactions
+  // e.g. trigger and script runners, tests
   final case object NoSeed extends InitialSeeding
   final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
   final case class RootNodeSeeds(seeds: ImmArray[Option[crypto.Hash]]) extends InitialSeeding

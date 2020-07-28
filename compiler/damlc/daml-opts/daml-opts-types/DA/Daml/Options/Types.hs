@@ -10,7 +10,7 @@ module DA.Daml.Options.Types
     , DlintUsage(..)
     , Haddock(..)
     , IncrementalBuild(..)
-    , InferDependantPackages(..)
+    , IgnorePackageMetadata(..)
     , PackageFlag(..)
     , ModRenaming(..)
     , PackageArg(..)
@@ -93,8 +93,11 @@ data Options = Options
     -- ^ Enable CPP, by giving filepath to the executable.
   , optIncrementalBuild :: IncrementalBuild
   -- ^ Whether to do an incremental on-disk build as opposed to keeping everything in memory.
-  , optInferDependantPackages :: InferDependantPackages
-  -- ^ Whether to infer --package flags from deps/data-deps contained in daml.yaml
+  , optIgnorePackageMetadata :: IgnorePackageMetadata
+  -- ^ Whether to ignore the package metadata generated from the daml.yaml
+  -- This is set to True when building data-dependency packages where we
+  -- have precise package flags and don’t want to use the daml.yaml from the
+  -- main package.
   , optEnableOfInterestRule :: Bool
   -- ^ Whether we should enable the of interest rule that automatically compiles all
   -- modules to DALFs or not. This is required in the IDE but we can disable it
@@ -104,7 +107,7 @@ data Options = Options
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
 
-newtype InferDependantPackages = InferDependantPackages { getInferDependantPackages :: Bool }
+newtype IgnorePackageMetadata = IgnorePackageMetadata { getIgnorePackageMetadata :: Bool }
   deriving Show
 
 newtype Haddock = Haddock Bool
@@ -180,7 +183,7 @@ defaultOptions mbVersion =
         , optHaddock = Haddock False
         , optCppPath = Nothing
         , optIncrementalBuild = IncrementalBuild False
-        , optInferDependantPackages = InferDependantPackages True
+        , optIgnorePackageMetadata = IgnorePackageMetadata False
         , optEnableOfInterestRule = True
         }
 

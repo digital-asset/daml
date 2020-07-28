@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.transaction
+package com.daml.lf
+package transaction
 
 import com.daml.lf.data.{BackStack, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
@@ -42,17 +43,27 @@ object TransactionCoder {
         .fold(_ => Left(DecodeError(s"cannot parse node Id $s")), idx => Right(Value.NodeId(idx)))
   }
 
-  val EventIdEncoder: EncodeNid[Ref.LedgerString] = new EncodeNid[Ref.LedgerString] {
-    override def asString(id: Ref.LedgerString): String = id
-  }
+  def EventIdEncoder(trId: Ref.LedgerString): EncodeNid[Value.NodeId] =
+    new EncodeNid[Value.NodeId] {
+      override def asString(id: Value.NodeId): String = ledger.EventId(trId, id).toLedgerString
+    }
 
-  val EventIdDecoder: DecodeNid[Ref.LedgerString] = new DecodeNid[Ref.LedgerString] {
-    override def fromString(s: String): Either[DecodeError, Ref.LedgerString] =
-      Ref.LedgerString
-        .fromString(s)
-        .left
-        .map(_ => DecodeError(s"cannot decode noid: $s"))
-  }
+  def EventIdDecoder(trId: Ref.LedgerString): DecodeNid[Value.NodeId] =
+    new DecodeNid[Value.NodeId] {
+      override def fromString(s: String): Either[DecodeError, Value.NodeId] =
+        ledger.EventId
+          .fromString(s)
+          .fold(
+            _ => Left(DecodeError(s"cannot decode noid: $s")),
+            eventId =>
+              Either.cond(
+                eventId.transactionId == trId,
+                eventId.nodeId,
+                DecodeError(
+                  s"eventId with unexpected transaction ID, expected $trId but found ${eventId.transactionId}"),
+            )
+          )
+    }
 
   def encodeValue[Cid](
       cidEncoder: ValueCoder.EncodeCid[Cid],
@@ -130,7 +141,6 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protocol buffer format node
     */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def encodeNode[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: ValueCoder.EncodeCid[Cid],
@@ -230,10 +240,10 @@ object TransactionCoder {
           encodedCid <- encodeCid.encode(transactionVersion, ne.targetCoid)
           controllers <- if (transactionVersion precedes minNoControllers)
             Either.cond(
-              ne.controllers == ne.actingParties,
-              ne.controllers,
+              !ne.controllersDifferFromActors,
+              ne.actingParties,
               EncodeError(
-                s"As of version $minNoControllers, the controllers and actingParties of an exercise node _must_ be the same, but I got ${ne.controllers} as controllers and ${ne.actingParties} as actingParties.",
+                s"As of version $minNoControllers, the controllers and actingParties of an exercise node _must_ be the same, but controllers did not match ${ne.actingParties} as actingParties.",
               )
             )
           else
@@ -419,14 +429,14 @@ object TransactionCoder {
           templateId <- ValueCoder.decodeIdentifier(protoExe.getTemplateId)
           actingParties <- toPartySet(protoExe.getActorsList)
           encodedControllers <- toPartySet(protoExe.getControllersList)
-          controllers <- if (!(txVersion precedes minNoControllers)) {
+          controllersDifferFromActors <- if (!(txVersion precedes minNoControllers)) {
             if (encodedControllers.isEmpty) {
-              Right(actingParties)
+              Right(false)
             } else {
               Left(DecodeError(s"As of version $txVersion, exercise controllers must be empty."))
             }
           } else {
-            Right(encodedControllers)
+            Right(encodedControllers != actingParties)
           }
           signatories <- toPartySet(protoExe.getSignatoriesList)
           stakeholders <- toPartySet(protoExe.getStakeholdersList)
@@ -444,7 +454,7 @@ object TransactionCoder {
               chosenValue = cv,
               stakeholders = stakeholders,
               signatories = signatories,
-              controllers = controllers,
+              controllersDifferFromActors = controllersDifferFromActors,
               children = children,
               exerciseResult = rv,
               key = keyWithMaintainers,
@@ -483,12 +493,12 @@ object TransactionCoder {
   def encodeTransaction[Nid, Cid <: ContractId](
       encodeNid: EncodeNid[Nid],
       encodeCid: ValueCoder.EncodeCid[Cid],
-      tx: GenTransaction[Nid, Cid, VersionedValue[Cid]],
+      tx: VersionedTransaction[Nid, Cid],
   ): Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
       encodeNid,
       encodeCid,
-      VersionedTransaction(TransactionVersions.assignVersion(tx), tx),
+      tx,
     )
 
   /**
@@ -551,7 +561,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return  decoded transaction
     */
-  def decodeVersionedTransaction[Nid, Cid](
+  def decodeTransaction[Nid, Cid](
       decodeNid: DecodeNid[Nid],
       decodeCid: ValueCoder.DecodeCid[Cid],
       protoTx: TransactionOuterClass.Transaction,
@@ -569,7 +579,7 @@ object TransactionCoder {
   /**
     * Reads a [[GenTransaction[Nid, Cid]]] from protobuf. Does not check if
     * [[TransactionVersion]] passed in the protobuf is currently supported, if you need this check use
-    * [[TransactionCoder.decodeVersionedTransaction]].
+    * [[TransactionCoder.decodeTransaction]].
     *
     * @param protoTx protobuf encoded transaction
     * @param decodeNid node id decoding function

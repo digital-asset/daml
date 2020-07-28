@@ -62,7 +62,6 @@ case class DefaultBatchingQueue(
       .groupedWeightedWithin(maxBatchSizeBytes, maxWaitDuration)(
         (cs: DamlSubmissionBatch.CorrelatedSubmission) => cs.getSubmission.size.toLong)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) /* Keep.left */
   def run(commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit])(
       implicit materializer: Materializer): RunningBatchingQueueHandle = {
     val materializedQueue = queue

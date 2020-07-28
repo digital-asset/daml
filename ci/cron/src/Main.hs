@@ -12,6 +12,7 @@ import qualified Data.Aeson as JSON
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
+import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Extra as List
@@ -26,7 +27,7 @@ import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
 import qualified System.Exit as Exit
-import qualified System.IO.Extra as Temp
+import qualified System.IO.Extra as IO
 import qualified System.Process as System
 import qualified Text.Regex.TDFA as Regex
 
@@ -107,7 +108,7 @@ to_v s = case Split.splitOn "-" s of
               _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
 
 build_docs_folder :: String -> [GitHubVersion] -> String -> IO String
-build_docs_folder path versions latest = do
+build_docs_folder path versions current = do
     restore_sha $ do
         let old = path </> "old"
         let new = path </> "new"
@@ -128,7 +129,7 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. Too old to rebuild, copying over..."
                     copy (old </> version) $ new </> version
-                    return $ Just gh_version
+                    return $ Just (gh_version, False)
                 else do
                     putStrLn "  Too old to rebuild and no existing version. Skipping."
                     return Nothing
@@ -143,11 +144,11 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. No reliable checksum; copying over and hoping for the best..."
                     copy (old </> version) $ new </> version
-                    return $ Just gh_version
+                    return $ Just (gh_version, False)
                 else do
                     putStrLn "  Not found. Building..."
                     build version new
-                    return $ Just gh_version
+                    return $ Just (gh_version, True)
             else if old_version_exists
             then do
                 -- Note: this checks for upload errors; this is NOT in any way
@@ -159,21 +160,40 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Checks, reusing existing."
                     copy (old </> version) $ new </> version
-                    return $ Just gh_version
+                    return $ Just (gh_version, False)
                 else do
                     putStrLn "  Check failed. Rebuilding..."
                     build version new
-                    return $ Just gh_version
+                    return $ Just (gh_version, True)
             else do
                 putStrLn "  Not found. Building..."
                 build version new
-                return $ Just gh_version)
-        putStrLn $ "Copying latest (" <> latest <> ") to top-level..."
-        copy (new </> latest </> "*") (new <> "/")
+                return $ Just (gh_version, True))
+        putStrLn $ "Copying current (" <> current <> ") to top-level..."
+        copy (new </> current </> "*") (new <> "/")
         putStrLn "Creating versions.json..."
-        let (releases, snapshots) = List.partition (not . prerelease) documented_versions
-        create_versions_json releases (new </> "versions.json")
-        create_versions_json snapshots (new </> "snapshots.json")
+        let (releases, snapshots) = List.partition (not . prerelease . fst) documented_versions
+        create_versions_json (map fst releases) (new </> "versions.json")
+        create_versions_json (map fst snapshots) (new </> "snapshots.json")
+        -- Starting after 0.13.54, we have changed the way in which we trigger
+        -- releases. Rather than releasing the current commit by changing the
+        -- VERSION file, we now mark an existing commit as the source code for
+        -- a release by changing the LATEST file. This raises the question of
+        -- the release notes: as we tag a commit from the past, and keep the
+        -- changelog outside of the worktree (in commit messages), that means
+        -- that commit cannot contain its own release notes. We have decided to
+        -- resolve that conundrum by always including the release notes from
+        -- the most recent release in all releases.
+        case filter snd documented_versions of
+          ((newly_built,_):_) -> do
+              putStrLn $ "Copying release notes from " <> name newly_built <> " to all other versions..."
+              let p v = new </> name v </> "support" </> "release-notes.html"
+              let top_level_release_notes = new </> "support" </> "release-notes.html"
+              shell_ $ "cp " <> p newly_built <> " " <> top_level_release_notes
+              Data.Foldable.for_ documented_versions $ \(gh_version, _) -> do
+                  shell_ $ "cp " <> top_level_release_notes <> " " <> p gh_version
+          _ -> do
+              putStrLn "No version built, so no release page copied."
         return new
     where
         restore_sha io =
@@ -185,7 +205,7 @@ build_docs_folder path versions latest = do
             shell_ $ "aws s3 sync s3://docs-daml-com/ " <> path
         exists dir = Directory.doesDirectoryExist dir
         checksums path = do
-            let cmd = "cd " <> path <> "; sha256sum -c checksum"
+            let cmd = "cd " <> path <> "; sed -i '/support\\/release-notes.html/d' checksum; sha256sum -c checksum"
             (code, _, _) <- shell_exit_code cmd
             case code of
                 Exit.ExitSuccess -> return True
@@ -201,31 +221,21 @@ build_docs_folder path versions latest = do
             then do
                 shell_ "git -c user.name=CI -c user.email=CI@example.com cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
                 build_helper version path
-            else if to_v version < to_v "0.13.55"
-            then do
-                build_helper version path
-            -- Starting after 0.13.54, we have changed the way in which we
-            -- trigger releases. Rather than releasing the current commit by
-            -- changing the VERSION file, we now mark an existing commit as the
-            -- source code for a release by changing the LATEST file. However,
-            -- release notes still need to be taken from the release commit
-            -- (i.e. the one that changes the LATEST file, not the one being
-            -- pointed to).
             else do
                 -- The release-triggering commit does not have a tag, so we
                 -- need to find it by walking through the git history of the
                 -- LATEST file.
                 sha <- find_commit_for_version version
-                Control.Exception.bracket
+                Control.Exception.bracket_
                     (shell_ $ "git checkout " <> sha <> " -- docs/source/support/release-notes.rst")
-                    (\_ -> shell_ "git reset --hard")
-                    (\_ -> build_helper version path)
+                    (shell_ "git reset --hard")
+                    (build_helper version path)
         build_helper version path = do
             robustly_download_nix_packages version
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> version <> " bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> path </> version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path </> version
-            checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\;"
+            checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\; | grep -v 'support/release-notes.html'"
             writeFile (path </> version </> "checksum") checksums
         create_versions_json versions path = do
             -- Not going through Aeson because it represents JSON objects as
@@ -240,17 +250,22 @@ build_docs_folder path versions latest = do
 
 find_commit_for_version :: String -> IO String
 find_commit_for_version version = do
-    release_commits <- lines <$> shell "git log --format=%H --all -- LATEST"
     ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
     let expected = ver_sha <> " " <> version
-    matching <- Maybe.catMaybes <$> Traversable.for release_commits (\sha -> do
-        latest <- init <$> (shell $ "git show " <> sha <> ":LATEST")
-        if latest == expected
-        then return $ Just sha
-        else return Nothing)
+    -- git log -G 'regex' returns all the commits for which 'regex' appears in
+    -- the diff. To find out the commit that "released" the version. The commit
+    -- we want is a commit that added a single line, which matches the version
+    -- we are checking for.
+    matching_commits <- lines <$> (shell $ "git log --format=%H --all -G '" <> ver_sha <> "' -- LATEST")
+    matching <- Maybe.catMaybes <$> Traversable.for matching_commits (\sha -> do
+        after <- Set.fromList . lines <$> (shell $ "git show " <> sha <> ":LATEST")
+        before <- Set.fromList . lines <$> (shell $ "git show " <> sha <> "~:LATEST")
+        return $ case Set.toList(after `Set.difference` before) of
+                     [line] | line == expected -> Just sha
+                     _ -> Nothing)
     case matching of
       [sha] -> return sha
-      _ -> error $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
+      _ -> fail $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
 
 fetch_s3_versions :: IO (Set.Set Version, Set.Set Version)
 fetch_s3_versions = do
@@ -281,13 +296,12 @@ push_to_s3 doc_folder = do
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
 
-data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String, published_at :: String } deriving Show
+data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String } deriving Show
 instance JSON.FromJSON GitHubVersion where
     parseJSON = JSON.withObject "GitHubVersion" $ \v -> GitHubVersion
         <$> v JSON..: Text.pack "prerelease"
         <*> v JSON..: Text.pack "tag_name"
         <*> v JSON..:? Text.pack "body" JSON..!= ""
-        <*> v JSON..: Text.pack "published_at"
 
 name :: GitHubVersion -> String
 name gh = tail $ tag_name gh
@@ -309,7 +323,7 @@ fetch_gh_paginated url = do
               in
               case typed_regex of
                 (_, _, _, [url, rel]) -> (rel, url)
-                _ -> error $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
+                _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
 fetch_gh_versions :: IO ([GitHubVersion], GitHubVersion)
 fetch_gh_versions = do
@@ -319,12 +333,19 @@ fetch_gh_versions = do
 
 same_versions :: (Set.Set Version, Set.Set Version) -> [GitHubVersion] -> Bool
 same_versions s3_versions gh_versions =
-    let gh_releases = Set.fromList $ map (to_v . name) $ filter (not . prerelease) gh_versions
+    -- Versions 0.13.5 and earlier can no longer be built by this script, and
+    -- happen to not exist in the s3 repo. This means they are not generated
+    -- and thus do not appear in the versions.json file on s3. This means that
+    -- if we do not remove them from the listing here, the docs cron always
+    -- believes there is a change to deploy.
+    let gh_releases = Set.fromList $ map (to_v . name) $ filter (\v -> to_v (name v) > to_v "0.13.5") $ filter (not . prerelease) gh_versions
         gh_snapshots = Set.fromList $ map (to_v . name) $ filter prerelease gh_versions
     in s3_versions == (gh_releases, gh_snapshots)
 
 main :: IO ()
 main = do
+    Control.forM_ [IO.stdout, IO.stderr] $
+        \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
     (gh_versions, gh_latest) <- fetch_gh_versions
     s3_versions_before <- fetch_s3_versions
@@ -333,7 +354,7 @@ main = do
         putStrLn "No new version found, skipping."
         Exit.exitSuccess
     else do
-        Temp.withTempDir $ \temp_dir -> do
+        IO.withTempDir $ \temp_dir -> do
             putStrLn "Building docs listing"
             docs_folder <- build_docs_folder temp_dir gh_versions $ name gh_latest
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."

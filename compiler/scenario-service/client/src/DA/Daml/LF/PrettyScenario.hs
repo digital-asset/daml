@@ -270,6 +270,21 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Disclosed to:"
             $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
+    ScenarioErrorErrorScenarioContractKeyNotVisible ScenarioError_ContractKeyNotVisible{..} ->
+      pure $ vcat
+        [ "Attempt to fetch, lookup or exercise a key associated with a contract not visible to the committer."
+        , label_ "Contract: "
+            $ prettyMay "<missing contract>"
+                (prettyContractRef world)
+                scenarioError_ContractKeyNotVisibleContractRef
+        , label_ "Key: "
+            $ prettyMay "<missing key>"
+                (prettyValue' False 0 world)
+                scenarioError_ContractKeyNotVisibleKey
+        , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractKeyNotVisibleCommitter
+        , label_ "Disclosed to:"
+            $ prettyParties scenarioError_ContractKeyNotVisibleObservers
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
@@ -322,14 +337,13 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
               ]
 
         Just (FailedAuthorizationSumActorMismatch
-          (FailedAuthorization_ActorMismatch templateId choiceId mbLoc ctrls givenActors)) ->
+          (FailedAuthorization_ActorMismatch templateId choiceId mbLoc givenActors)) ->
               [ "exercise of" <-> prettyChoiceId world templateId choiceId
                 <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed due to authorization error:"
               , "the choice's controlling parties"
-                <-> brackets (prettyParties ctrls)
-              , "is not a subset of the authorizing parties"
+              , "are not a subset of the authorizing parties"
                 <-> brackets (prettyParties givenActors)
               ]
 
