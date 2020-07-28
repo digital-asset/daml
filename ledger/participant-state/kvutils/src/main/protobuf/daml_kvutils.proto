@@ -79,7 +79,7 @@ message DamlSubmissionBatch {
 // A log entry for a committed DAML submission.
 // Produced by [[KeyValueCommitting]] from the `DamlSubmission` message.
 // Each entry can be converted into a participant state `Update` event
-// with [[KeyValueConsumption]].
+// with [[KeyValueConsumption]], except for a time update entry.
 //
 // Please read comments in [[com.daml.ledger.participant.state.v1.package]]
 // and  [[com.daml.ledger.participant.state.kvutils.package]] for background
@@ -116,6 +116,9 @@ message DamlLogEntry {
 
     // A rejection of a pre-executed submission because of out-of-time-bounds.
     DamlOutOfTimeBoundsEntry out_of_time_bounds_entry = 10;
+
+    // A log entry whose purpose is to transmit a current record time for pre-executed submissions.
+    google.protobuf.Empty time_update_entry = 101;
   }
 }
 

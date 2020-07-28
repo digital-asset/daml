@@ -1267,7 +1267,7 @@ Specific Changes
 Impact and Migration
 >>>>>>>>>>>>>>>>>>>>
 
-The maximum record time based mechanism for command deduplication is now deprecated and will be removed with the next SDK release. We recommend switching from the MRT-based mechanism to ``deduplication_time`` based one. Detailed documentation :ref:`here <handling-submission-failures>`.
+The maximum record time based mechanism for command deduplication is now deprecated and will be removed with the next SDK release. We recommend switching from the MRT-based mechanism to ``deduplication_time`` based one. Detailed documentation :ref:`here <command-deduplication>`.
 
 Minor Improvements
 ^^^^^^^^^^^^^^^^^^

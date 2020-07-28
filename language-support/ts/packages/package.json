@@ -12,9 +12,8 @@
     "ws": "^7.2.1"
   },
   "devDependencies": {
-    "@bazel/bazel": "1.1.0",
-    "@bazel/hide-bazel-files": "1.6.0",
-    "@bazel/typescript": "1.6.0",
+    "@bazel/hide-bazel-files": "1.7.0",
+    "@bazel/typescript": "2.0.0",
     "@types/jest": "^24.9.0",
     "@types/react": "^16.9.20",
     "@types/ws": "^7.2.1",

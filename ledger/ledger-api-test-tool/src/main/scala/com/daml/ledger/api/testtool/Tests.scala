@@ -5,10 +5,10 @@ package com.daml.ledger.api.testtool
 
 import java.nio.file.Path
 
-import com.daml.ledger.api.testtool
-import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
 import com.daml.ledger.api.testtool.tests._
-import org.slf4j.LoggerFactory
+
+import scala.collection.SortedSet
 
 object Tests {
 
@@ -46,52 +46,15 @@ object Tests {
     * all other tests.
     */
   def performanceTests(path: Option[Path]): Map[String, LedgerTestSuite] = {
-    val reporter =
-      (key: String, value: Double) =>
-        path
-          .map(BenchmarkReporter.toFile)
-          .getOrElse(BenchmarkReporter.toStream(System.out))
-          .addReport(key, value)
+    val target =
+      path
+        .map(BenchmarkReporter.toFile)
+        .getOrElse(BenchmarkReporter.toStream(System.out))
 
-    Envelope.values.flatMap { envelope =>
-      {
-        val throughputKey: String = performanceEnvelopeThroughputTestKey(envelope)
-        val latencyKey: String = performanceEnvelopeLatencyTestKey(envelope)
-        val transactionSizeKey: String = performanceEnvelopeTransactionSizeTestKey(envelope)
-        List(
-          throughputKey -> new testtool.tests.PerformanceEnvelope.ThroughputTest(
-            logger = LoggerFactory.getLogger(throughputKey),
-            envelope = envelope,
-            reporter = reporter,
-          ),
-          latencyKey -> new testtool.tests.PerformanceEnvelope.LatencyTest(
-            logger = LoggerFactory.getLogger(latencyKey),
-            envelope = envelope,
-            reporter = reporter,
-          ),
-          transactionSizeKey -> new testtool.tests.PerformanceEnvelope.TransactionSizeScaleTest(
-            logger = LoggerFactory.getLogger(transactionSizeKey),
-            envelope = envelope,
-          ),
-        )
-      }
-    }
-  }.toMap
+    Envelope.All.iterator.map(e => e.name -> PerformanceEnvelope(e, target.addReport)).toMap
+  }
 
-  private[this] def performanceEnvelopeThroughputTestKey(envelope: Envelope): String =
-    s"PerformanceEnvelope.${envelope.name}.Throughput"
-  private[this] def performanceEnvelopeLatencyTestKey(envelope: Envelope): String =
-    s"PerformanceEnvelope.${envelope.name}.Latency"
-  private[this] def performanceEnvelopeTransactionSizeTestKey(envelope: Envelope): String =
-    s"PerformanceEnvelope.${envelope.name}.TransactionSize"
+  private[testtool] val PerformanceTestsKeys: SortedSet[String] =
+    SortedSet(Envelope.All.map(_.name): _*)
 
-  private[testtool] val PerformanceTestsKeys =
-    Envelope.values.flatMap { envelope =>
-      List(
-        performanceEnvelopeThroughputTestKey(envelope),
-        performanceEnvelopeLatencyTestKey(envelope),
-        performanceEnvelopeTransactionSizeTestKey(envelope)),
-    }
-
-  private[testtool] val PerformanceTestsKeySet = PerformanceTestsKeys.toSet
 }
