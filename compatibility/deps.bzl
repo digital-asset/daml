@@ -90,7 +90,7 @@ def daml_deps():
             name = "com_github_madler_zlib",
             build_file = "@daml//3rdparty/c:zlib.BUILD",
             strip_prefix = "zlib-{}".format(zlib_version),
-            urls = ["https://github.com/madler/zlib/archive/{}.tar.gz".format(zlib_version)],
+            urls = ["https://github.com/madler/zlib/archive/v{}.tar.gz".format(zlib_version)],
             sha256 = zlib_sha256,
         )
 
