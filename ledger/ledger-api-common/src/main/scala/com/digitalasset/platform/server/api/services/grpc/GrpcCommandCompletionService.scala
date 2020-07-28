@@ -44,12 +44,14 @@ class GrpcCommandCompletionService(
 
   override def completionStreamSource(
       request: CompletionStreamRequest): Source[CompletionStreamResponse, akka.NotUsed] = {
-    validator
-      .validateCompletionStreamRequest(request)
-      .fold(
-        Source.failed[CompletionStreamResponse],
-        GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource
-      )
+    Source.future(service.getLedgerEnd(LedgerId(request.ledgerId))).flatMapConcat { ledgerEnd =>
+      validator
+        .validateCompletionStreamRequest(request, ledgerEnd, service.offsetOrdering)
+        .fold(
+          Source.failed[CompletionStreamResponse],
+          GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource
+        )
+    }
   }
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
