@@ -1124,7 +1124,11 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               ]
           writeFileUTF8 (tmpDir </> "dep" </> "Foo.daml") $ unlines
               [ "module Foo where"
-              , "type MyInt = Int"
+              , "type MyInt' = Int"
+              , "type MyArrow a b = a -> b"
+              , "type MyUnit = ()"
+              , "type MyOptional = Optional"
+              , "type MyFunctor t = Functor t"
               ]
           withCurrentDirectory (tmpDir </> "dep") $ callProcessSilent damlc ["build", "-o", tmpDir </> "dep" </> "dep.dar", "--target=1.dev"]
           step "Building proj"
@@ -1140,8 +1144,20 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           writeFileUTF8 (tmpDir </> "proj" </> "Bar.daml") $ unlines
               [ "module Bar where"
               , "import Foo"
-              , "x : MyInt"
+              , "x : MyInt'"
               , "x = 10"
+              , "f : MyArrow Int Int"
+              , "f a = a + 1"
+              , "type MyUnit = Int"
+              , "g : MyUnit -> MyUnit"
+                -- ^ this tests that MyUnit wasn't exported from Foo
+              , "g a = a"
+              , "type MyOptional t = Int"
+              , "h : MyOptional Int -> MyOptional Int"
+                  -- ^ this tests that MyOptional wasn't exported from Foo
+              , "h a = a"
+              , "myFmap : MyFunctor t => (a -> b) -> t a -> t b"
+              , "myFmap = fmap"
               ]
           withCurrentDirectory (tmpDir </> "proj") $ callProcessSilent damlc ["build", "-o", tmpDir </> "proj" </> "proj.dar", "--target=1.dev"]
 
