@@ -1,7 +1,7 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# This is an example configuration file that demonstrates how the Sandbox can be
+# This is an example configuration file that demonstrates how DAML on SQL can be
 # naively deployed with PostgreSQL in a Kubernetes cluster.
 #
 # It is not intended to be used in a production environment.
@@ -22,11 +22,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: sandbox
+  name: daml-on-sql
 spec:
   type: LoadBalancer
   selector:
-    app: sandbox
+    app: ledger
   ports:
     - name: ledger-api
       port: 6865
@@ -36,27 +36,26 @@ spec:
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: sandbox
+  name: ledger
   labels:
-    app: sandbox
+    app: ledger
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sandbox
+      app: ledger
   template:
     metadata:
       labels:
-        app: sandbox
+        app: ledger
     spec:
       containers:
-        - name: sandbox
-          image: bazel/ledger/sandbox:sandbox-image
+        - name: daml-on-sql
+          image: bazel/ledger/daml-on-sql:daml-on-sql-image
           args:
             - --ledgerid=kubernetes-demo
+            - --sql-backend-jdbcurl=jdbc:postgresql://db:5432/daml?user=daml&password=daml
             - --port=6865
-            - --eager-package-loading
-            - --sql-backend-jdbcurl=jdbc:postgresql://db:5432/sandbox?user=sandbox
           ports:
             - name: ledger-api
               containerPort: 6865
@@ -68,6 +67,7 @@ spec:
           livenessProbe:
             tcpSocket:
               port: ledger-api
+            failureThreshold: 3
             periodSeconds: 10
           readinessProbe:
             exec:
@@ -113,13 +113,19 @@ spec:
           image: postgres
           env:
             - name: POSTGRES_USER
-              value: sandbox
+              value: daml
+            - name: POSTGRES_PASSWORD
+              value: daml
           ports:
             - name: postgresql
               containerPort: 5432
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+          livenessProbe:
+            tcpSocket:
+              port: postgresql
+            periodSeconds: 10
   volumeClaimTemplates:
     - metadata:
         name: data

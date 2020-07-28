@@ -737,7 +737,7 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
 
 container_pull(
     name = "java_base",
-    digest = "sha256:7cef6d99241bc86e09659d41842e3656a1cab99adf0e440a44d2858c8e52a71a",
+    digest = "sha256:17b8b592d923f375972a59e902426bfaa30900d18fdb5e451f48089258fd621c",
     registry = "gcr.io",
     repository = "distroless/java",
     tag = "8",
