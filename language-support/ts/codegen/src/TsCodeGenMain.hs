@@ -354,15 +354,15 @@ renderTemplateDef TemplateDef{..} =
     let jsSource = T.unlines $ concat
           [ [ "exports." <> tplName <> " = {"
             , "  templateId: '" <> templateId <> "',"
-            , "  keyDecoder: " <> keyDec <> ","
-            , "  decoder: function () { return " <> renderDecoder tplDecoder <> "; },"
+            , "  keyDecoder: " <> renderDecoder (DecoderLazy keyDec) <> ","
+            , "  decoder: " <> renderDecoder (DecoderLazy tplDecoder) <> ","
             ]
           , concat
             [ [ "  " <> chcName' <> ": {"
               , "    template: function () { return exports." <> tplName <> "; },"
               , "    choiceName: '" <> chcName' <> "',"
-              , "    argumentDecoder: " <> snd (genType chcArgTy) <> ".decoder,"
-              , "    resultDecoder: function () { return " <> snd (genType chcRetTy) <> ".decoder(); },"
+              , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
+              , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
               , "  },"
               ]
             | ChoiceDef{..} <- tplChoices'
@@ -382,8 +382,8 @@ renderTemplateDef TemplateDef{..} =
           ]
     in (jsSource, tsDecl)
   where (keyTy, keyDec) = case tplKeyDecoder of
-            Nothing -> ("undefined", "function () { return " <> renderDecoder (DecoderConstant ConstantUndefined) <> "; }")
-            Just d -> (tplName <> ".Key", "function () { return " <> renderDecoder d <> "; }")
+            Nothing -> ("undefined", DecoderConstant ConstantUndefined)
+            Just d -> (tplName <> ".Key", DecoderLazy d)
         templateId =
             unPackageId tplPkgId <> ":" <>
             T.intercalate "." (unModuleName tplModule) <> ":" <>
@@ -424,11 +424,11 @@ renderSerializableDef SerializableDef{..}
           [ ["exports." <> serName <> " = {"]
           , [ "  " <> k <> ": " <> "'" <> k <> "'," | k <- serKeys ]
           , [ "  keys: [" <> T.concat (map (\s -> "'" <> s <> "',") serKeys) <> "]," | notNull serKeys ]
-          , [ "  decoder: function () { return " <> renderDecoder serDecoder <> "; },"
+          , [ "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ","
             ]
           , concat $
             [ [ "  " <> n <> ":({"
-              , "    decoder: function () { return " <> renderDecoder d <> "; },"
+              , "    decoder: " <> renderDecoder (DecoderLazy d) <> ","
               , "  }),"
               ]
             | (n, d) <- serNestedDecoders
@@ -454,11 +454,11 @@ renderSerializableDef SerializableDef{..}
             -- a function and we generate extra properties on that function
             -- for each nested decoder.
             [ "exports" <.> serName <> " = function " <> jsTyArgs <> " { return ({"
-            , "  decoder: function () { return " <> renderDecoder serDecoder <> "; },"
+            , "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ","
             , "}); };"
             ] <> concat
             [ [ "exports" <.> serName <.> n <> " = function " <> jsTyArgs <> " { return ({"
-              , "  decoder: function () { return " <> renderDecoder d <> "; },"
+              , "  decoder: " <> renderDecoder (DecoderLazy d) <> ","
               , "}); };"
               ]
             | (n, d) <- serNestedDecoders
@@ -477,7 +477,7 @@ data Decoder
     = DecoderOneOf T.Text [Decoder]
     | DecoderObject [(T.Text, Decoder)]
     | DecoderConstant DecoderConstant
-    | DecoderRef TypeRef -- ^ Reference to an object with a .decoder() method
+    | DecoderRef TypeRef -- ^ Reference to an object with a .decoder field
     | DecoderLazy Decoder -- ^ Lazy decoder, we need this to avoid infinite loops
     -- on recursive types. We insert this in every variant, Optional, List and TextMap
     -- which are the only ways to construct terminating recursive types.
@@ -504,7 +504,7 @@ renderDecoder = \case
         T.concat (map (\(name, d) -> name <> ": " <> renderDecoder d <> ", ") fields) <>
         "})"
     DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
-    DecoderRef t -> snd (genType t) <> ".decoder()"
+    DecoderRef t -> snd (genType t) <> ".decoder"
     DecoderLazy d -> "damlTypes.lazyMemo(function () { return " <> renderDecoder d <> "; })"
 
 data TypeDef
@@ -576,7 +576,7 @@ genSerializableDef curPkgId conName mod def =
     genBranch (VariantConName cons, t) =
         DecoderObject
             [ ("tag", DecoderConstant (ConstantString cons))
-            , ("value", DecoderLazy (DecoderRef $ TypeRef (moduleName mod) t))
+            , ("value", DecoderRef $ TypeRef (moduleName mod) t)
             ]
     nestedDefDataTypes =
         [ (sub, def)
