@@ -680,13 +680,8 @@ In particular, the tests are run to ensure that *DAML on SQL* can:
 - have a tail latency no greater than 1 second when issuing 20 pings
 - have a throughput of 20 pings per second
 
-.. note::
-
-  A "ping" is a collective name for two templates used to evaluate
-  the performance envelope. Each of the two templates, "Ping" and
-  "Pong", have a single choice allowing the controller to create
-  an instance of the complementary template, directed to the
-  original sender.
+You can read more on performance tests in the documentation of the
+`Ledger API Test Tool <https://docs.daml.com/tools/ledger-api-test-tool/index.html#performance-tests>`__.
 
 Replicate performance envelope tests
 ====================================
@@ -710,9 +705,9 @@ zone to minimize the latency between the three.
 
 The tests run to evaluate the performance envelope are:
 
-- PerformanceEnvelope.Beta.Latency
-- PerformanceEnvelope.Beta.Throughput
-- PerformanceEnvelope.Beta.TransactionSize
+- PerformanceEnvelope.Latency.1000ms
+- PerformanceEnvelope.Throughput.TwentyOPS
+- PerformanceEnvelope.TransactionSize.1000KB
 
 Please refer to the documentation for the Ledger API Test Tool to learn
 how to run these tests.

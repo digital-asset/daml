@@ -48,7 +48,7 @@ object LedgerApiTestTool {
     println("Alternatively, you can run performance tests.")
     println("They are not run by default, but can be run with `--perf-tests=TEST-NAME`.")
     println()
-    Tests.PerformanceTestsKeys.sorted.foreach(println(_))
+    Tests.PerformanceTestsKeys.foreach(println(_))
   }
   private def printAvailableTestSuites(config: Config): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
@@ -57,7 +57,7 @@ object LedgerApiTestTool {
 
   private def printAvailableTests(config: Config): Unit = {
     println("Listing all tests. Run with --list to only see test suites.")
-    printListOfTests(Tests.all.flatMap(_.tests).toSeq)(_.name)
+    printListOfTests(Tests.all.flatMap(_.tests))(_.name)
   }
 
   private def extractResources(resources: String*): Unit = {
