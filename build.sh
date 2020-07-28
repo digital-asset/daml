@@ -27,10 +27,6 @@ if [ -n "$SANDBOX_PID" ]; then
     kill "$SANDBOX_PID"
 fi
 
-# Temporary to workaround rules_nodejs update.
-bazel clean --expunge
-rm -rf node_modules
-
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //... --build_tag_filters "$tag_filter"
 
