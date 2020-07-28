@@ -11,15 +11,15 @@ import scala.concurrent.Future
 
 /**
   * Sends commits to [[cheapTransactionsDelegate]] in case estimated interpretation cost is below
-  * [[minimumEstimatedInterpretationCost]] otherwise to [[expensiveTransactionsDelegate]].
+  * [[estimatedInterpretationCostThreshold]] otherwise to [[expensiveTransactionsDelegate]].
   * Submissions that don't have an estimated interpretation cost will be forwarded to
   * [[expensiveTransactionsDelegate]].
   *
-  * @param minimumEstimatedInterpretationCost all transactions that have a greater than equal estimated interpretation
-  *                                           cost will be forwarded to [[expensiveTransactionsDelegate]]
+  * @param estimatedInterpretationCostThreshold all transactions that have a greater than equal estimated interpretation
+  *                                             cost will be forwarded to [[expensiveTransactionsDelegate]]
   */
 class InterpretationCostBasedLedgerWriterChooser(
-    minimumEstimatedInterpretationCost: Long,
+    estimatedInterpretationCostThreshold: Long,
     cheapTransactionsDelegate: LedgerWriter,
     expensiveTransactionsDelegate: LedgerWriter)
     extends LedgerWriter {
@@ -32,7 +32,8 @@ class InterpretationCostBasedLedgerWriterChooser(
       envelope: Bytes,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
-    if (metadata.estimatedInterpretationCost.exists(_ >= minimumEstimatedInterpretationCost)) {
+    if (metadata.estimatedInterpretationCost.exists(_ >= estimatedInterpretationCostThreshold) ||
+      estimatedInterpretationCostThreshold <= 0L) {
       expensiveTransactionsDelegate.commit(correlationId, envelope, metadata)
     } else {
       cheapTransactionsDelegate.commit(correlationId, envelope, metadata)

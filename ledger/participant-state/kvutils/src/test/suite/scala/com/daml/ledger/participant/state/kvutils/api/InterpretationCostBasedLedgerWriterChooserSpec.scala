@@ -60,6 +60,20 @@ class InterpretationCostBasedLedgerWriterChooserSpec
       }
       succeed
     }
+
+    "delegate to expensive writer in case threshold is 0" in {
+      val commitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = None)
+      val mockWriterExpensive = mock[LedgerWriter]
+      when(mockWriterExpensive.commit(anyString(), any[Bytes], any[CommitMetadata]))
+        .thenReturn(Future.successful(Acknowledged))
+      val instance =
+        new InterpretationCostBasedLedgerWriterChooser(0L, mock[LedgerWriter], mockWriterExpensive)
+
+      instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
+        verify(mockWriterExpensive, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
+      }
+      succeed
+    }
   }
 
   "currentHealth" should {
