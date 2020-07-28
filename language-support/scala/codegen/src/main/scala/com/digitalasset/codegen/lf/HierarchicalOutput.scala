@@ -70,7 +70,6 @@ private[codegen] object HierarchicalOutput {
           (liftSubtrees(subtrees) _).andThen(_.map(\/-(_)))
         case (Some(codeGenElt), subtrees) =>
           val (subErrs, subFiles) = liftSubtrees(subtrees)(true)
-          val imports = subFiles flatMap (_._2)
           val companionMembers = subFiles flatMap (_._3)
 
           val (generate, log, errorMsg) = codeGenElt match {

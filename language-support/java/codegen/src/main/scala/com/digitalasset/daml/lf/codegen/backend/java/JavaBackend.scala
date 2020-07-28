@@ -39,7 +39,6 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
   private def extractTemplateNames(
       tree: InterfaceTrees,
       packagePrefixes: Map[PackageId, String]) = {
-    val prefixes = packagePrefixes.mapValues(_.stripSuffix("."))
     tree.interfaceTrees.flatMap(_.bfs(Vector[ClassName]()) {
       case (res, module: ModuleWithContext) =>
         val templateNames = module.typesLineages
