@@ -139,8 +139,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
             ledgerEnd,
             offsetOrdering),
-          INVALID_ARGUMENT,
-          "Invalid argument: Begin offset 1001 is after ledger end 1000"
+          OUT_OF_RANGE,
+          "Begin offset 1001 is after ledger end 1000"
         )
       }
 
@@ -151,8 +151,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
             ledgerEnd,
             offsetOrdering),
-          INVALID_ARGUMENT,
-          "Invalid argument: End offset 1001 is after ledger end 1000"
+          OUT_OF_RANGE,
+          "End offset 1001 is after ledger end 1000"
         )
       }
 
@@ -274,8 +274,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
             ledgerEnd,
             offsetOrdering),
-          INVALID_ARGUMENT,
-          "Invalid argument: Begin offset 1001 is after ledger end 1000"
+          OUT_OF_RANGE,
+          "Begin offset 1001 is after ledger end 1000"
         )
       }
 
@@ -286,8 +286,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
             ledgerEnd,
             offsetOrdering),
-          INVALID_ARGUMENT,
-          "Invalid argument: End offset 1001 is after ledger end 1000"
+          OUT_OF_RANGE,
+          "End offset 1001 is after ledger end 1000"
         )
       }
     }
