@@ -149,27 +149,40 @@ To use command deduplication, you should:
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
 
 
-.. _handling-participant-node-failover:
+.. _failing-over-between-ledger-api-endpoints:
 
-Handling participant node failover
-**********************************
+Failing over between Ledger API endpoints
+*****************************************
 
-Some DAML Ledgers support exposing multiple eventually consistent Ledger API endpoints
-where command deduplication works across the Ledger API endpoints,
-e.g., by hosting separate participant nodes that expose the same view onto the ledger.
-Contact your ledger operator to find out whether this applies to your ledger.
+Some DAML Ledgers support exposing multiple eventually consistent Ledger API
+endpoints where command deduplication works across these Ledger API endpoints.
+For example, these endpoints might be hosted by separate Ledger API servers
+that replicate the same data and host the same parties. Contact your ledger
+operator to find out whether this applies to your ledger.
 
-On such ledgers, applications can easily switch between Ledger API endpoints to handle participant node failovers.
-To support switching to a different ledger API endpoint at run time,
-your application should keep track of the last ledger offset received from the :ref:`transaction service <transaction-service>`.
-After switching to a new Ledger API endpoint, subscribe to the transaction stream using the last received offset.
+Below we describe how you can build your application such that it can switch
+between such eventually consistent Ledger API endpoints to tolerate server
+failures. You can do this using the following two steps.
 
-The subscription may return a OUT_OF_RANGE error.
-As per the gRCP error code definition, this means the subscription was attempted past the valid range, and the problem may be fixed if the system state changes.
-In practice, it means the new participant node hasn't caught up with the state on the previous participant yet.
-If you receive such an error, your application should retry subscribing to the transaction stream until successful.
+First, your application must keep track of the last ledger offset received
+from the :ref:`transaction service <transaction-service>` or the :ref:`command
+completion service <command-completion-service>`.  When switching to a new
+Ledger API endpoint, it must resume consumption of the transaction (tree)
+and/or the command completion streams starting from this last received
+offset.
 
-Once you successfully subscribe to the new transaction stream, your application can resume normal operation.
+Second, your application must retry on ``OUT_OF_RANGE`` errors (see `gRPC
+status codes <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_)
+received from a stream subscription -- using an appropriate backoff strategy
+to avoid overloading the server. Such errors can be raised because of eventual
+consistency. The Ledger API endpoint that the application is newly subscribing
+to might be behind the endpoint that it subscribed to before the switch, and
+needs time to catch up. Thanks to eventual consistency this is guaranteed to
+happen at some point in the future.
+
+Once the application successfully subscribes to its required streams on the
+new endpoint, it will resume normal operation.
+
 
 .. _dealing-with-time:
 
