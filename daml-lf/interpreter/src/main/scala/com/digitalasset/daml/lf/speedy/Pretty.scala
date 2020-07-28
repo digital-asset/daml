@@ -492,6 +492,7 @@ private[lf] object Pretty {
             case other => str(other)
           }
 
+        case SECaseAtomic(scrut, alts) => prettySExpr(index)(SECase(scrut, alts))
         case SECase(scrut, alts) =>
           (text("case") & prettySExpr(index)(scrut) & text("of") +
             line +
@@ -524,15 +525,19 @@ private[lf] object Pretty {
             case _ => str(x)
           }
         case SEAppGeneral(fun, args) =>
-          val prefix = prettySExpr(index)(fun) + char('(')
+          val prefix = prettySExpr(index)(fun) + text("@E(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
         case SEAppAtomicFun(fun, args) =>
-          val prefix = prettySExpr(index)(fun) + char('(')
+          val prefix = prettySExpr(index)(fun) + text("@N(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
-        case SEAppSaturatedBuiltinFun(builtin, args) =>
-          val prefix = prettySExpr(index)(SEBuiltin(builtin)) + char('(')
+        case SEAppAtomicGeneral(fun, args) =>
+          val prefix = prettySExpr(index)(fun) + text("@A(")
+          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
+            .tightBracketBy(prefix, char(')'))
+        case SEAppAtomicSaturatedBuiltin(builtin, args) =>
+          val prefix = prettySExpr(index)(SEBuiltin(builtin)) + text("@B(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
         case SEAbs(n, body) =>
@@ -565,6 +570,10 @@ private[lf] object Pretty {
               str(index + n) & char('=') & prettySExpr(index + n)(x)
           })).tightBracketBy(text("let ["), char(']')) +
             lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
+        case SELet1General(rhs, body) =>
+          prettySExpr(index)(SELet(Array(rhs), body))
+        case SELet1Builtin(builtin, args, body) =>
+          prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
 
         case x: SEBuiltinRecursiveDefinition => str(x)
         case x: SEImportValue => str(x)
