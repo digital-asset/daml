@@ -39,13 +39,18 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  // Amount of time we wait for the ledger to commit the request before we give up on polling for
+  // the result.
+  private val timeToLive = 15.minutes
+
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
     PackageManagementServiceGrpc.bindService(this, DE)
 
   override def listKnownPackages(
-      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] = {
+      request: ListKnownPackagesRequest
+  ): Future[ListKnownPackagesResponse] = {
     packagesIndex
       .listLfPackages()
       .map { pkgs =>
@@ -67,13 +72,6 @@ private[apiserver] final class ApiPackageManagementService private (
         SubmissionId.assertFromString(UUID.randomUUID().toString)
       else
         SubmissionId.assertFromString(request.submissionId)
-
-    // Amount of time we wait for the ledger to commit the request before we
-    // give up on polling for the result.
-    // TODO(JM): This constant should be replaced by user-provided maximum record time
-    // which should be wired through the stack and verified during validation, just like
-    // with transactions. I'm leaving this for another PR.
-    val timeToLive = 30.seconds
 
     implicit val ec: ExecutionContext = DE
     val uploadDarFileResponse = for {
