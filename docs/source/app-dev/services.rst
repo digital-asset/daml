@@ -77,7 +77,7 @@ The command submission service deduplicates submitted commands based on the subm
 
 - If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
 
-For details on how to use command deduplication, see the :ref:`Application Architecture Guide <handling-submission-failures>`.
+For details on how to use command deduplication, see the :ref:`Application Architecture Guide <command-deduplication>`.
 
 .. _command-completion-service:
 
