@@ -483,7 +483,7 @@ convertTypeSynonym env tycon
 
     | envLfVersion env `supports` featureTypeSynonyms
     , Just (params, body) <- synTyConDefn_maybe tycon
-    , isLiftedTypeKind (tyConResKind tycon)
+    , isLiftedTypeKind (tyConResKind tycon) -- accepts types and constraints
     , not (isKindTyCon tycon)
     = do
         (env', tsynParams) <- bindTypeVars env params
@@ -491,7 +491,7 @@ convertTypeSynonym env tycon
         let tsynName = mkTypeSyn [getOccText tycon]
         case tsynType of
             TUnit -> pure []
-                -- ^ We avoid converting TUnit type synonyms because it
+                -- We avoid converting TUnit type synonyms because it
                 -- clashes with the conversion of empty typeclasses.
             _ -> pure [ defTypeSyn tsynName tsynParams tsynType ]
 
