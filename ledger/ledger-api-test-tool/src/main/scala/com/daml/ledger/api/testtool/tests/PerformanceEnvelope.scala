@@ -319,7 +319,7 @@ object PerformanceEnvelope {
     override protected val logger: Logger = LoggerFactory.getLogger(getClass)
 
     test(
-      envelope.name,
+      envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} throughput envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { participants =>
@@ -364,7 +364,7 @@ object PerformanceEnvelope {
     require(numPings > 0 && numWarmupPings >= 0)
 
     test(
-      envelope.name,
+      envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} latency envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { participants =>
@@ -409,7 +409,7 @@ object PerformanceEnvelope {
     override protected val maxInflight = 10
 
     test(
-      envelope.name,
+      envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} transaction size envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { participants =>
