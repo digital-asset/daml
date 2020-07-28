@@ -89,16 +89,6 @@ class CommonCli(name: LedgerName) {
         .text(
           "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.")
 
-      opt[Unit]('s', "static-time")
-        .optional()
-        .action((_, c) => c.setTimeProviderType(TimeProviderType.Static))
-        .text("Use static time. When not specified, wall-clock-time is used.")
-
-      opt[Unit]('w', "wall-clock-time")
-        .optional()
-        .action((_, c) => c.setTimeProviderType(TimeProviderType.WallClock))
-        .text("Use wall clock time (UTC). This is the default.")
-
       // TODO(#577): Remove this flag.
       opt[Unit]("no-parity")
         .optional()

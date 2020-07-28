@@ -4,8 +4,10 @@
 package com.daml.platform.sandboxnext
 
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.platform.sandbox.cli.CommonCli.SandboxConfigSetters
 import com.daml.platform.sandbox.cli.{CommonCli, SandboxCli}
 import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.services.time.TimeProviderType
 import scopt.OptionParser
 
 private[sandboxnext] object Cli extends SandboxCli {
@@ -21,6 +23,16 @@ private[sandboxnext] object Cli extends SandboxCli {
         Some(Seeding.Static),
       )
       .parser
+    parser
+      .opt[Unit]('s', "static-time")
+      .optional()
+      .action((_, c) => c.setTimeProviderType(TimeProviderType.Static))
+      .text("Use static time. When not specified, wall-clock-time is used.")
+    parser
+      .opt[Unit]('w', "wall-clock-time")
+      .optional()
+      .action((_, c) => c.setTimeProviderType(TimeProviderType.WallClock))
+      .text("Use wall clock time (UTC). This is the default.")
     parser
       .opt[Boolean](name = "implicit-party-allocation")
       .optional()
