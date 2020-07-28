@@ -16,7 +16,7 @@ import scala.concurrent.Future
   * Submissions that don't have an estimated interpretation cost will be forwarded to
   * [[cheapTransactionsDelegate]].
   *
-  * @param estimatedInterpretationCostThreshold all transactions that have a greater than equal estimated interpretation
+  * @param estimatedInterpretationCostThreshold all transactions that have a greater or equal estimated interpretation
   *                                             cost will be forwarded to [[expensiveTransactionsDelegate]]
   */
 class InterpretationCostBasedLedgerWriterChooser(
