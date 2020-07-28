@@ -242,6 +242,7 @@ generateSrcFromLf env = noLoc mod
     genDecls = do
         decls <- sequence . concat $
             [ classDecls
+            , synonymDecls
             , dataTypeDecls
             , valueDecls
             ]
@@ -328,6 +329,27 @@ generateSrcFromLf env = noLoc mod
                 , tcdATs = [] -- associated types not supported
                 , tcdATDefs = []
                 , tcdDocs = []
+                }
+
+    synonymDecls :: [Gen (LHsDecl GhcPs)]
+    synonymDecls = do
+        defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        guard $ case synType of
+            LF.TStruct _ -> False
+            LF.TUnit -> False
+            _ -> True
+        LF.TypeSynName [name] <- [synName]
+        guard (shouldExposeDefTypeSyn defTypeSyn)
+        let occName = mkOccName tcName . T.unpack $ sanitize name
+        pure $ do
+            params <- mapM (convTyVarBinder env) synParams
+            rhs <- convType env reexportedClasses synType
+            pure . noLoc . TyClD noExt $ SynDecl
+                { tcdSExt = noExt
+                , tcdLName = noLoc $ mkRdrUnqual occName
+                , tcdTyVars = HsQTvs noExt params
+                , tcdFixity = Prefix
+                , tcdRhs = noLoc rhs
                 }
 
     dataTypeDecls :: [Gen (LHsDecl GhcPs)]

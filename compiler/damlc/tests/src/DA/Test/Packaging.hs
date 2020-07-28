@@ -1112,6 +1112,39 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               ]
           withCurrentDirectory (tmpDir </> "proj") $ callProcessSilent damlc ["build", "-o", tmpDir </> "proj" </> "proj.dar"]
 
+    , testCaseSteps "Type synonyms over data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
+          step "Building dep"
+          createDirectoryIfMissing True (tmpDir </> "dep")
+          writeFileUTF8 (tmpDir </> "dep" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: dep"
+              , "version: 0.1.0"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (tmpDir </> "dep" </> "Foo.daml") $ unlines
+              [ "module Foo where"
+              , "type MyInt = Int"
+              ]
+          withCurrentDirectory (tmpDir </> "dep") $ callProcessSilent damlc ["build", "-o", tmpDir </> "dep" </> "dep.dar", "--target=1.dev"]
+          step "Building proj"
+          createDirectoryIfMissing True (tmpDir </> "proj")
+          writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proj"
+              , "version: 0.1.0"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (tmpDir </> "dep" </> "dep.dar") <> "]"
+              ]
+          writeFileUTF8 (tmpDir </> "proj" </> "Bar.daml") $ unlines
+              [ "module Bar where"
+              , "import Foo"
+              , "x : MyInt"
+              , "x = 10"
+              ]
+          withCurrentDirectory (tmpDir </> "proj") $ callProcessSilent damlc ["build", "-o", tmpDir </> "proj" </> "proj.dar", "--target=1.dev"]
+
     , testCaseSteps "RankNTypes" $ \step -> withTempDir $ \tmpDir -> do
           step "Building dep"
           createDirectoryIfMissing True (tmpDir </> "dep")
@@ -1147,8 +1180,8 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           writeFileUTF8 (tmpDir </> "proj" </> "Bar.daml") $ unlines
               [ "module Bar where"
               , "import Foo"
-              , "type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t"
               , "x : Lens s t a b -> Lens s t a b"
+                -- ^ This also tests Rank N type synonyms!
               , "x = lensIdentity"
               ]
           withCurrentDirectory (tmpDir </> "proj") $ callProcessSilent damlc ["build", "-o", tmpDir </> "proj" </> "proj.dar", "--target=1.dev"]
