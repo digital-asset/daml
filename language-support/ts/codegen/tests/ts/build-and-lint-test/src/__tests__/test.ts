@@ -115,10 +115,9 @@ describe('decoders for recursive types do not loop', () => {
     expect(buildAndLint.Main.Recursive.decoder.run(undefined).ok).toBe(false);
   });
 
-  // FIXME(MH): This test does not pass yet, see https://github.com/digital-asset/daml/issues/6840
-  // test('uninhabited record', () => {
-  //   expect(buildAndLint.Main.VoidRecord.decoder().run(undefined).ok).toBe(false);
-  // });
+  test('uninhabited record', () => {
+    expect(buildAndLint.Main.VoidRecord.decoder.run(undefined).ok).toBe(false);
+  });
 
   test('uninhabited enum', () => {
     expect(buildAndLint.Main.VoidEnum.decoder.run(undefined).ok).toBe(false);
