@@ -87,7 +87,7 @@ object DamlDataTypeGen {
       else
         (tq"$domainApiAlias.ValueRef", tq"$domainApiAlias.ValueRefCompanion")
 
-    val packageIdRef = PackageIDsGen.reference(util)(moduleName)
+    val packageIdRef = PackageIDsGen.reference(moduleName)
     val idField =
       if (isTemplate) None
       else Some(q"""

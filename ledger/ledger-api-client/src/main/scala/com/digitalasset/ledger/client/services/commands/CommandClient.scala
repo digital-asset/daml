@@ -49,7 +49,6 @@ final class CommandClient(
     ledgerId: LedgerId,
     applicationId: String,
     config: CommandClientConfiguration,
-    timeProviderO: Option[TimeProvider] = None,
     logger: Logger = LoggerFactory.getLogger(getClass))(implicit esf: ExecutionSequencerFactory) {
 
   /**
