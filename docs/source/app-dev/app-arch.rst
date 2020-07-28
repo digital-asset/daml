@@ -154,17 +154,22 @@ For more details on command deduplication, see the :ref:`Ledger API Services <co
 Handling participant node failover
 **********************************
 
-Some DAML Ledgers support exposing multiple eventually consistent Ledger API endpoints hosted by separate participant nodes.
+Some DAML Ledgers support exposing multiple eventually consistent Ledger API endpoints
+where command deduplication works across the Ledger API endpoints,
+e.g., by hosting separate participant nodes that expose the same view onto the ledger.
+Contact your ledger operator to find out whether this applies to your ledger.
 
-To support switching to a different participant node at run time,
+On such ledgers, applications can easily switch between Ledger API endpoints to handle participant node failovers.
+To support switching to a different ledger API endpoint at run time,
 your application should keep track of the last ledger offset received from the :ref:`transaction service <transaction-service>`.
-After switching to a new participant node, subscribe to the transaction stream using the last received offset.
-If you receive the OUT_OF_RANGE error, it means the new participant node hasn't caught up with the state on the previous participant yet
-and your application should retry subscribing to the transaction stream until successful.
+After switching to a new Ledger API endpoint, subscribe to the transaction stream using the last received offset.
 
-Note that command deduplication is not guaranteed to work across participants.
-Contanct your ledger operator to find out whether you can safely resubmit all outstanding commands to the new participant.
+The subscription may return a OUT_OF_RANGE error.
+As per the gRCP error code definition, this means the subscription was attempted past the valid range, and the problem may be fixed if the system state changes.
+In practice, it means the new participant node hasn't caught up with the state on the previous participant yet.
+If you receive such an error, your application should retry subscribing to the transaction stream until successful.
 
+Once you successfully subscribe to the new transaction stream, your application can resume normal operation.
 
 .. _dealing-with-time:
 
