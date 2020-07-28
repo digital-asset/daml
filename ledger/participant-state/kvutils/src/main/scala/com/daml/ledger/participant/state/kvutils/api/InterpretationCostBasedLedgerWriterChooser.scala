@@ -10,23 +10,22 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import scala.concurrent.Future
 
 /**
-  * Sends commits to [[cheapTransactionsLedgerWriter]] in case estimated interpretation cost is below
-  * [[minimumEstimatedInterpretationCost]] otherwise to [[expensiveTransactionsLedgerWriter]].
+  * Sends commits to [[cheapTransactionsDelegate]] in case estimated interpretation cost is below
+  * [[minimumEstimatedInterpretationCost]] otherwise to [[expensiveTransactionsDelegate]].
   * Submissions that don't have an estimated interpretation cost will be forwarded to
-  * [[expensiveTransactionsLedgerWriter]].
+  * [[expensiveTransactionsDelegate]].
   *
   * @param minimumEstimatedInterpretationCost all transactions that have a greater than equal estimated interpretation
-  *                                           cost will be forwarded to [[expensiveTransactionsLedgerWriter]]
+  *                                           cost will be forwarded to [[expensiveTransactionsDelegate]]
   */
 class InterpretationCostBasedLedgerWriterChooser(
     minimumEstimatedInterpretationCost: Long,
-    cheapTransactionsLedgerWriter: LedgerWriter,
-    expensiveTransactionsLedgerWriter: LedgerWriter)
+    cheapTransactionsDelegate: LedgerWriter,
+    expensiveTransactionsDelegate: LedgerWriter)
     extends LedgerWriter {
-  assert(
-    cheapTransactionsLedgerWriter.participantId == expensiveTransactionsLedgerWriter.participantId)
+  assert(cheapTransactionsDelegate.participantId == expensiveTransactionsDelegate.participantId)
 
-  override def participantId: ParticipantId = cheapTransactionsLedgerWriter.participantId
+  override def participantId: ParticipantId = cheapTransactionsDelegate.participantId
 
   override def commit(
       correlationId: String,
@@ -34,12 +33,12 @@ class InterpretationCostBasedLedgerWriterChooser(
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
     if (metadata.estimatedInterpretationCost.exists(_ >= minimumEstimatedInterpretationCost)) {
-      expensiveTransactionsLedgerWriter.commit(correlationId, envelope, metadata)
+      expensiveTransactionsDelegate.commit(correlationId, envelope, metadata)
     } else {
-      cheapTransactionsLedgerWriter.commit(correlationId, envelope, metadata)
+      cheapTransactionsDelegate.commit(correlationId, envelope, metadata)
     }
 
   override def currentHealth(): HealthStatus =
-    cheapTransactionsLedgerWriter.currentHealth() and expensiveTransactionsLedgerWriter
+    cheapTransactionsDelegate.currentHealth() and expensiveTransactionsDelegate
       .currentHealth()
 }
