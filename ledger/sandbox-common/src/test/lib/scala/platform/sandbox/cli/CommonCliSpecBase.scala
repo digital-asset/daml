@@ -11,7 +11,6 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
@@ -66,23 +65,6 @@ abstract class CommonCliSpecBase(
       checkOption(
         Array("--participant-id", participantId),
         _.copy(participantId = v1.ParticipantId.assertFromString("myParticipant")))
-    }
-
-    "apply static time when given" in {
-      checkOption(Array("-s"), _.copy(timeProviderType = Some(TimeProviderType.Static)))
-      checkOption(Array("--static-time"), _.copy(timeProviderType = Some(TimeProviderType.Static)))
-    }
-
-    "apply wall-clock time when given" in {
-      checkOption(
-        Array("--wall-clock-time"),
-        _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
-      checkOption(Array("-w"), _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
-    }
-
-    "return None when both static and wall-clock time are given" in {
-      val config = cli.parse(requiredArgs ++ Array("--static-time", "--wall-clock-time"))
-      config shouldEqual None
     }
 
     "parse the crt file when given" in {

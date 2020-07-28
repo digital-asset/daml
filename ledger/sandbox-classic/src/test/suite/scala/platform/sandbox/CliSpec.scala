@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.cli.CommonCliSpecBase
 import com.daml.platform.sandbox.cli.CommonCliSpecBase.exampleJdbcUrl
+import com.daml.platform.services.time.TimeProviderType
 
 class CliSpec extends CommonCliSpecBase(Cli) {
 
@@ -28,6 +29,23 @@ class CliSpec extends CommonCliSpecBase(Cli) {
 
     "parse the jdbcurl flag (deprecated) when given" in {
       checkOption(Array("--jdbcurl", exampleJdbcUrl), _.copy(jdbcUrl = Some(exampleJdbcUrl)))
+    }
+
+    "apply static time when given" in {
+      checkOption(Array("-s"), _.copy(timeProviderType = Some(TimeProviderType.Static)))
+      checkOption(Array("--static-time"), _.copy(timeProviderType = Some(TimeProviderType.Static)))
+    }
+
+    "apply wall-clock time when given" in {
+      checkOption(
+        Array("--wall-clock-time"),
+        _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
+      checkOption(Array("-w"), _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
+    }
+
+    "return None when both static and wall-clock time are given" in {
+      val config = cli.parse(requiredArgs ++ Array("--static-time", "--wall-clock-time"))
+      config shouldEqual None
     }
 
     "parse the scenario when given" in {
