@@ -4,7 +4,6 @@
 package com.daml.codegen
 
 import com.daml.codegen.dependencygraph._
-import com.daml.lf.data.Ref.QualifiedName
 
 import org.scalatest.{FlatSpec, Matchers}
 import dependencygraph.Graph._

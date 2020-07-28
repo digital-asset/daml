@@ -110,9 +110,9 @@ private[kvutils] object InputsAndEffects {
     // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
     // fold bottom up (with reversed roots!) and skip creates of archived contracts.
     tx.fold(Effects.empty) {
-      case (effects, (nodeId, node)) =>
+      case (effects, (nodeId @ _, node)) =>
         node match {
-          case fetch @ Node.NodeFetch(_, _, _, _, _, _, _) =>
+          case Node.NodeFetch(_, _, _, _, _, _, _) =>
             effects
           case create @ Node.NodeCreate(_, _, _, _, _, _) =>
             effects.copy(
@@ -153,7 +153,7 @@ private[kvutils] object InputsAndEffects {
             } else {
               effects
             }
-          case l @ Node.NodeLookupByKey(_, _, _, _) =>
+          case Node.NodeLookupByKey(_, _, _, _) =>
             effects
         }
     }

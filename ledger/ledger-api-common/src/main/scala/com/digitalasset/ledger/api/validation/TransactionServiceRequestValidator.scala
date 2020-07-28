@@ -87,9 +87,7 @@ class TransactionServiceRequestValidator(
       _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
       _ <- partial.end.fold[Result[Unit]](Right(()))(
         offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
-      convertedFilter <- TransactionFilterValidator.validate(
-        partial.transactionFilter,
-        "filter.filters_by_party")
+      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
         ledgerId,
@@ -111,9 +109,7 @@ class TransactionServiceRequestValidator(
       _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
       _ <- partial.end.fold[Result[Unit]](Right(()))(
         offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
-      convertedFilter <- transactionFilterToPartySet(
-        partial.transactionFilter,
-        "filter.filters_by_party")
+      convertedFilter <- transactionFilterToPartySet(partial.transactionFilter)
     } yield {
       transaction.GetTransactionTreesRequest(
         partial.ledgerId,
@@ -168,7 +164,6 @@ class TransactionServiceRequestValidator(
 
   private def transactionFilterToPartySet(
       transactionFilter: TransactionFilter,
-      fieldName: String
   ) =
     transactionFilter.filtersByParty
       .collectFirst {

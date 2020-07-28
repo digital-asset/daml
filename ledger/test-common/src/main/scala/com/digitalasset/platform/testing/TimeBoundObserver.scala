@@ -32,5 +32,6 @@ final class TimeBoundObserver[T](duration: FiniteDuration)(
   override def onCompleted(): Unit = {
     promise.trySuccess(buffer.result())
     Context.current().withCancellation().cancel(null)
+    ()
   }
 }

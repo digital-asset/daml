@@ -28,8 +28,7 @@ import com.daml.metrics.{Metrics, Timed}
 class KeyValueParticipantStateReader private[api] (
     reader: LedgerReader,
     metrics: Metrics,
-    logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update])(
-    implicit materializer: Materializer)
+    logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update])
     extends ReadService {
   import KeyValueParticipantStateReader._
 

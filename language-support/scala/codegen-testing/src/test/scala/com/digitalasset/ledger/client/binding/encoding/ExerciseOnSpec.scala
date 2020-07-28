@@ -7,7 +7,7 @@ package encoding
 import com.daml.ledger.client.binding.{Primitive => P}
 
 import org.scalatest.{Matchers, WordSpec}
-import com.ghik.silencer.silent
+import com.github.ghik.silencer.silent
 
 @silent(" exer .* is never used")
 class ExerciseOnSpec extends WordSpec with Matchers {

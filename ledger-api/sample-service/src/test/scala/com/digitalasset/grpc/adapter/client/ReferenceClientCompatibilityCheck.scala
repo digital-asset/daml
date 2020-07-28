@@ -6,7 +6,6 @@ package com.daml.grpc.adapter.client
 import com.daml.grpc.adapter.utils.BufferingObserver
 import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
 import com.daml.platform.hello.{HelloRequest, HelloResponse}
-import io.grpc.stub.StreamObserver
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 
@@ -30,27 +29,5 @@ trait ReferenceClientCompatibilityCheck extends ResultAssertions with ScalaFutur
 
       whenReady(observer.resultsF)(assertElementsAreInOrder(halfCount.toLong))
     }
-  }
-
-  private def checkClientStreamingSetup(
-      observer: BufferingObserver[HelloResponse],
-      reqObserver: StreamObserver[HelloRequest]) = {
-    for (i <- elemRange) {
-      reqObserver.onNext(HelloRequest(i))
-    }
-    reqObserver.onCompleted()
-
-    whenReady(observer.resultsF)(elementsAreSummed)
-  }
-
-  private def checkBidiSetup(
-      observer: BufferingObserver[HelloResponse],
-      reqObserver: StreamObserver[HelloRequest]) = {
-    for (i <- elemRange) {
-      reqObserver.onNext(HelloRequest(i))
-    }
-    reqObserver.onCompleted()
-
-    whenReady(observer.resultsF)(everyElementIsDoubled)
   }
 }

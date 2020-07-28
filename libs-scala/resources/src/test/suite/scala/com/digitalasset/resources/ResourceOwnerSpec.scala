@@ -9,6 +9,7 @@ import java.util.{Timer, TimerTask}
 
 import com.daml.resources.FailingResourceOwner.FailingResourceFailedToOpen
 import org.scalatest.{AsyncWordSpec, Matchers}
+import com.github.ghik.silencer.silent
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
@@ -174,6 +175,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val ownerA = TestResourceOwner(99)
       val ownerB = TestResourceOwner(100)
 
+      @silent(" resourceA .* is never used")
       val resource = for {
         resourceA <- ownerA.acquire()
         if false

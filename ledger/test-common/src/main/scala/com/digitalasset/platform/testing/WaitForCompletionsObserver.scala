@@ -39,6 +39,7 @@ final class WaitForCompletionsObserver private (expectedCompletions: Int)
     if (total >= expectedCompletions) {
       promise.trySuccess(())
       Context.current().withCancellation().cancel(null)
+      ()
     }
   }
 

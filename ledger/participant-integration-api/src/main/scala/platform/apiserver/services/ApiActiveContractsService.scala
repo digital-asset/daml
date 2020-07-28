@@ -37,7 +37,7 @@ private[apiserver] final class ApiActiveContractsService private (
     logger.trace("Serving an Active Contracts request...")
 
     TransactionFilterValidator
-      .validate(request.getFilter, "filter")
+      .validate(request.getFilter)
       .fold(Source.failed, backend.getActiveContracts(_, request.verbose))
       .via(logger.logErrorsOnStream)
   }

@@ -42,7 +42,7 @@ class CommitterSpec
       when(mockContext.getAccessedInputKeys).thenReturn(expectedReadSet)
       val instance = createCommitter()
 
-      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, mockContext)
 
       verify(mockContext, times(1)).getOutputs
       verify(mockContext, times(1)).getAccessedInputKeys
@@ -63,7 +63,7 @@ class CommitterSpec
       when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
       val instance = createCommitter()
 
-      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, mockContext)
 
       actual.minimumRecordTime should not be defined
       actual.maximumRecordTime should not be defined
@@ -81,7 +81,7 @@ class CommitterSpec
       when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
       when(mockContext.deduplicateUntil).thenReturn(Some(expectedDuplicateUntil))
       val instance = createCommitter()
-      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, mockContext)
 
       actual.outOfTimeBoundsLogEntry.hasOutOfTimeBoundsEntry shouldBe true
       val actualOutOfTimeBoundsLogEntry = actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry
@@ -102,7 +102,7 @@ class CommitterSpec
       when(mockContext.maximumRecordTime).thenReturn(None)
       val instance = createCommitter()
 
-      instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      instance.preExecute(aDamlSubmission, mockContext)
       succeed
     }
 
@@ -125,8 +125,7 @@ class CommitterSpec
           when(mockContext.maximumRecordTime).thenReturn(maxRecordTimeMaybe)
           val instance = createCommitter()
 
-          assertThrows[IllegalArgumentException](
-            instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext))
+          assertThrows[IllegalArgumentException](instance.preExecute(aDamlSubmission, mockContext))
       }
     }
   }

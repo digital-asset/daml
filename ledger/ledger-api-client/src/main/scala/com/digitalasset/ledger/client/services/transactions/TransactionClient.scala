@@ -42,14 +42,18 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
       LedgerClient.stub(service, token).getTransactions,
       GetTransactionsRequest(ledgerId.unwrap, Some(start), end, Some(transactionFilter), verbose))
 
-  def getTransactionById(transactionId: String, parties: Seq[String], token: Option[String] = None)(
-      implicit ec: ExecutionContext): Future[GetTransactionResponse] =
+  def getTransactionById(
+      transactionId: String,
+      parties: Seq[String],
+      token: Option[String] = None): Future[GetTransactionResponse] =
     LedgerClient
       .stub(service, token)
       .getTransactionById(GetTransactionByIdRequest(ledgerId.unwrap, transactionId, parties))
 
-  def getTransactionByEventId(eventId: String, parties: Seq[String], token: Option[String] = None)(
-      implicit ec: ExecutionContext): Future[GetTransactionResponse] =
+  def getTransactionByEventId(
+      eventId: String,
+      parties: Seq[String],
+      token: Option[String] = None): Future[GetTransactionResponse] =
     LedgerClient
       .stub(service, token)
       .getTransactionByEventId(GetTransactionByEventIdRequest(ledgerId.unwrap, eventId, parties))
@@ -57,8 +61,7 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
   def getFlatTransactionById(
       transactionId: String,
       parties: Seq[String],
-      token: Option[String] = None)(
-      implicit ec: ExecutionContext): Future[GetFlatTransactionResponse] =
+      token: Option[String] = None): Future[GetFlatTransactionResponse] =
     LedgerClient
       .stub(service, token)
       .getFlatTransactionById(GetTransactionByIdRequest(ledgerId.unwrap, transactionId, parties))
@@ -66,8 +69,7 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
   def getFlatTransactionByEventId(
       eventId: String,
       parties: Seq[String],
-      token: Option[String] = None)(
-      implicit ec: ExecutionContext): Future[GetFlatTransactionResponse] =
+      token: Option[String] = None): Future[GetFlatTransactionResponse] =
     LedgerClient
       .stub(service, token)
       .getFlatTransactionByEventId(

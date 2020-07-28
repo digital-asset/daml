@@ -36,8 +36,8 @@ object BatchedSubmissionValidator {
       committer: KeyValueCommitting,
       conflictDetection: ConflictDetection,
       metrics: Metrics,
-      ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())(
-      implicit executionContext: ExecutionContext): BatchedSubmissionValidator[CommitResult] =
+      ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())
+    : BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       committer,
@@ -49,8 +49,7 @@ object BatchedSubmissionValidator {
   private[validator] def apply[CommitResult](
       params: BatchedSubmissionValidatorParameters,
       engine: Engine,
-      metrics: Metrics)(
-      implicit executionContext: ExecutionContext): BatchedSubmissionValidator[CommitResult] =
+      metrics: Metrics): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       new KeyValueCommitting(engine, metrics),
@@ -260,8 +259,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       damlLedgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult])(
       implicit materializer: Materializer,
-      executionContext: ExecutionContext,
-      logCtx: LoggingContext): Future[Unit] =
+      executionContext: ExecutionContext): Future[Unit] =
     indexedSubmissions
     // Fetch the submission inputs in parallel.
       .mapAsyncUnordered[Outputs1](params.readParallelism) {

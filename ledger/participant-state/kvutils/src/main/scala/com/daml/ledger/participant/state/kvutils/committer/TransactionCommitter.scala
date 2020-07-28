@@ -236,7 +236,7 @@ private[kvutils] class TransactionCommitter(
           .consume(
             lookupContract(transactionEntry, commitContext.inputs),
             lookupPackage(transactionEntry, commitContext.inputs),
-            lookupKey(transactionEntry, commitContext.inputs, knownKeys),
+            lookupKey(commitContext.inputs, knownKeys),
           )
           .fold(
             err =>
