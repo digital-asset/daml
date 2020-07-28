@@ -91,12 +91,12 @@ class CommonCli(name: LedgerName) {
 
       opt[Unit]('s', "static-time")
         .optional()
-        .action((_, c) => setTimeProviderType(c, TimeProviderType.Static))
+        .action((_, c) => c.setTimeProviderType(TimeProviderType.Static))
         .text("Use static time. When not specified, wall-clock-time is used.")
 
       opt[Unit]('w', "wall-clock-time")
         .optional()
-        .action((_, c) => setTimeProviderType(c, TimeProviderType.WallClock))
+        .action((_, c) => c.setTimeProviderType(TimeProviderType.WallClock))
         .text("Use wall clock time (UTC). This is the default.")
 
       // TODO(#577): Remove this flag.
@@ -334,15 +334,14 @@ class CommonCli(name: LedgerName) {
 
 object CommonCli {
 
-  private def setTimeProviderType(
-      config: SandboxConfig,
-      timeProviderType: TimeProviderType,
-  ): SandboxConfig = {
-    if (config.timeProviderType.exists(_ != timeProviderType)) {
-      throw new IllegalStateException(
-        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+  implicit class SandboxConfigSetters(val config: SandboxConfig) extends AnyVal {
+    def setTimeProviderType(timeProviderType: TimeProviderType): SandboxConfig = {
+      if (config.timeProviderType.exists(_ != timeProviderType)) {
+        throw new IllegalStateException(
+          "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+      }
+      config.copy(timeProviderType = Some(timeProviderType))
     }
-    config.copy(timeProviderType = Some(timeProviderType))
   }
 
   private def checkIfZip(f: File): Boolean = {
