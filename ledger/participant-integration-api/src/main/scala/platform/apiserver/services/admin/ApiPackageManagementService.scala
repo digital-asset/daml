@@ -7,18 +7,16 @@ import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
 
-import akka.actor.Scheduler
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.api.util.TimeProvider
-import com.daml.lf.archive.DarReader
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
+import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
+import com.daml.lf.archive.DarReader
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -34,9 +32,8 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: WritePackagesService,
-    timeProvider: TimeProvider,
     materializer: Materializer,
-    scheduler: Scheduler)(implicit logCtx: LoggingContext)
+)(implicit logCtx: LoggingContext)
     extends PackageManagementService
     with GrpcApiService {
 
@@ -134,13 +131,7 @@ private[apiserver] object ApiPackageManagementService {
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
-      timeProvider: TimeProvider)(implicit mat: Materializer, logCtx: LoggingContext)
+  )(implicit mat: Materializer, logCtx: LoggingContext)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
-    new ApiPackageManagementService(
-      readBackend,
-      transactionsService,
-      writeBackend,
-      timeProvider,
-      mat,
-      mat.system.scheduler)
+    new ApiPackageManagementService(readBackend, transactionsService, writeBackend, mat)
 }

@@ -23,13 +23,13 @@ import com.daml.platform.apiserver.execution.{
   StoreBackedCommandExecutor,
   TimedCommandExecutor
 }
+import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
   ApiPartyManagementService
 }
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
-import com.daml.platform.apiserver.services._
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
@@ -248,7 +248,7 @@ private[daml] object ApiServices {
 
         val apiPackageManagementService =
           ApiPackageManagementService
-            .createApiService(indexService, transactionsService, writeService, timeProvider)
+            .createApiService(indexService, transactionsService, writeService)
 
         val apiConfigManagementService =
           ApiConfigManagementService
