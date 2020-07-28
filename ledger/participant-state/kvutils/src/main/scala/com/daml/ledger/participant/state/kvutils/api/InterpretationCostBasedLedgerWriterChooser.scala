@@ -13,7 +13,7 @@ import scala.concurrent.Future
   * Sends commits to [[cheapTransactionsDelegate]] in case estimated interpretation cost is below
   * [[estimatedInterpretationCostThreshold]] otherwise to [[expensiveTransactionsDelegate]].
   * Submissions that don't have an estimated interpretation cost will be forwarded to
-  * [[expensiveTransactionsDelegate]].
+  * [[cheapTransactionsDelegate]].
   *
   * @param estimatedInterpretationCostThreshold all transactions that have a greater than equal estimated interpretation
   *                                             cost will be forwarded to [[expensiveTransactionsDelegate]]
@@ -21,7 +21,11 @@ import scala.concurrent.Future
 class InterpretationCostBasedLedgerWriterChooser(
     estimatedInterpretationCostThreshold: Long,
     cheapTransactionsDelegate: LedgerWriter,
-    expensiveTransactionsDelegate: LedgerWriter)
+    expensiveTransactionsDelegate: LedgerWriter,
+    incrementCheapCounter: () => Unit = () => (),
+    incrementExpensiveCounter: () => Unit = () => (),
+    addInterpretationCostBelowThreshold: Long => Unit = _ => (),
+    addInterpretationCostAboveThreshold: Long => Unit = _ => ())
     extends LedgerWriter {
   assert(cheapTransactionsDelegate.participantId == expensiveTransactionsDelegate.participantId)
 
@@ -31,13 +35,18 @@ class InterpretationCostBasedLedgerWriterChooser(
       correlationId: String,
       envelope: Bytes,
       metadata: CommitMetadata,
-  ): Future[SubmissionResult] =
-    if (metadata.estimatedInterpretationCost.exists(_ >= estimatedInterpretationCostThreshold) ||
-      estimatedInterpretationCostThreshold <= 0L) {
+  ): Future[SubmissionResult] = {
+    val estimatedInterpretationCost = metadata.estimatedInterpretationCost.getOrElse(0L)
+    if (estimatedInterpretationCost >= estimatedInterpretationCostThreshold) {
+      incrementExpensiveCounter()
+      addInterpretationCostAboveThreshold(estimatedInterpretationCost)
       expensiveTransactionsDelegate.commit(correlationId, envelope, metadata)
     } else {
+      incrementCheapCounter()
+      addInterpretationCostBelowThreshold(estimatedInterpretationCost)
       cheapTransactionsDelegate.commit(correlationId, envelope, metadata)
     }
+  }
 
   override def currentHealth(): HealthStatus =
     cheapTransactionsDelegate.currentHealth() and expensiveTransactionsDelegate
