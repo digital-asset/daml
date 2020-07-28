@@ -123,10 +123,9 @@ def daml_deps():
             url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
             type = "zip",
             strip_prefix = "rules_scala-%s" % rules_scala_version,
-            sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d",
+            sha256 = rules_scala_sha256,
             patches = [
                 "@daml//bazel_tools:scala-escape-jvmflags.patch",
-                "@daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
             ],
             patch_args = ["-p1"],
         )
