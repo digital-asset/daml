@@ -55,12 +55,15 @@ object EnrichedTransaction {
       else
         copy(failedAuthorizations = failedAuthorizations + (nodeId -> failWith))
 
+    /**
+      *
+      * @param mbMaintainers If the create has a key, these are the maintainers
+      */
     def authorizeCreate(
         nodeId: NodeId,
         create: NodeCreate.WithTxValue[ContractId],
         signatories: Set[Party],
         authorization: Authorization,
-        /** If the create has a key, these are the maintainers */
         mbMaintainers: Option[Set[Party]],
     ): EnrichState =
       authorization.fold(this)(

@@ -7,26 +7,23 @@ import java.time.Duration
 
 import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 
-/**
-  * Configuration surrounding ledger parameters.
+/** Configuration surrounding ledger parameters.
+  *
+  * @param initialConfiguration
+  *     The initial ledger configuration to submit if the ledger does not contain one yet.
+  * @param initialConfigurationSubmitDelay
+  *     The delay until the ledger API server tries to submit an initial configuration at startup if none exists.
+  * @param configurationLoadTimeout
+  *     The amount of time the ledger API server will wait to load a ledger configuration.
+  *
+  *     The ledger API server waits at startup until it reads at least one configuration changed update from the ledger.
+  *     If none is found within this timeout, the ledger API server will start anyway, but services that depend
+  *     on the ledger configuration (e.g., SubmissionService or CommandService) will reject all requests with the
+  *     UNAVAILABLE error.
   */
 case class LedgerConfiguration(
-    /**
-      * The initial ledger configuration to submit if the ledger does not contain one yet.
-      */
     initialConfiguration: Configuration,
-    /**
-      * The delay until the ledger API server tries to submit an initial configuration at startup if none exists.
-      */
     initialConfigurationSubmitDelay: Duration,
-    /**
-      * The amount of time the ledger API server will wait to load a ledger configuration.
-      *
-      * The ledger API server waits at startup until it reads at least one configuration changed update from the ledger.
-      * If none is found within this timeout, the ledger API server will start anyway, but services that depend
-      * on the ledger configuration (e.g., SubmissionService or CommandService) will reject all requests with the
-      * UNAVAILABLE error.
-      */
     configurationLoadTimeout: Duration,
 )
 
