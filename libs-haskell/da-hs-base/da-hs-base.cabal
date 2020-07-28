@@ -58,7 +58,7 @@ library
       Control.Lens.MonoTraversal
       DA.Pretty
       DA.Service.Logger
-      DA.Service.Logger.Impl.GCP
+      -- DA.Service.Logger.Impl.GCP imports SdkVersion build artefact
       DA.Service.Logger.Impl.IO
       DA.Service.Logger.Impl.Pure
       DA.Signals
