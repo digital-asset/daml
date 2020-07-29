@@ -86,35 +86,6 @@ object TriggerServiceFixture {
     // 'ledgerProxyPort' is managed by the toxiproxy instance and
     // forwards to the real sandbox port.
 
-    // Now we have a ledger port, launch a ref-ledger-authentication
-    // instance.
-    val refLedgerAuthExe: String =
-      if (!isWindows)
-        BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary")
-      else
-        BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary.exe")
-    val refLedgerAuthProcF = for {
-      refLedgerAuthPort <- Future(LockedFreePort.find())
-      (_, ledgerPort, _, _) <- ledgerF
-      proc <- Future {
-        Process(
-          Seq(refLedgerAuthExe),
-          None,
-          ("DABL_AUTHENTICATION_SERVICE_ADDRESS", host.getHostAddress),
-          ("DABL_AUTHENTICATION_SERVICE_PORT", refLedgerAuthPort.port.toString),
-          ("DABL_AUTHENTICATION_SERVICE_LEDGER_URL", s"http://${host.getHostAddress}:$ledgerPort")
-        ).run()
-      }
-    } yield (refLedgerAuthPort, proc)
-    // Wait on the ref-ledger-authentication instance to be ready to
-    // accept connections.
-    RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
-      for {
-        (refLedgerAuthPort, _) <- refLedgerAuthProcF
-        _ <- Future(refLedgerAuthPort.testAndUnlock(host))
-      } yield ()
-    }
-
     // Configure this client with the ledger's *actual* port.
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort, _, _) <- ledgerF
@@ -165,7 +136,6 @@ object TriggerServiceFixture {
 
     fa.onComplete { _ =>
       serviceF.foreach({ case (_, system) => system ! Stop })
-      refLedgerAuthProcF.foreach({ case (_, proc) => proc.destroy })
       ledgerF.foreach(_._1.close())
       toxiproxyF.foreach(_._1.destroy)
     }
