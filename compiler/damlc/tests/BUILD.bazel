@@ -172,6 +172,9 @@ da_haskell_library(
             "//compiler/scenario-service/server:scenario_service_jar",
             "@jq_dev_env//:jq",
         ],
+        # NOTE(MH): See https://github.com/digital-asset/daml/issues/6910
+        # for why this is flaky.
+        flaky = True,
         hackage_deps = [
             "base",
         ],
