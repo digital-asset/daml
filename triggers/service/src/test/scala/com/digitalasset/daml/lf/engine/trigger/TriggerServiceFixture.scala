@@ -163,14 +163,21 @@ object TriggerServiceFixture {
       a <- testFn(uri, client, ledgerProxy)
     } yield a
 
-    fa.onComplete { _ =>
-      serviceF.foreach({ case (_, system) => system ! Stop })
-      refLedgerAuthProcF.foreach({ case (_, proc) => proc.destroy })
-      ledgerF.foreach(_._1.close())
-      toxiproxyF.foreach(_._1.destroy)
+    fa.transformWith { ta =>
+      Future
+        .sequence(
+          Seq(
+            serviceF.flatMap {
+              case (_, system) =>
+                system ! Stop
+                system.whenTerminated
+            },
+            refLedgerAuthProcF.map { case (_, proc) => proc.destroy },
+            ledgerF.map(_._1.close()),
+            toxiproxyF.map(_._1.destroy),
+          ))
+        .flatMap(_ => Future fromTry ta)
     }
-
-    fa
   }
 
   private def ledgerConfig(
