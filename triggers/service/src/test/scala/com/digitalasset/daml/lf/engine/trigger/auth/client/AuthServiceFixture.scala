@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger.auth.client
 
-import java.net.{InetAddress, ServerSocket, Socket}
+import java.net.{InetAddress, Socket}
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
@@ -14,7 +14,7 @@ import com.daml.lf.engine.trigger.AuthServiceClient
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
-import com.daml.ports.Port
+import com.daml.ports.{FreePort, Port}
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
@@ -22,15 +22,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process.Process
 
 object AuthServiceFixture {
-
-  private def findFreePort(): Port = {
-    val socket = new ServerSocket(Port(0).value)
-    try {
-      Port(socket.getLocalPort)
-    } finally {
-      socket.close()
-    }
-  }
 
   def withAuthServiceClient[A](testName: String)(testFn: AuthServiceClient => Future[A])(
       implicit system: ActorSystem,
@@ -57,7 +48,7 @@ object AuthServiceFixture {
     val host = InetAddress.getLoopbackAddress
 
     val authServiceInstanceF: Future[(Process, Port)] = for {
-      port <- Future { findFreePort() }
+      port <- Future(FreePort.find())
       (_, ledgerPort) <- adminLedgerF
       ledgerUri = Uri.from(scheme = "http", host = host.getHostAddress, port = ledgerPort.value)
       process <- Future {

@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import java.io.File
-import java.net.{InetAddress, ServerSocket, Socket}
+import java.net.{InetAddress, Socket}
 import java.time.Duration
 
 import akka.actor.ActorSystem
@@ -30,7 +30,7 @@ import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.Port
+import com.daml.ports.{FreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
 
@@ -39,18 +39,6 @@ import scala.concurrent.duration._
 import scala.sys.process.Process
 
 object TriggerServiceFixture {
-
-  // Might throw IOException (unlikely). Best effort. There's a small
-  // chance that having found one, it gets taken before we get to use
-  // it.
-  private def findFreePort(): Port = {
-    val socket = new ServerSocket(Port(0).value)
-    try {
-      Port(socket.getLocalPort)
-    } finally {
-      socket.close()
-    }
-  }
 
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
@@ -75,7 +63,7 @@ object TriggerServiceFixture {
         BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
       else
         BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
-    val toxiProxyPort = findFreePort()
+    val toxiProxyPort = FreePort.find()
     val toxiProxyProc = Process(Seq(toxiProxyExe, "--port", toxiProxyPort.value.toString)).run()
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
       for {
@@ -90,7 +78,7 @@ object TriggerServiceFixture {
       ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
       sandboxPort <- ledger.portF
       ledgerPort = sandboxPort.value
-      ledgerProxyPort = findFreePort()
+      ledgerProxyPort = FreePort.find()
       ledgerProxy = toxiProxyClient.createProxy(
         "sandbox",
         s"${host.getHostName}:$ledgerProxyPort",
@@ -107,7 +95,7 @@ object TriggerServiceFixture {
       else
         BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary.exe")
     val refLedgerAuthProcF: Future[(Port, Process)] = for {
-      refLedgerAuthPort <- Future { findFreePort() }
+      refLedgerAuthPort <- Future(FreePort.find())
       (_, ledgerPort, _, _) <- ledgerF
       proc <- Future {
         Process(
