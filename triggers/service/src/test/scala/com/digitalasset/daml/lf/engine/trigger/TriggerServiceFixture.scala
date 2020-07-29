@@ -58,13 +58,13 @@ object TriggerServiceFixture {
 
     // Launch a Toxiproxy server. Wait on it to be ready to accept connections and
     // then create a client.
-    val toxiProxyExe =
+    val toxiproxyExe =
       if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
       else BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
     val toxiproxyF: Future[(Process, ToxiproxyClient)] = for {
       toxiproxyPort <- Future(LockedFreePort.find())
       toxiproxyServer <- Future(
-        Process(Seq(toxiProxyExe, "--port", toxiproxyPort.port.value.toString)).run())
+        Process(Seq(toxiproxyExe, "--port", toxiproxyPort.port.value.toString)).run())
       _ <- RetryStrategy.constant(attempts = 3, waitTime = 2.seconds)((_, _) =>
         Future(toxiproxyPort.testAndUnlock(host)))
       toxiproxyClient = new ToxiproxyClient(host.getHostName, toxiproxyPort.port.value)
