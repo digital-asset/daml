@@ -11,16 +11,26 @@ import scala.collection.JavaConverters.mapAsJavaMapConverter
 
 object LoggingContext {
 
+  def newLoggingContext[A](kvs: Map[String, String])(f: LoggingContext => A): A =
+    f(new LoggingContext(kvs))
+
   def newLoggingContext[A](f: LoggingContext => A): A =
-    f(new LoggingContext(Map.empty))
+    newLoggingContext(Map.empty[String, String])(f)
 
   def newLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
-      f: LoggingContext => A): A =
+      f: LoggingContext => A,
+  ): A =
     newLoggingContext(withEnrichedLoggingContext(kv, kvs: _*)(f)(_))
 
+  def withEnrichedLoggingContext[A](kvs: Map[String, String])(f: LoggingContext => A)(
+      implicit loggingContext: LoggingContext,
+  ): A =
+    f(loggingContext ++ kvs)
+
   def withEnrichedLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
-      f: LoggingContext => A)(implicit logCtx: LoggingContext): A =
-    f(logCtx ++ (kv +: kvs))
+      f: LoggingContext => A,
+  )(implicit loggingContext: LoggingContext): A =
+    f(loggingContext ++ (kv +: kvs))
 
 }
 
@@ -33,6 +43,7 @@ final class LoggingContext private (ctxMap: Map[String, String]) {
       ifNot: Marker with StructuredArgument => Unit): Unit =
     if (ctxMap.isEmpty) doThis else ifNot(forLogging)
 
-  private def ++[V](kvs: Seq[(String, String)]): LoggingContext = new LoggingContext(ctxMap ++ kvs)
+  private def ++[V](kvs: Iterable[(String, String)]): LoggingContext =
+    new LoggingContext(ctxMap ++ kvs)
 
 }

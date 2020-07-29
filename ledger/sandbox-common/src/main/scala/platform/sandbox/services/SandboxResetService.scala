@@ -21,7 +21,7 @@ class SandboxResetService(
     ledgerId: LedgerId,
     resetAndRestartServer: () => Future[Unit],
     authorizer: Authorizer,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends ResetServiceGrpc.ResetService
     with BindableService
     with ServerInterceptor {

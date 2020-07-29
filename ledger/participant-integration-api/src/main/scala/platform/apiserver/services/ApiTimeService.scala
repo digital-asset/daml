@@ -33,7 +33,7 @@ private[apiserver] final class ApiTimeService private (
     implicit grpcExecutionContext: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
-    logCtx: LoggingContext)
+    loggingContext: LoggingContext)
     extends TimeServiceAkkaGrpc
     with FieldValidations
     with GrpcApiService {
@@ -126,6 +126,6 @@ private[apiserver] object ApiTimeService {
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext): TimeService with GrpcApiService =
+      loggingContext: LoggingContext): TimeService with GrpcApiService =
     new ApiTimeService(ledgerId, backend)
 }

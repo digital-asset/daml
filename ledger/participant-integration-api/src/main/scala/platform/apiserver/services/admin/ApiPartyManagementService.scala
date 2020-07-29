@@ -37,7 +37,7 @@ private[apiserver] final class ApiPartyManagementService private (
     writeService: WritePartyService,
     materializer: Materializer,
     scheduler: Scheduler,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends PartyManagementService
     with GrpcApiService {
 
@@ -141,7 +141,7 @@ private[apiserver] object ApiPartyManagementService {
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-      logCtx: LoggingContext)
+      loggingContext: LoggingContext)
     : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,

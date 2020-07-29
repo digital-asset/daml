@@ -49,7 +49,7 @@ final class Runner[T <: ReadWriteService, Extra](
       // This should be made configurable
       val sharedEngine = Engine.DevEngine()
 
-      newLoggingContext { implicit logCtx =>
+      newLoggingContext { implicit loggingContext =>
         for {
           // Take ownership of the actor system and materializer so they're cleaned up properly.
           // This is necessary because we can't declare them as implicits in a `for` comprehension.

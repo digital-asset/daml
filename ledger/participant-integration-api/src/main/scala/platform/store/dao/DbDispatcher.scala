@@ -23,7 +23,7 @@ private[platform] final class DbDispatcher private (
     executor: Executor,
     overallWaitTimer: Timer,
     overallExecutionTimer: Timer,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -91,7 +91,7 @@ private[platform] object DbDispatcher {
       jdbcUrl: String,
       maxConnections: Int,
       metrics: Metrics,
-  )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] =
+  )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
       connectionProvider <- HikariJdbcConnectionProvider.owner(
         serverRole,

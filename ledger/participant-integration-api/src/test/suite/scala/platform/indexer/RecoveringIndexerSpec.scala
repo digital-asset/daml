@@ -44,7 +44,7 @@ class RecoveringIndexerSpec
   private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, RecoveringIndexer]
 
   "RecoveringIndexer" should {
-    "work when the stream completes" in newLoggingContext { implicit logCtx =>
+    "work when the stream completes" in newLoggingContext { implicit loggingContext =>
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis),
@@ -71,7 +71,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "work when the stream is stopped" in newLoggingContext { implicit logCtx =>
+    "work when the stream is stopped" in newLoggingContext { implicit loggingContext =>
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
@@ -102,7 +102,7 @@ class RecoveringIndexerSpec
       }
     }
 
-    "wait until the subscription completes" in newLoggingContext { implicit logCtx =>
+    "wait until the subscription completes" in newLoggingContext { implicit loggingContext =>
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis),
@@ -131,7 +131,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "recover from failure" in newLoggingContext { implicit logCtx =>
+    "recover from failure" in newLoggingContext { implicit loggingContext =>
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
@@ -173,7 +173,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "respect restart delay" in newLoggingContext { implicit logCtx =>
+    "respect restart delay" in newLoggingContext { implicit loggingContext =>
       val restartDelay = 500.millis
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, restartDelay)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.

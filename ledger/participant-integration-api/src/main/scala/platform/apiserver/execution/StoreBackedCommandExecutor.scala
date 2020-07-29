@@ -44,7 +44,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
     val submissionResult = engine.submit(commands.commands, participant, submissionSeed)

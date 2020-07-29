@@ -34,7 +34,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     loop(commands, submissionSeed, maxRetries)
 
@@ -44,7 +44,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       retriesLeft: Int,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext
+      loggingContext: LoggingContext
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     delegate
       .execute(commands, submissionSeed)

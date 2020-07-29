@@ -3,7 +3,17 @@
 
 package com.daml.platform.apiserver.services
 
-import com.daml.ledger.api.domain.{CommandId, EventId, LedgerOffset, TransactionId}
+import java.time.Instant
+
+import com.daml.ledger.api.domain.{
+  ApplicationId,
+  CommandId,
+  Commands,
+  EventId,
+  LedgerOffset,
+  TransactionId,
+  WorkflowId
+}
 import net.logstash.logback.argument.StructuredArguments
 import scalaz.syntax.tag.ToTagOps
 
@@ -27,13 +37,37 @@ package object logging {
       case LedgerOffset.LedgerBegin => "%begin%"
       case LedgerOffset.LedgerEnd => "%end%"
     }
+  private[services] def applicationId(id: ApplicationId): (String, String) =
+    "applicationId" -> id.unwrap
   private[services] def commandId(id: String): (String, String) =
     "commandId" -> id
   private[services] def commandId(id: CommandId): (String, String) =
     "commandId" -> id.unwrap
+  private[services] def deduplicateUntil(t: Instant): (String, String) =
+    "deduplicateUntil" -> t.toString
   private[services] def eventId(id: EventId): (String, String) =
     "eventId" -> id.unwrap
+  private[services] def submissionId(id: String): (String, String) =
+    "submissionId" -> id
+  private[services] def submittedAt(t: Instant): (String, String) =
+    "submittedAt" -> t.toString
+  private[services] def submitter(party: String): (String, String) =
+    "submitter" -> party
   private[services] def transactionId(id: TransactionId): (String, String) =
     "transactionId" -> id.unwrap
+  private[services] def workflowId(id: WorkflowId): (String, String) =
+    "workflowId" -> id.unwrap
+  private[services] def commands(cmds: Commands): Map[String, String] = {
+    val context =
+      Map(
+        commandId(cmds.commandId),
+        party(cmds.submitter),
+        deduplicateUntil(cmds.deduplicateUntil),
+        applicationId(cmds.applicationId),
+        submittedAt(cmds.submittedAt),
+        submitter(cmds.submitter),
+      )
+    cmds.workflowId.fold(context)(context + workflowId(_))
+  }
 
 }

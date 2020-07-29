@@ -66,7 +66,7 @@ object SqlLedger {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext)
+  )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
     private val logger = ContextualizedLogger.get(this.getClass)
@@ -318,7 +318,7 @@ private final class SqlLedger(
     packages: InMemoryPackageStore,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-)(implicit mat: Materializer, logCtx: LoggingContext)
+)(implicit mat: Materializer, loggingContext: LoggingContext)
     extends BaseLedger(ledgerId, ledgerDao, dispatcher)
     with Ledger {
 

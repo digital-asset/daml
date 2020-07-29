@@ -89,8 +89,8 @@ object BatchedSubmissionValidator {
 
   private def withCorrelationIdLogged[T](correlationId: CorrelationId)(
       f: LoggingContext => T): T = {
-    newLoggingContext("correlationId" -> correlationId) { logCtx =>
-      f(logCtx)
+    newLoggingContext("correlationId" -> correlationId) { loggingContext =>
+      f(loggingContext)
     }
   }
 
@@ -126,7 +126,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       ledgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult]
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
-    withCorrelationIdLogged(correlationId) { implicit logCtx =>
+    withCorrelationIdLogged(correlationId) { implicit loggingContext =>
       ledgerDataExporter.addSubmission(
         submissionEnvelope,
         correlationId,
@@ -261,7 +261,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       commitStrategy: CommitStrategy[CommitResult])(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
-      logCtx: LoggingContext): Future[Unit] =
+      loggingContext: LoggingContext): Future[Unit] =
     indexedSubmissions
     // Fetch the submission inputs in parallel.
       .mapAsyncUnordered[Outputs1](params.readParallelism) {
@@ -317,7 +317,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       ledgerStateReader: DamlLedgerStateReader)(
       implicit executionContext: ExecutionContext): Future[FetchedInput] = {
     val inputKeys = correlatedSubmission.submission.getInputDamlStateList.asScala
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.timedAndTrackedFuture(
         metrics.fetchInputs,
         metrics.fetchInputsRunning,
@@ -336,7 +336,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState)(
       implicit executionContext: ExecutionContext): Future[ValidatedSubmission] =
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.timedAndTrackedFuture(
         metrics.validate,
         metrics.validateRunning,
@@ -361,7 +361,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       invalidatedKeys: mutable.Set[DamlStateKey])
     : scala.collection.immutable.Iterable[ValidatedSubmission] = {
     val (logEntry, outputState) = logEntryAndState
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.value(
         metrics.detectConflicts, {
           conflictDetection
@@ -394,7 +394,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       commitStrategy: CommitStrategy[CommitResult])(
       implicit executionContext: ExecutionContext): Future[Unit] = {
     val (logEntry, outputState) = logEntryAndState
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.timedAndTrackedFuture(
         metrics.commit,
         metrics.commitRunning,

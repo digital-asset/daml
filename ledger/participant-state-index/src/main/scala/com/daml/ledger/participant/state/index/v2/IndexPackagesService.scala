@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.language.Ast.Package
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
@@ -17,12 +18,20 @@ import scala.concurrent.Future
   * PackageService and PackageManagementService.
   */
 trait IndexPackagesService {
-  def listLfPackages(): Future[Map[PackageId, PackageDetails]]
+  def listLfPackages()(
+      implicit loggingContext: LoggingContext,
+  ): Future[Map[PackageId, PackageDetails]]
 
-  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+  def getLfArchive(packageId: PackageId)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[Archive]]
 
   /** Like [[getLfArchive]], but already parsed. */
-  def getLfPackage(packageId: PackageId): Future[Option[Package]]
+  def getLfPackage(packageId: PackageId)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[Package]]
 
-  def packageEntries(startExclusive: LedgerOffset.Absolute): Source[PackageEntry, NotUsed]
+  def packageEntries(startExclusive: LedgerOffset.Absolute)(
+      implicit loggingContext: LoggingContext,
+  ): Source[PackageEntry, NotUsed]
 }

@@ -39,7 +39,7 @@ class PreExecutingSubmissionValidator[WriteSet](
       submittingParticipantId: ParticipantId,
       ledgerStateReader: DamlLedgerStateReaderWithFingerprints,
   )(implicit executionContext: ExecutionContext): Future[PreExecutionOutput[WriteSet]] =
-    newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
+    newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
       Timed.timedAndTrackedFuture(
         metrics.daml.kvutils.submission.validator.validatePreExecute,
         metrics.daml.kvutils.submission.validator.validatePreExecuteRunning,
@@ -75,7 +75,7 @@ class PreExecutingSubmissionValidator[WriteSet](
 
   private def decodeSubmission(submissionEnvelope: Bytes)(
       implicit executionContext: ExecutionContext,
-      logCtx: LoggingContext): Future[DamlSubmission] =
+      loggingContext: LoggingContext): Future[DamlSubmission] =
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.decode,
       metrics.daml.kvutils.submission.validator.decodeRunning,

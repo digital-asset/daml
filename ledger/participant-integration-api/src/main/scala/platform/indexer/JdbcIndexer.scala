@@ -34,7 +34,7 @@ private[indexer] final class JdbcIndexerFactory(
     readService: ReadService,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
-)(implicit materializer: Materializer, logCtx: LoggingContext) {
+)(implicit materializer: Materializer, loggingContext: LoggingContext) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 

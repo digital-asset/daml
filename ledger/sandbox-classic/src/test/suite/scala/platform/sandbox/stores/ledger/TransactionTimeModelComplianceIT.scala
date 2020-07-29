@@ -62,7 +62,7 @@ class TransactionTimeModelComplianceIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
-        newLoggingContext { implicit logCtx =>
+        newLoggingContext { implicit loggingContext =>
           LedgerResource.postgres(
             getClass,
             ledgerId,

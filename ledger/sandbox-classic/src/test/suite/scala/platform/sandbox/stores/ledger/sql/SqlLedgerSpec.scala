@@ -175,7 +175,7 @@ class SqlLedgerSpec
       packages: List[DamlLf.Archive],
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    val ledger = newLoggingContext { implicit logCtx =>
+    val ledger = newLoggingContext { implicit loggingContext =>
       new SqlLedger.Owner(
         name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),

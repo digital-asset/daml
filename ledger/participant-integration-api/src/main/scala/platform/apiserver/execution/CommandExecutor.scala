@@ -16,6 +16,6 @@ private[apiserver] trait CommandExecutor {
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]]
 }

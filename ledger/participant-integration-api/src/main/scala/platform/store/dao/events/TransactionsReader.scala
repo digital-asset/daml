@@ -39,7 +39,7 @@ private[dao] final class TransactionsReader(
     pageSize: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
-)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext) {
+)(implicit executionContext: ExecutionContext) {
 
   private val dbMetrics = metrics.daml.index.db
 
@@ -66,7 +66,7 @@ private[dao] final class TransactionsReader(
       endInclusive: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
 
     logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
 
@@ -129,7 +129,8 @@ private[dao] final class TransactionsReader(
       endInclusive: Offset,
       requestingParties: Set[Party],
       verbose: Boolean,
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+  )(implicit loggingContext: LoggingContext)
+    : Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
 
     logger.debug(
       s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)")
@@ -192,7 +193,7 @@ private[dao] final class TransactionsReader(
       activeAt: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  ): Source[GetActiveContractsResponse, NotUsed] = {
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
 
     logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
 

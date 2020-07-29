@@ -59,7 +59,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
+  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
     newParticipantState(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
@@ -67,7 +67,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   private def newParticipantState(
       ledgerId: LedgerId,
   ): ResourceOwner[ParticipantState] =
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
     }
 

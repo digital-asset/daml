@@ -68,7 +68,9 @@ object SandboxIndexAndWriteService {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
+  )(
+      implicit mat: Materializer,
+      loggingContext: LoggingContext): ResourceOwner[IndexAndWriteService] =
     new SqlLedger.Owner(
       name = name,
       serverRole = ServerRole.Sandbox,

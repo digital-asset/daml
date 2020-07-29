@@ -4,6 +4,8 @@
 package com.daml.ledger.participant.state.index.v2
 
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.logging.LoggingContext
+
 import scala.concurrent.Future
 
 /**
@@ -11,5 +13,5 @@ import scala.concurrent.Future
   * [[com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService]]
   **/
 trait IdentityProvider {
-  def getLedgerId(): Future[LedgerId]
+  def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId]
 }

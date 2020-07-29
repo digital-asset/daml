@@ -13,6 +13,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -20,26 +21,30 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 import scala.concurrent.ExecutionContext
 
 private[apiserver] final class ApiLedgerConfigurationService private (
-    configurationService: IndexConfigurationService)(
+    configurationService: IndexConfigurationService,
+)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
-    logCtx: LoggingContext)
+    loggingContext: LoggingContext)
     extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override protected def getLedgerConfigurationSource(
-      request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] =
-    configurationService
-      .getLedgerConfiguration()
-      .map(
-        configuration =>
-          GetLedgerConfigurationResponse(
-            Some(LedgerConfiguration(
-              Some(toProto(configuration.maxDeduplicationTime)),
-            ))))
-      .via(logger.logErrorsOnStream)
+      request: GetLedgerConfigurationRequest,
+  ): Source[GetLedgerConfigurationResponse, NotUsed] =
+    withEnrichedLoggingContext(Map.empty[String, String]) { implicit loggingContext =>
+      configurationService
+        .getLedgerConfiguration()
+        .map(
+          configuration =>
+            GetLedgerConfigurationResponse(
+              Some(LedgerConfiguration(
+                Some(toProto(configuration.maxDeduplicationTime)),
+              ))))
+        .via(logger.logErrorsOnStream)
+    }
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
@@ -50,8 +55,8 @@ private[apiserver] object ApiLedgerConfigurationService {
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-      logCtx: LoggingContext)
-    : LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
+      loggingContext: LoggingContext,
+  ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
     new LedgerConfigurationServiceValidation(
       new ApiLedgerConfigurationService(configurationService),
       ledgerId) with BindableService {
