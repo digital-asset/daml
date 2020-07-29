@@ -97,15 +97,16 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
 
-  private def create(
+  protected final def create(
       absCid: ContractId,
+      signatories: Set[Party] = Set(alice, bob),
   ): NodeCreate[ContractId, Value[ContractId]] =
     NodeCreate(
       coid = absCid,
       coinst = someContractInstance,
       optLocation = None,
-      signatories = Set(alice, bob),
-      stakeholders = Set(alice, bob),
+      signatories = signatories,
+      stakeholders = signatories,
       key = None
     )
 
@@ -139,10 +140,12 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         set
     }
 
-  protected def singleCreate: (Offset, LedgerEntry.Transaction) = {
+  protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]])
+    : (Offset, LedgerEntry.Transaction) = {
     val txBuilder = new TransactionBuilder
     val cid = txBuilder.newCid
-    val eid = txBuilder.add(create(cid))
+    val creation = create(cid)
+    val eid = txBuilder.add(creation)
     val offset = nextOffset()
     val id = offset.toLong
     val let = Instant.now
@@ -155,9 +158,12 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       ledgerEffectiveTime = let,
       recordedAt = let,
       transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(eid -> Set("Alice", "Bob"))
+      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders))
     )
   }
+
+  protected final def singleCreate: (Offset, LedgerEntry.Transaction) =
+    singleCreateP(create(_))
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,
@@ -607,4 +613,24 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       .map(c => c.commandId -> c.status.get.code)
       .runWith(Sink.seq)
 
+}
+
+object JdbcLedgerDaoSuite {
+  import scala.language.higherKinds
+  import scalaz.{Free, Monad, NaturalTransformation, Traverse}
+  import scalaz.syntax.traverse._
+
+  implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
+
+    /** Like `traverse`, but guarantees that
+      *
+      *  - `f` is evaluated left-to-right, and
+      *  - `B` from the preceding element is evaluated before `f` is invoked for
+      *    the subsequent `A`.
+      */
+    def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
+      self
+        .traverse(a => Free suspend (Free liftF f(a)))
+        .foldMap(NaturalTransformation.refl)
+  }
 }

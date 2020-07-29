@@ -9,8 +9,9 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.transaction.NodeId
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value, Value.ContractId
 import com.daml.ledger.EventId
+import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.daml.logging.LoggingContext
@@ -23,6 +24,8 @@ import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Inside with LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
+
+  import JdbcLedgerDaoTransactionsSpec._
 
   behavior of "JdbcLedgerDao (lookupFlatTransactionById)"
 
@@ -494,6 +497,44 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  it should "fall back to limit-based query with consistent results" in {
+    import org.scalacheck.Gen
+    import scalaz.std.scalaFuture._, scalaz.std.list._
+    import JdbcLedgerDaoSuite._
+
+    val trials = 10
+    val trialData = Gen
+      .listOfN(
+        trials,
+        Gen.zip(unfilteredTxSeq(length = 1000), Gen oneOf getFlatTransactionCodePaths))
+      .sample getOrElse sys.error("impossible Gen failure")
+
+    trialData
+      .traverseFM {
+        case (boolSeq, cp) =>
+          for {
+            from <- ledgerDao.lookupLedgerEnd()
+            commands <- storeSync(boolSeq map (if (_) cp.makeMatching() else cp.makeNonMatching()))
+            matchingOffsets = commands zip boolSeq collect {
+              case ((off, _), true) => off.toHexString
+            }
+            to <- ledgerDao.lookupLedgerEnd()
+            response <- ledgerDao.transactionsReader
+              .getFlatTransactions(from, to, cp.filter, verbose = false)
+              .runWith(Sink.seq)
+            readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
+            readCreates = extractAllTransactions(response) flatMap (_.events)
+          } yield {
+            readCreates.size should ===(boolSeq count identity)
+            // we check that the offsets from the DB match the ones we had before
+            // submission as a substitute for actually inspecting the events (indeed,
+            // so many of the events are = as written that this would not be useful)
+            readOffsets should ===(matchingOffsets)
+          }
+      }
+      .map(_.foldLeft(1 shouldBe 1)((_, r) => r))
+  }
+
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
     for {
       from <- ledgerDao.lookupLedgerEnd()
@@ -536,4 +577,81 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     LoggingContext.newLoggingContext { implicit logCtx =>
       daoOwner(eventsPageSize = 2).acquire()
     }.asFuture
+
+  // XXX SC much of this is repeated because we're more concerned here
+  // with whether each query is tested than whether the specifics of the
+  // predicate are accurate. To test the latter, the creation would have
+  // to have much more detail and should be a pair of Gen[Offset => LedgerEntry.Transaction]
+  // rather than a pair of simple side-effecting procedures that always
+  // produce more or less the same data.  If we aren't interested in testing
+  // the latter at any point, we can remove most of this.
+  private val getFlatTransactionCodePaths: Seq[FlatTransactionCodePath] = {
+    import JdbcLedgerDaoTransactionsSpec.{FlatTransactionCodePath => Mk}
+    Seq(
+      Mk(
+        "singleWildcardParty",
+        Map(alice -> Set.empty),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(bob))),
+        ce => (ce.signatories ++ ce.observers) contains alice
+      ),
+      Mk(
+        "singlePartyWithTemplates",
+        Map(alice -> Set(someTemplateId)),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(bob))),
+        ce =>
+          ((ce.signatories ++ ce.observers) contains alice) /*TODO && ce.templateId == Some(someTemplateId.toString)*/
+      ),
+      Mk(
+        "onlyWildcardParties",
+        Map(alice -> Set.empty, bob -> Set.empty),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(charlie))),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+      ),
+      Mk(
+        "sameTemplates",
+        Map(alice -> Set(someTemplateId), bob -> Set(someTemplateId)),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(charlie))),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+      ),
+      Mk(
+        "mixedTemplates",
+        Map(alice -> Set(someTemplateId), bob -> Set(someRecordId)),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(charlie))),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+      ),
+      Mk(
+        "mixedTemplatesWithWildcardParties",
+        Map(alice -> Set(someTemplateId), bob -> Set.empty),
+        () => singleCreateP(create(_, signatories = Set(alice))),
+        () => singleCreateP(create(_, signatories = Set(charlie))),
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+      ),
+    )
+  }
+}
+
+private[dao] object JdbcLedgerDaoTransactionsSpec {
+  import org.scalacheck.Gen
+
+  private final case class FlatTransactionCodePath(
+      label: String,
+      filter: events.FilterRelation,
+      makeMatching: () => (Offset, LedgerEntry.Transaction),
+      makeNonMatching: () => (Offset, LedgerEntry.Transaction),
+      // XXX SC we don't need discriminate unless we test the event contents
+      // instead of just the offsets
+      discriminate: lav1.event.CreatedEvent => Boolean = _ => false)
+
+  private def unfilteredTxSeq(length: Int): Gen[Vector[Boolean]] =
+    Gen.oneOf(1, 2, 5, 10, 20, 50, 100) flatMap { invFreq =>
+      val frequency = 100 / invFreq
+      Gen.containerOfN[Vector, Boolean](
+        length,
+        Gen.frequency((frequency, true), (100 - frequency, false)))
+    }
 }
