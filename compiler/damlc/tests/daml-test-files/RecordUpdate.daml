@@ -3,8 +3,8 @@
 
 -- @INFO range=43:17-43:41; Evaluate
 -- @INFO range=43:24-43:40; Use const
--- @ QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["p_1_0"]) | .expr.rec_upd | (lf::get_field($pkg) == "x") and (.record.val | lf::get_value_name($pkg) == ["origin"]) and (.update.prim_lit.int64 == "1")
--- xx @ QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["p_1_2"]) | .expr.rec_upd | (lf::get_field($pkg) == "y") and (.record.rec_upd | (lf::get_field($pkg) == "x") and (.record.val | lf::get_value_name($pkg) == ["origin"]) and (.update.prim_lit.int64 == "1")) and (.update.prim_lit.int64 == "2")
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["p_1_0"]) | .expr.rec_upd | (lf::get_field($pkg) == "x") and (.record.val | lf::get_value_name($pkg) == ["origin"]) and (.update.prim_lit.int64 == "1")
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["p_1_2"]) | .expr.rec_upd | (lf::get_field($pkg) == "y") and (.record.rec_upd | (lf::get_field($pkg) == "x") and (.record.val | lf::get_value_name($pkg) == ["origin"]) and (.update.prim_lit.int64 == "1")) and (.update.prim_lit.int64 == "2")
 
 module RecordUpdate where
 
