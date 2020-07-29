@@ -19,7 +19,7 @@ import scala.concurrent.Future
   * @param estimatedInterpretationCostThreshold all transactions that have a greater or equal estimated interpretation
   *                                             cost will be forwarded to [[expensiveTransactionsDelegate]]
   */
-class InterpretationCostBasedLedgerWriterChooser(
+final class InterpretationCostBasedLedgerWriterChooser(
     estimatedInterpretationCostThreshold: Long,
     cheapTransactionsDelegate: LedgerWriter,
     expensiveTransactionsDelegate: LedgerWriter,
