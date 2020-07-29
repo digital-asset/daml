@@ -670,7 +670,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
   private def waitForNextUpdate(
       ps: ParticipantState,
-      offset: Option[Offset] = None): Future[(Offset, Update)] =
+      offset: Option[Offset]): Future[(Offset, Update)] =
     ps.stateUpdates(beginAfter = offset)
       .idleTimeout(IdleTimeout)
       .runWith(Sink.head)

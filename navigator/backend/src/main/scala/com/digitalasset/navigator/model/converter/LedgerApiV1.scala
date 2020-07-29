@@ -117,7 +117,8 @@ case object LedgerApiV1 {
                   ApiTypes.TransactionId(tx.transactionId),
                   tx.eventsById,
                   ctx,
-                  ApiTypes.WorkflowId(tx.workflowId)))
+                  ApiTypes.WorkflowId(tx.workflowId),
+                  None))
         )
         .map(_.flatten)
       effectiveAt <- Converter.checkExists("Transaction.effectiveAt", tx.effectiveAt)
@@ -139,6 +140,7 @@ case object LedgerApiV1 {
       eventsById: Map[String, V1.transaction.TreeEvent],
       ctx: Context,
       workflowId: ApiTypes.WorkflowId,
+      parentId: Option[ApiTypes.EventId],
   ): Result[List[Model.Event]] = {
     event match {
       case V1.transaction.TreeEvent(V1.transaction.TreeEvent.Kind.Created(ev)) =>
@@ -225,8 +227,15 @@ case object LedgerApiV1 {
       children <- Converter
         .sequence(
           event.childEventIds
-            .map(childId =>
-              readTreeEvent(eventsById(childId), transactionId, eventsById, ctx, workflowId))
+            .map(
+              childId =>
+                readTreeEvent(
+                  eventsById(childId),
+                  transactionId,
+                  eventsById,
+                  ctx,
+                  workflowId,
+                  Some(ApiTypes.EventId(event.eventId))))
         )
         .map(_.flatten)
     } yield

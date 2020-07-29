@@ -8,8 +8,6 @@ import java.time.Duration
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.client.services.testing.time.StaticTime
 
-import scala.concurrent.ExecutionContext
-
 case class TimeProviderWithType(time: TimeProvider, `type`: TimeProviderType)
 
 object TimeProviderFactory {

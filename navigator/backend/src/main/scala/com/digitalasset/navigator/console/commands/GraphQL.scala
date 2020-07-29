@@ -5,7 +5,7 @@ package com.daml.navigator.console.commands
 
 import com.daml.navigator.console._
 
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
 

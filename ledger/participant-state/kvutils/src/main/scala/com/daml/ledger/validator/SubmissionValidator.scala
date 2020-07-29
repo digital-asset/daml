@@ -19,6 +19,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.github.ghik.silencer.silent
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -121,6 +122,7 @@ class SubmissionValidator[LogResult] private[validator] (
       )
     }
 
+  @silent(" ignored .* is never used")
   private def commit(
       logEntryId: DamlLogEntryId,
       ignored: Any,

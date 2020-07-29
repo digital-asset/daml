@@ -109,6 +109,7 @@ object project {
     rootArgument.fold[Either[DotNotFailure, ProjectValue]](Right(StringValue("")))(
       checkValue(_, cursor, expectedValue, ps))
 
+  @silent(" ps .* is never used") // conforms to `opaque`'s signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,
