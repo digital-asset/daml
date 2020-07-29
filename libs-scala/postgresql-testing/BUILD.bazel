@@ -26,12 +26,3 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
-
-da_scala_test(
-    name = "postgresql-testing-tests",
-    srcs = glob(["src/test/suite/scala/**/*.scala"]),
-    deps = [
-        ":postgresql-testing",
-        "//libs-scala/ports",
-    ],
-)
