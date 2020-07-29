@@ -46,14 +46,14 @@ The components in this diagram are the following:
 
 * Each **Participant Node** is connected to a subset of the DAML Ledgers.
   
-  - Participant Node 1 are connected to Ledger 1 and 2.
+  - Participant Node 1 is connected to Ledger 1 and 2.
   - Participant Nodes 2 and 3 are connected to Ledger 1, 2, and 3.
 
 * Participant Nodes host parties on a subset of the DAML Ledgers they are connected to.
   A Participant Node provides a party access to the DAML Ledgers that it hosts the party on.
 
   - Participant Node 1 hosts Alice on Ledger 1 and 2.
-  - Participant Node 2 hosts Alice on Ledger 1 and 3, but not on two (indicated by the dotted connection).
+  - Participant Node 2 hosts Alice on Ledger 1 and 3, but not on 2 (indicated by the dotted connection).
     Alice can thus access Ledger 2 only through Participant Node 1, even though Participant Node 2 is also connected.
   - Participant Node 3 hosts Bob on Ledger 1, 2, and 3.
 
