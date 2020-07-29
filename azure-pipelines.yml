@@ -475,8 +475,6 @@ jobs:
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
           curl -XPOST \
                -i \
                -H 'Content-Type: application/json' \
