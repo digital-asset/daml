@@ -56,19 +56,19 @@ object TriggerServiceFixture {
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
 
-    // Launch a toxiproxy instance. Wait on it to be ready to accept
-    // connections.
-    val toxiProxyExe =
-      if (!isWindows)
-        BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
-      else
-        BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
-    val toxiProxyPort = LockedFreePort.find()
-    val toxiProxyProc =
-      Process(Seq(toxiProxyExe, "--port", toxiProxyPort.port.value.toString)).run()
-    RetryStrategy.constant(attempts = 3, waitTime = 2.seconds)((_, _) =>
-      Future(toxiProxyPort.testAndUnlock(host)))
-    val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.port.value)
+    // Launch a Toxiproxy server. Wait on it to be ready to accept connections and
+    // then create a client.
+    val toxiproxyExe =
+      if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
+      else BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
+    val toxiproxyF: Future[(Process, ToxiproxyClient)] = for {
+      toxiproxyPort <- Future(LockedFreePort.find())
+      toxiproxyServer <- Future(
+        Process(Seq(toxiproxyExe, "--port", toxiproxyPort.port.value.toString)).run())
+      _ <- RetryStrategy.constant(attempts = 3, waitTime = 2.seconds)((_, _) =>
+        Future(toxiproxyPort.testAndUnlock(host)))
+      toxiproxyClient = new ToxiproxyClient(host.getHostName, toxiproxyPort.port.value)
+    } yield (toxiproxyServer, toxiproxyClient)
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
@@ -76,7 +76,8 @@ object TriggerServiceFixture {
       ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
       ledgerPort <- ledger.portF
       ledgerProxyPort = LockedFreePort.find()
-      ledgerProxy = toxiProxyClient.createProxy(
+      (_, toxiproxyClient) <- toxiproxyF
+      ledgerProxy = toxiproxyClient.createProxy(
         "sandbox",
         s"${host.getHostName}:${ledgerProxyPort.port}",
         s"${host.getHostName}:$ledgerPort")
@@ -166,7 +167,7 @@ object TriggerServiceFixture {
       serviceF.foreach({ case (_, system) => system ! Stop })
       refLedgerAuthProcF.foreach({ case (_, proc) => proc.destroy })
       ledgerF.foreach(_._1.close())
-      toxiProxyProc.destroy
+      toxiproxyF.foreach(_._1.destroy)
     }
 
     fa
