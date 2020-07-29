@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import java.io.File
-import java.net.{InetAddress, Socket}
+import java.net.InetAddress
 import java.time.Duration
 
 import akka.actor.ActorSystem
@@ -66,12 +66,8 @@ object TriggerServiceFixture {
     val toxiProxyPort = LockedFreePort.find()
     val toxiProxyProc =
       Process(Seq(toxiProxyExe, "--port", toxiProxyPort.port.value.toString)).run()
-    RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
-      for {
-        channel <- Future(new Socket(host, toxiProxyPort.port.value))
-      } yield channel.close()
-    }
-    toxiProxyPort.unlock()
+    RetryStrategy.constant(attempts = 3, waitTime = 2.seconds)((_, _) =>
+      Future(toxiProxyPort.testAndUnlock(host)))
     val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.port.value)
 
     val ledgerId = LedgerId(testName)
@@ -114,9 +110,8 @@ object TriggerServiceFixture {
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
       for {
         (refLedgerAuthPort, _) <- refLedgerAuthProcF
-        channel <- Future(new Socket(host, refLedgerAuthPort.port.value))
-        _ = refLedgerAuthPort.unlock()
-      } yield channel.close()
+        _ <- Future(refLedgerAuthPort.testAndUnlock(host))
+      } yield ()
     }
 
     // Configure this client with the ledger's *actual* port.

@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger.auth.client
 
-import java.net.{InetAddress, Socket}
+import java.net.InetAddress
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
@@ -62,12 +62,8 @@ object AuthServiceFixture {
         ).run()
       }
       // Wait for the auth service instance to be ready to accept connections.
-      _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds) { (_, _) =>
-        for {
-          channel <- Future(new Socket(host, lockedPort.port.value))
-        } yield channel.close()
-      }
-      _ = lockedPort.unlock()
+      _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds)((_, _) =>
+        Future(lockedPort.testAndUnlock(host)))
     } yield (process, lockedPort.port)
 
     val testF: Future[A] = for {

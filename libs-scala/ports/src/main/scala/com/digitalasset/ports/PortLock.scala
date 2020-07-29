@@ -4,6 +4,7 @@
 package com.daml.ports
 
 import java.io.RandomAccessFile
+import java.net.InetAddress
 import java.nio.channels.{
   ClosedChannelException,
   FileChannel,
@@ -58,6 +59,11 @@ object PortLock {
       }
       channel.close()
       file.close()
+    }
+
+    def testAndUnlock(host: InetAddress): Unit = {
+      port.test(host)
+      unlock()
     }
 
     override def toString: String = s"locked port $port"
