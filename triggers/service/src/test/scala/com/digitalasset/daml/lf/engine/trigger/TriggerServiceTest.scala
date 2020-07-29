@@ -506,7 +506,7 @@ class TriggerServiceTestWithDb
     }
   } yield succeed)
 
-  ignore should "restart triggers after shutdown" in (for {
+  it should "restart triggers after shutdown" in (for {
     _ <- withTriggerService(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         // Start a trigger in the first run of the service.
