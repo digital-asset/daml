@@ -30,9 +30,11 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 case "$(uname -s)" in
   Darwin)
     abspath() { python -c 'import os.path, sys; sys.stdout.write(os.path.abspath(sys.argv[1]))' "$@"; }
+    canonicalpath() { python -c 'import os.path, sys; sys.stdout.write(os.path.realpath(sys.argv[1]))' "$@"; }
     ;;
   *)
     abspath() { realpath -s "$@"; }
+    canonicalpath() { readlink -f "$@"; }
     ;;
 esac
 
@@ -67,7 +69,7 @@ OUT=$(abspath $2)
 shift 2
 NAME=$(basename $SRC)
 mkdir -p $WORKDIR/$NAME/lib
-export ORIGIN=$(dirname $(readlink -f $SRC)) # for rpaths relative to binary
+export ORIGIN=$(dirname $(canonicalpath $SRC)) # for rpaths relative to binary
 
 # Copy in resources, if any.
 if [ $# -gt 0 ]; then
@@ -157,7 +159,7 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
   cp $SRC $WORKDIR/$NAME/$NAME
   chmod u+w $WORKDIR/$NAME/$NAME
   function copy_deps() {
-    local from_original=$(readlink -f $1)
+    local from_original=$(canonicalpath $1)
     local from_copied=$2
     local needed="$(/usr/bin/otool -L "$from_copied" | sed -n -e '1d' -e 's/^\s*\([^ ]*\).*$/\1/p')"
     # Note that it is crucial that we resolve loader_path relative to from_original instead of from_copied
