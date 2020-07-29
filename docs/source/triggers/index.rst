@@ -211,7 +211,11 @@ To send the corresponding archve commands to the ledger, we iterate
 over ``archiveCopies`` using ``forA`` and call the ``emitCommands``
 function. Each call to ``emitCommands`` takes a list of commands which
 will be submitted as a single transaction. The actual commands can be
-created using ``exerciseCmd`` and ``createCmd``.
+created using ``exerciseCmd`` and ``createCmd``. In addition to that,
+we also pass in a list of contract ids. Those contracts will be marked
+pending and not be included in the result of ``getContracts`` until
+the commands have either been comitted to the ledger or the command
+submission failed.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
    :language: daml
