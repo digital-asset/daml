@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.testing.postgresql
+package com.daml.ports
 
 import com.daml.ports
 
 import scala.annotation.tailrec
 
-private[postgresql] object LockedFreePort {
+object LockedFreePort {
 
   @tailrec
   def find(tries: Int = 10): PortLock.Locked = {

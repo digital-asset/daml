@@ -1,9 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.testing.postgresql
+package com.daml.ports
 
 import java.io.RandomAccessFile
+import java.net.InetAddress
 import java.nio.channels.{
   ClosedChannelException,
   FileChannel,
@@ -12,9 +13,7 @@ import java.nio.channels.{
 }
 import java.nio.file.{Files, Path, Paths}
 
-import com.daml.ports.Port
-
-private[postgresql] object PortLock {
+object PortLock {
 
   // We can't use `sys.props("java.io.tmpdir")` because Bazel changes this for each test run.
   // For this to be useful, it needs to be shared across concurrent runs.
@@ -61,6 +60,13 @@ private[postgresql] object PortLock {
       channel.close()
       file.close()
     }
+
+    def testAndUnlock(host: InetAddress): Unit = {
+      port.test(host)
+      unlock()
+    }
+
+    override def toString: String = s"locked port $port"
   }
 
   case class FailedToLock(port: Port) extends RuntimeException(s"Failed to lock port $port.")
