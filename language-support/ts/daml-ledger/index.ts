@@ -281,6 +281,7 @@ class Ledger {
       method: 'post',
     });
     const json = await httpResponse.json();
+    console.log(`Submit: ${JSON.stringify(json)}`);
     if (!httpResponse.ok) {
       console.log(json);
       throw jtv.Result.withException(decodeLedgerError.run(json));
@@ -308,6 +309,7 @@ class Ledger {
   async query<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): Promise<CreateEvent<T, K, I>[]> {
     const payload = {templateIds: [template.templateId], query};
     const json = await this.submit('v1/query', payload);
+    console.log(`Query: ${JSON.stringify(json)}`);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
   }
 
@@ -328,6 +330,7 @@ class Ledger {
       contractId,
     };
     const json = await this.submit('v1/fetch', payload);
+    console.log(`Fetch: ${JSON.stringify(json)}`);
     return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
   }
 
@@ -353,6 +356,7 @@ class Ledger {
       key,
     };
     const json = await this.submit('v1/fetch', payload);
+    console.log(`FetchByKey: ${JSON.stringify(json)}`);
     return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
   }
 
@@ -373,6 +377,7 @@ class Ledger {
       payload,
     };
     const json = await this.submit('v1/create', command);
+    console.log(`Create: ${JSON.stringify(json)}`);
     return jtv.Result.withException(decodeCreateEvent(template).run(json));
   }
 
@@ -403,6 +408,7 @@ class Ledger {
       exerciseResult: choice.resultDecoder,
       events: jtv.array(decodeEventUnknown),
     });
+    console.log(`Exercise: ${JSON.stringify(json)}`);
     const {exerciseResult, events} = jtv.Result.withException(responseDecoder.run(json));
     return [exerciseResult, events];
   }
@@ -441,6 +447,7 @@ class Ledger {
       exerciseResult: choice.resultDecoder,
       events: jtv.array(decodeEventUnknown),
     });
+    console.log(`ExerciseByKey: ${JSON.stringify(json)}`);
     const {exerciseResult, events} = jtv.Result.withException(responseDecoder.run(json));
     return [exerciseResult, events];
   }
@@ -517,6 +524,7 @@ class Ledger {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onMessage = (event: { data: any } ): void => {
       const json: unknown = JSON.parse(event.data.toString());
+      console.log(`Message: ${JSON.stringify(json)}`);
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
         if (events.length > 0) {
