@@ -59,6 +59,8 @@ object PortLock {
       channel.close()
       file.close()
     }
+
+    override def toString: String = s"locked port $port"
   }
 
   case class FailedToLock(port: Port) extends RuntimeException(s"Failed to lock port $port.")

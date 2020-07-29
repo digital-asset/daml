@@ -30,7 +30,7 @@ import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.{FreePort, Port}
+import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
 
@@ -63,26 +63,28 @@ object TriggerServiceFixture {
         BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
       else
         BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
-    val toxiProxyPort = FreePort.find()
-    val toxiProxyProc = Process(Seq(toxiProxyExe, "--port", toxiProxyPort.value.toString)).run()
+    val toxiProxyPort = LockedFreePort.find()
+    val toxiProxyProc =
+      Process(Seq(toxiProxyExe, "--port", toxiProxyPort.port.value.toString)).run()
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
       for {
-        channel <- Future(new Socket(host, toxiProxyPort.value))
+        channel <- Future(new Socket(host, toxiProxyPort.port.value))
       } yield channel.close()
     }
-    val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.value)
+    toxiProxyPort.unlock()
+    val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.port.value)
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
     val ledgerF = for {
       ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
-      sandboxPort <- ledger.portF
-      ledgerPort = sandboxPort.value
-      ledgerProxyPort = FreePort.find()
+      ledgerPort <- ledger.portF
+      ledgerProxyPort = LockedFreePort.find()
       ledgerProxy = toxiProxyClient.createProxy(
         "sandbox",
-        s"${host.getHostName}:$ledgerProxyPort",
+        s"${host.getHostName}:${ledgerProxyPort.port}",
         s"${host.getHostName}:$ledgerPort")
+      _ = ledgerProxyPort.unlock()
     } yield (ledger, ledgerPort, ledgerProxyPort, ledgerProxy)
     // 'ledgerProxyPort' is managed by the toxiproxy instance and
     // forwards to the real sandbox port.
@@ -94,18 +96,16 @@ object TriggerServiceFixture {
         BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary")
       else
         BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary.exe")
-    val refLedgerAuthProcF: Future[(Port, Process)] = for {
-      refLedgerAuthPort <- Future(FreePort.find())
+    val refLedgerAuthProcF = for {
+      refLedgerAuthPort <- Future(LockedFreePort.find())
       (_, ledgerPort, _, _) <- ledgerF
       proc <- Future {
         Process(
           Seq(refLedgerAuthExe),
           None,
           ("DABL_AUTHENTICATION_SERVICE_ADDRESS", host.getHostAddress),
-          ("DABL_AUTHENTICATION_SERVICE_PORT", refLedgerAuthPort.toString),
-          (
-            "DABL_AUTHENTICATION_SERVICE_LEDGER_URL",
-            "http://" + host.getHostAddress + ":" + ledgerPort.toString)
+          ("DABL_AUTHENTICATION_SERVICE_PORT", refLedgerAuthPort.port.toString),
+          ("DABL_AUTHENTICATION_SERVICE_LEDGER_URL", s"http://${host.getHostAddress}:$ledgerPort")
         ).run()
       }
     } yield (refLedgerAuthPort, proc)
@@ -114,14 +114,19 @@ object TriggerServiceFixture {
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
       for {
         (refLedgerAuthPort, _) <- refLedgerAuthProcF
-        channel <- Future(new Socket(host, refLedgerAuthPort.value))
+        channel <- Future(new Socket(host, refLedgerAuthPort.port.value))
+        _ = refLedgerAuthPort.unlock()
       } yield channel.close()
     }
 
     // Configure this client with the ledger's *actual* port.
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort, _, _) <- ledgerF
-      client <- LedgerClient.singleHost(host.getHostName, ledgerPort, clientConfig(applicationId))
+      client <- LedgerClient.singleHost(
+        host.getHostName,
+        ledgerPort.value,
+        clientConfig(applicationId),
+      )
     } yield client
 
     // Configure the service with the ledger's *proxy* port.
@@ -129,7 +134,7 @@ object TriggerServiceFixture {
       (_, _, ledgerProxyPort, _) <- ledgerF
       ledgerConfig = LedgerConfig(
         host.getHostName,
-        ledgerProxyPort.value,
+        ledgerProxyPort.port.value,
         TimeProviderType.Static,
         Duration.ofSeconds(30),
         ServiceConfig.DefaultMaxInboundMessageSize,
