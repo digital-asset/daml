@@ -44,38 +44,37 @@ const getEnv = (variable: string): string => {
   return result;
 }
 
-const spawnJvmAndWaitOn = async (jar: string, args: string[], resource: string, jvmArgs: string[] = []): Promise<ChildProcess> => {
+const spawnJvm = (jar: string, args: string[], jvmArgs: string[] = []): ChildProcess => {
   const java = getEnv('JAVA');
   const proc = spawn(java, [...jvmArgs, '-jar', jar, ...args], {stdio: "inherit",});
-  await waitOn({resources: [resource]})
   return proc;
 }
 
 beforeAll(async () => {
   console.log ('build-and-lint-1.0.0 (' + buildAndLint.packageId + ") loaded");
   const darPath = getEnv('DAR');
-  sandboxProcess = await spawnJvmAndWaitOn(
+  sandboxProcess = spawnJvm(
     getEnv('SANDBOX'),
     ['--port', "0", '--port-file', SANDBOX_PORT_FILE, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
-    `file:${SANDBOX_PORT_FILE}`,
   );
+  await waitOn({resources: [`file:${SANDBOX_PORT_FILE}`]})
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, { encoding: 'utf8' });
   sandboxPort = parseInt(sandboxPortData);
   console.log('Sandbox listening on port ' + sandboxPort.toString());
 
-  jsonApiProcess = await spawnJvmAndWaitOn(
+  jsonApiProcess = spawnJvm(
     getEnv('JSON_API'),
     ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
      '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
-    `file:${JSON_API_PORT_FILE}`,
     ['-Dakka.http.server.request-timeout=60s',
      '-Dlogback.configurationFile=' + getEnv("JSON_API_LOGBACK")],
   )
+  await waitOn({resources: [`file:${JSON_API_PORT_FILE}`]})
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
   jsonApiPort = parseInt(jsonApiPortData);
   console.log('JSON API listening on port ' + jsonApiPort.toString());
-});
+}, 120_000);
 
 afterAll(() => {
   if (sandboxProcess) {
@@ -115,10 +114,9 @@ describe('decoders for recursive types do not loop', () => {
     expect(buildAndLint.Main.Recursive.decoder.run(undefined).ok).toBe(false);
   });
 
-  // FIXME(MH): This test does not pass yet, see https://github.com/digital-asset/daml/issues/6840
-  // test('uninhabited record', () => {
-  //   expect(buildAndLint.Main.VoidRecord.decoder().run(undefined).ok).toBe(false);
-  // });
+  test('uninhabited record', () => {
+    expect(buildAndLint.Main.VoidRecord.decoder.run(undefined).ok).toBe(false);
+  });
 
   test('uninhabited enum', () => {
     expect(buildAndLint.Main.VoidEnum.decoder.run(undefined).ok).toBe(false);

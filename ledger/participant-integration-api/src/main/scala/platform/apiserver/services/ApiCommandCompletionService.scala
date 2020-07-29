@@ -54,6 +54,9 @@ private[apiserver] final class ApiCommandCompletionService private (
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
+  override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
+    Ordering.by[LedgerOffset.Absolute, String](_.value)
+
 }
 
 private[apiserver] object ApiCommandCompletionService {

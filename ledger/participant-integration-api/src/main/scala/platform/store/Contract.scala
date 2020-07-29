@@ -42,7 +42,6 @@ private[platform] object Contract {
   final case class DivulgedContract(
       id: Value.ContractId,
       contract: ContractInst[VersionedValue[ContractId]],
-      /** For each party, the transaction id at which the contract was divulged */
       divulgences: Map[Party, TransactionId],
   ) extends Contract
 

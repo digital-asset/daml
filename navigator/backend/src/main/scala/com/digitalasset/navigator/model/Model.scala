@@ -75,13 +75,19 @@ final case class CreateCommand(
     argument: ApiRecord
 ) extends Command
 
+/**
+  *
+  * @param template
+  *     The template of the given contract. Not required for the ledger API, but we keep
+  *     this denormalized information so that it's easier to serialize/deserialize the
+  *     choice argument.
+  */
 final case class ExerciseCommand(
     id: ApiTypes.CommandId,
     index: Long,
     workflowId: ApiTypes.WorkflowId,
     platformTime: Instant,
     contract: ApiTypes.ContractId,
-    /** The template of the given contract. Not required for the ledger API, but we keep this denormalized information so that it's easier to serialize/deserialize the choice argument. */
     template: DamlLfIdentifier,
     choice: ApiTypes.Choice,
     argument: ApiValue

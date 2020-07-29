@@ -29,6 +29,7 @@
 -- @ERROR Aborted: EvExpRecUpdErr1 OK
 -- @ERROR Aborted: EvExpRecUpdErr2_1 OK
 -- @ERROR Aborted: EvExpRecUpdErr2_2 OK
+-- @ERROR Aborted: EvExpRecUpdErr2_3 OK
 -- @ERROR Aborted: EvExpUpPureErr OK
 -- @ERROR Aborted: EvExpUpBindErr OK
 -- @ERROR Aborted: EvExpUpCreateErr OK
@@ -147,6 +148,12 @@ evExpRecUpdErr2_2 = scenario do
     { b = error "EvExpRecUpdErr2_2 OK", a = error "EvExpRecUpdErr2_2 failed" }
   -- ^ Note that record update depends on the order the fields appear in
   -- code, rather than the order in which fields were defined.
+
+-- NOTE(MH): Make sure we don't swallow record field updates if a field is
+-- updated multiple times.
+evExpRecUpdErr2_3 = scenario do
+  pure (R1 {a=0, b=0})
+    { a = error "EvExpRecUpdErr2_3 OK", a = error "EvExpRecUpdErr2_3 failed" }
 
 -- Can't test LF struct evaluation order from DAML, since we purposely avoid
 -- evaluation of struct fields during typeclass desugaring, and we don't have
