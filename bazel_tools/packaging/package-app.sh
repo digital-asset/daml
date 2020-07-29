@@ -16,13 +16,54 @@
 # On Windows we only handle statically linked binaries
 # (Haskell binaries are linked statically on Windows) so we
 # just copy the binary and the resources and create a tarball from that.
+
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+
+case "$(uname -s)" in
+  Darwin)
+    abspath() { python -c 'import os.path, sys; sys.stdout.write(os.path.abspath(sys.argv[1]))' "$@"; }
+    ;;
+  *)
+    abspath() { realpath -s "$@"; }
+    ;;
+esac
+
+if [[ -n ${RUNFILES_DIR:-} ]]; then
+  export RUNFILES_DIR=$(abspath $RUNFILES_DIR)
+fi
+if [[ -n ${RUNFILES_MANIFEST_FILE:-} ]]; then
+  export RUNFILES_DIR=$(abspath $RUNFILES_MANIFEST_FILE)
+fi
+
+case "$(uname -s)" in
+  Darwin|Linux)
+    tar=$(abspath $(rlocation tar_dev_env/tar))
+    gzip=$(abspath $(rlocation gzip_dev_env/gzip))
+    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz))
+    patchelf=$(abspath $(rlocation patchelf_nix/bin/patchelf))
+    ;;
+  CYGWIN*|MINGW*|MSYS*)
+    tar=$(abspath $(rlocation tar_dev_env/usr/bin/tar.exe))
+    gzip=$(abspath $(rlocation gzip_dev_env/usr/bin/gzip.exe))
+    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz.exe))
+    ;;
+esac
+
 set -eou pipefail
 
 WORKDIR="$(mktemp -d)"
 trap "rm -rf $WORKDIR" EXIT
 
-SRC=$1
-OUT=$2
+SRC=$(abspath $1)
+OUT=$(abspath $2)
 shift 2
 NAME=$(basename $SRC)
 mkdir -p $WORKDIR/$NAME/lib
@@ -35,7 +76,7 @@ if [ $# -gt 0 ]; then
     if [[ "$res" == *.tar.gz ]]; then
       # If a resource is a tarball, e.g., because it originates from another
       # rule we extract it.
-      tar xf "$res" --strip-components=1 -C "$WORKDIR/$NAME/resources"
+      $tar xf "$res" --strip-components=1 -C "$WORKDIR/$NAME/resources"
     else
       cp -aL "$res" "$WORKDIR/$NAME/resources"
     fi
@@ -47,13 +88,13 @@ if [ "$(uname -s)" == "Linux" ]; then
   binary="$WORKDIR/$NAME/lib/$NAME"
   cp $SRC $binary
   chmod u+w $binary
-  rpaths_binary=$(patchelf --print-rpath "$binary"|tr ':' ' ')
+  rpaths_binary=$($patchelf --print-rpath "$binary"|tr ':' ' ')
   function copy_deps {
     local from target needed libOK rpaths
     from=$1
     target=$2
-    needed=$(patchelf --print-needed "$from")
-    rpaths="$(patchelf --print-rpath "$from"|tr ':' ' ') $rpaths_binary"
+    needed=$($patchelf --print-needed "$from")
+    rpaths="$($patchelf --print-rpath "$from"|tr ':' ' ') $rpaths_binary"
 
     for lib in $needed; do
       if [ ! -f "$target/$lib" ]; then
@@ -67,7 +108,7 @@ if [ "$(uname -s)" == "Linux" ]; then
             if [ "$lib" != "ld-linux-x86-64.so.2" ]; then
               # clear the old rpaths (silence stderr as it always warns
               # with "working around a Linux kernel bug".
-              patchelf --set-rpath '$ORIGIN' "$target/$lib" 2> /dev/null
+              $patchelf --set-rpath '$ORIGIN' "$target/$lib" 2> /dev/null
             fi
             copy_deps "$rpath/$lib" "$target"
             break
@@ -94,8 +135,8 @@ if [ "$(uname -s)" == "Linux" ]; then
    done
   )
 
-  patchelf --set-rpath '$ORIGIN/lib' "$binary"
-  patchelf --set-interpreter ld-undefined.so "$binary"
+  $patchelf --set-rpath '$ORIGIN/lib' "$binary"
+  $patchelf --set-interpreter ld-undefined.so "$binary"
 
   # Link resources directory to lib, as that'll be the actual
   # binary's location.
@@ -173,4 +214,4 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
 else
     cp "$SRC" "$WORKDIR/$NAME/$NAME"
 fi
-cd $WORKDIR && mktgz $OUT $NAME
+cd $WORKDIR && $mktgz $OUT $NAME
