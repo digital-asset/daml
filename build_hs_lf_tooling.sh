@@ -10,10 +10,8 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
+TARGET_DIR=$PWD/$1
 cd "$(dirname ${BASH_SOURCE[0]})"
-TARGET_DIR=$1
-
-BAZEL_BIN=$(bazel info bazel-bin)
 
 pushd daml-assistant
 cabal new-sdist
