@@ -559,6 +559,20 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
     }
   }
 
+  "parses location annotations" in {
+    e"loc(Mod, def, 0, 1, 2, 3) 4" shouldEqual
+      ELocation(
+        Location(
+          defaultPackageId,
+          ModuleName.assertFromString("Mod"),
+          "def",
+          (0, 1),
+          (2, 3)
+        ),
+        EPrimLit(PLInt64(4)),
+      )
+  }
+
   private val keywords = Table(
     "forall",
     "let",

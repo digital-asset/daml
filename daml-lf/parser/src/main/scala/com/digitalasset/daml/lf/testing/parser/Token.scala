@@ -54,6 +54,7 @@ private[parser] object Token {
   case object `to_any` extends Token
   case object `from_any` extends Token
   case object `type_rep` extends Token
+  case object `loc` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token

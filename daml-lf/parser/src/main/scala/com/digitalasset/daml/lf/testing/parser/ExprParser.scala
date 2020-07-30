@@ -3,7 +3,7 @@
 
 package com.daml.lf.testing.parser
 
-import com.daml.lf.data.Ref.Name
+import com.daml.lf.data.Ref.{Location, Name}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Parsers._
@@ -42,6 +42,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       scenario ^^ EScenario |
       update ^^ EUpdate |
       id ^^ EVar |
+      eLoc |
       `(` ~> expr <~ `)`
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
@@ -384,6 +385,22 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateGetTime |
       updateEmbedExpr
 
+  private lazy val int: Parser[Int] =
+    acceptMatch("Int", { case Number(l) => l.toInt })
+
+  private lazy val eLoc: Parser[Expr] =
+    `loc` ~>! (`(` ~> dottedName) ~ (`,` ~> id) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`)` ~> expr0) ^^ {
+      case m ~ d ~ ls ~ cs ~ le ~ ce ~ e =>
+        val location =
+          Location(
+            parserParameters.defaultPackageId,
+            m,
+            d.toString,
+            (ls, cs),
+            (le, ce),
+          )
+        ELocation(location, e)
+    }
 }
 
 object ExprParser {
