@@ -488,6 +488,8 @@ class TriggerServiceTestWithDb
     super.afterEach()
   }
 
+  behavior of "persistent backend"
+
   it should "recover packages after shutdown" in (for {
     _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
