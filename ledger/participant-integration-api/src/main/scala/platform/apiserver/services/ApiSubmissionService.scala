@@ -154,23 +154,23 @@ private[apiserver] final class ApiSubmissionService private (
       implicit loggingContext: LoggingContext,
   ): Try[Unit] = result match {
     case Success(Acknowledged) =>
-      logger.debug("Submission of command succeeded")
+      logger.debug("Success")
       Success(())
 
     case Success(Overloaded) =>
-      logger.info("Submission has failed due to backpressure")
+      logger.info("Back-pressure")
       Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
 
     case Success(NotSupported) =>
-      logger.warn("Submission of command was not supported")
+      logger.warn("Not supported")
       Failure(Status.INVALID_ARGUMENT.asRuntimeException)
 
     case Success(InternalError(reason)) =>
-      logger.error(s"Submission of command failed due to an internal error, reason=$reason")
+      logger.error(s"Internal error: $reason")
       Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
 
     case Failure(error) =>
-      logger.info(s"Submission of command rejected: ${error.getMessage}")
+      logger.info(s"Rejected: ${error.getMessage}")
       Failure(error)
   }
 
