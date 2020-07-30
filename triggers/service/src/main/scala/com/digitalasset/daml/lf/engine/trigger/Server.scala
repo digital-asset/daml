@@ -120,7 +120,6 @@ class Server(
     val credentials = UserCredentials(encrypt(secretKey, userpass._1, userpass._2))
     val ledgerAccessToken: Option[LedgerAccessToken] = authServiceClient.map(client =>
       Await.result(client.getLedgerToken(userpass._1, userpass._2, LedgerId.unwrap(ledgerConfig.ledgerId)), 30.seconds))
-    ctx.system.log.debug(s"Got access token ${ledgerAccessToken.get.token}")
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
       triggerInstance <- existingInstance match {
