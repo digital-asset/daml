@@ -19,7 +19,7 @@ import akka.util.ByteString
 import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
-import com.daml.scala.util.Statement.discard
+import com.daml.scalautil.Statement.discard
 import com.daml.http.domain.JwtPayload
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet

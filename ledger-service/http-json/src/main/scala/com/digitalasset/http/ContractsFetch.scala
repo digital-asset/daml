@@ -17,7 +17,7 @@ import akka.stream.scaladsl.{
   Source,
 }
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
-import com.daml.scala.util.Statement.discard
+import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao.StaleOffsetException
 import com.daml.http.dbbackend.{ContractDao, Queries}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}

@@ -16,7 +16,7 @@ import com.daml.http.Generators.{
   genUnknownTemplateIds,
   genWarningsWrapper
 }
-import com.daml.scala.util.Statement.discard
+import com.daml.scalautil.Statement.discard
 import com.daml.http.domain
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
