@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import com.daml.http.Statement.discard
+import com.daml.scala.util.Statement.discard
 import com.daml.testing.postgresql.PostgresAroundAll
 import spray.json.{JsString, JsValue}
 

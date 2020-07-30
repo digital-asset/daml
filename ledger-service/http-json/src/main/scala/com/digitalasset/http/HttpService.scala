@@ -12,7 +12,7 @@ import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.http.Statement.discard
+import com.daml.scala.util.Statement.discard
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{
   ApiValueToJsValueConverter,

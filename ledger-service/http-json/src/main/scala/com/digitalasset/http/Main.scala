@@ -10,7 +10,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.Statement.discard
+import com.daml.scala.util.Statement.discard
 import com.daml.http.dbbackend.ContractDao
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
