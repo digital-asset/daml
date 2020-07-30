@@ -122,11 +122,10 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     runRequest(req)(Unmarshal(_).to[ServiceAccountList])
   }
 
-  def getServiceAccount(authServiceToken: AuthServiceToken): Future[ServiceAccount] = {
+  def getServiceAccount(authServiceToken: AuthServiceToken): Future[ServiceAccount] =
     RetryStrategy.constant(attempts = Some(3), waitTime = 4.seconds)(notFound) { (_, _) =>
       listServiceAccounts(authServiceToken).map(_.serviceAccounts.head)
     }
-  }
 
   def requestCredential(
       authServiceToken: AuthServiceToken,
@@ -141,14 +140,12 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     runRequest(req)(_ => Future(()))
   }
 
-  def getNewCredentialId(
-      authServiceToken: AuthServiceToken,
-      serviceAccountId: String): Future[CredentialId] =
+  def getNewCredentialId(authServiceToken: AuthServiceToken): Future[CredentialId] =
     for {
       sa <- getServiceAccount(authServiceToken)
       initialNumCreds = sa.creds.length
       () <- requestCredential(authServiceToken, sa.serviceAccount)
-      newCred <- RetryStrategy.constant(attempts = Some(5), waitTime = 4.seconds)(notFound) {
+      newCred <- RetryStrategy.constant(attempts = Some(3), waitTime = 10.seconds)(notFound) {
         (_, _) =>
           for {
             sa <- getServiceAccount(authServiceToken)
@@ -190,7 +187,7 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
       () <- requestServiceAccount(token, ledgerId)
       sa <- getServiceAccount(token)
       () <- requestCredential(token, sa.serviceAccount)
-      credId <- getNewCredentialId(token, sa.serviceAccount)
+      credId <- getNewCredentialId(token)
       cred <- getCredential(token, credId)
       accessTok <- login(cred)
     } yield accessTok

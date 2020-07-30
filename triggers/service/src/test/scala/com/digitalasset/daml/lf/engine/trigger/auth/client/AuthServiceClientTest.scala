@@ -28,7 +28,7 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
         sa <- authServiceClient.getServiceAccount(authServiceToken)
         _ <- sa.serviceAccount should not be empty
         _ <- sa.creds should equal(List())
-        credId <- authServiceClient.getNewCredentialId(authServiceToken, sa.serviceAccount)
+        credId <- authServiceClient.getNewCredentialId(authServiceToken)
         _ <- credId.credId should not be empty
         cred <- authServiceClient.getCredential(authServiceToken, credId)
         _ <- cred.cred should not be empty
