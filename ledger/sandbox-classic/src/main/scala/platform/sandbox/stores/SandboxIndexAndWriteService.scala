@@ -185,47 +185,65 @@ final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
-  // TODO DO NOT PASS THE REVIEW IF THE LOGGING CONTEXT INFO IS NOT ADDED HERE
   override def submitTransaction(
       submitterInfo: ParticipantState.SubmitterInfo,
       transactionMeta: ParticipantState.TransactionMeta,
       transaction: SubmittedTransaction,
   ): CompletionStage[ParticipantState.SubmissionResult] =
-    withEnrichedLoggingContext(Map.empty[String, String]) { implicit loggingContext =>
+    withEnrichedLoggingContext(
+      "submitter" -> submitterInfo.submitter,
+      "applicationId" -> submitterInfo.applicationId,
+      "commandId" -> submitterInfo.commandId,
+      "deduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
+      "submissionTime" -> transactionMeta.submissionTime.toInstant.toString,
+      "workflowId" -> transactionMeta.workflowId.getOrElse(""),
+      "ledgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
+    ) { implicit loggingContext =>
       FutureConverters.toJava(
-        ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
+        ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
+      )
     }
 
-  // TODO DO NOT PASS THE REVIEW IF THE LOGGING CONTEXT INFO IS NOT ADDED HERE
   override def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
-      submissionId: SubmissionId): CompletionStage[SubmissionResult] =
-    withEnrichedLoggingContext(Map.empty[String, String]) { implicit loggingContext =>
-      val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
+      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+    val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
+    withEnrichedLoggingContext(
+      "party" -> party,
+      "submissionId" -> submissionId,
+    ) { implicit loggingContext =>
       FutureConverters.toJava(ledger.publishPartyAllocation(submissionId, party, displayName))
     }
+  }
 
   // WritePackagesService
-  // TODO DO NOT PASS THE REVIEW IF THE LOGGING CONTEXT INFO IS NOT ADDED HERE
   override def uploadPackages(
       submissionId: SubmissionId,
       payload: List[Archive],
       sourceDescription: Option[String]
   ): CompletionStage[SubmissionResult] =
-    withEnrichedLoggingContext(Map.empty[String, String]) { implicit loggingContext =>
+    withEnrichedLoggingContext(
+      "submissionId" -> submissionId,
+      "description" -> sourceDescription.getOrElse(""),
+      "packageHashes" -> payload.iterator.map(_.getHash).mkString(","),
+    ) { implicit loggingContext =>
       FutureConverters.toJava(
         ledger
           .uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload))
     }
 
   // WriteConfigService
-  // TODO DO NOT PASS THE REVIEW IF THE LOGGING CONTEXT INFO IS NOT ADDED HERE
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration): CompletionStage[SubmissionResult] =
-    withEnrichedLoggingContext("" -> "") { implicit loggingContext =>
+    withEnrichedLoggingContext(
+      "maxRecordTime" -> maxRecordTime.toInstant.toString,
+      "submissionId" -> submissionId,
+      "configGeneration" -> config.generation.toString,
+      "configMaxDeduplicationTime" -> config.maxDeduplicationTime.toString,
+    ) { implicit loggingContext =>
       FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
     }
 }

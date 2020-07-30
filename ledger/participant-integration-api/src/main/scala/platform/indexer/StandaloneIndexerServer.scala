@@ -24,7 +24,7 @@ final class StandaloneIndexerServer(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
-    val indexerFactory = new JdbcIndexerFactory(
+    val indexerFactory = new JdbcIndexer.Factory(
       ServerRole.Indexer,
       config,
       readService,
