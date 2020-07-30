@@ -750,6 +750,31 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
+  final case class SBRecUpdMulti(id: Identifier, updateFields: Array[Int])
+      extends SBuiltin(1 + updateFields.length)
+      with SomeArrayEquals {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
+      machine.returnValue = args.get(0) match {
+        case SRecord(id2, fields, values) =>
+          if (id != id2) {
+            crash(s"type mismatch on record update: expected $id, got record of type $id2")
+          }
+          val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
+          var i = 0
+          while (i < updateFields.length) {
+            values2.set(updateFields(i), args.get(i + 1))
+            i += 1
+          }
+          SRecord(id2, fields, values2)
+        case v =>
+          crash(s"RecUpd on non-record: $v")
+      }
+    }
+  }
+
   /** $rproj[R, field] :: R -> a */
   final case class SBRecProj(id: Identifier, field: Int) extends SBuiltin(1) {
     override private[speedy] final def execute(
