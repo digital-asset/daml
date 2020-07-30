@@ -118,8 +118,11 @@ class Server(
       triggerName: Identifier,
       existingInstance: Option[UUID] = None): Either[String, JsValue] = {
     val credentials = UserCredentials(encrypt(secretKey, userpass._1, userpass._2))
-    val ledgerAccessToken: Option[LedgerAccessToken] = authServiceClient.map(client =>
-      Await.result(client.getLedgerToken(userpass._1, userpass._2, LedgerId.unwrap(ledgerConfig.ledgerId)), 60.seconds))
+    val ledgerAccessToken: Option[LedgerAccessToken] = authServiceClient.map(
+      client =>
+        Await.result(
+          client.getLedgerToken(userpass._1, userpass._2, LedgerId.unwrap(ledgerConfig.ledgerId)),
+          60.seconds))
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
       triggerInstance <- existingInstance match {
