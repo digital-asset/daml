@@ -37,14 +37,18 @@ final case class ScenarioRunner(
   import scala.util.{Try, Success, Failure}
 
   def run(): Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)] =
-    Try(runUnsafe) match {
-      case Failure(SRunnerException(err)) =>
-        Left((err, ledger))
-      case Failure(other) =>
-        throw other
-      case Success(res) =>
-        Right(res)
+    handleUnsafe(runUnsafe) match {
+      case Left(err) => Left((err, ledger))
+      case Right(t) => Right(t)
     }
+
+  private def handleUnsafe[T](unsafe: => T): Either[SError, T] = {
+    Try(unsafe) match {
+      case Failure(SRunnerException(err)) => Left(err)
+      case Failure(other) => throw other
+      case Success(t) => Right(t)
+    }
+  }
 
   private def runUnsafe(): (Double, Int, ScenarioLedger, SValue) = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
@@ -92,7 +96,7 @@ final case class ScenarioRunner(
           getParty(partyText, callback)
 
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          lookupKey(keyWithMaintainers.globalKey, committers, cb)
+          lookupKeyUnsafe(keyWithMaintainers.globalKey, committers, cb)
       }
     }
     val endTime = System.nanoTime()
@@ -158,7 +162,14 @@ final case class ScenarioRunner(
     callback(ledger.currentTime)
   }
 
-  private def lookupContract(
+  private[lf] def lookupContract(
+      acoid: ContractId,
+      committers: Set[Party],
+      cbMissing: Unit => Boolean,
+      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit): Either[SError, Unit] =
+    handleUnsafe(lookupContractUnsafe(acoid, committers, cbMissing, cbPresent))
+
+  private def lookupContractUnsafe(
       acoid: ContractId,
       committers: Set[Party],
       cbMissing: Unit => Boolean,
@@ -195,7 +206,14 @@ final case class ScenarioRunner(
     }
   }
 
-  private def lookupKey(
+  private[lf] def lookupKey(
+      gk: GlobalKey,
+      committers: Set[Party],
+      canContinue: SKeyLookupResult => Boolean,
+  ): Either[SError, Unit] =
+    handleUnsafe(lookupKeyUnsafe(gk, committers, canContinue))
+
+  private def lookupKeyUnsafe(
       gk: GlobalKey,
       committers: Set[Party],
       canContinue: SKeyLookupResult => Boolean,

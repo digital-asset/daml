@@ -73,10 +73,10 @@ object TriggerServiceFixture {
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
     val ledgerF = for {
+      (_, toxiproxyClient) <- toxiproxyF
       ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
       ledgerPort <- ledger.portF
       ledgerProxyPort = LockedFreePort.find()
-      (_, toxiproxyClient) <- toxiproxyF
       ledgerProxy = toxiproxyClient.createProxy(
         "sandbox",
         s"${host.getHostName}:${ledgerProxyPort.port}",
