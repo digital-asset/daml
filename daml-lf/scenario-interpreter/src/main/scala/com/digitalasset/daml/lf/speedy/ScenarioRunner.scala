@@ -162,7 +162,7 @@ final case class ScenarioRunner(
     callback(ledger.currentTime)
   }
 
-  def lookupContract(
+  private[lf] def lookupContract(
       acoid: ContractId,
       committers: Set[Party],
       cbMissing: Unit => Boolean,
@@ -206,7 +206,7 @@ final case class ScenarioRunner(
     }
   }
 
-  def lookupKey(
+  private[lf] def lookupKey(
       gk: GlobalKey,
       committers: Set[Party],
       canContinue: SKeyLookupResult => Boolean,
