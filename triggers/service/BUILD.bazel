@@ -89,6 +89,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
     data = [
         ":test-model.dar",
+        "//triggers/service:ref-ledger-authentication-binary",
     ] + (
         [
             "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
