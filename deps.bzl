@@ -28,6 +28,7 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 rules_scala_version = "152715b05547f160a512bae9b3d9e77a4888e243"
 rules_scala_sha256 = "9b117bf591780b5665a8271d83c2530943330f06e2dd99574ca9cf538009d09d"
@@ -273,6 +274,16 @@ def daml_deps():
             strip_prefix = "bazel-common-9e3880428c1837db9fb13335ed390b7e33e346a7",
             urls = ["https://github.com/google/bazel-common/archive/9e3880428c1837db9fb13335ed390b7e33e346a7.zip"],
         )
+
+    maybe(
+        http_archive,
+        name = "rules_pkg",
+        urls = [
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6/rules_pkg-0.2.6.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.6/rules_pkg-0.2.6.tar.gz",
+        ],
+        sha256 = "aeca78988341a2ee1ba097641056d168320ecc51372ef7ff8e64b139516a4937",
+    )
 
     if "com_github_grpc_ecosystem_grpc_health_probe_binary" not in native.existing_rules():
         http_file(
