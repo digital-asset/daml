@@ -426,7 +426,7 @@ simplifyExpr = fmap fst . cata go'
         | x == x' -> e
 
       -- let x = <...; f = e; ...> in x.f    ==>    e
-      ELetF (BindingF (x, _) (stripLoc -> EStructCon fes, s)) (stripLoc -> EStructProj f (EVar x'), _)
+      ELetF (BindingF (x, _) (stripLoc -> EStructCon fes, s)) (stripLoc -> EStructProj f (stripLoc -> EVar x'), _)
         -- NOTE(MH): See NOTE above on @s@.
         | x == x', Safe _ <- safety s, Just e <- f `lookup` fes -> (e, s)
 
@@ -439,7 +439,7 @@ simplifyExpr = fmap fst . cata go'
             (ERecCon t fes1, s)
         where
           matchField (f1, _) = \case
-              (f2, EStructProj f3 (EVar x3)) ->
+              (f2, stripLoc -> EStructProj f3 (stripLoc -> EVar x3)) ->
                   (f1 == f2) && (f1 == f3) && (x1 == x3)
               _ -> False
 
