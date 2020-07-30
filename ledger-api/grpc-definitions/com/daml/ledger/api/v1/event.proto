@@ -14,7 +14,7 @@ option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // An event in the flat transaction stream can either be the creation
-// or the archiving of a contract, or changes in visibility.
+// or the archiving of a contract.
 //
 // In the transaction service the events are restricted to the events
 // visible for the parties specified in the transaction filter. Each
@@ -26,8 +26,6 @@ message Event {
   oneof event {
     CreatedEvent created = 1;
     ArchivedEvent archived = 3;
-    EnterLocalLedgerEvent enter = 4;
-    LeaveLocalLedgerEvent leave = 5;
  }
   // see https://github.com/digital-asset/daml/issues/960
   reserved 2;
@@ -111,72 +109,6 @@ message ArchivedEvent {
   // in ``value.proto``).
   // Required
   repeated string witness_parties = 4;
-}
-
-// Records that a contract has entered the local ledger of the participant.
-// The contract has been created on a DAML ledger on which the participant does not represent
-// all stakeholders of the contract or has previously left the local ledger.
-// Used only by participants connected to interoperable DAML ledgers.
-message EnterLocalLedgerEvent {
-  // The ID of this particular event.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string event_id = 1;
-
-  // The ID of the contract.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string contract_id = 2;
-
-  // The template of the contract.
-  // Required
-  Identifier template_id = 3;
-
-  // The key of the contract, if defined.
-  // Optional
-  Value contract_key = 7;
-
-  // The arguments that have been used to create the contract.
-  // Required
-  Record create_arguments = 4;
-
-  // The parties that are notified of this event.
-  // These are the intersection of the parties specified in the `TransactionFilter`
-  // and the contract's signatories and observers view the contract enters.
-  // Required
-  repeated string witness_parties = 5;
-
-  // The signatories for this contract as specified by the template.
-  // Required
-  repeated string signatories = 8;
-
-  // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
-  // Required
-  repeated string observers = 9;
-
-  // The agreement text of the contract.
-  // We use StringValue to properly reflect optionality on the wire for backwards compatibility.
-  // This is necessary since the empty string is an acceptable (and in fact the default) agreement
-  // text, but also the default string in protobuf.
-  // This means a newer client works with an older sandbox seamlessly.
-  // Optional
-  google.protobuf.StringValue agreement_text = 6;
-}
-
-// Records that a contract has left the local ledger of the participant.
-// The witnessing parties cannot use the contract on the participant any more.
-// A subsequent `EnterLocalLedgerEvent` makes the contract usable again.
-// Used only by participants connected to interoperable DAML ledgers.
-message LeaveLocalLedgerEvent {
-  // The ID of this particular event.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string event_id = 1;
-
-  // The ID of the contract.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string contract_id = 2;
 }
 
 // Records that a choice has been exercised on a target contract.
