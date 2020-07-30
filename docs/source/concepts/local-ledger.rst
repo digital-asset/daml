@@ -388,6 +388,9 @@ These guarantees are subject to the deployed DAML ledger's trust assumptions.
 .. note::
    The virtual shared causality graph exists only as a concept, to reason about DAML ledger guarantees.
    A deployed DAML ledger in general does not store or even construct such a shared causality graph.
+   The Participant Nodes merely maintain the local ledgers for their parties.
+   They synchronize these local ledgers to the extent that they remain consistent.
+   That is, all the local ledgers could be combined into a consistent single causality graph of which they are projections.
 
    
 Explaining the causality examples
