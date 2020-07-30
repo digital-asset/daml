@@ -42,7 +42,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       scenario ^^ EScenario |
       update ^^ EUpdate |
       id ^^ EVar |
-      eLoc |
       `(` ~> expr <~ `)`
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
@@ -74,7 +73,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
           case (acc, EAppExprArg(e)) => EApp(acc, e)
           case (acc, EAppTypArg(t)) => ETyApp(acc, t)
         }
-    }
+    } |
+      eLoc
   }
 
   private lazy val fieldInit: Parser[(Name, Expr)] = id ~ (`=` ~> expr) ^^ {
