@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
@@ -105,24 +106,30 @@ private[dao] final class TransactionsReader(
   def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): Future[Option[GetFlatTransactionResponse]] = {
-    val query =
-      EventsTable.prepareLookupFlatTransactionById(sqlFunctions)(transactionId, requestingParties)
-    dispatcher
-      .executeSql(
-        databaseMetrics = dbMetrics.lookupFlatTransactionById,
-        extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
-      ) { implicit connection =>
-        query.asVectorOf(EventsTable.rawFlatEventParser)
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
+    withEnrichedLoggingContext(
+      "transactionId" -> transactionId,
+      "parties" -> requestingParties.mkString(", "),
+    ) { implicit loggingContext =>
+      {
+        val query =
+          EventsTable.prepareLookupFlatTransactionById(sqlFunctions)(
+            transactionId,
+            requestingParties)
+        dispatcher
+          .executeSql(databaseMetrics = dbMetrics.lookupFlatTransactionById) {
+            implicit connection =>
+              query.asVectorOf(EventsTable.rawFlatEventParser)
+          }
+          .flatMap(
+            rawEvents =>
+              Timed.value(
+                timer = dbMetrics.lookupFlatTransactionById.translationTimer,
+                value = Future.traverse(rawEvents)(deserializeEntry(verbose = true))
+            ))
+          .map(EventsTable.Entry.toGetFlatTransactionResponse)
       }
-      .flatMap(
-        rawEvents =>
-          Timed.value(
-            timer = dbMetrics.lookupFlatTransactionById.translationTimer,
-            value = Future.traverse(rawEvents)(deserializeEntry(verbose = true))
-        ))
-      .map(EventsTable.Entry.toGetFlatTransactionResponse)
-  }
+    }
 
   def getTransactionTrees(
       startExclusive: Offset,
@@ -170,24 +177,25 @@ private[dao] final class TransactionsReader(
   def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): Future[Option[GetTransactionResponse]] = {
-    val query =
-      EventsTable.prepareLookupTransactionTreeById(sqlFunctions)(transactionId, requestingParties)
-    dispatcher
-      .executeSql(
-        databaseMetrics = dbMetrics.lookupTransactionTreeById,
-        extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
-      ) { connection =>
-        query.asVectorOf(EventsTable.rawTreeEventParser)(connection)
-      }
-      .flatMap(
-        rawEvents =>
-          Timed.value(
-            timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-            value = Future.traverse(rawEvents)(deserializeEntry(verbose = true))
-        ))
-      .map(EventsTable.Entry.toGetTransactionResponse)
-  }
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
+    withEnrichedLoggingContext(
+      "transactionId" -> transactionId,
+      "parties" -> requestingParties.mkString(", "),
+    ) { implicit loggingContext =>
+      val query =
+        EventsTable.prepareLookupTransactionTreeById(sqlFunctions)(transactionId, requestingParties)
+      dispatcher
+        .executeSql(databaseMetrics = dbMetrics.lookupTransactionTreeById) { implicit connection =>
+          query.asVectorOf(EventsTable.rawTreeEventParser)
+        }
+        .flatMap(
+          rawEvents =>
+            Timed.value(
+              timer = dbMetrics.lookupTransactionTreeById.translationTimer,
+              value = Future.traverse(rawEvents)(deserializeEntry(verbose = true))
+          ))
+        .map(EventsTable.Entry.toGetTransactionResponse)
+    }
 
   def getActiveContracts(
       activeAt: Offset,
@@ -230,10 +238,13 @@ private[dao] final class TransactionsReader(
     EventsRange(startExclusive = a.eventSequentialId, endInclusive = endEventSeqId)
 
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
-      a: EventsTable.Entry[E]): EventsRange[(Offset, Long)] =
+      a: EventsTable.Entry[E],
+  ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
-  private def getAcsEventSeqIdRange(activeAt: Offset): Future[EventsRange[(Offset, Long)]] =
+  private def getAcsEventSeqIdRange(activeAt: Offset)(
+      implicit loggingContext: LoggingContext,
+  ): Future[EventsRange[(Offset, Long)]] =
     dispatcher
       .executeSql(dbMetrics.getAcsEventSeqIdRange)(EventsRange.readEventSeqIdRange(activeAt))
       .map { x =>
@@ -245,7 +256,7 @@ private[dao] final class TransactionsReader(
   private def getEventSeqIdRange(
       startExclusive: Offset,
       endInclusive: Offset
-  ): Future[EventsRange[Long]] =
+  )(implicit loggingContext: LoggingContext): Future[EventsRange[Long]] =
     dispatcher.executeSql(dbMetrics.getEventSeqIdRange)(
       EventsRange.readEventSeqIdRange(EventsRange(startExclusive, endInclusive)))
 
@@ -254,7 +265,9 @@ private[dao] final class TransactionsReader(
       queryMetric: DatabaseMetrics,
       query: EventsRange[A] => Connection => Vector[EventsTable.Entry[Raw[E]]],
       getNextPageRange: EventsTable.Entry[E] => EventsRange[A],
-  )(range: EventsRange[A]): Source[EventsTable.Entry[E], NotUsed] =
+  )(range: EventsRange[A])(
+      implicit loggingContext: LoggingContext,
+  ): Source[EventsTable.Entry[E], NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)

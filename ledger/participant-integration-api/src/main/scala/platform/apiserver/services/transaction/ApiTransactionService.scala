@@ -41,7 +41,8 @@ private[apiserver] object ApiTransactionService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
-      loggingContext: LoggingContext): GrpcTransactionService with BindableService =
+      loggingContext: LoggingContext,
+  ): GrpcTransactionService with BindableService =
     new GrpcTransactionService(
       new ApiTransactionService(transactionsService),
       ledgerId,
@@ -51,12 +52,13 @@ private[apiserver] object ApiTransactionService {
 
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
-    parallelism: Int = 4)(
+    parallelism: Int = 4,
+)(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
     esf: ExecutionSequencerFactory,
-    loggingContext: LoggingContext)
-    extends TransactionService
+    loggingContext: LoggingContext,
+) extends TransactionService
     with ErrorFactories {
 
   private val logger = ContextualizedLogger.get(this.getClass)

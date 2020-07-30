@@ -50,7 +50,8 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       engine: Engine,
   )(
       implicit materializer: Materializer,
-      loggingContext: LoggingContext): ResourceOwner[ReadWriteService] =
+      loggingContext: LoggingContext,
+  ): ResourceOwner[ReadWriteService] =
     new Owner(config, participantConfig, engine)
 
   class Owner(

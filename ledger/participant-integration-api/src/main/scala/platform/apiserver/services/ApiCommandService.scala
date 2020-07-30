@@ -53,7 +53,7 @@ private[apiserver] final class ApiCommandService private (
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
     esf: ExecutionSequencerFactory,
-    loggingContext: LoggingContext
+    loggingContext: LoggingContext,
 ) extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
@@ -173,7 +173,7 @@ private[apiserver] object ApiCommandService {
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
       esf: ExecutionSequencerFactory,
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(services, configuration, ledgerConfigProvider),

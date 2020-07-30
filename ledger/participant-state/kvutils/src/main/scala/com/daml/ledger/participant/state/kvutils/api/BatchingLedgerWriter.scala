@@ -87,7 +87,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
 object BatchingLedgerWriter {
   def apply(batchingLedgerWriterConfig: BatchingLedgerWriterConfig, delegate: LedgerWriter)(
       implicit materializer: Materializer,
-      loggingContext: LoggingContext): BatchingLedgerWriter = {
+      loggingContext: LoggingContext,
+  ): BatchingLedgerWriter = {
     val batchingQueue = batchingQueueFrom(batchingLedgerWriterConfig)
     new BatchingLedgerWriter(batchingQueue, delegate)
   }

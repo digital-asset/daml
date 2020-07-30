@@ -75,7 +75,8 @@ class PreExecutingSubmissionValidator[WriteSet](
 
   private def decodeSubmission(submissionEnvelope: Bytes)(
       implicit executionContext: ExecutionContext,
-      loggingContext: LoggingContext): Future[DamlSubmission] =
+      loggingContext: LoggingContext,
+  ): Future[DamlSubmission] =
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.decode,
       metrics.daml.kvutils.submission.validator.decodeRunning,

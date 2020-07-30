@@ -141,8 +141,8 @@ private[apiserver] object ApiPartyManagementService {
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-      loggingContext: LoggingContext)
-    : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
+      loggingContext: LoggingContext,
+  ): PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
       transactionsService,

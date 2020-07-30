@@ -338,7 +338,8 @@ private final class SqlLedger(
   // Validates the given ledger time according to the ledger time model
   private def checkTimeModel(
       ledgerTime: Instant,
-      recordTime: Instant): Either[RejectionReason, Unit] = {
+      recordTime: Instant,
+  ): Either[RejectionReason, Unit] = {
     currentConfiguration
       .get()
       .fold[Either[RejectionReason, Unit]](
@@ -354,7 +355,7 @@ private final class SqlLedger(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
-  ): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     enqueue { offset =>
       val transactionId = offset.toApiString
 
@@ -408,7 +409,8 @@ private final class SqlLedger(
   override def publishPartyAllocation(
       submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[SubmissionResult] = {
+      displayName: Option[String],
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
     enqueue { offset =>
       ledgerDao
         .storePartyEntry(
@@ -433,7 +435,8 @@ private final class SqlLedger(
       submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[SubmissionResult] = {
+      payload: List[Archive],
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
     enqueue { offset =>
@@ -456,7 +459,8 @@ private final class SqlLedger(
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
-      config: Configuration): Future[SubmissionResult] =
+      config: Configuration,
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     enqueue { offset =>
       val recordTime = timeProvider.getCurrentTime
       val mrt = maxRecordTime.toInstant

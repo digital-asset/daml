@@ -44,7 +44,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       retriesLeft: Int,
   )(
       implicit ec: ExecutionContext,
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     delegate
       .execute(commands, submissionSeed)

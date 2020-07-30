@@ -174,6 +174,7 @@ private[apiserver] object LedgerConfigProvider {
       timeProvider: TimeProvider,
       config: LedgerConfiguration)(
       implicit materializer: Materializer,
-      loggingContext: LoggingContext): LedgerConfigProvider =
+      loggingContext: LoggingContext,
+  ): LedgerConfigProvider =
     new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
 }

@@ -198,8 +198,8 @@ private[apiserver] object ApiConfigManagementService {
       timeProvider: TimeProvider,
       ledgerConfiguration: LedgerConfiguration)(
       implicit mat: Materializer,
-      loggingContext: LoggingContext)
-    : ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
+      loggingContext: LoggingContext,
+  ): ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,
       writeBackend,

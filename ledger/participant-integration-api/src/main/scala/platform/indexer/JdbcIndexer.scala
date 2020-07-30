@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.LedgerIdMismatchException
@@ -121,7 +122,7 @@ private[indexer] class JdbcIndexer private[indexer] (
     participantId: ParticipantId,
     ledgerDao: LedgerDao,
     metrics: Metrics,
-)(implicit mat: Materializer)
+)(implicit mat: Materializer, loggingContext: LoggingContext)
     extends Indexer {
 
   @volatile
@@ -130,123 +131,134 @@ private[indexer] class JdbcIndexer private[indexer] (
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
     new SubscriptionResourceOwner(readService)
 
-  private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
-    lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
+  private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] =
+    withEnrichedLoggingContext("offset" -> offset.toHexString) { implicit loggingContext =>
+      lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
-    metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
-    metrics.daml.indexer.lastReceivedOffset.updateValue(offset.toApiString)
+      metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
+      metrics.daml.indexer.lastReceivedOffset.updateValue(offset.toApiString)
 
-    val result = update match {
-      case PartyAddedToParticipant(
-          party,
-          displayName,
-          hostingParticipantId,
-          recordTime,
-          submissionId) =>
-        ledgerDao
-          .storePartyEntry(
-            offset,
-            PartyLedgerEntry.AllocationAccepted(
-              submissionId,
-              hostingParticipantId,
-              recordTime.toInstant,
-              domain
-                .PartyDetails(party, Some(displayName), this.participantId == hostingParticipantId))
-          )
+      val result = update match {
+        case PartyAddedToParticipant(
+            party,
+            displayName,
+            hostingParticipantId,
+            recordTime,
+            submissionId,
+            ) =>
+          ledgerDao
+            .storePartyEntry(
+              offset,
+              PartyLedgerEntry.AllocationAccepted(
+                submissionId,
+                hostingParticipantId,
+                recordTime.toInstant,
+                domain
+                  .PartyDetails(
+                    party,
+                    Some(displayName),
+                    this.participantId == hostingParticipantId,
+                  )
+              ),
+            )
 
-      case PartyAllocationRejected(
-          submissionId,
-          hostingParticipantId,
-          recordTime,
-          rejectionReason) =>
-        ledgerDao
-          .storePartyEntry(
-            offset,
-            PartyLedgerEntry.AllocationRejected(
-              submissionId,
-              hostingParticipantId,
-              recordTime.toInstant,
-              rejectionReason
+        case PartyAllocationRejected(
+            submissionId,
+            hostingParticipantId,
+            recordTime,
+            rejectionReason,
+            ) =>
+          ledgerDao
+            .storePartyEntry(
+              offset,
+              PartyLedgerEntry.AllocationRejected(
+                submissionId,
+                hostingParticipantId,
+                recordTime.toInstant,
+                rejectionReason,
+              )
+            )
+
+        case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
+          val recordTimeInstant = recordTime.toInstant
+          val packages: List[(DamlLf.Archive, v2.PackageDetails)] = archives.map(
+            archive =>
+              archive -> v2.PackageDetails(
+                size = archive.getPayload.size.toLong,
+                knownSince = recordTimeInstant,
+                sourceDescription = optSourceDescription,
             )
           )
+          val optEntry: Option[PackageLedgerEntry] =
+            optSubmissionId.map(submissionId =>
+              PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
+          ledgerDao
+            .storePackageEntry(
+              offset,
+              packages,
+              optEntry,
+            )
 
-      case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
-        val recordTimeInstant = recordTime.toInstant
-        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = archives.map(
-          archive =>
-            archive -> v2.PackageDetails(
-              size = archive.getPayload.size.toLong,
-              knownSince = recordTimeInstant,
-              sourceDescription = optSourceDescription))
-        val optEntry: Option[PackageLedgerEntry] =
-          optSubmissionId.map(submissionId =>
-            PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
-        ledgerDao
-          .storePackageEntry(
-            offset,
-            packages,
-            optEntry
+        case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
+          val entry: PackageLedgerEntry =
+            PackageLedgerEntry.PackageUploadRejected(
+              submissionId,
+              recordTime.toInstant,
+              rejectionReason,
+            )
+          ledgerDao
+            .storePackageEntry(
+              offset,
+              List.empty,
+              Some(entry),
+            )
+
+        case TransactionAccepted(
+            optSubmitterInfo,
+            transactionMeta,
+            transaction,
+            transactionId,
+            recordTime,
+            divulgedContracts,
+            ) =>
+          ledgerDao.storeTransaction(
+            submitterInfo = optSubmitterInfo,
+            workflowId = transactionMeta.workflowId,
+            transactionId = transactionId,
+            recordTime = recordTime.toInstant,
+            ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+            offset = offset,
+            transaction = transaction,
+            divulged = divulgedContracts,
           )
 
-      case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
-        val entry: PackageLedgerEntry =
-          PackageLedgerEntry.PackageUploadRejected(
-            submissionId,
-            recordTime.toInstant,
-            rejectionReason
-          )
-        ledgerDao
-          .storePackageEntry(
-            offset,
-            List.empty,
-            Some(entry)
-          )
+        case config: ConfigurationChanged =>
+          ledgerDao
+            .storeConfigurationEntry(
+              offset,
+              config.recordTime.toInstant,
+              config.submissionId,
+              config.participantId,
+              config.newConfiguration,
+              None,
+            )
 
-      case TransactionAccepted(
-          optSubmitterInfo,
-          transactionMeta,
-          transaction,
-          transactionId,
-          recordTime,
-          divulgedContracts) =>
-        ledgerDao.storeTransaction(
-          submitterInfo = optSubmitterInfo,
-          workflowId = transactionMeta.workflowId,
-          transactionId = transactionId,
-          recordTime = recordTime.toInstant,
-          ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-          offset = offset,
-          transaction = transaction,
-          divulged = divulgedContracts,
-        )
+        case configRejection: ConfigurationChangeRejected =>
+          ledgerDao
+            .storeConfigurationEntry(
+              offset,
+              configRejection.recordTime.toInstant,
+              configRejection.submissionId,
+              configRejection.participantId,
+              configRejection.proposedConfiguration,
+              Some(configRejection.rejectionReason),
+            )
 
-      case config: ConfigurationChanged =>
-        ledgerDao
-          .storeConfigurationEntry(
-            offset,
-            config.recordTime.toInstant,
-            config.submissionId,
-            config.participantId,
-            config.newConfiguration,
-            None
-          )
-
-      case configRejection: ConfigurationChangeRejected =>
-        ledgerDao
-          .storeConfigurationEntry(
-            offset,
-            configRejection.recordTime.toInstant,
-            configRejection.submissionId,
-            configRejection.participantId,
-            configRejection.proposedConfiguration,
-            Some(configRejection.rejectionReason)
-          )
-
-      case CommandRejected(recordTime, submitterInfo, reason) =>
-        ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offset, reason)
+        case CommandRejected(recordTime, submitterInfo, reason) =>
+          ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offset, reason)
+      }
+      result.map(_ => ())(DEC)
     }
-    result.map(_ => ())(DEC)
-  }
 
   private class SubscriptionResourceOwner(readService: ReadService)
       extends ResourceOwner[IndexFeedHandle] {

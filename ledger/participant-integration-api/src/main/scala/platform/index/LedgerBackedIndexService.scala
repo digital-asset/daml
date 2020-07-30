@@ -108,8 +108,10 @@ private[platform] final class LedgerBackedIndexService(
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
-  private def convertOffset: LedgerOffset => Source[Offset, NotUsed] = {
-    lazy val currentEnd: Offset = ledger.ledgerEnd
+  private def convertOffset(
+      implicit loggingContext: LoggingContext,
+  ): LedgerOffset => Source[Offset, NotUsed] = {
+    lazy val currentEnd: Offset = ledger.ledgerEnd()
     domainOffset: LedgerOffset =>
       domainOffset match {
         case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
@@ -122,7 +124,9 @@ private[platform] final class LedgerBackedIndexService(
   private def between[A](
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
-  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed]): Source[A, NotUsed] = {
+  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(
+      implicit loggingContext: LoggingContext,
+  ): Source[A, NotUsed] = {
     val convert = convertOffset
     convert(startExclusive).flatMapConcat { begin =>
       endInclusive
@@ -147,7 +151,9 @@ private[platform] final class LedgerBackedIndexService(
         party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
     }
 
-  override def currentLedgerEnd(): Future[LedgerOffset.Absolute] = {
+  override def currentLedgerEnd()(
+      implicit loggingContext: LoggingContext,
+  ): Future[LedgerOffset.Absolute] = {
     val offset =
       if (ledger.ledgerEnd == Offset.beforeBegin) ApiOffset.begin
       else ledger.ledgerEnd
@@ -173,10 +179,12 @@ private[platform] final class LedgerBackedIndexService(
       startExclusive: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
-  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
-    convertOffset(startExclusive).flatMapConcat { beginOpt =>
+  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] = {
+    val convert = convertOffset
+    convert(startExclusive).flatMapConcat { beginOpt =>
       ledger.completions(Some(beginOpt), None, applicationId, parties).map(_._2)
     }
+  }
 
   // IndexPackagesService
   override def listLfPackages()(

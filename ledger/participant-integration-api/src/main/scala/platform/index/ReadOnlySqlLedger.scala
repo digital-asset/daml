@@ -59,7 +59,8 @@ private[platform] object ReadOnlySqlLedger {
         initialLedgerId: LedgerId,
     )(
         implicit executionContext: ExecutionContext,
-        loggingContext: LoggingContext): Future[LedgerId] = {
+        loggingContext: LoggingContext,
+    ): Future[LedgerId] = {
       val predicate: PartialFunction[Throwable, Boolean] = {
         case _: LedgerIdNotFoundException => true
         case _: LedgerIdMismatchException => false
@@ -111,7 +112,7 @@ private final class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
-)(implicit mat: Materializer)
+)(implicit mat: Materializer, loggingContext: LoggingContext)
     extends BaseLedger(ledgerId, ledgerDao, dispatcher) {
 
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =

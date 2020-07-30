@@ -67,7 +67,8 @@ private[apiserver] object ApiCommandCompletionService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
-      loggingContext: LoggingContext): GrpcCommandCompletionService with GrpcApiService = {
+      loggingContext: LoggingContext,
+  ): GrpcCommandCompletionService with GrpcApiService = {
     val impl: CommandCompletionService =
       new ApiCommandCompletionService(completionsService)
 

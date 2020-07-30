@@ -9,6 +9,7 @@ import java.util.concurrent.{Executor, Executors, TimeUnit}
 import com.codahale.metrics.Timer
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.resources.ResourceOwner
@@ -37,50 +38,43 @@ private[platform] final class DbDispatcher private (
     * The isolation level by default is the one defined in the JDBC driver, it can be however overridden per query on
     * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
     */
-  def executeSql[T](databaseMetrics: DatabaseMetrics, extraLog: => Option[String] = None)(
-      sql: Connection => T
-  ): Future[T] = {
-    lazy val extraLogMemoized = extraLog
-    val startWait = System.nanoTime()
-    Future {
-      val waitNanos = System.nanoTime() - startWait
-      extraLogMemoized.foreach(log =>
-        logger.trace(s"${databaseMetrics.name}: $log wait ${(waitNanos / 1E6).toLong} ms"))
-      databaseMetrics.waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
-      overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
-      val startExec = System.nanoTime()
-      try {
-        // Actual execution
-        val result = connectionProvider.runSQL(databaseMetrics)(sql)
-        result
-      } catch {
-        case NonFatal(e) =>
-          logger.error(
-            s"${databaseMetrics.name}: Got an exception while executing a SQL query. Rolled back the transaction.",
-            e)
-          throw e
-        // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
-        case t: Throwable =>
-          logger.error(s"${databaseMetrics.name}: got a fatal error!", t)
-          throw t
-      } finally {
-        // decouple metrics updating from sql execution above
+  def executeSql[T](databaseMetrics: DatabaseMetrics)(
+      sql: Connection => T,
+  )(implicit loggingContext: LoggingContext): Future[T] =
+    withEnrichedLoggingContext("metric" -> databaseMetrics.name) { implicit loggingContext =>
+      val startWait = System.nanoTime()
+      Future {
+        val waitNanos = System.nanoTime() - startWait
+        logger.trace(s"Waited ${(waitNanos / 1E6).toLong} ms to acquire connection")
+        databaseMetrics.waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+        overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+        val startExec = System.nanoTime()
         try {
-          val execNanos = System.nanoTime() - startExec
-          extraLogMemoized.foreach(log =>
-            logger.trace(s"${databaseMetrics.name}: $log exec ${(execNanos / 1E6).toLong} ms"))
-          databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
-          overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+          // Actual execution
+          val result = connectionProvider.runSQL(databaseMetrics)(sql)
+          result
         } catch {
           case NonFatal(e) =>
-            logger
-              .error(
-                s"${databaseMetrics.name}: Got an exception while updating timer metrics. Ignoring.",
-                e)
+            logger.error("Exception while executing SQL query. Rolled back.", e)
+            throw e
+          // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
+          case t: Throwable =>
+            logger.error("Fatal error!", t)
+            throw t
+        } finally {
+          // decouple metrics updating from sql execution above
+          try {
+            val execNanos = System.nanoTime() - startExec
+            logger.trace(s"Executed query in ${(execNanos / 1E6).toLong} ms")
+            databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+            overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+          } catch {
+            case NonFatal(e) =>
+              logger.error("Got an exception while updating timer metrics. Ignoring.", e)
+          }
         }
-      }
-    }(executionContext)
-  }
+      }(executionContext)
+    }
 }
 
 private[platform] object DbDispatcher {

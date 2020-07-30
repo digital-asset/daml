@@ -25,8 +25,8 @@ private[apiserver] final class ApiLedgerConfigurationService private (
 )(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
-    loggingContext: LoggingContext)
-    extends LedgerConfigurationServiceAkkaGrpc
+    loggingContext: LoggingContext,
+) extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)

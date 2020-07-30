@@ -86,7 +86,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
     new ConcurrentHashMap()
 
   private def consume[A](submitter: Ref.Party, result: Result[A])(
-      implicit ec: ExecutionContext
+      implicit ec: ExecutionContext,
+      loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
 
     val lookupActiveContractTime = new AtomicLong(0L)

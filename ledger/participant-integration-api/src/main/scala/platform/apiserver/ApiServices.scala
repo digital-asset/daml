@@ -185,7 +185,8 @@ private[daml] object ApiServices {
         apiTransactionService: GrpcTransactionService)(
         implicit mat: Materializer,
         ec: ExecutionContext,
-        loggingContext: LoggingContext): List[BindableService] = {
+        loggingContext: LoggingContext,
+    ): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>
         val commandExecutor = new TimedCommandExecutor(
           new LedgerTimeAwareCommandExecutor(

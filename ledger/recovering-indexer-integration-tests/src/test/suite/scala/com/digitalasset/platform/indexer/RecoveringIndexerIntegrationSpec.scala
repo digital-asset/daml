@@ -236,7 +236,7 @@ object RecoveringIndexerIntegrationSpec {
   private object SimpleParticipantState extends ParticipantStateFactory {
     override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
         implicit materializer: Materializer,
-        loggingContext: LoggingContext
+        loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
       val metrics = new Metrics(new MetricRegistry)
       new InMemoryLedgerReaderWriter.SingleParticipantOwner(
@@ -252,7 +252,7 @@ object RecoveringIndexerIntegrationSpec {
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
     override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
         implicit materializer: Materializer,
-        loggingContext: LoggingContext
+        loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] =
       SimpleParticipantState(ledgerId, participantId)
         .map { delegate =>

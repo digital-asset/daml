@@ -32,6 +32,8 @@ object LoggingContext {
   )(implicit loggingContext: LoggingContext): A =
     f(loggingContext ++ (kv +: kvs))
 
+  val ForTesting: LoggingContext = new LoggingContext(Map.empty)
+
 }
 
 final class LoggingContext private (ctxMap: Map[String, String]) {

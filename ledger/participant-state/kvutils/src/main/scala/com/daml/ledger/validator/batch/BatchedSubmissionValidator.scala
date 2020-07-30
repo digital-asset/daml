@@ -261,7 +261,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       commitStrategy: CommitStrategy[CommitResult])(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
-      loggingContext: LoggingContext): Future[Unit] =
+      loggingContext: LoggingContext,
+  ): Future[Unit] =
     indexedSubmissions
     // Fetch the submission inputs in parallel.
       .mapAsyncUnordered[Outputs1](params.readParallelism) {
