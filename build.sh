@@ -61,7 +61,9 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-bazel test //... \
+bazel test //triggers/service:tests \
+  --runs_per_test=50
+  --test_arg=-t --test_arg='persistent backend should recover packages after shutdown' \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
