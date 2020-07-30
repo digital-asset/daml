@@ -694,6 +694,13 @@ convertBind env (name, x)
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
+    | T.isPrefixOf "$c==" (getOccText name)
+    , envLfVersion env `supports` featureGenericComparison
+    = do
+        (name', type') <- convValWithType env name
+        body <- mkFastComparisonPredicate name BEEqualGeneric type'
+        pure [defValue name (name', type') body]
+
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
@@ -1783,3 +1790,20 @@ mkPure env monad dict t x = do
           `ETmApp` dict'
           `ETyApp` t
           `ETmApp` x
+
+mkFastComparisonPredicate :: GHC.Var -> BuiltinExpr -> LF.Type -> ConvertM LF.Expr
+mkFastComparisonPredicate name builtin = go
+  where
+
+    go = \case
+        TForall (x,k) t ->
+            ETyLam (x,k) <$> go t
+
+        TSynApp s ts :-> t ->
+            ETmLam (ExprVarName "_", TSynApp s ts) <$> go t
+
+        t1 :-> t2 :-> TBool | t1 == t2 ->
+            pure (ETyApp (EBuiltin builtin) t1)
+
+        _ ->
+            unhandled "comparison function with unexpected type signature" (varType name)
