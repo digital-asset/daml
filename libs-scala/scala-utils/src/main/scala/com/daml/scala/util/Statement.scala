@@ -4,6 +4,13 @@
 package com.daml.scala.util
 
 object Statement {
+
+  /**
+    *  Suppresses `traverser:org.wartremover.warts.NonUnitStatements` warning on an expression level.
+    *
+    * @param evaluateForSideEffectOnly an expression with a side-effect that needs to be evaluated.
+    * @tparam A return type of the expression that gets discarded.
+    */
   @specialized def discard[A](evaluateForSideEffectOnly: A): Unit = {
     val _: A = evaluateForSideEffectOnly
     () //Return unit to prevent warning due to discarding value
