@@ -6,7 +6,7 @@ package com.daml.scala.util
 object Statement {
 
   /**
-    *  Suppresses `traverser:org.wartremover.warts.NonUnitStatements` warning on an expression level.
+    *  Suppresses `traverser:org.wartremover.warts.NonUnitStatements` warning on the expression level.
     *
     * @param evaluateForSideEffectOnly an expression with a side-effect that needs to be evaluated.
     * @tparam A return type of the expression that gets discarded.
