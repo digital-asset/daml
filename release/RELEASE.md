@@ -236,7 +236,7 @@ patches we backport to the 1.0 release branch).
    for now since it covers things not covered by the new GSG
    (Navigator, scenarios, Maven artifacts, …)
 
-    1. Create a new project with `daml new quickstart --template quickstart-java`
+    1. Create a new project with `daml new quickstart quickstart-java`
        and switch to it using `cd quickstart`.
 
     1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
