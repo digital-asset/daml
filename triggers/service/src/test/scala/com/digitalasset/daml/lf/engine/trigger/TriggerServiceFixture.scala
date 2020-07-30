@@ -104,7 +104,7 @@ object TriggerServiceFixture {
               ).run()
             }
             // Wait for the auth service instance to be ready to accept connections.
-            _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds) ((_, _) =>
+            _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds)((_, _) =>
               Future(authServicePort.testAndUnlock(host)))
             authServiceBaseUrl = Uri.from(
               scheme = "http",
