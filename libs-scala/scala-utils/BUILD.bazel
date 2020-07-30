@@ -8,14 +8,14 @@ load(
     "lf_scalacopts",
 )
 
-hj_scalacopts = lf_scalacopts + [
+scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
 
 da_scala_library(
     name = "scala-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = hj_scalacopts,
+    scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:scala-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -27,7 +27,7 @@ da_scala_library(
 da_scala_test(
     name = "test",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    scalacopts = hj_scalacopts,
+    scalacopts = scalacopts,
     deps = [
         ":scala-utils",
         "//libs-scala/scalatest-utils",
