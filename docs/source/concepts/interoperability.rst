@@ -7,7 +7,7 @@ Ledger Interoperability
 #######################
 
 Certain DAML ledgers can interoperate with other DAML ledgers.
-That is, the contracts created on one ledger can be used and archived in transactions on another ledgers.
+That is, the contracts created on one ledger can be used and archived in transactions on other ledgers.
 Participant Nodes connect to multiple ledgers and provide their parties unified access to those ledgers via the :ref:`Ledger API <ledger-api-services>`.
 For example, when an organization initially deploys two workflows to two DAML ledgers, it can later compose those workflows into a larger workflow that spans both ledgers.
 
@@ -31,7 +31,7 @@ The presentation assumes that you are familiar with the following concepts:
 Topologies
 **********
 
-Participant Nodes connect to DAML Ledgers and parties access to projections of these ledgers via the Ledger API.
+Participant Nodes connect to DAML ledgers and parties access to projections of these ledgers via the Ledger API.
 The following picture shows such a setup.
 
 .. figure:: ./images/multiple-domains.svg
@@ -42,15 +42,15 @@ The following picture shows such a setup.
 
 The components in this diagram are the following:
 
-* There is a set of interoperable **DAML Ledgers**: Ledger 1, Ledger 2, and Ledger 3.
+* There is a set of interoperable **DAML ledgers**: Ledger 1, Ledger 2, and Ledger 3.
 
-* Each **Participant Node** is connected to a subset of the DAML Ledgers.
+* Each **Participant Node** is connected to a subset of the DAML ledgers.
   
   - Participant Node 1 is connected to Ledger 1 and 2.
   - Participant Nodes 2 and 3 are connected to Ledger 1, 2, and 3.
 
-* Participant Nodes host parties on a subset of the DAML Ledgers they are connected to.
-  A Participant Node provides a party access to the DAML Ledgers that it hosts the party on.
+* Participant Nodes host parties on a subset of the DAML ledgers they are connected to.
+  A Participant Node provides a party access to the DAML ledgers that it hosts the party on.
 
   - Participant Node 1 hosts Alice on Ledger 1 and 2.
   - Participant Node 2 hosts Alice on Ledger 1 and 3, but not on 2 (indicated by the dotted connection).
@@ -62,7 +62,7 @@ The components in this diagram are the following:
 Aggregation into Local Ledgers
 ******************************
 
-When a Participant Node hosts a party only on a subset of the interoperable DAML Ledgers,
+When a Participant Node hosts a party only on a subset of the interoperable DAML ledgers,
 then the transaction and active contract services of the Participant Node are derived only from those ledgers.
 In practice, the Participant Node assembles the updates from these ledgers into the party's local ledger,
 which feeds the Transaction Service and Active Contract Service for this party.
@@ -129,7 +129,7 @@ which are referred to as **Enter** and **Leave** actions.
 As before, the stream of transactions and transaction trees are derived as a topological sort of the local ledger for the set of parties.
 
 It suffices to extend :ref:`definition of activation and deactivation <local-ledger-structure>` actions as follows.
-The actual definition of local ledger remains the same except that every local ledger implicitly identifies the set of DAML Ledgers it aggregates.
+The actual definition of local ledger remains the same except that every local ledger implicitly identifies the set of DAML ledgers it aggregates.
 
 Definition »activation, deactivation«
 
@@ -149,22 +149,22 @@ The order consistency of several local ledgers and the shared ledger, however, n
 The virtual shared ledger
 =========================
 
-While every DAML Ledger may keep a physical copy of its shared ledger,
+While every DAML ledger may keep a physical copy of its shared ledger,
 there is no place that records the result of the interoperability protocol between those ledgers;
 it merely ensures that the individual shared ledgers are consistent.
 Like for local ledgers, consistency is formalized by the existence of a *virtual* shared ledger.
 
 Definition »virtual shared ledger«
-  A **virtual shared ledger** for a set `X` of interoperable DAML Ledgers
+  A **virtual shared ledger** for a set `X` of interoperable DAML ledgers
   is a finite labelled directed acyclic graph of transactions that satisfies the following conditions:
 
   * It satisfies the conditions for a shared ledger.
 
   * It does not contain **Enter** nor **Leave** actions.
 
-  * Every action in the vertex transactions is labelled with a DAML Ledger from `X`.
+  * Every action in the vertex transactions is labelled with a DAML ledger from `X`.
 
-Since a cross-ledger transaction can use contracts from different DAML Ledgers,
+Since a cross-ledger transaction can use contracts from different DAML ledgers,
 the :ref:`projection <da-model-projections>` of transactions needs to be aware of the ledgers.
 In the `PaintOffer` workflow, e.g., Alice's and the painter's projections of the acceptance transactions are the whole transaction
 as they are both stakeholders on the `PaintOffer` contract.
@@ -182,7 +182,7 @@ Definition »Y-labelled action«
   An action is **Y-labelled** for a set `Y` if it is labelled with an element of `Y`.
            
 Definition »ledger-aware projection«
-  Let `tx` be a transaction according to the DAML Ledger Model whose actions are `X`\ -labelled for a set `X` of DAML Ledgers
+  Let `tx` be a transaction according to the DAML Ledger Model whose actions are `X`\ -labelled for a set `X` of DAML ledgers
   and let `Y` be a subset of `X`.
   Let `Act` be the set of `Y`\ -labelled subactions of `tx` that have `A` as an informee.
   The **Y-projection** of `tx` to a party `A` consists of maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
@@ -196,10 +196,10 @@ The interoperable order consistency between local ledgers is then defined as fol
   
 Definition »interoperable order consistency«
   A set `Ls` of local ledgers is **interoperable order-consistent**
-  if there exists a virtual shared ledger `G` for a set of `X` of interoperable DAML Ledgers with the following properties:
+  if there exists a virtual shared ledger `G` for a set of `X` of interoperable DAML ledgers with the following properties:
 
   * *Closed world:*
-    The ledgers in `Ls` aggregate only DAML Ledgers in `X`.
+    The ledgers in `Ls` aggregate only DAML ledgers in `X`.
 
   * *Injective agreement:*
     For every local ledgers `L` in `Ls` for party `A` that aggregates a set `Y` of DAML ledgers, the following holds.
@@ -221,7 +221,7 @@ Definition »interoperable order consistency«
 .. note::
    There are no ordering guarantees for contract keys other than those that come from the contracts they reference.
 
-Like for a single DAML Ledger, interoperable order consistency ensures that the order of transactions is consistent across several Participant Nodes and parties.
+Like for a single DAML ledger, interoperable order consistency ensures that the order of transactions is consistent across several Participant Nodes and parties.
 Moreover, if a interoperable order-consistent local ledger contains actions on one of `A`\ ;s contracts,
 then it delimits with **Leave** and **Enter** when actions on that contract may be missing from that ledger.
 
