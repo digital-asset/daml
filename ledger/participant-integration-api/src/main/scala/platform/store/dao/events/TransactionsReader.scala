@@ -18,7 +18,6 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
@@ -168,25 +167,21 @@ private[dao] final class TransactionsReader(
   def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    withEnrichedLoggingContext(
-      "transactionId" -> transactionId,
-      "parties" -> requestingParties.mkString(", "),
-    ) { implicit loggingContext =>
-      val query =
-        EventsTable.prepareLookupTransactionTreeById(sqlFunctions)(transactionId, requestingParties)
-      dispatcher
-        .executeSql(databaseMetrics = dbMetrics.lookupTransactionTreeById) { implicit connection =>
-          query.asVectorOf(EventsTable.rawTreeEventParser)
-        }
-        .flatMap(
-          rawEvents =>
-            Timed.value(
-              timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-              value = Future.traverse(rawEvents)(deserializeEntry(verbose = true))
-          ))
-        .map(EventsTable.Entry.toGetTransactionResponse)
-    }
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
+    val query =
+      EventsTable.prepareLookupTransactionTreeById(sqlFunctions)(transactionId, requestingParties)
+    dispatcher
+      .executeSql(dbMetrics.lookupTransactionTreeById) { implicit connection =>
+        query.asVectorOf(EventsTable.rawTreeEventParser)
+      }
+      .flatMap(
+        rawEvents =>
+          Timed.value(
+            timer = dbMetrics.lookupTransactionTreeById.translationTimer,
+            value = Future.traverse(rawEvents)(deserializeEntry(verbose = true))
+        ))
+      .map(EventsTable.Entry.toGetTransactionResponse)
+  }
 
   def getActiveContracts(
       activeAt: Offset,
