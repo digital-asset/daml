@@ -12,7 +12,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service._
-import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.ledger.api.validation.TransactionFilterValidator
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -34,11 +33,10 @@ private[apiserver] final class ApiActiveContractsService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  import ApiActiveContractsService.filters
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest,
   ): Source[GetActiveContractsResponse, NotUsed] =
-    withEnrichedLoggingContext(filters(request.getFilter.filtersByParty)) {
+    withEnrichedLoggingContext(logging.filters(request.getFilter.filtersByParty)) {
       implicit loggingContext: LoggingContext =>
         logger.trace("Serving an Active Contracts request...")
         TransactionFilterValidator
@@ -52,16 +50,6 @@ private[apiserver] final class ApiActiveContractsService private (
 }
 
 private[apiserver] object ApiActiveContractsService {
-
-  private val AllTemplates = Iterator.single("all-templates")
-
-  private def filters(filtersByParty: Map[String, Filters]): Map[String, String] =
-    filtersByParty.iterator.flatMap {
-      case (party, filters) =>
-        Iterator
-          .continually(s"party-$party")
-          .zip(filters.inclusive.fold(AllTemplates)(_.templateIds.iterator.map(_.toString)))
-    }.toMap
 
   def create(ledgerId: LedgerId, backend: ACSBackend)(
       implicit ec: ExecutionContext,

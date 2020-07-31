@@ -14,6 +14,7 @@ import com.daml.ledger.api.domain.{
   TransactionId,
   WorkflowId
 }
+import com.daml.ledger.api.v1.transaction_filter.Filters
 import net.logstash.logback.argument.StructuredArguments
 import scalaz.syntax.tag.ToTagOps
 
@@ -47,6 +48,14 @@ package object logging {
     "deduplicateUntil" -> t.toString
   private[services] def eventId(id: EventId): (String, String) =
     "eventId" -> id.unwrap
+  private[services] def filters(filtersByParty: Map[String, Filters]): Map[String, String] =
+    filtersByParty.iterator.flatMap {
+      case (party, filters) =>
+        Iterator
+          .continually(s"party-$party")
+          .zip(filters.inclusive.fold(Iterator.single("all-templates"))(
+            _.templateIds.iterator.map(_.toString)))
+    }.toMap
   private[services] def submissionId(id: String): (String, String) =
     "submissionId" -> id
   private[services] def submittedAt(t: Instant): (String, String) =
