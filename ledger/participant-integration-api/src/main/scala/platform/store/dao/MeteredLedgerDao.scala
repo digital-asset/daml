@@ -133,7 +133,8 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       ledgerDao.removeExpiredDeduplicationData(currentTime))
 
   override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party)(
-      implicit loggingContext: LoggingContext): Future[Unit] =
+      implicit loggingContext: LoggingContext,
+  ): Future[Unit] =
     Timed.future(
       metrics.daml.index.db.stopDeduplicatingCommand,
       ledgerDao.stopDeduplicatingCommand(commandId, submitter))
