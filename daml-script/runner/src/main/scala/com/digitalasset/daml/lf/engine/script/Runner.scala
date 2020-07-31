@@ -171,7 +171,7 @@ object Runner {
   private def connectApiParameters(
       params: ApiParameters,
       applicationId: ApplicationId,
-      tlsConfig: Option[TlsConfiguration],
+      tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
@@ -179,7 +179,7 @@ object Runner {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = tlsConfig.flatMap(_.client),
+      sslContext = tlsConfig.client,
       token = params.access_token,
     )
     LedgerClient
@@ -195,7 +195,7 @@ object Runner {
   def connect(
       participantParams: Participants[ApiParameters],
       applicationId: ApplicationId,
-      tlsConfig: Option[TlsConfiguration],
+      tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {

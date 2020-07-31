@@ -111,7 +111,7 @@ object RunnerMain {
               applicationId = ApplicationId.unwrap(applicationId),
               ledgerIdRequirement = LedgerIdRequirement.none,
               commandClient = CommandClientConfiguration.default,
-              sslContext = config.tlsConfig.flatMap(_.client),
+              sslContext = config.tlsConfig.client,
               token = tokenHolder.flatMap(_.token),
             )
             Runner.connect(

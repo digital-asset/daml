@@ -65,8 +65,8 @@ class TestRunner(
 ) {
   val applicationId = ApplicationId("DAML Script Test Runner")
 
-  val tlsConfig =
-    rootCa.map(file => TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)))
+  val tlsConfig = rootCa.fold(TlsConfiguration(false, None, None, None))(file =>
+    TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)))
 
   val ttl = java.time.Duration.ofSeconds(30)
   val timeMode: ScriptTimeMode =
