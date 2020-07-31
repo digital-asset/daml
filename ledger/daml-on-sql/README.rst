@@ -47,6 +47,25 @@ The core processes necessary to run a *DAML on SQL* deployment are:
 and communicates with PostgreSQL via JDBC to persist transactions, keep
 track of active contracts, store compiled DAML packages, and so on.
 
+Server software requirements
+============================
+
+*DAML on SQL* is provided as a self-contained JAR file, containing the
+application and all dependencies. The application is routinely tested with
+OpenJDK 8 on Ubuntu 16.04, macOS 10.15, and Windows Server 2016.
+
+In production, we recommend running in a Linux environment. Core requirements
+in such a situation include:
+
+- a Java SE Runtime Environment such as OpenJDK JRE
+  - the minimum supported Java version is 8
+- OpenSSL 1.1 or later
+- glibc
+
+As a Java-based application, *DAML on SQL* can work on other operating systems
+and architectures supporting a Java Runtime Environment. However, such an
+environment will not have been tested and may cause issues.
+
 Core architecture considerations
 ================================
 
@@ -84,13 +103,6 @@ availability. The Ledger API implementation of *DAML on SQL* exposes the standar
 health checkpoint that can be used to evaluate the health status of the Ledger API
 component. More information on the endpoint can be found at the
 `documentation for gRPC <https://github.com/grpc/grpc/blob/1.29.0/doc/health-checking.md>`__.
-
-JVM
-===
-
-*DAML on SQL* is regularly tested to run against OpenJDK 1.8.0. Although you can try to
-use a subsequent version or a JVM from a different vendor, please note that caveats may
-apply and that your specific deployment may not be supported.
 
 Security and privacy
 ********************
