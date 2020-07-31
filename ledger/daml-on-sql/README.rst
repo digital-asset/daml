@@ -23,8 +23,8 @@ To specify the PostgreSQL instance you wish to connect, use the
 valid JDBC URL containing the username, password and database name to connect
 to (for example, ``jdbc:postgresql://localhost/test?user=fred&password=secret``).
 
-Due to possible conflicts between the ``&`` character and various terminal
-shells, we recommend quoting the JDBC URL like so:
+Due to possible conflicts between the ``&`` character and various shells, we
+recommend quoting the JDBC URL in the terminal.
 
 .. code-block:: none
 
@@ -203,13 +203,13 @@ where
 
 The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
 
-Generating JSON Web Tokens (JWT)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Generate JSON Web Tokens (JWT)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To generate tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ web site.
 
-Generating RSA keys
-^^^^^^^^^^^^^^^^^^^
+Generate RSA keys
+^^^^^^^^^^^^^^^^^
 
 To generate RSA keys for testing purposes, use the following command
 
@@ -222,8 +222,8 @@ which generates the following files:
 - ``ledger.key``: the private key in PEM/DER/PKCS#1 format
 - ``ledger.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
 
-Generating EC keys
-^^^^^^^^^^^^^^^^^^
+Generate EC keys
+^^^^^^^^^^^^^^^^
 
 To generate keys to be used with ES256 for testing purposes, use the following command
 
