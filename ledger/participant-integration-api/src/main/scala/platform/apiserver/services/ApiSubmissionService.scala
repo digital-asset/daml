@@ -212,7 +212,7 @@ private[apiserver] final class ApiSubmissionService private (
                   logging.party(name),
                   logging.submissionId(submissionId),
                 ) { implicit loggingContext =>
-                  logger.info(s"Implicit party allocation")
+                  logger.info("Implicit party allocation")
                   writeService
                     .allocateParty(
                       hint = Some(name),
