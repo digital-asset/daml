@@ -150,10 +150,12 @@ private[apiserver] final class ApiTransactionService private (
     }
 
   override def getFlatTransactionById(
-      request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] =
+      request: GetTransactionByIdRequest,
+  ): Future[GetFlatTransactionResponse] =
     withEnrichedLoggingContext(
       logging.transactionId(request.transactionId),
-      logging.parties(request.requestingParties)) { implicit loggingContext =>
+      logging.parties(request.requestingParties),
+    ) { implicit loggingContext =>
       lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }
