@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
 import com.daml.dec.DirectExecutionContext
+import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
 import com.daml.platform.testing.LogCollector
@@ -28,6 +29,7 @@ class RecoveringIndexerSpec
     with BeforeAndAfterEach {
 
   private[this] implicit val executionContext: ExecutionContext = DirectExecutionContext
+  private[this] implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private[this] var actorSystem: ActorSystem = _
 
   override def beforeEach(): Unit = {
@@ -44,7 +46,7 @@ class RecoveringIndexerSpec
   private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, RecoveringIndexer]
 
   "RecoveringIndexer" should {
-    "work when the stream completes" in newLoggingContext { implicit loggingContext =>
+    "work when the stream completes" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis),
