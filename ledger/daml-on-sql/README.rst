@@ -12,24 +12,23 @@ Setup PostgreSQL and run
 Before starting, you need to perform the following steps:
 
 - create an initially empty PostgresSQL database that *DAML on SQL* can access
-- have a database user for *DAML on SQL* that has authority to execute DDL operations
+- have a database user for *DAML on SQL* that has authority to execute DDL
+  operations
 
-This is because *DAML on SQL* manages its own database schema,
-applying migrations if necessary when upgrading versions.
+This is because *DAML on SQL* manages its own database schema, applying
+migrations if necessary when upgrading versions.
 
 To specify the PostgreSQL instance you wish to connect, use the
-``--sql-backend-jdbcurl <value>`` command line option, where ``<value>``
-is a valid JDBC URL containing the username, password and database
-name to connect to.
-
-Here is an example for such a URL: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
+``--sql-backend-jdbcurl <value>`` command line option, where ``<value>`` is a
+valid JDBC URL containing the username, password and database name to connect
+to (for example, ``jdbc:postgresql://localhost/test?user=fred&password=secret``).
 
 Due to possible conflicts between the ``&`` character and various terminal
 shells, we recommend quoting the JDBC URL like so:
 
 .. code-block:: none
 
-  $ java -jar dam-on-sql-<version>.jar --sql-backend-jdbcurl 'jdbc:postgresql://localhost/test?user=fred&password=secret'
+  $ java -jar daml-on-sql-<version>.jar --ledgerid=test --sql-backend-jdbcurl='jdbc:postgresql://localhost/test?user=fred&password=secret'
 
 If you're not familiar with JDBC URLs, see the `PostgreSQL JDBC docs for more information <https://jdbc.postgresql.org/documentation/head/connect.html>`__.
 
@@ -117,7 +116,7 @@ server's identity and encrypt the communication channel over which the Ledger AP
 requests and responses are sent.
 
 To enable TLS, you need to specify the private key for your server and the certificate
-chain via ``java -jar dam-on-sql-<version>.jar --pem server.pem --crt server.crt``.
+chain via ``java -jar daml-on-sql-<version>.jar --pem server.pem --crt server.crt``.
 By default, *DAML on SQL* requires client authentication as well. You can set a custom root
 CA certificate used to validate client certificates via ``--cacrt ca.crt``. You can
 change the client authentication mode via ``--client-auth none`` which will disable it
@@ -234,9 +233,9 @@ Similarly, you can use the following command for ES512 keys:
 Command-line reference
 **********************
 
-To start *DAML on SQL*, run: ``java -jar dam-on-sql-<version>.jar [options] ``.
+To start *DAML on SQL*, run: ``java -jar daml-on-sql-<version>.jar [options] ``.
 
-To see all the available options, run ``java -jar dam-on-sql-<version>.jar --help``.
+To see all the available options, run ``java -jar daml-on-sql-<version>.jar --help``.
 
 Monitoring
 **********
