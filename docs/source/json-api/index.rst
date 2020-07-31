@@ -35,6 +35,7 @@ We welcome feedback about the JSON API on `our issue tracker
 
    lf-value-specification
    search-query-language
+   json-api-perf
 
 How to start
 ************
