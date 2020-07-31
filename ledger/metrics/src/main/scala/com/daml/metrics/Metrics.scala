@@ -200,6 +200,13 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = kvutils.Prefix :+ "writer"
 
         val commit: Timer = registry.timer(Prefix :+ "commit")
+
+        val preExecutedCount: Counter = registry.counter(Prefix :+ "pre_executed_count")
+        val preExecutedInterpretationCosts: Histogram =
+          registry.histogram(Prefix :+ "pre_executed_interpretation_costs")
+        val committedCount: Counter = registry.counter(Prefix :+ "committed_count")
+        val committedInterpretationCosts: Histogram =
+          registry.histogram(Prefix :+ "committed_interpretation_costs")
       }
 
       object conflictdetection {

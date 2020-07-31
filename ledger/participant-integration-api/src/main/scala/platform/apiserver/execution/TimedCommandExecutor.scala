@@ -21,7 +21,7 @@ private[apiserver] class TimedCommandExecutor(
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     Timed.future(metrics.daml.execution.total, delegate.execute(commands, submissionSeed))
 

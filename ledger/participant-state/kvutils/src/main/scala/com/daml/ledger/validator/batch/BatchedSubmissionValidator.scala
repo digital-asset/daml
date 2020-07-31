@@ -88,8 +88,8 @@ object BatchedSubmissionValidator {
 
   private def withCorrelationIdLogged[T](correlationId: CorrelationId)(
       f: LoggingContext => T): T = {
-    newLoggingContext("correlationId" -> correlationId) { logCtx =>
-      f(logCtx)
+    newLoggingContext("correlationId" -> correlationId) { loggingContext =>
+      f(loggingContext)
     }
   }
 
@@ -125,7 +125,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       ledgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult]
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
-    withCorrelationIdLogged(correlationId) { implicit logCtx =>
+    withCorrelationIdLogged(correlationId) { implicit loggingContext =>
       ledgerDataExporter.addSubmission(
         submissionEnvelope,
         correlationId,
@@ -359,7 +359,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       invalidatedKeys: mutable.Set[DamlStateKey])
     : scala.collection.immutable.Iterable[ValidatedSubmission] = {
     val (logEntry, outputState) = logEntryAndState
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.value(
         metrics.detectConflicts, {
           conflictDetection

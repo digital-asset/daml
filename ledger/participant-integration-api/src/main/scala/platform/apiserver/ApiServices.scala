@@ -84,7 +84,7 @@ private[daml] object ApiServices {
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ) extends ResourceOwner[ApiServices] {
     private val configurationService: IndexConfigurationService = indexService
     private val identityService: IdentityProvider = indexService
@@ -185,7 +185,8 @@ private[daml] object ApiServices {
         apiTransactionService: GrpcTransactionService)(
         implicit mat: Materializer,
         ec: ExecutionContext,
-        logCtx: LoggingContext): List[BindableService] = {
+        loggingContext: LoggingContext,
+    ): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>
         val commandExecutor = new TimedCommandExecutor(
           new LedgerTimeAwareCommandExecutor(

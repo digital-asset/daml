@@ -104,7 +104,8 @@ package v2 {
   final case class PackageDetails(
       size: Long,
       knownSince: Instant,
-      sourceDescription: Option[String])
+      sourceDescription: Option[String],
+  )
 
   sealed abstract class CommandDeduplicationResult extends Product with Serializable
 

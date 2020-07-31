@@ -39,7 +39,7 @@ private[platform] object ReadOnlySqlLedger {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext)
+  )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -57,7 +57,10 @@ private[platform] object ReadOnlySqlLedger {
     private def verifyLedgerId(
         ledgerDao: LedgerReadDao,
         initialLedgerId: LedgerId,
-    )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[LedgerId] = {
+    )(
+        implicit executionContext: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[LedgerId] = {
       val predicate: PartialFunction[Throwable, Boolean] = {
         case _: LedgerIdNotFoundException => true
         case _: LedgerIdMismatchException => false
@@ -109,7 +112,7 @@ private final class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
-)(implicit mat: Materializer)
+)(implicit mat: Materializer, loggingContext: LoggingContext)
     extends BaseLedger(ledgerId, ledgerDao, dispatcher) {
 
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =

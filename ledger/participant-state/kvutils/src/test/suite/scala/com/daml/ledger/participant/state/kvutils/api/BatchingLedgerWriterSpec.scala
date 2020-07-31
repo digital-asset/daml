@@ -51,7 +51,7 @@ class BatchingLedgerWriterSpec
       val batchCaptor = MockitoHelpers.captor[kvutils.Bytes]
       val mockWriter = createMockWriter(captor = Some(batchCaptor))
       val batchingWriter =
-        LoggingContext.newLoggingContext { implicit logCtx =>
+        LoggingContext.newLoggingContext { implicit loggingContext =>
           new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
         }
       val expectedBatch = createExpectedBatch(aCorrelationId -> aSubmission)
@@ -71,7 +71,7 @@ class BatchingLedgerWriterSpec
       val mockWriter =
         createMockWriter(captor = None, submissionResult = SubmissionResult.Overloaded)
       val batchingWriter =
-        LoggingContext.newLoggingContext { implicit logCtx =>
+        LoggingContext.newLoggingContext { implicit loggingContext =>
           new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
         }
       for {

@@ -131,7 +131,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       range: EventsRange[Long],
       filter: FilterRelation,
       pageSize: Int,
-  ): SimpleSql[Row] =
+  ): SqlSequence[Vector[EventsTable.Entry[Raw.FlatEvent]]] =
     getFlatTransactionsQueries(sqlFunctions)(
       range,
       filter,
@@ -149,7 +149,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       range: EventsRange[(Offset, Long)],
       filter: FilterRelation,
       pageSize: Int
-  ): SimpleSql[Row] =
+  ): SqlSequence[Vector[EventsTable.Entry[Raw.FlatEvent]]] =
     getActiveContractsQueries(sqlFunctions)(
       range,
       filter,

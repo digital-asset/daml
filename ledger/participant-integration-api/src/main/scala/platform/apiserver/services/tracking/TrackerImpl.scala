@@ -11,12 +11,12 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.ApiException
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.{Status => GrpcStatus}
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -26,23 +26,25 @@ import scala.util.{Failure, Success}
   * Tracks SubmitAndWaitRequests.
   * @param queue The input queue to the tracking flow.
   */
-private[services] final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput])
-    extends Tracker {
+private[services] final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput])(
+    implicit loggingContext: LoggingContext,
+) extends Tracker {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  import TrackerImpl.logger
 
   override def track(request: SubmitAndWaitRequest)(
-      implicit ec: ExecutionContext): Future[Completion] = {
-    logger.trace(
-      s"tracking command for party: ${request.getCommands.party}, commandId: ${request.getCommands.commandId}")
+      implicit ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Completion] = {
+    logger.trace("Tracking command")
     val promise = Promise[Completion]
-
     submitNewRequest(request, promise)
   }
 
   private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Completion])(
-      implicit ec: ExecutionContext): Future[Completion] = {
-
+      implicit ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Completion] = {
     queue
       .offer(
         Ctx(
@@ -67,7 +69,7 @@ private[services] final class TrackerImpl(queue: SourceQueueWithComplete[Tracker
 
 private[services] object TrackerImpl {
 
-  private val logger = LoggerFactory.getLogger(this.getClass.getName)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply(
       tracker: Flow[
@@ -75,7 +77,7 @@ private[services] object TrackerImpl {
         Ctx[Promise[Completion], Completion],
         Materialized[NotUsed, Promise[Completion]]],
       inputBufferSize: Int,
-  )(implicit materializer: Materializer): TrackerImpl = {
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): TrackerImpl = {
     val ((queue, mat), foreachMat) = Source
       .queue[QueueInput](inputBufferSize, OverflowStrategy.dropNew)
       .viaMat(tracker)(Keep.both)
@@ -95,7 +97,7 @@ private[services] object TrackerImpl {
                 .getOrElse(GrpcStatus.INTERNAL
                   .withDescription("Missing status in completion response."))
 
-              logger.trace("Completing promise with failure: {}", status)
+              logger.trace(s"Completing promise with failure: $status")
               promise.tryFailure(status.asException())
           }
           ()

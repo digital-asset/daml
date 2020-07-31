@@ -29,19 +29,19 @@ final class Database(
 ) {
   def inReadTransaction[T](name: String)(
       body: ReadQueries => Future[T],
-  )(implicit logCtx: LoggingContext): Future[T] =
+  )(implicit loggingContext: LoggingContext): Future[T] =
     inTransaction(name, readerConnectionPool)(connection =>
       Future(body(new TimedQueries(queries(connection), metrics)))(readerExecutionContext).flatten)
 
   def inWriteTransaction[T](name: String)(
       body: Queries => Future[T],
-  )(implicit logCtx: LoggingContext): Future[T] =
+  )(implicit loggingContext: LoggingContext): Future[T] =
     inTransaction(name, writerConnectionPool)(connection =>
       Future(body(new TimedQueries(queries(connection), metrics)))(writerExecutionContext).flatten)
 
   private def inTransaction[T](name: String, connectionPool: DataSource)(
       body: Connection => Future[T],
-  )(implicit logCtx: LoggingContext): Future[T] = {
+  )(implicit loggingContext: LoggingContext): Future[T] = {
     val connection = Timed.value(
       metrics.daml.ledger.database.transactions.acquireConnection(name),
       connectionPool.getConnection())
@@ -75,7 +75,7 @@ object Database {
   private val MaximumWriterConnectionPoolSize: Int = 1
 
   def owner(jdbcUrl: String, metrics: Metrics)(
-      implicit logCtx: LoggingContext,
+      implicit loggingContext: LoggingContext,
   ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
       case "jdbc:h2:mem:" =>

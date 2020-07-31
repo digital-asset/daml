@@ -292,7 +292,7 @@ class WebSocketService(
     extends LazyLogging {
 
   import WebSocketService._
-  import Statement.discard
+  import com.daml.scalautil.Statement.discard
   import util.ErrorOps._
   import com.daml.http.json.JsonProtocol._
 

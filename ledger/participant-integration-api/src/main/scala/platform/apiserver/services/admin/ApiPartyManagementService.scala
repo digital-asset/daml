@@ -34,7 +34,7 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
     materializer: Materializer,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends PartyManagementService
     with GrpcApiService {
 
@@ -134,7 +134,7 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
-  )(implicit mat: Materializer, logCtx: LoggingContext)
+  )(implicit mat: Materializer, loggingContext: LoggingContext)
     : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,

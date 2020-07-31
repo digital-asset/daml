@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     implicit val materializer: Materializer,
-    implicit val logCtx: LoggingContext)
+    implicit val loggingContext: LoggingContext)
     extends LedgerWriter
     with Closeable {
 
@@ -63,7 +63,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     // Pick a correlation id for the batch.
     val correlationId = UUID.randomUUID().toString
 
-    newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
+    newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
       // Log the correlation ids of the submissions so we can correlate the batch to the submissions.
       val childCorrelationIds = submissions.map(_.getCorrelationId).mkString(", ")
       logger.trace(s"Committing batch $correlationId with submissions: $childCorrelationIds")
@@ -87,7 +87,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
 object BatchingLedgerWriter {
   def apply(batchingLedgerWriterConfig: BatchingLedgerWriterConfig, delegate: LedgerWriter)(
       implicit materializer: Materializer,
-      loggingContext: LoggingContext): BatchingLedgerWriter = {
+      loggingContext: LoggingContext,
+  ): BatchingLedgerWriter = {
     val batchingQueue = batchingQueueFrom(batchingLedgerWriterConfig)
     new BatchingLedgerWriter(batchingQueue, delegate)
   }

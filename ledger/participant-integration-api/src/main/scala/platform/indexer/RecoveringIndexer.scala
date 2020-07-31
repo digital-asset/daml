@@ -26,7 +26,7 @@ import scala.util.{Failure, Success}
 private[indexer] final class RecoveringIndexer(
     scheduler: Scheduler,
     restartDelay: FiniteDuration,
-)(implicit logCtx: LoggingContext) {
+)(implicit loggingContext: LoggingContext) {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
   private val logger = ContextualizedLogger.get(this.getClass)
   private val clock = Clock.systemUTC()
