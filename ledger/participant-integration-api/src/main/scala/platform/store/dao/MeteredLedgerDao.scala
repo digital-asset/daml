@@ -100,7 +100,8 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   /** Looks up the current ledger configuration, if it has been set. */
   override def lookupLedgerConfiguration()(
-      implicit loggingContext: LoggingContext): Future[Option[(Offset, Configuration)]] =
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[(Offset, Configuration)]] =
     Timed.future(
       metrics.daml.index.db.lookupLedgerConfiguration,
       ledgerDao.lookupLedgerConfiguration())
