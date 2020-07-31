@@ -73,7 +73,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "work when the stream is stopped" in newLoggingContext { implicit loggingContext =>
+    "work when the stream is stopped" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
