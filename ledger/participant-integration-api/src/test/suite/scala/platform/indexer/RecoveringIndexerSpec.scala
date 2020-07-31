@@ -10,7 +10,6 @@ import akka.pattern.after
 import ch.qos.logback.classic.Level
 import com.daml.dec.DirectExecutionContext
 import com.daml.logging.LoggingContext
-import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
 import com.daml.platform.testing.LogCollector
 import com.daml.resources.{Resource, ResourceOwner}
@@ -175,7 +174,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "respect restart delay" in newLoggingContext { implicit loggingContext =>
+    "respect restart delay" in {
       val restartDelay = 500.millis
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, restartDelay)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
