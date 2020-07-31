@@ -35,12 +35,10 @@ private[apiserver] final class ApiPackageService private (backend: IndexPackages
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    withEnrichedLoggingContext(Map.empty[String, String]) { implicit loggingContext =>
-      backend
-        .listLfPackages()
-        .map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
-        .andThen(logger.logErrorsOnCall[ListPackagesResponse])(DEC)
-    }
+    backend
+      .listLfPackages()
+      .map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
+      .andThen(logger.logErrorsOnCall[ListPackagesResponse])(DEC)
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
