@@ -70,7 +70,7 @@ object LoggingContext {
     * Scala case class instance, means embedding some form of string
     * formatting in another (likely to be JSON). This can be difficult
     * to manage and parse, so stick to simple values (strings, numbers,
-    * dates, etc.) and be deliberate in adding
+    * dates, etc.).
     *
     */
   def withEnrichedLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
