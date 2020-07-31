@@ -24,7 +24,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
+  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
     new SqlLedgerReaderWriter.Owner(
       ledgerId,
       participantId,

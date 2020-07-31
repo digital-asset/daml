@@ -23,6 +23,7 @@ import com.daml.lf.value.Value
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.Suite
 
@@ -32,6 +33,8 @@ import scala.util.{Success, Try}
 
 private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLedgerDaoBackend {
   this: Suite =>
+
+  protected implicit final val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   protected final val nextOffset: () => Offset = {
     val base = BigInt(1) << 32

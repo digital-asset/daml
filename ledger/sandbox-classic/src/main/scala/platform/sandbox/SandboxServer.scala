@@ -167,7 +167,7 @@ final class SandboxServer(
 
   def resetAndRestartServer()(
       implicit executionContext: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
@@ -228,7 +228,7 @@ final class SandboxServer(
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Port],
-  )(implicit logCtx: LoggingContext): Resource[ApiServer] = {
+  )(implicit loggingContext: LoggingContext): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
@@ -330,7 +330,7 @@ final class SandboxServer(
         metrics = metrics,
         healthChecks = healthChecks,
         seedService = seedingService,
-      )(materializer, executionSequencerFactory, logCtx)
+      )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
         apiServicesOwner,
@@ -375,7 +375,7 @@ final class SandboxServer(
   }
 
   private def start(): Future[SandboxState] = {
-    newLoggingContext(logging.participantId(config.participantId)) { implicit logCtx =>
+    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
       val packageStore = loadDamlPackages()
       val apiServerResource = buildAndStartApiServer(
         materializer,

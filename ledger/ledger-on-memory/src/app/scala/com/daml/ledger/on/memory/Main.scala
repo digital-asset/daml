@@ -47,7 +47,7 @@ object Main {
         engine: Engine,
     )(
         implicit materializer: Materializer,
-        logCtx: LoggingContext,
+        loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
         readerWriter <- owner(config, participantConfig, engine)
@@ -60,7 +60,7 @@ object Main {
 
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
-        logCtx: LoggingContext,
+        loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
       new InMemoryLedgerReaderWriter.Owner(

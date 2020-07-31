@@ -13,6 +13,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.{NodeId, TransactionCommitter}
 import com.daml.lf.value.Value.ContractId
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
@@ -22,30 +23,30 @@ trait Ledger extends ReadOnlyLedger {
   def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction
-  ): Future[SubmissionResult]
+      transaction: SubmittedTransaction,
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult]
 
   // Party management
   def publishPartyAllocation(
       submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]
-  ): Future[SubmissionResult]
+      displayName: Option[String],
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult]
 
   // Package management
   def uploadPackages(
       submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]
-  ): Future[SubmissionResult]
+      payload: List[Archive],
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult]
 
   // Configuration management
   def publishConfiguration(
       maxRecordTime: Timestamp,
       submissionId: String,
-      config: Configuration
-  ): Future[SubmissionResult]
+      config: Configuration,
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult]
 
 }
 

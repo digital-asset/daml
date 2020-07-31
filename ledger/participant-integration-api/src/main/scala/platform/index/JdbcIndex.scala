@@ -22,7 +22,7 @@ private[platform] object JdbcIndex {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexService] =
+  )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
       serverRole,
       jdbcUrl,

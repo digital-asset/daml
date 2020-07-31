@@ -63,7 +63,7 @@ class SubmissionValidator[LogResult] private[validator] (
       recordTime: Timestamp,
       participantId: ParticipantId,
   ): Future[Either[ValidationFailed, Unit]] =
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       runValidation(
         envelope,
         correlationId,
@@ -80,7 +80,7 @@ class SubmissionValidator[LogResult] private[validator] (
       recordTime: Timestamp,
       participantId: ParticipantId,
   ): Future[Either[ValidationFailed, LogResult]] =
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       validateAndCommitWithLoggingContext(envelope, correlationId, recordTime, participantId)
     }
 
@@ -89,7 +89,7 @@ class SubmissionValidator[LogResult] private[validator] (
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
+  )(implicit loggingContext: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
     runValidation(
       envelope,
       correlationId,
@@ -110,7 +110,7 @@ class SubmissionValidator[LogResult] private[validator] (
           LogEntryAndState,
           LedgerStateOperations[LogResult]) => Future[U]
   ): Future[Either[ValidationFailed, U]] =
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       runValidation(
         envelope,
         correlationId,
@@ -153,7 +153,7 @@ class SubmissionValidator[LogResult] private[validator] (
           LedgerStateOperations[LogResult],
       ) => Future[T],
       postProcessResultTimer: Option[Timer],
-  )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] =
+  )(implicit loggingContext: LoggingContext): Future[Either[ValidationFailed, T]] =
     metrics.daml.kvutils.submission.validator.openEnvelope
       .time(() => Envelope.open(envelope)) match {
       case Right(Envelope.SubmissionBatchMessage(batch)) =>

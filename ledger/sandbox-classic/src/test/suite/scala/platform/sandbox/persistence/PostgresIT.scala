@@ -25,7 +25,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       connectionProviderResource = HikariJdbcConnectionProvider
         .owner(
           ServerRole.Testing(getClass),
@@ -58,7 +58,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
 
   "Flyway" should {
     "execute initialisation script" in {
-      newLoggingContext { implicit logCtx =>
+      newLoggingContext { implicit loggingContext =>
         new FlywayMigrations(postgresDatabase.url).migrate()(DirectExecutionContext)
       }.map { _ =>
         connectionProvider.runSQL(metrics.test.db) { conn =>

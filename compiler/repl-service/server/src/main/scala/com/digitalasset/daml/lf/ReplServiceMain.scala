@@ -16,11 +16,10 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
-import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
 import scala.collection.JavaConverters._
@@ -35,7 +34,7 @@ object ReplServiceMain extends App {
       ledgerPort: Option[Int],
       accessTokenFile: Option[Path],
       maxInboundMessageSize: Int,
-      tlsConfig: Option[TlsConfiguration],
+      tlsConfig: TlsConfiguration,
       // optional so we can detect if both --static-time and --wall-clock-time are passed.
       timeMode: Option[ScriptTimeMode],
   )
@@ -73,39 +72,8 @@ object ReplServiceMain extends App {
           c.copy(accessTokenFile = Some(Paths.get(tokenFile)))
         }
 
-      opt[String]("pem")
-        .optional()
-        .text("TLS: The pem file to be used as the private key.")
-        .validate(path => validatePath(path, "The file specified via --pem does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-            Some(c.copy(keyFile = Some(new File(path)))))))
-
-      opt[String]("crt")
-        .optional()
-        .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
-        .validate(path => validatePath(path, "The file specified via --crt does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-            Some(c.copy(keyFile = Some(new File(path)))))))
-
-      opt[String]("cacrt")
-        .optional()
-        .text("TLS: The crt file to be used as the trusted root CA.")
-        .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
-            Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
-
-      opt[Unit]("tls")
-        .optional()
-        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig =
-            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+        c copy (tlsConfig = f(c.tlsConfig)))
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
@@ -142,7 +110,7 @@ object ReplServiceMain extends App {
           ledgerHost = None,
           ledgerPort = None,
           accessTokenFile = None,
-          tlsConfig = None,
+          tlsConfig = TlsConfiguration(false, None, None, None),
           maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
           timeMode = None,
         )

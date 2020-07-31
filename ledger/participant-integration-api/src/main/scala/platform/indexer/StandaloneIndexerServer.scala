@@ -18,13 +18,13 @@ final class StandaloneIndexerServer(
     config: IndexerConfig,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
-)(implicit materializer: Materializer, logCtx: LoggingContext)
+)(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[Unit] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
-    val indexerFactory = new JdbcIndexerFactory(
+    val indexerFactory = new JdbcIndexer.Factory(
       ServerRole.Indexer,
       config,
       readService,

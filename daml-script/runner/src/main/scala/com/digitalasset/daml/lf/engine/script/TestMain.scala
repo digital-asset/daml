@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -121,7 +122,7 @@ object TestMain extends StrictLogging {
           clients <- Runner.connect(
             participantParams,
             applicationId,
-            None,
+            TlsConfiguration(false, None, None, None),
             config.maxInboundMessageSize,
           )
           _ <- clients.getParticipant(None) match {

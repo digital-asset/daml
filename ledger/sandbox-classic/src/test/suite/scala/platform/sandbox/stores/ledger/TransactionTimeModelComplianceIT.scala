@@ -24,11 +24,9 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach
 }
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.participant.state.v1._
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT._
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
@@ -62,15 +60,13 @@ class TransactionTimeModelComplianceIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
-        newLoggingContext { implicit logCtx =>
-          LedgerResource.postgres(
-            getClass,
-            ledgerId,
-            participantId,
-            timeProvider,
-            metrics,
-          )
-        }
+        LedgerResource.postgres(
+          getClass,
+          ledgerId,
+          participantId,
+          timeProvider,
+          metrics,
+        )
     }
   }
 

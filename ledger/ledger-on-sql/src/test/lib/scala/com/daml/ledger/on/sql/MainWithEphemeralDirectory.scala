@@ -42,7 +42,7 @@ object MainWithEphemeralDirectory {
         engine: Engine,
     )(
         implicit materializer: Materializer,
-        logCtx: LoggingContext
+        loggingContext: LoggingContext,
     ): ResourceOwner[ReadWriteService] =
       new Owner(config, participantConfig, engine)
 
@@ -50,7 +50,7 @@ object MainWithEphemeralDirectory {
         config: Config[ExtraConfig],
         participantConfig: ParticipantConfig,
         engine: Engine,
-    )(implicit materializer: Materializer, logCtx: LoggingContext)
+    )(implicit materializer: Materializer, loggingContext: LoggingContext)
         extends ResourceOwner[ReadWriteService] {
       override def acquire()(
           implicit executionContext: ExecutionContext

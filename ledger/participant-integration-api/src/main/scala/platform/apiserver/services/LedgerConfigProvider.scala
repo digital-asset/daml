@@ -41,7 +41,7 @@ private[apiserver] final class LedgerConfigProvider private (
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
@@ -174,6 +174,7 @@ private[apiserver] object LedgerConfigProvider {
       timeProvider: TimeProvider,
       config: LedgerConfiguration)(
       implicit materializer: Materializer,
-      logCtx: LoggingContext): LedgerConfigProvider =
+      loggingContext: LoggingContext,
+  ): LedgerConfigProvider =
     new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
 }

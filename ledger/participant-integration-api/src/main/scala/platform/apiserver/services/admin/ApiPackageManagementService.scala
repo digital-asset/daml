@@ -36,7 +36,7 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesWrite: WritePackagesService,
     timeProvider: TimeProvider,
     materializer: Materializer,
-    scheduler: Scheduler)(implicit logCtx: LoggingContext)
+    scheduler: Scheduler)(implicit loggingContext: LoggingContext)
     extends PackageManagementService
     with GrpcApiService {
 
@@ -134,7 +134,7 @@ private[apiserver] object ApiPackageManagementService {
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
-      timeProvider: TimeProvider)(implicit mat: Materializer, logCtx: LoggingContext)
+      timeProvider: TimeProvider)(implicit mat: Materializer, loggingContext: LoggingContext)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
     new ApiPackageManagementService(
       readBackend,
