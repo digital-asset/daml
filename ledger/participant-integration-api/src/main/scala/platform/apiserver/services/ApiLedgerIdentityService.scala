@@ -14,7 +14,6 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
   LedgerIdentityServiceGrpc
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ApiException
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
@@ -40,11 +39,9 @@ private[apiserver] final class ApiLedgerIdentityService private (
           Status.UNAVAILABLE
             .withDescription("Ledger Identity Service closed.")))
     else
-      withEnrichedLoggingContext(Map.empty[String, String]) { implicit loggingContext =>
-        getLedgerId()
-          .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))(DirectExecutionContext)
-          .andThen(logger.logErrorsOnCall[GetLedgerIdentityResponse])(DirectExecutionContext)
-      }
+      getLedgerId()
+        .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))(DirectExecutionContext)
+        .andThen(logger.logErrorsOnCall[GetLedgerIdentityResponse])(DirectExecutionContext)
 
   override def close(): Unit = closed = true
 
