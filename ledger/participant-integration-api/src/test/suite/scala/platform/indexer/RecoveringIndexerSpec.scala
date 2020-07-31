@@ -133,7 +133,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "recover from failure" in newLoggingContext { implicit loggingContext =>
+    "recover from failure" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
