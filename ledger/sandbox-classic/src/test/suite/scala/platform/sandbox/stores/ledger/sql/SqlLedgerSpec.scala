@@ -17,7 +17,6 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.LegacyTransactionCommitter
 import com.daml.logging.LoggingContext
-import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
@@ -178,7 +177,7 @@ class SqlLedgerSpec
       packages: List[DamlLf.Archive],
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    val ledger = newLoggingContext { implicit loggingContext =>
+    val ledger =
       new SqlLedger.Owner(
         name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),
@@ -198,7 +197,6 @@ class SqlLedgerSpec
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
       ).acquire()(system.dispatcher)
-    }
     createdLedgers += ledger
     ledger.asFuture
   }
