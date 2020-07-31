@@ -135,7 +135,8 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     Timed.future(metrics.daml.index.getLfArchive, ledger.getLfArchive(packageId))
 
   override def getLfPackage(packageId: PackageId)(
-      implicit loggingContext: LoggingContext): Future[Option[Ast.Package]] =
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[Ast.Package]] =
     Timed.future(metrics.daml.index.getLfPackage, ledger.getLfPackage(packageId))
 
   override def packageEntries(
