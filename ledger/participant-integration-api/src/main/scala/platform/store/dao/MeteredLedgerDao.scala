@@ -88,7 +88,8 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
     Timed.future(metrics.daml.index.db.listLfPackages, ledgerDao.listLfPackages)
 
   override def getLfArchive(packageId: PackageId)(
-      implicit loggingContext: LoggingContext): Future[Option[Archive]] =
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[Archive]] =
     Timed.future(metrics.daml.index.db.getLfArchive, ledgerDao.getLfArchive(packageId))
 
   override def getPackageEntries(
