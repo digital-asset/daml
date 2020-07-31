@@ -23,6 +23,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Time}
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
@@ -68,7 +69,10 @@ object SandboxIndexAndWriteService {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
+  )(
+      implicit mat: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[IndexAndWriteService] =
     new SqlLedger.Owner(
       name = name,
       serverRole = ServerRole.Sandbox,
@@ -99,7 +103,10 @@ object SandboxIndexAndWriteService {
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       metrics: Metrics,
-  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
+  )(
+      implicit mat: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[IndexAndWriteService] = {
     val ledger =
       new InMemoryLedger(
         initialLedgerId.or(new LedgerIdGenerator(name).generateRandomId()),
@@ -118,7 +125,10 @@ object SandboxIndexAndWriteService {
       participantId: ParticipantId,
       initialConfig: Configuration,
       timeProvider: TimeProvider,
-  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
+  )(
+      implicit mat: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[IndexAndWriteService] = {
     val indexSvc = new LedgerBackedIndexService(ledger, participantId)
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
 
@@ -127,7 +137,8 @@ object SandboxIndexAndWriteService {
         TimeProvider.UTC,
         10.minutes,
         "deduplication cache maintenance",
-        ledger.removeExpiredDeduplicationData)
+        ledger.removeExpiredDeduplicationData,
+      )
     } yield
       new IndexAndWriteService {
         override val indexService: IndexService = indexSvc
@@ -168,22 +179,42 @@ object SandboxIndexAndWriteService {
   }
 }
 
-class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) extends WriteService {
+final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
+    implicit loggingContext: LoggingContext,
+) extends WriteService {
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def submitTransaction(
       submitterInfo: ParticipantState.SubmitterInfo,
       transactionMeta: ParticipantState.TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[ParticipantState.SubmissionResult] =
-    FutureConverters.toJava(ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
+      transaction: SubmittedTransaction,
+  ): CompletionStage[ParticipantState.SubmissionResult] =
+    withEnrichedLoggingContext(
+      "submitter" -> submitterInfo.submitter,
+      "applicationId" -> submitterInfo.applicationId,
+      "commandId" -> submitterInfo.commandId,
+      "deduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
+      "submissionTime" -> transactionMeta.submissionTime.toInstant.toString,
+      "workflowId" -> transactionMeta.workflowId.getOrElse(""),
+      "ledgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
+    ) { implicit loggingContext =>
+      FutureConverters.toJava(
+        ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
+      )
+    }
 
   override def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
-    FutureConverters.toJava(ledger.publishPartyAllocation(submissionId, party, displayName))
+    withEnrichedLoggingContext(
+      "party" -> party,
+      "submissionId" -> submissionId,
+    ) { implicit loggingContext =>
+      FutureConverters.toJava(ledger.publishPartyAllocation(submissionId, party, displayName))
+    }
   }
 
   // WritePackagesService
@@ -192,13 +223,27 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
       payload: List[Archive],
       sourceDescription: Option[String]
   ): CompletionStage[SubmissionResult] =
-    FutureConverters.toJava(
-      ledger.uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload))
+    withEnrichedLoggingContext(
+      "submissionId" -> submissionId,
+      "description" -> sourceDescription.getOrElse(""),
+      "packageHashes" -> payload.iterator.map(_.getHash).mkString(","),
+    ) { implicit loggingContext =>
+      FutureConverters.toJava(
+        ledger
+          .uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload))
+    }
 
   // WriteConfigService
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration): CompletionStage[SubmissionResult] =
-    FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
+    withEnrichedLoggingContext(
+      "maxRecordTime" -> maxRecordTime.toInstant.toString,
+      "submissionId" -> submissionId,
+      "configGeneration" -> config.generation.toString,
+      "configMaxDeduplicationTime" -> config.maxDeduplicationTime.toString,
+    ) { implicit loggingContext =>
+      FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
+    }
 }

@@ -574,7 +574,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
 
   private def createLedgerDao(pageSize: Int) =
-    LoggingContext.newLoggingContext { implicit logCtx =>
+    LoggingContext.newLoggingContext { implicit loggingContext =>
       daoOwner(eventsPageSize = 2).acquire()
     }.asFuture
 

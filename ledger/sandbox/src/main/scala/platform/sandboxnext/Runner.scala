@@ -94,7 +94,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
 

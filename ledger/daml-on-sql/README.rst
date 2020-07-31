@@ -241,6 +241,26 @@ To see all the available options, run ``java -jar dam-on-sql-<version>.jar --hel
 Monitoring
 **********
 
+Configure logging
+=================
+
+*DAML on SQL* uses the industry-standard Logback for logging. You can
+read more on how to set it up on the *DAML on SQL* CLI reference and
+the `Logback documentation <http://logback.qos.ch/>`__.
+
+Structured logging
+^^^^^^^^^^^^^^^^^^
+
+The *DAML on SQL* logging infrastructure leverages structured logging
+as implemented by the `Logstash Logback Encoder <https://github.com/logstash/logstash-logback-encoder/blob/logstash-logback-encoder-6.3/README.md>`__.
+
+Each logged event carries information about the request being served by
+the Ledger API server (e.g. the command identifier). When using a
+traditional logging target (e.g. standard output or rotating files) this
+information will be part of the log description. Using a logging target
+compatible with the Logstash Logback Encoder allows to have rich logs
+with structured information about the event being logged.
+
 Enable and configure reporting
 ==============================
 

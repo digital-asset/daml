@@ -23,7 +23,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val conflictDetection = new ConflictDetection(damlMetrics)
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
-        implicit logCtx =>
+        implicit loggingContext =>
           conflictDetection.detectConflictsAndRecover(
             invalidatedKeys = Set.empty,
             inputState = Map(aliceKey -> None),
@@ -42,13 +42,14 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val outputState = Map(aliceKey -> DamlStateValue.getDefaultInstance)
       val conflictDetection = new ConflictDetection(metrics())
 
-      val Some((actualInvalidatedKeys, _)) = LoggingContext.newLoggingContext { implicit logCtx =>
-        conflictDetection.detectConflictsAndRecover(
-          invalidatedKeys = Set.empty,
-          inputState = Map.empty,
-          logEntry = aPartyLogEntry("Alice"),
-          outputState = outputState
-        )
+      val Some((actualInvalidatedKeys, _)) = LoggingContext.newLoggingContext {
+        implicit loggingContext =>
+          conflictDetection.detectConflictsAndRecover(
+            invalidatedKeys = Set.empty,
+            inputState = Map.empty,
+            logEntry = aPartyLogEntry("Alice"),
+            outputState = outputState
+          )
       }
 
       actualInvalidatedKeys should be(Set(aliceKey))
@@ -59,7 +60,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val outputState = Map(aliceKey -> DamlStateValue.getDefaultInstance)
       val conflictDetection = new ConflictDetection(metrics())
 
-      val result = LoggingContext.newLoggingContext { implicit logCtx =>
+      val result = LoggingContext.newLoggingContext { implicit loggingContext =>
         conflictDetection.detectConflictsAndRecover(
           invalidatedKeys = Set(aliceKey),
           inputState = Map.empty,
@@ -80,7 +81,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val conflictDetectionMetrics = damlMetrics.daml.kvutils.conflictdetection
       val conflictDetection = new ConflictDetection(damlMetrics)
 
-      val result = LoggingContext.newLoggingContext { implicit logCtx =>
+      val result = LoggingContext.newLoggingContext { implicit loggingContext =>
         conflictDetection.detectConflictsAndRecover(
           invalidatedKeys = invalidatedKeys,
           inputState = Map(aliceKey -> None),
@@ -106,7 +107,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val conflictDetectionMetrics = damlMetrics.daml.kvutils.conflictdetection
       val conflictDetection = new ConflictDetection(damlMetrics)
 
-      val result = LoggingContext.newLoggingContext { implicit logCtx =>
+      val result = LoggingContext.newLoggingContext { implicit loggingContext =>
         conflictDetection.detectConflictsAndRecover(
           invalidatedKeys = invalidatedKeys,
           inputState = invalidatedKeys.map(_ -> None).toMap,
@@ -161,7 +162,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val conflictDetection = new ConflictDetection(damlMetrics)
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
-        implicit logCtx =>
+        implicit loggingContext =>
           conflictDetection.detectConflictsAndRecover(
             invalidatedKeys = Set.empty,
             inputState = Map(aliceKey -> Some(aStateValue)),
@@ -192,7 +193,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val conflictDetection = new ConflictDetection(damlMetrics)
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
-        implicit logCtx =>
+        implicit loggingContext =>
           conflictDetection.detectConflictsAndRecover(
             invalidatedKeys = Set.empty,
             inputState = Map(aliceKey -> Some(inputStateValue)),
@@ -214,7 +215,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
     val outputState = Map(key -> DamlStateValue.getDefaultInstance)
     val invalidatedKeys = Set(key)
     val Some((_, (newLogEntry, newOutputState))) = LoggingContext.newLoggingContext {
-      implicit logCtx =>
+      implicit loggingContext =>
         conflictDetection.detectConflictsAndRecover(
           invalidatedKeys = invalidatedKeys,
           inputState = Map(key -> None),

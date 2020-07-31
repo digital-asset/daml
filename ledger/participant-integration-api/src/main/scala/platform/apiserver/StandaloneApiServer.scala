@@ -53,7 +53,7 @@ final class StandaloneApiServer(
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine,
     lfValueTranslationCache: LfValueTranslation.Cache,
-)(implicit actorSystem: ActorSystem, materializer: Materializer, logCtx: LoggingContext)
+)(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -101,7 +101,7 @@ final class StandaloneApiServer(
         metrics = metrics,
         healthChecks = healthChecks,
         seedService = SeedService(config.seeding),
-      )(materializer, executionSequencerFactory, logCtx)
+      )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
         apiServicesOwner,

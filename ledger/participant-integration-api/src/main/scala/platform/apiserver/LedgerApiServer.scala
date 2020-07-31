@@ -22,7 +22,7 @@ private[daml] final class LedgerApiServer(
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     metrics: Metrics,
-)(implicit actorSystem: ActorSystem, materializer: Materializer, logCtx: LoggingContext)
+)(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
   private val logger = ContextualizedLogger.get(this.getClass)

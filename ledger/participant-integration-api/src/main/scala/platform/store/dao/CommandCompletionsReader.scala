@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 
@@ -21,7 +22,9 @@ private[dao] final class CommandCompletionsReader(dispatcher: DbDispatcher, metr
       startExclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
-      parties: Set[Ref.Party]): Source[(Offset, CompletionStreamResponse), NotUsed] = {
+      parties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContext)
+    : Source[(Offset, CompletionStreamResponse), NotUsed] = {
     val query = CommandCompletionsTable.prepareGet(
       startExclusive = startExclusive,
       endInclusive = endInclusive,

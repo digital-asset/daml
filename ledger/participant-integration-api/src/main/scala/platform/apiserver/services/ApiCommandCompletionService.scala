@@ -26,21 +26,23 @@ import io.grpc.ServerServiceDefinition
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiCommandCompletionService private (
-    completionsService: IndexCompletionsService)(
+    completionsService: IndexCompletionsService,
+)(
     implicit ec: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
-    logCtx: LoggingContext)
-    extends CommandCompletionService {
+    loggingContext: LoggingContext,
+) extends CommandCompletionService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val subscriptionIdCounter = new AtomicLong()
 
   override def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionStreamResponse, NotUsed] =
+      request: CompletionStreamRequest,
+  ): Source[CompletionStreamResponse, NotUsed] =
     withEnrichedLoggingContext(logging.parties(request.parties), logging.offset(request.offset)) {
-      implicit logCtx =>
+      implicit loggingContext =>
         val subscriptionId = subscriptionIdCounter.getAndIncrement().toString
         logger.debug(s"Received request for completion subscription $subscriptionId: $request")
 
@@ -65,7 +67,8 @@ private[apiserver] object ApiCommandCompletionService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext): GrpcCommandCompletionService with GrpcApiService = {
+      loggingContext: LoggingContext,
+  ): GrpcCommandCompletionService with GrpcApiService = {
     val impl: CommandCompletionService =
       new ApiCommandCompletionService(completionsService)
 
