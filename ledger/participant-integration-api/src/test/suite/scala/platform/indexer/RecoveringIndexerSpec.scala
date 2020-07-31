@@ -104,7 +104,7 @@ class RecoveringIndexerSpec
       }
     }
 
-    "wait until the subscription completes" in newLoggingContext { implicit loggingContext =>
+    "wait until the subscription completes" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis),
