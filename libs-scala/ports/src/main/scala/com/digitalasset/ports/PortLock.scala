@@ -33,14 +33,13 @@ object PortLock {
     val file = new RandomAccessFile(portLockFile.toFile, "rw")
     val channel = file.getChannel
     try {
-      val lock = channel.tryLock()
-      val locked = new Locked(port, lock, channel, file)
-      if (lock != null) {
-        Right(locked)
-      } else {
-        locked.unlock()
-        Left(FailedToLock(port))
-      }
+      Option(channel.tryLock())
+        .map(lock => new Locked(port, lock, channel, file))
+        .toRight {
+          channel.close()
+          file.close()
+          FailedToLock(port)
+        }
     } catch {
       case _: OverlappingFileLockException =>
         channel.close()
