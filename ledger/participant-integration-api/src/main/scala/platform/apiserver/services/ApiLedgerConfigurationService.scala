@@ -13,7 +13,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -34,17 +33,15 @@ private[apiserver] final class ApiLedgerConfigurationService private (
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest,
   ): Source[GetLedgerConfigurationResponse, NotUsed] =
-    withEnrichedLoggingContext(Map.empty[String, String]) { implicit loggingContext =>
-      configurationService
-        .getLedgerConfiguration()
-        .map(
-          configuration =>
-            GetLedgerConfigurationResponse(
-              Some(LedgerConfiguration(
-                Some(toProto(configuration.maxDeduplicationTime)),
-              ))))
-        .via(logger.logErrorsOnStream)
-    }
+    configurationService
+      .getLedgerConfiguration()
+      .map(
+        configuration =>
+          GetLedgerConfigurationResponse(
+            Some(LedgerConfiguration(
+              Some(toProto(configuration.maxDeduplicationTime)),
+            ))))
+      .via(logger.logErrorsOnStream)
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
