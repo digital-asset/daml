@@ -116,8 +116,6 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
     }
   }
 
-  private val keySerializationStrategy = DefaultStateKeySerializationStrategy
-
   private def aDamlStateKey(id: Int = 0): DamlStateKey =
     DamlStateKey.newBuilder
       .setContractId(id.toString)
@@ -136,10 +134,6 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReaderWithFingerprints = {
     val cache = WeightedCache.from[DamlStateKey, (DamlStateValue, Fingerprint)](
       WeightedCache.Configuration(1024))
-    new CachingDamlLedgerStateReaderWithFingerprints(
-      cache,
-      _ => shouldCache,
-      keySerializationStrategy,
-      delegate)
+    new CachingDamlLedgerStateReaderWithFingerprints(cache, _ => shouldCache, delegate)
   }
 }

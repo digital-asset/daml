@@ -163,14 +163,7 @@ class PlatformStore(
       createContract(state.time.time.getCurrentTime, party, templateId, value, sender)
 
     case ExerciseChoice(party, contractId, choiceId, value) =>
-      exerciseChoice(
-        state.ledgerClient,
-        state.time.time.getCurrentTime,
-        party,
-        contractId,
-        choiceId,
-        value,
-        sender)
+      exerciseChoice(state.time.time.getCurrentTime, party, contractId, choiceId, value, sender)
 
     case ReportCurrentTime =>
       sender ! Success(state.time)
@@ -386,7 +379,6 @@ class PlatformStore(
   }
 
   private def exerciseChoice(
-      ledgerClient: LedgerClient,
       platformTime: Instant,
       party: PartyState,
       contractId: ApiTypes.ContractId,

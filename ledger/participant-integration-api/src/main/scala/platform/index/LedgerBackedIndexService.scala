@@ -54,7 +54,8 @@ private[platform] final class LedgerBackedIndexService(
     participantId: ParticipantId,
 ) extends IndexService {
 
-  override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
+  override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
+    Future.successful(ledger.ledgerId)
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 

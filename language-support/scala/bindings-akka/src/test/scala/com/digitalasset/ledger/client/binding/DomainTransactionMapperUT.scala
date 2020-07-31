@@ -22,7 +22,7 @@ import scala.collection.immutable
 class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
   private val mockContract =
     Contract(Primitive.ContractId("contractId"), MockTemplate(), None, Seq.empty, Seq.empty, None)
-  private val transactionMapper = new DomainTransactionMapper(createdEvent => Right(mockContract))
+  private val transactionMapper = new DomainTransactionMapper(_ => Right(mockContract))
 
   private def getResult(source: immutable.Iterable[Transaction]): Seq[DomainTransaction] =
     drain(

@@ -187,7 +187,6 @@ class CommitterSpec
 
   private val aRecordTime = Timestamp(100)
   private val aDamlSubmission = DamlSubmission.getDefaultInstance
-  private val aParticipantId = Ref.ParticipantId.assertFromString("a participant")
   private val aLogEntry = DamlLogEntry.newBuilder
     .setPartyAllocationEntry(
       DamlPartyAllocationEntry.newBuilder

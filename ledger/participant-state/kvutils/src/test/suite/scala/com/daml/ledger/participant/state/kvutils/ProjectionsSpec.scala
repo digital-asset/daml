@@ -59,9 +59,6 @@ class ProjectionsSpec extends WordSpec with Matchers {
     Projections.computePerPartyProjectionRoots(tx, bi)
   }
 
-  private def toCid(nid: NodeId) =
-    ContractId.V1(crypto.Hash.hashPrivateKey(nid.toString))
-
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {

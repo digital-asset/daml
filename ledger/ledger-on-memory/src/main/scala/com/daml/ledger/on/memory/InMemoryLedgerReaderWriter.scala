@@ -34,7 +34,7 @@ final class InMemoryLedgerReaderWriter(
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
     committer: BatchedValidatingCommitter[Index],
-    metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
+    metrics: Metrics)(implicit executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
   override def commit(

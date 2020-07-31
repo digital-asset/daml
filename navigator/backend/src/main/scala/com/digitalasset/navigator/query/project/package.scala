@@ -7,6 +7,7 @@ import com.daml.navigator.dotnot._
 import com.daml.navigator.model._
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.json.ApiValueImplicits._
+import com.github.ghik.silencer.silent
 import scalaz.Tag
 import scalaz.syntax.tag._
 

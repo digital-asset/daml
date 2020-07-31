@@ -41,7 +41,7 @@ final class Database(
 
   private def inTransaction[T](name: String, connectionPool: DataSource)(
       body: Connection => Future[T],
-  )(implicit loggingContext: LoggingContext): Future[T] = {
+  ): Future[T] = {
     val connection = Timed.value(
       metrics.daml.ledger.database.transactions.acquireConnection(name),
       connectionPool.getConnection())

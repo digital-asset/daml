@@ -261,7 +261,6 @@ object KeyValueParticipantStateReaderSpec {
   private def createInstance(
       reader: LedgerReader,
       logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
-        singleUpdateGenerator)(
-      implicit materializer: Materializer): KeyValueParticipantStateReader =
+        singleUpdateGenerator): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(reader, new Metrics(new MetricRegistry), logEntryToUpdate)
 }

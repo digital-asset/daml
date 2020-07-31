@@ -18,6 +18,7 @@ object DamlLfCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Constants used in the encoding
   // ------------------------------------------------------------------------------------------------------------------
+  private[this] final val propType: String = "type"
   private[this] final val propValue: String = "value"
   private[this] final val propName: String = "name"
   private[this] final val propModule: String = "module"

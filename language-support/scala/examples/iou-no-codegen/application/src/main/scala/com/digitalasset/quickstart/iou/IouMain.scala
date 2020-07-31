@@ -71,7 +71,6 @@ object IouMain extends App with StrictLogging {
   private val offset0F: Future[LedgerOffset] = clientUtilF.flatMap(_.ledgerEnd)
 
   private val issuerWorkflowId: WorkflowId = workflowIdFromParty(issuer)
-  private val newOwnerWorkflowId: WorkflowId = workflowIdFromParty(newOwner)
 
   def validatePackageId(allPackageIds: Set[String], packageId: String): Future[Unit] =
     if (allPackageIds(packageId)) Future.successful(())

@@ -50,7 +50,6 @@ final class SqlLedgerReaderWriter(
     seedService: SeedService
 )(
     implicit executionContext: ExecutionContext,
-    materializer: Materializer,
     loggingContext: LoggingContext,
 ) extends LedgerWriter
     with LedgerReader {
@@ -164,8 +163,7 @@ object SqlLedgerReaderWriter {
   }
 
   private def updateOrRetrieveLedgerId(providedLedgerId: LedgerId, database: Database)(
-      implicit executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
+      implicit loggingContext: LoggingContext,
   ): Future[LedgerId] =
     database.inWriteTransaction("retrieve_ledger_id") { queries =>
       Future.fromTry(
