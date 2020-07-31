@@ -118,66 +118,52 @@ object JdbcIndexer {
 
   private def contextFor(update: Update): Map[String, String] =
     update match {
-      case ConfigurationChanged(recordTime, submissionId, participantId, newConfiguration) =>
+      case ConfigurationChanged(_, submissionId, participantId, newConfiguration) =>
         Map(
-          "updateRecordTime" -> recordTime.toInstant.toString,
           "updateSubmissionId" -> submissionId,
           "updateParticipantId" -> participantId,
           "updateConfigGeneration" -> newConfiguration.generation.toString,
           "updatedMaxDeduplicationTime" -> newConfiguration.maxDeduplicationTime.toString,
         )
       case ConfigurationChangeRejected(
-          recordTime,
+          _,
           submissionId,
           participantId,
           proposedConfiguration,
           rejectionReason,
           ) =>
         Map(
-          "updateRecordTime" -> recordTime.toInstant.toString,
           "updateSubmissionId" -> submissionId,
           "updateParticipantId" -> participantId,
           "updateConfigGeneration" -> proposedConfiguration.generation.toString,
           "updatedMaxDeduplicationTime" -> proposedConfiguration.maxDeduplicationTime.toString,
           "updateRejectionReason" -> rejectionReason,
         )
-      case PartyAddedToParticipant(party, displayName, participantId, recordTime, submissionId) =>
+      case PartyAddedToParticipant(party, displayName, participantId, _, submissionId) =>
         Map(
-          "updateRecordTime" -> recordTime.toInstant.toString,
           "updateSubmissionId" -> submissionId.getOrElse(""),
           "updateParticipantId" -> participantId,
           "updateParty" -> party,
           "updateDisplayName" -> displayName,
         )
-      case PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason) =>
+      case PartyAllocationRejected(submissionId, participantId, _, rejectionReason) =>
         Map(
-          "updateRecordTime" -> recordTime.toInstant.toString,
           "updateSubmissionId" -> submissionId,
           "updateParticipantId" -> participantId,
           "updateRejectionReason" -> rejectionReason,
         )
-      case PublicPackageUpload(_, sourceDescription, recordTime, submissionId) =>
+      case PublicPackageUpload(_, sourceDescription, _, submissionId) =>
         Map(
-          "updateRecordTime" -> recordTime.toInstant.toString,
           "updateSubmissionId" -> submissionId.getOrElse(""),
           "updateSourceDescription" -> sourceDescription.getOrElse("")
         )
-      case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
+      case PublicPackageUploadRejected(submissionId, _, rejectionReason) =>
         Map(
-          "updateRecordTime" -> recordTime.toInstant.toString,
           "updateSubmissionId" -> submissionId,
           "updateRejectionReason" -> rejectionReason,
         )
-      case TransactionAccepted(
-          optSubmitterInfo,
-          transactionMeta,
-          _,
-          transactionId,
-          recordTime,
-          _,
-          ) =>
+      case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _) =>
         Map(
-          "updateRecordTime" -> recordTime.toInstant.toString,
           "updateTransactionId" -> transactionId,
           "updateLedgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
           "updateWorkflowId" -> transactionMeta.workflowId.getOrElse(""),
@@ -192,9 +178,8 @@ object JdbcIndexer {
                 "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
             ))
           .getOrElse(Map.empty)
-      case CommandRejected(recordTime, submitterInfo, reason) =>
+      case CommandRejected(_, submitterInfo, reason) =>
         Map(
-          "updateRecordTime" -> recordTime.toInstant.toString,
           "updateSubmitter" -> submitterInfo.submitter,
           "updateApplicationId" -> submitterInfo.applicationId,
           "updateCommandId" -> submitterInfo.commandId,
@@ -204,7 +189,9 @@ object JdbcIndexer {
     }
 
   private def contextFor(offset: Offset, update: Update): Map[String, String] =
-    contextFor(update).updated("offset", offset.toHexString)
+    contextFor(update)
+      .updated("updateRecordTime", update.recordTime.toInstant.toString)
+      .updated("updateOffset", offset.toHexString)
 
   private val logger = ContextualizedLogger.get(classOf[JdbcIndexer])
 
@@ -232,7 +219,7 @@ private[indexer] class JdbcIndexer private[indexer] (
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
     lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
-    logger.trace(s"Update (${update.getClass.getSimpleName})")
+    logger.trace(update.description)
 
     metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
     metrics.daml.indexer.lastReceivedOffset.updateValue(offset.toApiString)
