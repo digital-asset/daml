@@ -12,7 +12,7 @@ Setup PostgreSQL and run
 Before starting, you need to perform the following steps:
 
 - create an initially empty PostgresSQL database that *DAML on SQL* can access
-- have a database user for *DAML on SQL* that has authority to execute DDL
+- create a database user for *DAML on SQL* that has authority to execute DDL
   operations
 
 This is because *DAML on SQL* manages its own database schema, applying
@@ -23,14 +23,19 @@ To specify the PostgreSQL instance you wish to connect, use the
 valid JDBC URL containing the username, password and database name to connect
 to (for example, ``jdbc:postgresql://localhost/test?user=fred&password=secret``).
 
+You will also need to provide a ledger ID with the `--ledgerid` flag, which must
+be the same upon restart. This value is expected in many API endpoints, to
+ensure ledger clients are connecting to the correct ledger.
+
 Due to possible conflicts between the ``&`` character and various shells, we
-recommend quoting the JDBC URL in the terminal.
+recommend quoting the JDBC URL in the terminal, as follows:
 
 .. code-block:: none
 
   $ java -jar daml-on-sql-<version>.jar --ledgerid=test --sql-backend-jdbcurl='jdbc:postgresql://localhost/test?user=fred&password=secret'
 
-If you're not familiar with JDBC URLs, see the `PostgreSQL JDBC docs for more information <https://jdbc.postgresql.org/documentation/head/connect.html>`__.
+If you are not familiar with JDBC URLs, we recommend reading the `PostgreSQL JDBC documentation <https://jdbc.postgresql.org/documentation/head/connect.html>`__
+for more information.
 
 Architecture and availability
 *****************************
