@@ -144,7 +144,11 @@ object TriggerServiceFixture {
                 system.whenTerminated
             },
             ledgerF.map(_._1.close()),
-            toxiproxyF.map(_._1.destroy),
+            toxiproxyF.map {
+              case (proc, _) =>
+                proc.destroy()
+                proc.exitValue() // destroy is async
+            },
           ))
         .flatMap(_ => Future fromTry ta)
     }
