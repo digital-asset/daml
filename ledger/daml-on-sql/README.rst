@@ -74,20 +74,20 @@ environment will not have been tested and may cause issues.
 Core architecture considerations
 ================================
 
-A very important point to make is that the backing PostgreSQL server performs a
-lot of work which is both CPU- and IO-intensive: all (valid) Ledger API requests
-will eventually hit the database. At the same time, the *DAML on SQL* server has to
-have available resources to validate requests, evaluate commands and prepare responses.
-While the PostgreSQL schema is designed to be as efficient as possible, practical
-experience has shown that having **dedicated computation and memory resources for the
-two core components** (the *DAML on SQL* server and the PostgreSQL server) allows the two
-to run without interfering with each other. Depending on the kind of
-deployment you wish to make, this can be achieved with containerization, virtualization
-or simply using physically different machines. Still, the Ledger API communicates
-abundantly with the PostgreSQL server and many Ledger API requests need to go all
-the way to persist information on the database. To reduce the latency necessary to
-serve outstanding requests, **the *DAML on SQL* server and PostgreSQL server should be
-physically co-located**.
+The backing PostgreSQL server performs a lot of work which is both CPU- and
+IO-intensive: all (valid) Ledger API requests will eventually hit the database.
+At the same time, the *DAML on SQL* server has to have available resources to
+validate requests, evaluate commands and prepare responses. While the PostgreSQL
+schema is designed to be as efficient as possible, practical experience has
+shown that having **dedicated computation and memory resources for the two core
+components** (the *DAML on SQL* server and the PostgreSQL server) allows the two
+to run without interfering with each other. Depending on the kind of deployment
+you wish to make, this can be achieved with containerization, virtualization or
+simply using physically different machines. Still, the Ledger API communicates
+abundantly with the PostgreSQL server and many Ledger API requests need to go
+all the way to persist information on the database. To reduce the latency
+necessary to serve outstanding requests, **the *DAML on SQL* server and
+PostgreSQL server should be physically co-located**.
 
 Core availability considerations
 ================================
