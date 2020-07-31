@@ -54,6 +54,7 @@ private[apiserver] final class ApiActiveContractsService private (
 private[apiserver] object ApiActiveContractsService {
 
   private val AllTemplates = Iterator.single("all-templates")
+
   private def filters(filtersByParty: Map[String, Filters]): Map[String, String] =
     filtersByParty.iterator.flatMap {
       case (party, filters) =>
