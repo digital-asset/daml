@@ -11,16 +11,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, Daml
 import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.LedgerStateOperations.Value
-import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingDamlLedgerStateReaderWithFingerprints
 }
-import com.daml.ledger.validator.{
-  LedgerStateAccess,
-  StateAccessingValidatingCommitter,
-  StateKeySerializationStrategy
-}
+import com.daml.ledger.validator.{LedgerStateAccess, StateKeySerializationStrategy}
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
@@ -45,17 +40,16 @@ import scala.util.{Failure, Success}
 class PreExecutingValidatingCommitter[LogResult](
     now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,
-    validator: PreExecutingSubmissionValidator[RawKeyValuePairs],
+    validator: PreExecutingSubmissionValidator[AnnotatedRawKeyValuePairs],
     valueToFingerprint: Option[Value] => Fingerprint,
     postExecutionFinalizer: PostExecutionFinalizerWithFingerprintsFromValues[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
-    cacheUpdatePolicy: CacheUpdatePolicy)(implicit materializer: Materializer)
-    extends StateAccessingValidatingCommitter[LogResult] {
+    cacheUpdatePolicy: CacheUpdatePolicy)(implicit materializer: Materializer) {
 
   /**
     * Pre-executes and then finalizes a submission.
     */
-  override def commit(
+  def commit(
       correlationId: String,
       submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,

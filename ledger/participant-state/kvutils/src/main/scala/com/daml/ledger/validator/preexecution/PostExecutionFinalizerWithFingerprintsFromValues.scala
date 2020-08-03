@@ -9,7 +9,6 @@ import com.daml.ledger.participant.state.kvutils.{Bytes, Err, Fingerprint}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.LedgerStateOperations
 import com.daml.ledger.validator.LedgerStateOperations.Value
-import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,50 +37,22 @@ class PostExecutionFinalizerWithFingerprintsFromValues[LogResult](
     */
   def conflictDetectAndFinalize(
       now: () => Instant,
-      preExecutionOutput: PreExecutionOutput[RawKeyValuePairs],
+      preExecutionOutput: PreExecutionOutput[AnnotatedRawKeyValuePairs],
       ledgerStateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
     val keys = preExecutionOutput.readSet.map(_._1)
     val preExecutionFingerprints = preExecutionOutput.readSet.map(_._2)
 
-    val conflictFuture = for {
+    val conflictsWithCurrentState = for {
       values <- ledgerStateOperations.readState(keys)
       postExecutionFingerprints = values.map(valueToFingerprint)
     } yield preExecutionFingerprints != postExecutionFingerprints
 
-    conflictFuture.flatMap { hasConflict =>
-      if (hasConflict) {
+    conflictsWithCurrentState.flatMap { hasConflict =>
+      if (hasConflict)
         throw Conflict
-      } else {
-        val recordTime = now()
-        val withinTimeBounds = respectsTimeBounds(preExecutionOutput, recordTime)
-        val writeSet = if (withinTimeBounds) {
-          preExecutionOutput.successWriteSet.filter {
-            case (key, _) =>
-              !isLogEntrySerializedKey(key)
-          }
-        } else {
-          Seq.empty
-        }
-        val logEntry = if (withinTimeBounds) {
-          preExecutionOutput.successWriteSet
-            .find {
-              case (key, _) =>
-                isLogEntrySerializedKey(key)
-            }
-            .getOrElse(throw Err.DecodeError(
-              "Pre-execution result",
-              "A log entry must always be present in the success write set for pre-execution but its not"))
-        } else {
-          preExecutionOutput.outOfTimeBoundsWriteSet.head
-        }
-        for {
-          _ <- ledgerStateOperations.writeState(writeSet)
-          _ <- ledgerStateOperations.appendToLog(
-            LogAppenderPreExecutingCommitStrategy.unprefixSerializedLogEntryId(logEntry._1),
-            logEntry._2)
-        } yield SubmissionResult.Acknowledged
-      }
+      else
+        finalizeSubmission(now, preExecutionOutput, ledgerStateOperations)
     }
   }
 }
@@ -89,12 +60,60 @@ class PostExecutionFinalizerWithFingerprintsFromValues[LogResult](
 object PostExecutionFinalizerWithFingerprintsFromValues {
   val Conflict = new RuntimeException
 
-  private def isLogEntrySerializedKey(key: Bytes): Boolean =
-    LogAppenderPreExecutingCommitStrategy.isPrefixedSerializedLogEntryId(key)
-
   private def respectsTimeBounds(
-      preExecutionOutput: PreExecutionOutput[RawKeyValuePairs],
+      preExecutionOutput: PreExecutionOutput[AnnotatedRawKeyValuePairs],
       recordTime: Instant): Boolean =
     !recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(Instant.MIN)) &&
       !recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(Instant.MAX))
+
+  private def finalizeSubmission[LogResult](
+      now: () => Instant,
+      preExecutionOutput: PreExecutionOutput[AnnotatedRawKeyValuePairs],
+      ledgerStateOperations: LedgerStateOperations[LogResult],
+  )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
+    val recordTime = now()
+    val withinTimeBounds = respectsTimeBounds(preExecutionOutput, recordTime)
+    val writeSet = createWriteSet(preExecutionOutput, withinTimeBounds)
+    val logEntry = createLogEntry(preExecutionOutput, withinTimeBounds)
+    for {
+      _ <- ledgerStateOperations.writeState(writeSet)
+      _ <- ledgerStateOperations.appendToLog(logEntry._1, logEntry._2)
+    } yield SubmissionResult.Acknowledged
+  }
+
+  private def createLogEntry(
+      preExecutionOutput: PreExecutionOutput[AnnotatedRawKeyValuePairs],
+      withinTimeBounds: Boolean): (Bytes, Bytes) = {
+    val annotatedRawKeyValuePair = if (withinTimeBounds) {
+      preExecutionOutput.successWriteSet
+        .find {
+          case (key, _) =>
+            key.isLogEntry
+        }
+        .getOrElse(throw Err.DecodeError(
+          "Pre-execution result",
+          "A log entry must always be present in the success write set for pre-execution but its not"))
+    } else {
+      preExecutionOutput.outOfTimeBoundsWriteSet.head
+    }
+    annotatedToRawKeyValuePair(annotatedRawKeyValuePair)
+  }
+
+  private def createWriteSet(
+      preExecutionOutput: PreExecutionOutput[AnnotatedRawKeyValuePairs],
+      withinTimeBounds: Boolean): Seq[(Bytes, Bytes)] =
+    if (withinTimeBounds) {
+      preExecutionOutput.successWriteSet
+        .filter {
+          case (key, _) =>
+            !key.isLogEntry
+        }
+        .map(annotatedToRawKeyValuePair)
+    } else {
+      Seq.empty
+    }
+
+  private def annotatedToRawKeyValuePair(
+      annotatedRawKeyValuePair: (AnnotatedRawKey, Bytes)): (Bytes, Bytes) =
+    annotatedRawKeyValuePair._1.key -> annotatedRawKeyValuePair._2
 }

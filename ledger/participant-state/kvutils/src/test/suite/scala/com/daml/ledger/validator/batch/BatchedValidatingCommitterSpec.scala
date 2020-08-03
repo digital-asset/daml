@@ -9,12 +9,7 @@ import akka.stream.Materializer
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.TestHelper.aParticipantId
-import com.daml.ledger.validator.{
-  CommitStrategy,
-  DamlLedgerStateReader,
-  LedgerStateAccess,
-  LedgerStateOperations
-}
+import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, LedgerStateOperations}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito.when
@@ -42,7 +37,7 @@ class BatchedValidatingCommitterSpec
           correlationId = "",
           submissionEnvelope = ByteString.EMPTY,
           submittingParticipantId = aParticipantId,
-          ledgerStateAccess = createLedgerStateAccessMock())
+          ledgerStateOperations = mock[LedgerStateOperations[Unit]])
         .map { actual =>
           actual shouldBe SubmissionResult.Acknowledged
         }
@@ -59,7 +54,7 @@ class BatchedValidatingCommitterSpec
           correlationId = "",
           submissionEnvelope = ByteString.EMPTY,
           submittingParticipantId = aParticipantId,
-          ledgerStateAccess = createLedgerStateAccessMock())
+          ledgerStateOperations = mock[LedgerStateOperations[Unit]])
         .map { actual =>
           actual shouldBe SubmissionResult.InternalError("Validation failure")
         }
@@ -76,14 +71,6 @@ class BatchedValidatingCommitterSpec
         any[ParticipantId](),
         any[DamlLedgerStateReader](),
         any[CommitStrategy[Unit]]())(any[Materializer](), any[ExecutionContext]()))
-
-  private def createLedgerStateAccessMock(): LedgerStateAccess[Unit] = {
-    val mockLedgerStateAccess = mock[LedgerStateAccess[Unit]]
-    when(mockLedgerStateAccess.inTransaction(any[LedgerStateTransaction]()))
-      .thenAnswer(invocation =>
-        invocation.getArgument[LedgerStateTransaction](0)(mock[LedgerStateOperations[Unit]]))
-    mockLedgerStateAccess
-  }
 
   private type LedgerStateTransaction = LedgerStateOperations[Unit] => Future[Unit]
 }

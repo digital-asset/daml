@@ -7,7 +7,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, Daml
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.StateKeySerializationStrategy
-import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 import com.google.protobuf.ByteString
 
 import scala.collection.breakOut
@@ -15,23 +14,23 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySerializationStrategy)(
     implicit executionContext: ExecutionContext)
-    extends PreExecutingCommitStrategy[RawKeyValuePairs] {
-  import LogAppenderPreExecutingCommitStrategy._
+    extends PreExecutingCommitStrategy[AnnotatedRawKeyValuePairs] {
 
   override def generateWriteSets(
       participantId: ParticipantId,
       entryId: DamlLogEntryId,
       inputState: Map[DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue]],
       preExecutionResult: KeyValueCommitting.PreExecutionResult)
-    : Future[PreExecutionCommitResult[RawKeyValuePairs]] = {
+    : Future[PreExecutionCommitResult[AnnotatedRawKeyValuePairs]] = {
     for {
       serializedSuccessKeyValuePairs <- Future {
         preExecutionResult.stateUpdates.map {
           case (key, value) =>
-            keySerializationStrategy.serializeStateKey(key) -> Envelope.enclose(value)
+            AnnotatedRawKey(keySerializationStrategy.serializeStateKey(key), isLogEntry = false) -> Envelope
+              .enclose(value)
         }(breakOut)
       }
-      serializedLogEntryId = LogEntryIdPrefix.concat(entryId.toByteString)
+      serializedLogEntryId = entryId.toByteString
       serializedSuccessLogEntryPair <- logEntryToKeyValuePairs(
         serializedLogEntryId,
         preExecutionResult.successfulLogEntry)
@@ -50,23 +49,8 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
 
   private def logEntryToKeyValuePairs(
       logEntryId: ByteString,
-      logEntry: DamlLogEntry): Future[RawKeyValuePairs] = Future {
+      logEntry: DamlLogEntry): Future[AnnotatedRawKeyValuePairs] = Future {
     val envelopedLogEntry = Envelope.enclose(logEntry)
-    Seq(logEntryId -> envelopedLogEntry)
+    Seq(AnnotatedRawKey(logEntryId, isLogEntry = true) -> envelopedLogEntry)
   }
-}
-
-// TODO build a proper log entry serialization framework
-object LogAppenderPreExecutingCommitStrategy {
-  private def LogEntryIdPrefix: ByteString = ByteString.copyFromUtf8("L")
-
-  private[validator] def isPrefixedSerializedLogEntryId(key: ByteString): Boolean =
-    key.startsWith(LogEntryIdPrefix)
-
-  private[validator] def unprefixSerializedLogEntryId(key: ByteString): ByteString =
-    if (key.startsWith(LogEntryIdPrefix)) {
-      key.substring(LogEntryIdPrefix.size())
-    } else {
-      throw new IllegalArgumentException(s"Input bytes are not prefixed with $LogEntryIdPrefix")
-    }
 }

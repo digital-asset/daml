@@ -5,13 +5,6 @@ package com.daml.ledger.validator.preexecution
 
 import com.daml.lf.data.Time.Timestamp
 
-/**
-  * Produces the record time on the participant for updates originating from pre-executed submissions.
-  */
-trait TimeUpdatesProvider {
-  def retrieveTimeUpdate(): Option[Timestamp]
-}
-
 object TimeUpdatesProvider {
   private[this] val NowFakeTimeUpdatesProvider: TimeUpdatesProvider = () => Some(Timestamp.now())
 

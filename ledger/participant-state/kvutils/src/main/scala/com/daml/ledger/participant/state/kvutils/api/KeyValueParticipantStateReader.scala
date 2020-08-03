@@ -30,7 +30,8 @@ class KeyValueParticipantStateReader private[api] (
     reader: LedgerReader,
     metrics: Metrics,
     logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update],
-    timeUpdatesProvider: TimeUpdatesProvider)(implicit materializer: Materializer)
+    timeUpdatesProvider: TimeUpdatesProvider,
+)(implicit materializer: Materializer)
     extends ReadService {
   import KeyValueParticipantStateReader._
 
@@ -51,10 +52,7 @@ class KeyValueParticipantStateReader private[api] (
                   metrics.daml.kvutils.reader.parseUpdates, {
                     val logEntryId = DamlLogEntryId.parseFrom(entryId)
                     val updates =
-                      logEntryToUpdate(
-                        logEntryId,
-                        logEntry,
-                        timeUpdatesProvider.retrieveTimeUpdate())
+                      logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
                     val updatesWithOffsets = Source(updates).zipWithIndex.map {
                       case (update, index) =>
                         offsetForUpdate(offset, index.toInt, updates.size) -> update

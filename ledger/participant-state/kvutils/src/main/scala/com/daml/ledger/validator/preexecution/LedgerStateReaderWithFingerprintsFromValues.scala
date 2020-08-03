@@ -28,8 +28,5 @@ class LedgerStateReaderWithFingerprintsFromValues[LogResult](
   override def read(keys: Seq[Key]): Future[Seq[(Option[Value], Fingerprint)]] =
     for {
       readResult <- ledgerStateOperations.readState(keys)
-    } yield
-      for {
-        maybeValue <- readResult
-      } yield maybeValue -> valueToFingerprint(maybeValue)
+    } yield readResult.map(maybeValue => maybeValue -> valueToFingerprint(maybeValue))
 }

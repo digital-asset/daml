@@ -5,6 +5,7 @@ package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
 import com.daml.caching
+import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
   KeyValueLedger,
@@ -19,6 +20,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   Runner
 }
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
+import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
@@ -64,24 +66,34 @@ object Main {
         loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
-      new InMemoryLedgerReaderWriter.Owner(
-        ledgerId = config.ledgerId,
-        config.extra.batchingLedgerWriterConfig,
-        config.extra.preExecute,
-        participantId = participantConfig.participantId,
-        metrics = metrics,
-        stateValueCache = caching.WeightedCache.from(
-          configuration = config.stateValueCache,
-          metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
-        ),
-        stateValueCacheForPreExecution = caching.WeightedCache.from(
-          configuration = config.stateValueCache,
-          metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
-        ),
-        dispatcher = dispatcher,
-        state = state,
-        engine = engine,
-      )
+      if (config.extra.preExecute)
+        new memory.InMemoryLedgerReaderWriter.PreExecutingOwner(
+          ledgerId = config.ledgerId,
+          participantId = participantConfig.participantId,
+          keySerializationStrategy = DefaultStateKeySerializationStrategy,
+          metrics = metrics,
+          stateValueCacheForPreExecution = caching.WeightedCache.from(
+            configuration = config.stateValueCache,
+            metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+          ),
+          dispatcher = dispatcher,
+          state = state,
+          engine = engine,
+        )
+      else
+        new InMemoryLedgerReaderWriter.BatchingOwner(
+          ledgerId = config.ledgerId,
+          config.extra.batchingLedgerWriterConfig,
+          participantId = participantConfig.participantId,
+          metrics = metrics,
+          stateValueCache = caching.WeightedCache.from(
+            configuration = config.stateValueCache,
+            metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+          ),
+          dispatcher = dispatcher,
+          state = state,
+          engine = engine,
+        )
     }
 
     override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =

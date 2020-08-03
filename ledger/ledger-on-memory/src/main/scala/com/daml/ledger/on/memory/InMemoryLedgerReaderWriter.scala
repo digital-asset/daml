@@ -19,7 +19,6 @@ import com.daml.ledger.participant.state.kvutils.{
 }
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.LedgerStateOperations.Value
-import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory,
@@ -27,15 +26,11 @@ import com.daml.ledger.validator.batch.{
   ConflictDetection
 }
 import com.daml.ledger.validator.caching.ImmutablesOnlyCacheUpdatePolicy
-import com.daml.ledger.validator.preexecution.{
-  LogAppenderPreExecutingCommitStrategy,
-  PostExecutionFinalizerWithFingerprintsFromValues,
-  PreExecutingSubmissionValidator,
-  PreExecutingValidatingCommitter
-}
+import com.daml.ledger.validator.preexecution._
 import com.daml.ledger.validator.{
   DefaultStateKeySerializationStrategy,
-  StateAccessingValidatingCommitter
+  StateKeySerializationStrategy,
+  ValidateAndCommit
 }
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -51,7 +46,7 @@ final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
-    committer: StateAccessingValidatingCommitter[Index],
+    validateAndCommit: ValidateAndCommit,
     metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
@@ -60,8 +55,7 @@ final class InMemoryLedgerReaderWriter(
       envelope: Bytes,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
-    committer
-      .commit(correlationId, envelope, participantId, ledgerStateAccess)
+    validateAndCommit(correlationId, envelope, participantId)
       .andThen {
         case Success(SubmissionResult.Acknowledged) =>
           dispatcher.signalNewHead(state.newHeadSinceLastWrite())
@@ -73,8 +67,6 @@ final class InMemoryLedgerReaderWriter(
   override def currentHealth(): HealthStatus = Healthy
 
   private val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
-
-  private val ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics)
 }
 
 object InMemoryLedgerReaderWriter {
@@ -93,39 +85,57 @@ object InMemoryLedgerReaderWriter {
       engine: Engine,
   )(implicit materializer: Materializer)
       extends ResourceOwner[KeyValueLedger] {
+
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[KeyValueLedger] = {
       val state = InMemoryState.empty
       for {
         dispatcher <- dispatcherOwner.acquire()
-        readerWriter <- new Owner(
-          ledgerId,
-          batchingLedgerWriterConfig,
-          preExecute,
-          participantId,
-          metrics,
-          timeProvider,
-          stateValueCache,
-          stateValueCacheForPreExecution,
-          dispatcher,
-          state,
-          engine
-        ).acquire()
+        readerWriter <- (if (preExecute)
+                           createBatchingOwner(state, dispatcher)
+                         else
+                           createPreExecutingOwner(state, dispatcher)).acquire()
       } yield readerWriter
     }
+
+    private def createPreExecutingOwner(
+        state: InMemoryState,
+        dispatcher: Dispatcher[Index]): PreExecutingOwner =
+      new PreExecutingOwner(
+        ledgerId,
+        participantId,
+        DefaultStateKeySerializationStrategy,
+        metrics,
+        timeProvider,
+        stateValueCacheForPreExecution,
+        dispatcher,
+        state,
+        engine)
+
+    private def createBatchingOwner(
+        state: InMemoryState,
+        dispatcher: Dispatcher[Index]): BatchingOwner =
+      new BatchingOwner(
+        ledgerId,
+        batchingLedgerWriterConfig,
+        participantId,
+        metrics,
+        timeProvider,
+        stateValueCache,
+        dispatcher,
+        state,
+        engine
+      )
   }
 
-  final class Owner(
+  final class BatchingOwner(
       ledgerId: LedgerId,
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
-      preExecute: Boolean,
       participantId: ParticipantId,
       metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
       stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
-      stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)] =
-        Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
@@ -135,64 +145,176 @@ object InMemoryLedgerReaderWriter {
         implicit executionContext: ExecutionContext
     ): Resource[KeyValueLedger] = {
       val keyValueCommitting =
-        new KeyValueCommitting(
-          engine,
-          metrics,
-          inStaticTimeMode = needStaticTimeModeFor(timeProvider))
+        createKeyValueCommitting(metrics, timeProvider, engine)
 
-      val committer = if (preExecute) {
-        val keySerializationStrategy = DefaultStateKeySerializationStrategy // TODO check if correct
-        val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
-        val valueToFingerprint: Option[Value] => Fingerprint =
-          _.getOrElse(FingerprintPlaceholder)
-        val validator = new PreExecutingSubmissionValidator[RawKeyValuePairs](
+      val committer =
+        createBatchedCommitter(
           keyValueCommitting,
+          batchingLedgerWriterConfig,
+          state,
           metrics,
-          keySerializationStrategy,
-          commitStrategy)
-        new PreExecutingValidatingCommitter(
-          () => timeProvider.getCurrentTime,
-          keySerializationStrategy,
-          validator,
-          valueToFingerprint,
-          new PostExecutionFinalizerWithFingerprintsFromValues[Index](valueToFingerprint),
-          stateValueCache = stateValueCacheForPreExecution,
-          ImmutablesOnlyCacheUpdatePolicy
-        )
-      } else {
-        val validator = BatchedSubmissionValidator[Index](
-          BatchedSubmissionValidatorFactory.defaultParametersFor(
-            batchingLedgerWriterConfig.enableBatching),
-          keyValueCommitting,
-          new ConflictDetection(metrics),
-          metrics
-        )
-        BatchedValidatingCommitter[Index](
-          () => timeProvider.getCurrentTime,
-          validator,
+          timeProvider,
           stateValueCache)
-      }
 
       val readerWriter =
-        new InMemoryLedgerReaderWriter(
-          participantId,
+        createInMemoryLedgerReaderWriter(
           ledgerId,
+          participantId,
           dispatcher,
           state,
           committer,
-          metrics
-        )
-      // If not pre-executing, we need to generate batched submissions for the validator in order to improve throughput.
+          metrics)
+
+      // We need to generate batched submissions for the validator in order to improve throughput.
       // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
       // in-memory committer.
       val ledgerWriter = newLoggingContext { implicit loggingContext =>
-        if (preExecute)
-          readerWriter
-        else BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
+        BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
       }
+
       Resource.successful(createKeyValueLedger(readerWriter, ledgerWriter))
     }
   }
+
+  final class PreExecutingOwner(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+      keySerializationStrategy: StateKeySerializationStrategy,
+      metrics: Metrics,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)] =
+        Cache.none,
+      dispatcher: Dispatcher[Index],
+      state: InMemoryState,
+      engine: Engine,
+  )(implicit materializer: Materializer)
+      extends ResourceOwner[KeyValueLedger] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext): Resource[KeyValueLedger] = {
+      val keyValueCommitting =
+        createKeyValueCommitting(metrics, timeProvider, engine)
+
+      val committer =
+        createPreExecutingCommitter(
+          keyValueCommitting,
+          keySerializationStrategy,
+          state,
+          metrics,
+          timeProvider,
+          stateValueCacheForPreExecution)
+
+      val readerWriter =
+        createInMemoryLedgerReaderWriter(
+          ledgerId,
+          participantId,
+          dispatcher,
+          state,
+          committer,
+          metrics)
+
+      Resource.successful(createKeyValueLedger(readerWriter, readerWriter))
+    }
+  }
+
+  private def createBatchedCommitter(
+      keyValueCommitting: KeyValueCommitting,
+      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
+      state: InMemoryState,
+      metrics: Metrics,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+  )(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): ValidateAndCommit = {
+    val validator = BatchedSubmissionValidator[Index](
+      BatchedSubmissionValidatorFactory.defaultParametersFor(
+        batchingLedgerWriterConfig.enableBatching),
+      keyValueCommitting,
+      new ConflictDetection(metrics),
+      metrics
+    )
+    val committer = BatchedValidatingCommitter[Index](
+      () => timeProvider.getCurrentTime,
+      validator,
+      stateValueCache)
+    def validateAndCommit(
+        correlationId: String,
+        submissionEnvelope: Bytes,
+        submittingParticipantId: ParticipantId) =
+      new InMemoryLedgerStateAccess(state, metrics).inTransaction { ledgerStateOperations =>
+        committer
+          .commit(correlationId, submissionEnvelope, submittingParticipantId, ledgerStateOperations)
+      }
+    validateAndCommit
+  }
+
+  private def createPreExecutingCommitter(
+      keyValueCommitting: KeyValueCommitting,
+      keySerializationStrategy: StateKeySerializationStrategy,
+      state: InMemoryState,
+      metrics: Metrics,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
+  )(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): ValidateAndCommit = {
+    val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
+    val valueToFingerprint: Option[Value] => Fingerprint =
+      _.getOrElse(FingerprintPlaceholder)
+    val validator = new PreExecutingSubmissionValidator[AnnotatedRawKeyValuePairs](
+      keyValueCommitting,
+      metrics,
+      keySerializationStrategy,
+      commitStrategy)
+    val committer = new PreExecutingValidatingCommitter(
+      () => timeProvider.getCurrentTime,
+      keySerializationStrategy,
+      validator,
+      valueToFingerprint,
+      new PostExecutionFinalizerWithFingerprintsFromValues[Index](valueToFingerprint),
+      stateValueCache = stateValueCacheForPreExecution,
+      ImmutablesOnlyCacheUpdatePolicy
+    )
+    def validateAndCommit(
+        correlationId: String,
+        submissionEnvelope: Bytes,
+        submittingParticipantId: ParticipantId) =
+      committer.commit(
+        correlationId,
+        submissionEnvelope,
+        submittingParticipantId,
+        new InMemoryLedgerStateAccess(state, metrics))
+    validateAndCommit
+  }
+
+  private def createInMemoryLedgerReaderWriter(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+      dispatcher: Dispatcher[Index],
+      state: InMemoryState,
+      validateAndCommit: ValidateAndCommit,
+      metrics: Metrics,
+  )(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
+  ) =
+    new InMemoryLedgerReaderWriter(
+      participantId,
+      ledgerId,
+      dispatcher,
+      state,
+      validateAndCommit,
+      metrics
+    )
+
+  private def createKeyValueCommitting(
+      metrics: Metrics,
+      timeProvider: TimeProvider,
+      engine: Engine,
+  ): KeyValueCommitting =
+    new KeyValueCommitting(engine, metrics, inStaticTimeMode = needStaticTimeModeFor(timeProvider))
 
   private def needStaticTimeModeFor(timeProvider: TimeProvider): Boolean =
     timeProvider != TimeProvider.UTC

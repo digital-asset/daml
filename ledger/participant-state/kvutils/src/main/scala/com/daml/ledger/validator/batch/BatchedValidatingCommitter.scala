@@ -53,27 +53,24 @@ class BatchedValidatingCommitter[LogResult](
     validator: BatchedSubmissionValidator[LogResult],
     stateValueCache: Cache[DamlStateKey, DamlStateValue],
     cacheUpdatePolicy: CacheUpdatePolicy
-)(implicit materializer: Materializer)
-    extends StateAccessingValidatingCommitter[LogResult] {
-  override def commit(
+)(implicit materializer: Materializer) {
+
+  def commit(
       correlationId: String,
       submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,
-      ledgerStateAccess: LedgerStateAccess[LogResult],
+      ledgerStateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
-    ledgerStateAccess
-      .inTransaction { ledgerStateOperations =>
-        val (ledgerStateReader, commitStrategy) = readerAndCommitStrategyFrom(ledgerStateOperations)
-        validator
-          .validateAndCommit(
-            submissionEnvelope,
-            correlationId,
-            now(),
-            submittingParticipantId,
-            ledgerStateReader,
-            commitStrategy
-          )
-      }
+    val (ledgerStateReader, commitStrategy) = readerAndCommitStrategyFrom(ledgerStateOperations)
+    validator
+      .validateAndCommit(
+        submissionEnvelope,
+        correlationId,
+        now(),
+        submittingParticipantId,
+        ledgerStateReader,
+        commitStrategy
+      )
       .transformWith {
         case Success(_) =>
           Future.successful(SubmissionResult.Acknowledged)
