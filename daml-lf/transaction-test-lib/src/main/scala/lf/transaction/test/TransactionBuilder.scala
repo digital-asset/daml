@@ -62,7 +62,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
         .toSeq
     val txVersion =
       VersionTimeline
-        .latestWhenAllPresent(TransactionVersions.SupportedStableVersions.min, nodesVersions: _*)
+        .latestWhenAllPresent(TransactionVersions.SupportedStableOutputVersions.min, nodesVersions: _*)
     VersionedTransaction(txVersion, GenTransaction(nodes.result(), roots.result()))
   }
 
@@ -122,7 +122,7 @@ object TransactionBuilder {
   private val KeyWithMaintainers = transaction.Node.KeyWithMaintainers
 
   def apply(): TransactionBuilder =
-    TransactionBuilder(TransactionVersions.SupportedStableVersions.min)
+    TransactionBuilder(TransactionVersions.SupportedStableOutputVersions.min)
 
   def apply(txVersion: TransactionVersion): TransactionBuilder =
     new TransactionBuilder(_ => txVersion)
@@ -131,7 +131,7 @@ object TransactionBuilder {
     def pkgTxVersion(pkgId: Ref.PackageId) = {
       import VersionTimeline.Implicits._
       VersionTimeline.latestWhenAllPresent(
-        TransactionVersions.SupportedStableVersions.min,
+        TransactionVersions.SupportedStableOutputVersions.min,
         pkgLangVersion(pkgId)
       )
     }
@@ -238,7 +238,7 @@ object TransactionBuilder {
   // not valid transactions.
   val Empty: Tx.Transaction =
     VersionedTransaction(
-      TransactionVersions.SupportedStableVersions.min,
+      TransactionVersions.SupportedStableOutputVersions.min,
       GenTransaction(HashMap.empty, ImmArray.empty),
     )
   val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Empty)

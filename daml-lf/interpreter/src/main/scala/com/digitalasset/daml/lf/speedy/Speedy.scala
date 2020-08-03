@@ -610,7 +610,7 @@ private[lf] object Speedy {
         expr = expr,
         globalCids = Set.empty,
         committers = Set.empty,
-        outputTransactionVersions = TransactionVersions.SupportedOutputDevVersions,
+        outputTransactionVersions = TransactionVersions.SupportedDevOutputVersions,
       )
 
     @throws[PackageNotFound]
