@@ -2851,7 +2851,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyFound
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
         ⇓ᵤ
-     Ok ⟨'contractId': cid, 'contract': vₜ⟩ ‖ (st; keys)
+     Ok ⟨'ContractId': cid, 'contract': vₜ⟩ ‖ (st; keys)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Err t
@@ -2864,7 +2864,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyNotFound
      'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
        ⇓ᵤ
-     Ok ('None' @(Contract:Id Mod:T), ε) ‖ (st; keys)
+     Ok ('None' @('ContractId' Mod:T), ε) ‖ (st; keys)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  vₘ
@@ -2873,7 +2873,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyFound
      'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
        ⇓ᵤ
-     Ok ('Some' @(Contract:Id Mod:T) cid, ε) ‖ (st; keys)
+     Ok ('Some' @('ContractId' Mod:T) cid, ε) ‖ (st; keys)
 
      LitTimestamp is the current ledger time
    —————————————————————————————————————————————————————————————————————— EvUpdGetTime
