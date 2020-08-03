@@ -30,6 +30,12 @@
 -- @ERROR Aborted: EvExpRecUpdErr2_1 OK
 -- @ERROR Aborted: EvExpRecUpdErr2_2 OK
 -- @ERROR Aborted: EvExpRecUpdErr2_3 OK
+-- @ERROR Aborted: EvExpFoldrErr1 OK
+-- @ERROR Aborted: EvExpFoldrErr2 OK
+-- @ERROR Aborted: EvExpFoldrErr3 OK
+-- @ERROR Aborted: EvExpFoldlErr1 OK
+-- @ERROR Aborted: EvExpFoldlErr2 OK
+-- @ERROR Aborted: EvExpFoldlErr3 OK
 -- @ERROR Aborted: EvExpUpPureErr OK
 -- @ERROR Aborted: EvExpUpBindErr OK
 -- @ERROR Aborted: EvExpUpCreateErr OK
@@ -170,6 +176,42 @@ evExpRecUpdErr2_3 = scenario do
 -- Can't test LF struct evaluation order from DAML, since we purposely avoid
 -- evaluation of struct fields during typeclass desugaring, and we don't have
 -- a way to construct LF structs directly.
+
+evExpFoldrErr1 = scenario do
+  pure (foldr f 0 [1, 2])
+  where
+    f 2 0 = error "EvExpFoldrErr1 OK"
+    f _ _ = error "EvExpFoldrErr1 failed"
+
+evExpFoldrErr2 = scenario do
+  pure (foldr f 0 [1, 2])
+  where
+    f 1 = error "EvExpFoldrErr2 OK"
+    f _ = error "EvExpFoldrErr2 failed"
+
+evExpFoldrErr3 = scenario do
+  pure (foldr f identity [1] (error "EvExpFoldrErr3 failed"))
+  where
+    f: Int -> (Int -> Int) -> (Int -> Int)
+    f _ = error "EvExpFoldrErr3 OK"
+
+evExpFoldlErr1 = scenario do
+  pure (foldl f 0 [1, 2])
+  where
+    f 0 1 = error "EvExpFoldlErr1 OK"
+    f _ _ = error "EvExpFoldlErr1 failed"
+
+evExpFoldlErr2 = scenario do
+  pure (foldl f 0 [1, 2])
+  where
+    f 0 = error "EvExpFoldlErr2 OK"
+    f _ = error "EvExpFoldlErr2 failed"
+
+evExpFoldlErr3 = scenario do
+  pure (foldr f identity [1] (error "EvExpFoldlErr3 failed"))
+  where
+    f: Int -> (Int -> Int) -> (Int -> Int)
+    f _ = error "EvExpFoldlErr3 OK"
 
 evExpUpPureErr = scenario do
   let _ : Update () = pure (error "EvExpUpPureErr OK")
