@@ -145,7 +145,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]])
     : (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder()
+    val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
     val creation = create(cid)
     val eid = txBuilder.add(creation)
