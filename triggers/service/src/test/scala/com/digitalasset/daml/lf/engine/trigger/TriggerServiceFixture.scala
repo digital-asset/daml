@@ -33,6 +33,7 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
+import scalaz.syntax.std.option._
 
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -136,24 +137,26 @@ object TriggerServiceFixture {
     } yield a
 
     fa.transformWith { ta =>
-      Future
-        .sequence(
-          Seq(
-            serviceF.flatMap {
-              case (_, system) =>
-                system ! Stop
-                system.whenTerminated
-            },
-            ledgerF.map(_._1.close()),
-            toxiproxyF.map {
-              case (proc, _) =>
-                proc.destroy()
-                proc.exitValue() // destroy is async
-            },
-          ))
-        .flatMap(_ => Future fromTry ta)
+      for {
+        se <- optErr(serviceF.flatMap {
+          case (_, system) =>
+            system ! Stop
+            system.whenTerminated
+        })
+        le <- optErr(ledgerF.map(_._1.close()))
+        te <- optErr(toxiproxyF.map {
+          case (proc, _) =>
+            proc.destroy()
+            proc.exitValue() // destroy is async
+        })
+        result <- (ta.failed.toOption orElse se orElse le orElse te)
+          .cata(Future.failed, Future fromTry ta)
+      } yield result
     }
   }
+
+  private def optErr(fut: Future[_])(implicit ec: ExecutionContext): Future[Option[Throwable]] =
+    fut transform (te => scala.util.Success(te.failed.toOption))
 
   private def ledgerConfig(
       ledgerPort: Port,
