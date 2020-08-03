@@ -756,7 +756,8 @@ private[lf] object SBuiltin {
       with SomeArrayEquals {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       machine.returnValue = args.get(0) match {
         case SRecord(id2, fields, values) =>
           if (id != id2) {
