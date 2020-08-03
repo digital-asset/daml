@@ -119,6 +119,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings",
