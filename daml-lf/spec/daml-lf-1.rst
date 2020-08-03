@@ -2672,6 +2672,12 @@ as described by the ledger model::
        ⇓ᵤ
      Ok (cid, tr) ‖ (st₁, keys₁)
 
+     cid ∉ dom(st₀)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercMissing
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀; keys₀)
+       ⇓ᵤ
+     Err "Exercise on unknown contract"
+
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
@@ -2768,6 +2774,12 @@ as described by the ledger model::
        ⇓ᵤ
      Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
 
+     cid ∉ dom(st₀)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActorsMissing
+     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+       ⇓ᵤ
+     Err "Exercise on unknown contract"
+
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
@@ -2784,6 +2796,12 @@ as described by the ledger model::
      'exercise' Mod:T.Ch cid vₚ v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur
    —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActors
      'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur
+
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchMissing
+     'fetch' @Mod:T cid ‖ (st; keys)
+       ⇓ᵤ
+     Err "Exercise on unknown contract"
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
