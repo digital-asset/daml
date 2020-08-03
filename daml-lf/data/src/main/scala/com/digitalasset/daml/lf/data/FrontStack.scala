@@ -76,10 +76,9 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
         case FQPrepend(head, tail) =>
           if (head.length > 1) {
             Some((head.head, new FrontStack(FQPrepend(head.tail, tail), length - 1)))
-          } else if (head.length > 0) {
-            Some((head.head, new FrontStack(tail, length - 1)))
           } else {
-            throw new RuntimeException(s"FrontStack had FQPrepend with non-empty head: $head")
+            // NOTE(MH): We maintain the invariant that `head` is never empty.
+            Some((head.head, new FrontStack(tail, length - 1)))
           }
       }
     } else {
@@ -151,7 +150,11 @@ object FrontStack extends FrontStackInstances {
   def empty[A]: FrontStack[A] = emptySingleton
 
   def apply[A](xs: ImmArray[A]): FrontStack[A] =
-    new FrontStack(FQPrepend(xs, FQEmpty), length = xs.length)
+    if (xs.length > 0) {
+      new FrontStack(FQPrepend(xs, FQEmpty), length = xs.length)
+    } else {
+      empty
+    }
 
   def apply[T](element: T): FrontStack[T] =
     new FrontStack(FQCons(element, FQEmpty), length = 1)
