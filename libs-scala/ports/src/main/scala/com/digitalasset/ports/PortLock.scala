@@ -13,6 +13,8 @@ import java.nio.channels.{
 }
 import java.nio.file.{Files, Path, Paths}
 
+import scala.util.control.NonFatal
+
 object PortLock {
 
   // We can't use `sys.props("java.io.tmpdir")` because Bazel changes this for each test run.
@@ -45,6 +47,10 @@ object PortLock {
         channel.close()
         file.close()
         Left(FailedToLock(port))
+      case NonFatal(e) =>
+        channel.close()
+        file.close()
+        throw e
     }
   }
 
