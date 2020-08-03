@@ -110,9 +110,10 @@ object TriggerServiceFixture {
         minRestartInterval,
         ServiceConfig.DefaultMaxRestartInterval,
       )
+      servicePort = LockedFreePort.find()
       service <- ServiceMain.startServer(
         host.getHostName,
-        Port(0).value,
+        servicePort.port.value,
         ledgerConfig,
         restartConfig,
         encodedDar,
