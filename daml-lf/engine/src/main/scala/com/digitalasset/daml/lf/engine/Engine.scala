@@ -401,19 +401,6 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
     */
   def compiledPackages(): CompiledPackages = compiledPackages
 
-  private[engine] def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
-    pkg.modules.values
-      .collectFirst {
-        case Module(name, _, lv, _) if !config.languageVersions.contains(lv) =>
-          ResultError(
-            Error(
-              s"Disallowed language version in module $name of package $pkgId: " +
-                s"Expected value version between ${config.languageVersions.min} and ${config.languageVersions.max} but got $lv"
-            )
-          )
-      }
-      .getOrElse(compiledPackages.addPackage(pkgId, pkg))
-
   /** This function can be used to give a package to the engine pre-emptively,
     * rather than having the engine to ask about it through
     * [[ResultNeedPackage]].
@@ -439,6 +426,20 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
     compiledPackages.stackTraceMode =
       if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
   }
+
+  private[engine] def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
+    pkg.modules.values
+      .collectFirst {
+        case Module(name, _, lv, _) if !config.languageVersions.contains(lv) =>
+          ResultError(
+            Error(
+              s"Disallowed language version in module $name of package $pkgId: " +
+                s"Expected value version between ${config.languageVersions.min} and ${config.languageVersions.max} but got $lv"
+            )
+          )
+      }
+      .getOrElse(compiledPackages.addPackage(pkgId, pkg))
+
 }
 
 object Engine {
