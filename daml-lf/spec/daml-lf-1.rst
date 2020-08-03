@@ -2672,9 +2672,9 @@ as described by the ledger model::
        ⇓ᵤ
      Ok (cid, tr) ‖ (st₁, keys₁)
 
-     cid ∉ dom(st₀)
+     cid ∉ dom(st)
    —————————————————————————————————————————————————————————————————————— EvUpdExercMissing
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀; keys₀)
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st; keys)
        ⇓ᵤ
      Err "Exercise on unknown contract"
 
@@ -2774,9 +2774,9 @@ as described by the ledger model::
        ⇓ᵤ
      Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
 
-     cid ∉ dom(st₀)
+     cid ∉ dom(st)
    —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActorsMissing
-     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise_without_actors' Mod:T.Ch cid v ‖ (st, keys)
        ⇓ᵤ
      Err "Exercise on unknown contract"
 
