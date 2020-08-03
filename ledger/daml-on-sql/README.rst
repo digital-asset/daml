@@ -52,20 +52,21 @@ The core processes necessary to run a *DAML on SQL* deployment are:
 and communicates with PostgreSQL via JDBC to persist transactions, keep
 track of active contracts, store compiled DAML packages, and so on.
 
-Server software requirements
-============================
+Server hardware and software requirements
+=========================================
 
 *DAML on SQL* is provided as a self-contained JAR file, containing the
 application and all dependencies. The application is routinely tested with
-OpenJDK 8 on Ubuntu 16.04, macOS 10.15, and Windows Server 2016.
+OpenJDK 8 on an x86 architecture, with Ubuntu 16.04, macOS 10.15, and Windows
+Server 2016.
 
-In production, we recommend running in a Linux environment. Core requirements
-in such a situation include:
+In production, we recommend running on an x86 architecture in a Linux
+environment. Core requirements in such a situation include:
 
 - a Java SE Runtime Environment such as OpenJDK JRE
   - the minimum supported Java version is 8
-- OpenSSL 1.1 or later
-- glibc
+- OpenSSL 1.1 or later, made available to the above JRE
+- glibc, made available to the above JRE
 
 As a Java-based application, *DAML on SQL* can work on other operating systems
 and architectures supporting a Java Runtime Environment. However, such an
