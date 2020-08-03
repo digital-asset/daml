@@ -475,10 +475,11 @@ jobs:
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail
+          pr_handler=$(head -1 release/rotation | awk "${print $1}")
           curl -XPOST \
                -i \
                -H 'Content-Type: application/json' \
-               --data "{\"text\":\"Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
+               --data "{\"text\":\"<@${pr_handler}> Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
                $(Slack.team-daml)
       - template: ci/tell-slack-failed.yml
         parameters:
@@ -803,12 +804,13 @@ jobs:
           }
 
           tell_daml() {
-              local message
+              local message, pr_handler
               message=$1
+              pr_handler=$(head -1 release/rotation | awk "${print $1}")
               curl -XPOST \
                    -i \
                    -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/$(pr.num)|#$(pr.num)> has completed with status ${message}.\"}" \
+                   --data "{\"text\":\"<@${pr_handler}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/$(pr.num)|#$(pr.num)> has completed with status ${message}.\"}" \
                    $(Slack.team-daml)
           }
 
