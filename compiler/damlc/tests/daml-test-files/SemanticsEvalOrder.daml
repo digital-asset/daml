@@ -193,7 +193,7 @@ evExpFoldrErr3 = scenario do
   pure (foldr f identity [1] (error "EvExpFoldrErr3 failed"))
   where
     f: Int -> (Int -> Int) -> (Int -> Int)
-    f _ = error "EvExpFoldrErr3 OK"
+    f _ _ = error "EvExpFoldrErr3 OK"
 
 evExpFoldlErr1 = scenario do
   pure (foldl f 0 [1, 2])
@@ -210,8 +210,8 @@ evExpFoldlErr2 = scenario do
 evExpFoldlErr3 = scenario do
   pure (foldl f identity [1] (error "EvExpFoldlErr3 failed"))
   where
-    f: Int -> (Int -> Int) -> (Int -> Int)
-    f _ = error "EvExpFoldlErr3 OK"
+    f: (Int -> Int) -> Int -> (Int -> Int)
+    f _ _ = error "EvExpFoldlErr3 OK"
 
 evExpUpPureErr = scenario do
   let _ : Update () = pure (error "EvExpUpPureErr OK")
