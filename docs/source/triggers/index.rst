@@ -207,7 +207,7 @@ the corresponding ``Original`` or ``Subscriber`` no longer exists.
    :start-after: -- ARCHIVE_COPIES_BEGIN
    :end-before: -- ARCHIVE_COPIES_END
 
-To send the corresponding archve commands to the ledger, we iterate
+To send the corresponding archive commands to the ledger, we iterate
 over ``archiveCopies`` using ``forA`` and call the ``emitCommands``
 function. Each call to ``emitCommands`` takes a list of commands which
 will be submitted as a single transaction. The actual commands can be
