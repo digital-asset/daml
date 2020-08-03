@@ -208,7 +208,7 @@ evExpFoldlErr2 = scenario do
     f _ = error "EvExpFoldlErr2 failed"
 
 evExpFoldlErr3 = scenario do
-  pure (foldr f identity [1] (error "EvExpFoldlErr3 failed"))
+  pure (foldl f identity [1] (error "EvExpFoldlErr3 failed"))
   where
     f: Int -> (Int -> Int) -> (Int -> Int)
     f _ = error "EvExpFoldlErr3 OK"
