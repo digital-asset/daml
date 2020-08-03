@@ -32,20 +32,7 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     s"[${ppKont(ks.get(ks.size - 1))}... #${ks.size()}]" // head kont & size
   }
 
-  def ppKont(k: Kont): String = k match {
-    case KFinished => "KFinished"
-    case _: KArg => "KArg"
-    case _: KFun => "KFun"
-    case _: KBuiltin => "KBuiltin"
-    case _: KPap => "KPap"
-    case _: KPushTo => "KPushTo"
-    case _: KCacheVal => "KCacheVal"
-    case _: KLocation => "KLocation"
-    case _: KMatch => "KMatch"
-    case _: KCatch => "KCatch"
-    case _: KLabelClosure => "KLabelClosure"
-    case _: KLeaveClosure => "KLeaveClosure"
-  }
+  def ppKont(k: Kont): String = k.getClass.getSimpleName
 
   def pp(v: SELoc) = v match {
     case SELocS(n) => s"S#$n"
@@ -70,25 +57,15 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     case SELocation(_, exp) => s"LOC(${pp(exp)})"
     case SELet(rhss, body) => s"let (${commas(rhss.map(pp))}) in ${pp(body)}"
     case SECase(scrut, _) => s"case ${pp(scrut)} of..."
-    case SEBuiltinRecursiveDefinition(_) => "<SEBuiltinRecursiveDefinition...>"
-    case SECatch(_, _, _) => "<SECatch...>" //not seen one yet
-    case SEAbs(_, _) => "<SEAbs...>" // will never get these on a running machine
-    case SELabelClosure(_, _) => "<SELabelClosure...>"
-    case SEImportValue(_) => "<SEImportValue...>"
-    case SEWronglyTypeContractId(_, _, _) => "<SEWronglyTypeContractId...>"
+    case _ => "<" + e.getClass.getSimpleName + "...>"
   }
 
   def pp(v: SValue): String = v match {
     case SInt64(n) => s"$n"
     case SBool(b) => s"$b"
     case SPAP(_, args, arity) => s"PAP(${args.size}/$arity)"
-    case SToken => "SToken"
     case SText(s) => s"'$s'"
-    case SParty(_) => "<SParty>"
-    case SStruct(_, _) => "<SStruct...>"
-    case SUnit => "SUnit"
-    case SList(_) => "SList"
-    case _ => "<Unknown-value>" // TODO: complete cases
+    case _ => "<" + v.getClass.getSimpleName + "...>"
   }
 
   def pp(prim: Prim): String = prim match {
