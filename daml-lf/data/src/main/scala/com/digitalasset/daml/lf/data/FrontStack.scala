@@ -77,7 +77,7 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
           if (head.length > 1) {
             Some((head.head, new FrontStack(FQPrepend(head.tail, tail), length - 1)))
           } else {
-            // NOTE(MH): We maintain the invariant that `head` is never empty.
+            // NOTE: We maintain the invariant that `head` is never empty.
             Some((head.head, new FrontStack(tail, length - 1)))
           }
       }
