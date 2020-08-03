@@ -2776,7 +2776,7 @@ as described by the ledger model::
 
      cid ∉ dom(st₀)
    —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActorsMissing
-     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      Err "Exercise on unknown contract"
 
