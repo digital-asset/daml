@@ -13,7 +13,7 @@ import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy.{Machine, SpeedyHungry}
+import com.daml.lf.speedy.Speedy.{KFoldl, Machine, SpeedyHungry}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SValue.{SValue => SV}
@@ -412,6 +412,18 @@ private[lf] object SBuiltin {
         case _ =>
           throw SErrorCrash(s"type mismatch textSHA256: $args")
       }
+    }
+  }
+
+  final case object SBFoldl extends SBuiltin(3) {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
+      val func = SEValue(args.get(0))
+      val init = args.get(1)
+      val list = args.get(2).asInstanceOf[SList].list
+      machine.pushKont(KFoldl(func, list, machine.frame, machine.actuals, machine.env.size))
+      machine.returnValue = init
     }
   }
 

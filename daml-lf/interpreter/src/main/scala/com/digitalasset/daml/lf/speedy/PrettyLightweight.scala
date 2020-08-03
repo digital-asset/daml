@@ -43,6 +43,7 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     case _: KLocation => "KLocation"
     case _: KMatch => "KMatch"
     case _: KCatch => "KCatch"
+    case _: KFoldl => "KFoldl"
     case _: KLabelClosure => "KLabelClosure"
     case _: KLeaveClosure => "KLeaveClosure"
   }

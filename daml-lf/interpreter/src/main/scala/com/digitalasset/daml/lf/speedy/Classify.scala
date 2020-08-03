@@ -37,6 +37,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
       var kbuiltin: Int = 0,
       var kpap: Int = 0,
       var kpushto: Int = 0,
+      var kfoldl: Int = 0,
       var kcacheval: Int = 0,
       var klocation: Int = 0,
       var kmatch: Int = 0,
@@ -122,6 +123,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
       case _: KBuiltin => counts.kbuiltin += 1
       case _: KPap => counts.kpap += 1
       case _: KPushTo => counts.kpushto += 1
+      case _: KFoldl => counts.kfoldl += 1
       case _: KCacheVal => counts.kcacheval += 1
       case _: KLocation => counts.klocation += 1
       case _: KMatch => counts.kmatch += 1

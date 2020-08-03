@@ -7,7 +7,7 @@ package speedy
 import java.util
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
@@ -896,6 +896,30 @@ private[lf] object Speedy {
       machine.restoreEnv(frame, actuals, envSize)
       to.add(v)
       machine.ctrl = next
+    }
+  }
+
+  private[speedy] final case class KFoldl(
+      func: SEValue,
+      var list: FrontStack[SValue],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+    ) extends Kont with SomeArrayEquals {
+    def execute(acc: SValue, machine: Machine) = {
+      list.pop match {
+        case None =>
+          machine.returnValue = acc
+        case Some((item, rest)) =>
+          machine.restoreEnv(frame, actuals, envSize)
+          // NOTE: We are "recycling" the current continuation with the
+          // remainder of the list to avoid allocating a new continuation.
+          list = rest
+          machine.pushKont(this)
+          // TODO(MH): This looks like it has some potential for further
+          // performance gains once the AST nodes related to ANF have landed.
+          machine.ctrl = SEAppAtomicFun(func, Array(SEValue(acc), SEValue(item)))
+      }
     }
   }
 
