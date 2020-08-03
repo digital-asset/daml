@@ -475,10 +475,11 @@ jobs:
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail
+          pr_handler=$(head -1 release/rotation | awk "${print $1}")
           curl -XPOST \
                -i \
                -H 'Content-Type: application/json' \
-               --data "{\"text\":\"Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
+               --data "{\"text\":\"<@${pr_handler}> Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
                $(Slack.team-daml)
       - template: ci/tell-slack-failed.yml
         parameters:
@@ -523,7 +524,14 @@ jobs:
         # using basic auth format:
         # https://username:password@github.com/:user/:repo.git
         # This series of pipes extracts the `username:password` part.
-        AUTH="$(git config remote.origin.url | grep -o "://.*:.*@" | cut -c4- | rev | cut -c2- | rev)"
+        #
+        # It looks like in some cases the credentials get stored separately as
+        # a header instead.
+        if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
+            AUTH="$header"
+        else
+            AUTH="Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev)"
+        fi
 
         git checkout origin/master
         BRANCH=update-compat-versions-for-$(release_tag)
@@ -541,7 +549,7 @@ jobs:
             -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
         git push origin $BRANCH:$BRANCH
         curl -H "Content-Type: application/json" \
-             -u $AUTH \
+             -H "$AUTH" \
              --silent \
              --include \
              --location \
@@ -803,12 +811,13 @@ jobs:
           }
 
           tell_daml() {
-              local message
+              local message, pr_handler
               message=$1
+              pr_handler=$(head -1 release/rotation | awk "${print $1}")
               curl -XPOST \
                    -i \
                    -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/$(pr.num)|#$(pr.num)> has completed with status ${message}.\"}" \
+                   --data "{\"text\":\"<@${pr_handler}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/$(pr.num)|#$(pr.num)> has completed with status ${message}.\"}" \
                    $(Slack.team-daml)
           }
 
