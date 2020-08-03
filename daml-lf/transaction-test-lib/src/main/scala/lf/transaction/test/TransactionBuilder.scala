@@ -62,7 +62,9 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
         .toSeq
     val txVersion =
       VersionTimeline
-        .latestWhenAllPresent(TransactionVersions.SupportedStableOutputVersions.min, nodesVersions: _*)
+        .latestWhenAllPresent(
+          TransactionVersions.SupportedStableOutputVersions.min,
+          nodesVersions: _*)
     VersionedTransaction(txVersion, GenTransaction(nodes.result(), roots.result()))
   }
 

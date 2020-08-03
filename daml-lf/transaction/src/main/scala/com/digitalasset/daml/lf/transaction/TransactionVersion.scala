@@ -117,8 +117,8 @@ private[lf] object TransactionVersions
   }
 
   def asVersionedTransaction(
-    tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
-    supportedVersions: VersionRange[TransactionVersion] = SupportedDevOutputVersions,
+      tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevOutputVersions,
   ): Either[String, Transaction.Transaction] =
     for {
       v <- assignVersion(tx, supportedVersions)
@@ -126,8 +126,8 @@ private[lf] object TransactionVersions
 
   @throws[IllegalArgumentException]
   def assertAsVersionedTransaction(
-    tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
-    supportedVersions: VersionRange[TransactionVersion] = SupportedDevOutputVersions,
+      tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevOutputVersions,
   ): Transaction.Transaction =
     data.assertRight(asVersionedTransaction(tx, supportedVersions))
 
