@@ -12,26 +12,30 @@ Setup PostgreSQL and run
 Before starting, you need to perform the following steps:
 
 - create an initially empty PostgresSQL database that *DAML on SQL* can access
-- have a database user for *DAML on SQL* that has authority to execute DDL operations
+- create a database user for *DAML on SQL* that has authority to execute DDL
+  operations
 
-This is because *DAML on SQL* manages its own database schema,
-applying migrations if necessary when upgrading versions.
+This is because *DAML on SQL* manages its own database schema, applying
+migrations if necessary when upgrading versions.
 
 To specify the PostgreSQL instance you wish to connect, use the
-``--sql-backend-jdbcurl <value>`` command line option, where ``<value>``
-is a valid JDBC URL containing the username, password and database
-name to connect to.
+``--sql-backend-jdbcurl <value>`` command line option, where ``<value>`` is a
+valid JDBC URL containing the username, password and database name to connect
+to (for example, ``jdbc:postgresql://localhost/test?user=fred&password=secret``).
 
-Here is an example for such a URL: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
+You will also need to provide a ledger ID with the `--ledgerid` flag, which must
+be the same upon restart. This value is expected in many API endpoints, to
+ensure ledger clients are connecting to the correct ledger.
 
-Due to possible conflicts between the ``&`` character and various terminal
-shells, we recommend quoting the JDBC URL like so:
+Due to possible conflicts between the ``&`` character and various shells, we
+recommend quoting the JDBC URL in the terminal, as follows:
 
 .. code-block:: none
 
-  $ java -jar dam-on-sql-<version>.jar --sql-backend-jdbcurl 'jdbc:postgresql://localhost/test?user=fred&password=secret'
+  $ java -jar daml-on-sql-<version>.jar --ledgerid=test --sql-backend-jdbcurl='jdbc:postgresql://localhost/test?user=fred&password=secret'
 
-If you're not familiar with JDBC URLs, see the `PostgreSQL JDBC docs for more information <https://jdbc.postgresql.org/documentation/head/connect.html>`__.
+If you are not familiar with JDBC URLs, we recommend reading the `PostgreSQL JDBC documentation <https://jdbc.postgresql.org/documentation/head/connect.html>`__
+for more information.
 
 Architecture and availability
 *****************************
@@ -48,50 +52,111 @@ The core processes necessary to run a *DAML on SQL* deployment are:
 and communicates with PostgreSQL via JDBC to persist transactions, keep
 track of active contracts, store compiled DAML packages, and so on.
 
+Server hardware and software requirements
+=========================================
+
+*DAML on SQL* is provided as a self-contained JAR file, containing the
+application and all dependencies. The application is routinely tested with
+OpenJDK 8 on an x86 architecture, with Ubuntu 16.04, macOS 10.15, and Windows
+Server 2016.
+
+In production, we recommend running on an x86 architecture in a Linux
+environment. Core requirements in such a situation include:
+
+- a Java SE Runtime Environment such as OpenJDK JRE
+  - the minimum supported Java version is 8
+- OpenSSL 1.1 or later, made available to the above JRE
+- glibc, made available to the above JRE
+
+As a Java-based application, *DAML on SQL* can work on other operating systems
+and architectures supporting a Java Runtime Environment. However, such an
+environment will not have been tested and may cause issues.
+
 Core architecture considerations
 ================================
 
-A very important point to make is that the backing PostgreSQL server performs a
-lot of work which is both CPU- and IO-intensive: all (valid) Ledger API requests
-will eventually hit the database. At the same time, the *DAML on SQL* server has to
-have available resources to validate requests, evaluate commands and prepare responses.
-While the PostgreSQL schema is designed to be as efficient as possible, practical
-experience has shown that having **dedicated computation and memory resources for the
-two core components** (the *DAML on SQL* server and the PostgreSQL server) allows the two
-to run without interfering with each other. Depending on the kind of
-deployment you wish to make, this can be achieved with containerization, virtualization
-or simply using physically different machines. Still, the Ledger API communicates
-abundantly with the PostgreSQL server and many Ledger API requests need to go all
-the way to persist information on the database. To reduce the latency necessary to
-serve outstanding requests, **the *DAML on SQL* server and PostgreSQL server should be
-physically co-located**.
+The backing PostgreSQL server performs a lot of work which is both CPU- and
+IO-intensive: all (valid) Ledger API requests will eventually hit the database.
+At the same time, the *DAML on SQL* server has to have available resources to
+validate requests, evaluate commands and prepare responses. While the PostgreSQL
+schema is designed to be as efficient as possible, practical experience has
+shown that having **dedicated computation and memory resources for the two core
+components** (the *DAML on SQL* server and the PostgreSQL server) allows the two
+to run without interfering with each other. Depending on the kind of deployment
+you wish to make, this can be achieved with containerization, virtualization or
+simply using physically different machines. Still, the Ledger API communicates
+abundantly with the PostgreSQL server and many Ledger API requests need to go
+all the way to persist information on the database. To reduce the latency
+necessary to serve outstanding requests, **the *DAML on SQL* server and
+PostgreSQL server should be physically co-located**.
 
 Core availability considerations
 ================================
 
-In order to address availability concerns, it's important to understand what each of the
-core components do and how they interact with each other, in particular regarding state
-and consistency.
+In order to address availability concerns, it's important to understand what
+each of the core components do and how they interact with each other, in
+particular regarding state and consistency.
 
-Having two *DAML on SQL* servers running on top of a single PostgreSQL server can lead to
-undefined (and likely broken) behavior. For this reason, it's important to maintain a strict
-1:1 relationship between a running *DAML on SQL* server and a running PostgreSQL server.
-Note that using PostgreSQL in a high-availability configuration does not allow you to run
-additional *DAML on SQL* servers.
+Having two *DAML on SQL* servers running on top of a single PostgreSQL server
+can lead to undefined (and likely broken) behavior. For this reason, it's
+important to maintain a strict 1:1 relationship between a running *DAML on SQL
+* server and a running PostgreSQL server. Note that using PostgreSQL in a high-
+availability configuration does not allow you to run additional *DAML on SQL*
+servers.
 
-Downtime for the *DAML on SQL* server can be minimized using a watchdog or orchestration
-system taking care of evaluating its health of the core components and ensuring its
-availability. The Ledger API implementation of *DAML on SQL* exposes the standard gRPC
-health checkpoint that can be used to evaluate the health status of the Ledger API
-component. More information on the endpoint can be found at the
-`documentation for gRPC <https://github.com/grpc/grpc/blob/1.29.0/doc/health-checking.md>`__.
+Downtime for the *DAML on SQL* server can be minimized using a watchdog or
+orchestration system taking care of evaluating its health of the core components
+and ensuring its availability. The Ledger API implementation of *DAML on SQL*
+exposes the standard gRPC health checkpoint that can be used to evaluate the
+health status of the Ledger API component. More information on the endpoint can
+be found at the `documentation for gRPC <https://github.com/grpc/grpc/blob/1.29.0/doc/health-checking.md>`__.
 
-JVM
-===
+When overloaded, the ledger will attempt to refuse additional requests, instead
+responding with a ``RESOURCE_EXHAUSTED`` error. This error represents
+*backpressure*, signaling to the client that they should back off and try again
+later. Well-behaving clients will therefore allow the ledger to catch up with
+outstanding tasks and resume normal operations.
 
-*DAML on SQL* is regularly tested to run against OpenJDK 1.8.0. Although you can try to
-use a subsequent version or a JVM from a different vendor, please note that caveats may
-apply and that your specific deployment may not be supported.
+Scale the ledger and associated services
+========================================
+
+*DAML on SQL* provides multiple configuration parameters to help tune for
+availability and performance.
+
+- ``--max-inbound-message-size``.
+  You can use this parameter to increase (or decrease) the maximum size of a
+  GRPC message. Often, DARs or transactions can become larger than the default
+  of 4194304 bytes (4 MB). Increasing this will allow for larger transactions,
+  at the expense of processing time.
+
+- ``--events-page-size``.
+  When streaming transactions, the API server will query the database in pages
+  defaulting to a size of 1000. Increasing the page size can increase
+  performance on servers with enough available memory.
+
+- ``--max-commands-in-flight``.
+  Increasing the maximum number of commands in flight will allow the API server
+  to support more concurrent synchronous writes *per party*, at the expense of
+  greater CPU and memory usage. The default maximum is 256, after which clients
+  will receive a ``RESOURCE_EXHAUSTED`` error.
+
+  Clients can also increase the number of concurrent requests by using the
+  asynchronous endpoints for command submission and completion.
+
+- ``--max-parallel-submissions``.
+  Increasing the maximum number of parallel submissions from the default will
+  allow for a larger queue of commands, but will also increase the CPU and
+  memory demands of the ledger. The default maximum is 512, after which clients
+  will receive a ``RESOURCE_EXHAUSTED`` error.
+
+- ``--max-lf-value-translation-cache-entries``.
+  In production, it's typical for many requests to be similar, resulting in
+  the transaction verification and translation layer repeating a lot of work.
+  Specifying a value for the translation cache allows the results of some of
+  this repetitive work to be cached. The value represents the number of cached
+  entries.
+
+  This parameter can be tuned by observing its metrics, described below.
 
 Security and privacy
 ********************
@@ -117,7 +182,7 @@ server's identity and encrypt the communication channel over which the Ledger AP
 requests and responses are sent.
 
 To enable TLS, you need to specify the private key for your server and the certificate
-chain via ``java -jar dam-on-sql-<version>.jar --pem server.pem --crt server.crt``.
+chain via ``java -jar daml-on-sql-<version>.jar --pem server.pem --crt server.crt``.
 By default, *DAML on SQL* requires client authentication as well. You can set a custom root
 CA certificate used to validate client certificates via ``--cacrt ca.crt``. You can
 change the client authentication mode via ``--client-auth none`` which will disable it
@@ -192,13 +257,13 @@ where
 
 The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
 
-Generating JSON Web Tokens (JWT)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Generate JSON Web Tokens (JWT)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To generate tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ web site.
 
-Generating RSA keys
-^^^^^^^^^^^^^^^^^^^
+Generate RSA keys
+^^^^^^^^^^^^^^^^^
 
 To generate RSA keys for testing purposes, use the following command
 
@@ -211,8 +276,8 @@ which generates the following files:
 - ``ledger.key``: the private key in PEM/DER/PKCS#1 format
 - ``ledger.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
 
-Generating EC keys
-^^^^^^^^^^^^^^^^^^
+Generate EC keys
+^^^^^^^^^^^^^^^^
 
 To generate keys to be used with ES256 for testing purposes, use the following command
 
@@ -234,9 +299,9 @@ Similarly, you can use the following command for ES512 keys:
 Command-line reference
 **********************
 
-To start *DAML on SQL*, run: ``java -jar dam-on-sql-<version>.jar [options] ``.
+To start *DAML on SQL*, run: ``java -jar daml-on-sql-<version>.jar [options] ``.
 
-To see all the available options, run ``java -jar dam-on-sql-<version>.jar --help``.
+To see all the available options, run ``java -jar daml-on-sql-<version>.jar --help``.
 
 Monitoring
 **********
@@ -362,6 +427,24 @@ These metrics are:
 - ``<metric.qualified.name>.query`` (timer): time to run the query
 - ``<metric.qualified.name>.commit`` (timer): time to perform the commit
 - ``<metric.qualified.name>.translation`` (timer): if relevant, time necessary to turn serialized DAML-LF values into in-memory objects
+
+Cache Metrics
+-------------
+
+A "cache metric" is a collection of simpler metrics that keep track of
+relevant numbers when interacting with an in-memory cache.
+
+These metrics are:
+
+- ``<metric.qualified.name>.hits`` (counter): the number of cache hits
+- ``<metric.qualified.name>.misses`` (counter): the number of cache misses
+- ``<metric.qualified.name>.load_successes`` (counter): the number of times a new value is successfully loaded into the cache
+- ``<metric.qualified.name>.load_failures`` (counter): the number of times a new value fails to be loaded into the cache
+- ``<metric.qualified.name>.load_total_time`` (timer): the total time spent loading new values into the cache
+- ``<metric.qualified.name>.evictions`` (counter): the number of cache evictions
+- ``<metric.qualified.name>.evicted_weight`` (counter): the total size of the values evicted from the cache
+- ``<metric.qualified.name>.size`` (gauge): the size of the cache
+- ``<metric.qualified.name>.weight`` (gauge): the total size of all values currently in the cache
 
 List of metrics
 ===============
@@ -645,6 +728,12 @@ management service.
 
 A database metric. Time spent persisting the information that a given
 command has been rejected.
+
+``daml.index.db.translation.cache``
+-----------------------------------
+
+A cache metric. Measurements around the optional DAML-LF value translation
+cache.
 
 ``daml.lapi``
 -------------
