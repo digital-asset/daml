@@ -336,7 +336,7 @@ object Server {
         }
     }
 
-    val (triggerDao: RunningTriggerDao, server: Server) = jdbcConfig match {
+    val (triggerDao, server): (RunningTriggerDao, Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
         val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
