@@ -42,6 +42,6 @@ object PackageIDsGen {
     (filePath, trees)
   }
 
-  private[lf] def reference(util: LFUtil)(moduleName: ModuleName) =
+  private[lf] def reference(moduleName: ModuleName) =
     q"`Package IDs`.${TermName(moduleName.dottedName)}"
 }

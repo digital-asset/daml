@@ -99,7 +99,7 @@ class LedgerClientBinding(
         .map(_.map(compositeCommandAdapter.transform))
         .via(tracking)
 
-  private def createRetry[C](retryInfo: RetryInfo[C], completion: Completion): SubmitRequest = {
+  private def createRetry[C](retryInfo: RetryInfo[C], ignored: Any): SubmitRequest = {
     if (retryInfo.request.commands.isEmpty) {
       logger.warn(s"Retrying with empty commands for {}", retryInfo.request)
     }

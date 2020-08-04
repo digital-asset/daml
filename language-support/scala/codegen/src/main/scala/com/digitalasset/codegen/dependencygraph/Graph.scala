@@ -27,7 +27,7 @@ object Graph {
         node: NKA): (Seen, Vector[(K, NKA)], Boolean, List[UnsopportedTypeError]) = {
       if (seen.isDefinedAt(id) || stack(id)) (seen, Vector(), seen getOrElse (id, false), List())
       else {
-        val Node(_, deps, collectError) = node
+        val Node(_, deps, collectError @ _) = node
         val (newSeen, newEnts, missing, utes) = visitN(seen, stack + id, deps)
 
         if (missing.nonEmpty)
