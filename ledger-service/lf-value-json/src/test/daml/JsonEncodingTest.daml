@@ -10,6 +10,8 @@ data Foo = Bar Int | Baz BazRecord | Qux
 data BazRecord = BazRecord { baz : Text }
     deriving (Eq, Show)
 
+data Person = Person { name : Text, age: Int, address: Text }
+
 data AccountStatus = Enabled Time | Disabled Time
   deriving (Eq, Show)
 

@@ -390,6 +390,37 @@ class ApiCodecCompressedSpec
     val bazRecordId =
       Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:BazRecord"))
 
+    "dealing with LF Record" should {
+      val lfType = (n: String) =>
+        Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:" + n))
+      val decode = (typeId: Ref.Identifier, json: String) =>
+        jsValueToApiValue(json.parseJson, typeId, darTypeLookup)
+      val person = (name: String, age: Long, address: String) => {
+        val attr = (n: String) => Some(Ref.Name.assertFromString(n))
+        LfValue.ValueRecord(
+          Some(lfType("Person")),
+          ImmArray(
+            (attr("name"), LfValue.ValueText(name)),
+            (attr("age"), LfValue.ValueInt64(age)),
+            (attr("address"), LfValue.ValueText(address)))
+        )
+      }
+      "decode a JSON array of the right length" in {
+        decode(lfType("Person"), """["Joe Smith", 20, "1st Street"]""")
+          .shouldBe(person("Joe Smith", 20, "1st Street"))
+      }
+      "fail to decode if missing fields" in {
+        the[DeserializationException].thrownBy {
+          decode(lfType("Person"), """["Joe Smith", 21]""")
+        }.getMessage should include("expected 3, found 2")
+      }
+      "fail to decode if extra fields" in {
+        the[DeserializationException].thrownBy {
+          decode(lfType("Person"), """["Joe Smith", 21, "1st Street", "Arizona"]""")
+        }.getMessage should include("expected 3, found 4")
+      }
+    }
+
     "dealing with LF Variant" should {
       "encode Foo/Baz to JSON" in {
         val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
@@ -414,7 +445,7 @@ class ApiCodecCompressedSpec
         (writer.write(quxVariant): JsValue) shouldBe ("""{"tag":"Qux", "value":{}}""".parseJson: JsValue)
       }
 
-      "fail decoding Foo/Qux from JSON if 'value' filed is missing" in {
+      "fail decoding Foo/Qux from JSON if 'value' field is missing" in {
         assertThrows[spray.json.DeserializationException] {
           jsValueToApiValue(
             """{"tag":"Qux"}""".parseJson,
