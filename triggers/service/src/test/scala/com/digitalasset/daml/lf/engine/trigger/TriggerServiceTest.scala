@@ -551,7 +551,7 @@ class TriggerServiceTestWithDb
         aliceTrigger = triggerIds.head
         // Currently the logs aren't persisted so we can check that the trigger was restarted by
         // inspecting the new log.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("running"), 30)
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("running"), 60)
 
         // Finally go ahead and stop the trigger.
         resp <- stopTrigger(uri, aliceTrigger, alice)
