@@ -902,9 +902,6 @@ private[lf] object Speedy {
   private[speedy] final case class KFoldl(
       func: SEValue,
       var list: FrontStack[SValue],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int,
   ) extends Kont
       with SomeArrayEquals {
     def execute(acc: SValue, machine: Machine) = {
@@ -912,7 +909,6 @@ private[lf] object Speedy {
         case None =>
           machine.returnValue = acc
         case Some((item, rest)) =>
-          machine.restoreEnv(frame, actuals, envSize)
           // NOTE: We are "recycling" the current continuation with the
           // remainder of the list to avoid allocating a new continuation.
           list = rest

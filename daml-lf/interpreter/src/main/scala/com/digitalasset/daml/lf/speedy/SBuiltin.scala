@@ -422,7 +422,7 @@ private[lf] object SBuiltin {
       val func = SEValue(args.get(0))
       val init = args.get(1)
       val list = args.get(2).asInstanceOf[SList].list
-      machine.pushKont(KFoldl(func, list, machine.frame, machine.actuals, machine.env.size))
+      machine.pushKont(KFoldl(func, list))
       machine.returnValue = init
     }
   }
