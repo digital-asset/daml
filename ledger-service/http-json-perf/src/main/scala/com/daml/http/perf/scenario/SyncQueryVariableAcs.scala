@@ -8,15 +8,7 @@ import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SyncQueryVariableAcs extends Simulation with SimulationConfig {
-
-  private val rng = new scala.util.Random(123456789)
-
-  // called from two different scenarios, need to synchronize access
-  private def randomAmount(): Int = {
-    val x = this.synchronized { rng.nextInt(10) }
-    x + 5 // [5, 15)
-  }
+class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRandomAmount {
 
   private val acsQueue = new jutil.concurrent.LinkedBlockingQueue[String]()
 
@@ -35,7 +27,7 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig {
 }"""))
       .check(
         status.is(200),
-        jsonPath("$.result[*].contractId").transform(x => acsQueue.put(x))
+        jsonPath("$.result.contractId").transform(x => acsQueue.put(x))
       )
 
   private val queryRequest =
@@ -59,21 +51,18 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig {
   }"""))
 
   private val createContractScn = scenario("CreateContractScenario")
-    .repeat(50) {
-      feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(createRequest.silent)
+    .repeat(1000) {
+      feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(createRequest)
     }
 
   private val exerciseTransferScn = scenario("ExerciseTransferScenario")
-    .repeat(5) {
-      feed(BlockingIterator(acsQueue, 50).map(x => Map("contractId" -> x)))
-        .foreach("${contractIds}", "contractId")(exec(exerciseRequest))
+    .repeat(1000) {
+      feed(BlockingIterator(acsQueue, 1000).map(x => Map("contractId" -> x))).exec(exerciseRequest)
     }
 
   private val syncQueryScn = scenario("SyncQueryScenario")
-    .repeat(5) {
-      feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(queryRequest)
+    .repeat(500) {
+      feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(queryRequest)
     }
 
   setUp(
@@ -90,15 +79,11 @@ private[scenario] final case class BlockingIterator[A](
 
   private val retrieved = new jutil.concurrent.atomic.AtomicInteger(0)
 
-  override def isEmpty: Boolean = synchronized {
-    queue.size == 0 || retrieved.get >= maxToRetrieve
-  }
-
-  override def hasNext: Boolean = !isEmpty
+  override def hasNext: Boolean = retrieved.get < maxToRetrieve
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  def next(): A = synchronized {
-    val a: A = queue.take()
+  def next(): A = {
+    val a: A = queue.take() // this blocks waiting for the next element in the queue if it is empty
     retrieved.incrementAndGet()
     a
   }
