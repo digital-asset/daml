@@ -142,7 +142,7 @@ object LedgerClientBinding {
     builder.build()
   }
 
-  @silent(" config .* is never used")
+  @silent(" config .* is never used") // public function, unsure whether arg needed
   def askLedgerId(channel: ManagedChannel, config: LedgerClientConfiguration)(
       implicit ec: ExecutionContext): Future[String] =
     LedgerIdentityServiceGrpc

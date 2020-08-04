@@ -116,7 +116,7 @@ class SubmissionValidator[LogResult] private[validator] (
       )
     }
 
-  @silent(" ignored .* is never used")
+  @silent(" ignored .* is never used") // matches runValidation signature
   private def commit(
       logEntryId: DamlLogEntryId,
       ignored: Any,
