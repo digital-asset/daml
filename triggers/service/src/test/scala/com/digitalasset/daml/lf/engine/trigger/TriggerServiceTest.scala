@@ -37,6 +37,8 @@ import eu.rekawek.toxiproxy._
 
 abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually with Matchers {
 
+  import AbstractTriggerServiceTest.CompatAssertion
+
   // Abstract member for testing with and without a database
   def jdbcConfig: Option[JdbcConfig]
 
@@ -187,11 +189,11 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     } yield statusMsgs
   }
 
-  def assertTriggerStatus(
+  def assertTriggerStatus[A](
       uri: Uri,
       triggerInstance: UUID,
-      pred: Vector[String] => Boolean,
-      timeoutSeconds: Long = 15): Future[Assertion] = {
+      pred: Vector[String] => A,
+      timeoutSeconds: Long = 15)(implicit A: CompatAssertion[A]): Future[Assertion] = {
     implicit val patienceConfig: PatienceConfig =
       PatienceConfig(
         timeout = scaled(Span(timeoutSeconds, Seconds)),
@@ -201,7 +203,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         resp <- triggerStatus(uri, triggerInstance)
         result <- parseTriggerStatus(resp)
       } yield result, Duration.Inf)
-      assert(pred(actualTriggerStatus))
+      A(pred(actualTriggerStatus))
     }
   }
 
@@ -389,8 +391,11 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         // Just check that we see a few failures and restart attempts.
         // This relies on a small minimum restart interval as the interval doubles after each
         // failure.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "stopped: runtime failure") > 2)
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") should be > 2)
+        _ <- assertTriggerStatus(
+          uri,
+          aliceTrigger,
+          _.count(_ == "stopped: runtime failure") should be > 2)
       } yield succeed
   }
 
@@ -453,6 +458,23 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 }
 
+object AbstractTriggerServiceTest {
+  import org.scalactic.Prettifier, org.scalactic.source.Position
+  import Assertions.{assert, assertionsHelper}
+
+  sealed trait CompatAssertion[-A] {
+    def apply(a: A): Assertion
+  }
+  object CompatAssertion {
+    private def mk[A](f: A => Assertion) = new CompatAssertion[A] {
+      override def apply(a: A) = f(a)
+    }
+    implicit val id: CompatAssertion[Assertion] = mk(a => a)
+    implicit def bool(implicit pretty: Prettifier, pos: Position): CompatAssertion[Boolean] =
+      mk(assert(_)(pretty, pos))
+  }
+}
+
 // Tests for in-memory mode only go here
 class TriggerServiceTestInMem extends AbstractTriggerServiceTest {
 
@@ -488,6 +510,8 @@ class TriggerServiceTestWithDb
     super.afterEach()
   }
 
+  behavior of "persistent backend"
+
   it should "recover packages after shutdown" in (for {
     _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
@@ -506,7 +530,7 @@ class TriggerServiceTestWithDb
     }
   } yield succeed)
 
-  ignore should "restart triggers after shutdown" in (for {
+  it should "restart triggers after shutdown" in (for {
     _ <- withTriggerService(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         // Start a trigger in the first run of the service.
@@ -514,7 +538,7 @@ class TriggerServiceTestWithDb
         triggerId <- parseTriggerId(resp)
         // The new trigger should be in the running trigger store and eventually running.
         _ <- assertTriggerIds(uri, alice, Vector(triggerId))
-        _ <- assertTriggerStatus(uri, triggerId, _.last == "running")
+        _ <- assertTriggerStatus(uri, triggerId, _.last should ===("running"))
       } yield succeed
     }
     // Once service is shutdown, start a new one and check the previously running trigger is restarted.
@@ -523,16 +547,16 @@ class TriggerServiceTestWithDb
         // Get the previous trigger instance using a list request
         resp <- listTriggers(uri, alice)
         triggerIds <- parseTriggerIds(resp)
-        _ <- assert(triggerIds.length == 1)
+        _ = triggerIds.length should ===(1)
         aliceTrigger = triggerIds.head
         // Currently the logs aren't persisted so we can check that the trigger was restarted by
         // inspecting the new log.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running", 30)
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("running"), 30)
 
         // Finally go ahead and stop the trigger.
         resp <- stopTrigger(uri, aliceTrigger, alice)
         _ <- assertTriggerIds(uri, alice, Vector())
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "stopped: by user request")
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("stopped: by user request"))
       } yield succeed
     }
   } yield succeed)

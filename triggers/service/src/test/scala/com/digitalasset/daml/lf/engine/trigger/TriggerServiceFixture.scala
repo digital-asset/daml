@@ -33,6 +33,7 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
+import scalaz.syntax.std.option._
 
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -110,9 +111,10 @@ object TriggerServiceFixture {
         minRestartInterval,
         ServiceConfig.DefaultMaxRestartInterval,
       )
+      servicePort = LockedFreePort.find()
       service <- ServiceMain.startServer(
         host.getHostName,
-        Port(0).value,
+        servicePort.port.value,
         ledgerConfig,
         restartConfig,
         encodedDar,
@@ -134,14 +136,27 @@ object TriggerServiceFixture {
       a <- testFn(uri, client, ledgerProxy)
     } yield a
 
-    fa.onComplete { _ =>
-      serviceF.foreach({ case (_, system) => system ! Stop })
-      ledgerF.foreach(_._1.close())
-      toxiproxyF.foreach(_._1.destroy)
+    fa.transformWith { ta =>
+      for {
+        se <- optErr(serviceF.flatMap {
+          case (_, system) =>
+            system ! Stop
+            system.whenTerminated
+        })
+        le <- optErr(ledgerF.map(_._1.close()))
+        te <- optErr(toxiproxyF.map {
+          case (proc, _) =>
+            proc.destroy()
+            proc.exitValue() // destroy is async
+        })
+        result <- (ta.failed.toOption orElse se orElse le orElse te)
+          .cata(Future.failed, Future fromTry ta)
+      } yield result
     }
-
-    fa
   }
+
+  private def optErr(fut: Future[_])(implicit ec: ExecutionContext): Future[Option[Throwable]] =
+    fut transform (te => scala.util.Success(te.failed.toOption))
 
   private def ledgerConfig(
       ledgerPort: Port,
