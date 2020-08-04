@@ -125,7 +125,7 @@ object Converter {
     }
   }
 
-  private def fromTemplateTypeRep(triggerIds: TriggerIds, templateId: value.Identifier): SValue = {
+  private def fromTemplateTypeRep(templateId: value.Identifier): SValue = {
     val templateTypeRepTy = daInternalAny("TemplateTypeRep")
     record(templateTypeRepTy, ("getTemplateTypeRep", fromIdentifier(templateId)))
   }
@@ -137,7 +137,7 @@ object Converter {
     val contractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
     record(
       contractIdTy,
-      ("templateId", fromTemplateTypeRep(triggerIds, templateId)),
+      ("templateId", fromTemplateTypeRep(templateId)),
       ("contractId", SContractId(ContractId.assertFromString(contractId)))
     )
   }
@@ -313,7 +313,7 @@ object Converter {
     )
   }
 
-  private def toFiniteDuration(ids: TriggerIds, value: SValue): Either[String, FiniteDuration] = {
+  private def toFiniteDuration(value: SValue): Either[String, FiniteDuration] = {
     value match {
       case SRecord(_, _, values) if values.size() == 1 =>
         values.get(0) match {
@@ -441,7 +441,7 @@ object Converter {
     }
   }
 
-  private def toCreate(triggerIds: TriggerIds, v: SValue): Either[String, CreateCommand] = {
+  private def toCreate(v: SValue): Either[String, CreateCommand] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 => {
         for {
@@ -454,7 +454,7 @@ object Converter {
     }
   }
 
-  private def toExercise(triggerIds: TriggerIds, v: SValue): Either[String, ExerciseCommand] = {
+  private def toExercise(v: SValue): Either[String, ExerciseCommand] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
@@ -474,9 +474,7 @@ object Converter {
     }
   }
 
-  private def toExerciseByKey(
-      triggerIds: TriggerIds,
-      v: SValue): Either[String, ExerciseByKeyCommand] = {
+  private def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
@@ -498,9 +496,7 @@ object Converter {
     }
   }
 
-  private def toCreateAndExercise(
-      triggerIds: TriggerIds,
-      v: SValue): Either[String, CreateAndExerciseCommand] = {
+  private def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
@@ -522,31 +518,29 @@ object Converter {
     }
   }
 
-  private def toCommand(triggerIds: TriggerIds, v: SValue): Either[String, Command] = {
+  private def toCommand(v: SValue): Either[String, Command] = {
     v match {
       case SVariant(_, "CreateCommand", _, createVal) =>
         for {
-          create <- toCreate(triggerIds, createVal)
+          create <- toCreate(createVal)
         } yield Command().withCreate(create)
       case SVariant(_, "ExerciseCommand", _, exerciseVal) =>
         for {
-          exercise <- toExercise(triggerIds, exerciseVal)
+          exercise <- toExercise(exerciseVal)
         } yield Command().withExercise(exercise)
       case SVariant(_, "ExerciseByKeyCommand", _, exerciseByKeyVal) =>
         for {
-          exerciseByKey <- toExerciseByKey(triggerIds, exerciseByKeyVal)
+          exerciseByKey <- toExerciseByKey(exerciseByKeyVal)
         } yield Command().withExerciseByKey(exerciseByKey)
       case SVariant(_, "CreateAndExerciseCommand", _, createAndExerciseVal) =>
         for {
-          createAndExercise <- toCreateAndExercise(triggerIds, createAndExerciseVal)
+          createAndExercise <- toCreateAndExercise(createAndExerciseVal)
         } yield Command().withCreateAndExercise(createAndExercise)
       case _ => Left(s"Expected a Command but got $v")
     }
   }
 
-  private def toCommands(
-      triggerIds: TriggerIds,
-      v: SValue): Either[String, (String, Seq[Command])] = {
+  private def toCommands(v: SValue): Either[String, (String, Seq[Command])] = {
     for {
       values <- v match {
         case SRecord(_, _, values) if values.size == 2 => Right(values)
@@ -554,7 +548,7 @@ object Converter {
       }
       commandId <- toCommandId(values.get(0))
       commands <- values.get(1) match {
-        case SList(cmdValues) => cmdValues.traverse(toCommand(triggerIds, _))
+        case SList(cmdValues) => cmdValues.traverse(toCommand)
         case _ => Left(s"Expected List but got ${values.get(1)}")
       }
     } yield (commandId, commands.toImmArray.toSeq)
@@ -579,8 +573,8 @@ object Converter {
       fromCompletion(triggerIds, _),
       fromHeartbeat(triggerIds),
       fromACS(valueTranslator, triggerIds, _),
-      toFiniteDuration(triggerIds, _),
-      toCommands(triggerIds, _),
+      toFiniteDuration(_),
+      toCommands(_),
       toRegisteredTemplates(_),
     )
   }
