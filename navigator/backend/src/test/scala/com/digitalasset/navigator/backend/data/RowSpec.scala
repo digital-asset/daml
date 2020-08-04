@@ -69,7 +69,7 @@ class RowSpec extends WordSpec with Matchers {
       "not change the value" in {
         CommandStatusRow
           .fromCommandStatus(id, value)
-          .toCommandStatus(i => Success(None)) shouldBe Success(value)
+          .toCommandStatus(_ => Success(None)) shouldBe Success(value)
       }
     }
 
@@ -80,7 +80,7 @@ class RowSpec extends WordSpec with Matchers {
       "not change the value" in {
         CommandStatusRow
           .fromCommandStatus(id, value)
-          .toCommandStatus(i => Success(None)) shouldBe Success(value)
+          .toCommandStatus(_ => Success(None)) shouldBe Success(value)
       }
     }
 
@@ -98,7 +98,7 @@ class RowSpec extends WordSpec with Matchers {
       "not change the value" in {
         CommandStatusRow
           .fromCommandStatus(id, value)
-          .toCommandStatus(i => Success(Some(tx))) shouldBe Success(value)
+          .toCommandStatus(_ => Success(Some(tx))) shouldBe Success(value)
       }
     }
 
@@ -109,7 +109,7 @@ class RowSpec extends WordSpec with Matchers {
       "not change the value" in {
         CommandStatusRow
           .fromCommandStatus(id, value)
-          .toCommandStatus(i => Success(None)) shouldBe Success(value)
+          .toCommandStatus(_ => Success(None)) shouldBe Success(value)
       }
     }
   }

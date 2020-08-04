@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.participant.state.kvutils.{Fingerprint, FingerprintPlaceholder}
-import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerprints
 import org.mockito.ArgumentMatchers.argThat
@@ -121,7 +120,7 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
       .setContractId(id.toString)
       .build
 
-  private def aDamlStateValue(id: Int = 0): DamlStateValue =
+  private def aDamlStateValue(id: Int): DamlStateValue =
     DamlStateValue.newBuilder
       .setParty(
         DamlPartyAllocation.newBuilder

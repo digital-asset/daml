@@ -31,11 +31,6 @@ object RunnerConfig {
   val DefaultMaxInboundMessageSize: Int = 4194304
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
-  private def validatePath(path: String, message: String): Either[String, Unit] = {
-    val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-    if (readable) Right(()) else Left(message)
-  }
-
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
     head("trigger-runner")
 

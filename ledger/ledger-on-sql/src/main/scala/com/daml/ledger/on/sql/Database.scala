@@ -29,13 +29,13 @@ final class Database(
 ) {
   def inReadTransaction[T](name: String)(
       body: ReadQueries => Future[T],
-  )(implicit loggingContext: LoggingContext): Future[T] =
+  ): Future[T] =
     inTransaction(name, readerConnectionPool)(connection =>
       Future(body(new TimedQueries(queries(connection), metrics)))(readerExecutionContext).flatten)
 
   def inWriteTransaction[T](name: String)(
       body: Queries => Future[T],
-  )(implicit loggingContext: LoggingContext): Future[T] =
+  ): Future[T] =
     inTransaction(name, writerConnectionPool)(connection =>
       Future(body(new TimedQueries(queries(connection), metrics)))(writerExecutionContext).flatten)
 

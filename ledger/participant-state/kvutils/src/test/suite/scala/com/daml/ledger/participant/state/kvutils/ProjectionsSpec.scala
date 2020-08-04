@@ -3,13 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{Node, NodeId}
+import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import org.scalatest.{Matchers, WordSpec}
 

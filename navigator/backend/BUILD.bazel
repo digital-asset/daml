@@ -34,12 +34,12 @@ java_library(
 
 da_scala_library(
     name = "navigator-library",
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
-    ],
     srcs = glob([
         "src/main/scala/**/*.scala",
     ]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     scalacopts = navigator_scalacopts + ["-P:silencer:checkUnused"],
     visibility = ["//visibility:public"],
     runtime_deps = [

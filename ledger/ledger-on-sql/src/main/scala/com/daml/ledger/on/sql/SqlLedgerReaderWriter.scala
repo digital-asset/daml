@@ -6,7 +6,6 @@ package com.daml.ledger.on.sql
 import java.util.UUID
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
@@ -136,7 +135,7 @@ object SqlLedgerReaderWriter {
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
       seedService: SeedService,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext)
+  )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
     override def acquire()(
         implicit executionContext: ExecutionContext
