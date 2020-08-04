@@ -18,7 +18,6 @@ import com.daml.lf.speedy.svalue
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
 
 import com.daml.lf.engine.script._
 
@@ -129,13 +128,11 @@ object MultiParticipant {
       .action((d, c) => c.copy(darPath = d))
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
+      .action { (_, c) =>
         c.copy(wallclockTime = true)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")
   }
-
-  private val applicationId = ApplicationId("DAML Script Tests")
 
   def main(args: Array[String]): Unit = {
     configParser.parse(args, MultiParticipantConfig(0, 0, null, false)) match {

@@ -10,7 +10,6 @@ import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import java.time.Clock
-import java.util.UUID
 
 import io.grpc.netty.NettyChannelBuilder
 
@@ -21,7 +20,6 @@ import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.map._
 import scalaz.std.scalaFuture._
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
 import scala.language.higherKinds
@@ -41,15 +39,11 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerIdRequirement}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
-import com.google.protobuf.duration.Duration
 import ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.language.LanguageVersion
 
@@ -259,9 +253,9 @@ object Runner {
           case Right(x) => x
         }
         script.apply(SEValue(arg))
-      case (script: Script.Action, Some(_)) =>
+      case (_: Script.Action, Some(_)) =>
         throw new RuntimeException(s"The script ${scriptId} does not take arguments.")
-      case (script: Script.Function, None) =>
+      case (_: Script.Function, None) =>
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner =
@@ -329,18 +323,6 @@ class Runner(
     }
   }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
-
-  private def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
-    val commands = Commands(
-      party = party.value,
-      commands = cmds,
-      ledgerId = ledgerId.unwrap,
-      applicationId = applicationId.unwrap,
-      commandId = UUID.randomUUID.toString,
-      deduplicationTime = Some(Duration(30))
-    )
-    SubmitAndWaitRequest(Some(commands))
-  }
 
   def runWithClients(initialClients: Participants[ScriptLedgerClient])(
       implicit ec: ExecutionContext,
@@ -631,7 +613,7 @@ class Runner(
           vals.get(0) match {
             case SPAP(_, _, _) =>
               Future(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))
-            case v =>
+            case _ =>
               Future.failed(
                 new ConverterException(
                   "Mismatch in structure of Script type. " +
