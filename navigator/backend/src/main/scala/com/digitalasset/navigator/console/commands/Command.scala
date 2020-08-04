@@ -43,7 +43,7 @@ case object Command extends SimpleCommand {
 
   private def prettyStatus(status: model.CommandStatus): PrettyObject = {
     status match {
-      case s: model.CommandStatusWaiting =>
+      case _: model.CommandStatusWaiting =>
         PrettyObject(
           PrettyField("Status", "Waiting")
         )
@@ -58,7 +58,7 @@ case object Command extends SimpleCommand {
           PrettyField("Status", "Success"),
           PrettyField("TransactionId", ApiTypes.TransactionId.unwrap(s.tx.id))
         )
-      case s: model.CommandStatusUnknown =>
+      case _: model.CommandStatusUnknown =>
         PrettyObject(
           PrettyField("Status", "Unknown (command tracking failed)")
         )

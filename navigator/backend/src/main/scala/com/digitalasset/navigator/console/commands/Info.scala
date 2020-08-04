@@ -24,10 +24,10 @@ case object Info extends SimpleCommand {
   def params: List[Parameter] = List.empty
 
   def prettyPartyInfo(partyInfo: PartyActorInfo): PrettyNode = partyInfo match {
-    case info: PartyActorStarting => PrettyPrimitive("Actor starting")
-    case info: PartyActorStarted => PrettyPrimitive("Actor running")
+    case _: PartyActorStarting => PrettyPrimitive("Actor starting")
+    case _: PartyActorStarted => PrettyPrimitive("Actor running")
     case info: PartyActorFailed => PrettyPrimitive(s"Actor failed: ${info.error.getMessage}")
-    case info: PartyActorUnresponsive => PrettyPrimitive(s"Actor unresponsive")
+    case _: PartyActorUnresponsive => PrettyPrimitive(s"Actor unresponsive")
   }
 
   def prettyGeneralInfo(info: ApplicationStateInfo): PrettyNode = PrettyObject(

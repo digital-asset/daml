@@ -69,10 +69,8 @@ object Config {
   def loadNavigatorConfig(
       configFile: Path,
       useDatabase: Boolean): Either[ConfigReadError, Config] = {
-    implicit val partyConfigConvert: ConfigConvert[PartyState] =
-      ConfigConvert.viaNonEmptyString[PartyState](
-        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-        t => Tag.unwrap(t.name))
+    implicit val partyConfigConvert: ConfigConvert[PartyState] = mkPartyConfigConvert(
+      useDatabase = useDatabase)
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
@@ -125,10 +123,8 @@ object Config {
       ))
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
-    implicit val partyConfigConvert: ConfigConvert[PartyState] =
-      ConfigConvert.viaNonEmptyString[PartyState](
-        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-        t => Tag.unwrap(t.name))
+    implicit val partyConfigConvert: ConfigConvert[PartyState] = mkPartyConfigConvert(
+      useDatabase = useDatabase)
     val config = ConfigWriter[Config].to(template(useDatabase))
     val cro = ConfigRenderOptions
       .defaults()
@@ -139,4 +135,9 @@ object Config {
     Files.write(configFile, config.render(cro).getBytes, CREATE_NEW)
     ()
   }
+
+  private[this] def mkPartyConfigConvert(useDatabase: Boolean): ConfigConvert[PartyState] =
+    ConfigConvert.viaNonEmptyString[PartyState](
+      str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
+      t => Tag.unwrap(t.name))
 }
