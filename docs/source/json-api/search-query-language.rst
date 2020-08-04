@@ -4,10 +4,14 @@
 Query language
 ##############
 
-The body of ``POST /v1/query`` looks like so::
+The body of ``POST /v1/query`` looks like so:
 
-  {"templateIds": [...template IDs...],
-   "query": {...query elements...}}
+.. code-block:: text
+
+    {
+        "templateIds": [...template IDs...],
+        "query": {...query elements...}
+    }
 
 The elements of that query are defined here.
 
@@ -105,12 +109,14 @@ is no way that the above query could be written to match ``A`` but never
 
 For these reasons, as with LF value input via JSON, queries written in
 JSON are also always interpreted with respect to some specified LF types
-(e.g. template IDs). For example::
+(e.g. template IDs). For example:
 
-  {"templateIds": [{"moduleName": "Foo", "entityName": "A"},
-                   {"moduleName": "Foo", "entityName": "B"},
-                   {"moduleName": "Foo", "entityName": "C"}],
-   "query": {"foo": "bar"}}
+.. code-block:: json
+
+    {
+        "templateIds": ["Foo:A", "Foo:B", "Foo:C"],
+        "query": {"foo": "bar"}
+    }
 
 will treat ``"foo"`` as a field equality query for A and B, and
 (supposing templates' associated data types were permitted to be
