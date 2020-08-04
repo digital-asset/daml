@@ -66,7 +66,7 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
 
   private val http: HttpExt = Http(system)
   private val saSecure = Path("/sa/secure")
-  private val saLogin = Path("/sa/login")
+  private val saLogin = Path("/sa/loginWithUserId")
 
   // Send an HTTP request and convert an error response into a failed future.
   // Run the given function on a successful response only.
