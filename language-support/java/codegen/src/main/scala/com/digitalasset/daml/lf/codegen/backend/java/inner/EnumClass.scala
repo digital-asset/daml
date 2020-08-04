@@ -4,7 +4,6 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.iface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -16,7 +15,6 @@ private[inner] object EnumClass extends StrictLogging {
 
   def generate(
       className: ClassName,
-      identifier: Identifier,
       enum: iface.Enum,
   ): TypeSpec = {
     TrackLineage.of("enum", className.simpleName()) {
