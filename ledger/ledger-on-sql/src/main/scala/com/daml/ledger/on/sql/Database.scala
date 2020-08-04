@@ -226,9 +226,7 @@ object Database {
       )
     }
 
-    def migrateAndReset()(
-        implicit executionContext: ExecutionContext,
-        loggerCtx: LoggingContext): Future[Database] = {
+    def migrateAndReset()(implicit executionContext: ExecutionContext): Future[Database] = {
       val db = migrate()
       db.inWriteTransaction("ledger_reset") { queries =>
           Future.fromTry(queries.truncate())
