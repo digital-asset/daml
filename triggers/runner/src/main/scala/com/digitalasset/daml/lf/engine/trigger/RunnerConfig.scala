@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger
 
 import java.nio.file.{Path, Paths}
 import java.time.Duration
-import scala.util.Try
 
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
