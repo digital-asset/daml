@@ -72,6 +72,7 @@ da_scala_library(
         ":sandbox-common",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",

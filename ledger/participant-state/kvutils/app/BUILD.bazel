@@ -12,14 +12,14 @@ load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 da_scala_library(
     name = "app",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml:participant-state-kvutils-app:__VERSION__"],
     plugins = [
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
+    resources = glob(["src/main/resources/**/*"]),
     scalacopts = [
         "-P:silencer:checkUnused",
     ],
+    tags = ["maven_coordinates=com.daml:participant-state-kvutils-app:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
