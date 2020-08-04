@@ -41,7 +41,7 @@ object Read {
     fromFunction[To] { str =>
       Try(f(str)) match {
         case Success(str) => Right(str)
-        case Failure(f) => Read.fail[To](classTag)
+        case Failure(_) => Read.fail[To](classTag)
       }
     }
 

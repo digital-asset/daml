@@ -161,7 +161,7 @@ package object filter {
             case Some(nextCursor) =>
               Try(nextCursor.current.toInt) match {
                 case Success(index) => loop(elements.slowApply(index), nextCursor)
-                case Failure(e) =>
+                case Failure(_) =>
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
           }

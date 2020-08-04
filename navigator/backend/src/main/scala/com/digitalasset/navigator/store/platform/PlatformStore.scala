@@ -160,23 +160,10 @@ class PlatformStore(
       context.become(connected(state.copy(parties = party :: state.parties)))
 
     case CreateContract(party, templateId, value) =>
-      createContract(
-        state.ledgerClient,
-        state.time.time.getCurrentTime,
-        party,
-        templateId,
-        value,
-        sender)
+      createContract(state.time.time.getCurrentTime, party, templateId, value, sender)
 
     case ExerciseChoice(party, contractId, choiceId, value) =>
-      exerciseChoice(
-        state.ledgerClient,
-        state.time.time.getCurrentTime,
-        party,
-        contractId,
-        choiceId,
-        value,
-        sender)
+      exerciseChoice(state.time.time.getCurrentTime, party, contractId, choiceId, value, sender)
 
     case ReportCurrentTime =>
       sender ! Success(state.time)
@@ -370,7 +357,6 @@ class PlatformStore(
   }
 
   private def createContract(
-      ledgerClient: LedgerClient,
       platformTime: Instant,
       party: PartyState,
       templateId: TemplateStringId,
@@ -387,13 +373,12 @@ class PlatformStore(
       sender ! Failure(StoreException(msg))
     })(id => {
       val command = CreateCommand(commandId, index, workflowId, platformTime, id, value)
-      submitCommand(ledgerClient, party, command, sender)
+      submitCommand(party, command, sender)
     })
 
   }
 
   private def exerciseChoice(
-      ledgerClient: LedgerClient,
       platformTime: Instant,
       party: PartyState,
       contractId: ApiTypes.ContractId,
@@ -424,12 +409,11 @@ class PlatformStore(
             choice,
             value)
 
-        submitCommand(ledgerClient, party, command, sender)
+        submitCommand(party, command, sender)
       })
   }
 
   private def submitCommand(
-      ledgerClient: LedgerClient,
       party: PartyState,
       command: Command,
       sender: ActorRef

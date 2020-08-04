@@ -76,7 +76,7 @@ case class Ledger(
       .withTransactionResult(tx)
 
     tx.events.foldLeft(ledger0) { (ledger, event) =>
-      ledger.withEvent(event, tx, packageRegistry)
+      ledger.withEvent(event, packageRegistry)
     }
   }
 
@@ -106,7 +106,7 @@ case class Ledger(
     }
   }
 
-  private def withEvent(event: Event, tx: Transaction, packageRegistry: PackageRegistry): Ledger =
+  private def withEvent(event: Event, packageRegistry: PackageRegistry): Ledger =
     event match {
       case event: ContractCreated =>
         packageRegistry.template(event.templateId).fold(this) { template =>
@@ -338,11 +338,11 @@ case class Ledger(
     for {
       status <- statusOf(commandId, types)
       result <- status match {
-        case cmd: CommandStatusWaiting => None
+        case _: CommandStatusWaiting => None
         case cmd: CommandStatusSuccess => Some(Result(commandId, Right(cmd.tx)))
         case cmd: CommandStatusError =>
           Some(Result(commandId, Left(new Error(cmd.code, cmd.details, ""))))
-        case cmd: CommandStatusUnknown =>
+        case _: CommandStatusUnknown =>
           Some(Result(commandId, Left(new Error("INTERNAL", "Command status unknown", ""))))
       }
     } yield result

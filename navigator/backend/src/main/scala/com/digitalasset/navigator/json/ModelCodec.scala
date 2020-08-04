@@ -18,10 +18,6 @@ object ModelCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Constants used in the encoding
   // ------------------------------------------------------------------------------------------------------------------
-  private[this] final val propType: String = "type"
-  private[this] final val contractCreatedTag: String = "ContractCreated"
-  private[this] final val contractArchivedTag: String = "ContractArchived"
-  private[this] final val choiceExercisedTag: String = "ChoiceExercised"
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
