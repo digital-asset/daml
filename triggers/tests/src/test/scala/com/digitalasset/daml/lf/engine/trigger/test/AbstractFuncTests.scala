@@ -173,7 +173,7 @@ abstract class AbstractFuncTests
           // 1 for corresponding completion
           finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           _ <- create(client, party, original(party, "original0"))
-          finalState <- finalStateF
+          _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
           assert(acs(originalId).length == 1)
@@ -195,7 +195,7 @@ abstract class AbstractFuncTests
           finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
           _ <- create(client, party, original(party, "original0"))
           _ <- create(client, party, subscriber(party, party))
-          finalState <- finalStateF
+          _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
           assert(acs(originalId).length == 1)
@@ -217,7 +217,7 @@ abstract class AbstractFuncTests
           _ <- create(client, party, original(party, "original0"))
           _ <- create(client, party, original(party, "original1"))
           _ <- create(client, party, subscriber(party, party))
-          finalState <- finalStateF
+          _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
           assert(acs(originalId).length == 2)
@@ -340,7 +340,6 @@ abstract class AbstractFuncTests
 
     "CommandIdTests" should {
       val triggerId = QualifiedName.assertFromString("CommandId:test")
-      val tId = LedgerApi.Identifier(packageId, "CommandId", "T")
       "command-id" in {
         for {
           client <- ledgerClient()

@@ -208,7 +208,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "start up and shut down server" in
-    withTriggerService(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    withTriggerService(Some(dar)) { (_, _, _) =>
       Future(succeed)
     }
 
@@ -223,7 +223,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     }
 
   it should "fail to start non-existent trigger" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    (uri: Uri, _, _) =>
       val expectedError = StatusCodes.UnprocessableEntity
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", alice)
@@ -237,24 +237,23 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       } yield succeed
   }
 
-  it should "start a trigger after uploading it" in withTriggerService(None) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      for {
-        resp <- uploadDar(uri, darPath)
-        JsObject(fields) <- parseResult(resp)
-        Some(JsString(mainPackageId)) = fields.get("mainPackageId")
-        _ <- mainPackageId should not be empty
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        triggerId <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, Vector(triggerId))
-        resp <- stopTrigger(uri, triggerId, alice)
-        stoppedTriggerId <- parseTriggerId(resp)
-        _ <- stoppedTriggerId should equal(triggerId)
-      } yield succeed
+  it should "start a trigger after uploading it" in withTriggerService(None) { (uri: Uri, _, _) =>
+    for {
+      resp <- uploadDar(uri, darPath)
+      JsObject(fields) <- parseResult(resp)
+      Some(JsString(mainPackageId)) = fields.get("mainPackageId")
+      _ <- mainPackageId should not be empty
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      triggerId <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(triggerId))
+      resp <- stopTrigger(uri, triggerId, alice)
+      stoppedTriggerId <- parseTriggerId(resp)
+      _ <- stoppedTriggerId should equal(triggerId)
+    } yield succeed
   }
 
   it should "start multiple triggers and list them by party" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    (uri: Uri, _, _) =>
       for {
         resp <- listTriggers(uri, alice)
         result <- parseTriggerIds(resp)
@@ -286,7 +285,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "should enable a trigger on http request" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    (uri: Uri, client: LedgerClient, _) =>
       for {
         // Start the trigger
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)

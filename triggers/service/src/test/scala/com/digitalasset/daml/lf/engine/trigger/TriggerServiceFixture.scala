@@ -50,8 +50,7 @@ object TriggerServiceFixture {
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
-      implicit asys: ActorSystem,
-      mat: Materializer,
+      implicit mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
     val host = InetAddress.getLoopbackAddress

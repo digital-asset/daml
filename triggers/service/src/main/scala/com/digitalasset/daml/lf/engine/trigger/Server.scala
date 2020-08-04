@@ -12,10 +12,8 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -137,9 +135,7 @@ class Server(
     } yield JsObject(("triggerId", triggerInstance.toString.toJson))
   }
 
-  private def stopTrigger(
-      uuid: UUID,
-      credentials: UserCredentials): Either[String, Option[JsValue]] = {
+  private def stopTrigger(uuid: UUID): Either[String, Option[JsValue]] = {
     //TODO(SF, 2020-05-20): At least check that the provided token
     //is the same as the one used to start the trigger and fail with
     //'Unauthorized' if not (expect we'll be able to do better than
@@ -202,7 +198,7 @@ class Server(
         // "dar".
         path("v1" / "upload_dar") {
           fileUpload("dar") {
-            case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
+            case (_, byteSource) =>
               val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
               onSuccess(byteStringF) {
                 byteString =>
@@ -272,8 +268,8 @@ class Server(
                 .findCredentials(secretKey, request)
                 .fold(
                   message => complete(errorResponse(StatusCodes.Unauthorized, message)),
-                  credentials =>
-                    stopTrigger(uuid, credentials) match {
+                  _ =>
+                    stopTrigger(uuid) match {
                       case Left(err) =>
                         complete(errorResponse(StatusCodes.InternalServerError, err))
                       case Right(None) =>
@@ -339,7 +335,7 @@ object Server {
         }
     }
 
-    val (triggerDao, server): (RunningTriggerDao, Server) = jdbcConfig match {
+    val (_, server): (RunningTriggerDao, Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
         val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
@@ -391,13 +387,13 @@ object Server {
           // fail and restart indefinitely) so in particular we don't need to change the store of
           // running triggers. Entries are removed from there only when the user explicitly stops
           // the trigger with a request.
-          case TriggerInitializationFailure(triggerInstance, cause) =>
+          case TriggerInitializationFailure(triggerInstance, cause @ _) =>
             server
               .logTriggerStatus(triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
-          case TriggerRuntimeFailure(triggerInstance, cause) =>
+          case TriggerRuntimeFailure(triggerInstance, cause @ _) =>
             server.logTriggerStatus(triggerInstance, "stopped: runtime failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
