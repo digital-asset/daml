@@ -72,7 +72,6 @@ object LedgerResource {
           initialLedgerId = LedgerIdMode.Static(ledgerId),
           participantId = participantId,
           timeProvider = timeProvider,
-          acs = InMemoryActiveLedgerState.empty,
           packages = packages,
           initialLedgerEntries = ImmArray.empty,
           queueDepth = 128,

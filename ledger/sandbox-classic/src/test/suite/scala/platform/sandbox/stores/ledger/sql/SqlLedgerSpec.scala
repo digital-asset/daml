@@ -185,7 +185,6 @@ class SqlLedgerSpec
         initialLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
         participantId = participantId,
         timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveLedgerState.empty,
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)
           .fold(sys.error, identity),

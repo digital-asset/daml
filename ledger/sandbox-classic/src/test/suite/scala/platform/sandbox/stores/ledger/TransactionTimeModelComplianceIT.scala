@@ -35,7 +35,6 @@ import org.scalatest.{Assertion, AsyncWordSpec, Matchers, OptionValues}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
-import scala.language.implicitConversions
 
 class TransactionTimeModelComplianceIT
     extends AsyncWordSpec
@@ -207,11 +206,6 @@ object TransactionTimeModelComplianceIT {
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(recordTime)
-
-  private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
-
-  private implicit def toLedgerString(s: String): Ref.LedgerString =
-    Ref.LedgerString.assertFromString(s)
 
   sealed abstract class BackendType
 
