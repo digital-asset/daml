@@ -18,6 +18,7 @@ object GraphQLObject {
 
 trait DerivedGraphQLObject {
 
+  @silent(" generic .*is never used") // used to calculate Repr0 tparam only
   implicit def caseClassGraphQLObject[C, Repr0 <: HList](
       implicit
       classTag: ClassTag[C],
