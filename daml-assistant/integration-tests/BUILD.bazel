@@ -30,43 +30,43 @@ genrule(
       MVN=($(locations @mvn_dev_env//:mvn))
       MVN="$${{MVN[0]}}"
       install_mvn() {{
-          "$$MVN" -q install:install-file \
-          -Dmaven.repo.local=$$MVN_DB \
-          "-DgroupId=$$1" \
-          "-DartifactId=$$2" \
-          "-Dfile=$$3" \
-          "-DpomFile=$$4" \
-          -Dpackaging=jar \
+          "$$MVN" -q install:install-file \\
+          -Dmaven.repo.local=$$MVN_DB \\
+          "-DgroupId=$$1" \\
+          "-DartifactId=$$2" \\
+          "-Dfile=$$3" \\
+          "-DpomFile=$$4" \\
+          -Dpackaging=jar \\
           -Dversion={mvn}
       }}
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
-      install_mvn \
-        "com.daml" "daml-lf-archive" \
-        $(location //daml-lf/archive:daml_lf_dev_archive_java_proto) \
+      install_mvn \\
+        "com.daml" "daml-lf-archive" \\
+        $(location //daml-lf/archive:daml_lf_dev_archive_java_proto) \\
         $(location //daml-lf/archive:daml_lf_dev_archive_java_proto_pom)
-      install_mvn \
-        "com.daml" "bindings-java" \
-        $(location //language-support/java/bindings:libbindings-java.jar) \
+      install_mvn \\
+        "com.daml" "bindings-java" \\
+        $(location //language-support/java/bindings:libbindings-java.jar) \\
         $(location //language-support/java/bindings:bindings-java_pom.xml)
-      install_mvn \
-        "com.daml" "bindings-rxjava" \
-        $(location //language-support/java/bindings-rxjava:libbindings-rxjava.jar) \
+      install_mvn \\
+        "com.daml" "bindings-rxjava" \\
+        $(location //language-support/java/bindings-rxjava:libbindings-rxjava.jar) \\
         $(location //language-support/java/bindings-rxjava:bindings-rxjava_pom.xml)
-      install_mvn \
-        "com.daml" "codegen-java" \
-        $(location //language-support/java/codegen:shaded_binary.jar) \
+      install_mvn \\
+        "com.daml" "codegen-java" \\
+        $(location //language-support/java/codegen:shaded_binary.jar) \\
         $(location //language-support/java/codegen:shaded_binary_pom.xml)
-      install_mvn \
-        "com.daml" "rs-grpc-bridge" \
-        $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \
+      install_mvn \\
+        "com.daml" "rs-grpc-bridge" \\
+        $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \\
         $(location //ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
-      install_mvn \
-        "com.daml" "ledger-api-auth-client" \
-        $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \
+      install_mvn \\
+        "com.daml" "ledger-api-auth-client" \\
+        $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \\
         $(location //ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml)
       "$$MVN" -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
-      tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB) \
-        --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name
+      tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB) \\
+        --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name
     """.format(mvn = mvn_version),
 )
 
@@ -159,22 +159,15 @@ da_haskell_test(
     ],
 )
 
-da_haskell_test(
-    name = "create-daml-app-tests",
-    timeout = "long",
+da_haskell_library(
+    name = "create-daml-app-tests-lib",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTests.hs"],
-    args = [
-        "$(location //:yarn)",
-    ],
     data = [
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
         "@patch_dev_env//:patch",
     ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
-    # The Puppeteer tests can have race conditions, probably due to the way
-    # we depend on UI elements appearing.
-    flaky = True,
     hackage_deps = [
         "aeson",
         "aeson-extra",
@@ -183,12 +176,10 @@ da_haskell_test(
         "directory",
         "extra",
         "filepath",
+        "tagged",
         "tasty",
         "tasty-hunit",
     ],
-    main_function = "DA.Daml.Assistant.CreateDamlAppTests.main",
-    # Exclusive until we stop hardcoding port numbers in index.test.ts
-    tags = ["exclusive"],
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
@@ -197,4 +188,34 @@ da_haskell_test(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
+)
+
+da_haskell_test(
+    name = "create-daml-app-tests",
+    timeout = "long",
+    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
+    args = ["$(location //:yarn)"],
+    data = ["//:yarn"],
+    hackage_deps = ["base"],
+    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
+    # Exclusive until we stop hardcoding port numbers in index.test.ts
+    tags = ["exclusive"],
+    deps = [":create-daml-app-tests-lib"],
+)
+
+da_haskell_test(
+    name = "create-daml-app-tests-proj-name",
+    timeout = "long",
+    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
+    args = [
+        "$(location //:yarn)",
+        "--project-name",
+        "not-create-daml-app",
+    ],
+    data = ["//:yarn"],
+    hackage_deps = ["base"],
+    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
+    # Exclusive until we stop hardcoding port numbers in index.test.ts
+    tags = ["exclusive"],
+    deps = [":create-daml-app-tests-lib"],
 )

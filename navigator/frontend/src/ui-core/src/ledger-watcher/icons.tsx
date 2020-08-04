@@ -5,7 +5,7 @@ import * as React from 'react';
 import { keyframes } from 'styled-components';
 import { WatchedCommand } from '.';
 import UntypedIcon from '../Icon';
-import styled, { withProps } from '../theme';
+import styled from '../theme';
 
 export const fadeTime = 1000;
 
@@ -26,7 +26,7 @@ export interface SpinnerProps {
 
 const gray = 'rgba(255, 255, 255, 0.2)';
 
-const Spinner = withProps<SpinnerProps>(styled.div)`
+const Spinner = styled.div<SpinnerProps>`
   border-radius: 50%;
   width: ${(props) => props.size}px;
   height: ${(props) => props.size}px;

@@ -1,0 +1,60 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Conditional where
+
+template Cond with
+    owner: Party
+    content: Int
+  where
+    signatory owner
+
+    choice SuccA: ContractId Cond
+      controller owner
+      do
+        if False
+        then create Cond with owner; content = content
+        else create Cond with owner; content = content
+    
+    choice SuccB: ContractId Cond
+      controller owner
+      do
+        if 1 == 1
+        then create Cond with owner; content = content
+        else create Cond with owner; content = 0
+
+    choice SuccC: ContractId Cond
+      controller owner
+      do
+        if True
+        then do
+          _ <- create Cond with owner; content = content
+          create Cond with owner; content = 0
+        else create Cond with owner; content = content
+
+    choice SuccD: ContractId Cond
+      controller owner
+      do
+        if True
+        then do
+          cid1 <- create Cond with owner; content = content
+          archive cid1
+          create Cond with owner; content = content
+        else create Cond with owner; content = content
+
+    choice FailA: ContractId Cond
+      controller owner
+      do
+        if 1 == 1
+        then create Cond with owner; content = 0
+        else create Cond with owner; content = content
+
+    choice FailB: ContractId Cond
+      controller owner
+      do
+        if False
+        then create Cond with owner; content = content
+        else do 
+          _ <- create Cond with owner; content = content
+          create Cond with owner; content = content

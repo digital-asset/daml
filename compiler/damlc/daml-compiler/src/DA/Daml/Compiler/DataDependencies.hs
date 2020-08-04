@@ -242,6 +242,7 @@ generateSrcFromLf env = noLoc mod
     genDecls = do
         decls <- sequence . concat $
             [ classDecls
+            , synonymDecls
             , dataTypeDecls
             , valueDecls
             ]
@@ -328,6 +329,27 @@ generateSrcFromLf env = noLoc mod
                 , tcdATs = [] -- associated types not supported
                 , tcdATDefs = []
                 , tcdDocs = []
+                }
+
+    synonymDecls :: [Gen (LHsDecl GhcPs)]
+    synonymDecls = do
+        defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        guard $ case synType of
+            LF.TStruct _ -> False
+            LF.TUnit -> False
+            _ -> True
+        LF.TypeSynName [name] <- [synName]
+        guard (shouldExposeDefTypeSyn defTypeSyn)
+        let occName = mkOccName tcName . T.unpack $ sanitize name
+        pure $ do
+            params <- mapM (convTyVarBinder env) synParams
+            rhs <- convType env reexportedClasses synType
+            pure . noLoc . TyClD noExt $ SynDecl
+                { tcdSExt = noExt
+                , tcdLName = noLoc $ mkRdrUnqual occName
+                , tcdTyVars = HsQTvs noExt params
+                , tcdFixity = Prefix
+                , tcdRhs = noLoc rhs
                 }
 
     dataTypeDecls :: [Gen (LHsDecl GhcPs)]
@@ -434,7 +456,7 @@ generateSrcFromLf env = noLoc mod
                 ]
         LF.DataEnum cons -> do
             when (length cons == 1) (void $ mkGhcType env "DamlEnum")
-                -- ^ Single constructor enums spawn a reference to
+                -- Single constructor enums spawn a reference to
                 -- GHC.Types.DamlEnum in the daml-preprocessor.
             pure
                 [ mkConDecl (occNameFor conName) (PrefixCon [])
@@ -458,7 +480,7 @@ generateSrcFromLf env = noLoc mod
         convConDetails :: LF.Type -> Gen (HsConDeclDetails GhcPs)
         convConDetails = \case
 
-            -- | variant record constructor
+            -- variant record constructor
             LF.TConApp LF.Qualified{..} _
                 | LF.TypeConName ns <- qualObject
                 , length ns == 2 ->
@@ -468,7 +490,7 @@ generateSrcFromLf env = noLoc mod
                         Just fs ->
                             RecCon . noLoc <$> mapM (uncurry (mkConDeclField env)) fs
 
-            -- | normal payload
+            -- normal payload
             ty ->
                 PrefixCon . pure . noLoc <$> convType env reexportedClasses ty
 

@@ -95,10 +95,8 @@ object DamlDataTypeGen {
         ` mkDataTypeId`($packageIdRef, ${moduleName.dottedName}, ${baseName.dottedName})
     """)
 
-    /**
-      *  These implicit values are used as "evidence" in the ArgumentValueFormat
-      *  type class instances of polymorphic types.
-      */
+    // These implicit values are used as "evidence" in the ArgumentValueFormat
+    // type class instances of polymorphic types.
     val typeParamEvidences: List[Tree] = typeVars
       .filter(typeVarsInUse.contains)
       .zipWithIndex
@@ -135,13 +133,11 @@ object DamlDataTypeGen {
           $valueInstanceExpr"""
     }
 
-    /**
-      *  The generated class for a DAML enum type contains:
-      *  - the definition of a "Value" trait
-      *  - the definition of a _case object_ for each constructor of the DAML enum
-      *  - A type class instance (i.e. implicit object) for serializing/deserializing
-      *    to/from the ArgumentValue type (see typed-ledger-api project)
-      */
+    // The generated class for a DAML enum type contains:
+    //  - the definition of a "Value" trait
+    //  - the definition of a _case object_ for each constructor of the DAML enum
+    //  - A type class instance (i.e. implicit object) for serializing/deserializing
+    //    to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlEnumType(constructors: List[Ref.Name]): (Set[Tree], (Tree, Tree)) = {
       val className = damlScalaName.name.capitalize
 
@@ -180,15 +176,13 @@ object DamlDataTypeGen {
 
     }
 
-    /**
-      *  The generated class for a DAML variant type contains:
-      *  - the definition of a "Value" trait
-      *  - the definition of a _case class_ for each variant constructor of the DAML variant
-      *  - "smart constructors" that create values for each constructor automatically up-casting
-      *     to the Value (trait) type
-      *  - A type class instance (i.e. implicit object) for serializing/deserializing
-      *    to/from the ArgumentValue type (see typed-ledger-api project)
-      */
+    // The generated class for a DAML variant type contains:
+    // - the definition of a "Value" trait
+    // - the definition of a _case class_ for each variant constructor of the DAML variant
+    // - "smart constructors" that create values for each constructor automatically up-casting
+    //    to the Value (trait) type
+    // - A type class instance (i.e. implicit object) for serializing/deserializing
+    //   to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlVariantType(fields: List[(Ref.Name, VariantField)]): (Tree, Tree) = {
       lazy val damlVariant =
         if (fields.isEmpty) damlVariantZeroFields
@@ -327,12 +321,10 @@ object DamlDataTypeGen {
       damlVariant
     }
 
-    /**
-      *  The generated class for a DAML record type contains:
-      *  - the definition of a "Value" case class that contains all the DAML record fields/types.
-      *  - An type class instance (i.e. implicit object) for serializing/deserializing
-      *    to/from the ArgumentValue type (see typed-ledger-api project)
-      */
+    // The generated class for a DAML record type contains:
+    // - the definition of a "Value" case class that contains all the DAML record fields/types.
+    // - An type class instance (i.e. implicit object) for serializing/deserializing
+    //   to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlRecordType(fields: Seq[FieldWithType]): (Tree, Tree) = {
 
       lazy val damlRecord = {

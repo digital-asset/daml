@@ -16,7 +16,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
+import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.akka.AkkaResourceOwner
@@ -45,9 +45,11 @@ final class Runner[T <: ReadWriteService, Extra](
 
       // share engine between the kvutils committer backend and the ledger api server
       // this avoids duplicate compilation of packages as well as keeping them in memory twice
-      val sharedEngine = Engine()
+      // FIXME: https://github.com/digital-asset/daml/issues/5164
+      // This should be made configurable
+      val sharedEngine = Engine.DevEngine()
 
-      newLoggingContext { implicit logCtx =>
+      newLoggingContext { implicit loggingContext =>
         for {
           // Take ownership of the actor system and materializer so they're cleaned up properly.
           // This is necessary because we can't declare them as implicits in a `for` comprehension.
@@ -85,14 +87,13 @@ final class Runner[T <: ReadWriteService, Extra](
                 lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()
               _ <- new StandaloneApiServer(
+                ledgerId = config.ledgerId,
                 config = factory.apiServerConfig(participantConfig, config),
                 commandConfig = factory.commandConfig(participantConfig, config),
                 partyConfig = factory.partyConfig(config),
                 ledgerConfig = factory.ledgerConfig(config),
-                readService = readService,
-                writeService = writeService,
+                optWriteService = Some(writeService),
                 authService = factory.authService(config),
-                transformIndexService = service => new TimedIndexService(service, metrics),
                 metrics = metrics,
                 timeServiceBackend = factory.timeServiceBackend(config),
                 otherInterceptors = factory.interceptors(config),

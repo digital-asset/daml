@@ -6,8 +6,7 @@ package com.daml.lf.speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.value.Value.ContractId
@@ -57,7 +56,7 @@ object SError {
   final case class DamlELocalContractNotActive(
       coid: ContractId,
       templateId: TypeConName,
-      consumedBy: Tx.NodeId,
+      consumedBy: NodeId,
   ) extends SErrorDamlException
 
   /** Error during an operation on the update transaction. */
@@ -105,7 +104,7 @@ object SError {
       coid: ContractId,
       key: GlobalKey,
       committer: Party,
-      observers: Set[Party],
+      stakeholders: Set[Party],
   ) extends SErrorScenario
 
   /** The commit of the transaction failed due to authorization errors. */

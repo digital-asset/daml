@@ -16,7 +16,7 @@ export {makeTabLink} from './TabLink';
 // ------------------------------------------------------------------------------------------------
 
 export const TableActionBar
-  : React.ComponentClass<React.HTMLProps<HTMLDivElement>>
+  : React.FC<React.HTMLProps<HTMLDivElement>>
   = styled.div`
   height: ${hardcodedStyle.pageHeaderHeight};
   display: flex;
@@ -35,14 +35,14 @@ export const TableActionBar
 
 /** Simple spacing element */
 export const TableActionBarSpace
-  : React.ComponentClass<{}>
+  : React.FC<{}>
   = styled.div`
   flex: 1;
 `;
 
 /** Simple spacing element */
 export const TableActionBarSideMargin
-  : React.ComponentClass<{}>
+  : React.FC<{}>
   = styled.div`
   width: ${hardcodedStyle.tableSideMargin};
 `;
@@ -57,8 +57,8 @@ const StyledSearchIcon = styled(UntypedIcon).attrs({name: 'search'})`
 
 /** A generic action bar search input */
 export const RawTableActionBarSearchInput
-  : React.ComponentClass<SearchInputProps & {width?: string}>
-  = styled<SearchInputProps & {width?: string}>(SearchInput)`
+  : React.FC<SearchInputProps & {width?: string}>
+  = styled(SearchInput)<SearchInputProps & {width?: string}>`
   border-width: 0;
   height: 100%;
   flex: 1;
@@ -90,8 +90,8 @@ export const UnstyledTableActionBarSearchInput =
 
 /** A generic action bar search input */
 export const TableActionBarSearchInput
-  : React.ComponentClass<SearchInputProps & {width?: string}>
-  = styled<SearchInputProps & {width?: string}>(UnstyledTableActionBarSearchInput)`
+  : React.FC<SearchInputProps & {width?: string}>
+  = styled(UnstyledTableActionBarSearchInput)<SearchInputProps & {width?: string}>`
   width: ${(props) => props.width || '30%'};
   height: 100%;
   display: flex;
@@ -101,7 +101,7 @@ export const TableActionBarSearchInput
 
 /** A generic action bar title. */
 export const TableActionBarTitle
-  : React.ComponentClass<React.HTMLProps<HTMLSpanElement>>
+  : React.FC<React.HTMLProps<HTMLSpanElement>>
   = styled(Truncate)`
   flex: 1;
   align-self: center;
@@ -114,7 +114,7 @@ export const TableActionBarTitle
 
 /** A generic action bar button */
 export const TableActionBarButton
-  : React.ComponentClass<ButtonProps>
+  : React.FC<ButtonProps>
   = styled(Button).attrs({type: 'inverted-primary'})`
   margin-right: ${hardcodedStyle.actionBarElementMargin};
   font-size: 1.0rem;
@@ -126,14 +126,14 @@ export const TableActionBarButton
 
 /** A generic action bar link */
 export const TableActionBarLink
-  : React.ComponentClass<LinkProps>
+  : React.FC<LinkProps>
   = styled(Link)`
   margin-right: ${hardcodedStyle.actionBarElementMargin};
 `;
 
 /** A generic action bar checkbox */
 export const TableActionBarCheckboxLabel
-  : React.ComponentClass<React.HTMLProps<HTMLLabelElement>>
+  : React.FC<React.HTMLProps<HTMLLabelElement>>
   = styled.label`
   align-self: center;
   cursor: pointer;
@@ -144,7 +144,7 @@ export const TableActionBarCheckboxLabel
 
 /** A generic action bar checkbox */
 export const TableActionBarCheckbox
-  : React.ComponentClass<React.HTMLProps<HTMLInputElement>>
+  : React.FC<React.HTMLProps<HTMLInputElement>>
   = styled.input`
   margin-right: 5px;
 `;

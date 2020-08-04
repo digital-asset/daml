@@ -58,12 +58,8 @@ object VersionTimeline {
       This(That(TransactionVersion("9"))),
       That(LanguageVersion(LMV.V1, "8")),
       This(That(TransactionVersion("10"))),
-      // FIXME https://github.com/digital-asset/daml/issues/2256
-      //  * change the following line when LF 1.9 is frozen.
-      //  * do not insert line after this once until 1.9 is frozen.
-      This(This(ValueVersion("7"))),
       // add new versions above this line (but see more notes below)
-      That(LanguageVersion(LMV.V1, Dev)),
+      Both(Both(ValueVersion("7"), TransactionVersion("11")), LanguageVersion(LMV.V1, Dev)),
       // do *not* backfill to make more Boths, because such would
       // invalidate the timeline, except to accompany Dev language
       // versions; use This and That instead as needed.
@@ -164,6 +160,10 @@ object VersionTimeline {
   // not antisymmetric, as unknown versions can't be compared
   private[lf] def maxVersion[A](left: A, right: A)(implicit ev: SubVersion[A]): A =
     if (releasePrecedes(ev.inject(left), ev.inject(right))) right else left
+
+  // not antisymmetric, as unknown versions can't be compared
+  private[lf] def minVersion[A](left: A, right: A)(implicit ev: SubVersion[A]): A =
+    if (releasePrecedes(ev.inject(left), ev.inject(right))) left else right
 
   private[lf] def latestWhenAllPresent[A](minimum: A, as: SpecifiedVersion*)(
       implicit A: SubVersion[A]): A = {

@@ -196,46 +196,15 @@
     lodash "^4.17.13"
     to-fast-properties "^2.0.0"
 
-"@bazel/bazel-darwin_x64@1.1.0":
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-darwin_x64/-/bazel-darwin_x64-1.1.0.tgz#9402ecadfaf0383bc366ef5b37b933e0d0e804fc"
-  integrity sha512-/dnpkjqnl2Qrcy+qFerOe+lV9QZ2HoUHtTplQgRxa+OH8AtQ7mcopdJ9/3Y10GqgT2Kp+AR6G99R59/Si+BOMg==
-
-"@bazel/bazel-linux_x64@1.1.0":
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-linux_x64/-/bazel-linux_x64-1.1.0.tgz#98d75240e3e9ff5ba14fa48d6241d5d741e89926"
-  integrity sha512-yDR1URphRQTkXYjl4U2NLmbGR8ar8imhytK3txZZqlPf5pfWI/7wa7gSg0H4VbRRLIGAy/nD2eXZpgSj1eUiqA==
-
-"@bazel/bazel-win32_x64@1.1.0":
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-win32_x64/-/bazel-win32_x64-1.1.0.tgz#e9c80a8c6495834ee7fc6184c425284d1151ac38"
-  integrity sha512-mj3ujcifKO+hjAjHvLoutYxzs90YWuc/fYJuVaEQrk4YFrRW5g70OpjN74zzBHRstObOjSZ3cOj+HDB19SIFKw==
-
-"@bazel/bazel@1.1.0":
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel/-/bazel-1.1.0.tgz#9ce8308e44d76132812e908fcbc9e9051c7c2e1a"
-  integrity sha512-3NOWRHG1i/tAVQWuStIUuliFLVfjcKMbqIlc2Q206VWQ5pjlKgo0qa+qrWb0G6BYq+N3hxT4IwBz+Z17A8dbbg==
-  dependencies:
-    "@bazel/hide-bazel-files" latest
-  optionalDependencies:
-    "@bazel/bazel-darwin_x64" "1.1.0"
-    "@bazel/bazel-linux_x64" "1.1.0"
-    "@bazel/bazel-win32_x64" "1.1.0"
-
-"@bazel/hide-bazel-files@1.6.0":
-  version "1.6.0"
-  resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-1.6.0.tgz#4dfc610734934f43e1e7c97a26da7b4f2ec8f47f"
-  integrity sha512-RSu6I5yVVtjDP6PTkhDVvqOC+KJf8t4Uo2qCLxGjunLVt4guqKLt3KQX+dEU/qVn5vECXGTprDSNk+c9G6hDmg==
-
-"@bazel/hide-bazel-files@latest":
+"@bazel/hide-bazel-files@1.7.0":
   version "1.7.0"
   resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-1.7.0.tgz#7cb140c23c4269d6464c24be0a2acf0241d2a31d"
   integrity sha512-pvdyRX/EsU8n+oElFb+OZ9i5M48HNFR+Z4D3vc0qDGiJ8oly9fZcUb2gbw4CzyeovJz0IzjSxjqMS6cp5gKoeg==
 
-"@bazel/typescript@1.6.0":
-  version "1.6.0"
-  resolved "https://registry.yarnpkg.com/@bazel/typescript/-/typescript-1.6.0.tgz#8dfd29e71bcf917d5f9cb67f19ac4dcfc9082439"
-  integrity sha512-vAKuwy1Hgl+t3M3sH/G0oqHRYN35TdENj+0lsCI3x7EbSzyI6cbA3YQrLrlyvdScksqOpZa3PZ3UBGqfJJq2DA==
+"@bazel/typescript@2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@bazel/typescript/-/typescript-2.0.0.tgz#2ff5615f09c733cc681ba2ada92b11c356b694cd"
+  integrity sha512-5FPkxULWIjAKLG5J1XvpXpY1/4IK39dAoWA/Hhg+16gXTES32fT8w42k96pb6BTaNnyBuYgIHBpELEAJ40OOAQ==
   dependencies:
     protobufjs "6.8.8"
     semver "5.6.0"
@@ -2751,9 +2720,9 @@ lodash.sortby@^4.7.0:
   integrity sha1-7dFMgk4sycHgsKG0K7UhBRakJDg=
 
 lodash@^4.17.13, lodash@^4.17.14, lodash@^4.17.15:
-  version "4.17.15"
-  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.15.tgz#b447f6670a0455bbfeedd11392eff330ea097548"
-  integrity sha512-8xOcRHvCjnocdS5cpwXQXVzmmh5e5+saE2QGoeQmbKmRS6J3VQppPOIt0MnmE+4xlZoumy0GPG0D0MVIQbNA1A==
+  version "4.17.19"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.19.tgz#e48ddedbe30b3321783c5b4301fbd353bc1e4a4b"
+  integrity sha512-JNvd8XER9GQX0v2qJgsaN/mzFCNA5BRe/j8JN9d+tWyGLSodKQHKFicdwNYzWwI3wjRnaKPsGj1XkBjx/F96DQ==
 
 long@^4.0.0:
   version "4.0.0"

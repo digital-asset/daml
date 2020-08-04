@@ -1,0 +1,129 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test")
+load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@io_bazel_rules_docker//java:image.bzl", "java_image")
+load("@os_info//:os_info.bzl", "is_windows")
+
+da_scala_library(
+    name = "daml-on-sql",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    # Do not include logback.xml in the library. Let the user of the library decide how to log.
+    resources = ["src/main/resources/banner.txt"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-common",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_library(
+    name = "daml-on-sql-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    # Do not include logback.xml in the library. Let the user of the library decide how to log.
+    resources = ["src/main/resources/banner.txt"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = [
+        ":daml-on-sql",
+        "//daml-lf/data",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//ledger/sandbox-common",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+    ],
+)
+
+da_scala_binary(
+    name = "daml-on-sql-binary",
+    main_class = "com.daml.on.sql.Main",
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    deps = [
+        ":daml-on-sql",
+    ],
+)
+
+da_scala_binary(
+    name = "daml-on-sql-ephemeral-postgresql",
+    main_class = "com.daml.on.sql.MainWithEphemeralPostgresql",
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    deps = [
+        ":daml-on-sql",
+        ":daml-on-sql-test-lib",
+    ],
+)
+
+container_image(
+    name = "daml-on-sql-image-base",
+    base = "@java_base//image",
+    cmd = None,
+    directory = "/usr/bin",
+    files = [
+        "@com_github_grpc_ecosystem_grpc_health_probe_binary//file",
+    ],
+) if not is_windows else None
+
+java_image(
+    name = "daml-on-sql-image",
+    base = ":daml-on-sql-image-base",
+    main_class = "com.daml.on.sql.Main",
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [":daml-on-sql"],
+) if not is_windows else None
+
+da_scala_test(
+    name = "daml-on-sql-tests",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    data = [
+        "//ledger/test-common:model-tests.dar",
+    ],
+    deps = [
+        ":daml-on-sql",
+        "//daml-lf/data",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//libs-scala/ports",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--eager-package-loading",
+    ],
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)

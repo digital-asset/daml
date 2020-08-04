@@ -467,7 +467,7 @@ matchGoToDefinitionPattern :: GoToDefinitionPattern -> Maybe D.Location -> Bool
 matchGoToDefinitionPattern = \case
     Missing -> isNothing
     At c -> maybe False ((c ==) . locationStartCursor)
-    In m -> \l -> fromMaybe False $ do
+    In m -> \l -> (Just True ==) $ do
         l' <- l
         let uri = D._uri l'
         fp <- D.uriToFilePath' uri

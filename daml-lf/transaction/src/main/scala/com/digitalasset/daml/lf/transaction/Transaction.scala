@@ -8,14 +8,11 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.GenTransaction.WithTxValue
-import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.VersionedValue
 import scalaz.Equal
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
-import scala.language.higherKinds
 
 final case class VersionedTransaction[Nid, +Cid] private[lf] (
     version: TransactionVersion,
@@ -30,7 +27,7 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
     VersionedTransaction(
       version,
-      transaction = GenTransaction.map3(identity[Nid], f, VersionedValue.map1(f))(transaction)
+      transaction = GenTransaction.map3(identity[Nid], f, Value.VersionedValue.map1(f))(transaction)
     )
 
   /** Increase the `version` if appropriate for `languageVersions`.
@@ -60,7 +57,7 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
     )
   }
 
-  override def nodes: HashMap[Nid, GenNode.WithTxValue[Nid, Cid]] =
+  override def nodes: HashMap[Nid, Node.GenNode.WithTxValue[Nid, Cid]] =
     transaction.nodes
 
   override def roots: ImmArray[Nid] =
@@ -103,8 +100,8 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-final private[lf] case class GenTransaction[Nid, +Cid, +Val](
-    nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
+final case class GenTransaction[Nid, +Cid, +Val](
+    nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
 ) extends HasTxNodes[Nid, Cid, Val]
     with value.CidContainer[GenTransaction[Nid, Cid, Val]] {
@@ -155,8 +152,8 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
               go(newErrors + NotWellFormedError(nid, DanglingNodeId), newVisited, nids)
             case Some(node) =>
               node match {
-                case _: LeafOnlyNode[Cid, Val] => go(newErrors, newVisited, nids)
-                case ne: NodeExercises[Nid, Cid, Val] =>
+                case _: Node.LeafOnlyNode[Cid, Val] => go(newErrors, newVisited, nids)
+                case ne: Node.NodeExercises[Nid, Cid, Val] =>
                   go(newErrors, newVisited, if (alreadyVisited) {
                     nids
                   } else {
@@ -182,7 +179,7 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
     * Nid is irrelevant to the content of the transaction.
     */
   def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
-      compare: (GenNode[Nothing, Cid, Val], GenNode[Nothing, Cid2, Val2]) => Boolean,
+      compare: (Node.GenNode[Nothing, Cid, Val], Node.GenNode[Nothing, Cid2, Val2]) => Boolean,
   ): Boolean = {
     @tailrec
     def go(toCompare: FrontStack[(Nid, Nid2)]): Boolean =
@@ -192,32 +189,32 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
-            case nf1: NodeFetch[Cid, Val] =>
+            case nf1: Node.NodeFetch[Cid, Val] =>
               node2 match {
-                case nf2: NodeFetch[Cid2, Val2] => compare(nf1, nf2) && go(rest)
+                case nf2: Node.NodeFetch[Cid2, Val2] => compare(nf1, nf2) && go(rest)
                 case _ => false
               }
-            case nc1: NodeCreate[Cid, Val] =>
+            case nc1: Node.NodeCreate[Cid, Val] =>
               node2 match {
-                case nc2: NodeCreate[Cid2, Val2] =>
+                case nc2: Node.NodeCreate[Cid2, Val2] =>
                   compare(nc1, nc2) && go(rest)
                 case _ => false
               }
-            case ne1: NodeExercises[Nid, Cid, Val] =>
+            case ne1: Node.NodeExercises[Nid, Cid, Val] =>
               node2 match {
-                case ne2: NodeExercises[Nid2, Cid2, Val2] =>
-                  val blankedNe1: NodeExercises[Nothing, Cid, Val] =
+                case ne2: Node.NodeExercises[Nid2, Cid2, Val2] =>
+                  val blankedNe1: Node.NodeExercises[Nothing, Cid, Val] =
                     ne1.copy(children = ImmArray.empty)
-                  val blankedNe2: NodeExercises[Nothing, Cid2, Val2] =
+                  val blankedNe2: Node.NodeExercises[Nothing, Cid2, Val2] =
                     ne2.copy(children = ImmArray.empty)
                   compare(blankedNe1, blankedNe2) &&
                   ne1.children.length == ne2.children.length &&
                   go(ne1.children.zip(ne2.children) ++: rest)
                 case _ => false
               }
-            case nl1: NodeLookupByKey[Cid, Val] =>
+            case nl1: Node.NodeLookupByKey[Cid, Val] =>
               node2 match {
-                case nl2: NodeLookupByKey[Cid2, Val2] =>
+                case nl2: Node.NodeLookupByKey[Cid2, Val2] =>
                   compare(nl1, nl2) && go(rest)
                 case _ => false
               }
@@ -245,14 +242,14 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
     fold(BackStack.empty[String]) {
       case (errs, (_, node)) =>
         node match {
-          case _: NodeFetch[Cid, Val] => errs
-          case nc: NodeCreate[Cid, Val] =>
+          case _: Node.NodeFetch[Cid, Val] => errs
+          case nc: Node.NodeCreate[Cid, Val] =>
             errs :++ f(nc.coinst.arg) :++ (nc.key match {
               case None => ImmArray.empty
               case Some(key) => f(key.key)
             })
-          case ne: NodeExercises[Nid, Cid, Val] => errs :++ f(ne.chosenValue)
-          case nlbk: NodeLookupByKey[Cid, Val] => errs :++ f(nlbk.key.key)
+          case ne: Node.NodeExercises[Nid, Cid, Val] => errs :++ f(ne.chosenValue)
+          case nlbk: Node.NodeLookupByKey[Cid, Val] => errs :++ f(nlbk.key.key)
         }
     }.toImmArray
   }
@@ -281,7 +278,7 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
 
 sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 
-  def nodes: HashMap[Nid, GenNode[Nid, Cid, Val]]
+  def nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]]
   def roots: ImmArray[Nid]
 
   /**
@@ -289,7 +286,7 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
-  final def foreach(f: (Nid, GenNode[Nid, Cid, Val]) => Unit): Unit = {
+  final def foreach(f: (Nid, Node.GenNode[Nid, Cid, Val]) => Unit): Unit = {
 
     @tailrec
     def go(toVisit: FrontStack[Nid]): Unit = toVisit match {
@@ -298,8 +295,8 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
         val node = nodes(nodeId)
         f(nodeId, node)
         node match {
-          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
-          case ne: NodeExercises[Nid, Cid, Val] => go(ne.children ++: toVisit)
+          case _: Node.LeafOnlyNode[Cid, Val] => go(toVisit)
+          case ne: Node.NodeExercises[Nid, Cid, Val] => go(ne.children ++: toVisit)
         }
     }
 
@@ -311,7 +308,7 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
-  final def fold[A](z: A)(f: (A, (Nid, GenNode[Nid, Cid, Val])) => A): A = {
+  final def fold[A](z: A)(f: (A, (Nid, Node.GenNode[Nid, Cid, Val])) => A): A = {
     var acc = z
     foreach { (nodeId, node) =>
       // make sure to not tie the knot by mistake by evaluating early
@@ -329,7 +326,7 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
     * transaction.
     */
   final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
-      op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B),
+      op: (A, B, Nid, Node.GenNode[Nid, Cid, Val]) => (A, B),
   ): A = {
     var globalState = globalState0
 
@@ -341,8 +338,8 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
         val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
         globalState = globalState1
         node match {
-          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
-          case ne: NodeExercises[Nid, Cid, Val] =>
+          case _: Node.LeafOnlyNode[Cid, Val] => go(toVisit)
+          case ne: Node.NodeExercises[Nid, Cid, Val] =>
             go(ne.children.map(_ -> newPathState) ++: toVisit)
         }
     }
@@ -387,7 +384,7 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
       currNodes match {
         case FrontStackCons(nid, rest) =>
           nodes(nid) match {
-            case exe: NodeExercises[Nid, Cid, Val] =>
+            case exe: Node.NodeExercises[Nid, Cid, Val] =>
               exerciseBegin(nid, exe)
               loop(FrontStack(exe.children), (((nid, exe), rest)) +: stack)
             case node: Node.LeafOnlyNode[Cid, Val] =>
@@ -424,22 +421,23 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 
 }
 
-private[lf] object GenTransaction extends value.CidContainer3[GenTransaction] {
+object GenTransaction extends value.CidContainer3[GenTransaction] {
 
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
-  private val Empty =
+  private[this] val Empty =
     GenTransaction[Nothing, Nothing, Nothing](
       HashMap.empty[Nothing, Nothing],
       ImmArray.empty[Nothing])
 
-  def empty[A, B, C]: GenTransaction[A, B, C] = Empty.asInstanceOf[GenTransaction[A, B, C]]
+  private[lf] def empty[A, B, C]: GenTransaction[A, B, C] =
+    Empty.asInstanceOf[GenTransaction[A, B, C]]
 
-  case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
-  sealed trait NotWellFormedErrorReason
-  case object DanglingNodeId extends NotWellFormedErrorReason
-  case object OrphanedNode extends NotWellFormedErrorReason
-  case object AliasedNode extends NotWellFormedErrorReason
+  private[lf] case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
+  private[lf] sealed trait NotWellFormedErrorReason
+  private[lf] case object DanglingNodeId extends NotWellFormedErrorReason
+  private[lf] case object OrphanedNode extends NotWellFormedErrorReason
+  private[lf] case object AliasedNode extends NotWellFormedErrorReason
 
   override private[lf] def map3[A1, A2, A3, B1, B2, B3](
       f1: A1 => B1,
@@ -450,7 +448,7 @@ private[lf] object GenTransaction extends value.CidContainer3[GenTransaction] {
       GenTransaction(
         nodes = nodes.map {
           case (nodeId, node) =>
-            f1(nodeId) -> GenNode.map3(f1, f2, f3)(node)
+            f1(nodeId) -> Node.GenNode.map3(f1, f2, f3)(node)
         },
         roots = roots.map(f1)
       )
@@ -465,17 +463,19 @@ private[lf] object GenTransaction extends value.CidContainer3[GenTransaction] {
       nodes.foreach {
         case (nodeId, node) =>
           f1(nodeId)
-          GenNode.foreach3(f1, f2, f3)(node)
+          Node.GenNode.foreach3(f1, f2, f3)(node)
       }
   }
 }
 
 object Transaction {
 
-  type NodeId = Value.NodeId
-  val NodeId = Value.NodeId
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
+  type NodeId = transaction.NodeId
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
+  val NodeId = transaction.NodeId
 
-  @deprecated("Use daml.lf.value.Value.ContractId directly", since = "1.4.0")
+  @deprecated("Use daml.lf.value.Value.ContractId directly", since = "1.2.0")
   type TContractId = Value.ContractId
 
   type Value[+Cid] = Value.VersionedValue[Cid]
@@ -483,8 +483,8 @@ object Transaction {
   type ContractInst[+Cid] = Value.ContractInst[Value[Cid]]
 
   /** Transaction nodes */
-  type Node = GenNode.WithTxValue[NodeId, Value.ContractId]
-  type LeafNode = LeafOnlyNode.WithTxValue[Value.ContractId]
+  type Node = Node.GenNode.WithTxValue[transaction.NodeId, Value.ContractId]
+  type LeafNode = Node.LeafOnlyNode.WithTxValue[Value.ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     *  ledger-update. These transactions are consumed by either the
@@ -494,7 +494,7 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = VersionedTransaction[NodeId, Value.ContractId]
+  type Transaction = VersionedTransaction[transaction.NodeId, Value.ContractId]
   val Transaction = VersionedTransaction
 
   /** Transaction meta data
@@ -519,38 +519,31 @@ object Transaction {
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
-      nodeSeeds: ImmArray[(Value.NodeId, crypto.Hash)],
-      byKeyNodes: ImmArray[Value.NodeId],
+      nodeSeeds: ImmArray[(transaction.NodeId, crypto.Hash)],
+      byKeyNodes: ImmArray[transaction.NodeId],
   )
 
-  sealed abstract class DiscriminatedSubtype[X] {
-    type T <: X
-    def apply(x: X): T
-    def subst[F[_]](fx: F[X]): F[T]
-  }
+  @deprecated("Use com.daml.lf.transaction.SubmittedTransaction", since = "1.4.0")
+  type SubmittedTransaction = transaction.SubmittedTransaction
 
-  object DiscriminatedSubtype {
-    def apply[X]: DiscriminatedSubtype[X] = new DiscriminatedSubtype[X] {
-      override type T = X
-      override def apply(x: X): T = x
-      override def subst[F[_]](fx: F[X]): F[T] = fx
-    }
-  }
+  @deprecated("Use com.daml.lf.transaction.SubmittedTransaction", since = "1.4.0")
+  val SubmittedTransaction = transaction.SubmittedTransaction
 
-  val SubmittedTransaction = DiscriminatedSubtype[Transaction]
-  type SubmittedTransaction = SubmittedTransaction.T
+  @deprecated("Use com.daml.lf.transaction.CommittedTransaction", since = "1.4.0")
+  type CommittedTransaction = transaction.CommittedTransaction
 
-  val CommittedTransaction = DiscriminatedSubtype[Transaction]
-  type CommittedTransaction = CommittedTransaction.T
-
-  def commitTransaction(tx: SubmittedTransaction): CommittedTransaction =
-    CommittedTransaction(tx)
+  @deprecated("Use com.daml.lf.transaction.CommittedTransaction", since = "1.4.0")
+  val CommittedTransaction = transaction.CommittedTransaction
 
   def commitTransaction(
-      tx: SubmittedTransaction,
+      submittedTransaction: transaction.SubmittedTransaction): transaction.CommittedTransaction =
+    transaction.CommittedTransaction(submittedTransaction)
+
+  def commitTransaction(
+      submittedTransaction: transaction.SubmittedTransaction,
       f: crypto.Hash => Bytes,
-  ): Either[String, CommittedTransaction] =
-    tx.suffixCid(f).map(CommittedTransaction(_))
+  ): Either[String, transaction.CommittedTransaction] =
+    submittedTransaction.suffixCid(f).map(transaction.CommittedTransaction(_))
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
@@ -566,7 +559,7 @@ object Transaction {
   final case class ContractNotActive(
       coid: Value.ContractId,
       templateId: TypeConName,
-      consumedBy: NodeId)
+      consumedBy: transaction.NodeId)
       extends TransactionError
 
 }

@@ -3,7 +3,7 @@
 
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
-load("@build_environment//:configuration.bzl", "sdk_version")
+load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 
 DAML_LF_VERSIONS = [
     "1.7",
@@ -27,7 +27,7 @@ DAML_LF_VERSIONS = [
 sdk-version: {sdk}
 name: daml-script
 source: daml
-version: 0.0.1
+version: {ghc}
 dependencies:
   - daml-stdlib
   - daml-prim
@@ -44,6 +44,7 @@ EOF
                 lf_version,
             ] if lf_version else []),
             sdk = sdk_version,
+            ghc = ghc_version,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],

@@ -35,10 +35,12 @@ da_haskell_binary(
         "filepath",
         "jwt",
         "process",
+        "semver",
         "tagged",
         "tasty",
         "tasty-hunit",
         "text",
+        "uuid",
     ],
     visibility = ["//visibility:public"],
     deps = [

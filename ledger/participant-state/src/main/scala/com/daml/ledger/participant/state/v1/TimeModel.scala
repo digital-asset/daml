@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.v1
 
 import java.time.{Duration, Instant}
+
 import scala.util.Try
 
 /**
@@ -30,14 +31,25 @@ case class TimeModel private (
       ledgerTime: Instant,
       recordTime: Instant
   ): Either[String, Unit] = {
-    val lowerBound = recordTime.minus(minSkew)
-    val upperBound = recordTime.plus(maxSkew)
+    val lowerBound = minLedgerTime(recordTime)
+    val upperBound = maxLedgerTime(recordTime)
     if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound))
       Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
     else
       Right(())
   }
 
+  private[state] def minLedgerTime(recordTime: Instant): Instant =
+    recordTime.minus(minSkew)
+
+  private[state] def maxLedgerTime(recordTime: Instant): Instant =
+    recordTime.plus(maxSkew)
+
+  private[state] def minRecordTime(ledgerTime: Instant): Instant =
+    ledgerTime.minus(maxSkew)
+
+  private[state] def maxRecordTime(ledgerTime: Instant): Instant =
+    ledgerTime.plus(minSkew)
 }
 
 object TimeModel {

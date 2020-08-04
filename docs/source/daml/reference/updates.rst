@@ -178,7 +178,7 @@ getTime
    currentTime <- getTime
 
 - ``getTime`` keyword.
-- Gets the ledger effective time. (You will usually want to immediately bind it to a variable in order to be able to access the value.)
+- Gets the ledger time. (You will usually want to immediately bind it to a variable in order to be able to access the value.)
 - Used to restrict when a choice can be made. For example, with an ``assert`` that the time is later than a certain time.
 
 Here's an example of a choice that uses a check on the current time:

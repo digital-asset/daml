@@ -16,7 +16,7 @@ case class BatchedSubmissionValidatorParameters(
 )
 
 object BatchedSubmissionValidatorParameters {
-  lazy val default: BatchedSubmissionValidatorParameters = {
+  lazy val reasonableDefault: BatchedSubmissionValidatorParameters = {
     val availableProcessors = Runtime.getRuntime.availableProcessors()
     BatchedSubmissionValidatorParameters(
       cpuParallelism = availableProcessors,

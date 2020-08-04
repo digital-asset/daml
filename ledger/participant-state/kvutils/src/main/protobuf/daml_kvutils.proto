@@ -79,7 +79,7 @@ message DamlSubmissionBatch {
 // A log entry for a committed DAML submission.
 // Produced by [[KeyValueCommitting]] from the `DamlSubmission` message.
 // Each entry can be converted into a participant state `Update` event
-// with [[KeyValueConsumption]].
+// with [[KeyValueConsumption]], except for a time update entry.
 //
 // Please read comments in [[com.daml.ledger.participant.state.v1.package]]
 // and  [[com.daml.ledger.participant.state.kvutils.package]] for background
@@ -113,6 +113,12 @@ message DamlLogEntry {
 
     // A rejection of party allocation request.
     DamlPartyAllocationRejectionEntry party_allocation_rejection_entry = 9;
+
+    // A rejection of a pre-executed submission because of out-of-time-bounds.
+    DamlOutOfTimeBoundsEntry out_of_time_bounds_entry = 10;
+
+    // A log entry whose purpose is to transmit a current record time for pre-executed submissions.
+    google.protobuf.Empty time_update_entry = 101;
   }
 }
 
@@ -316,6 +322,17 @@ message DamlPartyAllocationRejectionEntry {
   }
 }
 
+// Indicates that a submission has been rejected after pre-execution.
+// [[KeyValueConsumption.logEntryToUpdate]] will pick the right rejection reason based on current
+// record time.
+message DamlOutOfTimeBoundsEntry {
+  // We don't expect entry.recordTime to be present.
+  DamlLogEntry entry = 1;
+  google.protobuf.Timestamp duplicate_until = 2;
+  google.protobuf.Timestamp too_early_until = 3;
+  google.protobuf.Timestamp too_late_from = 4;
+}
+
 // DAML state key. [[KeyValueCommitting]] produces effects that are committed
 // to the ledger from the `DamlSubmission`: a log entry to be created, and
 // the set of DAML state updates.
@@ -353,8 +370,7 @@ message DamlCommandDedupKey {
 }
 
 message DamlCommandDedupValue {
-  // record time will be used in the future for pruning
-  google.protobuf.Timestamp record_time = 1;
+  reserved 1; // was record_time
   // the time until when future commands with the same
   // deduplication key will be rejected due to a duplicate submission
   google.protobuf.Timestamp deduplicated_until = 2;
@@ -377,8 +393,7 @@ message DamlSubmissionDedupKey {
 }
 
 message DamlSubmissionDedupValue {
-  // record time will be used in the future for pruning
-  google.protobuf.Timestamp record_time = 1;
+  reserved 1; // was record_time
 }
 
 // DAML contract state, recording the activeness state of a contract.
@@ -394,8 +409,7 @@ message DamlContractState {
   // Optional, if set the contract has been archived.
   google.protobuf.Timestamp archived_at = 2;
 
-  // Optional. The log entry that caused the contract to be archived.
-  DamlLogEntryId archived_by_entry = 3;
+  reserved 3; // was archived_by_entry
 
   // The parties to which this contract has been explicitly disclosed, that is,
   // the parties which witnessed the creation of the contract.

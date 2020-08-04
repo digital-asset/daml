@@ -36,13 +36,11 @@ object BatchedSubmissionValidator {
       committer: KeyValueCommitting,
       conflictDetection: ConflictDetection,
       metrics: Metrics,
-      engine: Engine,
       ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())(
       implicit executionContext: ExecutionContext): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       committer,
-      engine,
       conflictDetection,
       metrics,
       ledgerDataExporter
@@ -56,7 +54,6 @@ object BatchedSubmissionValidator {
     new BatchedSubmissionValidator[CommitResult](
       params,
       new KeyValueCommitting(engine, metrics),
-      engine,
       new ConflictDetection(metrics),
       metrics)
 
@@ -76,7 +73,7 @@ object BatchedSubmissionValidator {
   // instead and remove the whole concept of log entry identifiers.
   // For now this implementation uses a sha256 hash of the submission envelope in order to generate
   // deterministic log entry IDs.
-  private def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
+  private[validator] def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
     val messageDigest = MessageDigest
       .getInstance("SHA-256")
     messageDigest.update(bytes.asReadOnlyByteBuffer())
@@ -92,8 +89,8 @@ object BatchedSubmissionValidator {
 
   private def withCorrelationIdLogged[T](correlationId: CorrelationId)(
       f: LoggingContext => T): T = {
-    newLoggingContext("correlationId" -> correlationId) { logCtx =>
-      f(logCtx)
+    newLoggingContext("correlationId" -> correlationId) { loggingContext =>
+      f(loggingContext)
     }
   }
 
@@ -106,7 +103,6 @@ object BatchedSubmissionValidator {
 class BatchedSubmissionValidator[CommitResult] private[validator] (
     params: BatchedSubmissionValidatorParameters,
     committer: KeyValueCommitting,
-    engine: Engine,
     conflictDetection: ConflictDetection,
     damlMetrics: Metrics,
     ledgerDataExporter: LedgerDataExporter = LedgerDataExporter()) {
@@ -130,7 +126,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       ledgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult]
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
-    withCorrelationIdLogged(correlationId) { implicit logCtx =>
+    withCorrelationIdLogged(correlationId) { implicit loggingContext =>
       ledgerDataExporter.addSubmission(
         submissionEnvelope,
         correlationId,
@@ -265,7 +261,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       commitStrategy: CommitStrategy[CommitResult])(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
-      logCtx: LoggingContext): Future[Unit] =
+      loggingContext: LoggingContext,
+  ): Future[Unit] =
     indexedSubmissions
     // Fetch the submission inputs in parallel.
       .mapAsyncUnordered[Outputs1](params.readParallelism) {
@@ -321,7 +318,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       ledgerStateReader: DamlLedgerStateReader)(
       implicit executionContext: ExecutionContext): Future[FetchedInput] = {
     val inputKeys = correlatedSubmission.submission.getInputDamlStateList.asScala
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.timedAndTrackedFuture(
         metrics.fetchInputs,
         metrics.fetchInputsRunning,
@@ -340,7 +337,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState)(
       implicit executionContext: ExecutionContext): Future[ValidatedSubmission] =
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.timedAndTrackedFuture(
         metrics.validate,
         metrics.validateRunning,
@@ -365,7 +362,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       invalidatedKeys: mutable.Set[DamlStateKey])
     : scala.collection.immutable.Iterable[ValidatedSubmission] = {
     val (logEntry, outputState) = logEntryAndState
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.value(
         metrics.detectConflicts, {
           conflictDetection
@@ -398,7 +395,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       commitStrategy: CommitStrategy[CommitResult])(
       implicit executionContext: ExecutionContext): Future[Unit] = {
     val (logEntry, outputState) = logEntryAndState
-    withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
+    withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
       Timed.timedAndTrackedFuture(
         metrics.commit,
         metrics.commitRunning,

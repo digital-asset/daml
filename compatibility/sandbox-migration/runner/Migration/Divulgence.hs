@@ -3,7 +3,6 @@
 
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE PatternSynonyms #-}
 module Migration.Divulgence (test) where
 
 import Control.Monad

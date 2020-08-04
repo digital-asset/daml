@@ -16,7 +16,7 @@ import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
-final class ActiveContractsServiceAuthorization(
+private[daml] final class ActiveContractsServiceAuthorization(
     protected val service: ActiveContractsService with AutoCloseable,
     private val authorizer: Authorizer)
     extends ActiveContractsService

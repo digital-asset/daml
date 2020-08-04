@@ -12,7 +12,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
-import scalaz.syntax.tag._
 import spray.json._
 
 import com.daml.lf.archive.Dar
@@ -22,11 +21,6 @@ import com.daml.lf.speedy.SValue
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
 
 import com.daml.lf.engine.script._
 
@@ -67,19 +61,13 @@ class TestRunner(
     val participantParams: Participants[ApiParameters],
     val dar: Dar[(PackageId, Package)],
     val wallclockTime: Boolean,
-    val token: Option[String],
     val rootCa: Option[File],
 ) {
   val applicationId = ApplicationId("DAML Script Test Runner")
 
-  val clientConfig = LedgerClientConfiguration(
-    applicationId = applicationId.unwrap,
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    sslContext = rootCa.flatMap(file =>
-      TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)).client),
-    token = token,
-  )
+  val tlsConfig = rootCa.fold(TlsConfiguration(false, None, None, None))(file =>
+    TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)))
+
   val ttl = java.time.Duration.ofSeconds(30)
   val timeMode: ScriptTimeMode =
     if (wallclockTime) ScriptTimeMode.WallClock else ScriptTimeMode.Static
@@ -106,7 +94,7 @@ class TestRunner(
     implicit val ec: ExecutionContext = system.dispatcher
 
     val clientsF =
-      Runner.connect(participantParams, clientConfig, maxInboundMessageSize)
+      Runner.connect(participantParams, applicationId, tlsConfig, maxInboundMessageSize)
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF

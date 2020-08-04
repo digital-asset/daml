@@ -37,75 +37,6 @@ def daml_haskell_deps():
     # Executables
     #
 
-    # Standard ghcide (not ghc-lib based) - used on daml's Haskell sources.
-    http_archive(
-        name = "ghcide",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary", "haskell_cabal_library")
-deps = [
-    "@stackage//:aeson",
-    "@stackage//:async",
-    "@stackage//:base",
-    "@stackage//:binary",
-    "@stackage//:bytestring",
-    "@stackage//:containers",
-    "@stackage//:data-default",
-    "@stackage//:deepseq",
-    "@stackage//:directory",
-    "@stackage//:extra",
-    "@stackage//:filepath",
-    "@stackage//:fuzzy",
-    "@stackage//:ghc",
-    "@stackage//:ghc-boot",
-    "@stackage//:ghc-boot-th",
-    "@stackage//:haddock-library",
-    "@stackage//:hashable",
-    "@stackage//:haskell-lsp",
-    "@stackage//:haskell-lsp-types",
-    "@stackage//:mtl",
-    "@stackage//:network-uri",
-    "@stackage//:prettyprinter",
-    "@stackage//:prettyprinter-ansi-terminal",
-    "@stackage//:regex-tdfa",
-    "@stackage//:rope-utf16-splay",
-    "@stackage//:safe-exceptions",
-    "@stackage//:shake",
-    "@stackage//:sorted-list",
-    "@stackage//:stm",
-    "@stackage//:syb",
-    "@stackage//:text",
-    "@stackage//:time",
-    "@stackage//:transformers",
-    "@stackage//:unordered-containers",
-    "@stackage//:utf8-string",
-]
-haskell_cabal_library(
-    name = "ghcide-lib",
-    package_name = "ghcide",
-    version = "{version}",
-    haddock = False,
-    srcs = glob(["**"]),
-    deps = deps,
-    visibility = ["//visibility:public"],
-)
-haskell_cabal_binary(
-    name = "ghcide",
-    srcs = glob(["**"]),
-    deps = deps + [
-        ":ghcide-lib",
-        "@stackage//:gitrev",
-        "@stackage//:ghc-paths",
-        "@stackage//:hie-bios",
-        "@stackage//:optparse-applicative",
-    ],
-    visibility = ["//visibility:public"],
-)
-""".format(version = GHCIDE_VERSION),
-        sha256 = GHCIDE_SHA256,
-        strip_prefix = "ghcide-%s" % GHCIDE_REV,
-        urls = ["https://github.com/digital-asset/ghcide/archive/%s.tar.gz" % GHCIDE_REV],
-    )
-
     http_archive(
         name = "proto3_suite",
         build_file_content = """
@@ -187,7 +118,10 @@ haskell_library(
 )
 """.format(version = GHCIDE_VERSION),
         patch_args = ["-p1"],
-        patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
+            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch",
+        ],
         sha256 = GHCIDE_SHA256,
         strip_prefix = "ghcide-%s" % GHCIDE_REV,
         urls = ["https://github.com/digital-asset/ghcide/archive/%s.tar.gz" % GHCIDE_REV],
@@ -417,6 +351,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         ),
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
+        stack_snapshot_json = "//:stackage_snapshot.json" if not is_windows else None,
         packages = [
             "aeson",
             "aeson-extra",
@@ -595,6 +530,30 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "js-dgtable": "@js_dgtable//:js-dgtable",
             "js-flot": "@js_flot//:js-flot",
             "shake": "@shake//:shake",
+            "zip": "@zip//:zip",
+        },
+    )
+
+    stack_snapshot(
+        name = "ghcide",
+        extra_deps = {
+            "zlib": ["@com_github_madler_zlib//:libz"],
+        },
+        flags = {
+            "hashable": ["-integer-gmp"],
+            "integer-logarithms": ["-integer-gmp"],
+            "text": ["integer-simple"],
+            "scientific": ["integer-simple"],
+        } if use_integer_simple else {},
+        haddock = False,
+        local_snapshot = "//:ghcide-snapshot.yaml",
+        stack_snapshot_json = "//:ghcide_snapshot.json" if not is_windows else None,
+        packages = [
+            "ghcide",
+        ],
+        components = {"ghcide": ["lib", "exe"]},
+        stack = "@stack_windows//:stack.exe" if is_windows else None,
+        vendored_packages = {
             "zip": "@zip//:zip",
         },
     )

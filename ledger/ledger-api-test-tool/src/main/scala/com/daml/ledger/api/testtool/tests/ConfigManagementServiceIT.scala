@@ -15,6 +15,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
     "CMSetAndGetTimeModel",
     "It should be able to get, set and restore the time model",
     allocate(NoParties),
+    runConcurrently = false,
   )(implicit ec => {
     case Participants(Participant(ledger)) =>
       val newTimeModel = TimeModel(

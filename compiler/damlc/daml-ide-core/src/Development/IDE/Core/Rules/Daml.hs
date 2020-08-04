@@ -167,7 +167,7 @@ sendDiagnostics fp diags = do
         event = LSP.NotPublishDiagnostics $
             LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
             LSP.PublishDiagnosticsParams uri (List diags)
-            -- ^ This is just 'publishDiagnosticsNotification' from ghcide.
+            -- This is just 'publishDiagnosticsNotification' from ghcide.
     sendEvent event
 
 -- | Get an unvalidated DALF package.
@@ -410,7 +410,7 @@ generateSerializedDalfRule options =
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
                                         world = LF.initWorldSelf pkgs selfPkg
                                     rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
-                                        -- ^ NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
+                                        -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
                                         -- across modules when doing incremental builds. The reason is that our Shake rules
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated
@@ -556,7 +556,7 @@ damlGhcSessionRule opts@Options{..} = do
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag base ++ extraPkgFlags ++ optPackageImports
         env <- liftIO $ runGhcFast $ do
-            setupDamlGHC opts
+            setupDamlGHC mbProjectRoot opts
             GHC.getSession
         pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
         dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
@@ -716,7 +716,7 @@ contextForFile file = do
     lfVersion <- getDamlLfVersion
     WhnfPackage pkg <- use_ GeneratePackage file
     PackageMap pkgMap <- use_ GeneratePackageMap file
-    stablePackages <- use_ GenerateStablePackages file
+    stablePackages <- useNoFile_ GenerateStablePackages
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
         NM.toList $ LF.packageModules pkg

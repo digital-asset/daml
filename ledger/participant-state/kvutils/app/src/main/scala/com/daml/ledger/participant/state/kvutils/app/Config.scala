@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.app
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+import java.util.UUID
 
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -19,7 +20,7 @@ import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
 final case class Config[Extra](
-    ledgerId: Option[String],
+    ledgerId: String,
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
@@ -57,9 +58,9 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
-  def default[Extra](extra: Extra): Config[Extra] =
+  def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
-      ledgerId = None,
+      ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
@@ -90,7 +91,7 @@ object Config {
       defaultExtra: Extra,
       args: Seq[String],
   ): Option[Config[Extra]] =
-    parser(name, extraOptions).parse(args, default(defaultExtra))
+    parser(name, extraOptions).parse(args, createDefault(defaultExtra))
 
   private def parser[Extra](
       name: String,
@@ -123,9 +124,9 @@ object Config {
           config.copy(participants = config.participants :+ partConfig)
         })
       opt[String]("ledger-id")
-        .text(
-          "The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
-        .action((ledgerId, config) => config.copy(ledgerId = Some(ledgerId)))
+        .optional()
+        .text("The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
+        .action((ledgerId, config) => config.copy(ledgerId = ledgerId))
 
       opt[String]("pem")
         .optional()
@@ -138,7 +139,7 @@ object Config {
           config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path)))))
       opt[String]("cacrt")
         .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
+        .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
           config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path)))))
 

@@ -1,19 +1,55 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+load("@os_info//:os_info.bzl", "is_windows")
 
 exports_files(glob(["create-daml-app-test-resources/*"]))
 
+# Split out into a separate rule so we can cheaply include this in the
+# live-preview.
+genrule(
+    name = "create-daml-app-docs",
+    srcs = glob(
+        ["create-daml-app/**"],
+        exclude = ["**/NO_AUTO_COPYRIGHT"],
+    ) + [
+        "//templates:create-daml-app-test-resources/messaging.patch",
+    ],
+    outs = ["create-daml-app-docs.tar.gz"],
+    cmd = """
+set -eou pipefail
+SRC=templates
+OUT=create-daml-app
+mkdir -p $$OUT
+cp -rL $$SRC/create-daml-app/* $$OUT
+# Undo project name templating since we don’t want that to show up
+# in the docs.
+find $$OUT/ -name '*.template' -type f -exec sh -c 'mv "$$0" "$${0%.template}" && sed -i "s/__PROJECT_NAME__/create-daml-app/g" "$${0%.template}"' {} ';'
+# Apply patch for messaging feature (we only need the "after" state)
+PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+MESSAGING_PATCH=$$PWD/$(location //templates:create-daml-app-test-resources/messaging.patch)
+$$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH
+tar c create-daml-app \\
+    --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
+    | gzip -n >$(location :create-daml-app-docs.tar.gz)
+""",
+    tools = ["@patch_dev_env//:patch"],
+    visibility = ["//visibility:public"],
+) if not is_windows else None
+
 genrule(
     name = "templates-tarball",
-    srcs = glob([
-        "default-gitignore",
-        "default-dlint-yaml",
-        "skeleton/**",
-        "empty-skeleton/**",
-        "create-daml-app/**",
-        "quickstart-java/**",
-        "quickstart-scala/**",
-    ]) + [
+    srcs = glob(
+        [
+            "default-gitignore",
+            "default-dlint-yaml",
+            "skeleton/**",
+            "empty-skeleton/**",
+            "create-daml-app/**",
+            "quickstart-java/**",
+            "quickstart-scala/**",
+        ],
+        exclude = ["**/NO_AUTO_COPYRIGHT"],
+    ) + [
         "//docs:quickstart-java.tar.gz",
         "//docs:daml-intro-templates",
         "//docs:daml-patterns",
@@ -65,8 +101,8 @@ EOF
         mkdir -p $$OUT/daml-patterns
         tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
 
-        tar c templates-tarball \
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c templates-tarball \\
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
           | gzip -n >$(location :templates-tarball.tar.gz)
     """,
     visibility = ["//visibility:public"],

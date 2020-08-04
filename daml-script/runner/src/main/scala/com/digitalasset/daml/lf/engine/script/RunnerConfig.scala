@@ -8,7 +8,7 @@ import java.io.File
 import java.time.Duration
 import scala.util.Try
 
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerConfig(
     darPath: File,
@@ -22,7 +22,7 @@ case class RunnerConfig(
     inputFile: Option[File],
     outputFile: Option[File],
     accessTokenFile: Option[Path],
-    tlsConfig: Option[TlsConfiguration],
+    tlsConfig: TlsConfiguration,
     jsonApi: Boolean,
     maxInboundMessageSize: Int,
 )
@@ -101,39 +101,8 @@ object RunnerConfig {
       }
       .text("File from which the access token will be read, required to interact with an authenticated ledger")
 
-    opt[String]("pem")
-      .optional()
-      .text("TLS: The pem file to be used as the private key.")
-      .validate(path => validatePath(path, "The file specified via --pem does not exist"))
-      .action((path, arguments) =>
-        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-          Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-          Some(c.copy(keyFile = Some(new File(path)))))))
-
-    opt[String]("crt")
-      .optional()
-      .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
-      .validate(path => validatePath(path, "The file specified via --crt does not exist"))
-      .action((path, arguments) =>
-        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-          Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-          Some(c.copy(keyFile = Some(new File(path)))))))
-
-    opt[String]("cacrt")
-      .optional()
-      .text("TLS: The crt file to be used as the the trusted root CA.")
-      .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
-      .action((path, arguments) =>
-        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-          Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
-          Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
-
-    opt[Unit]("tls")
-      .optional()
-      .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
-      .action((path, arguments) =>
-        arguments.copy(tlsConfig =
-          arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+    TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+      c.copy(tlsConfig = f(c.tlsConfig)))
 
     opt[Unit]("json-api")
       .action { (t, c) =>
@@ -156,8 +125,6 @@ object RunnerConfig {
         failure("Cannot specify both --ledger-host and --participant-config")
       } else if (c.ledgerHost.isEmpty && c.participantConfig.isEmpty) {
         failure("Must specify either --ledger-host or --participant-config")
-      } else if (c.jsonApi && c.accessTokenFile.isEmpty) {
-        failure("The json-api requires an access token")
       } else {
         success
       }
@@ -190,7 +157,7 @@ object RunnerConfig {
         inputFile = None,
         outputFile = None,
         accessTokenFile = None,
-        tlsConfig = None,
+        tlsConfig = TlsConfiguration(false, None, None, None),
         jsonApi = false,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
       )

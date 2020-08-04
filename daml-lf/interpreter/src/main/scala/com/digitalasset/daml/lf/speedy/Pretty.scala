@@ -7,13 +7,13 @@ import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
-import Value._
+import Value.{NodeId => _, _}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -22,7 +22,7 @@ import com.daml.lf.speedy.SBuiltin._
 // Pretty-printer for the interpreter errors and the scenario ledger
 //
 
-object Pretty {
+private[lf] object Pretty {
 
   def prettyError(err: SError, ptx: PartialTransaction): Doc =
     text("Error:") & (err match {
@@ -81,7 +81,7 @@ object Pretty {
         "create" &: prettyContractInst(create.coinst)
       case fetch: NodeFetch[Value.ContractId, Value[Value.ContractId]] =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises[Value.NodeId, Value.ContractId, Value[Value.ContractId]] =>
+      case ex: NodeExercises[NodeId, Value.ContractId, Value[Value.ContractId]] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
@@ -115,16 +115,16 @@ object Pretty {
           comma + space,
           observers.map(prettyParty),
         ) + char('.')
-      case ScenarioErrorContractKeyNotVisible(coid, gk, committer, observers) =>
+      case ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders) =>
         text("due to the failure to fetch the contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
             prettyValue(false)(gk.key) &
           text("The contract had not been disclosed to the committer") & prettyParty(committer) + char(
           '.',
         ) /
-          text("The contract had been disclosed to:") & intercalate(
+          text("Stakeholders:") & intercalate(
           comma + space,
-          observers.map(prettyParty),
+          stakeholders.map(prettyParty),
         ) + char('.')
       case ScenarioErrorCommitError(ScenarioLedger.CommitError.FailedAuthorizations(fas)) =>
         (text("due to failed authorizations:") / prettyFailedAuthorizations(fas)).nested(4)
@@ -277,7 +277,7 @@ object Pretty {
       case ea: NodeFetch[ContractId, Tx.Value[ContractId]] =>
         "ensure active" &: prettyContractId(ea.coid)
       case ex: NodeExercises[
-            Tx.NodeId,
+            NodeId,
             ContractId,
             Tx.Value[ContractId]
           ] =>
@@ -300,20 +300,22 @@ object Pretty {
           })
     }
 
+    // TODO(MH): Take explicitness into account.
     val ppDisclosedTo =
-      if (ni.observingSince.nonEmpty)
+      if (ni.disclosures.nonEmpty)
         meta(
           text("known to (since):") &
             intercalate(
               comma + space,
-              ni.observingSince.toSeq
+              ni.disclosures.toSeq
                 .sortWith {
-                  case ((p1, id1), (p2, id2)) =>
-                    id1 <= id2 && p1 < p2
+                  case ((p1, d1), (p2, d2)) =>
+                    // FIXME(MH): Does this order make any sense?
+                    d1.since <= d2.since && p1 < p2
                 }
                 .map {
-                  case (p, txid) =>
-                    text(p) & text("(#") + str(txid.id) + char(')')
+                  case (p, d) =>
+                    text(p) & text("(#") + str(d.since.id) + char(')')
                 },
             ),
         )
@@ -504,6 +506,8 @@ object Pretty {
               ) + char(']')
             case _: SBRecUpd =>
               text("$update")
+            case _: SBRecUpdMulti =>
+              text("$updateMulti")
             case SBRecProj(id, field) =>
               text("$project") + char('[') + text(id.qualifiedName.toString) + char(':') + str(
                 field,

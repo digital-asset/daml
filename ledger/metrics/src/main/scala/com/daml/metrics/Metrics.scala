@@ -6,7 +6,7 @@ package com.daml.metrics
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 
-class Metrics(val registry: MetricRegistry) {
+final class Metrics(val registry: MetricRegistry) {
 
   private def gauge[T](name: MetricName, metricSupplier: MetricSupplier[Gauge[_]]): Gauge[T] = {
     registry.remove(name)
@@ -65,14 +65,13 @@ class Metrics(val registry: MetricRegistry) {
         // Timer (and count) of how fast submissions have been processed.
         val runTimer: Timer = registry.timer(Prefix :+ "run_timer")
 
-        // Number of exceptions seen.
-        val exceptions: Counter = registry.counter(Prefix :+ "exceptions")
-
         // Counter to monitor how many at a time and when kvutils is processing a submission.
         val processing: Counter = registry.counter(Prefix :+ "processing")
 
         def runTimer(committerName: String): Timer =
           registry.timer(Prefix :+ committerName :+ "run_timer")
+        def preExecutionRunTimer(committerName: String): Timer =
+          registry.timer(Prefix :+ committerName :+ "preexecution_run_timer")
         def stepTimer(committerName: String, stepName: String): Timer =
           registry.timer(Prefix :+ committerName :+ "step_timers" :+ stepName)
 
@@ -187,6 +186,13 @@ class Metrics(val registry: MetricRegistry) {
           val fetchInputsRunning: Counter = registry.counter(Prefix :+ "fetch_inputs_running")
           val validateRunning: Counter = registry.counter(Prefix :+ "validate_running")
           val commitRunning: Counter = registry.counter(Prefix :+ "commit_running")
+
+          // The below metrics are only generated for pre-execution.
+          val validatePreExecute: Timer = registry.timer(Prefix :+ "validate_pre_execute")
+          val generateWriteSets: Timer = registry.timer(Prefix :+ "generate_write_sets")
+
+          val validatePreExecuteRunning: Counter =
+            registry.counter(Prefix :+ "validate_pre_execute_running")
         }
       }
 
@@ -194,6 +200,13 @@ class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = kvutils.Prefix :+ "writer"
 
         val commit: Timer = registry.timer(Prefix :+ "commit")
+
+        val preExecutedCount: Counter = registry.counter(Prefix :+ "pre_executed_count")
+        val preExecutedInterpretationCosts: Histogram =
+          registry.histogram(Prefix :+ "pre_executed_interpretation_costs")
+        val committedCount: Counter = registry.counter(Prefix :+ "committed_count")
+        val committedInterpretationCosts: Histogram =
+          registry.histogram(Prefix :+ "committed_interpretation_costs")
       }
 
       object conflictdetection {
@@ -395,6 +408,9 @@ class Metrics(val registry: MetricRegistry) {
         val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
           "lookup_transaction_tree_by_id")
         val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
+        val getEventSeqIdRange: DatabaseMetrics = createDbMetrics("get_event_sequential_id_range")
+        val getAcsEventSeqIdRange: DatabaseMetrics =
+          createDbMetrics("get_acs_event_sequential_id_range")
 
         object translation {
           private val Prefix: MetricName = db.Prefix :+ "translation"
@@ -421,7 +437,7 @@ class Metrics(val registry: MetricRegistry) {
     object services {
       private val Prefix: MetricName = daml.Prefix :+ "services"
 
-      object indexService {
+      object index {
         private val Prefix: MetricName = services.Prefix :+ "index"
 
         val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")

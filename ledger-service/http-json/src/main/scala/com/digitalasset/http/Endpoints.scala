@@ -19,14 +19,13 @@ import akka.util.ByteString
 import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
-import com.daml.http.Statement.discard
+import com.daml.scalautil.Statement.discard
 import com.daml.http.domain.JwtPayload
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
 import com.daml.http.util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
@@ -42,7 +41,6 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 class Endpoints(
-    ledgerId: lar.LedgerId,
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
     commandService: CommandService,

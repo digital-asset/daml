@@ -81,7 +81,7 @@ The command submission service deduplicates submitted commands based on the subm
 
 - If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
 
-For details on how to use command deduplication, see the :ref:`Application Architecture Guide <handling-submission-failures>`.
+For details on how to use command deduplication, see the :ref:`Application Architecture Guide <command-deduplication>`.
 
 .. _command-completion-service:
 
@@ -193,7 +193,7 @@ Ledger configuration service
 
 Use the **ledger configuration service** to subscribe to changes in ledger configuration.
 
-This configuration includes maximum and minimum values for the difference in Ledger Effective Time and Maximum Record Time (see `Time Service <#time-service>`__ for details of these).
+This configuration includes the maximum command deduplication time (see `Command Deduplication <#command-submission-service-deduplication>`__ for details).
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerConfigurationService>`.
 

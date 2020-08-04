@@ -2,46 +2,15 @@
 # yarn lockfile v1
 
 
-"@bazel/bazel-darwin_x64@2.1.0":
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-darwin_x64/-/bazel-darwin_x64-2.1.0.tgz#c36c37080841618f142996884f07ac0e3d6a9598"
-  integrity sha512-9waB/6UT6JmQh8qxlRK9IfSY4Ef+4iGwy5eYK2hoc1zXYDnnZoZoC4eXiq68cWTpyCcT7SNGEb9B3wL5Y5rA9A==
-
-"@bazel/bazel-linux_x64@2.1.0":
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-linux_x64/-/bazel-linux_x64-2.1.0.tgz#3185cc3d2533641d6a539bf613247d628425ebf0"
-  integrity sha512-ag6ZwYMJblf1YuPhNRAMyCYf164mY8jhdIwPSVFI1CMiBRnSDJBkSg7rVIczPh+8Gp7TDqAno9MMTnfUXzxogA==
-
-"@bazel/bazel-win32_x64@2.1.0":
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-win32_x64/-/bazel-win32_x64-2.1.0.tgz#013960fe506ddb8dc08f5d54b52420c818eb4264"
-  integrity sha512-Y6cs3frmCqoAsrDmEp0msyS8VYE13JvjVoyvdIXTOh5Cc4fOeWzSPb02VS08asaV1jCnOQbv15Ud286hcxAvxg==
-
-"@bazel/bazel@2.1.0":
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel/-/bazel-2.1.0.tgz#25a4d3b4171bfb637374133d29878bbcb36b4c92"
-  integrity sha512-3Dhs0uJ69ImqC+VIRcifnptPXytxCNWHqyTMFYf0F5AJCVHHW7uRE0tt3Vhm5BseFpdOsjqcghgxGzR/yo10qw==
-  dependencies:
-    "@bazel/hide-bazel-files" latest
-  optionalDependencies:
-    "@bazel/bazel-darwin_x64" "2.1.0"
-    "@bazel/bazel-linux_x64" "2.1.0"
-    "@bazel/bazel-win32_x64" "2.1.0"
-
-"@bazel/hide-bazel-files@1.6.0":
-  version "1.6.0"
-  resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-1.6.0.tgz#4dfc610734934f43e1e7c97a26da7b4f2ec8f47f"
-  integrity sha512-RSu6I5yVVtjDP6PTkhDVvqOC+KJf8t4Uo2qCLxGjunLVt4guqKLt3KQX+dEU/qVn5vECXGTprDSNk+c9G6hDmg==
-
-"@bazel/hide-bazel-files@latest":
+"@bazel/hide-bazel-files@1.7.0":
   version "1.7.0"
   resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-1.7.0.tgz#7cb140c23c4269d6464c24be0a2acf0241d2a31d"
   integrity sha512-pvdyRX/EsU8n+oElFb+OZ9i5M48HNFR+Z4D3vc0qDGiJ8oly9fZcUb2gbw4CzyeovJz0IzjSxjqMS6cp5gKoeg==
 
-"@bazel/typescript@1.6.0":
-  version "1.6.0"
-  resolved "https://registry.yarnpkg.com/@bazel/typescript/-/typescript-1.6.0.tgz#8dfd29e71bcf917d5f9cb67f19ac4dcfc9082439"
-  integrity sha512-vAKuwy1Hgl+t3M3sH/G0oqHRYN35TdENj+0lsCI3x7EbSzyI6cbA3YQrLrlyvdScksqOpZa3PZ3UBGqfJJq2DA==
+"@bazel/typescript@2.0.1":
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/@bazel/typescript/-/typescript-2.0.1.tgz#f99405ce53e2d16a98f9b66da42bff9f5c055c24"
+  integrity sha512-zoaxp57m8WbBILv8MlNEcRf1xRbtvAyDAy2nekEy2RhvCx96slZ5+JJIQJ7AW6teb37iqvurg1OvNZsO/1bc7Q==
   dependencies:
     protobufjs "6.8.8"
     semver "5.6.0"
@@ -1118,10 +1087,10 @@ ee-first@1.1.1:
   resolved "https://registry.yarnpkg.com/ee-first/-/ee-first-1.1.1.tgz#590c61156b0ae2f4f0255732a158b266bc56b21d"
   integrity sha1-WQxhFWsK4vTwJVcyoViyZrxWsh0=
 
-elliptic@^6.0.0, elliptic@^6.5.2:
-  version "6.5.2"
-  resolved "https://registry.yarnpkg.com/elliptic/-/elliptic-6.5.2.tgz#05c5678d7173c049d8ca433552224a495d0e3762"
-  integrity sha512-f4x70okzZbIQl/NSRLkI/+tteV/9WqL98zx+SQ69KbXxmVrmjwsNUPn/gYJJ0sHvEak24cZgHIPegRePAtA/xw==
+elliptic@^6.0.0, elliptic@^6.5.2, elliptic@^6.5.3:
+  version "6.5.3"
+  resolved "https://registry.yarnpkg.com/elliptic/-/elliptic-6.5.3.tgz#cb59eb2efdaf73a0bd78ccd7015a62ad6e0f93d6"
+  integrity sha512-IMqzv5wNQf+E6aHeIqATs0tOLeOTwj1QKbRcS3jBbYkl5oLAserA8yJTT7/VyHUYG91PRmPyeQDObKLPpeS4dw==
   dependencies:
     bn.js "^4.4.0"
     brorand "^1.0.1"
@@ -2273,9 +2242,9 @@ lodash.memoize@~3.0.3:
   integrity sha1-LcvSwofLwKVcxCMovQxzYVDVPj8=
 
 lodash@^4.17.10, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.4, lodash@~4.17.10, lodash@~4.17.5:
-  version "4.17.15"
-  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.15.tgz#b447f6670a0455bbfeedd11392eff330ea097548"
-  integrity sha512-8xOcRHvCjnocdS5cpwXQXVzmmh5e5+saE2QGoeQmbKmRS6J3VQppPOIt0MnmE+4xlZoumy0GPG0D0MVIQbNA1A==
+  version "4.17.19"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.19.tgz#e48ddedbe30b3321783c5b4301fbd353bc1e4a4b"
+  integrity sha512-JNvd8XER9GQX0v2qJgsaN/mzFCNA5BRe/j8JN9d+tWyGLSodKQHKFicdwNYzWwI3wjRnaKPsGj1XkBjx/F96DQ==
 
 long@^4.0.0:
   version "4.0.0"

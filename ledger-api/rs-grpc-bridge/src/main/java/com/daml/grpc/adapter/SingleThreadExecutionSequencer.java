@@ -3,17 +3,16 @@
 
 package com.daml.grpc.adapter;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Ensures serial execution and thread safety of Runnables by using a single thread underneath.
  */
-public class SingleThreadExecutionSequencer implements ExecutionSequencer{
+public class SingleThreadExecutionSequencer implements ExecutionSequencer {
 
     private static final Logger logger = LoggerFactory.getLogger(SingleThreadExecutionSequencer.class);
 
@@ -24,7 +23,8 @@ public class SingleThreadExecutionSequencer implements ExecutionSequencer{
             Thread thread = new Thread(runnable);
             thread.setName(name);
             thread.setDaemon(true);
-            thread.setUncaughtExceptionHandler((t, e) -> logger.error("Unhandled exception in SingleThreadExecutionSequencer.", e));
+            thread.setUncaughtExceptionHandler((t, e) ->
+                    logger.error("Unhandled exception in SingleThreadExecutionSequencer.", e));
             return thread;
         });
     }

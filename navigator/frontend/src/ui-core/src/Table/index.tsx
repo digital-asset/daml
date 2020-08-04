@@ -115,7 +115,7 @@ export type TableRowDataGetter<
 
 /** Inner wrapper (table) */
 export const TableContainer
-  : React.ComponentClass<React.HTMLProps<HTMLDivElement>>
+  : React.FC<React.HTMLProps<HTMLDivElement>>
   = styled.div`
   flex: 1;
   overflow: hidden;
@@ -197,7 +197,7 @@ export const TableContainer
 
 /** Outer wrapper (action bar + table) */
 export const TableOuterWrapper
-  : React.ComponentClass<React.HTMLProps<HTMLDivElement>>
+  : React.FC<React.HTMLProps<HTMLDivElement>>
   = styled.div`
   height: 100%;
   width: 100%;

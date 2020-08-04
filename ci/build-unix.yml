@@ -83,8 +83,8 @@ steps:
 
       DAML_ON_SQL=daml-on-sql-${{parameters.release_tag}}.jar
       ## Not built by default
-      bazel build //ledger/sandbox:sandbox-binary_deploy.jar
-      cp bazel-bin/ledger/sandbox/sandbox-binary_deploy.jar $(Build.StagingDirectory)/$DAML_ON_SQL
+      bazel build //ledger/daml-on-sql:daml-on-sql-binary_deploy.jar
+      cp bazel-bin/ledger/daml-on-sql/daml-on-sql-binary_deploy.jar $(Build.StagingDirectory)/$DAML_ON_SQL
       echo "##vso[task.setvariable variable=daml-on-sql;isOutput=true]$DAML_ON_SQL"
 
       JSON_API=http-json-${{parameters.release_tag}}.jar

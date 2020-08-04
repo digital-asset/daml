@@ -15,7 +15,7 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.Future
 
-final class TransactionServiceAuthorization(
+private[daml] final class TransactionServiceAuthorization(
     protected val service: TransactionService with AutoCloseable,
     private val authorizer: Authorizer)
     extends TransactionService

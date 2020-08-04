@@ -47,7 +47,7 @@ object Main {
         engine: Engine,
     )(
         implicit materializer: Materializer,
-        logCtx: LoggingContext,
+        loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
         readerWriter <- owner(config, participantConfig, engine)
@@ -60,11 +60,11 @@ object Main {
 
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
-        logCtx: LoggingContext,
+        loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
       new InMemoryLedgerReaderWriter.Owner(
-        initialLedgerId = config.ledgerId,
+        ledgerId = config.ledgerId,
         config.extra.batchingLedgerWriterConfig,
         participantId = participantConfig.participantId,
         metrics = metrics,
@@ -81,7 +81,7 @@ object Main {
     override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
       LedgerConfiguration.defaultLocalLedger
 
-    override val defaultExtraConfig: ExtraConfig = ExtraConfig.default
+    override val defaultExtraConfig: ExtraConfig = ExtraConfig.reasonableDefault
 
     override final def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
       parser

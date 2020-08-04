@@ -6,16 +6,14 @@ package com.daml.http
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, UpgradeToWebSocket}
-import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.\/
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import EndpointsCompanion._
 
 object WebsocketEndpoints {
@@ -47,11 +45,9 @@ object WebsocketEndpoints {
 }
 
 class WebsocketEndpoints(
-    ledgerId: lar.LedgerId,
     decodeJwt: ValidateJwt,
     webSocketService: WebSocketService,
-)(implicit mat: Materializer, ec: ExecutionContext)
-    extends StrictLogging {
+) extends StrictLogging {
 
   import WebsocketEndpoints._
 

@@ -213,14 +213,6 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             {%- block document %}
             <div itemprop="articleBody">
-              {%- if url_root != './' %}
-                <div id="feedback-container">
-                  <div id="inpageContent"></div>
-                  <a onclick='srv.openModal(true, "708a82385638b3e808089a278636337b67cb4901")'>Detailed Feedback</a>
-                </div>
-              {% else %}
-                <div id="inpageContent" style="display: none;"></div>
-              {% endif %}
               {%- if url_root == './' and activePage != 'search.html' %}
                 {% include "boxes.html" %}
               {% else %}
@@ -233,6 +225,9 @@
               {% block comments %}{% endblock %}
             </div>
             {% endif%}
+            {% if url_root != './' %}
+              {% include "footer.html" %}
+            {% endif %}
           </div>
           {%- endblock %}
         </div>
@@ -249,7 +244,7 @@
       });
   </script>
 
-  {# Do not conflict with RTD insertion of analytics script #}
+{# Do not conflict with RTD insertion of analytics script #}
   {% if not READTHEDOCS %}
     {% if theme_analytics_id %}
     <!-- Theme Analytics -->
@@ -268,7 +263,11 @@
     {% endif %}
   {% endif %}
 
-  {%- block footer %} {% endblock %}
+  {%- if url_root != './' %}
+  <div id="inpageContent"></div>
+  {% else %}
+  <div id="inpageContent" style="display: none;"></div>
+  {% endif %}
 
 </body>
 </html>

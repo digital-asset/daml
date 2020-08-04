@@ -335,6 +335,7 @@ class WebsocketServiceIntegrationTest
           {"templateIds": ["Iou:Iou"]}
         ]"""
 
+      @com.github.ghik.silencer.silent("evtsWrapper.*never used")
       def resp(iouCid: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
@@ -408,7 +409,7 @@ class WebsocketServiceIntegrationTest
           via parseResp runWith remainingDeltas)
       } yield
         inside(rescan) {
-          case (Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed), Some(_)) =>
+          case (Vector((fstId, fst @ _), (sndId, snd @ _)), Vector(observeConsumed), Some(_)) =>
             Set(fstId, sndId, observeConsumed.contractId) should have size 3
         }
   }
@@ -544,9 +545,9 @@ class WebsocketServiceIntegrationTest
     def go(
         createdCid: domain.ContractId,
         ss: SplitSeq[BigDecimal]): Consume.FCC[IouSplitResult, Assertion] = ss match {
-      case Leaf(x) =>
+      case Leaf(_) =>
         point(1 shouldBe 1)
-      case Node(x, l, r) =>
+      case Node(_, l, r) =>
         for {
           (StatusCodes.OK, _) <- liftF(
             TestUtil.postJsonRequest(
@@ -722,16 +723,6 @@ object WebsocketServiceIntegrationTest {
 
   def dummyFlow[A](source: Source[A, NotUsed]): Flow[A, A, NotUsed] =
     Flow.fromSinkAndSource(Sink.foreach(println), source)
-
-  private def foldWhile[S, A, T](zero: S)(f: (S, A) => (S \/ T)): Sink[A, Future[Option[T]]] =
-    Flow[A]
-      .scan(-\/(zero): S \/ T)((st, a) =>
-        st match {
-          case -\/(s) => f(s, a)
-          case \/-(_) => st
-      })
-      .collect { case \/-(t) => t }
-      .toMat(Sink.headOption)(Keep.right)
 
   private val contractIdAtOffsetKey = "contractIdAtOffset"
 

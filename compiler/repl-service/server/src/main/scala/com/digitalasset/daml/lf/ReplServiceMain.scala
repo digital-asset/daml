@@ -16,37 +16,42 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
-import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.{Failure, Success, Try}
-import scalaz.syntax.tag._
 
 object ReplServiceMain extends App {
   case class Config(
       portFile: Path,
-      ledgerHost: String,
-      ledgerPort: Int,
+      ledgerHost: Option[String],
+      ledgerPort: Option[Int],
       accessTokenFile: Option[Path],
       maxInboundMessageSize: Int,
-      tlsConfig: Option[TlsConfiguration],
+      tlsConfig: TlsConfiguration,
+      // optional so we can detect if both --static-time and --wall-clock-time are passed.
+      timeMode: Option[ScriptTimeMode],
   )
   object Config {
     private def validatePath(path: String, message: String): Either[String, Unit] = {
       val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
       if (readable) Right(()) else Left(message)
+    }
+    private def setTimeMode(
+        config: Config,
+        timeMode: ScriptTimeMode,
+    ): Config = {
+      if (config.timeMode.exists(_ != timeMode)) {
+        throw new IllegalStateException(
+          "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+      }
+      config.copy(timeMode = Some(timeMode))
     }
     private val parser = new scopt.OptionParser[Config]("repl-service") {
       opt[String]("port-file")
@@ -54,12 +59,12 @@ object ReplServiceMain extends App {
         .action((portFile, c) => c.copy(portFile = Paths.get(portFile)))
 
       opt[String]("ledger-host")
-        .required()
-        .action((host, c) => c.copy(ledgerHost = host))
+        .optional()
+        .action((host, c) => c.copy(ledgerHost = Some(host)))
 
       opt[Int]("ledger-port")
-        .required()
-        .action((port, c) => c.copy(ledgerPort = port))
+        .optional()
+        .action((port, c) => c.copy(ledgerPort = Some(port)))
 
       opt[String]("access-token-file")
         .optional()
@@ -67,56 +72,47 @@ object ReplServiceMain extends App {
           c.copy(accessTokenFile = Some(Paths.get(tokenFile)))
         }
 
-      opt[String]("pem")
-        .optional()
-        .text("TLS: The pem file to be used as the private key.")
-        .validate(path => validatePath(path, "The file specified via --pem does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-            Some(c.copy(keyFile = Some(new File(path)))))))
-
-      opt[String]("crt")
-        .optional()
-        .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
-        .validate(path => validatePath(path, "The file specified via --crt does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-            Some(c.copy(keyFile = Some(new File(path)))))))
-
-      opt[String]("cacrt")
-        .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
-        .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
-            Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
-
-      opt[Unit]("tls")
-        .optional()
-        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig =
-            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+        c copy (tlsConfig = f(c.tlsConfig)))
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .optional()
         .text(
           s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
+
+      opt[Unit]('w', "wall-clock-time")
+        .action { (_, c) =>
+          setTimeMode(c, ScriptTimeMode.WallClock)
+        }
+        .text("Use wall clock time (UTC).")
+
+      opt[Unit]('s', "static-time")
+        .action { (_, c) =>
+          setTimeMode(c, ScriptTimeMode.Static)
+        }
+        .text("Use static time.")
+
+      checkConfig(c =>
+        (c.ledgerHost, c.ledgerPort) match {
+          case (Some(_), None) =>
+            failure("Must specified either both --ledger-host and --ledger-port or neither")
+          case (None, Some(_)) =>
+            failure("Must specified either both --ledger-host and --ledger-port or neither")
+          case _ => success
+      })
     }
     def parse(args: Array[String]): Option[Config] =
       parser.parse(
         args,
         Config(
           portFile = null,
-          ledgerHost = null,
-          ledgerPort = 0,
+          ledgerHost = None,
+          ledgerPort = None,
           accessTokenFile = None,
-          tlsConfig = None,
+          tlsConfig = TlsConfiguration(false, None, None, None),
           maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+          timeMode = None,
         )
       )
   }
@@ -135,24 +131,24 @@ object ReplServiceMain extends App {
   implicit val materializer: Materializer = Materializer(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
+  val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
+  val defaultParticipant = (config.ledgerHost, config.ledgerPort) match {
+    case (Some(host), Some(port)) => Some(ApiParameters(host, port, tokenHolder.flatMap(_.token)))
+    case _ => None
+  }
   val participantParams =
-    Participants(Some(ApiParameters(config.ledgerHost, config.ledgerPort)), Map.empty, Map.empty)
+    Participants(defaultParticipant, Map.empty, Map.empty)
   val applicationId = ApplicationId("daml repl")
-  val clientConfig = LedgerClientConfiguration(
-    applicationId = applicationId.unwrap,
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    sslContext = config.tlsConfig.flatMap(_.client),
-    token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token),
-  )
   val clients = Await.result(
-    Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize),
+    Runner
+      .connect(participantParams, applicationId, config.tlsConfig, config.maxInboundMessageSize),
     30.seconds)
+  val timeMode = config.timeMode.getOrElse(ScriptTimeMode.WallClock)
 
   val server =
     NettyServerBuilder
       .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-      .addService(new ReplService(clients, ec, sequencer, materializer))
+      .addService(new ReplService(clients, timeMode, ec, sequencer, materializer))
       .maxInboundMessageSize(maxMessageSize)
       .build
   server.start()
@@ -166,6 +162,7 @@ object ReplServiceMain extends App {
 
 class ReplService(
     val clients: Participants[ScriptLedgerClient],
+    timeMode: ScriptTimeMode,
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer)
@@ -235,7 +232,7 @@ class ReplService(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ApplicationId("daml repl"),
-      ScriptTimeMode.WallClock)
+      timeMode)
     runner.runWithClients(clients).onComplete {
       case Failure(e: SError.SError) =>
         // The error here is already printed by the logger in stepToValue.
@@ -246,7 +243,11 @@ class ReplService(
         respObs.onError(e)
       case Success(v) =>
         results = results ++ Seq(v)
-        respObs.onNext(RunScriptResponse.newBuilder.build)
+        val result = v match {
+          case SValue.SText(t) => t
+          case _ => ""
+        }
+        respObs.onNext(RunScriptResponse.newBuilder.setResult(result).build)
         respObs.onCompleted
     }
   }

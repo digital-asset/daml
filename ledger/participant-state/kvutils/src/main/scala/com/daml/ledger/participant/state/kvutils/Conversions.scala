@@ -11,7 +11,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data
 import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.VersionTimeline.Implicits._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
@@ -127,13 +127,14 @@ private[state] object Conversions {
       deduplicateUntil = parseTimestamp(subInfo.getDeduplicateUntil).toInstant,
     )
 
-  def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp = {
-    val instant = ts.toInstant
+  def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp =
+    buildTimestamp(ts.toInstant)
+
+  def buildTimestamp(instant: Instant): com.google.protobuf.Timestamp =
     com.google.protobuf.Timestamp.newBuilder
       .setSeconds(instant.getEpochSecond)
       .setNanos(instant.getNano)
       .build
-  }
 
   def parseTimestamp(ts: com.google.protobuf.Timestamp): Time.Timestamp =
     Time.Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong))
@@ -204,7 +205,6 @@ private[state] object Conversions {
 
   def contractIdStructOrStringToStateKey[A](
       transactionVersion: TransactionVersion,
-      entryId: DamlLogEntryId,
       coidString: String,
       coidStruct: ValueOuterClass.ContractId,
   ): DamlStateKey =

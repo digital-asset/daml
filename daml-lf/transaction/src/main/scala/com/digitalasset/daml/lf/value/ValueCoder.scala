@@ -134,23 +134,6 @@ object ValueCoder {
   }
 
   /**
-    * Simple encoding to wire of identifiers
-    * @param id identifier value
-    * @param requireVersion force encoding version
-    * @return value spec version encoded to, and wire format identifier
-    * @note result _1 = requireVersion if defined
-    */
-  def encodeIdentifier(
-      id: Identifier,
-      requireVersion: Option[ValueVersion],
-  ): (ValueVersion, proto.Identifier) =
-    // NB SC: if ValueVersion("1") is no longer a good default in *every* case,
-    // you must fold over NodeFetches' identifiers in TransactionVersions.assignVersion
-    // because transaction version 1 only permits value-version-1 identifiers in
-    // fetch position
-    (requireVersion getOrElse ValueVersion("1"), encodeIdentifier(id))
-
-  /**
     * Decode identifier from wire format
     * @param id proto identifier
     * @return identifier
@@ -563,7 +546,7 @@ object ValueCoder {
   private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion] = ValueVersions.DefaultSupportedVersions,
+      supportedVersions: VersionRange[ValueVersion] = ValueVersions.SupportedDevVersions,
   ): Either[EncodeError, Array[Byte]] =
     encodeVersionedValue(encodeCid, v, supportedVersions).map(_.toByteArray)
 

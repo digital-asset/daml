@@ -430,7 +430,6 @@ object SExpr {
 
     def execute(machine: Machine): Unit = {
       val body = ref match {
-        case Reference.FoldL => foldLBody
         case Reference.FoldR => foldRBody
         case Reference.EqualList => equalListBody
       }
@@ -443,45 +442,12 @@ object SExpr {
     sealed abstract class Reference
 
     final object Reference {
-      final case object FoldL extends Reference
       final case object FoldR extends Reference
       final case object EqualList extends Reference
     }
 
-    val FoldL: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.FoldL)
     val FoldR: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.FoldR)
     val EqualList: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.EqualList)
-
-    private val foldLBody: SExpr =
-      // foldl f z xs =
-      SEMakeClo(
-        Array(),
-        3,
-        // case xs of
-        SECase(SELocA(2)) of (
-          // nil -> z
-          SCaseAlt(SCPNil, SELocA(1)),
-          // cons y ys ->
-          SCaseAlt(
-            SCPCons,
-            // foldl f (f z y) ys
-            SEApp(
-              FoldL,
-              Array(
-                SELocA(0), /* f */
-                SEApp(
-                  SELocA(0),
-                  Array(
-                    SELocA(1), /* z */
-                    SELocS(2) /* y */
-                  )
-                ),
-                SELocS(1) /* ys */
-              )
-            )
-          )
-        )
-      )
 
     private val foldRBody: SExpr =
       // foldr f z xs =

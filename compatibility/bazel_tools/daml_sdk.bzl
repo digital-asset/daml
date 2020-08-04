@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows", "os_name")
+load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
 
 runfiles_library = """
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -23,12 +24,23 @@ def _daml_sdk_impl(ctx):
     # install the SDK but instead simply extract the SDK to the right
     # location and set the symlink ourselves.
     out_dir = ctx.path("sdk").get_child("sdk").get_child(ctx.attr.version)
+
     if ctx.attr.sdk_tarball:
         ctx.extract(
             ctx.attr.sdk_tarball,
             output = out_dir,
             stripPrefix = "sdk-{}".format(ctx.attr.version),
         )
+        sha256sum = "sha256sum"
+        if is_windows:
+            ps = ctx.which("powershell")
+            dadew = dadew_where(ctx, ps)
+            sha256sum = dadew_tool_home(dadew, "msys2") + "\\usr\\bin\\sha256sum.exe"
+
+        exec_result = ctx.execute([sha256sum, ctx.path(ctx.attr.sdk_tarball)])
+        if exec_result.return_code:
+            fail("Error executing sha256sum: {stdout}\n{stderr}".format(stdout = exec_result.stdout, stderr = exec_result.stderr))
+        sdk_checksum = exec_result.stdout.strip()
     elif ctx.attr.sdk_sha256:
         ctx.download_and_extract(
             output = out_dir,
@@ -37,6 +49,7 @@ def _daml_sdk_impl(ctx):
             sha256 = ctx.attr.sdk_sha256[ctx.attr.os_name],
             stripPrefix = "sdk-{}".format(ctx.attr.version),
         )
+        sdk_checksum = ctx.attr.sdk_sha256[ctx.attr.os_name]
     else:
         fail("Must specify either sdk_tarball or sdk_sha256")
 
@@ -98,6 +111,19 @@ update-check: never
 $JAVA_HOME/bin/java -jar $(rlocation daml-sdk-{version}/ledger-api-test-tool.jar) $@
 """.format(version = ctx.attr.version, runfiles_library = runfiles_library),
     )
+
+    # Depending on all files as runfiles results in thousands of symlinks
+    # which eventually results in us running out of inodes on CI.
+    # By writing all checksums to a file and only depending on that we get
+    # only one extra runfile while still making sure that things are properly
+    # invalidated.
+    ctx.file(
+        "sdk/sdk/{version}/checksums".format(version = ctx.attr.version),
+        # We don’t really care about the order here but find is non-deterministic
+        # and having something fixed is clearly better for caching.
+        content = sdk_checksum,
+    )
+
     ctx.file(
         "daml.sh",
         content =
@@ -128,7 +154,7 @@ sh_binary(
 cc_binary(
   name = "daml",
   srcs = ["daml.cc"],
-  data = [":sdk/bin/daml"],
+  data = [":sdk/bin/daml", ":sdk/sdk/{version}/checksums"],
   deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
 # Needed to provide the same set of DARs to the ledger that
@@ -138,7 +164,7 @@ filegroup(
     srcs = glob(["extracted-test-tool/ledger/test-common/**"]),
 )
 exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz", "create_daml_app.patch"])
-""",
+""".format(version = ctx.attr.version),
     )
     return None
 

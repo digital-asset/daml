@@ -12,14 +12,14 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 class DatabaseSpec extends AsyncWordSpec with Matchers {
   "Database" should {
     "not accept unnamed H2 database URLs" in {
-      newLoggingContext { implicit logCtx =>
+      newLoggingContext { implicit loggingContext =>
         an[InvalidDatabaseException] should be thrownBy
           Database.owner("jdbc:h2:mem:", new Metrics(new MetricRegistry))
       }
     }
 
     "not accept unnamed SQLite database URLs" in {
-      newLoggingContext { implicit logCtx =>
+      newLoggingContext { implicit loggingContext =>
         an[InvalidDatabaseException] should be thrownBy
           Database.owner("jdbc:sqlite::memory:", new Metrics(new MetricRegistry))
       }

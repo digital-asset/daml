@@ -264,9 +264,6 @@ private[lf] final case class Compiler(
       case EVal(ref) => SEVal(LfDefRef(ref))
       case EBuiltin(bf) =>
         bf match {
-          case BFoldl =>
-            val ref = SEBuiltinRecursiveDefinition.FoldL
-            withLabel(ref.ref, ref)
           case BFoldr =>
             val ref = SEBuiltinRecursiveDefinition.FoldR
             withLabel(ref.ref, ref)
@@ -331,6 +328,9 @@ private[lf] final case class Compiler(
               case BFromTextCodePoints => SBFromTextCodePoints
 
               case BSHA256Text => SBSHA256Text
+
+              // List functions
+              case BFoldl => SBFoldl
 
               // Errors
               case BError => SBError
@@ -417,11 +417,20 @@ private[lf] final case class Compiler(
           translate(record),
         )
 
-      case ERecUpd(tapp, field, record, update) =>
-        SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, field))(
-          translate(record),
-          translate(update),
-        )
+      case erecupd: ERecUpd => {
+        val tapp = erecupd.tycon
+        val (record, fields, updates) = collectRecUpds(erecupd)
+        if (fields.length == 1) {
+          SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, fields.head))(
+            translate(record),
+            translate(updates.head),
+          )
+        } else {
+          SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).toArray)(
+            (record :: updates).map(translate): _*,
+          )
+        }
+      }
 
       case EStructCon(fields) =>
         SEApp(SEBuiltin(SBStructCon(Name.Array(fields.map(_._1).toSeq: _*))), fields.iterator.map {
@@ -928,6 +937,26 @@ private[lf] final case class Compiler(
       case e => (List.empty, e)
     }
 
+  @tailrec
+  private def stripLocs(expr: Expr): Expr =
+    expr match {
+      case ELocation(_, expr1) => stripLocs(expr1)
+      case _ => expr
+    }
+
+  // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
+  private def collectRecUpds(expr: Expr): (Expr, List[Name], List[Expr]) = {
+    @tailrec
+    def go(expr: Expr, fields: List[Name], updates: List[Expr]): (Expr, List[Name], List[Expr]) =
+      stripLocs(expr) match {
+        case ERecUpd(_, field, record, update) =>
+          go(record, field :: fields, update :: updates)
+        case _ =>
+          (expr, fields, updates)
+      }
+    go(expr, List.empty, List.empty)
+  }
+
   private def lookupPackage(pkgId: PackageId): Package =
     if (packages.isDefinedAt(pkgId)) packages(pkgId)
     else throw PackageNotFound(pkgId)
@@ -1125,67 +1154,50 @@ private[lf] final case class Compiler(
     * The returned free variables are de bruijn indices
     * adjusted to the stack of the caller. */
   def freeVars(expr: SExpr, initiallyBound: Int): Set[Int] = {
-    var bound = initiallyBound
-    var free = Set.empty[Int]
-
-    def go(expr: SExpr): Unit =
+    def go(expr: SExpr, bound: Int, free: Set[Int]): Set[Int] =
       expr match {
         case SEVar(i) =>
-          if (i > bound)
-            free += i - bound /* adjust to caller's environment */
-        case _: SEVal => ()
-        case _: SEBuiltin => ()
-        case _: SEValue => ()
-        case _: SEBuiltinRecursiveDefinition => ()
+          if (i > bound) free + (i - bound) else free /* adjust to caller's environment */
+        case _: SEVal => free
+        case _: SEBuiltin => free
+        case _: SEValue => free
+        case _: SEBuiltinRecursiveDefinition => free
         case SELocation(_, body) =>
-          go(body)
+          go(body, bound, free)
         case SEAppGeneral(fun, args) =>
-          go(fun)
-          args.foreach(go)
+          args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAppAtomicFun(fun, args) =>
-          go(fun)
-          args.foreach(go)
+          args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAppSaturatedBuiltinFun(_, args) =>
-          args.foreach(go)
+          args.foldLeft(free)((acc, arg) => go(arg, bound, acc))
         case SEAbs(n, body) =>
-          bound += n
-          go(body)
-          bound -= n
+          go(body, bound + n, free)
         case x: SELoc =>
           throw CompilationError(s"freeVars: unexpected SELoc: $x")
         case x: SEMakeClo =>
           throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
-          go(scrut)
-          alts.foreach {
-            case SCaseAlt(pat, body) =>
-              val n = patternNArgs(pat)
-              bound += n; go(body); bound -= n
+          alts.foldLeft(go(scrut, bound, free)) {
+            case (acc, SCaseAlt(pat, body)) => go(body, bound + patternNArgs(pat), acc)
           }
         case SELet(bounds, body) =>
-          bounds.foreach { e =>
-            go(e)
-            bound += 1
+          bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
+            case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-          go(body)
-          bound -= bounds.size
         case SECatch(body, handler, fin) =>
-          go(body)
-          go(handler)
-          go(fin)
+          go(body, bound, go(handler, bound, go(fin, bound, free)))
         case SELabelClosure(_, expr) =>
-          go(expr)
+          go(expr, bound, free)
         case x: SEWronglyTypeContractId =>
           throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
         case x: SEImportValue =>
           throw CompilationError(s"unexpected SEImportValue: $x")
       }
-    go(expr)
-    free
+    go(expr, initiallyBound, Set.empty)
   }
 
   /** Validate variable references in a speedy expression */
-  // valiate that we correctly captured all free-variables, and so reference to them is
+  // validate that we correctly captured all free-variables, and so reference to them is
   // via the surrounding closure, instead of just finding them higher up on the stack
   def validate(expr0: SExpr): SExpr = {
 

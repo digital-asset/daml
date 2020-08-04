@@ -63,7 +63,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/test-common",
-        "//ledger/test-common:Test-stable.scala",
+        "//ledger/test-common:model-tests.scala",
         "//libs-scala/grpc-utils",
         "//libs-scala/timer-utils",
         "@maven//:ai_x_diff_2_12",
@@ -88,10 +88,9 @@ da_scala_library_suite(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/test-common",
-        "//ledger/test-common:PerformanceTests.scala",
-        "//ledger/test-common:SemanticTests.scala",
-        "//ledger/test-common:Test-dev.scala",
-        "//ledger/test-common:Test-stable.scala",
+        "//ledger/test-common:model-tests.scala",
+        "//ledger/test-common:performance-tests.scala",
+        "//ledger/test-common:semantic-tests.scala",
         "//libs-scala/timer-utils",
         "@maven//:ai_x_diff_2_12",
         "@maven//:com_chuusai_shapeless_2_12",
@@ -148,15 +147,64 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=ssl-test,port=6865",
-        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
     ],
     test_tool_args = [
         "--verbose",
         "--include=SemanticTests",
-        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
-        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
+    ],
+)
+
+# Explicitly include retired tests here to make sure existing CI pipelines are not broken
+# Retired tests will be eventually removed
+conformance_test(
+    name = "retired-tests",
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=ssl-test,port=6865",
+    ],
+    test_tool_args = [
+        "--include=LotsOfPartiesIT",
+        "--include=TransactionScaleIT",
+    ],
+)
+
+# Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken
+# This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
+# exclusively for backwards-compatibility
+# Deprecated CLI options will be eventually removed
+conformance_test(
+    name = "deprecated-cli-options",
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=ssl-test,port=6865",
+    ],
+    test_tool_args = [
+        "--include=IdentityIT",
+        "--all-tests",
+        "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
+        "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
+    ],
+)
+
+# Test that both --include ContractKeysIT as well as --include ContractKeysIT:CKFetchOrLookup
+# are supporte.
+conformance_test(
+    name = "test-name-syntax",
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=test-name,port=6865",
+    ],
+    test_tool_args = [
+        "--include=IdentityIT",
+        "--include=IdentityIT:IdNotEmpty",
     ],
 )

@@ -34,6 +34,16 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
       Configuration.decode(configSubm.getConfiguration) shouldEqual Right(theDefaultConfig)
     }
 
+    "pre-execute config submissions" in KVTest.runTest {
+      for {
+        preExecutionResult <- preExecuteConfig(
+          configModify = c => c.copy(generation = c.generation + 1),
+          submissionId = Ref.LedgerString.assertFromString("config")
+        )
+      } yield
+        preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
+    }
+
     "check generation" in KVTest.runTest {
       for {
         logEntry <- submitConfig(
@@ -57,14 +67,13 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
         logEntry2.getConfigurationRejectionEntry.getSubmissionId shouldEqual "submission1"
         newConfig2 shouldEqual newConfig
-
       }
     }
 
     "reject expired submissions" in KVTest.runTest {
       for {
         logEntry <- submitConfig(
-          mrtDelta = Duration.ofMinutes(-1),
+          minMaxRecordTimeDelta = Duration.ofMinutes(-1),
           configModify = { c =>
             c.copy(generation = c.generation + 1)
           },
@@ -148,7 +157,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
       }
     }
 
-    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+    "update metrics" in KVTest.runTestWithSimplePackage() {
       for {
         //Submit config twice to force one acceptance and one rejection on duplicate
         _ <- submitConfig({ c =>

@@ -599,7 +599,7 @@
 				</dict>
 			</dict>
 			<key>end</key>
-			<string>(?=\)|$|,|}|\b(in|then|else|of|with)\b(?!')|(:?&lt;\-))</string>
+			<string>(?=\)|$|,|}|\b(in|then|else|of|with)\b(?!')|(?&lt;![\p{S}\p{P}&amp;&amp;[^(),;\[\]`{}_"']])(?:(\\|&lt;\-|=))([(),;\[\]`{}_"']|[^\p{S}\p{P}]))</string>
 			<key>patterns</key>
 			<array>
 				<dict>

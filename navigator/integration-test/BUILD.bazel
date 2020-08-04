@@ -17,7 +17,7 @@ da_scala_binary(
     resources = ["src/main/resources/Main.daml"],
     visibility = ["//visibility:public"],
     runtime_deps = [
-        "//ledger/sandbox",
+        "//ledger/sandbox-classic",
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [

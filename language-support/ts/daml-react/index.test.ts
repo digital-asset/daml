@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // NOTE(MH): Unfortunately the `act` function triggers this warning by looking
-// like a promis without being one.
+// like a promise without being one.
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import React, { ComponentType, useState } from 'react';
 import { renderHook, RenderHookResult, act } from '@testing-library/react-hooks';
-import DamlLedger, { useParty, useQuery, useFetchByKey, useStreamQuery, useStreamFetchByKey, useReload } from './index';
+import DamlLedger, { useParty, useQuery, useFetchByKey, useStreamQuery, useStreamFetchByKey, useReload, createLedgerContext } from './index';
 import { Template } from '@daml/types';
 import { Stream } from '@daml/ledger';
 import {EventEmitter} from 'events';
@@ -466,5 +466,30 @@ describe('useStreamFetchByKey', () => {
     act(() => result.current.setKey(key2));
     expect(mockStreamFetchByKey).toHaveBeenCalledTimes(1);
     expect(mockStreamFetchByKey).toHaveBeenLastCalledWith(Foo, key2);
+  });
+
+  describe('createLedgerContext', () => {
+    test('contexts can nest', () => {
+      const innerLedger = createLedgerContext();
+      const innerTOKEN = "inner_TOKEN";
+      const innerPARTY = "inner_PARTY";
+      const outerLedger = createLedgerContext('Outer');
+      const outerTOKEN = "outer_TOKEN";
+      const outerPARTY = "outer_PARTY";
+
+      const innerWrapper: ComponentType = ({children}) => React.createElement(innerLedger.DamlLedger, {token:innerTOKEN, party:innerPARTY}, children);
+      const r1 = renderHook(() => innerLedger.useParty(), {wrapper:innerWrapper});
+
+      expect( r1.result.current).toBe(innerPARTY);
+
+      const outerWrapper: ComponentType = ({children}) => React.createElement(outerLedger.DamlLedger, {token:outerTOKEN, party:outerPARTY}, innerWrapper({children}) );
+      const r2 = renderHook(() => outerLedger.useParty(), {wrapper:outerWrapper});
+      expect( r2.result.current).toBe(outerPARTY);
+
+      const r3 = renderHook(() => innerLedger.useParty(), {wrapper:outerWrapper});
+      expect( r3.result.current).toBe(innerPARTY);
+
+    })
+
   })
 });

@@ -4,8 +4,8 @@
 import * as Color from 'color';
 import * as React from 'react';
 import { default as styled, hardcodedStyle, ThemeInterface } from '../theme';
-export { StyledComponentClass } from 'styled-components';
-import { StyledComponentClass } from 'styled-components';
+export { StyledComponent } from 'styled-components';
+import { StyledComponent } from 'styled-components';
 
 export function applyColors([bg, fg]: [string, string]) {
   return `
@@ -118,7 +118,7 @@ const Button = ({ onClick, disabled, className, children, autoFocus, tabIndex }:
 
 // We wrap the functional button so we can style conditionally on type.
 
-const B: StyledComponentClass<Props, ThemeInterface, Props> = styled(Button)`
+const B : StyledComponent<typeof Button, ThemeInterface, Props> = styled(Button)<Props>`
   display: flex;
   flex-wrap: nowrap;
   white-space: nowrap;

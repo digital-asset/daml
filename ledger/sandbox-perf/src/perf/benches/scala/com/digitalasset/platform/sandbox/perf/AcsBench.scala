@@ -34,7 +34,8 @@ class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
 
 class AcsBench extends TestCommands with InfAwait {
 
-  override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
+  override protected def darFile: File =
+    new File(rlocation("ledger/test-common/model-tests.dar"))
 
   private def generateCommand(
       sequenceNumber: Int,
@@ -45,7 +46,7 @@ class AcsBench extends TestCommands with InfAwait {
       ledgerId = ledgerId,
       commandId = s"command-id-exercise-$sequenceNumber",
       commands = Seq(exerciseWithUnit(template, contractId, "DummyChoice1")),
-      appId = "app1"
+      applicationId = "app1",
     ).toSync
   }
 

@@ -165,7 +165,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
       commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    val ledgerCommands = commands.traverseU(toCommand(_)) match {
+    val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
     }
@@ -193,7 +193,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
         val events = transactionTree.getTransaction.rootEventIds
           .map(evId => transactionTree.getTransaction.eventsById(evId))
           .toList
-        events.traverseU(fromTreeEvent(_)) match {
+        events.traverse(fromTreeEvent(_)) match {
           case Left(err) => throw new ConverterException(err)
           case Right(results) => results
         }
@@ -579,9 +579,13 @@ class JsonLedgerClient(
         getResponseDataBytes(resp).map(description =>
           Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(description))))
       } else {
-        // A non-500 failure is something like invalid JSON. In that case
-        // the script runner is just broken so fail hard.
-        Future.failed(new RuntimeException(s"Request failed: $resp"))
+        // A non-500 failure is something like invalid JSON or “cannot resolve template ID”.
+        // We don’t want to treat that failures as ones that can be caught
+        // via `submitMustFail` so fail hard.
+        getResponseDataBytes(resp).flatMap(
+          description =>
+            Future.failed(
+              new RuntimeException(s"Request failed: $description, status code: ${resp.status}")))
       }
     }
   }

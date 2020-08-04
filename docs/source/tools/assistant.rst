@@ -82,6 +82,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
 .. code-block:: yaml
 
     sdk-version: __VERSION__
+    platform-version: __VERSION__
     name: __PROJECT_NAME__
     source: daml
     scenario: Main:setup
@@ -111,6 +112,17 @@ Here is what each field means:
    external project that you want to build with a specific version.
 
    The assistant will warn you when it is time to update this setting (see the ``update-check`` setting in the global config  to control how often it checks, or to disable this check entirely).
+- ``platform-version``: Optional SDK version of platform components. Not setting this
+  is equivalent to setting it to the same version as ``sdk-version``. At the moment this includes
+  Sandbox, Sandbox classic and the HTTP JSON API both when invoked directly via ``daml sandbox``
+  as well as when invoked via ``daml start``. Changing the platform version is useful if you deploy
+  to a ledger that is running on a different SDK version than you use locally and you want to make
+  sure that you catch any issues during testing. E.g., you might compile your DAML code using
+  SDK 1.3.0 so you get improvements in DAML Studio but deploy to DABL which could still be running
+  a ledger and the JSON API from SDK 1.2.0. In that case, you can set ``sdk-version: 1.3.0``
+  and ``platform-version: 1.2.0``.
+  It is possible to override the platform version by setting the ``DAML_PLATFORM_VERSION``
+  environment variable.
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
 - ``source``: the root folder of your DAML source code files relative to the project root.
 - ``scenario``: the name of the scenario to run when using ``daml start``.

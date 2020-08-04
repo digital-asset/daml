@@ -32,9 +32,9 @@ applyMove
         | Just new <- isMove md_descr = md
             { md_name = new
             , md_anchor = Just (moduleAnchor new)
-                -- ^ Update the module anchor
+                -- Update the module anchor
             , md_descr = Nothing
-                -- ^ Drop the renamed module's description.
+                -- Drop the renamed module's description.
             }
         | otherwise = md
 
@@ -44,7 +44,7 @@ applyMove
         { md_anchor = md_anchor m1
         , md_name = md_name m1
         , md_descr = md_descr m1 <|> md_descr m2
-            -- ^ The renamed module's description was dropped,
+            -- The renamed module's description was dropped,
             -- so in this line we always prefers the original
             -- module description.
         , md_adts = md_adts m1 ++ md_adts m2

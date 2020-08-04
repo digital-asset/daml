@@ -141,7 +141,7 @@ in rec {
       inherit pkgs;
     };
 
-    sphinx183 = bazel_dependencies.sphinx183;
+    sphinx183 = bazel_dependencies.sphinx183-exts;
 
     convert = bazel_dependencies.imagemagick;
 
@@ -222,8 +222,9 @@ in rec {
     # Cloud tools
     aws = pkgs.awscli;
     gcloud = pkgs.google-cloud-sdk;
-    bq     = gcloud;
+    bq = gcloud;
     gsutil = gcloud;
+    docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
     # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version
@@ -244,8 +245,6 @@ in rec {
     cli-tools = {
       inherit (pkgs) coreutils nix-info getopt;
     };
-    # Used by CI
-    minio  = pkgs.minio;
   } // (if pkgs.stdenv.isLinux then {
     # The following packages are used for CI docker based builds
     bash = pkgs.bash;

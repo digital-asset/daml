@@ -33,7 +33,6 @@ DAML SDK documentation
    daml/intro/0_Intro.rst
    daml/reference/index
    daml/stdlib/index
-   daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
    /daml/patterns
@@ -48,8 +47,9 @@ DAML SDK documentation
    app-dev/bindings-ts/index
    json-api/index
    DAML Script <daml-script/index>
+   DAML REPL <daml-repl/index>
    upgrade/index
-   app-dev/authentication
+   app-dev/authorization
    app-dev/ledger-api
 
 .. toctree::
@@ -69,6 +69,7 @@ DAML SDK documentation
    :caption: SDK tools
 
    tools/assistant
+   daml/daml-studio
    tools/sandbox
    tools/navigator/index
    tools/codegen
@@ -82,6 +83,7 @@ DAML SDK documentation
    concepts/glossary
    concepts/ledger-model/index
    concepts/identity-and-package-management
+   concepts/time
    concepts/local-ledger
    concepts/interoperability
 
@@ -103,7 +105,6 @@ DAML SDK documentation
    tools/extractor
    daml-integration-kit/index
    triggers/index
-   daml-repl/index
    tools/visual
    tools/trigger-service
 

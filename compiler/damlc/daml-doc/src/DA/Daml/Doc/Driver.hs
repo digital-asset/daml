@@ -112,8 +112,7 @@ loadExternalAnchors path = do
         tryLoadAnchors = \case
             Just path -> runExceptT $ do
               bytes <- ExceptT $ first readErr <$> try @IOError (LBS.fromStrict <$> BS.readFile path)
-              anchors <- ExceptT $ pure (first decodeErr (AE.eitherDecode @AnchorMap bytes))
-              pure $ anchors
+              ExceptT $ pure (first decodeErr (AE.eitherDecode @AnchorMap bytes))
               where
                   readErr = const $ "Failed to read anchor table '" ++ path ++ "'"
                   decodeErr err = unlines ["Failed to decode anchor table '" ++ path ++ "':", err]

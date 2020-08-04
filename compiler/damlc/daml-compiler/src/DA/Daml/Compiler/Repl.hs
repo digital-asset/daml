@@ -1,38 +1,54 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
-module DA.Daml.Compiler.Repl (runRepl) where
+module DA.Daml.Compiler.Repl
+    ( newReplLogger
+    , runRepl
+    , ReplLogger(..)
+    ) where
 
 import BasicTypes (Boxity(..))
-import qualified "zip-archive" Codec.Archive.Zip as Zip
+import Bag (bagToList, unitBag)
+import Control.Applicative
+import Control.Concurrent.Extra
+import Control.Exception.Safe
 import Control.Lens (toListOf)
 import Control.Monad.Except
+import Control.Monad.Extra
 import qualified Control.Monad.State.Strict as State
 import Control.Monad.Trans.Maybe
+import DA.Daml.Compiler.Output (printDiagnostics)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
-import qualified DA.Daml.LF.Proto3.Archive as LFArchive
-import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.LFConversion.UtilGHC
 import DA.Daml.Options.Types
 import qualified DA.Daml.Preprocessor.Records as Preprocessor
 import Data.Bifunctor (first)
-import qualified Data.ByteString.Lazy as BSL
 import Data.Functor.Alt
+import Data.Functor.Bind
 import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.Graph
+import Data.IORef
+import Data.List (foldl', intercalate)
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
+import Data.Semigroup (Last(..))
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util
+import Development.IDE.LSP.Protocol
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import ErrUtils
 import GHC
@@ -41,19 +57,24 @@ import HsExtension (GhcPs, GhcTc)
 import HsPat (Pat(..))
 import HscTypes (HscEnv(..))
 import Language.Haskell.GhclibParserEx.Parse
+import Language.Haskell.LSP.Messages
 import Lexer (ParseResult(..))
-import OccName (occName, OccSet, elemOccSet, mkOccSet, mkVarOcc)
+import Module (unitIdString)
+import OccName (OccSet, occName, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (ppr, showSDoc)
+import qualified Outputable
 import RdrName (mkRdrUnqual)
 import SrcLoc (unLoc)
 import qualified System.Console.Repline as Repl
 import System.Exit
 import System.IO.Extra
-import Type
+import TcEvidence (idHsWrapper)
+import Type (splitTyConApp)
 
 data Error
     = ParseError MsgDoc
     | UnsupportedStatement String -- ^ E.g., pattern on the LHS
+    | NotImportedModules [ModuleName]
     | TypeError -- ^ The actual error will be in the diagnostics
     | ScriptError ReplClient.BackendError
 
@@ -63,11 +84,13 @@ renderError dflags err = case err of
         putStrLn (showSDoc dflags err)
     (UnsupportedStatement str) ->
         putStrLn ("Unsupported statement: " <> str)
+    (NotImportedModules names) ->
+        putStrLn ("Not imported, cannot remove: " <> intercalate ", " (map moduleNameString names))
     TypeError ->
-        -- ^ The error will be displayed via diagnostics.
+        -- The error will be displayed via diagnostics.
         pure ()
     (ScriptError _err) ->
-        -- ^ The error will be displayed by the script runner.
+        -- The error will be displayed by the script runner.
         pure ()
 
 -- | Take a set of variables and a pattern and shadow all the variables
@@ -125,22 +148,65 @@ shadowPat vars p
 -- That ensures that the line itself fails and it
 -- avoids partial pattern match warnings on subsequent lines.
 
-toTuplePat :: LPat GhcPs -> LPat GhcPs
-toTuplePat pat = noLoc $
+toTuplePat :: [RdrName] -> LPat GhcPs
+toTuplePat [] = noLoc (WildPat noExt)
+toTuplePat [v] = noLoc (VarPat noExt $ noLoc v)
+toTuplePat vars = noLoc $
     TuplePat noExt [noLoc (VarPat noExt $ noLoc v) | v <- vars] Boxed
-  where vars = collectPatBinders pat
 
 toTupleExpr :: LPat GhcPs -> LHsExpr GhcPs
 toTupleExpr pat = noLoc $
     ExplicitTuple noExt [noLoc (Present noExt (noLoc $ HsVar noExt (noLoc v))) | v <- vars] Boxed
   where vars = collectPatBinders pat
 
--- | Split a statement into the pattern and the body.
--- For unsupported statements we return `Nothing`.
-splitStmt :: Stmt GhcPs (LHsExpr GhcPs) -> Maybe (LPat GhcPs, LHsExpr GhcPs)
-splitStmt (BodyStmt _ expr _ _) = Just (noLoc $ WildPat noExt, expr)
-splitStmt (BindStmt _ pat expr _ _) = Just (ParPat noExt pat, expr)
-splitStmt _ = Nothing
+-- | Type for the statements we support.
+data SupportedStatement
+    = BodyStatement (LHsExpr GhcPs)
+    | BindStatement (LPat GhcPs) (LHsExpr GhcPs)
+    | LetStatement LetBinding
+
+data LetBinding
+    = FunBinding (Located RdrName) (MatchGroup GhcPs (LHsExpr GhcPs))
+    | PatBinding (LPat GhcPs) (GRHSs GhcPs (LHsExpr GhcPs))
+
+toLocalBinds :: LetBinding -> LHsLocalBindsLR GhcPs GhcPs
+toLocalBinds bind =
+    noLoc $ HsValBinds noExt $
+    ValBinds noExt (unitBag $ noLoc hsBind) []
+  where
+    hsBind = case bind of
+        FunBinding f mg -> FunBind
+          { fun_ext = noExt
+          , fun_id = f
+          , fun_matches = mg
+          , fun_co_fn = idHsWrapper
+          , fun_tick = []
+          }
+        PatBinding pat rhs -> PatBind
+          { pat_ext = noExt
+          , pat_lhs = pat
+          , pat_rhs = rhs
+          , pat_ticks = ([], [])
+          }
+
+validateStmt :: Stmt GhcPs (LHsExpr GhcPs) -> Maybe SupportedStatement
+validateStmt (BodyStmt _ expr _ _) = Just (BodyStatement expr)
+validateStmt (BindStmt _ pat expr _ _) = Just (BindStatement pat expr)
+validateStmt (LetStmt _ (L _ (HsValBinds _ (ValBinds _ binds _))))
+    -- We only support singleton binds for now. Anything else
+    -- is annoying to write in the repl anyway.
+    | [bind] <- bagToList binds = fmap LetStatement $ case unLoc bind of
+          FunBind{..} -> Just (FunBinding fun_id fun_matches)
+          PatBind{..} -> Just (PatBinding pat_lhs pat_rhs)
+          _ -> Nothing
+validateStmt _ = Nothing
+
+stmtBoundVars :: SupportedStatement -> [RdrName]
+stmtBoundVars (BodyStatement _) = []
+stmtBoundVars (BindStatement pat _) = collectPatBinders pat
+stmtBoundVars (LetStatement binding) = case binding of
+    FunBinding f _ -> [unLoc f]
+    PatBinding pat _ -> collectPatBinders pat
 
 -- | Sort DALF packages in topological order.
 -- I.e. if @a@ appears before @b@, then @b@ does not depend on @a@.
@@ -156,8 +222,60 @@ topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
       ]
     toPkg = (\(pkg, _, _) -> pkg) . fromVertex
 
+-- | Mapping from module name to all imports for that module.
+--
+-- Invariant: Imports for a module should be associated to its module name and
+-- multiple imports of a module should never subsume each other, see
+-- 'importInsert'.
+--
+-- This avoids redundant import lines and eases removing of module imports.
+newtype Imports = Imports (Map.Map ModuleName [ImportDecl GhcPs])
+
+-- | Add an import declaration.
+--
+-- If the new import declaration subsumes a previous import declaration, then
+-- new one will replace the old one. If the new import declaration is subsumed
+-- by an already existing import declaration, then it will not be added.
+--
+-- Subsumption of import declarations is based on the implementation of
+-- 'GHCi.UI.iiSubsumes'. Note, that this is not fully precise. For example,
+-- @import DA.Time (days, hours)@ should subsume @import DA.Time (hours)@, but
+-- does not because of different source locations on the imported symbols.
+importInsert :: ImportDecl GhcPs -> Imports -> Imports
+importInsert i (Imports m) = Imports $ Map.alter insert name m
+  where
+    name = unLoc . ideclName $ i
+    -- Based on 'GHCi.UI.addNotSubsumed'.
+    insert Nothing = Just [i]
+    insert (Just is)
+      | any (`subsumes` i) is = Just is
+      | otherwise = Just $! i : filter (not . (i `subsumes`)) is
+    -- Based on 'GHCi.UI.iiSubsumes'.
+    --
+    -- Returns True if the left import subsumes the right one.
+    d1 `subsumes` d2
+      = unLoc (ideclName d1) == unLoc (ideclName d2)
+        && ideclAs d1 == ideclAs d2
+        && (not (ideclQualified d1) || ideclQualified d2)
+        && (ideclHiding d1 `hidingSubsumes` ideclHiding d2)
+    _                    `hidingSubsumes` Just (False, L _ []) = True
+    Just (False, L _ xs) `hidingSubsumes` Just (False, L _ ys) = all (`elem` xs) ys
+    h1                   `hidingSubsumes` h2                   = h1 == h2
+
+importDelete :: ModuleName -> Imports -> Imports
+importDelete name (Imports m) = Imports $ Map.delete name m
+
+importMember :: ModuleName -> Imports -> Bool
+importMember name (Imports m) = Map.member name m
+
+importFromList :: [ImportDecl GhcPs] -> Imports
+importFromList = foldl' (flip importInsert) (Imports Map.empty)
+
+importToList :: Imports -> [ImportDecl GhcPs]
+importToList (Imports imports) = concat $ Map.elems imports
+
 data ReplState = ReplState
-  { imports :: ![ImportDecl GhcPs]
+  { imports :: !Imports
   , bindings :: ![(LPat GhcPs, Type)]
   , lineNumber :: !Int
   }
@@ -183,13 +301,14 @@ parseReplInput input dflags =
     tryParse (PFailed _ _ errMsg) = Left (ParseError errMsg)
 
 
-runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
-runRepl opts mainDar replClient ideState = do
-    Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile mainDar
-    (_, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
-    let moduleNames = map LF.moduleName (NM.elems (LF.packageModules pkg))
+-- | Load all packages in the given session.
+--
+-- Returns the list of modules in the specified import packages.
+loadPackages :: [(LF.PackageName, Maybe LF.PackageVersion)] -> ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
+loadPackages importPkgs replClient ideState = do
+    -- Load packages
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
-    Just stablePkgs <- runAction ideState (use GenerateStablePackages "Dummy.daml")
+    Just stablePkgs <- runAction ideState (useNoFile GenerateStablePackages)
     for_ (topologicalSort (toList pkgs <> toList stablePkgs)) $ \pkg -> do
         r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)
         case r of
@@ -197,8 +316,62 @@ runRepl opts mainDar replClient ideState = do
                 hPutStrLn stderr ("Package could not be loaded: " <> show err)
                 exitFailure
             Right _ -> pure ()
+    -- Determine module names in imported DALFs.
+    let unversionedPkgs = Map.mapKeys (fst . LF.splitUnitId) pkgs
+        toUnitId (pkgName, mbVersion) = pkgNameVersion pkgName mbVersion
+        lookupPkg (pkgName, Nothing) = Map.lookup pkgName unversionedPkgs
+        lookupPkg (toUnitId -> unitId) = Map.lookup unitId pkgs
+    importLfPkgs <- forM importPkgs $ \importPkg ->
+        case lookupPkg importPkg of
+            Just dalf -> pure $ LF.extPackagePkg $ LF.dalfPackagePkg dalf
+            Nothing -> do
+                hPutStrLn stderr $
+                    "Could not find package for import: " <> unitIdString (toUnitId importPkg) <> "\n"
+                    <> "Known packages: " <> intercalate ", " (unitIdString <$> Map.keys pkgs)
+                exitFailure
+    pure
+      [ simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString $ mod
+      | pkg <- importLfPkgs
+      , mod <- NM.names $ LF.packageModules pkg
+      ]
+
+data ReplLogger = ReplLogger
+  { withReplLogger :: forall a. ([FileDiagnostic] -> IO ()) -> IO a -> IO a
+  -- ^ Temporarily modify what happens to diagnostics
+  , replEventLogger :: FromServerMessage -> IO ()
+  -- ^ Logger to pass to `withDamlIdeState`
+  }
+
+
+newReplLogger :: IO ReplLogger
+newReplLogger = do
+    lock <- newLock
+    diagsRef <- newIORef $ \diags -> printDiagnostics stdout diags
+    let replEventLogger = \case
+            EventFileDiagnostics fp diags -> do
+                logger <- readIORef diagsRef
+                logger $ map (toNormalizedFilePath' fp, ShowDiag,) diags
+            _ -> pure ()
+        withReplLogger :: ([FileDiagnostic] -> IO ()) -> IO a -> IO a
+        withReplLogger logAct f =
+            withLock lock $
+            bracket
+                (readIORef diagsRef <* atomicWriteIORef diagsRef logAct)
+                (atomicWriteIORef diagsRef)
+                (const f)
+    pure ReplLogger{..}
+
+runRepl
+    :: [(LF.PackageName, Maybe LF.PackageVersion)]
+    -> Options
+    -> ReplClient.Handle
+    -> ReplLogger
+    -> IdeState
+    -> IO ()
+runRepl importPkgs opts replClient logger ideState = do
+    imports <- loadPackages importPkgs replClient ideState
     let initReplState = ReplState
-          { imports = map (simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString) moduleNames
+          { imports = importFromList imports
           , bindings = []
           , lineNumber = 0
           }
@@ -207,8 +380,8 @@ runRepl opts mainDar replClient ideState = do
           where
             banner = pure "daml> "
             command = replLine
-            options = []
-            prefix = Nothing
+            options = replOptions
+            prefix = Just ':'
             tabComplete = Repl.Cursor $ \_ _ -> pure []
             initialiser = pure ()
     State.evalStateT replM initReplState
@@ -220,44 +393,62 @@ runRepl opts mainDar replClient ideState = do
         -> ExceptT Error ReplM ()
     handleStmt dflags line stmt = do
         ReplState {imports, bindings, lineNumber} <- State.get
-        (bind, expr) <- maybe (throwError (UnsupportedStatement line)) pure (splitStmt stmt)
-        liftIO $ setBufferModified ideState (lineFilePath lineNumber)
-            $ Just $ T.pack (renderModule dflags imports lineNumber bindings bind expr)
-        (lfMod, tmrModule -> tcMod) <-
-            maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
-                <*> useE TypeCheck (lineFilePath lineNumber))
+        supportedStmt <- maybe (throwError (UnsupportedStatement line)) pure (validateStmt stmt)
+        let rendering = renderModule dflags imports lineNumber bindings supportedStmt
+        (lfMod, tmrModule -> tcMod) <- printDelayedDiagnostics $ case rendering of
+            BindingRendering t ->
+                tryTypecheck lineNumber (T.pack t)
+            BodyRenderings {..} ->
+                withExceptT getLast
+                $   withExceptT Last (tryTypecheck lineNumber (T.pack unitScript))
+                <!> withExceptT Last (tryTypecheck lineNumber (T.pack printableScript))
+                <!> withExceptT Last (tryTypecheck lineNumber (T.pack nonprintableScript))
+                <!> withExceptT Last (tryTypecheck lineNumber (T.pack purePrintableExpr))
         -- Type of the statement so we can give it a type annotation
         -- and avoid incurring a typeclass constraint.
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
         -- If we get an error we don’t increment lineNumber and we
         -- do not get a new binding
-        withExceptT ScriptError $ ExceptT $ liftIO $
+        mbResult <- withExceptT ScriptError $ ExceptT $ liftIO $
             ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
-        let boundVars = mkOccSet (map occName (collectPatBinders bind))
+        liftIO $ whenJust mbResult T.putStrLn
+        let boundVars = stmtBoundVars supportedStmt
+            boundVars' = mkOccSet $ map occName boundVars
         State.put $! ReplState
           { imports = imports
-          , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat bind, stmtTy)]
+          , bindings = map (first (shadowPat boundVars')) bindings <> [(toTuplePat boundVars, stmtTy)]
           , lineNumber = lineNumber + 1
           }
+    printDelayedDiagnostics :: MonadIO m => ExceptT (e, [[FileDiagnostic]]) m a -> ExceptT e m a
+    printDelayedDiagnostics e = ExceptT $ do
+        r <- runExceptT e
+        case r of
+            Left (err, diags) -> do
+                liftIO $ mapM_ (printDiagnostics stdout) diags
+                pure (Left err)
+            Right r -> pure (Right r)
+    tryTypecheck :: Int -> T.Text -> ExceptT (Error, [[FileDiagnostic]]) ReplM (LF.Module, TcModuleResult)
+    tryTypecheck lineNumber t = do
+        liftIO $ setBufferModified ideState (lineFilePath lineNumber) $ Just t
+        -- We need to temporarily suppress diagnostics since we use type errors
+        -- to decide what to do. If a case succeeds we immediately print all diagnostics.
+        -- If it fails, we return them and only print them once everything failed.
+        diagsRef <- liftIO $ newIORef id
+        let writeDiags diags = atomicModifyIORef diagsRef (\f -> (f . (diags:), ()))
+        r <- liftIO $ withReplLogger logger writeDiags $ runAction ideState $ runMaybeT $
+            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
+                <*> useE TypeCheck (lineFilePath lineNumber)
+        diags <- liftIO $ ($ []) <$> readIORef diagsRef
+        case r of
+            Nothing -> throwError (TypeError, diags)
+            Just r -> do
+                liftIO $ mapM_ (printDiagnostics stdout) diags
+                pure r
     handleImport
         :: DynFlags
         -> ImportDecl GhcPs
         -> ExceptT Error ReplM ()
-    handleImport dflags imp = do
-        ReplState {imports, lineNumber} <- State.get
-        -- TODO[AH] Deduplicate imports.
-        let newImports = imp : imports
-        -- TODO[AH] Factor out the module render and typecheck step.
-        liftIO $ setBufferModified ideState (lineFilePath lineNumber)
-            $ Just $ T.pack (renderModule dflags newImports lineNumber [] (WildPat noExt)
-                (noLoc $ HsApp noExt
-                    (noLoc $ HsVar noExt $ noLoc $ mkRdrUnqual $ mkVarOcc "return")
-                    (noLoc $ ExplicitTuple noExt [] Boxed)))
-        _ <- maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
-                <*> useE TypeCheck (lineFilePath lineNumber))
-        State.modify $ \s -> s { imports = newImports }
+    handleImport dflags imp = addImports dflags [imp]
     replLine :: String -> ReplM ()
     replLine line = do
         ReplState {lineNumber} <- State.get
@@ -272,6 +463,63 @@ runRepl opts mainDar replClient ideState = do
         case r of
             Left err -> liftIO $ renderError dflags err
             Right () -> pure ()
+
+    mkReplOption
+        :: (DynFlags -> [String] -> ExceptT Error ReplM ())
+        -> [String] -> ReplM ()
+    mkReplOption option args = do
+        ReplState {lineNumber} <- State.get
+        dflags <- liftIO $
+            hsc_dflags . hscEnv <$>
+            runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
+        r <- runExceptT $ option dflags args
+        case r of
+            Left err -> liftIO $ renderError dflags err
+            Right () -> pure ()
+    replOptions :: [(String, [String] -> ReplM ())]
+    replOptions =
+      [ ("help", mkReplOption optHelp)
+      , ("module", mkReplOption optModule)
+      , ("show", mkReplOption optShow)
+      ]
+    optHelp _dflags _args = liftIO $ T.putStrLn $ T.unlines
+      [ " Commands available from the prompt:"
+      , ""
+      , "   <statement>                 evaluate/run <statement>"
+      , "   :module [+/-] <mod> ...     add or remove the modules from the import list"
+      , "   :show imports               show the current module imports"
+      ]
+    optModule _dflags ("-" : names) =
+        removeImports $ map mkModuleName names
+    optModule dflags ("+" : names) =
+        addImports dflags $ map (simpleImportDecl . mkModuleName) names
+    optModule dflags names =
+        addImports dflags $ map (simpleImportDecl . mkModuleName) names
+    optShow dflags ["imports"] = do
+        ReplState {imports} <- State.get
+        liftIO $ putStr $ unlines $ moduleImports dflags imports
+    optShow _dflags _ = liftIO $ putStrLn ":show [imports]"
+
+    addImports
+        :: DynFlags
+        -> [ImportDecl GhcPs]
+        -> ExceptT Error ReplM ()
+    addImports dflags additional = do
+        ReplState {imports, lineNumber} <- State.get
+        let newImports = foldl' (flip importInsert) imports additional
+        _ <- printDelayedDiagnostics $ tryTypecheck lineNumber $
+            T.pack (unlines $ moduleHeader dflags newImports lineNumber)
+        State.modify $ \s -> s { imports = newImports }
+    removeImports
+        :: [ModuleName]
+        -> ExceptT Error ReplM ()
+    removeImports modules = do
+        ReplState {imports} <- lift State.get
+        let unknown = [name | name <- modules, not $ name `importMember` imports]
+            newImports = foldl' (flip importDelete) imports modules
+        unless (null unknown) $
+            throwError $ NotImportedModules unknown
+        lift $ State.modify $ \s -> s { imports = newImports }
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
@@ -291,28 +539,126 @@ lineFilePath i = toNormalizedFilePath' $ "Line" <> show i <> ".daml"
 lineModuleName :: Int -> String
 lineModuleName i = "Line" <> show i
 
-renderModule :: DynFlags -> [ImportDecl GhcPs] -> Int -> [(LPat GhcPs, Type)] -> LPat GhcPs -> LHsExpr GhcPs -> String
-renderModule dflags imports line binds pat expr = unlines $
-     [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
-     , "{-# LANGUAGE PartialTypeSignatures #-}"
-     , "daml 1.2"
-     , "module " <> lineModuleName line <> " where"
-     , "import Daml.Script"
-     ] <>
-     map renderImport imports <>
-     [ "expr : " <> concatMap (renderTy . snd) binds <> "Script _"
-     , "expr " <> unwords (map (renderPat . fst) binds) <> " = "
-     ] <>
-     let stmt = HsDo noExt DoExpr $ noLoc
-             [ noLoc $ BindStmt noExt pat expr noSyntaxExpr noSyntaxExpr
-             , noLoc $ LastStmt noExt (noLoc $ HsApp noExt returnExpr tupleExpr) False noSyntaxExpr
-             ]
-         returnExpr = noLoc $ HsVar noExt (noLoc $ mkRdrUnqual $ mkVarOcc "return")
-         tupleExpr = toTupleExpr pat
-     in -- indent by two spaces.
-        -- we might just want to construct the whole function using the Haskell AST
-        -- so the Haskell pretty printer takes care of this stuff.
-        map ("  " <> ) $ lines $ prettyPrint stmt
-  where renderImport imp = showSDoc dflags (ppr imp)
+-- | Possible ways to render a module. We take the first one that typechecks
+data ModuleRenderings
+    = BindingRendering String -- ^ x <- e with e :: Script a for some a
+    | BodyRenderings
+        { unitScript :: String
+          -- ^ e :: Script (). Here we do not print the result.
+        , printableScript :: String
+          -- ^ e :: Script a with for some a that is an instance of Show. Here
+          -- we print the result.
+        , nonprintableScript :: String
+          -- ^ e :: Script a for some a that is not an instance of Show.
+        , purePrintableExpr :: String
+          -- ^ e :: a for some a that is an instance of Show. Here we
+          -- print the result. Note that we do not support
+          -- non-printable pure expressions since there is no
+          -- reason to run them.
+        }
+
+moduleImports
+    :: DynFlags
+    -> Imports
+    -> [String]
+moduleImports dflags imports =
+    "import Daml.Script -- implicit"
+    : map renderImport (importToList imports)
+  where
+    renderImport imp = showSDoc dflags (ppr imp)
+
+moduleHeader
+    :: DynFlags
+    -> Imports
+    -> Int
+    -> [String]
+moduleHeader dflags imports line =
+    [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
+    , "{-# LANGUAGE PartialTypeSignatures #-}"
+    , "module " <> lineModuleName line <> " where"
+    ] <> moduleImports dflags imports
+
+renderModule
+    :: DynFlags
+    -> Imports
+    -> Int
+    -> [(LPat GhcPs, Type)]
+    -> SupportedStatement
+    -> ModuleRenderings
+renderModule dflags imports line binds stmt = case stmt of
+    BindStatement pat expr ->
+        BindingRendering $ unlines $
+            moduleHeader dflags imports line <>
+            [ exprTy "Script _"
+            , exprLhs
+            , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt (Just pat) expr returnAp)
+            ]
+    BodyStatement expr ->
+        BodyRenderings
+          { unitScript = unlines $
+              moduleHeader dflags imports line <>
+              [ exprTy "Script ()"
+              , exprLhs
+              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+              ]
+          , printableScript = unlines $
+              moduleHeader dflags imports line <>
+              [ exprTy "Script Text"
+              , exprLhs
+              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
+              ]
+          , nonprintableScript = unlines $
+              moduleHeader dflags imports line <>
+              [ exprTy "Script _"
+              , exprLhs
+              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+              ]
+          , purePrintableExpr = unlines $
+              moduleHeader dflags imports line <>
+              [ exprTy "Script Text"
+              , exprLhs
+              , showSDoc dflags $ Outputable.nest 2 $ ppr $
+                returnShowAp expr
+              ]
+          }
+    LetStatement binding ->
+        let retExpr = case binding of
+                FunBinding f _ -> noLoc $ HsVar noExt f
+                PatBinding pat _ -> toTupleExpr pat
+        in BindingRendering $ unlines $
+          moduleHeader dflags imports line <>
+          [ exprTy "Script _"
+          , exprLhs
+          , showSDoc dflags $ Outputable.nest 2 $ ppr $ HsDo noExt DoExpr $ noLoc
+              [ noLoc $ LetStmt noExt $ toLocalBinds binding
+              , noLoc $ LastStmt noExt (returnAp retExpr) False noSyntaxExpr
+              ]
+          ]
+  where
         renderPat pat = showSDoc dflags (ppr pat)
-        renderTy ty = showSDoc dflags (ppr ty) <> " -> "
+        renderTy ty = "(" <> showSDoc dflags (ppr ty) <> ") -> "
+        -- build a script statement using the given wrapper (either `return` or `show`)
+        -- to wrap the final result.
+        scriptStmt mbPat expr wrapper =
+          let pat = fromMaybe (noLoc $ VarPat noExt $ noLoc $ mkRdrUnqual $ mkVarOcc "result") mbPat
+          in HsDo noExt DoExpr $ noLoc
+            [ noLoc $ BindStmt noExt pat expr noSyntaxExpr noSyntaxExpr
+            , noLoc $ LastStmt noExt (wrapper $ toTupleExpr pat) False noSyntaxExpr
+            ]
+        returnAp :: LHsExpr GhcPs -> LHsExpr GhcPs
+        returnAp = noLoc . HsApp noExt returnExpr
+        returnExpr = noLoc $ HsVar noExt (noLoc $ mkRdrUnqual $ mkVarOcc "return")
+        returnShowAp x =
+            returnAp $
+            noLoc $ HsPar noExt $
+            noLoc $ HsApp noExt showExpr $
+            noLoc $ HsPar noExt x
+        showExpr = noLoc $ HsVar noExt (noLoc $ mkRdrUnqual $ mkVarOcc "show")
+        exprLhs = "expr " <> unwords (map (renderPat . fst) binds) <> " = "
+        exprTy res = "expr : " <> concatMap (renderTy . snd) binds <> res
+
+instance Applicative m => Apply (Repl.HaskelineT m) where
+    liftF2 = liftA2
+
+instance Monad m => Bind (Repl.HaskelineT m) where
+    (>>-) = (>>=)

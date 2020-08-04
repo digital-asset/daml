@@ -9,6 +9,9 @@ import Data.Aeson.Extra.Merge
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
 import Data.List.Extra
+import Data.Proxy (Proxy (..))
+import Data.Tagged (Tagged (..))
+import qualified Data.Text.Extended as T
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
@@ -16,6 +19,7 @@ import System.IO.Extra
 import System.Info.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.Options
 
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
@@ -23,35 +27,48 @@ import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)
 import DA.Test.Util
 
+newtype ProjectName = ProjectName String
+
+instance IsOption ProjectName where
+    defaultValue = ProjectName "create-daml-app"
+    parseValue = Just . ProjectName
+    optionName = Tagged "project-name"
+    optionHelp = Tagged "name of the project"
+
 main :: IO ()
-main = do
+main = withTempDir $ \yarnCache -> do
+    setEnv "YARN_CACHE_FOLDER" yarnCache True
+    limitJvmMemory defaultJvmMemoryLimits
     yarn : args <- getArgs
     javaPath <- locateRunfiles "local_jdk/bin"
     oldPath <- getSearchPath
     yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
+    let ingredients = defaultIngredients ++ [includingOptions [Option @ProjectName Proxy]]
     withArgs args (withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] (javaPath : yarnPath : oldPath))
         , ("TASTY_NUM_THREADS", Just "1")
-        ] $ defaultMain tests)
+        ] $ defaultMainWithIngredients ingredients tests)
 
 tests :: TestTree
-tests = withSdkResource $ \_ -> testGroup "Create DAML App tests" [gettingStartedGuideTest | not isWindows]
+tests =
+    withSdkResource $ \_ ->
+    askOption $ \(ProjectName projectName) -> do
+    testGroup "Create DAML App tests" [gettingStartedGuideTest projectName | not isWindows]
   where
-    gettingStartedGuideTest = testCaseSteps "Getting Started Guide" $ \step ->
+    gettingStartedGuideTest projectName = testCaseSteps "Getting Started Guide" $ \step ->
       withTempDir $ \tmpDir -> do
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
-          callCommandSilent "daml new create-daml-app create-daml-app"
-        let cdaDir = tmpDir </> "create-daml-app"
-
+          callCommandSilent $ "daml new " <> projectName <> " --template create-daml-app"
+        let cdaDir = tmpDir </> projectName
         -- First test the base application (without the user-added feature).
         withCurrentDirectory cdaDir $ do
           step "Build DAML model for base application"
           callCommandSilent "daml build"
           step "Set up TypeScript libraries and Yarn workspaces for codegen"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes, DamlLedger]
+          setupYarnEnv tmpDir (Workspaces [projectName <> "/daml.js"]) [DamlTypes, DamlLedger]
           step "Run JavaScript codegen"
-          callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
+          callCommandSilent $ "daml codegen js -o daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
         assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
         withCurrentDirectory (cdaDir </> "ui") $ do
           -- NOTE(MH): We set up the yarn env again to avoid having all the
@@ -59,7 +76,7 @@ tests = withSdkResource $ \_ -> testGroup "Create DAML App tests" [gettingStarte
           -- `yarn install`. Some of the UI dependencies are a bit flaky to
           -- install and might need some retries.
           step "Set up libraries and workspaces again for UI build"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
+          setupYarnEnv tmpDir (Workspaces [projectName <> "/ui"]) allTsLibraries
           step "Install dependencies for UI"
           retry 3 (callCommandSilent "yarn install")
           step "Run linter"
@@ -74,18 +91,20 @@ tests = withSdkResource $ \_ -> testGroup "Create DAML App tests" [gettingStarte
         messagingPatch <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "messaging.patch")
         patchTool <- locateRunfiles "patch_dev_env/bin/patch"
         withCurrentDirectory cdaDir $ do
-          callCommandSilent $ unwords [patchTool, "-s", "-p2", "<", messagingPatch]
+          patchContent <- T.readFileUtf8 messagingPatch
+          T.writeFileUtf8 (cdaDir </> "messaging.patch") (T.replace "create-daml-app" (T.pack projectName) patchContent)
+          callCommandSilent $ unwords [patchTool, "-s", "-p2", "<", cdaDir </> "messaging.patch"]
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
             assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
           step "Build the new DAML model"
           callCommandSilent "daml build"
           step "Set up TypeScript libraries and Yarn workspaces for codegen again"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes, DamlLedger]
+          setupYarnEnv tmpDir (Workspaces [projectName <> "/daml.js"]) [DamlTypes, DamlLedger]
           step "Run JavaScript codegen for new DAML model"
-          callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
+          callCommandSilent $ "daml codegen js -o daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
         withCurrentDirectory (cdaDir </> "ui") $ do
           step "Set up libraries and workspaces again for UI build"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
+          setupYarnEnv tmpDir (Workspaces [projectName <> "/ui"]) allTsLibraries
           step "Install UI dependencies again, forcing rebuild of generated code"
           callCommandSilent "yarn install --force --frozen-lockfile"
           step "Run linter again"
@@ -101,7 +120,10 @@ tests = withSdkResource $ \_ -> testGroup "Create DAML App tests" [gettingStarte
           retry 3 (callCommandSilent "yarn install")
           step "Run Puppeteer end-to-end tests"
           testFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "index.test.ts")
-          copyFile testFile (cdaDir </> "ui" </> "src" </> "index.test.ts")
+          testFileContent <- T.readFileUtf8 testFile
+          T.writeFileUtf8
+              (cdaDir </> "ui" </> "src" </> "index.test.ts")
+              (T.replace "create-daml-app" (T.pack projectName) testFileContent)
           callCommandSilent "CI=yes yarn run test --ci --all"
 
 addTestDependencies :: FilePath -> FilePath -> IO ()

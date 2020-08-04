@@ -29,6 +29,7 @@ import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenario
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader
 import DA.Daml.LanguageServer
@@ -70,7 +71,7 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import "ghc-lib-parser" Module (unitIdString)
+import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
@@ -91,6 +92,7 @@ import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
 import qualified SdkVersion
+import "ghc-lib-parser" Util (looksLikePackageName)
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -259,10 +261,13 @@ cmdRepl numProcessors =
             <$> projectOpts "daml build"
             <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
             <*> strOption (long "script-lib" <> value "daml-script" <> internal)
-            -- ^ This is useful for tests and `bazel run`.
-            <*> strArgument (help "DAR to load in the repl" <> metavar "DAR")
-            <*> strOption (long "ledger-host" <> help "Host of the ledger API")
-            <*> strOption (long "ledger-port" <> help "Port of the ledger API")
+            -- This is useful for tests and `bazel run`.
+            <*> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
+            <*> many packageImport
+            <*> optional
+                  ((,) <$> strOption (long "ledger-host" <> help "Host of the ledger API")
+                       <*> strOption (long "ledger-port" <> help "Port of the ledger API")
+                  )
             <*> accessTokenFileFlag
             <*> sslConfig
             <*> optional
@@ -270,6 +275,19 @@ cmdRepl numProcessors =
                         long "max-inbound-message-size" <>
                         help "Optional max inbound message size in bytes."
                     )
+            <*> timeModeFlag
+    packageImport = option readPackage $
+        long "import"
+        <> short 'i'
+        <> help "Import modules of these packages into the REPL"
+        <> metavar "PACKAGE"
+      where
+        readPackage = eitherReader $ \s -> do
+            let pkg@(name, _) = splitUnitId (stringToUnitId s)
+                strName = T.unpack . LF.unPackageName $ name
+            unless (looksLikePackageName strName) $
+                fail $ "Illegal package name: " ++ strName
+            pure pkg
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
@@ -283,7 +301,7 @@ cmdRepl numProcessors =
             ]
         mbCACert <- optional $ strOption $ mconcat
             [ long "cacrt"
-            , help "The crt file to be used as the the trusted root CA."
+            , help "The crt file to be used as the trusted root CA."
             ]
         mbClientKeyCertPair <- optional $ liftA2 ReplClient.ClientSSLKeyCertPair
             (strOption $ mconcat
@@ -303,6 +321,19 @@ cmdRepl numProcessors =
                 , clientSSLKeyCertPair = mbClientKeyCertPair
                 , clientMetadataPlugin = Nothing
                 }
+
+    timeModeFlag :: Parser ReplClient.ReplTimeMode
+    timeModeFlag =
+        (flag' ReplClient.ReplWallClock $ mconcat
+            [ short 'w'
+            , long "wall-clock-time"
+            , help "Use wall clock time (UTC). (this is the default)"
+            ])
+        <|> (flag ReplClient.ReplWallClock ReplClient.ReplStatic $ mconcat
+            [ short 's'
+            , long "static-time"
+            , help "Use static time."
+            ])
 
 
 cmdClean :: Mod CommandFields Command
@@ -569,16 +600,17 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
 execRepl
     :: ProjectOpts
     -> Options
-    -> FilePath -> FilePath
-    -> String -> String
+    -> FilePath -> [FilePath] -> [(LF.PackageName, Maybe LF.PackageVersion)]
+    -> Maybe (String, String)
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig
     -> Maybe ReplClient.MaxInboundMessageSize
+    -> ReplClient.ReplTimeMode
     -> Command
-execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize = Command Repl (Just projectOpts) effect
+execRepl projectOpts opts scriptDar dars importPkgs mbLedgerConfig mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
-            mainDar <- makeAbsolute mainDar
+            dars <- mapM makeAbsolute dars
             opts <- pure opts
                 { optDlintUsage = DlintDisabled
                 , optScenarioService = EnableScenarioService False
@@ -586,11 +618,11 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mb
             logger <- getLogger opts "repl"
             runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
             let jar = runfilesDir </> "repl-service.jar"
-            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize Inherit) $ \replHandle _stdout _ph ->
+            ReplClient.withReplClient (ReplClient.Options jar mbLedgerConfig mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode Inherit) $ \replHandle _stdout _ph ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
                 sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
-                writeFileUTF8 "daml.yaml" $ unlines
+                writeFileUTF8 "daml.yaml" $ unlines $
                     [ "sdk-version: " <> sdkVer
                     , "name: repl"
                     , "version: 0.0.1"
@@ -599,12 +631,12 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mb
                     , "- daml-prim"
                     , "- daml-stdlib"
                     , "- " <> show scriptDar
-                    , "- " <> show mainDar
-                    ]
+                    , "data-dependencies:"
+                    ] ++ ["- " <> show dar | dar <- dars]
                 initPackageDb opts (InitPkgDb True)
-                -- We want diagnostics to go to stdout in the repl.
-                withDamlIdeState opts logger (hDiagnosticsLogger stdout)
-                    (Repl.runRepl opts mainDar replHandle)
+                replLogger <- Repl.newReplLogger
+                withDamlIdeState opts logger (Repl.replEventLogger replLogger)
+                    (Repl.runRepl importPkgs opts replHandle replLogger)
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> Command
@@ -674,7 +706,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
     targetFilePath = fromMaybe defaultDarFile mbOutFile
 
 -- | Given a path to a .dalf or a .dar return the bytes of either the .dalf file
--- or the the main dalf from the .dar
+-- or the main dalf from the .dar
 -- In addition to the bytes, we also return the basename of the dalf file.
 getDalfBytes :: FilePath -> IO (B.ByteString, FilePath)
 getDalfBytes fp
@@ -834,6 +866,9 @@ main :: IO ()
 main = do
     -- We need this to ensure that logs are flushed on SIGTERM.
     installSignalHandlers
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
     numProcessors <- getNumProcessors
     let parse = ParseArgs.lax (parserInfo numProcessors)
     cliArgs <- getArgs

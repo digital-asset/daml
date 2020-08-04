@@ -13,7 +13,7 @@ As an example, assuming your current working directory is the project root, you 
 1. start the sandbox and run a scenario
 
        bazel run --run_under="cd $PWD && " \
-       //ledger/sandbox:sandbox-binary -- --scenario Main:example dist/rental.dar
+       //ledger/sandbox-classic:sandbox-classic-binary -- --scenario Main:example dist/rental.dar
 
 1. open another terminal
 1. change your working directory to `navigator/backend/scenarios/rental`
@@ -34,7 +34,7 @@ To use them, run the sandbox as follows:
 
        bazel build //ledger/test-common/test-certificates
        bazel run --run_under="cd $PWD && " \
-       //ledger/sandbox:sandbox-binary -- --scenario Main:example dist/rental.dar
+       //ledger/sandbox-classic:sandbox-classic-binary -- --scenario Main:example dist/rental.dar
        --pem $PWD/bazel-bin/ledger/test-common/test-certificates/server.pem --crt $PWD/bazel-bin/ledger/test-common/test-certificates/server.crt --cacrt $PWD/bazel-bin/ledger/test-common/test-certificates/ca.crt
 
 And run navigator as follows:

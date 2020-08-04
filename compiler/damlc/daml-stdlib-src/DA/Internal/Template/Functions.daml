@@ -202,7 +202,7 @@ exerciseByKey k c = do
     exercise cid c
 
 -- | Create a contract and exercise the choice on the newly created contract.
-createAndExercise : forall t k c r. (HasCreate t, HasExercise t c r) => t -> c -> Update r
+createAndExercise : forall t c r. (HasCreate t, HasExercise t c r) => t -> c -> Update r
 createAndExercise t c = do
     cid <- create t
     exercise cid c

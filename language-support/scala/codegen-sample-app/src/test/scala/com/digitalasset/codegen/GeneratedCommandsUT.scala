@@ -3,7 +3,7 @@
 
 package com.daml.codegen
 
-import com.daml.sample.MyMain.SimpleListExample
+import com.daml.sample.MyMain.{Increment, KeyedNumber, SimpleListExample}
 import com.daml.ledger.api.v1.{commands => rpccmd}
 import com.daml.ledger.client.binding.{Primitive => P}
 
@@ -27,6 +27,19 @@ class GeneratedCommandsUT extends WordSpec with Matchers with Inside {
         case rpccmd.Command.Command
               .CreateAndExercise(rpccmd.CreateAndExerciseCommand(_, _, _, _)) =>
           ()
+      }
+    }
+  }
+
+  "key" should {
+    "make an exercise-by-key command" in {
+      inside((KeyedNumber key alice exerciseIncrement (alice, 42)).command.command) {
+        case rpccmd.Command.Command.ExerciseByKey(
+            rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))) =>
+          import com.daml.ledger.client.binding.Value.encode
+          tid should ===(KeyedNumber.id)
+          k should ===(encode(alice))
+          choiceArg should ===(encode(Increment(42)))
       }
     }
   }

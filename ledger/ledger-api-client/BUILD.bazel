@@ -23,6 +23,8 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//libs-scala/direct-execution-context",
         "//libs-scala/grpc-utils",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_grpc_grpc_netty",
@@ -37,6 +39,7 @@ da_scala_test_suite(
     plugins = [
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
+    scalacopts = ["-P:silencer:checkUnused"],
     deps = [
         ":ledger-api-client",
         "//language-support/scala/bindings",
@@ -57,7 +60,7 @@ da_scala_test_suite(
     name = "ledger-api-client-integration-tests",
     srcs = glob(["src/it/**/*.scala"]),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
     ],
     resources = [
         "src/it/resources/logback-test.xml",
@@ -70,9 +73,14 @@ da_scala_test_suite(
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
         "//libs-scala/direct-execution-context",
         "//libs-scala/ports",

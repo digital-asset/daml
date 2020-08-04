@@ -66,8 +66,8 @@ genrule(
             cp ../$$f $$dir/$$file
         done
         cd ..
-        tar c node_modules \
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c node_modules \\
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
           | gzip -n > $@
     """,
 )
@@ -103,7 +103,9 @@ genrule(
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
         $$DIR/$(location //:yarn)
         $$DIR/$(location //:yarn) compile
-        $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package -o $$DIR/$@
+        # vsce needs Yarn or NPM in path and for some reason NPM
+        # fails to find npm-cli.js so we use Yarn.
+        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [
         "//:yarn",

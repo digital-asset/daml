@@ -4,11 +4,9 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{ImmArray, Ref, ScalazEqual}
+import com.daml.lf.data.{ImmArray, ScalazEqual}
 import com.daml.lf.data.Ref._
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.{CidContainer, CidContainer1, CidContainer3, CidMapper, Value}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -26,7 +24,9 @@ object Node {
       extends Product
       with Serializable
       with NodeInfo
-      with value.CidContainer[GenNode[Nid, Cid, Val]] {
+      with CidContainer[GenNode[Nid, Cid, Val]] {
+
+    def templateId: TypeConName
 
     final override protected def self: this.type = this
 
@@ -54,7 +54,7 @@ object Node {
       GenNode.foreach3(fNid, fCid, fVal)(this)
   }
 
-  object GenNode extends WithTxValue3[GenNode] with value.CidContainer3[GenNode] {
+  object GenNode extends WithTxValue3[GenNode] with CidContainer3[GenNode] {
 
     override private[lf] def map3[A1, A2, A3, B1, B2, B3](
         f1: A1 => B1,
@@ -71,7 +71,7 @@ object Node {
           ) =>
         self copy (
           coid = f2(coid),
-          coinst = value.Value.ContractInst.map1(f3)(coinst),
+          coinst = Value.ContractInst.map1(f3)(coinst),
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
       case self @ NodeFetch(
@@ -135,7 +135,7 @@ object Node {
           key,
           ) =>
         f2(coid)
-        value.Value.ContractInst.foreach1(f3)(coinst)
+        Value.ContractInst.foreach1(f3)(coinst)
         key.foreach(KeyWithMaintainers.foreach1(f3))
       case NodeFetch(
           coid,
@@ -187,20 +187,24 @@ object Node {
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
       coid: Cid,
-      coinst: ContractInst[Val],
+      coinst: Value.ContractInst[Val],
       optLocation: Option[Location], // Optional location of the create expression
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
   ) extends LeafOnlyNode[Cid, Val]
-      with NodeInfo.Create {}
+      with NodeInfo.Create {
+
+    override def templateId: TypeConName = coinst.template
+
+  }
 
   object NodeCreate extends WithTxValue2[NodeCreate]
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class NodeFetch[+Cid, +Val](
       coid: Cid,
-      templateId: Identifier,
+      override val templateId: TypeConName,
       optLocation: Option[Location], // Optional location of the fetch expression
       actingParties: Option[Set[Party]],
       signatories: Set[Party],
@@ -215,10 +219,16 @@ object Node {
     * We remember the `children` of this `NodeExercises`
     * to allow segregating the graph afterwards into party-specific
     * ledgers.
+    *
+    * @param controllersDifferFromActors
+    *     When we decode transactions version<6, the controllers might be different
+    *     from the actors.  However, such a transaction is always invalid, so we
+    *     prevalidate that when decoding and report the error when we get to the
+    *     actual validation stage.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
       targetCoid: Cid,
-      templateId: Identifier,
+      override val templateId: TypeConName,
       choiceId: ChoiceName,
       optLocation: Option[Location], // Optional location of the exercise expression
       consuming: Boolean,
@@ -226,11 +236,6 @@ object Node {
       chosenValue: Val,
       stakeholders: Set[Party],
       signatories: Set[Party],
-      /** When we decode transactions version<6, the controllers might be different
-        * from the actors.  However, such a transaction is always invalid, so we
-        * prevalidate that when decoding and report the error when we get to the
-        * actual validation stage.
-        */
       controllersDifferFromActors: Boolean,
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
@@ -249,7 +254,7 @@ object Node {
       */
     def apply[Nid, Cid, Val](
         targetCoid: Cid,
-        templateId: Identifier,
+        templateId: TypeConName,
         choiceId: ChoiceName,
         optLocation: Option[Location],
         consuming: Boolean,
@@ -279,7 +284,7 @@ object Node {
   }
 
   final case class NodeLookupByKey[+Cid, +Val](
-      templateId: Identifier,
+      override val templateId: TypeConName,
       optLocation: Option[Location],
       key: KeyWithMaintainers[Val],
       result: Option[Cid],
@@ -294,7 +299,7 @@ object Node {
   object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
 
   final case class KeyWithMaintainers[+Val](key: Val, maintainers: Set[Party])
-      extends value.CidContainer[KeyWithMaintainers[Val]] {
+      extends CidContainer[KeyWithMaintainers[Val]] {
 
     override protected def self: this.type = this
 
@@ -306,7 +311,7 @@ object Node {
       KeyWithMaintainers.foreach1(f)(this)
   }
 
-  object KeyWithMaintainers extends value.CidContainer1[KeyWithMaintainers] {
+  object KeyWithMaintainers extends CidContainer1[KeyWithMaintainers] {
     implicit def equalInstance[Val: Equal]: Equal[KeyWithMaintainers[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._
@@ -351,7 +356,7 @@ object Node {
           import nf._
           coid === coid2 && templateId == templateId2 &&
           actingParties.forall(_ => actingParties == actingParties2) &&
-          signatories == signatories2 && stakeholders == stakeholders2
+          signatories == signatories2 && stakeholders == stakeholders2 &&
           key.forall(_ => key == key2)
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
@@ -386,33 +391,11 @@ object Node {
       }
     }(recorded, isReplayedBy)
 
-  /** Useful in various circumstances -- basically this is what a ledger implementation must use as
-    * a key. The 'hash' is guaranteed to be stable over time.
-    */
-  final class GlobalKey private (
-      val templateId: Identifier,
-      val key: Value[ContractId],
-      val hash: Hash
-  ) extends {
-    override def equals(obj: Any): Boolean = obj match {
-      case that: GlobalKey => this.hash == that.hash
-      case _ => false
-    }
+  @deprecated("use com.daml.lf.transaction.GlobalKey", "1.4.0")
+  type GlobalKey = transaction.GlobalKey
 
-    override def hashCode(): Int = hash.hashCode()
-  }
-
-  object GlobalKey {
-    def apply(templateId: Ref.ValueRef, key: Value[Nothing]): GlobalKey =
-      new GlobalKey(templateId, key, Hash.safeHashContractKey(templateId, key))
-
-    // Will fail if key contains contract ids
-    def build(templateId: Identifier, key: Value[ContractId]): Either[String, GlobalKey] =
-      Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
-
-    def assertBuild(templateId: Identifier, key: Value[ContractId]): GlobalKey =
-      data.assertRight(build(templateId, key))
-  }
+  @deprecated("use com.daml.lf.transaction.GlobalKey", "1.4.0")
+  val GlobalKey = transaction.GlobalKey
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]
@@ -421,4 +404,12 @@ object Node {
   sealed trait WithTxValue3[F[+ _, + _, + _]] {
     type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
   }
+
+}
+
+final case class NodeId(index: Int)
+
+object NodeId {
+  implicit def cidMapperInstance[In, Out]: CidMapper[NodeId, NodeId, In, Out] =
+    CidMapper.trivialMapper
 }

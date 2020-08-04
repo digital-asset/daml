@@ -160,7 +160,7 @@ The update expressions are:
     ``assert (amount > 0)``
 
 :ref:`getTime <daml-ref-gettime>`
-    Gets the ledger effective time. Usually used to restrict when a choice can be exercised.
+    Gets the ledger time. Usually used to restrict when a choice can be exercised.
 
     ``currentTime <- getTime``
 

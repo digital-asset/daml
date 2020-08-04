@@ -155,7 +155,7 @@ object Queries {
       sql"""INSERT INTO ledger_offset VALUES ($party, $tpid, $newOffset)""".update.run
     )
 
-  @silent // pas is demonstrably used; try taking it out
+  @silent(" pas .* never used")
   def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]])(
       implicit log: LogHandler,
@@ -194,7 +194,7 @@ object Queries {
     hd ++ go(0, tl.size)
   }
 
-  @silent // gvs is demonstrably used; try taking it out
+  @silent(" gvs .* never used")
   private[http] def selectContracts(party: String, tpid: SurrogateTpId, predicate: Fragment)(
       implicit log: LogHandler,
       gvs: Get[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {

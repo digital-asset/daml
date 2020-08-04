@@ -3,8 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import java.util.UUID
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -21,7 +19,6 @@ import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidatorFactory,
   ConflictDetection
 }
-import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -40,7 +37,11 @@ final class InMemoryLedgerReaderWriter(
     metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
-  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
+  override def commit(
+      correlationId: String,
+      envelope: Bytes,
+      metadata: CommitMetadata,
+  ): Future[SubmissionResult] =
     ledgerStateAccess
       .inTransaction { ledgerStateOperations =>
         committer
@@ -65,7 +66,7 @@ object InMemoryLedgerReaderWriter {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   final class SingleParticipantOwner(
-      initialLedgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
@@ -81,7 +82,7 @@ object InMemoryLedgerReaderWriter {
       for {
         dispatcher <- dispatcherOwner.acquire()
         readerWriter <- new Owner(
-          initialLedgerId,
+          ledgerId,
           batchingLedgerWriterConfig,
           participantId,
           metrics,
@@ -96,7 +97,7 @@ object InMemoryLedgerReaderWriter {
   }
 
   final class Owner(
-      initialLedgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       metrics: Metrics,
@@ -110,8 +111,6 @@ object InMemoryLedgerReaderWriter {
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[KeyValueLedger] = {
-      val ledgerId =
-        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
       val keyValueCommitting =
         new KeyValueCommitting(
           engine,
@@ -122,8 +121,7 @@ object InMemoryLedgerReaderWriter {
           batchingLedgerWriterConfig.enableBatching),
         keyValueCommitting,
         new ConflictDetection(metrics),
-        metrics,
-        engine
+        metrics
       )
       val committer =
         BatchedValidatingCommitter[Index](
@@ -142,7 +140,7 @@ object InMemoryLedgerReaderWriter {
       // We need to generate batched submissions for the validator in order to improve throughput.
       // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
       // in-memory committer.
-      val batchingLedgerWriter = newLoggingContext { implicit logCtx =>
+      val batchingLedgerWriter = newLoggingContext { implicit loggingContext =>
         BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
       }
       Resource.successful(createKeyValueLedger(readerWriter, batchingLedgerWriter))

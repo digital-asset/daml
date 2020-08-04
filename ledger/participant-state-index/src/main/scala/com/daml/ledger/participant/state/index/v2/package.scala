@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 import com.daml.ledger.api.domain._
 
-package object v2 {
+package v2 {
 
   object AcsUpdateEvent {
 
@@ -104,7 +104,8 @@ package object v2 {
   final case class PackageDetails(
       size: Long,
       knownSince: Instant,
-      sourceDescription: Option[String])
+      sourceDescription: Option[String],
+  )
 
   sealed abstract class CommandDeduplicationResult extends Product with Serializable
 

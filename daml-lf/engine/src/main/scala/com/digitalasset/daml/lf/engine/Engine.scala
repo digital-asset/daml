@@ -11,10 +11,10 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -46,10 +46,11 @@ import java.nio.file.{Path, Paths}
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-final class Engine {
+class Engine(config: EngineConfig = EngineConfig.Stable) {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
   private[this] var profileDir: Option[Path] = None
+  def info = new EngineInfo(config)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -72,7 +73,7 @@ final class Engine {
     *
     *
     * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
-    * If let undefined, no discriminator will be generated.
+    * If left undefined, no discriminator will be generated.
     *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
     *
@@ -82,7 +83,7 @@ final class Engine {
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessCommands(cmds.commands)
@@ -129,11 +130,11 @@ final class Engine {
     */
   def reinterpret(
       submitters: Set[Party],
-      node: GenNode.WithTxValue[Value.NodeId, Value.ContractId],
+      node: GenNode.WithTxValue[NodeId, Value.ContractId],
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] =
+  ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commandWithCids <- preprocessor.translateNode(node)
       (command, globalCids) = commandWithCids
@@ -150,35 +151,20 @@ final class Engine {
       (tx, meta) = result
     } yield (tx, meta)
 
-  /**
-    * Check if the given transaction is a valid result of some single-submitter command.
-    *
-    * Formally, for all tx, pcs, pkgs, keys:
-    *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(()) <==> exists cmds. evaluate(submit(cmds)) = tx
-    * where:
-    *   evaluate(result) = result.consume(pcs, pkgs, keys)
-    *
-    * A transaction may contain relative contract IDs and still pass validation, but not in the root nodes.
-    *
-    * This is enforced since commands cannot contain relative contract ids, and we check that root nodes come from commands.
-    *
-    *  @param tx a complete unblinded Transaction to be validated
-    *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
-    */
-  def validate(
-      tx: Tx.SubmittedTransaction,
+  def replay(
+      tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
-  ): Result[Unit] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
 
     //reinterpret
     for {
       requiredAuthorizers <- tx.roots
-        .traverseU(nid => tx.nodes.get(nid).map(_.requiredAuthorizers)) match {
+        .traverse(nid => tx.nodes.get(nid).map(_.requiredAuthorizers)) match {
         case None => ResultError(ValidationError(s"invalid roots for transaction $tx"))
         case Some(nodes) => ResultDone(nodes)
       }
@@ -210,6 +196,35 @@ final class Engine {
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
         globalCids,
       )
+
+    } yield result
+  }
+
+  /**
+    * Check if the given transaction is a valid result of some single-submitter command.
+    *
+    * Formally, for all tx, pcs, pkgs, keys:
+    *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(()) <==> exists cmds. evaluate(submit(cmds)) = tx
+    * where:
+    *   evaluate(result) = result.consume(pcs, pkgs, keys)
+    *
+    * A transaction may contain relative contract IDs and still pass validation, but not in the root nodes.
+    *
+    * This is enforced since commands cannot contain relative contract ids, and we check that root nodes come from commands.
+    *
+    *  @param tx a complete unblinded Transaction to be validated
+    *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
+    */
+  def validate(
+      tx: SubmittedTransaction,
+      ledgerEffectiveTime: Time.Timestamp,
+      participantId: Ref.ParticipantId,
+      submissionTime: Time.Timestamp,
+      submissionSeed: crypto.Hash,
+  ): Result[Unit] = {
+    //reinterpret
+    for {
+      result <- replay(tx, ledgerEffectiveTime, participantId, submissionTime, submissionSeed)
       (rtx, _) = result
       validationResult <- if (tx.transaction isReplayedBy rtx.transaction) {
         ResultDone.Unit
@@ -266,19 +281,19 @@ final class Engine {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] =
+  ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
     ) {
+      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        expr = SExpr
-          .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
+        expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        supportedValueVersions = value.ValueVersions.DefaultSupportedVersions,
+        outputTransactionVersions = config.outputTransactionVersions,
         validating = validating,
       )
       interpretLoop(machine, ledgerTime)
@@ -289,7 +304,7 @@ final class Engine {
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     var finished: Boolean = false
     while (!finished) {
       machine.run() match {
@@ -306,10 +321,9 @@ final class Engine {
           return Result.needPackage(
             pkgId,
             pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap {
-                case _ =>
-                  callback(compiledPackages)
-                  interpretLoop(machine, time)
+              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                callback(compiledPackages)
+                interpretLoop(machine, time)
               }
             }
           )
@@ -329,13 +343,11 @@ final class Engine {
         case SResultNeedKey(gk, _, cb) =>
           return ResultNeedKey(
             gk,
-            (
-                result =>
-                  if (cb(SKeyLookupResult(result)))
-                    interpretLoop(machine, time)
-                  else
-                    ResultError(Error(s"dependency error: couldn't find key ${gk.key}"))
-            )
+            result =>
+              if (cb(SKeyLookupResult(result)))
+                interpretLoop(machine, time)
+              else
+                ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}"))
           )
 
         case _: SResultScenarioCommit =>
@@ -352,7 +364,10 @@ final class Engine {
       }
     }
 
-    machine.ptx.finish(machine.supportedValueVersions, machine.supportedTransactionVersions) match {
+    machine.ptx.finish(
+      machine.outputTransactionVersions,
+      compiledPackages.packageLanguageVersion,
+    ) match {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
       case Right(tx) =>
@@ -369,9 +384,9 @@ final class Engine {
           case Some(profileDir) =>
             val hash = meta.nodeSeeds(0)._2.toHexString
             val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"${desc}-${hash.substring(0, 6)}"
+            machine.profile.name = s"$desc-${hash.substring(0, 6)}"
             val profileFile =
-              profileDir.resolve(Paths.get(s"${meta.submissionTime}-${desc}-${hash}.json"))
+              profileDir.resolve(Paths.get(s"${meta.submissionTime}-$desc-$hash.json"))
             machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
@@ -396,14 +411,24 @@ final class Engine {
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     compiledPackages.addPackage(pkgId, pkg)
 
-  def startProfiling(profileDir: Path) = {
-    this.profileDir = Some(profileDir)
-    compiledPackages.profilingMode = speedy.Compiler.FullProfile
+  def setProfileDir(optProfileDir: Option[Path]): Unit = {
+    optProfileDir match {
+      case None =>
+        compiledPackages.profilingMode = speedy.Compiler.NoProfile
+      case Some(profileDir) =>
+        Files.createDirectories(profileDir)
+        this.profileDir = Some(profileDir)
+        compiledPackages.profilingMode = speedy.Compiler.FullProfile
+    }
+  }
+
+  def enableStackTraces(enable: Boolean) = {
+    compiledPackages.stackTraceMode =
+      if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
   }
 }
 
 object Engine {
-  def apply(): Engine = new Engine()
 
   def initialSeeding(
       submissionSeed: crypto.Hash,
@@ -416,7 +441,7 @@ object Engine {
   private def profileDesc(tx: Tx.Transaction): String = {
     if (tx.roots.length == 1) {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
-        s"${kind}:${tmpl.qualifiedName.name}${extra.map(extra => s":${extra}").getOrElse("")}"
+        s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
         case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
         case exercise: NodeExercises[_, _, _] =>
@@ -428,4 +453,7 @@ object Engine {
       s"compound:${tx.roots.length}"
     }
   }
+
+  def DevEngine(): Engine = new Engine(EngineConfig.Dev)
+
 }

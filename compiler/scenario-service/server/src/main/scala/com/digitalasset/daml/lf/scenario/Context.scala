@@ -18,6 +18,7 @@ import com.daml.lf.speedy.Speedy
 import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
+import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 
@@ -147,7 +148,13 @@ class Context(val contextId: Context.ContextId) {
       PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
     for {
       defn <- defns.get(LfDefRef(identifier))
-    } yield Speedy.Machine.fromScenarioSExpr(compiledPackages, txSeeding, defn)
+    } yield
+      Speedy.Machine.fromScenarioSExpr(
+        compiledPackages,
+        txSeeding,
+        defn,
+        TransactionVersions.SupportedDevOutputVersions,
+      )
   }
 
   def interpretScenario(

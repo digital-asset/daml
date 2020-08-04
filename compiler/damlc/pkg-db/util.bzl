@@ -37,9 +37,9 @@ copyright: 2020 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
 exposed-modules: {modules}
-import-dirs: \$topdir/__ID__
-library-dirs: \$topdir/__ID__
-data-dir: \$topdir/__ID__
+import-dirs: \\$topdir/__ID__
+library-dirs: \\$topdir/__ID__
+data-dir: \\$topdir/__ID__
 depends: {depends}
 """
 

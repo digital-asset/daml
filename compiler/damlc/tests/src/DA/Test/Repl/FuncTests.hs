@@ -4,13 +4,12 @@ module DA.Test.Repl.FuncTests (main) where
 
 import Control.Concurrent
 import Control.Concurrent.Async
--- import Control.Concurrent.Chan
 import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
-import DA.Cli.Output
 import DA.Daml.Compiler.Repl
+import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
@@ -46,8 +45,10 @@ import Text.Regex.TDFA
 main :: IO ()
 main = do
     setNumCapabilities 1
+    limitJvmMemory defaultJvmMemoryLimits
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-    testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
+    testDars <- forM ["repl-test", "repl-test-two"] $ \name ->
+        locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <.> "dar")
     replDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
     forM_ [stdin, stdout, stderr] $ \h -> hSetBuffering h LineBuffering
     let replJar = replDir </> "repl-service.jar"
@@ -61,24 +62,25 @@ main = do
     -- it will spin up sandbox and the repl client.
     withTempFile $ \portFile ->
         withBinaryFile nullDevice WriteMode $ \devNull ->
-        bracket (createSandbox portFile devNull defaultSandboxConf { dars = [testDar] }) destroySandbox $ \SandboxResource{sandboxPort} ->
-        ReplClient.withReplClient (ReplClient.Options replJar "localhost" (show sandboxPort) Nothing Nothing Nothing CreatePipe) $ \replHandle mbServiceOut processHandle ->
+        bracket (createSandbox portFile devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
+        ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle mbServiceOut processHandle ->
         -- TODO We could share some of this setup with the actual repl code in damlc.
         withTempDir $ \dir ->
         withCurrentDirectory dir $ do
         Just serviceOut <- pure mbServiceOut
         hSetBuffering serviceOut LineBuffering
         withAsync (drainHandle serviceOut serviceLineChan) $ \_ -> do
-            initPackageConfig scriptDar testDar
+            initPackageConfig scriptDar testDars
             logger <- Logger.newStderrLogger Logger.Warning "repl-tests"
-            withDamlIdeState options logger (hDiagnosticsLogger stdout) $ \ideState ->
-                (hspec $ functionalTests replHandle serviceLineChan testDar options ideState) `finally`
+            replLogger <- newReplLogger
+            withDamlIdeState options logger (replEventLogger replLogger) $ \ideState ->
+                (hspec $ functionalTests replHandle replLogger serviceLineChan options ideState) `finally`
                     -- We need to kill the process to avoid getting stuck in hGetLine on Windows.
                     terminateProcess processHandle
 
-initPackageConfig :: FilePath -> FilePath -> IO ()
-initPackageConfig scriptDar testDar = do
-    writeFileUTF8 "daml.yaml" $ unlines
+initPackageConfig :: FilePath -> [FilePath] -> IO ()
+initPackageConfig scriptDar dars = do
+    writeFileUTF8 "daml.yaml" $ unlines $
         [ "sdk-version: " <> sdkVersion
         , "name: repl"
         , "version: 0.0.1"
@@ -87,8 +89,8 @@ initPackageConfig scriptDar testDar = do
         , "- daml-prim"
         , "- daml-stdlib"
         , "- " <> show scriptDar
-        , "- " <> show testDar
-        ]
+        , "data-dependencies:"
+        ] ++ ["- " <> show dar | dar <- dars]
     withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
         dir <- getCurrentDirectory
         createProjectPackageDb (toNormalizedFilePath' dir) options pSdkVersion pModulePrefixes pDependencies pDataDependencies
@@ -101,24 +103,25 @@ drainHandle handle chan = forever $ do
 options :: Options
 options = (defaultOptions Nothing) { optScenarioService = EnableScenarioService False }
 
-functionalTests :: ReplClient.Handle -> Chan String -> FilePath -> Options -> IdeState -> Spec
-functionalTests replClient serviceOut testDar options ideState = describe "repl func tests" $ sequence_
+functionalTests :: ReplClient.Handle -> ReplLogger -> Chan String -> Options -> IdeState -> Spec
+functionalTests replClient replLogger serviceOut options ideState = describe "repl func tests" $ sequence_
     [ testInteraction' "create and query"
           [ input "alice <- allocateParty \"Alice\""
           , input "debug =<< query @T alice"
           , matchServiceOutput "^.*: \\[\\]$"
-          , input "submit alice $ createCmd (T alice alice)"
+          , input "_ <- submit alice $ createCmd (T alice alice)"
           , input "debug =<< query @T alice"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           ]
     , testInteraction' "propose and accept"
           [ input "alice <- allocateParty \"Alice\""
           , input "bob <- allocateParty \"Bob\""
-          , input "submit alice $ createCmd (TProposal alice bob)"
+          , input "_ <- submit alice $ createCmd (TProposal alice bob)"
           , input "props <- query @TProposal bob"
           , input "debug props"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "forA props $ \\(prop, _) -> submit bob $ exerciseCmd prop Accept"
+          , matchOutput "^\\[<contract-id>\\]$"
           , input "debug =<< query @T bob"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "debug =<< query @TProposal bob"
@@ -158,7 +161,7 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
           , matchServiceOutput "^.*: 2"
           ]
     , testInteraction' "type error"
-          [ input "1"
+          [ input "1 + \"\""
           -- TODO Make this less noisy
           , matchOutput "^File:.*$"
           , matchOutput "^Hidden:.*$"
@@ -167,12 +170,7 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
           , matchOutput "^Severity:.*$"
           , matchOutput "^Message:.*$"
           , matchOutput "^.*error.*$"
-          , matchOutput "^.*expected type .*Script .* with actual type .*Int.*$"
-          , matchOutput "^.*$"
-          , matchOutput "^.*$"
-          , matchOutput "^.*$"
-          , matchOutput "^.*$"
-          , matchOutput "^.*$"
+          , matchOutput "^.*expected type .*Int.* with actual type .*Text.*$"
           , matchOutput "^.*$"
           , matchOutput "^.*$"
           , matchOutput "^.*$"
@@ -215,6 +213,44 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
           , input "debug (days 1)"
           , matchServiceOutput "^.*: RelTime {microseconds = 86400000000}$"
           ]
+    , testInteraction' ":module"
+          [ input ":module + DA.Time DA.Assert"
+          , input "assertEq (days 1) (days 1)"
+          , input ":module - DA.Time"
+          , input "assertEq (days 1) (days 1)"
+          , matchOutput "^File:.*$"
+          , matchOutput "^Hidden:.*$"
+          , matchOutput "^Range:.*$"
+          , matchOutput "^Source:.*$"
+          , matchOutput "^Severity:.*$"
+          , matchOutput "^Message:.*error: Variable not in scope: days.*$"
+          ]
+    , testInteraction' ":show imports"
+          [ input ":module - ReplTest ReplTest2"
+          , input ":module + DA.Assert"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Assert$"
+          , input "import DA.Assert (assertEq)"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Assert \\( assertEq \\)$"
+          , matchOutput "^import DA.Assert$"
+          , input ":module - DA.Assert"
+          , input "import DA.Time (days)"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Time \\( days \\)$"
+          , input "import DA.Time (days, hours)"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Time \\( days, hours \\)$"
+          , input "import DA.Time (hours)"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Time \\( hours \\)$"
+          , matchOutput "^import DA.Time \\( days, hours \\)$"
+          ]
     , testInteraction' "error call"
           [ input "error \"foobar\""
           , matchServiceOutput "^Error: User abort: foobar$"
@@ -232,34 +268,79 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
           , input "debug proposal.accepter"
           , matchServiceOutput "'bob'"
           ]
+    , testInteraction' "symbols from different DARs"
+          [ input "party <- allocatePartyWithHint \"Party\" (PartyIdHint \"two_dars_party\")"
+          , input "proposal <- pure (T party party)"
+          , input "debug proposal"
+          , matchServiceOutput "^.*: T {proposer = 'two_dars_party', accepter = 'two_dars_party'}"
+          , input "t2 <- pure (T2 party)"
+          , input "debug t2"
+          , matchServiceOutput "^.*: T2 {owner = 'two_dars_party'}"
+          ]
+    , testInteraction' "repl output"
+          [ input "pure ()" -- no output
+          , input "pure (1 + 1)"
+          , matchOutput "^2$"
+          , input "pure (\\x -> x)" -- no output
+          , input "1 + 2"
+          , matchOutput "^3$"
+          , input "\\x -> x"
+          , matchOutput "^File:.*$"
+          , matchOutput "^Hidden:.*$"
+          , matchOutput "^Range:.*$"
+          , matchOutput "^Source:.*$"
+          , matchOutput "^Severity:.*$"
+          , matchOutput "^Message:.*$"
+          , matchOutput "^.*error.*$"
+          , matchOutput "^.*No instance for \\(Show.*$"
+          , matchOutput "^.*"
+          , matchOutput "^.*"
+          , matchOutput "^.*"
+          , matchOutput "^.*"
+          , matchOutput "^.*"
+          ]
+    , testInteraction' "let bindings"
+          [ input "let x = 1 + 1"
+          , input "x"
+          , matchOutput "2"
+          , input "let Some (x, y) = Some (23, 42)"
+          , input "x"
+          , matchOutput "23"
+          , input "y"
+          , matchOutput "42"
+          , input "let f x = x + 1"
+          , input "f 42"
+          , matchOutput "43"
+          ]
     ]
   where
     testInteraction' testName steps =
         it testName $
-        testInteraction testDar replClient serviceOut options ideState steps
+        testInteraction replClient replLogger serviceOut options ideState steps
 
 testInteraction
-    :: FilePath
-    -> ReplClient.Handle
+    :: ReplClient.Handle
+    -> ReplLogger
     -> Chan String
     -> Options
     -> IdeState
     -> [Step]
     -> Expectation
-testInteraction testDar replClient serviceOut options ideState steps = do
+testInteraction replClient replLogger serviceOut options ideState steps = do
     let (inLines, outAssertions) = processSteps steps
     -- On Windows we cannot dup2 between a file handle and a pipe.
     -- Therefore, we redirect to files, run the action and assert afterwards.
     out <- withTempFile $ \stdinFile -> do
         writeFileUTF8 stdinFile (unlines inLines)
-        withBinaryFile stdinFile ReadMode $ \readIn ->
+        withFile stdinFile ReadMode $ \readIn ->
             redirectingHandle stdin readIn $ do
             Right () <- ReplClient.clearResults replClient
-            capture_ $ runRepl options testDar replClient ideState
+            let imports = [(LF.PackageName name, Nothing) | name <- ["repl-test", "repl-test-two"]]
+            capture_ $ runRepl imports options replClient replLogger ideState
     -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out
-        withBinaryFile clientOutFile ReadMode $ \clientOut ->
+        withFile clientOutFile ReadMode $ \clientOut ->
             forM_ outAssertions $ \case
                 Prompt -> readPrompt clientOut
                 MatchRegex regex regexStr producer -> do

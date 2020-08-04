@@ -10,10 +10,10 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.client.binding.Primitive.{Party, TemplateId}
-import com.daml.ledger.test_stable.Test.Divulgence2._
-import com.daml.ledger.test_stable.Test.Dummy._
-import com.daml.ledger.test_stable.Test.Witnesses._
-import com.daml.ledger.test_stable.Test.{
+import com.daml.ledger.test.model.Test.Divulgence2._
+import com.daml.ledger.test.model.Test.Dummy._
+import com.daml.ledger.test.model.Test.Witnesses._
+import com.daml.ledger.test.model.Test.{
   Divulgence1,
   Divulgence2,
   Dummy,

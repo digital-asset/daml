@@ -97,16 +97,12 @@ config_setting(
     if versions.is_at_least(sdk_version, platform_version)
 ]
 
-test_suite(
-    name = "head-quick",
-    tags = ["head-quick"],
-)
-
 # We have two migration tests: migration-stable runs through all stable releases
 # including current HEAD. migration-all includes snapshot releases.
 
 migration_test(
     name = "migration-stable",
+    timeout = "long",
     # Exclusive due to hardcoded postgres ports.
     tags = [
         "exclusive",
@@ -129,6 +125,7 @@ migration_test(
 
 migration_test(
     name = "migration-all",
+    timeout = "long",
     # Exclusive due to hardcoded postgres ports.
     tags = ["exclusive"],
     versions = platform_versions,

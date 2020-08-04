@@ -3,45 +3,42 @@
 
 package com.daml.grpc.adapter;
 
-import javax.annotation.Nonnull;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nonnull;
 
-public class SingleThreadExecutionSequencerPool implements ExecutionSequencerFactory{
-
-    private final int instanceCount;
-    @Nonnull
+public class SingleThreadExecutionSequencerPool implements ExecutionSequencerFactory {
     private final SingleThreadExecutionSequencer[] sequencers;
-
+    private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicInteger counter = new AtomicInteger(0);
 
     public SingleThreadExecutionSequencerPool(@Nonnull String poolName) {
-        this.instanceCount = Runtime.getRuntime().availableProcessors();
-        this.sequencers = new SingleThreadExecutionSequencer[instanceCount];
-        initPool(poolName);
+        this(poolName, Runtime.getRuntime().availableProcessors());
     }
 
     public SingleThreadExecutionSequencerPool(@Nonnull String poolName, int instanceCount) {
-        this.instanceCount = instanceCount;
         this.sequencers = new SingleThreadExecutionSequencer[instanceCount];
-        initPool(poolName);
-    }
-
-    private void initPool(@Nonnull String poolName) {
         for (int i = 0; i < instanceCount; i++) {
-            sequencers[i] = new SingleThreadExecutionSequencer(String.format("%s-%d", poolName, i));
+            sequencers[i] = new SingleThreadExecutionSequencer(poolName + "-" + i);
         }
+        running.set(true);
     }
 
     @Override
     public ExecutionSequencer getExecutionSequencer() {
-        return sequencers[counter.getAndIncrement() % instanceCount];
+        if (!running.get()) {
+            throw new IllegalStateException("The execution sequencer pool is not running.");
+        }
+        return sequencers[counter.getAndIncrement() % sequencers.length];
     }
 
     @Override
     public void close() throws Exception {
-        for(int i = 0; i < instanceCount; i++) {
-            if (sequencers[i] != null) sequencers[i].close();
-            sequencers[i] = null;
+        if (running.compareAndSet(true, false)) {
+            for (int i = 0; i < sequencers.length; i++) {
+                sequencers[i].close();
+                sequencers[i] = null;
+            }
         }
     }
 }

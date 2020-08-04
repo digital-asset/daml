@@ -7,7 +7,7 @@ import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
 import com.daml.lf.speedy.{SError, SValue, Speedy, PartialTransaction => SPartialTransaction}
-import com.daml.lf.transaction.{Node => N, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId, Transaction => Tx}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
@@ -131,13 +131,13 @@ final class Conversions(
             .build,
         )
 
-      case SError.ScenarioErrorContractKeyNotVisible(coid, gk, committer, observers) =>
+      case SError.ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders) =>
         builder.setScenarioContractKeyNotVisible(
           proto.ScenarioError.ContractKeyNotVisible.newBuilder
             .setContractRef(mkContractRef(coid, gk.templateId))
             .setKey(convertValue(gk.key))
             .setCommitter(convertParty(committer))
-            .addAllObservers(observers.map(convertParty).asJava)
+            .addAllStakeholders(stakeholders.map(convertParty).asJava)
             .build,
         )
 
@@ -170,7 +170,7 @@ final class Conversions(
     builder.build
   }
 
-  def convertGlobalKey(globalKey: N.GlobalKey): proto.GlobalKey = {
+  def convertGlobalKey(globalKey: GlobalKey): proto.GlobalKey = {
     proto.GlobalKey.newBuilder
       .setTemplateId(convertIdentifier(globalKey.templateId))
       .setKey(convertValue(globalKey.key))
@@ -360,20 +360,6 @@ final class Conversions(
       .setEffectiveAt(rtx.effectiveAt.micros)
       .addAllRoots(rtx.transaction.roots.map(convertNodeId(rtx.transactionId, _)).toSeq.asJava)
       .addAllNodes(rtx.transaction.nodes.keys.map(convertNodeId(rtx.transactionId, _)).asJava)
-      // previously rtx.disclosures returned both global and local implicit disclosures, but this is not the case anymore
-      // therefore we need to explicitly add the contracts that are divulged directly (via ContractId rather than ScenarioNodeId)
-      .addAllDisclosures(
-        (rtx
-          .disclosures(coidToEventId))
-          .toSeq
-          .map {
-            case (nodeId, parties) =>
-              proto.NodeAndParties.newBuilder
-                .setNodeId(convertEventId(nodeId))
-                .addAllParties(parties.map(convertParty).asJava)
-                .build
-          }
-          .asJava)
       .setFailedAuthorizations(convertFailedAuthorizations(rtx.failedAuthorizations))
       .build
   }
@@ -401,10 +387,10 @@ final class Conversions(
   def convertEventId(nodeId: EventId): proto.NodeId =
     proto.NodeId.newBuilder.setId(nodeId.toLedgerString).build
 
-  def convertNodeId(trId: Ref.LedgerString, nodeId: Tx.NodeId): proto.NodeId =
+  def convertNodeId(trId: Ref.LedgerString, nodeId: NodeId): proto.NodeId =
     proto.NodeId.newBuilder.setId(EventId(trId, nodeId).toLedgerString).build
 
-  def convertTxNodeId(nodeId: Tx.NodeId): proto.NodeId =
+  def convertTxNodeId(nodeId: NodeId): proto.NodeId =
     proto.NodeId.newBuilder.setId(nodeId.index.toString).build
 
   def convertNode(eventId: EventId, nodeInfo: ScenarioLedger.LedgerNodeInfo): proto.Node = {
@@ -413,11 +399,12 @@ final class Conversions(
       .setNodeId(convertEventId(eventId))
       .setEffectiveAt(nodeInfo.effectiveAt.micros)
       .addAllReferencedBy(nodeInfo.referencedBy.map(convertEventId).asJava)
-      .addAllObservingSince(nodeInfo.observingSince.toList.map {
-        case (party, txId) =>
-          proto.PartyAndTransactionId.newBuilder
+      .addAllDisclosures(nodeInfo.disclosures.toList.map {
+        case (party, ScenarioLedger.Disclosure(txId, explicit)) =>
+          proto.Disclosure.newBuilder
             .setParty(convertParty(party))
-            .setTxId(txId.index)
+            .setSinceTxId(txId.index)
+            .setExplicit(explicit)
             .build
       }.asJava)
 
@@ -451,7 +438,7 @@ final class Conversions(
             .build,
         )
       case ex: N.NodeExercises[
-            Tx.NodeId,
+            NodeId,
             V.ContractId,
             Tx.Value[
               V.ContractId,
@@ -501,7 +488,7 @@ final class Conversions(
 
   def convertNode[Val](
       convertValue: Val => proto.Value,
-      nodeWithId: (Tx.NodeId, N.GenNode[V.NodeId, V.ContractId, Val]),
+      nodeWithId: (NodeId, N.GenNode[NodeId, V.ContractId, Val]),
   ): proto.Node = {
     val (nodeId, node) = nodeWithId
     val builder = proto.Node.newBuilder
@@ -533,7 +520,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build,
         )
-      case ex: N.NodeExercises[V.NodeId, V.ContractId, Val] =>
+      case ex: N.NodeExercises[NodeId, V.ContractId, Val] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           proto.Node.Exercise.newBuilder

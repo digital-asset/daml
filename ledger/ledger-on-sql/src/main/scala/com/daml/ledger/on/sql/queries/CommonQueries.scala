@@ -9,7 +9,7 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.KVOffset
+import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
@@ -32,7 +32,7 @@ trait CommonQueries extends Queries {
     SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no > $startExclusive AND sequence_no <= $endInclusive ORDER BY sequence_no"
       .as((long("sequence_no") ~ getBytes("entry_id") ~ getBytes("envelope")).map {
         case index ~ entryId ~ envelope =>
-          index -> LedgerRecord(KVOffset.fromLong(index), entryId, envelope)
+          index -> LedgerRecord(OffsetBuilder.fromLong(index), entryId, envelope)
       }.*)
   }
 

@@ -32,7 +32,7 @@ validateMavenArtifacts releaseDir artifacts =
 
 generateAggregatePom :: E.MonadThrow m => BazelLocations -> [Artifact PomData] -> m Text
 generateAggregatePom BazelLocations{bazelBin} artifacts = do
-    executions <- T.concat <$> mapM execution (filter (isJar . artReleaseType) artifacts)
+    executions <- T.concat <$> mapM execution artifacts
     return (aggregatePomStart <> executions <> aggregatePomEnd)
     where
     execution :: E.MonadThrow m => Artifact PomData -> m Text

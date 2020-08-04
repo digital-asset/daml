@@ -70,8 +70,8 @@ import           System.Console.ANSI
 
 -- | Classes of syntax elements, which are used for highlighting.
 data SyntaxClass
-    = -- ^ Annotation to use as a no-op for highlighting.
-      OperatorSC
+    = OperatorSC
+      -- ^ Annotation to use as a no-op for highlighting.
     | KeywordSC
     | PredicateSC
     | ConstructorSC

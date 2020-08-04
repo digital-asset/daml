@@ -101,7 +101,7 @@ object CodeGen {
       files: NonEmptyList[File]): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
     val reader = UniversalArchiveReader()
     val parse: File => String \/ Dar[Payload] = parseFile(reader)
-    files.traverseU(f => decodeInterface(parse)(f).validationNel)
+    files.traverse(f => decodeInterface(parse)(f).validationNel)
   }
 
   private def parseFile(reader: UniversalArchiveReader[Payload])(f: File): String \/ Dar[Payload] =
@@ -118,7 +118,7 @@ object CodeGen {
 
   private def decodeInterface(dar: Dar[Payload]): String \/ EnvironmentInterface = {
     import scalaz.syntax.traverse._
-    dar.traverseU(decodeInterface).map(combineInterfaces)
+    dar.traverse(decodeInterface).map(combineInterfaces)
   }
 
   private def decodeInterface(p: Payload): String \/ Interface =
@@ -284,13 +284,11 @@ object CodeGen {
       }(breakOut)
 
     val noDeletion = Set.empty[(Identifier, List[Ref.Name])]
-    // both traverseU can change to traverse with -Ypartial-unification
-    // or Scala 2.13
     val (deletedRecords, newVariants) =
-      variants.toList.traverseU {
+      variants.toList.traverse {
         case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
           val typeVarDelegate = Util simplyDelegates vTypeVars
-          val (deleted, sdt) = fields.traverseU {
+          val (deleted, sdt) = fields.traverse {
             case (vn, vt) =>
               val syntheticRecord = Identifier(
                 packageId,

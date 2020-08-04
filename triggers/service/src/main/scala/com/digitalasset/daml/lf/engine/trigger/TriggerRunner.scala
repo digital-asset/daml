@@ -7,7 +7,6 @@ import akka.actor.typed.{Behavior, PostStop}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.SupervisorStrategy._
 import akka.actor.typed.Signal
-import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.ActorContext
 import akka.stream.Materializer
@@ -39,18 +38,21 @@ class TriggerRunner(
   import TriggerRunner.{Message, Stop}
 
   // Spawn a trigger runner impl. Supervise it. Stop immediately on
-  // initalization halted exceptions, retry any initialization or
+  // initialization halted exceptions, retry any initialization or
   // execution failure exceptions.
   private val child =
     ctx.spawn(
       Behaviors
         .supervise(
           Behaviors
-            .supervise(TriggerRunnerImpl(ctx.self, config))
+            .supervise(TriggerRunnerImpl(config))
             .onFailure[InitializationHalted](stop)
         )
         .onFailure(
-          restart.withLimit(config.maxFailureNumberOfRetries, config.failureRetryTimeRange)),
+          restartWithBackoff(
+            config.restartConfig.minRestartInterval,
+            config.restartConfig.maxRestartInterval,
+            config.restartConfig.restartIntervalRandomFactor)),
       name
     )
 
@@ -62,7 +64,7 @@ class TriggerRunner(
 
   override def onSignal: PartialFunction[Signal, Behavior[Message]] = {
     case PostStop =>
-      logger.info(s"Trigger ${name} stopped")
+      logger.info(s"Trigger $name stopped")
       this
   }
 

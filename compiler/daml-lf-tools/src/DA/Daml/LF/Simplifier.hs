@@ -353,6 +353,12 @@ liftClosedExpr e = do
                 Left _ ->
                     pure e
 
+-- | Remove top-level location information.
+stripLoc :: Expr -> Expr
+stripLoc = \case
+  ELocation _ e -> stripLoc e
+  e -> e
+
 simplifyExpr :: Expr -> Simplifier Expr
 simplifyExpr = fmap fst . cata go'
   where
@@ -404,35 +410,36 @@ simplifyExpr = fmap fst . cata go'
           -> cata (go world) e'
 
       -- <...; f = e; ...>.f    ==>    e
-      EStructProjF f (EStructCon fes, s)
+      EStructProjF f (stripLoc -> EStructCon fes, s)
         -- NOTE(MH): We're deliberately overapproximating the potential of
         -- bottoms and the set of free variables below to avoid recomputing
         -- them.
         | Safe _ <- safety s, Just e <- f `lookup` fes -> (e, s)
 
       -- let x = e in x    ==>    e
-      ELetF (BindingF (x, _) e) (EVar x', _)
-        | x == x' -> e
+      ELetF (BindingF (x1, _) e) (stripLoc -> EVar x2, _)
+        | x1 == x2
+        -> e
 
       -- let x = x in e    ==>    e
-      ELetF (BindingF (x, _) (EVar x', _)) e
+      ELetF (BindingF (x, _) (stripLoc -> EVar x', _)) e
         | x == x' -> e
 
       -- let x = <...; f = e; ...> in x.f    ==>    e
-      ELetF (BindingF (x, _) (EStructCon fes, s)) (EStructProj f (EVar x'), _)
+      ELetF (BindingF (x, _) (stripLoc -> EStructCon fes, s)) (stripLoc -> EStructProj f (stripLoc -> EVar x'), _)
         -- NOTE(MH): See NOTE above on @s@.
         | x == x', Safe _ <- safety s, Just e <- f `lookup` fes -> (e, s)
 
       -- let x = <f1 = e1; ...; fn = en> in T {f1 = x.f1; ...; fn = x.fn}
       -- ==>
       -- T {f1 = e1; ...; fn = en}
-      ELetF (BindingF (x1, _) (EStructCon fes1, s)) (ERecCon t fes2, _)
+      ELetF (BindingF (x1, _) (stripLoc -> EStructCon fes1, s)) (stripLoc -> ERecCon t fes2, _)
         | Just bs <- Safe.zipWithExactMay matchField fes1 fes2
         , and bs ->
             (ERecCon t fes1, s)
         where
           matchField (f1, _) = \case
-              (f2, EStructProj f3 (EVar x3)) ->
+              (f2, stripLoc -> EStructProj f3 (stripLoc -> EVar x3)) ->
                   (f1 == f2) && (f1 == f3) && (x1 == x3)
               _ -> False
 
@@ -442,7 +449,7 @@ simplifyExpr = fmap fst . cata go'
         , not (isFreeExprVar x (freeVars (snd e2))) -> e2
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
-      EStructProjF f (ELet (Binding (x, t) e1) e2, s0) ->
+      EStructProjF f (stripLoc -> ELet (Binding (x, t) e1) e2, s0) ->
           go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ EStructProjF f (e2, s2))
         where
           (s1, s2) = infoUnstepELet x s0
@@ -457,13 +464,13 @@ simplifyExpr = fmap fst . cata go'
       --
       -- NOTE(MH): This also works when `x` is free in `e2` since let-bindings
       -- are _not_ recursive.
-      ETmAppF (ETmLam (x, t) e1, s0) (e2, s2) ->
+      ETmAppF (stripLoc -> ETmLam (x, t) e1, s0) (e2, s2) ->
         go world $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
         where
           s1 = infoUnstepETmapp x s0
 
       -- (let x = e1 in e2) e3    ==>    let x = e1 in e2 e3, if x is not free in e3
-      ETmAppF (ELet (Binding (x, t) e1) e2, s0) e3
+      ETmAppF (stripLoc -> ELet (Binding (x, t) e1) e2, s0) e3
         | not (isFreeExprVar x (freeVars (snd e3))) ->
           go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ ETmAppF (e2, s2) e3)
           where
@@ -473,9 +480,11 @@ simplifyExpr = fmap fst . cata go'
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
 -- | If we have a closed term under a lambda, we want to lift it up to the top level,
--- even though the result of the lambda is also a closed term.
-alwaysLiftUnder :: ExprF t -> Bool
+-- even though the result of the lambda is also a closed term. We avoid breaking up
+-- lambda terms, though.
+alwaysLiftUnder :: ExprF (Expr, Info) -> Bool
 alwaysLiftUnder = \case
+    ETmLamF _ (ETmLam _ _, _) -> False
     ETmLamF _ _ -> True
     _ -> False
 
@@ -489,7 +498,6 @@ isWorthLifting = \case
     EEnumCon _ _ -> False
     ENil _ -> False
     ENone _ -> False
-    ETmLam _ _ -> False
     EUpdate _ -> False
     EScenario _ -> False
     ETypeRep _ -> False

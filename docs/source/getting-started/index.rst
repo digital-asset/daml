@@ -15,7 +15,8 @@ showing you three things:
     3. How to write a new feature for the app (:doc:`first-feature`)
 
 We do not aim to be comprehensive in all DAML concepts and tools (covered in :doc:`Writing DAML </daml/intro/0_Intro>`) or in all deployment options (see :doc:`Deploying </deploy/index>`).
-The goal is that by the end of this tutorial, you'll have a good idea of the following:
+**For a quick overview of the most important DAML concepts used in this tutorial open** `the DAML cheat-sheet <https://docs.daml.com/cheat-sheet/>`_ **in a separate tab**. The goal is that by the end of this tutorial,
+you'll have a good idea of the following:
 
     1. What DAML contracts and ledgers are
     2. How a user interface (UI) interacts with a DAML ledger
@@ -34,6 +35,11 @@ You will also need some common software tools to build and interact with the tem
 - `Yarn <https://classic.yarnpkg.com/en/docs/install/>`_ package manager for JavaScript. You have to have yarn version 1.10.0 or higher.
 
   Note: Ubuntu 17.04 and higher come with ``cmdtest`` package installed by default. If you are getting errors when installing yarn, you may want to run ``sudo apt remove cmdtest`` first and then install yarn. More information can be found `here <https://github.com/yarnpkg/yarn/issues/2821>`_ as well as in the official `yarn installation docs for Debian / Ubuntu <https://classic.yarnpkg.com/en/docs/install/#debian-stable>`_
+- `NodeJS <https://nodejs.org/en/download/>`_ in version 8.16 or higher. This will usually be
+  installed automatically as part of installing Yarn.
+
+  Note: On Ubuntu 18.04, NodeJS 8.10 will be installed as part of installing Yarn which is too old.
+  You can find instructions for installing newer versions at `NodeSource <https://github.com/nodesource/distributions/blob/master/README.md#installation-instructions>`_.
 - A terminal application for command line interaction
 
 
@@ -45,9 +51,11 @@ We'll start by getting the app up and running, and then explain the different co
 First off, open a terminal and instantiate the template project.
 ::
 
-    daml new create-daml-app create-daml-app
+    daml new create-daml-app --template create-daml-app
 
-This creates a new folder with contents from our template.
+This creates a new folder with contents from our template. To see
+a list of all available templates run ``daml new --list``.
+
 Change to the new folder::
 
     cd create-daml-app
@@ -66,7 +74,7 @@ In order to connect the UI code to this DAML, we need to run a code generation s
 Now, changing to the ``ui`` folder, use Yarn to install the project dependencies::
 
     cd ui
-    yarn install
+    yarn install --force --frozen-lockfile
 
 This step may take a couple of moments (it's worth it!).
 You should see ``success Saved lockfile.`` in the output if everything worked as expected.

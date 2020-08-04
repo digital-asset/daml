@@ -10,7 +10,7 @@ LEDGER_PORT=6865
 LEDGER_ID="TRIGGER_SERVICE_TEST"
 TRIGGER_SERVICE_HTTP_PORT=8088
 
-bazel run //ledger/sandbox:sandbox-binary -- \
+bazel run //ledger/sandbox-classic:sandbox-classic-binary -- \
   -a $LEDGER_HOST -p $LEDGER_PORT --ledgerid $LEDGER_ID -w &
 SANDBOX_PID=$!
 kill_sandbox() {

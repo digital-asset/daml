@@ -9,7 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Bytes, DamlStateMap, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyValuePairs}
 import com.daml.ledger.validator.SubmissionValidatorSpec._
@@ -35,6 +35,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = SubmissionValidator.create(
         new FakeStateAccess(mockStateOperations),
         metrics = new Metrics(new MetricRegistry),
+        engine = Engine.DevEngine(),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
@@ -52,6 +53,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         checkForMissingInputs = true,
         metrics = new Metrics(new MetricRegistry),
+        engine = Engine.DevEngine(),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
@@ -65,6 +67,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = SubmissionValidator.create(
         new FakeStateAccess(mockStateOperations),
         metrics = new Metrics(new MetricRegistry),
+        engine = Engine.DevEngine(),
       )
       instance
         .validate(
@@ -89,7 +92,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
           recordTime: Timestamp,
           damlSubmission: DamlSubmission,
           participantId: ParticipantId,
-          inputState: Map[DamlStateKey, Option[DamlStateValue]]
+          inputState: DamlStateMap
       ): LogEntryAndState =
         throw new IllegalArgumentException("Validation failed")
 
@@ -127,7 +130,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = SubmissionValidator
-          .processSubmission(new KeyValueCommitting(Engine(), metrics)),
+          .processSubmission(new KeyValueCommitting(Engine.DevEngine(), metrics)),
         allocateLogEntryId = mockLogEntryIdGenerator,
         checkForMissingInputs = false,
         stateValueCache = Cache.none,

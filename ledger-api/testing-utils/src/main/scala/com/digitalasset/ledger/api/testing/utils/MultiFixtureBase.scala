@@ -6,6 +6,7 @@ package com.daml.ledger.api.testing.utils
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
 import com.daml.dec.DirectExecutionContext
+import com.daml.logging.LoggingContext
 import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.exceptions.TestCanceledException
@@ -22,6 +23,8 @@ trait MultiFixtureBase[FixtureId, TestContext]
     with ScaledTimeSpans
     with AsyncTimeLimitedTests {
   self: AsyncTestSuite =>
+
+  protected implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private var es: ScheduledExecutorService = _
 

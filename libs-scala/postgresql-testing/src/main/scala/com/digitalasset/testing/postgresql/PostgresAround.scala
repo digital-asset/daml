@@ -10,7 +10,7 @@ import java.nio.file.{Files, Path}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.daml.ports.Port
+import com.daml.ports.{LockedFreePort, Port}
 import com.daml.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
@@ -55,7 +55,7 @@ trait PostgresAround {
     val dataDir = root.resolve("data")
     val configPath = dataDir.resolve("postgresql.conf")
     val logFile = Files.createFile(root.resolve("postgresql.log"))
-    val lockedPort = FreePort.find()
+    val lockedPort = LockedFreePort.find()
     val hostName = InetAddress.getLoopbackAddress.getHostAddress
     val port = lockedPort.port
     val userName = "test"

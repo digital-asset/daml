@@ -194,6 +194,23 @@ testsForDamlcTest damlc = testGroup "damlc test" $
           exitCode @?= ExitSuccess
           assertBool ("Succeeding scenario in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
           stderr @?= ""
+    , testCase "damlc test --project-root relative" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "relative")
+          writeFileUTF8 (projDir </> "relative" </> "Main.daml") $ unlines
+            [ "daml 1.2"
+            , "module Main where"
+            , "test = scenario do"
+            , "  assert True"
+            ]
+          writeFileUTF8 (projDir </> "relative" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: relative"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          withCurrentDirectory projDir $
+              callProcessSilent damlc ["test", "--project-root=relative"]
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")

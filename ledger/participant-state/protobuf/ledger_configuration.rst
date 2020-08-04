@@ -62,7 +62,7 @@ message LedgerTimeModel
 *since version 1*
 
 Defines the ledger time model, which governs the rules for acceptable
-ledger effective time and maximum record time parameters that are part
+ledger time and maximum record time parameters that are part
 of transaction submission.
 
 As of version 1, these fields are included:

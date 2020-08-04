@@ -201,7 +201,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
   }
 
   @throws[DeserializationException]
-  private[this] def checkDups[K: Equal, V](decEntries: Seq[(K, V)]): Unit =
+  private[this] def checkDups[K: Equal](decEntries: Seq[(K, _)]): Unit =
     decEntries match {
       case (h, _) +: t =>
         val _ = t.foldLeft(h)((p, n) =>

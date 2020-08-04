@@ -53,7 +53,7 @@ object LedgerReader {
   private def createPackageStoreFromArchives(
       packageResponses: List[GetPackageResponse]): Error \/ PackageStore = {
     packageResponses
-      .traverseU { packageResponse: GetPackageResponse =>
+      .traverse { packageResponse: GetPackageResponse =>
         decodeInterfaceFromPackageResponse(packageResponse).map { interface =>
           (interface.packageId, interface)
         }

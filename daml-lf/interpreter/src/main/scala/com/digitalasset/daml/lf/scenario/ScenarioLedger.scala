@@ -8,9 +8,15 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger._
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  GlobalKey,
+  NodeId,
+  SubmittedTransaction,
+  Transaction => Tx
+}
 import com.daml.lf.value.Value
-import Value._
+import Value.{NodeId => _, _}
 import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
@@ -50,7 +56,7 @@ object ScenarioLedger {
     * transaction node in the node identifier, where here the identifier
     * is an eventId.
     */
-  type Node = GenNode.WithTxValue[Tx.NodeId, ContractId]
+  type Node = GenNode.WithTxValue[NodeId, ContractId]
 
   /** A transaction as it is committed to the ledger.
     *
@@ -78,19 +84,11 @@ object ScenarioLedger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       transactionId: LedgerString,
-      transaction: Tx.CommittedTransaction,
-      explicitDisclosure: Relation[Tx.NodeId, Party],
-      localImplicitDisclosure: Relation[Tx.NodeId, Party],
-      globalImplicitDisclosure: Relation[ContractId, Party],
+      transaction: CommittedTransaction,
+      explicitDisclosure: Relation[NodeId, Party],
+      implicitDisclosure: Relation[ContractId, Party],
       failedAuthorizations: FailedAuthorizations,
-  ) {
-    def disclosures(coidToEventId: ContractId => EventId): Relation[EventId, Party] =
-      Relation.union(
-        Relation.mapKeys(Relation.union(explicitDisclosure, localImplicitDisclosure))(
-          EventId(transactionId, _)),
-        Relation.mapKeys(globalImplicitDisclosure)(coidToEventId),
-      )
-  }
+  )
 
   object RichTransaction {
 
@@ -105,18 +103,19 @@ object ScenarioLedger {
         committer: Party,
         effectiveAt: Time.Timestamp,
         transactionId: LedgerString,
-        enrichedTx: EnrichedTransaction[Tx.CommittedTransaction],
-    ): RichTransaction =
+        submittedTransaction: SubmittedTransaction,
+    ): RichTransaction = {
+      val enrichedTx = EnrichedTransaction(Authorize(Set(committer)), submittedTransaction)
       new RichTransaction(
         committer = committer,
         effectiveAt = effectiveAt,
         transactionId = transactionId,
-        transaction = enrichedTx.tx,
+        transaction = Tx.commitTransaction(submittedTransaction),
         explicitDisclosure = enrichedTx.explicitDisclosure,
-        localImplicitDisclosure = enrichedTx.localImplicitDisclosure,
-        globalImplicitDisclosure = enrichedTx.globalImplicitDisclosure,
+        implicitDisclosure = enrichedTx.implicitDisclosure,
         failedAuthorizations = enrichedTx.failedAuthorizations,
       )
+    }
 
   }
 
@@ -137,6 +136,11 @@ object ScenarioLedger {
       time: Time.Timestamp,
       txid: TransactionId,
   ) extends ScenarioStep
+
+  final case class Disclosure(
+      since: TransactionId,
+      explicit: Boolean,
+  )
 
   // ----------------------------------------------------------------
   // Node information
@@ -171,7 +175,7 @@ object ScenarioLedger {
       node: Node,
       transaction: TransactionId,
       effectiveAt: Time.Timestamp,
-      observingSince: Map[Party, TransactionId],
+      disclosures: Map[Party, Disclosure],
       referencedBy: Set[EventId],
       consumedBy: Option[EventId],
       parent: Option[EventId],
@@ -180,12 +184,12 @@ object ScenarioLedger {
     /** 'True' if the given 'View' contains the given 'Node'. */
     def visibleIn(view: View): Boolean = view match {
       case OperatorView => true
-      case ParticipantView(party) => observingSince contains party
+      case ParticipantView(party) => disclosures contains party
     }
 
-    def addObservers(witnesses: Map[Party, TransactionId]): LedgerNodeInfo = {
-      // NOTE(JM): We combine with bias towards entries in `observingSince`.
-      copy(observingSince = witnesses ++ observingSince)
+    def addDisclosures(newDisclosures: Map[Party, Disclosure]): LedgerNodeInfo = {
+      // NOTE(MH): Earlier disclosures take precedence (`++` is right biased).
+      copy(disclosures = newDisclosures ++ disclosures)
     }
   }
 
@@ -218,6 +222,7 @@ object ScenarioLedger {
       coid: ContractId,
       templateId: Identifier,
       observers: Set[Party],
+      stakeholders: Set[Party],
   ) extends LookupResult
 
   sealed trait CommitError
@@ -238,19 +243,13 @@ object ScenarioLedger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       optLocation: Option[Location],
-      tx: Tx.SubmittedTransaction,
+      tx: SubmittedTransaction,
       l: ScenarioLedger,
   ): Either[CommitError, CommitResult] = {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
     val transactionId = l.scenarioStepId.id
-    val richTr =
-      RichTransaction(
-        committer,
-        effectiveAt,
-        transactionId,
-        EnrichedTransaction(Authorize(Set(committer)), Tx.commitTransaction(tx)),
-      )
+    val richTr = RichTransaction(committer, effectiveAt, transactionId, tx)
     if (richTr.failedAuthorizations.nonEmpty)
       Left(CommitError.FailedAuthorizations(richTr.failedAuthorizations))
     else {
@@ -408,7 +407,7 @@ object ScenarioLedger {
       richTr: RichTransaction,
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
-    type ExerciseNodeProcessing = (Option[Tx.NodeId], List[Tx.NodeId])
+    type ExerciseNodeProcessing = (Option[NodeId], List[NodeId])
 
     @tailrec
     def processNodes(
@@ -431,7 +430,7 @@ object ScenarioLedger {
                     node = node,
                     transaction = trId,
                     effectiveAt = richTr.effectiveAt,
-                    observingSince = Map.empty,
+                    disclosures = Map.empty,
                     referencedBy = Set.empty,
                     consumedBy = None,
                     parent = mbParentId.map(EventId(trId.id, _)),
@@ -468,7 +467,7 @@ object ScenarioLedger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises.WithTxValue[Tx.NodeId, ContractId] =>
+                    case ex: NodeExercises.WithTxValue[NodeId, ContractId] =>
                       val newCache0 =
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(
                           info =>
@@ -523,9 +522,18 @@ object ScenarioLedger {
       processNodes(Right(ledgerData), List(None -> richTr.transaction.roots.toList))
 
     mbCacheAfterProcess.map { cacheAfterProcess =>
-      richTr.disclosures(cacheAfterProcess.coidToNodeId).foldLeft(cacheAfterProcess) {
-        case (cacheP, (nodeId, witnesses)) =>
-          cacheP.updateLedgerNodeInfo(nodeId)(_.addObservers(witnesses.map(_ -> trId).toMap))
+      // NOTE(MH): Since `addDisclosures` is biased towards existing
+      // disclosures, we need to add the "stronger" explicit ones first.
+      val cacheWithExplicitDisclosures =
+        richTr.explicitDisclosure.foldLeft(cacheAfterProcess) {
+          case (cacheP, (nodeId, witnesses)) =>
+            cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
+              _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap))
+        }
+      richTr.implicitDisclosure.foldLeft(cacheWithExplicitDisclosures) {
+        case (cacheP, (coid, divulgees)) =>
+          cacheP.updateLedgerNodeInfo(cacheAfterProcess.coidToNodeId(coid))(
+            _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap))
       }
     }
   }
@@ -607,7 +615,8 @@ case class ScenarioLedger(
               LookupContractNotVisible(
                 coid,
                 create.coinst.template,
-                info.observingSince.keys.toSet,
+                info.disclosures.keys.toSet,
+                create.stakeholders,
               )
             else
               LookupOk(coid, create.coinst, create.stakeholders)

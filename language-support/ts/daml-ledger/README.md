@@ -11,7 +11,7 @@ Comprehensive documentation for `@daml/ledger` can be found
 ## Usage
 
 The best way to get you started quickly is to look at [Create DAML
-App](https://github.com/digital-asset/create-daml-app) and to read the the [Quickstart
+App](https://github.com/digital-asset/create-daml-app) and to read the [Quickstart
 Guide](https://docs.daml.com/getting-started/quickstart.html).
 
 We recommend to use the [React](https://reactjs.org) framework and the `@daml/react` library to
@@ -23,7 +23,8 @@ token used to communicate with the [JSON API](https://docs.daml.com/json-api/ind
 base URL and a websocket base URL.
 
 An instance of the `Ledger` class provides the following methods to communicate with a DAML ledger.
-Please consult the [documentation](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/index.html)
+Please consult the
+[documentation](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/classes/_index_.ledger.html)
 for their exact signatures.
 
 `create`

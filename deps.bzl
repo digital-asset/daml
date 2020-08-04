@@ -28,22 +28,25 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
-rules_scala_sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d"
+rules_scala_version = "152715b05547f160a512bae9b3d9e77a4888e243"
+rules_scala_sha256 = "9b117bf591780b5665a8271d83c2530943330f06e2dd99574ca9cf538009d09d"
 
-rules_haskell_version = "4e0bd68f305006804d21a9ed29e03b9af704a8d0"
-rules_haskell_sha256 = "0a0ff7ceebbe6db48a7723c9e6fa6f0d60c2a0b92d177d8be89876ae6dc0fef5"
-rules_nixpkgs_version = "d3c7bc94fed4001d5375632a936d743dc085c9a1"
-rules_nixpkgs_sha256 = "903c6b98aa6a298bf45a6b931e77a3313c40a0cb1b44fa00d9792f9e8aedbb35"
-buildifier_version = "0.26.0"
-buildifier_sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29"
-zlib_version = "cacf7f1d4e3d44d871b605da3b647f07d718623f"
-zlib_sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45"
-rules_nodejs_version = "1.6.0"
-rules_nodejs_sha256 = "f9e7b9f42ae202cc2d2ce6d698ccb49a9f7f7ea572a78fd451696d03ef2ee116"
-rules_jvm_external_version = "2.8"
-rules_jvm_external_sha256 = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad"
+rules_haskell_version = "eb16a5401770098a801775ea3a893b09cafe054c"
+rules_haskell_sha256 = "2fcab6b01a184435359f6bcbb9403f0457c2a4e0f1b1a4572b9d7f89d2fc5431"
+rules_nixpkgs_version = "659cf9db456f5a3c1a5a27747116fc50b709cdab"
+rules_nixpkgs_sha256 = "6a76b8004ad94daa9ce7e95d902c790646f8abd598ae9f1b1978fb74a95e9ebd"
+buildifier_version = "3.3.0"
+buildifier_sha256 = "f11fc80da0681a6d64632a850346ed2d4e5cbb0908306d9a2a2915f707048a10"
+zlib_version = "1.2.11"
+zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
+rules_nodejs_version = "2.0.1"
+rules_nodejs_sha256 = "0f2de53628e848c1691e5729b515022f5a77369c76a09fbe55611e12731c90e3"
+rules_jvm_external_version = "3.3"
+rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
+rules_go_version = "0.23.6"
+rules_go_sha256 = "8663604808d2738dc615a2c3eb70eba54a9a982089dd09f6ffe5d0e75771bc4f"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to DAML SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -54,8 +57,8 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "8477f71d5745edca710dca63e70341ba399db62a"  # 2020-06-17
-daml_cheat_sheet_sha256 = "abec6cc804a5cb103e5df68913653234308da4b282bf2119d4e565807c5e37d3"
+daml_cheat_sheet_version = "9d44b550de6c5d23096116da37ccb2fb4a90f7af"  # 2020-06-30
+daml_cheat_sheet_sha256 = "6429b73e33a7a937048c3d1316182bff0cb34b6aed30e2915875da698ee4d5c9"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -78,9 +81,6 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # Remove this once it is merged upstream.
-                # https://github.com/tweag/rules_haskell/pull/1362
-                "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-import-dirs.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -112,7 +112,7 @@ def daml_deps():
             name = "com_github_madler_zlib",
             build_file = "@com_github_digital_asset_daml//3rdparty/c:zlib.BUILD",
             strip_prefix = "zlib-{}".format(zlib_version),
-            urls = ["https://github.com/madler/zlib/archive/{}.tar.gz".format(zlib_version)],
+            urls = ["https://github.com/madler/zlib/archive/v{}.tar.gz".format(zlib_version)],
             sha256 = zlib_sha256,
         )
 
@@ -120,10 +120,10 @@ def daml_deps():
         http_archive(
             name = "io_bazel_rules_go",
             urls = [
-                "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/v0.20.2/rules_go-v0.20.2.tar.gz",
-                "https://github.com/bazelbuild/rules_go/releases/download/v0.20.2/rules_go-v0.20.2.tar.gz",
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.tar.gz".format(version = rules_go_version),
+                "https://github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.tar.gz".format(version = rules_go_version),
             ],
-            sha256 = "b9aa86ec08a292b97ec4591cf578e020b35f98e12173bbd4a921f84f583aebd9",
+            sha256 = rules_go_sha256,
         )
 
     if "rules_jvm_external" not in native.existing_rules():
@@ -143,7 +143,10 @@ def daml_deps():
             sha256 = rules_scala_sha256,
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
-                "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
+                # Upstream PR at https://github.com/bazelbuild/rules_scala/pull/1082
+                # Without this patch, rootpath resolves to the JAR
+                # and not the binary wrapper.
+                "@com_github_digital_asset_daml//bazel_tools:scala-binary-rootpath.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -151,9 +154,9 @@ def daml_deps():
     if "io_bazel_rules_docker" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_docker",
-            url = "https://github.com/bazelbuild/rules_docker/releases/download/v0.12.1/rules_docker-v0.12.1.tar.gz",
-            strip_prefix = "rules_docker-0.12.1",
-            sha256 = "14ac30773fdb393ddec90e158c9ec7ebb3f8a4fd533ec2abbfd8789ad81a284b",
+            url = "https://github.com/bazelbuild/rules_docker/releases/download/v0.14.3/rules_docker-v0.14.3.tar.gz",
+            strip_prefix = "rules_docker-0.14.3",
+            sha256 = "6287241e033d247e9da5ff705dd6ef526bac39ae82f3d17de1b69f8cb313f9cd",
         )
 
     if "com_google_protobuf" not in native.existing_rules():
@@ -211,6 +214,7 @@ def daml_deps():
             urls = ["https://github.com/grpc/grpc/archive/v1.23.1.tar.gz"],
             sha256 = "dd7da002b15641e4841f20a1f3eb1e359edb69d5ccf8ac64c362823b05f523d9",
             patches = [
+                "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-apple.patch",
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
             patch_args = ["-p1"],
@@ -271,6 +275,16 @@ def daml_deps():
             urls = ["https://github.com/google/bazel-common/archive/9e3880428c1837db9fb13335ed390b7e33e346a7.zip"],
         )
 
+    maybe(
+        http_archive,
+        name = "rules_pkg",
+        urls = [
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6/rules_pkg-0.2.6.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.6/rules_pkg-0.2.6.tar.gz",
+        ],
+        sha256 = "aeca78988341a2ee1ba097641056d168320ecc51372ef7ff8e64b139516a4937",
+    )
+
     if "com_github_grpc_ecosystem_grpc_health_probe_binary" not in native.existing_rules():
         http_file(
             name = "com_github_grpc_ecosystem_grpc_health_probe_binary",
@@ -323,14 +337,14 @@ genrule(
   cmd = '''
     DIR=$$(dirname $(execpath _config.yml))
     $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
-    tar hc _site \
-        --owner=1000 \
-        --group=1000 \
-        --mtime=2000-01-01\ 00:00Z \
-        --no-acls \
-        --no-xattrs \
-        --no-selinux \
-        --sort=name \
+    tar hc _site \\
+        --owner=1000 \\
+        --group=1000 \\
+        --mtime=2000-01-01\\ 00:00Z \\
+        --no-acls \\
+        --no-xattrs \\
+        --no-selinux \\
+        --sort=name \\
         | gzip -n > $(OUTS)
   ''',
 )

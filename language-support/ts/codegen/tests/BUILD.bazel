@@ -77,20 +77,22 @@ sh_test(
         "$(location //:java)",
         "$(location //:yarn)",
         "$(location //:daml2js)",
-        "$(location //ledger/sandbox:sandbox-binary_deploy.jar)",
+        "$(location //ledger/sandbox-classic:sandbox-classic-binary_deploy.jar)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
         "$(location //language-support/ts/daml-types:npm_package)",
         "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
+        "$(location //ledger-service/http-json:release/json-api-logback.xml)",
     ],
     data = [
         "//:java",
         "//:yarn",
         "//:daml2js",
-        "//ledger/sandbox:sandbox-binary_deploy.jar",
+        "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
+        "//ledger-service/http-json:release/json-api-logback.xml",
         ":build-and-lint.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
@@ -101,8 +103,11 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
-    # See #6155
-    flaky = True,
+    # Spinning up jest, Sandbox and the JSON API is expensive.
+    # The expensive stuff should be Sandbox and the JSON API so we
+    # go for 2 CPUs. Feel free to change this to something more adequate
+    # if needed.
+    tags = ["cpu:2"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

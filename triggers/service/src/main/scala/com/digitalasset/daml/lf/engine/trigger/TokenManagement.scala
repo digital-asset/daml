@@ -40,17 +40,18 @@ object TokenManagement {
   // value and then base64 encode the result (the resulting string
   // consists of characters strictly in the set [a-z], [A-Z], [0-9] +
   // and /.
-  private def encrypt(key: SecretKey, value: UnencryptedToken): EncryptedToken = {
+  def encrypt(key: SecretKey, username: String, password: String): EncryptedToken = {
+    val userpass = username + ":" + password
     val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
     cipher.init(Cipher.ENCRYPT_MODE, keyToSpec(key))
     val bytes = java.util.Base64.getEncoder
-      .encode(cipher.doFinal(value.token.getBytes("UTF-8")))
+      .encode(cipher.doFinal(userpass.getBytes("UTF-8")))
     EncryptedToken(new String(bytes, StandardCharsets.UTF_8))
   }
 
   // AES decrypt 'value' given 'key'. Proceed by first decoding from
   // base64 then decrypt the result.
-  private def decrypt(key: SecretKey, value: EncryptedToken): UnencryptedToken = {
+  def decrypt(key: SecretKey, value: EncryptedToken): UnencryptedToken = {
     val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING")
     cipher.init(Cipher.DECRYPT_MODE, keyToSpec(key))
     UnencryptedToken(
@@ -68,6 +69,21 @@ object TokenManagement {
     (Party(segments(0)), Password(segments(1)))
   }
 
+  // Get the unencrypted basic credentials from the request header.
+  def getBasicCredentials(req: HttpRequest): Either[String, (String, String)] = {
+    req.headers
+      .collectFirst {
+        case Authorization(BasicHttpCredentials(username, password)) => (username, password)
+      } match {
+      case None => Left("missing Authorization header with Basic Token")
+      case Some((username, password)) =>
+        Ref.Party.fromString(username) match {
+          case Left(err) => Left("invalid party identifier '" + username + "'")
+          case Right(p) => Right((username, password))
+        }
+    }
+  }
+
   // Parse the user credentials out of a request's headers.
   def findCredentials(key: SecretKey, req: HttpRequest): Either[String, UserCredentials] = {
     req.headers
@@ -78,7 +94,7 @@ object TokenManagement {
       } match {
       case Some((username, password)) =>
         if (Ref.Party.fromString(username).isRight) {
-          Right(UserCredentials(encrypt(key, UnencryptedToken(username + ":" + password))))
+          Right(UserCredentials(encrypt(key, username, password)))
         } else {
           Left("invalid party identifier '" + username + "'")
         }

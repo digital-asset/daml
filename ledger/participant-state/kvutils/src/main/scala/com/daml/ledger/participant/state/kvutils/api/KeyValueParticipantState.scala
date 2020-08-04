@@ -34,7 +34,7 @@ class KeyValueParticipantState(
     extends ReadService
     with WriteService {
   private val readerAdapter =
-    new KeyValueParticipantStateReader(reader, metrics)
+    KeyValueParticipantStateReader(reader, metrics)
   private val writerAdapter =
     new KeyValueParticipantStateWriter(new TimedLedgerWriter(writer, metrics), metrics)
 
@@ -47,8 +47,15 @@ class KeyValueParticipantState(
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] =
-    writerAdapter.submitTransaction(submitterInfo, transactionMeta, transaction)
+      transaction: SubmittedTransaction,
+      estimatedInterpretationCost: Long,
+  ): CompletionStage[SubmissionResult] =
+    writerAdapter.submitTransaction(
+      submitterInfo,
+      transactionMeta,
+      transaction,
+      estimatedInterpretationCost,
+    )
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,

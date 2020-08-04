@@ -25,11 +25,39 @@ import DA.Daml.LF.Ast
 
 data Options = Options
     { optInputDar :: FilePath
-    , optChoiceTmpl :: String
-    , optChoiceName :: String
-    , optFieldTmpl :: String
-    , optFieldName :: String
+    , optChoice :: (ModuleName, TypeConName, ChoiceName)
+    , optField :: (ModuleName, TypeConName, FieldName)
     }
+
+-- | Reads a module, template and choice from an input String.
+-- The expected syntax is as follows:
+-- Module:Template.Choice
+choiceReader :: String -> Maybe (ModuleName, TypeConName, ChoiceName)
+choiceReader str =
+  let (modStr, remStr) = break (':' ==) str
+  in if null modStr || null remStr
+     then Nothing
+     else let (tmpStr, choStr) = break ('.' ==) (tail remStr)
+          in if null tmpStr || null choStr
+             then Nothing
+             else Just ( ModuleName [T.pack modStr]
+                       , TypeConName [T.pack tmpStr]
+                       , ChoiceName (T.pack $ tail choStr) )
+
+-- | Reads a module, template and field from an input String.
+-- The expected syntax is as follows:
+-- Module:Template.Field
+fieldReader :: String -> Maybe (ModuleName, TypeConName, FieldName)
+fieldReader str =
+  let (modStr, remStr) = break (':' ==) str
+  in if null modStr || null remStr
+     then Nothing
+     else let (tmpStr, fldStr) = break ('.' ==) (tail remStr)
+          in if null tmpStr || null fldStr
+             then Nothing
+             else Just ( ModuleName [T.pack modStr]
+                       , TypeConName [T.pack tmpStr]
+                       , FieldName (T.pack $ tail fldStr) )
 
 optionsParser :: Parser Options
 optionsParser = Options
@@ -37,21 +65,19 @@ optionsParser = Options
         (  metavar "DAR-FILE"
         <> help "DAR file to analyse"
         )
-    <*> argument str
-        (  metavar "CHOICE-TEMPLATE"
-        <> help "Template of the choice to analyse"
+    -- The choice to analyse: e.g. "--choice Module:Template.Choice"
+    <*> option (maybeReader choiceReader)
+        (  long "choice"
+        <> short 'c'
+        <> metavar "CHOICE"
+        <> help "The choice to analyse"
         )
-    <*> argument str
-        (  metavar "CHOICE-NAME"
-        <> help "Name of the choice to analyse"
-        )
-    <*> argument str
-        (  metavar "FIELD-TEMPLATE"
-        <> help "Template of the field to verify"
-        )
-    <*> argument str
-        (  metavar "FIELD-NAME"
-        <> help "Name of the field to verify"
+    -- The field to verify: e.g. "--field Module:Template.Field"
+    <*> option (maybeReader fieldReader)
+        (  long "field"
+        <> short 'f'
+        <> metavar "Field"
+        <> help "The field to verify"
         )
 
 optionsParserInfo :: ParserInfo Options
@@ -73,5 +99,5 @@ readPackages dars = concatMapM darToPackages dars
       packageName <- pure (PackageName . T.pack <$> packageName)
       forM ((DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)) $
         \(dalf, mbPkgName) -> do
-          (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+          (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsDependency (BSL.toStrict dalf)
           pure (pkgId, (pkg, mbPkgName))

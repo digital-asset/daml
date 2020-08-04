@@ -9,7 +9,7 @@ import akka.stream.scaladsl.{Flow, Source, Sink}
 import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
-import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
+import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
@@ -57,18 +57,18 @@ object WebSocketService {
       }
       .collect { case Some(\/-(oli)) => oli }
 
-  private final case class StepAndErrors[+Pos, +LfV](
+  private final case class StepAndErrors[+Pos, +LfVT](
       errors: Seq[ServerError],
-      step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
+      step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfVT], Pos)]) {
     import JsonProtocol._, spray.json._
 
-    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsObject = {
+    def render(implicit lfv: LfVT <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsObject = {
 
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
 
       val InsertDeleteStep(inserts, deletes) =
         Liskov
-          .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
+          .lift2[StepAndErrors, Pos, Map[String, JsValue], LfVT, JsValue](pos, lfv)(this)
           .step
           .toInsertDelete
 
@@ -84,13 +84,13 @@ object WebSocketService {
       renderEvents(events, offsetAfter)
     }
 
-    def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
+    def append[P >: Pos, A >: LfVT](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
       StepAndErrors(errors ++ o.errors, step append o.step)
 
-    def mapLfv[A](f: LfV => A): StepAndErrors[Pos, A] =
+    def mapLfv[A](f: LfVT => A): StepAndErrors[Pos, A] =
       copy(step = step mapPreservingIds (_ leftMap (_ map f)))
 
-    def mapPos[P](f: Pos => P): StepAndErrors[P, LfV] =
+    def mapPos[P](f: Pos => P): StepAndErrors[P, LfVT] =
       copy(step = step mapPreservingIds (_ rightMap f))
 
     def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
@@ -286,14 +286,13 @@ object WebSocketService {
 class WebSocketService(
     contractsService: ContractsService,
     resolveTemplateId: PackageService.ResolveTemplateId,
-    encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
     wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
     extends LazyLogging {
 
   import WebSocketService._
-  import Statement.discard
+  import com.daml.scalautil.Statement.discard
   import util.ErrorOps._
   import com.daml.http.json.JsonProtocol._
 

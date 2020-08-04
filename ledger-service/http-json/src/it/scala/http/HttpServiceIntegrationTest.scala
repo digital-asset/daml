@@ -8,7 +8,7 @@ import java.nio.file.Files
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
-import com.daml.http.Statement.discard
+import com.daml.scalautil.Statement.discard
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}

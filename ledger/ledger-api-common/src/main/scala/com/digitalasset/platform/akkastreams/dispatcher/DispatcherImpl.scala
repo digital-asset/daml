@@ -34,7 +34,7 @@ final class DispatcherImpl[Index: Ordering](
 
   // the following silent are due to
   // <https://github.com/scala/bug/issues/4440>
-  @silent
+  @silent("The outer reference in this type test cannot be checked at run time")
   private final case class Running(lastIndex: Index, signalDispatcher: SignalDispatcher)
       extends State {
     override def getLastIndex: Index = lastIndex
@@ -42,7 +42,7 @@ final class DispatcherImpl[Index: Ordering](
     override def getSignalDispatcher: Option[SignalDispatcher] = Some(signalDispatcher)
   }
 
-  @silent
+  @silent("The outer reference in this type test cannot be checked at run time")
   private final case class Closed(lastIndex: Index) extends State {
     override def getLastIndex: Index = lastIndex
 

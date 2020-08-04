@@ -12,15 +12,15 @@ import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.SemanticTests.Delegation._
-import com.daml.ledger.test.SemanticTests.FetchIou._
-import com.daml.ledger.test.SemanticTests.FetchPaintAgree._
-import com.daml.ledger.test.SemanticTests.FetchPaintOffer._
-import com.daml.ledger.test.SemanticTests.Iou._
-import com.daml.ledger.test.SemanticTests.PaintCounterOffer._
-import com.daml.ledger.test.SemanticTests.PaintOffer._
-import com.daml.ledger.test.SemanticTests.SharedContract._
-import com.daml.ledger.test.SemanticTests._
+import com.daml.ledger.test.semantic.SemanticTests.Delegation._
+import com.daml.ledger.test.semantic.SemanticTests.FetchIou._
+import com.daml.ledger.test.semantic.SemanticTests.FetchPaintAgree._
+import com.daml.ledger.test.semantic.SemanticTests.FetchPaintOffer._
+import com.daml.ledger.test.semantic.SemanticTests.Iou._
+import com.daml.ledger.test.semantic.SemanticTests.PaintCounterOffer._
+import com.daml.ledger.test.semantic.SemanticTests.PaintOffer._
+import com.daml.ledger.test.semantic.SemanticTests.SharedContract._
+import com.daml.ledger.test.semantic.SemanticTests._
 import io.grpc.Status
 import scalaz.Tag
 

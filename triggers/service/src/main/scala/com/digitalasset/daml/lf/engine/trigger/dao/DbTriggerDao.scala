@@ -10,7 +10,7 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Dar
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.{EncryptedToken, JdbcConfig, RunningTrigger, UserCredentials}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
@@ -111,6 +111,35 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     insert.update.run.void
   }
 
+  private def selectPackages: ConnectionIO[List[(String, Array[Byte])]] = {
+    val select: Fragment = sql"select * from dalfs order by package_id"
+    select.query[(String, Array[Byte])].to[List]
+  }
+
+  private def parsePackage(
+      pkgIdString: String,
+      pkgPayload: Array[Byte]): Either[String, (PackageId, DamlLf.ArchivePayload)] =
+    for {
+      pkgId <- PackageId.fromString(pkgIdString)
+      payload <- Try(DamlLf.ArchivePayload.parseFrom(pkgPayload)) match {
+        case Failure(err) => Left(s"Failed to parse package with id $pkgId.\n" ++ err.toString)
+        case Success(pkg) => Right(pkg)
+      }
+    } yield (pkgId, payload)
+
+  private def selectAllTriggers: ConnectionIO[Vector[(UUID, String, String)]] = {
+    val select: Fragment = sql"select * from running_triggers order by trigger_instance"
+    select.query[(UUID, String, String)].to[Vector]
+  }
+
+  private def parseRunningTrigger(
+      triggerInstance: UUID,
+      token: String,
+      fullTriggerName: String): Either[String, RunningTrigger] = {
+    val credentials = UserCredentials(EncryptedToken(token))
+    Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, credentials))
+  }
+
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
   private def dropTables: ConnectionIO[Unit] = {
@@ -142,9 +171,23 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   // Write packages to the `dalfs` table so we can recover state after a shutdown.
   override def persistPackages(
       dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
-    import cats.implicits._
+    import cats.implicits._ // needed for traverse
     val insertAll = dar.all.traverse_((insertPackage _).tupled)
     run(insertAll)
+  }
+
+  def readPackages: Either[String, List[(PackageId, DamlLf.ArchivePayload)]] = {
+    import cats.implicits._ // needed for traverse
+    run(selectPackages, "Failed to read packages from database").flatMap(
+      _.traverse((parsePackage _).tupled)
+    )
+  }
+
+  def readRunningTriggers: Either[String, Vector[RunningTrigger]] = {
+    import cats.implicits._ // needed for traverse
+    run(selectAllTriggers, "Failed to read running triggers from database").flatMap(
+      _.traverse((parseRunningTrigger _).tupled)
+    )
   }
 
   def initialize: Either[String, Unit] =

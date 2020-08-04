@@ -93,7 +93,7 @@ final class Divulgence(
   private val clientConfig =
     LedgerClientConfiguration(
       Divulgence.ApplicationId,
-      LedgerIdRequirement("", enabled = false),
+      LedgerIdRequirement.none,
       CommandClientConfiguration.default,
       None,
     )

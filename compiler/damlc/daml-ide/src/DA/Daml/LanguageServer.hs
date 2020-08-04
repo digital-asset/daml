@@ -67,9 +67,9 @@ setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
                | optionalPrefix `T.isPrefixOf` s -> pure ()
              _ -> whenJust (LSP.customNotificationHandler x) ($ msg)
     }
-    -- | According to the LSP spec methods starting with $/ are optional
+    -- According to the LSP spec methods starting with @$/@ are optional
     -- and can be ignored. In particular, VSCode sometimes seems to send
-    -- $/setTraceNotification which we want to ignore.
+    -- @$/setTraceNotification@ which we want to ignore.
     where optionalPrefix = "$/"
 
 setHandlersVirtualResource :: PartialHandlers a

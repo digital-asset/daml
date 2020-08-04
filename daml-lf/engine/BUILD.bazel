@@ -40,7 +40,10 @@ da_scala_test_suite(
         "//daml-lf/tests:BasicTests.dar",
         "//daml-lf/tests:Optional.dar",
     ],
-    scalacopts = lf_scalacopts,
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = lf_scalacopts + ["-P:silencer:checkUnused"],
     deps = [
         ":engine",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -51,6 +54,7 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_storm_enroute_scalameter_core_2_12",
         "@maven//:org_scalatest_scalatest_2_12",

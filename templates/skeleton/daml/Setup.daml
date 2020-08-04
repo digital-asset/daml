@@ -1,7 +1,3 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
-
 module Setup where
 
 import Daml.Script
@@ -22,7 +18,7 @@ initialize = do
   bobTV <- submit alice do
     exerciseCmd aliceTV Give with newOwner = bob
 
-  submit bob do
+  _ <- submit bob do
     exerciseCmd bobTV Give with newOwner = alice
 
   pure ()
