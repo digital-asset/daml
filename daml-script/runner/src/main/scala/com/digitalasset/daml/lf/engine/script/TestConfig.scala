@@ -41,7 +41,7 @@ object TestConfig {
       .text("File containing the participant configuration in JSON format")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
+      .action { (_, c) =>
         c.copy(timeMode = ScriptTimeMode.WallClock)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")

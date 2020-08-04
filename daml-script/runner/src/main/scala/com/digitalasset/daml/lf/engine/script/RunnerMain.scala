@@ -24,11 +24,6 @@ import com.daml.lf.language.Ast.Package
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
 import com.daml.auth.TokenHolder
 
 object RunnerMain {
@@ -106,14 +101,6 @@ object RunnerMain {
             // Note (MK): For now, we only support using a single-token for everything.
             // We might want to extend this to allow for multiple tokens, e.g., one token per party +
             // one admin token for allocating parties.
-            val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
-            val clientConfig = LedgerClientConfiguration(
-              applicationId = ApplicationId.unwrap(applicationId),
-              ledgerIdRequirement = LedgerIdRequirement.none,
-              commandClient = CommandClientConfiguration.default,
-              sslContext = config.tlsConfig.client,
-              token = tokenHolder.flatMap(_.token),
-            )
             Runner.connect(
               participantParams,
               applicationId,

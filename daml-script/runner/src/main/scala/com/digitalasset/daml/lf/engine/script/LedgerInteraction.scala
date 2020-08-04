@@ -13,7 +13,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import io.grpc.{Status, StatusRuntimeException}
-import java.time.{Clock, Instant}
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Failure}
@@ -212,8 +212,6 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
     grpcClient.partyManagementClient
       .listKnownParties()
   }
-
-  private val utcClock = Clock.systemUTC()
 
   override def getStaticTime()(
       implicit ec: ExecutionContext,
@@ -454,8 +452,6 @@ class JsonLedgerClient(
 
   private def create(tplId: Identifier, argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
-    val ctx = tplId.qualifiedName
-    val ifaceType = Converter.toIfaceType(ctx, TTyCon(tplId)).right.get
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[JsonLedgerClient.CreateArgs, JsonLedgerClient.CreateResponse](
       "create",
@@ -472,7 +468,6 @@ class JsonLedgerClient(
       choice: String,
       argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
-    val ctx = tplId.qualifiedName
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
@@ -499,7 +494,6 @@ class JsonLedgerClient(
       choice: String,
       argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
-    val ctx = tplId.qualifiedName
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
@@ -527,7 +521,6 @@ class JsonLedgerClient(
       choice: String,
       argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
-    val ctx = tplId.qualifiedName
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
@@ -555,8 +548,7 @@ class JsonLedgerClient(
       })
   }
 
-  def getResponseDataBytes(
-      resp: HttpResponse)(implicit mat: Materializer, ec: ExecutionContext): Future[String] = {
+  def getResponseDataBytes(resp: HttpResponse)(implicit mat: Materializer): Future[String] = {
     val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
     fb
   }

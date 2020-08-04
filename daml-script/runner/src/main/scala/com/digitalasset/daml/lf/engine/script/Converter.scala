@@ -123,7 +123,7 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 1 => {
         vals.get(0) match {
           case STypeRep(TTyCon(ty)) => Right(ty)
-          case x => Left(s"Expected STypeRep but got $v")
+          case x => Left(s"Expected STypeRep but got $x")
         }
       }
       case _ => Left(s"Expected TemplateTypeRep but got $v")
