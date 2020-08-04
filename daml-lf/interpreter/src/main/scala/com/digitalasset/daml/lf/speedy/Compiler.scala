@@ -264,9 +264,6 @@ private[lf] final case class Compiler(
       case EVal(ref) => SEVal(LfDefRef(ref))
       case EBuiltin(bf) =>
         bf match {
-          case BFoldl =>
-            val ref = SEBuiltinRecursiveDefinition.FoldL
-            withLabel(ref.ref, ref)
           case BFoldr =>
             val ref = SEBuiltinRecursiveDefinition.FoldR
             withLabel(ref.ref, ref)
@@ -331,6 +328,9 @@ private[lf] final case class Compiler(
               case BFromTextCodePoints => SBFromTextCodePoints
 
               case BSHA256Text => SBSHA256Text
+
+              // List functions
+              case BFoldl => SBFoldl
 
               // Errors
               case BError => SBError
