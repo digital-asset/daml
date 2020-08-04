@@ -24,7 +24,7 @@ private[perf] final case class Config(
 }
 
 private[perf] object Config {
-  private[perf] val Empty =
+  val Empty =
     Config(
       jsonApiHost = "",
       jsonApiPort = Port.Dynamic,
@@ -32,7 +32,7 @@ private[perf] object Config {
       jwt = Jwt(""),
       packageId = None)
 
-  private[perf] def parseConfig(args: Seq[String]): Option[Config] =
+  def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Config.Empty)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
