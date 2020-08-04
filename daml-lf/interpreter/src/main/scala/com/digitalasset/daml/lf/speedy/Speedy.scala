@@ -924,6 +924,81 @@ private[lf] object Speedy {
     }
   }
 
+  private[speedy] final case class KFoldr(
+      func: SEValue,
+      list: ImmArray[SValue],
+      var lastIndex: Int,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(acc: SValue, machine: Machine) = {
+      if (lastIndex > 0) {
+          machine.restoreEnv(frame, actuals, envSize)
+          val currentIndex = lastIndex - 1
+          val item = list(currentIndex)
+          lastIndex = currentIndex
+          machine.pushKont(this) // NOTE: We've updated `lastIndex`.
+          // TODO(MH): This looks like it has some potential for further
+          // performance gains once the AST nodes related to ANF have landed.
+          // The same applies to `KFoldr1Map/Reduce` below.
+          machine.ctrl = SEAppAtomicFun(func, Array(SEValue(item), SEValue(acc)))
+      } else {
+        machine.returnValue = acc
+      }
+    }
+  }
+
+  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
+  // this continuation and what it does.
+  private[speedy] final case class KFoldr1Map(
+      func: SEValue,
+      var list: FrontStack[SValue],
+      var revClosures: FrontStack[SValue],
+      init: SValue,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(closure: SValue, machine: Machine) = {
+      revClosures = closure +: revClosures
+      list.pop match {
+        case None =>
+          machine.pushKont(KFoldr1Reduce(revClosures, frame, actuals, envSize))
+          machine.returnValue = init
+        case Some((item, rest)) =>
+          machine.restoreEnv(frame, actuals, envSize)
+          list = rest
+          machine.pushKont(this) // NOTE: We've updated `revClosures` and `list`.
+          machine.ctrl = SEAppAtomicFun(func, Array(SEValue(item)))
+      }
+    }
+  }
+
+  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
+  // this continuation and what it does.
+  private[speedy] final case class KFoldr1Reduce(
+      var revClosures: FrontStack[SValue],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(acc: SValue, machine: Machine) = {
+      revClosures.pop match {
+        case None =>
+          machine.returnValue = acc
+        case Some((closure, rest)) =>
+          machine.restoreEnv(frame, actuals, envSize)
+          revClosures = rest
+          machine.pushKont(this) // NOTE: We've updated `revClosures`.
+          machine.ctrl = SEAppAtomicFun(SEValue(closure), Array(SEValue(acc)))
+      }
+    }
+  }
+
   /** Store the evaluated value in the 'SEVal' from which the expression came from.
     * This in principle makes top-level values lazy. It is a useful optimization to
     * allow creation of large constants (for example records) that are repeatedly
