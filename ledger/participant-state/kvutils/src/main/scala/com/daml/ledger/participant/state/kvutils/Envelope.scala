@@ -29,7 +29,7 @@ object Envelope {
   private def enclose(
       kind: Proto.Envelope.MessageKind,
       bytes: ByteString,
-      compression: Boolean = true): ByteString =
+      compression: Boolean): ByteString =
     Proto.Envelope.newBuilder
       .setVersion(Version.version)
       .setKind(kind)

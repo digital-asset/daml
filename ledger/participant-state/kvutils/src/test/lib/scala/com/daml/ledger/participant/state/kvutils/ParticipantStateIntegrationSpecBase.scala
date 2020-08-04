@@ -298,7 +298,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (offset1, _) <- waitForNextUpdate(ps, None)
           _ <- ps
             .submitTransaction(
-              submitterInfo(rt, alice),
+              submitterInfo(alice),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost)
@@ -317,7 +317,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (offset1, update1) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._1),
+              submitterInfo(alice, commandIds._1),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -327,7 +327,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           // Below submission is a duplicate, should get dropped.
           result3 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._1),
+              submitterInfo(alice, commandIds._1),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -335,7 +335,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .toScala
           result4 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._2),
+              submitterInfo(alice, commandIds._2),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -367,7 +367,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (offset1, _) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, "X1"),
+              submitterInfo(alice, "X1"),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost)
@@ -375,7 +375,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
           result3 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, "X2"),
+              submitterInfo(alice, "X2"),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost)
@@ -408,7 +408,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           // Submit without allocation
           _ <- ps
             .submitTransaction(
-              submitterInfo(rt, unallocatedParty),
+              submitterInfo(unallocatedParty),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -435,7 +435,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
           _ <- ps
             .submitTransaction(
-              submitterInfo(rt, party = newParty),
+              submitterInfo(party = newParty),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -657,7 +657,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
     }
   }
 
-  private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
+  private def submitterInfo(party: Ref.Party, commandId: String = "X") =
     SubmitterInfo(
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),
@@ -670,7 +670,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
   private def waitForNextUpdate(
       ps: ParticipantState,
-      offset: Option[Offset] = None): Future[(Offset, Update)] =
+      offset: Option[Offset]): Future[(Offset, Update)] =
     ps.stateUpdates(beginAfter = offset)
       .idleTimeout(IdleTimeout)
       .runWith(Sink.head)

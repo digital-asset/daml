@@ -40,13 +40,7 @@ import scala.util.{Failure, Success, Try}
   */
 class SubmissionValidator[LogResult] private[validator] (
     ledgerStateAccess: LedgerStateAccess[LogResult],
-    processSubmission: (
-        DamlLogEntryId,
-        Timestamp,
-        DamlSubmission,
-        ParticipantId,
-        DamlStateMap,
-    ) => LogEntryAndState,
+    processSubmission: SubmissionValidator.ProcessSubmission,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean,
     stateValueCache: Cache[Bytes, DamlStateValue],
@@ -123,7 +117,7 @@ class SubmissionValidator[LogResult] private[validator] (
 
   private def commit(
       logEntryId: DamlLogEntryId,
-      ignored: StateMap,
+      ignored: Any,
       logEntryAndState: LogEntryAndState,
       stateOperations: LedgerStateOperations[LogResult],
   ): Future[LogResult] = {
@@ -298,6 +292,14 @@ object SubmissionValidator {
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
+
+  private[validator] type ProcessSubmission = (
+      DamlLogEntryId,
+      Timestamp,
+      DamlSubmission,
+      ParticipantId,
+      DamlStateMap,
+  ) => LogEntryAndState
 
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
