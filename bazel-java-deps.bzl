@@ -6,6 +6,7 @@
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:specs.bzl", "maven")
 
 def install_java_deps():
     maven_install(
@@ -20,6 +21,7 @@ def install_java_deps():
             "com.github.ghik:silencer-lib_2.12.11:1.6.0",
             "com.github.ghik:silencer-plugin_2.12.11:1.6.0",
             "com.github.pureconfig:pureconfig_2.12:0.8.0",
+            maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.8.0", neverlink = True),
             "com.github.scopt:scopt_2.12:3.7.1",
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",

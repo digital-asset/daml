@@ -77,7 +77,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     someAgreement
   )
   protected final val someVersionedContractInstance =
-    TransactionBuilder.version(someContractInstance)
+    TransactionBuilder().versionContract(someContractInstance)
 
   protected final val defaultConfig = v1.Configuration(
     generation = 0,
@@ -145,7 +145,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]])
     : (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
     val creation = create(cid)
     val eid = txBuilder.add(creation)
@@ -172,7 +172,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       id: ContractId,
       divulgees: Set[Party],
   ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val exerciseId = txBuilder.add(
       NodeExercises(
         targetCoid = id,
@@ -218,7 +218,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected def singleExercise(
       targetCid: ContractId,
   ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val nid = txBuilder.add(exercise(targetCid))
     val offset = nextOffset()
     val id = offset.toLong
@@ -239,7 +239,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected def singleNonConsumingExercise(
       targetCid: ContractId,
   ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val nid = txBuilder.add(exercise(targetCid).copy(consuming = false))
     val offset = nextOffset()
     val id = offset.toLong
@@ -260,7 +260,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected def exerciseWithChild(
       targetCid: ContractId,
   ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val exerciseId = txBuilder.add(exercise(targetCid))
     val childId = txBuilder.add(create(txBuilder.newCid), exerciseId)
     val tx = CommittedTransaction(txBuilder.build())
@@ -282,7 +282,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   }
 
   protected def fullyTransient: (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
     val createId = txBuilder.add(create(cid))
     val exerciseId = txBuilder.add(exercise(cid))
@@ -306,7 +306,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   // The transient contract is divulged to `charlie` as a non-stakeholder actor on the
   // root exercise node that causes the creation of a transient contract
   protected def fullyTransientWithChildren: (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val root = txBuilder.newCid
     val transient = txBuilder.newCid
     val rootCreateId = txBuilder.add(create(root))
@@ -347,7 +347,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     *
     */
   protected def partiallyVisible: (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val createId = txBuilder.add(
       create(txBuilder.newCid).copy(
         signatories = Set(charlie),
@@ -400,7 +400,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       signatoriesAndTemplates: Seq[(String, String)],
   ): (Offset, LedgerEntry.Transaction) = {
     require(signatoriesAndTemplates.nonEmpty, "multipleCreates cannot create empty transactions")
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val disclosure = for {
       entry <- signatoriesAndTemplates
       (signatory, template) = entry
@@ -475,7 +475,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       party: Party,
       key: String,
   ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val createNodeId = txBuilder.add(
       NodeCreate(
         coid = txBuilder.newCid,
@@ -505,7 +505,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       contract: (ContractId, Option[String]),
   ): (Offset, LedgerEntry.Transaction) = {
     val (contractId, maybeKey) = contract
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val archiveNodeId = txBuilder.add(
       NodeExercises(
         targetCoid = contractId,
@@ -541,7 +541,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       key: String,
       result: Option[ContractId],
   ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val lookupByKeyNodeId = txBuilder.add(
       NodeLookupByKey(
         someTemplateId,
@@ -566,7 +566,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       party: Party,
       contractId: ContractId,
   ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
+    val txBuilder = TransactionBuilder()
     val fetchNodeId = txBuilder.add(
       NodeFetch(
         coid = contractId,

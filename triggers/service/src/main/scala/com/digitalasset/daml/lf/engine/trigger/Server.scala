@@ -51,7 +51,10 @@ class Server(
     materializer: Materializer,
     esf: ExecutionSequencerFactory) {
 
-  private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty
+  import java.util.{concurrent => jconc}
+
+  private val triggerLog: jconc.ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
+    new jconc.ConcurrentHashMap
 
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
   // When running with a persistent store we also write the encoded packages so we can recover
@@ -162,12 +165,12 @@ class Server(
 
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
     val entry = (LocalDateTime.now, msg)
-    triggerLog += triggerInstance -> (getTriggerStatus(triggerInstance) :+ entry)
+    triggerLog.merge(triggerInstance, Vector(entry), _ ++ _)
+    ()
   }
 
-  private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] = {
-    triggerLog.getOrElse(uuid, Vector())
-  }
+  private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
+    triggerLog.getOrDefault(uuid, Vector.empty)
 
   private val route = concat(
     post {
@@ -336,7 +339,7 @@ object Server {
         }
     }
 
-    val (triggerDao: RunningTriggerDao, server: Server) = jdbcConfig match {
+    val (triggerDao, server): (RunningTriggerDao, Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
         val server = new Server(ledgerConfig, restartConfig, secretKey, dao)

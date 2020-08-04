@@ -66,7 +66,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
     }
 
     "yield two projection roots for single root transaction with two parties" in {
-      val builder = new TransactionBuilder
+      val builder = TransactionBuilder()
       val nid = builder.add(
         makeCreateNode(
           builder.newCid,
@@ -82,7 +82,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
     }
 
     "yield proper projection roots in complex transaction" in {
-      val builder = new TransactionBuilder
+      val builder = TransactionBuilder()
 
       // Alice creates an "offer contract" to Bob as part of her workflow.
       // Alice sees both the exercise and the create, and Bob only

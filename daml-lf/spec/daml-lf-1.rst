@@ -2672,6 +2672,12 @@ as described by the ledger model::
        ⇓ᵤ
      Ok (cid, tr) ‖ (st₁, keys₁)
 
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercMissing
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st; keys)
+       ⇓ᵤ
+     Err "Exercise on unknown contract"
+
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
@@ -2768,6 +2774,12 @@ as described by the ledger model::
        ⇓ᵤ
      Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
 
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActorsMissing
+     'exercise_without_actors' Mod:T.Ch cid v ‖ (st, keys)
+       ⇓ᵤ
+     Err "Exercise on unknown contract"
+
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
@@ -2784,6 +2796,12 @@ as described by the ledger model::
      'exercise' Mod:T.Ch cid vₚ v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur
    —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActors
      'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur
+
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchMissing
+     'fetch' @Mod:T cid ‖ (st; keys)
+       ⇓ᵤ
+     Err "Exercise on unknown contract"
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
@@ -2833,7 +2851,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyFound
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
         ⇓ᵤ
-     Ok ⟨'contractId': cid, 'contract': vₜ⟩ ‖ (st; keys)
+     Ok ⟨'ContractId': cid, 'contract': vₜ⟩ ‖ (st; keys)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Err t
@@ -2846,7 +2864,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyNotFound
      'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
        ⇓ᵤ
-     Ok ('None' @(Contract:Id Mod:T), ε) ‖ (st; keys)
+     Ok ('None' @('ContractId' Mod:T), ε) ‖ (st; keys)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  vₘ
@@ -2855,7 +2873,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyFound
      'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
        ⇓ᵤ
-     Ok ('Some' @(Contract:Id Mod:T) cid, ε) ‖ (st; keys)
+     Ok ('Some' @('ContractId' Mod:T) cid, ε) ‖ (st; keys)
 
      LitTimestamp is the current ledger time
    —————————————————————————————————————————————————————————————————————— EvUpdGetTime

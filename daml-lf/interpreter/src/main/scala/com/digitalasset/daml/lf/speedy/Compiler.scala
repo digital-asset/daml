@@ -264,9 +264,6 @@ private[lf] final case class Compiler(
       case EVal(ref) => SEVal(LfDefRef(ref))
       case EBuiltin(bf) =>
         bf match {
-          case BFoldl =>
-            val ref = SEBuiltinRecursiveDefinition.FoldL
-            withLabel(ref.ref, ref)
           case BFoldr =>
             val ref = SEBuiltinRecursiveDefinition.FoldR
             withLabel(ref.ref, ref)
@@ -331,6 +328,9 @@ private[lf] final case class Compiler(
               case BFromTextCodePoints => SBFromTextCodePoints
 
               case BSHA256Text => SBSHA256Text
+
+              // List functions
+              case BFoldl => SBFoldl
 
               // Errors
               case BError => SBError
@@ -417,11 +417,20 @@ private[lf] final case class Compiler(
           translate(record),
         )
 
-      case ERecUpd(tapp, field, record, update) =>
-        SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, field))(
-          translate(record),
-          translate(update),
-        )
+      case erecupd: ERecUpd => {
+        val tapp = erecupd.tycon
+        val (record, fields, updates) = collectRecUpds(erecupd)
+        if (fields.length == 1) {
+          SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, fields.head))(
+            translate(record),
+            translate(updates.head),
+          )
+        } else {
+          SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).toArray)(
+            (record :: updates).map(translate): _*,
+          )
+        }
+      }
 
       case EStructCon(fields) =>
         SEApp(SEBuiltin(SBStructCon(Name.Array(fields.map(_._1).toSeq: _*))), fields.iterator.map {
@@ -927,6 +936,26 @@ private[lf] final case class Compiler(
         (binding :: bindings, body2)
       case e => (List.empty, e)
     }
+
+  @tailrec
+  private def stripLocs(expr: Expr): Expr =
+    expr match {
+      case ELocation(_, expr1) => stripLocs(expr1)
+      case _ => expr
+    }
+
+  // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
+  private def collectRecUpds(expr: Expr): (Expr, List[Name], List[Expr]) = {
+    @tailrec
+    def go(expr: Expr, fields: List[Name], updates: List[Expr]): (Expr, List[Name], List[Expr]) =
+      stripLocs(expr) match {
+        case ERecUpd(_, field, record, update) =>
+          go(record, field :: fields, update :: updates)
+        case _ =>
+          (expr, fields, updates)
+      }
+    go(expr, List.empty, List.empty)
+  }
 
   private def lookupPackage(pkgId: PackageId): Package =
     if (packages.isDefinedAt(pkgId)) packages(pkgId)
