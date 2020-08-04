@@ -30,7 +30,7 @@ class LogAppenderPreExecutingCommitStrategySpec
       when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
         .thenReturn(expectedStateKey)
       val logEntryId = aLogEntryId()
-      val expectedLogEntryKey = ByteString.copyFromUtf8("L").concat(logEntryId.toByteString)
+      val expectedLogEntryKey = logEntryId.toByteString
       val preExecutionResult = PreExecutionResult(
         readSet = Set.empty,
         successfulLogEntry = aLogEntry,
@@ -46,10 +46,10 @@ class LogAppenderPreExecutingCommitStrategySpec
           verify(mockStateKeySerializationStrategy, times(preExecutionResult.stateUpdates.size))
             .serializeStateKey(any[DamlStateKey])
           actual.successWriteSet should have size (preExecutionResult.stateUpdates.size + 1L)
-          actual.successWriteSet.toMap.keys should contain(expectedLogEntryKey)
+          actual.successWriteSet.toMap.keys.map(_.key) should contain(expectedLogEntryKey)
 
           actual.outOfTimeBoundsWriteSet should have size 1
-          actual.outOfTimeBoundsWriteSet.toMap.keys should contain(expectedLogEntryKey)
+          actual.outOfTimeBoundsWriteSet.toMap.keys.map(_.key) should contain(expectedLogEntryKey)
 
           actual.involvedParticipants shouldBe Set.empty
       }
