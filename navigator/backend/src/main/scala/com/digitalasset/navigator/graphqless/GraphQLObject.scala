@@ -5,6 +5,7 @@ package com.daml.navigator.graphqless
 
 import sangria.schema._
 import shapeless._
+import com.github.ghik.silencer.silent
 
 import scala.reflect.ClassTag
 
