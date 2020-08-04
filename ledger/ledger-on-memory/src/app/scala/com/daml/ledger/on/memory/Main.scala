@@ -114,10 +114,9 @@ object Main {
             )
         }
       parser
-        .opt[Boolean]("always-pre-execute")
+        .opt[Boolean]("force-pre-execute")
         .optional()
-        .text(
-          "Whether to enable pre-execution (mutually exclusive with batching and will disable it).")
+        .text("Force pre-execution (mutually exclusive with batching)")
         .action {
           case (preExecute, config) =>
             config.copy(
@@ -128,7 +127,7 @@ object Main {
         }
       parser.checkConfig { config =>
         if (config.extra.alwaysPreExecute && config.extra.batchingLedgerWriterConfig.enableBatching)
-          Left("Either always pre-executing or batching can be enabled, but not both")
+          Left("Either pre-executing can be forced or batching can be enabled, but not both.")
         else
           Right(())
       }
