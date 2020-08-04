@@ -7,13 +7,13 @@ import com.daml.ledger.participant.state.kvutils.api.BatchingLedgerWriterConfig
 
 final case class ExtraConfig(
     batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
-    preExecute: Boolean,
+    alwaysPreExecute: Boolean,
 )
 
 object ExtraConfig {
-  val reasonableDefault =
+  val reasonableDefault: ExtraConfig =
     ExtraConfig(
       batchingLedgerWriterConfig =
         BatchingLedgerWriterConfig.reasonableDefault.copy(maxBatchConcurrentCommits = 2),
-      preExecute = false)
+      alwaysPreExecute = false)
 }

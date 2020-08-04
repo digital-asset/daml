@@ -4,8 +4,9 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 
 /**
-  * A raw key with a flag indicating whether it is a log entry key or not.
+  * A key value pair with the log entry.
   */
-case class AnnotatedRawKey(key: Bytes, isLogEntry: Boolean)
+case class RawKeyValuePairsWithLogEntry(logEntry: (Bytes, Bytes), state: RawKeyValuePairs)

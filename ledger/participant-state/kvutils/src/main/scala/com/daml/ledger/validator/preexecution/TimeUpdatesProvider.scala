@@ -8,6 +8,5 @@ import com.daml.lf.data.Time.Timestamp
 object TimeUpdatesProvider {
   private[this] val NowFakeTimeUpdatesProvider: TimeUpdatesProvider = () => Some(Timestamp.now())
 
-  // TODO replace with actual time update log entry read
   val ReasonableDefault: TimeUpdatesProvider = NowFakeTimeUpdatesProvider
 }

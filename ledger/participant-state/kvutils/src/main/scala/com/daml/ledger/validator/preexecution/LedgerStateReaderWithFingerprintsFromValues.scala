@@ -9,7 +9,7 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * An in-transaction ledger state reader that also returns value fingerprints based on their value.
+  * A ledger state reader that also generates value fingerprints based on their value.
   *
   * It is useful to implement pre-execution for ledgers providing [[LedgerStateOperations]],
   * i.e. that don't directly provide fingerprints along with read values.

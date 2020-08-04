@@ -71,6 +71,4 @@ class BatchedValidatingCommitterSpec
         any[ParticipantId](),
         any[DamlLedgerStateReader](),
         any[CommitStrategy[Unit]]())(any[Materializer](), any[ExecutionContext]()))
-
-  private type LedgerStateTransaction = LedgerStateOperations[Unit] => Future[Unit]
 }

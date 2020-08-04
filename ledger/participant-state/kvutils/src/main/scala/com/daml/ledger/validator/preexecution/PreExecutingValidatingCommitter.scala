@@ -40,14 +40,14 @@ import scala.util.{Failure, Success}
 class PreExecutingValidatingCommitter[LogResult](
     now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,
-    validator: PreExecutingSubmissionValidator[AnnotatedRawKeyValuePairs],
+    validator: PreExecutingSubmissionValidator[RawKeyValuePairsWithLogEntry],
     valueToFingerprint: Option[Value] => Fingerprint,
-    postExecutionFinalizer: PostExecutionFinalizerWithFingerprintsFromValues[LogResult],
+    postExecutionFinalizer: PostExecutionFinalizer[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
     cacheUpdatePolicy: CacheUpdatePolicy)(implicit materializer: Materializer) {
 
   /**
-    * Pre-executes and then finalizes a submission.
+    * Pre-executes and then commits a submission.
     */
   def commit(
       correlationId: String,
@@ -55,7 +55,7 @@ class PreExecutingValidatingCommitter[LogResult](
       submittingParticipantId: ParticipantId,
       ledgerStateAccess: LedgerStateAccess[LogResult])(
       implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    // Fidelity level 1: sequential pre-execution. Implemented as: the pre-post-exec pipeline is a single transaction.
+    // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
     ledgerStateAccess.inTransaction { ledgerStateOperations =>
       for {
         preExecutionOutput <- validator
@@ -73,22 +73,20 @@ class PreExecutingValidatingCommitter[LogResult](
             )
           )
         submissionResult <- retry {
-          case PostExecutionFinalizerWithFingerprintsFromValues.Conflict => true
+          case PostExecutionFinalizer.ConflictDetectedException => true
         } { (_, _) =>
           postExecutionFinalizer.conflictDetectAndFinalize(
             now,
             preExecutionOutput,
             ledgerStateOperations)
         }.transform {
-          case Failure(PostExecutionFinalizerWithFingerprintsFromValues.Conflict) =>
+          case Failure(PostExecutionFinalizer.ConflictDetectedException) =>
             Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
           case result => result
         }
       } yield submissionResult
     }
 
-  // TODO consider adding to [[RetryStrategy]] a pre-built exponential backoff strategy
-  //  with custom exception processing and use it here.
   private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =
     RetryStrategy.constant(attempts = Some(3), 5.seconds)
 }

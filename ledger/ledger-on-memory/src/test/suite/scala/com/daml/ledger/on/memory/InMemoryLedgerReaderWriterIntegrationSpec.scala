@@ -13,8 +13,9 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.resources.ResourceOwner
+import com.daml.resources.{Resource, ResourceOwner}
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boolean)
@@ -44,14 +45,24 @@ abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boo
       testId: String,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
-    new InMemoryLedgerReaderWriter.SingleParticipantOwner(
-      ledgerId,
-      batchingLedgerWriterConfig,
-      preExecute = false,
-      participantId,
-      metrics = metrics,
-      engine = Engine.DevEngine()
-    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+    new ResourceOwner[ParticipantState] {
+      override def acquire()(
+          implicit executionContext: ExecutionContext): Resource[ParticipantState] = {
+        val state = InMemoryState.empty
+        for {
+          dispatcher <- dispatcherOwner.acquire()
+          readerWriter <- new InMemoryLedgerReaderWriter.BatchingOwner(
+            ledgerId,
+            batchingLedgerWriterConfig,
+            participantId,
+            metrics = metrics,
+            engine = Engine.DevEngine(),
+            state = state,
+            dispatcher = dispatcher,
+          ).acquire()
+        } yield new KeyValueParticipantState(readerWriter, readerWriter, metrics)
+      }
+    }
 }
 
 class InMemoryLedgerReaderWriterIntegrationSpec

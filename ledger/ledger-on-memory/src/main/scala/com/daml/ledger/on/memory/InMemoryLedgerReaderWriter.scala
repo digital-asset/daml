@@ -27,11 +27,7 @@ import com.daml.ledger.validator.batch.{
 }
 import com.daml.ledger.validator.caching.ImmutablesOnlyCacheUpdatePolicy
 import com.daml.ledger.validator.preexecution._
-import com.daml.ledger.validator.{
-  DefaultStateKeySerializationStrategy,
-  StateKeySerializationStrategy,
-  ValidateAndCommit
-}
+import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -71,63 +67,6 @@ final class InMemoryLedgerReaderWriter(
 
 object InMemoryLedgerReaderWriter {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
-
-  final class SingleParticipantOwner(
-      ledgerId: LedgerId,
-      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
-      preExecute: Boolean,
-      participantId: ParticipantId,
-      timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
-      stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)] =
-        Cache.none,
-      metrics: Metrics,
-      engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
-
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] = {
-      val state = InMemoryState.empty
-      for {
-        dispatcher <- dispatcherOwner.acquire()
-        readerWriter <- (if (preExecute)
-                           createPreExecutingOwner(state, dispatcher)
-                         else
-                           createBatchingOwner(state, dispatcher)).acquire()
-      } yield readerWriter
-    }
-
-    private def createPreExecutingOwner(
-        state: InMemoryState,
-        dispatcher: Dispatcher[Index]): PreExecutingOwner =
-      new PreExecutingOwner(
-        ledgerId,
-        participantId,
-        DefaultStateKeySerializationStrategy,
-        metrics,
-        timeProvider,
-        stateValueCacheForPreExecution,
-        dispatcher,
-        state,
-        engine)
-
-    private def createBatchingOwner(
-        state: InMemoryState,
-        dispatcher: Dispatcher[Index]): BatchingOwner =
-      new BatchingOwner(
-        ledgerId,
-        batchingLedgerWriterConfig,
-        participantId,
-        metrics,
-        timeProvider,
-        stateValueCache,
-        dispatcher,
-        state,
-        engine
-      )
-  }
 
   final class BatchingOwner(
       ledgerId: LedgerId,
@@ -263,7 +202,7 @@ object InMemoryLedgerReaderWriter {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val valueToFingerprint: Option[Value] => Fingerprint =
       _.getOrElse(FingerprintPlaceholder)
-    val validator = new PreExecutingSubmissionValidator[AnnotatedRawKeyValuePairs](
+    val validator = new PreExecutingSubmissionValidator[RawKeyValuePairsWithLogEntry](
       keyValueCommitting,
       metrics,
       keySerializationStrategy,
@@ -273,7 +212,7 @@ object InMemoryLedgerReaderWriter {
       keySerializationStrategy,
       validator,
       valueToFingerprint,
-      new PostExecutionFinalizerWithFingerprintsFromValues[Index](valueToFingerprint),
+      new PostExecutionFinalizer[Index](valueToFingerprint),
       stateValueCache = stateValueCacheForPreExecution,
       ImmutablesOnlyCacheUpdatePolicy
     )
@@ -299,7 +238,7 @@ object InMemoryLedgerReaderWriter {
   )(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
-  ) =
+  ): InMemoryLedgerReaderWriter =
     new InMemoryLedgerReaderWriter(
       participantId,
       ledgerId,

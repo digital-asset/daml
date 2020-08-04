@@ -82,13 +82,13 @@ object KeyValueParticipantStateReader {
   def apply(
       reader: LedgerReader,
       metrics: Metrics,
-      timeUpdateProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault)(
+      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault)(
       implicit materializer: Materializer): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,
       KeyValueConsumption.logEntryToUpdate,
-      timeUpdateProvider)
+      timeUpdatesProvider)
 
   private[api] def offsetForUpdate(
       offsetFromRecord: Offset,

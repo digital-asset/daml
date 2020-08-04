@@ -5,7 +5,6 @@ package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
 import com.daml.caching
-import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
   KeyValueLedger,
@@ -66,8 +65,8 @@ object Main {
         loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
-      if (config.extra.preExecute)
-        new memory.InMemoryLedgerReaderWriter.PreExecutingOwner(
+      if (config.extra.alwaysPreExecute)
+        new InMemoryLedgerReaderWriter.PreExecutingOwner(
           ledgerId = config.ledgerId,
           participantId = participantConfig.participantId,
           keySerializationStrategy = DefaultStateKeySerializationStrategy,
@@ -83,7 +82,7 @@ object Main {
       else
         new InMemoryLedgerReaderWriter.BatchingOwner(
           ledgerId = config.ledgerId,
-          config.extra.batchingLedgerWriterConfig,
+          batchingLedgerWriterConfig = config.extra.batchingLedgerWriterConfig,
           participantId = participantConfig.participantId,
           metrics = metrics,
           stateValueCache = caching.WeightedCache.from(
@@ -115,7 +114,7 @@ object Main {
             )
         }
       parser
-        .opt[Boolean]("pre-execute")
+        .opt[Boolean]("always-pre-execute")
         .optional()
         .text(
           "Whether to enable pre-execution (mutually exclusive with batching and will disable it).")
@@ -123,10 +122,16 @@ object Main {
           case (preExecute, config) =>
             config.copy(
               extra = config.extra.copy(
-                preExecute = preExecute
+                alwaysPreExecute = preExecute
               )
             )
         }
+      parser.checkConfig { config =>
+        if (config.extra.alwaysPreExecute && config.extra.batchingLedgerWriterConfig.enableBatching)
+          Left("Either always pre-executing or batching can be enabled, but not both")
+        else
+          Right(())
+      }
       ()
     }
   }
