@@ -106,9 +106,7 @@ object SandboxServer {
     def port(implicit executionContext: ExecutionContext): Future[Port] =
       apiServer.map(_.port)
 
-    private[SandboxServer] def apiServer(
-        implicit executionContext: ExecutionContext
-    ): Future[ApiServer] =
+    private[SandboxServer] def apiServer: Future[ApiServer] =
       apiServerResource.asFuture
 
     private[SandboxServer] def reset(
@@ -126,7 +124,7 @@ object SandboxServer {
         _ <- replacementApiServer.asFuture
       } yield new SandboxState(materializer, metrics, packageStore, replacementApiServer)
 
-    def release()(implicit executionContext: ExecutionContext): Future[Unit] =
+    def release(): Future[Unit] =
       apiServerResource.release()
   }
 
@@ -233,8 +231,6 @@ final class SandboxServer(
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val defaultConfiguration = config.ledgerConfig.initialConfiguration
-
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
     val timeProviderType = config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
@@ -264,9 +260,7 @@ final class SandboxServer(
           config.ledgerIdMode,
           config.participantId,
           jdbcUrl,
-          defaultConfiguration,
           timeProvider,
-          acs,
           ledgerEntries,
           startMode,
           config.commandConfig.maxParallelSubmissions,
@@ -282,7 +276,6 @@ final class SandboxServer(
           name,
           config.ledgerIdMode,
           config.participantId,
-          defaultConfiguration,
           timeProvider,
           acs,
           ledgerEntries,

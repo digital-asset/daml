@@ -29,7 +29,6 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
-import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
@@ -57,7 +56,6 @@ object SqlLedger {
       initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
@@ -132,9 +130,7 @@ object SqlLedger {
               initialLedgerEntries,
               timeProvider,
               packages,
-              acs,
               ledgerDao,
-              participantId,
             )
           } yield ()
         } else {
@@ -164,9 +160,7 @@ object SqlLedger {
         initialLedgerEntries: ImmArray[LedgerEntryOrBump],
         timeProvider: TimeProvider,
         packages: InMemoryPackageStore,
-        acs: InMemoryActiveLedgerState,
         ledgerDao: LedgerDao,
-        participantId: ParticipantId,
     )(implicit executionContext: ExecutionContext): Future[Unit] = {
       if (initialLedgerEntries.nonEmpty) {
         logger.info(s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
@@ -250,7 +244,6 @@ object SqlLedger {
             ledgerDao,
             dispatcher,
             timeProvider,
-            packages,
             persistenceQueue,
             transactionCommitter,
         ))
@@ -315,11 +308,9 @@ private final class SqlLedger(
     ledgerDao: LedgerDao,
     dispatcher: Dispatcher[Offset],
     timeProvider: TimeProvider,
-    packages: InMemoryPackageStore,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-)(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends BaseLedger(ledgerId, ledgerDao, dispatcher)
+) extends BaseLedger(ledgerId, ledgerDao, dispatcher)
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)

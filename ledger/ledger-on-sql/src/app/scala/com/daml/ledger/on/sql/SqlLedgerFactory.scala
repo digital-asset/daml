@@ -58,7 +58,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext)
+  )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[KeyValueParticipantState] {
     override def acquire()(
         implicit executionContext: ExecutionContext

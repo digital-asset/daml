@@ -299,9 +299,7 @@ class InMemoryLedger(
     )
 
   // Validates the given ledger time according to the ledger time model
-  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant)(
-      implicit loggingContext: LoggingContext,
-  ): Either[String, Unit] = {
+  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[String, Unit] = {
     ledgerConfiguration
       .fold[Either[String, Unit]](
         Left("No ledger configuration available, cannot validate ledger time")
