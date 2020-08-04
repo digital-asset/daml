@@ -480,8 +480,6 @@ jobs:
                -H 'Content-Type: application/json' \
                --data "{\"text\":\"Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
                $(Slack.team-daml)
-          }
-
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'

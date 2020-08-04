@@ -1,11 +1,10 @@
-FROM openjdk:8u212-alpine
-RUN apk add --no-cache curl bash
+FROM adoptopenjdk:8-jdk-hotspot
 ARG VERSION
 # This is needed to get the DNS requests
 # from Haskell binaries to succeed.
 # Otherwise they fail to even resolve localhost.
 RUN echo 'hosts: files dns' > /etc/nsswitch.conf
-RUN addgroup -S daml && adduser -S daml -G daml
+RUN addgroup --system daml && adduser --system --ingroup daml daml
 USER daml
 RUN curl https://get.daml.com | sh -s $VERSION \
     && printf "auto-install: false\nupdate-check: never\n" >> /home/daml/.daml/daml-config.yaml

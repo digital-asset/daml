@@ -153,7 +153,7 @@ class Context(val contextId: Context.ContextId) {
         compiledPackages,
         txSeeding,
         defn,
-        TransactionVersions.SupportedOutputDevVersions,
+        TransactionVersions.SupportedDevOutputVersions,
       )
   }
 

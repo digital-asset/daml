@@ -72,6 +72,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_java_proto",

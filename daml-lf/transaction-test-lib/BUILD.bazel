@@ -20,6 +20,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/data-scalacheck",
         "//daml-lf/interface",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
