@@ -1,5 +1,7 @@
 # Instructions
 
+The following instruction are for Linux but should also work on macOs.
+
 ## 1. Install Gatling (open-source load testing solution)
 - the website: https://gatling.io/open-source
 - direct URL: https://repo1.maven.org/maven2/io/gatling/highcharts/gatling-charts-highcharts-bundle/3.3.1/gatling-charts-highcharts-bundle-3.3.1-bundle.zip
