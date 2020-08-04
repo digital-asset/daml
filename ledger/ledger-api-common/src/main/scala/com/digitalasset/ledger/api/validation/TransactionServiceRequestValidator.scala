@@ -81,9 +81,7 @@ class TransactionServiceRequestValidator(
         partial.end,
         ledgerEnd,
         offsetOrdering)
-      convertedFilter <- TransactionFilterValidator.validate(
-        partial.transactionFilter,
-        "filter.filters_by_party")
+      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
         ledgerId,
@@ -112,9 +110,7 @@ class TransactionServiceRequestValidator(
         partial.end,
         ledgerEnd,
         offsetOrdering)
-      convertedFilter <- transactionFilterToPartySet(
-        partial.transactionFilter,
-        "filter.filters_by_party")
+      convertedFilter <- transactionFilterToPartySet(partial.transactionFilter)
     } yield {
       transaction.GetTransactionTreesRequest(
         partial.ledgerId,
@@ -169,7 +165,6 @@ class TransactionServiceRequestValidator(
 
   private def transactionFilterToPartySet(
       transactionFilter: TransactionFilter,
-      fieldName: String
   ) =
     transactionFilter.filtersByParty
       .collectFirst {

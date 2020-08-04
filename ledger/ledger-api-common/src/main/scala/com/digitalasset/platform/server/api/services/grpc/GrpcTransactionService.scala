@@ -37,8 +37,6 @@ class GrpcTransactionService(
 
   protected val logger: Logger = LoggerFactory.getLogger(ApiTransactionService.getClass)
 
-  private type MapStringSet[T] = Map[String, Set[T]]
-
   private val validator =
     new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
 
@@ -126,7 +124,7 @@ class GrpcTransactionService(
 
     validation.fold(
       Future.failed,
-      v =>
+      _ =>
         service
           .getLedgerEnd(request.ledgerId)
           .map(abs =>

@@ -26,7 +26,7 @@ class ServerSubscriberWhiteboxTest
         super.onSubscribe(subscription)
         probe.registerOnSubscribe(new SubscriberPuppet {
           override def triggerRequest(elements: Long): Unit = {
-            for (i <- 1l to elements) so.demandResponse()
+            for (_ <- 1l to elements) so.demandResponse()
           }
 
           override def signalCancel(): Unit = {

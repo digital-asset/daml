@@ -60,8 +60,7 @@ final class CommandStaticTimeIT
             maxCommandsInFlight = 1,
             maxParallelSubmissions = 1,
             defaultDeduplicationTime = java.time.Duration.ofSeconds(30)),
-          None
-        ).withTimeProvider(Some(tp)))(DirectExecutionContext)
+      ))(DirectExecutionContext)
 
   private lazy val submitRequest: SubmitRequest =
     MockMessages.submitRequest.update(
@@ -87,7 +86,6 @@ final class CommandStaticTimeIT
         for {
           commandClient <- createCommandClient()
           completion <- commandClient
-            .withTimeProvider(None)
             .trackSingleCommand(
               SubmitRequest(
                 Some(submitRequest.getCommands

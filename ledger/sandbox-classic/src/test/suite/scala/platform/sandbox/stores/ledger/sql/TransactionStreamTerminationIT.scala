@@ -65,7 +65,6 @@ class TransactionStreamTerminationIT
       ledgerId,
       applicationId,
       commandClientConfig,
-      None
     )
 
   "TransactionService" when {
