@@ -1,6 +1,6 @@
 # Instructions
 
-The following instruction are for Linux but should also work on macOs.
+The following instructions tested on Linux but should also work on macOs.
 
 ## 1. Install Gatling (open-source load testing solution)
 - the website: https://gatling.io/open-source
