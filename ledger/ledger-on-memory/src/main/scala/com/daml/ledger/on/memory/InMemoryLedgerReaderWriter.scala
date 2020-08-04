@@ -93,9 +93,9 @@ object InMemoryLedgerReaderWriter {
       for {
         dispatcher <- dispatcherOwner.acquire()
         readerWriter <- (if (preExecute)
-                           createBatchingOwner(state, dispatcher)
+                           createPreExecutingOwner(state, dispatcher)
                          else
-                           createPreExecutingOwner(state, dispatcher)).acquire()
+                           createBatchingOwner(state, dispatcher)).acquire()
       } yield readerWriter
     }
 
