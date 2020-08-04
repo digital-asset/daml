@@ -58,7 +58,6 @@ private[migration] object V29TransactionsWriter extends V29TransactionsWriter {
       transactionId = transactionId,
       commandId = commandId,
       submitter = submitter,
-      roots = roots,
       ledgerEffectiveTime = ledgerEffectiveTime,
       offset = offset,
       transaction = transaction,
