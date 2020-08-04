@@ -6,16 +6,7 @@ import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class CreateCommand extends Simulation {
-
-  private val httpProtocol = http.disableWarmUp
-    .baseUrl("http://localhost:7575")
-    .inferHtmlResources()
-    .acceptHeader("*/*")
-    .acceptEncodingHeader("gzip, deflate")
-    .authorizationHeader(
-      "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU")
-    .contentTypeHeader("application/json")
+class CreateCommand extends Simulation with SimulationConfig {
 
   private val jsonCommand = """{
   "templateId": "Iou:Iou",
@@ -33,8 +24,7 @@ class CreateCommand extends Simulation {
     .body(StringBody(jsonCommand))
 
   private val scn = scenario("CreateCommandScenario")
-    .repeat(2000)(exec(request.silent)) // server warmup
-    .repeat(2000)(exec(request))
+    .repeat(1000)(exec(request))
 
   setUp(
     scn.inject(atOnceUsers(1))

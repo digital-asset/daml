@@ -6,22 +6,13 @@ import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SyncQueryConstantAcs extends Simulation {
+class SyncQueryConstantAcs extends Simulation with SimulationConfig {
 
   private val rng = new scala.util.Random(123456789)
 
   private def randomAmount(): Int = {
     rng.nextInt(10) + 5 // [5, 15)
   }
-
-  private val httpProtocol = http.disableWarmUp
-    .baseUrl("http://localhost:7575")
-    .inferHtmlResources()
-    .acceptHeader("*/*")
-    .acceptEncodingHeader("gzip, deflate")
-    .authorizationHeader(
-      "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU")
-    .contentTypeHeader("application/json")
 
   private val createRequest =
     http("CreateCommand")

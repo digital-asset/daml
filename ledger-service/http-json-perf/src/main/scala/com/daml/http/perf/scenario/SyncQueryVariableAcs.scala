@@ -7,12 +7,8 @@ import java.{util => jutil}
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
-//import scala.collection.JavaConverters._
-
-//import scala.concurrent.duration._
-
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SyncQueryVariableAcs extends Simulation {
+class SyncQueryVariableAcs extends Simulation with SimulationConfig {
 
   private val rng = new scala.util.Random(123456789)
 
@@ -23,15 +19,6 @@ class SyncQueryVariableAcs extends Simulation {
   }
 
   private val acsQueue = new jutil.concurrent.LinkedBlockingQueue[String]()
-
-  private val httpProtocol = http.disableWarmUp
-    .baseUrl("http://localhost:7575")
-    .inferHtmlResources()
-    .acceptHeader("*/*")
-    .acceptEncodingHeader("gzip, deflate")
-    .authorizationHeader(
-      "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU")
-    .contentTypeHeader("application/json")
 
   private val createRequest =
     http("CreateCommand")
@@ -101,10 +88,10 @@ private[scenario] final case class BlockingIterator[A](
     private val maxToRetrieve: Int)
     extends Iterator[A] {
 
-  private val retrived = new jutil.concurrent.atomic.AtomicInteger(0)
+  private val retrieved = new jutil.concurrent.atomic.AtomicInteger(0)
 
   override def isEmpty: Boolean = synchronized {
-    queue.size == 0 || retrived.get >= maxToRetrieve
+    queue.size == 0 || retrieved.get >= maxToRetrieve
   }
 
   override def hasNext: Boolean = !isEmpty
@@ -112,7 +99,7 @@ private[scenario] final case class BlockingIterator[A](
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def next(): A = synchronized {
     val a: A = queue.take()
-    retrived.incrementAndGet()
+    retrieved.incrementAndGet()
     a
   }
 }
