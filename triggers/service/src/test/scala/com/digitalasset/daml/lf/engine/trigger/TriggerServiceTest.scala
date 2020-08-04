@@ -541,7 +541,6 @@ class TriggerServiceTestWithDb
         _ <- assertTriggerStatus(uri, triggerId, _.last should ===("running"))
       } yield succeed
     }
-    _ <- Future(Thread sleep 1000) // is it in the in-between period?
     // Once service is shutdown, start a new one and check the previously running trigger is restarted.
     _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
