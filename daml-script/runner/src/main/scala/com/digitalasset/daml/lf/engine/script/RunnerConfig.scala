@@ -6,7 +6,6 @@ package com.daml.lf.engine.script
 import java.nio.file.{Path, Paths}
 import java.io.File
 import java.time.Duration
-import scala.util.Try
 
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
@@ -31,11 +30,6 @@ object RunnerConfig {
 
   val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
   val DefaultMaxInboundMessageSize: Int = 4194304
-
-  private def validatePath(path: String, message: String): Either[String, Unit] = {
-    val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-    if (readable) Right(()) else Left(message)
-  }
 
   private val parser = new scopt.OptionParser[RunnerConfig]("script-runner") {
     head("script-runner")
@@ -105,7 +99,7 @@ object RunnerConfig {
       c.copy(tlsConfig = f(c.tlsConfig)))
 
     opt[Unit]("json-api")
-      .action { (t, c) =>
+      .action { (_, c) =>
         c.copy(jsonApi = true)
       }
       .text("Run DAML Script via the HTTP JSON API instead of via gRPC (experimental).")

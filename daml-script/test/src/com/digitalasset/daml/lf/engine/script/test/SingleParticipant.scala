@@ -20,7 +20,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 
@@ -398,12 +397,12 @@ object SingleParticipant {
       .action((d, c) => c.copy(darPath = d))
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
+      .action { (_, c) =>
         c.copy(wallclockTime = true)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")
     opt[Unit]("auth")
-      .action { (f, c) =>
+      .action { (_, c) =>
         c.copy(auth = true)
       }
 
@@ -411,8 +410,6 @@ object SingleParticipant {
       .optional()
       .action((d, c) => c.copy(rootCa = Some(d)))
   }
-
-  private val applicationId = ApplicationId("DAML Script Tests")
 
   def getToken(parties: List[String], admin: Boolean): String = {
     val payload = AuthServiceJWTPayload(

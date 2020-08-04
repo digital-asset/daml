@@ -25,7 +25,7 @@ import java.util.logging.{Level, Logger}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object ReplServiceMain extends App {
   case class Config(
@@ -39,10 +39,6 @@ object ReplServiceMain extends App {
       timeMode: Option[ScriptTimeMode],
   )
   object Config {
-    private def validatePath(path: String, message: String): Either[String, Unit] = {
-      val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-      if (readable) Right(()) else Left(message)
-    }
     private def setTimeMode(
         config: Config,
         timeMode: ScriptTimeMode,
@@ -209,7 +205,7 @@ class ReplService(
     val pkg = Package(Seq(mod), Seq(), None)
     // TODO[AH] Provide daml-script package id from REPL client.
     val (scriptPackageId, _) = packages.find {
-      case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
+      case (_, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
     }.get
 
     var scriptExpr: SExpr = SEVal(
