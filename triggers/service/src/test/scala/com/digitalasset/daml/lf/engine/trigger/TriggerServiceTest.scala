@@ -535,7 +535,7 @@ class TriggerServiceTestWithDb
   } yield succeed)
 
   it should "restart triggers after shutdown" in (for {
-  _ <- withTriggerService(Some(dar)) { (uri: Uri, ledgerProxy: Proxy) =>
+    _ <- withTriggerService(Some(dar)) { (uri: Uri, ledgerProxy: Proxy) =>
       for {
         // Start a trigger in the first run of the service.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
