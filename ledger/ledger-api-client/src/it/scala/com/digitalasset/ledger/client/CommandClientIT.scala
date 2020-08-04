@@ -76,7 +76,6 @@ final class CommandClientIT
       ledgerId,
       applicationId,
       configuration,
-      None
     )
 
   private def timeProvider(ledgerId: domain.LedgerId = testLedgerId): Future[TimeProvider] = {
@@ -92,9 +91,8 @@ final class CommandClientIT
     : Future[CommandClient] =
     timeProvider(ledgerId)
       .map(
-        tp =>
-          commandClientWithoutTime(ledgerId, applicationId, configuration)
-            .withTimeProvider(Some(tp)))(DirectExecutionContext)
+        tp => commandClientWithoutTime(ledgerId, applicationId, configuration)
+      )(DirectExecutionContext)
 
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode = LedgerIdMode.Static(testLedgerId))

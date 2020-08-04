@@ -454,7 +454,6 @@ class Runner(
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
     def submit(req: SubmitRequest): Unit = {
       val f: Future[Empty] = client.commandClient
-        .withTimeProvider(Some(Runner.getTimeProvider(timeProviderType)))
         .submitSingleCommand(req)
       f.failed.foreach({
         case s: StatusRuntimeException =>
