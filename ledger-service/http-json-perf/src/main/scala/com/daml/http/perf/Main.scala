@@ -15,12 +15,12 @@ object Main extends StrictLogging {
 
   type Scenario = Config => Future[Unit]
 
-  sealed abstract class ExitCode(val code: Int)
+  sealed abstract class ExitCode(val code: Int) extends Product with Serializable
   object ExitCode {
-    object Ok extends ExitCode(0)
-    object InvalidUsage extends ExitCode(100)
-    object StartupError extends ExitCode(101)
-    object InvalidScenario extends ExitCode(102)
+    case object Ok extends ExitCode(0)
+    case object InvalidUsage extends ExitCode(100)
+    case object StartupError extends ExitCode(101)
+    case object InvalidScenario extends ExitCode(102)
   }
 
   def main(args: Array[String]): Unit = {

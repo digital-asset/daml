@@ -23,7 +23,7 @@ private[perf] final case class Config(
       s"packageId=${this.packageId.toString})"
 }
 
-object Config {
+private[perf] object Config {
   private[perf] val Empty =
     Config(
       jsonApiHost = "",
