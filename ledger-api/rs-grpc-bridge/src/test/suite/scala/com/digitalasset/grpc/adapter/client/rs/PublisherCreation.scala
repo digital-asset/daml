@@ -108,7 +108,7 @@ trait PublisherCreation {
 
   def createFailedPublisher(): Publisher[Long] = {
 
-    val stub: BiConsumer[Long, StreamObserver[Long]] = { (req, responseObserver) =>
+    val stub: BiConsumer[Long, StreamObserver[Long]] = { (_, responseObserver) =>
       responseObserver.onError(
         new RuntimeException("Exception created to test failed Publisher") with NoStackTrace)
     }

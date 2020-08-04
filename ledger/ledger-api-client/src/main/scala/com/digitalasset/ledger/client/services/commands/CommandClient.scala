@@ -6,7 +6,6 @@ package com.daml.ledger.client.services.commands
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.daml.api.util.TimeProvider
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
@@ -40,8 +39,6 @@ import scalaz.syntax.tag._
   * @param ledgerId                 Will be applied to submitted commands.
   * @param applicationId            Will be applied to submitted commands.
   * @param config                   Options for changing behavior.
-  * @param timeProviderO            If defined, it will be used to override LET and MRT values on incoming commands.
-  *                                 Let will be set based on current time, and TTL will stay the same or be adjusted based on [[config]]
   */
 final class CommandClient(
     commandSubmissionService: CommandSubmissionServiceStub,
@@ -49,7 +46,6 @@ final class CommandClient(
     ledgerId: LedgerId,
     applicationId: String,
     config: CommandClientConfiguration,
-    timeProviderO: Option[TimeProvider] = None,
     logger: Logger = LoggerFactory.getLogger(getClass))(implicit esf: ExecutionSequencerFactory) {
 
   /**
@@ -171,16 +167,4 @@ final class CommandClient(
     LedgerClient
       .stub(commandCompletionService, token)
       .completionEnd(CompletionEndRequest(ledgerId.unwrap))
-
-  /**
-    * Returns a new CommandClient which will update ledger effective times and maximum record times based on the new time provider.
-    */
-  def withTimeProvider(newProvider: Option[TimeProvider]) =
-    new CommandClient(
-      commandSubmissionService,
-      commandCompletionService,
-      ledgerId,
-      applicationId,
-      config,
-      newProvider)
 }

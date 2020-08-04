@@ -73,7 +73,7 @@ final class DispatcherImpl[Index: Ordering](
       } match {
       case Running(prev, disp) =>
         if (Ordering[Index].gt(head, prev)) disp.signal()
-      case c: Closed =>
+      case _: Closed =>
         logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
 
@@ -141,10 +141,10 @@ final class DispatcherImpl[Index: Ordering](
       case Running(idx, _) => Closed(idx)
       case c: Closed => c
     } match {
-      case Running(idx, disp) =>
+      case Running(_, disp) =>
         disp.signal()
         disp.close()
-      case c: Closed => ()
+      case _: Closed => ()
     }
 
   private def closedError: IllegalStateException =

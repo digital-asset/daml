@@ -12,8 +12,6 @@ class MockClientCallStreamObserver[Request](onRequest: Int => Unit)
 
   private val cancellationPromise = Promise[(String, Throwable)]
 
-  private val cancellationFuture = cancellationPromise.future
-
   override def cancel(s: String, throwable: Throwable): Unit = {
     cancellationPromise.trySuccess(s -> throwable)
     ()

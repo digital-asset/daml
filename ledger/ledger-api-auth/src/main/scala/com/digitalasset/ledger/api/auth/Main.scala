@@ -56,7 +56,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     parseConfig(args) match {
-      case Some(Config(Some(config @ GenerateJwks(Some(outputFile), publicKeys)))) =>
+      case Some(Config(Some(GenerateJwks(Some(outputFile), publicKeys)))) =>
         // Load RSA keys. They ID of each key is its file name.
         val keys: Map[String, RSAPublicKey] = publicKeys
           .map(
@@ -87,7 +87,7 @@ object Main {
                 exp,
                 kid,
                 parties,
-                readOnly,
+                readOnly @ _,
                 admin)))) =>
         import JwtSigner.Error.showInstance
 
@@ -119,13 +119,6 @@ object Main {
 
         def changeExtension(file: File, extension: String): File = {
           val filename = file.getName
-
-          val baseName =
-            if (filename.contains("."))
-              filename.substring(0, filename.lastIndexOf('.'))
-            else
-              filename
-
           new File(file.getParentFile, filename + extension)
         }
 
