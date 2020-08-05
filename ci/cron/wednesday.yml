@@ -26,6 +26,12 @@ jobs:
       export DEBUG=1
       grep --version
       grep --help
+      git config remote.origin.url
+      git config remote.origin.url | grep -o '://.*:.*@'
+      git config remote.origin.url | grep -o '://.*:.*@' | cut -c4-
+      git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev
+      git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2-
+      git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev
       AUTH="$(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev)"
       BASE_SHA=$(git rev-parse HEAD)
       az extension add --name azure-devops
