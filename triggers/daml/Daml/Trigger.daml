@@ -48,12 +48,16 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 getTemplates : forall a. Template a => ACS -> [(ContractId a, a)]
 getTemplates = getContracts
 
--- | Extract the contracts of a given template from the ACS.
+-- | Extracts the contracts of a given template from the ACS.
 getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
 getContracts (ACS tpls pending) = mapOptional fromAny $ filter (\(cid, _) -> not $ cid `elem` allPending) tpls
   where
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
     allPending = concatMap snd $ Map.toList pending
+
+-- | Extracts template data of the contracts of a given template from the ACS.
+getContractsData : forall a. Template a => ACS -> [a]
+getContractsData = map snd . getContracts
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
