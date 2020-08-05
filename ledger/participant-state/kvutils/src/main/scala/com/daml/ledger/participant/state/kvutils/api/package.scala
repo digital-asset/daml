@@ -43,7 +43,7 @@ import scala.concurrent.Future
   * references:
   *   - [[com.daml.ledger.validator.LedgerStateOperations]]
   *   - [[com.daml.ledger.validator.batch.BatchedSubmissionValidator]]
-  *   - [[com.daml.ledger.validator.BatchedValidatingCommitter]]
+  *   - [[com.daml.ledger.validator.batch.BatchedValidatingCommitter]]
   *
   * @see [[com.daml.ledger.participant.state.kvutils.api.LedgerReader]]
   * @see [[com.daml.ledger.participant.state.kvutils.api.LedgerWriter]]

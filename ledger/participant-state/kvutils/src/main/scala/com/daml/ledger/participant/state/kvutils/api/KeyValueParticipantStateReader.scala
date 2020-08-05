@@ -10,6 +10,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueConsumption, OffsetBuilder}
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.{Metrics, Timed}
@@ -28,8 +29,9 @@ import com.daml.metrics.{Metrics, Timed}
 class KeyValueParticipantStateReader private[api] (
     reader: LedgerReader,
     metrics: Metrics,
-    logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update])(
-    implicit materializer: Materializer)
+    logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update],
+    timeUpdatesProvider: TimeUpdatesProvider,
+)(implicit materializer: Materializer)
     extends ReadService {
   import KeyValueParticipantStateReader._
 
@@ -49,7 +51,8 @@ class KeyValueParticipantStateReader private[api] (
                 Timed.value(
                   metrics.daml.kvutils.reader.parseUpdates, {
                     val logEntryId = DamlLogEntryId.parseFrom(entryId)
-                    val updates = logEntryToUpdate(logEntryId, logEntry, None)
+                    val updates =
+                      logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
                     val updatesWithOffsets = Source(updates).zipWithIndex.map {
                       case (update, index) =>
                         offsetForUpdate(offset, index.toInt, updates.size) -> update
@@ -76,9 +79,16 @@ class KeyValueParticipantStateReader private[api] (
 }
 
 object KeyValueParticipantStateReader {
-  def apply(reader: LedgerReader, metrics: Metrics)(
+  def apply(
+      reader: LedgerReader,
+      metrics: Metrics,
+      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault)(
       implicit materializer: Materializer): KeyValueParticipantStateReader =
-    new KeyValueParticipantStateReader(reader, metrics, KeyValueConsumption.logEntryToUpdate)
+    new KeyValueParticipantStateReader(
+      reader,
+      metrics,
+      KeyValueConsumption.logEntryToUpdate,
+      timeUpdatesProvider)
 
   private[api] def offsetForUpdate(
       offsetFromRecord: Offset,
