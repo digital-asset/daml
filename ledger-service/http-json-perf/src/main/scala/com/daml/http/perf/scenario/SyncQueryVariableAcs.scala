@@ -7,6 +7,8 @@ import java.{util => jutil}
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
+import scala.concurrent.duration._
+
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRandomAmount {
 
@@ -50,25 +52,49 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRand
     }
   }"""))
 
-  private val createContractScn = scenario("CreateContractScenario")
-    .repeat(1000) {
-      feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(createRequest)
+  private val wantedAcsSize = 5000
+
+  private val numberOfRuns = 500
+
+  private val fillAcs = scenario("FillAcs")
+    .doWhile(_ => acsQueue.size() < wantedAcsSize) {
+      feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(createRequest.silent)
     }
 
-  private val exerciseTransferScn = scenario("ExerciseTransferScenario")
-    .repeat(1000) {
-      feed(BlockingIterator(acsQueue, 1000).map(x => Map("contractId" -> x))).exec(exerciseRequest)
+  private val exerciseTransferAndCreateContractScn = scenario("ExerciseTransferAndCreateContract")
+    .doWhile(_ => acsQueue.size() < wantedAcsSize) {
+      pause(1.second)
+    } // TODO: ????? session("queryCounter") will throw an exception if queryCounter is not present yet
+    .asLongAs(session => session("queryCounter").as[Int] < numberOfRuns) {
+      // exercise a choice
+      feed(BlockingIterator(acsQueue, numberOfRuns).map(x => Map("contractId" -> x)))
+        .exec(exerciseRequest.silent)
+        // create a new contract
+        .feed(Iterator.continually(Map("amount" -> randomAmount())))
+        .exec(createRequest.silent)
+        .pause(1.second)
     }
 
-  private val syncQueryScn = scenario("SyncQueryScenario")
-    .repeat(500) {
-      feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(queryRequest)
+  private val syncQueryScn = scenario("SyncQuery")
+    .doWhile(_ => acsQueue.size() < wantedAcsSize) {
+      pause(1.second)
+    }
+    .repeat(numberOfRuns) {
+      // run the query
+      feed(Iterator.continually(Map("amount" -> randomAmount())))
+        .exec(queryRequest)
+        // exercise a choice
+        .feed(BlockingIterator(acsQueue, numberOfRuns).map(x => Map("contractId" -> x)))
+        .exec(exerciseRequest.silent)
+        // create a new contract
+        .feed(Iterator.continually(Map("amount" -> randomAmount())))
+        .exec(createRequest.silent)
     }
 
   setUp(
-    createContractScn.inject(atOnceUsers(1)),
+    fillAcs.inject(atOnceUsers(1)),
     syncQueryScn.inject(atOnceUsers(1)),
-    exerciseTransferScn.inject(atOnceUsers(1)),
+//    exerciseTransferAndCreateContractScn.inject(atOnceUsers(1)),
   ).protocols(httpProtocol)
 }
 
