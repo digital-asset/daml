@@ -1,13 +1,15 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-package com.daml.ledger.participant.state.kvutils.tools
+package com.daml.ledger.participant.state.kvutils.tools.driver
 
 import java.io.{DataInputStream, FileInputStream}
 import java.util.concurrent.Executors
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
+import com.daml.ledger.participant.state.kvutils.tools.{
+  IntegrityChecker,
+  LogAppendingCommitStrategySupport,
+  _
+}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
