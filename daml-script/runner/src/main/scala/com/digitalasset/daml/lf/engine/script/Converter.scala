@@ -139,7 +139,7 @@ object Converter {
         } yield
           ScriptLedgerClient.CreateCommand(
             templateId = anyTemplate.ty,
-            argument = anyTemplate.arg.toValue,
+            argument = anyTemplate.arg
           )
       }
       case _ => Left(s"Expected Create but got $v")
@@ -164,7 +164,7 @@ object Converter {
             templateId = tplId,
             contractId = cid,
             choice = anyChoice.name,
-            argument = (anyChoice.arg.toValue, anyChoice.arg),
+            argument = anyChoice.arg,
           )
       }
       case _ => Left(s"Expected Exercise but got $v")
@@ -181,9 +181,9 @@ object Converter {
         } yield
           ScriptLedgerClient.ExerciseByKeyCommand(
             templateId = tplId,
-            key = anyKey.key.toValue,
+            key = anyKey.key,
             choice = anyChoice.name,
-            argument = anyChoice.arg.toValue,
+            argument = anyChoice.arg,
           )
       }
       case _ => Left(s"Expected ExerciseByKey but got $v")
@@ -198,9 +198,9 @@ object Converter {
         } yield
           ScriptLedgerClient.CreateAndExerciseCommand(
             templateId = anyTemplate.ty,
-            template = anyTemplate.arg.toValue,
+            template = anyTemplate.arg,
             choice = anyChoice.name,
-            argument = anyChoice.arg.toValue,
+            argument = anyChoice.arg,
           )
       }
       case _ => Left(s"Expected CreateAndExercise but got $v")

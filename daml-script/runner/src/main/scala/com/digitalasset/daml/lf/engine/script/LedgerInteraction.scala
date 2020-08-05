@@ -80,25 +80,24 @@ object ScriptTimeMode {
 object ScriptLedgerClient {
 
   sealed trait Command
-  final case class CreateCommand(templateId: Identifier, argument: Value[ContractId])
-      extends Command
+  final case class CreateCommand(templateId: Identifier, argument: SValue) extends Command
   final case class ExerciseCommand(
       templateId: Identifier,
       contractId: ContractId,
       choice: String,
-      argument: (Value[ContractId], SValue))
+      argument: SValue)
       extends Command
   final case class ExerciseByKeyCommand(
       templateId: Identifier,
-      key: Value[ContractId],
+      key: SValue,
       choice: String,
-      argument: Value[ContractId])
+      argument: SValue)
       extends Command
   final case class CreateAndExerciseCommand(
       templateId: Identifier,
-      template: Value[ContractId],
+      template: SValue,
       choice: String,
-      argument: Value[ContractId])
+      argument: SValue)
       extends Command
 
   sealed trait CommandResult
@@ -260,18 +259,18 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
     command match {
       case ScriptLedgerClient.CreateCommand(templateId, argument) =>
         for {
-          arg <- lfValueToApiRecord(true, argument)
+          arg <- lfValueToApiRecord(true, argument.toValue)
         } yield Command().withCreate(CreateCommand(Some(toApiIdentifier(templateId)), Some(arg)))
-      case ScriptLedgerClient.ExerciseCommand(templateId, contractId, choice, (argument, _)) =>
+      case ScriptLedgerClient.ExerciseCommand(templateId, contractId, choice, argument) =>
         for {
-          arg <- lfValueToApiValue(true, argument)
+          arg <- lfValueToApiValue(true, argument.toValue)
         } yield
           Command().withExercise(
             ExerciseCommand(Some(toApiIdentifier(templateId)), contractId.coid, choice, Some(arg)))
       case ScriptLedgerClient.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {
-          key <- lfValueToApiValue(true, key)
-          argument <- lfValueToApiValue(true, argument)
+          key <- lfValueToApiValue(true, key.toValue)
+          argument <- lfValueToApiValue(true, argument.toValue)
         } yield
           Command().withExerciseByKey(
             ExerciseByKeyCommand(
@@ -281,8 +280,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
               Some(argument)))
       case ScriptLedgerClient.CreateAndExerciseCommand(templateId, template, choice, argument) =>
         for {
-          template <- lfValueToApiRecord(true, template)
-          argument <- lfValueToApiValue(true, argument)
+          template <- lfValueToApiRecord(true, template.toValue)
+          argument <- lfValueToApiValue(true, argument.toValue)
         } yield
           Command().withCreateAndExercise(
             CreateAndExerciseCommand(
@@ -347,9 +346,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     // to a function that we apply to the arguments.
     cmd match {
       case ScriptLedgerClient.CreateCommand(tplId, arg) =>
-        val sArg = valueTranslator.translateValue(TTyCon(tplId), arg).right.get
-        speedy.Command.Create(tplId, sArg)
-      case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, (_, arg)) =>
+        speedy.Command.Create(tplId, arg)
+      case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, arg) =>
         speedy.Command.Exercise(tplId, SContractId(cid), ChoiceName.assertFromString(choice), arg)
       case ScriptLedgerClient.CreateAndExerciseCommand(_, _, _, _) =>
         // TODO Implement
@@ -586,7 +584,7 @@ class JsonLedgerClient(
           command match {
             case ScriptLedgerClient.CreateCommand(tplId, argument) =>
               create(tplId, argument)
-            case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, (argument, _)) =>
+            case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, argument) =>
               exercise(tplId, cid, choice, argument)
             case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, argument) =>
               exerciseByKey(tplId, key, choice, argument)
@@ -663,9 +661,9 @@ class JsonLedgerClient(
     }
   }
 
-  private def create(tplId: Identifier, argument: Value[ContractId])
+  private def create(tplId: Identifier, argument: SValue)
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
-    val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
+    val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
     commandRequest[JsonLedgerClient.CreateArgs, JsonLedgerClient.CreateResponse](
       "create",
       JsonLedgerClient.CreateArgs(tplId, jsonArgument))
@@ -675,18 +673,14 @@ class JsonLedgerClient(
       })
   }
 
-  private def exercise(
-      tplId: Identifier,
-      contractId: ContractId,
-      choice: String,
-      argument: Value[ContractId])
+  private def exercise(tplId: Identifier, contractId: ContractId, choice: String, argument: SValue)
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
       .choices(Name.assertFromString(choice))
-    val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
+    val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
     commandRequest[JsonLedgerClient.ExerciseArgs, JsonLedgerClient.ExerciseResponse](
       "exercise",
       JsonLedgerClient.ExerciseArgs(tplId, contractId, choice, jsonArgument))
@@ -701,19 +695,15 @@ class JsonLedgerClient(
       })
   }
 
-  private def exerciseByKey(
-      tplId: Identifier,
-      key: Value[ContractId],
-      choice: String,
-      argument: Value[ContractId])
+  private def exerciseByKey(tplId: Identifier, key: SValue, choice: String, argument: SValue)
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
       .choices(Name.assertFromString(choice))
-    val jsonKey = LfValueCodec.apiValueToJsValue(key)
-    val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
+    val jsonKey = LfValueCodec.apiValueToJsValue(key.toValue)
+    val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
     commandRequest[JsonLedgerClient.ExerciseByKeyArgs, JsonLedgerClient.ExerciseResponse](
       "exercise",
       JsonLedgerClient
@@ -730,17 +720,17 @@ class JsonLedgerClient(
 
   private def createAndExercise(
       tplId: Identifier,
-      template: Value[ContractId],
+      template: SValue,
       choice: String,
-      argument: Value[ContractId])
+      argument: SValue)
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
       .choices(Name.assertFromString(choice))
-    val jsonTemplate = LfValueCodec.apiValueToJsValue(template)
-    val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
+    val jsonTemplate = LfValueCodec.apiValueToJsValue(template.toValue)
+    val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
     commandRequest[
       JsonLedgerClient.CreateAndExerciseArgs,
       JsonLedgerClient.CreateAndExerciseResponse](
