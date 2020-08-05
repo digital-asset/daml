@@ -171,8 +171,7 @@ object InMemoryLedgerReaderWriter {
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
+  ) extends ResourceOwner[KeyValueLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext): Resource[KeyValueLedger] = {
       val keyValueCommitting =
