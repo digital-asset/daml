@@ -27,7 +27,7 @@ object AuthServiceFixture {
       implicit system: ActorSystem,
       mat: Materializer,
       ec: ExecutionContext): Future[A] = {
-    val adminLedgerId = LedgerId("admin-ledger")
+    val adminLedgerId = LedgerId(s"admin-ledger-$testName")
     val adminLedgerF = for {
       ledger <- Future(
         new SandboxServer(

@@ -7,7 +7,6 @@ import java.io.File
 import java.net.InetAddress
 import java.time.Duration
 
-import akka.actor.ActorSystem
 import akka.actor.typed.{ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
@@ -50,8 +49,7 @@ object TriggerServiceFixture {
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
-      implicit asys: ActorSystem,
-      mat: Materializer,
+      implicit mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
     val host = InetAddress.getLoopbackAddress
