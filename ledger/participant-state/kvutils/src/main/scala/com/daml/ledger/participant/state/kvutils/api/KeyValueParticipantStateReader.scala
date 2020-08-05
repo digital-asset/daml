@@ -80,7 +80,8 @@ object KeyValueParticipantStateReader {
   def apply(
       reader: LedgerReader,
       metrics: Metrics,
-      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault): KeyValueParticipantStateReader =
+      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault)
+    : KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,
