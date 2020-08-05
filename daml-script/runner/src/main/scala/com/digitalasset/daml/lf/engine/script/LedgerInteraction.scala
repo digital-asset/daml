@@ -38,7 +38,7 @@ import com.daml.lf.data.{Time}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, SResult}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.Speedy.Machine
@@ -332,13 +332,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     })
   }
 
-  private def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
-    val args: Array[SExpr] = values.map(SEValue(_))
-    // We can safely introduce a let-expression here to bind the `func` expression,
-    // because there are no stack-references in `args`, since they are pure speedy values.
-    SEApp(func, args)
-  }
-
   // Translate from a ledger command to an Update expression
   // corresponding to the same command.
   private def translateCommand(cmd: ScriptLedgerClient.Command): speedy.Command = {
@@ -363,7 +356,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   // Translate a list of commands submitted by the given party
   // into an expression corresponding to a scenario commit of the same
   // commands of type `Scenario ()`.
-  private def translateCommands(p: SParty, commands: List[ScriptLedgerClient.Command]): SExpr = {
+  private def translateCommands(commands: List[ScriptLedgerClient.Command]): SExpr = {
     val cmds: ImmArray[speedy.Command] = ImmArray(commands.map(translateCommand(_)))
     compiledPackages.compiler.unsafeCompile(cmds)
   }
@@ -374,10 +367,9 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     machine.returnValue = null
-    var translated = translateCommands(party, commands)
+    val translated = translateCommands(commands)
     machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
     machine.committers = Set(party.value)
-    var r: SResult = SResultFinalValue(SUnit)
     var result: Try[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = null
     while (result == null) {
       machine.run() match {
