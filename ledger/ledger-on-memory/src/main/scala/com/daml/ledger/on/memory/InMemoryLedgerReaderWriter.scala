@@ -76,8 +76,7 @@ object InMemoryLedgerReaderWriter {
       validateAndCommit: ValidateAndCommit,
       metrics: Metrics,
   )(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
+      implicit executionContext: ExecutionContext,
   ): InMemoryLedgerReaderWriter =
     new InMemoryLedgerReaderWriter(
       participantId,
@@ -200,8 +199,8 @@ object InMemoryLedgerReaderWriter {
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       state: InMemoryState,
       metrics: Metrics,
-      timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+      timeProvider: TimeProvider,
+      stateValueCache: Cache[DamlStateKey, DamlStateValue],
   )(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
@@ -233,11 +232,10 @@ object InMemoryLedgerReaderWriter {
       keySerializationStrategy: StateKeySerializationStrategy,
       state: InMemoryState,
       metrics: Metrics,
-      timeProvider: TimeProvider = DefaultTimeProvider,
+      timeProvider: TimeProvider,
       stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
   )(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
+      implicit executionContext: ExecutionContext,
   ): ValidateAndCommit = {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val valueToFingerprint: Option[Value] => Fingerprint =
