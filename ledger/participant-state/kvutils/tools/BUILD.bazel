@@ -9,6 +9,29 @@ load(
     "lf_scalacopts",
 )
 
+da_scala_library(
+    name = "tools",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:data-export-kvutils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//ledger/ledger-on-memory",
+        "//ledger/metrics",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
+        "//libs-scala/direct-execution-context",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+    ],
+)
+
 da_scala_binary(
     name = "integrity-check",
     srcs = ["src/main/scala/com/daml/ledger/participant/state/kvutils/tools/driver/IntegrityCheck.scala"],
@@ -50,29 +73,6 @@ da_scala_binary(
         "//ledger/participant-state/kvutils",
         "//libs-scala/direct-execution-context",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-    ],
-)
-
-da_scala_library(
-    name = "tools",
-    srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:data-export-kvutils:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//ledger/ledger-on-memory",
-        "//ledger/metrics",
-        "//ledger/participant-state",
-        "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
-        "//libs-scala/direct-execution-context",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
