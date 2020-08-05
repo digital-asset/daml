@@ -61,25 +61,11 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRand
       feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(createRequest.silent)
     }
 
-  private val exerciseTransferAndCreateContractScn = scenario("ExerciseTransferAndCreateContract")
-    .doWhile(_ => acsQueue.size() < wantedAcsSize) {
-      pause(1.second)
-    } // TODO: ????? session("queryCounter") will throw an exception if queryCounter is not present yet
-    .asLongAs(session => session("queryCounter").as[Int] < numberOfRuns) {
-      // exercise a choice
-      feed(BlockingIterator(acsQueue, numberOfRuns).map(x => Map("contractId" -> x)))
-        .exec(exerciseRequest.silent)
-        // create a new contract
-        .feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(createRequest.silent)
-        .pause(1.second)
-    }
-
   private val syncQueryScn = scenario("SyncQuery")
     .doWhile(_ => acsQueue.size() < wantedAcsSize) {
       pause(1.second)
     }
-    .repeat(numberOfRuns) {
+    .repeat(numberOfRuns, "queryCounter") {
       // run the query
       feed(Iterator.continually(Map("amount" -> randomAmount())))
         .exec(queryRequest)
@@ -94,7 +80,6 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRand
   setUp(
     fillAcs.inject(atOnceUsers(1)),
     syncQueryScn.inject(atOnceUsers(1)),
-//    exerciseTransferAndCreateContractScn.inject(atOnceUsers(1)),
   ).protocols(httpProtocol)
 }
 
