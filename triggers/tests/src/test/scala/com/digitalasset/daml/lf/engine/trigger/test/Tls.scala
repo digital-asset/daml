@@ -56,7 +56,7 @@ class Tls
         // Start the future here
         finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
         // Execute commands
-        contractId <- create(client, party, asset(party))
+        _ <- create(client, party, asset(party))
         // Wait for the trigger to terminate
         _ <- finalStateF
         acs <- queryACS(client, party)

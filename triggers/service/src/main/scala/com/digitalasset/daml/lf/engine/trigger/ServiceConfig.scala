@@ -122,7 +122,7 @@ object ServiceConfig {
         s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
+      .action { (_, c) =>
         c.copy(timeProviderType = TimeProviderType.WallClock)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")

@@ -6,13 +6,7 @@ import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SyncQueryConstantAcs extends Simulation with SimulationConfig {
-
-  private val rng = new scala.util.Random(123456789)
-
-  private def randomAmount(): Int = {
-    rng.nextInt(10) + 5 // [5, 15)
-  }
+class SyncQueryConstantAcs extends Simulation with SimulationConfig with HasRandomAmount {
 
   private val createRequest =
     http("CreateCommand")

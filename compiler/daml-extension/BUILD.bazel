@@ -66,10 +66,11 @@ genrule(
             cp ../$$f $$dir/$$file
         done
         cd ..
-        tar c node_modules \\
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-          | gzip -n > $@
+        # Avoid file path too long errors on Windows of the form
+        #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
+        $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
     """,
+    tools = ["//bazel_tools/sh:mktgz"],
 )
 
 genrule(
