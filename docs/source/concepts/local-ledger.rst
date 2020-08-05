@@ -9,7 +9,7 @@ Causality and Local Ledgers
 DAML ledgers do not totally order all transactions.
 So different parties may observe two transactions on different Participant Nodes in different orders via the :ref:`Ledger API <ledger-api-services>`.
 Moreover, different Participant Nodes may output two transactions for the same party in different orders.
-This document explains the ordering guarantees that DAML ledgers do provide, by :ref:`example <causality-examples>` and formally via the concept of :ref:`causality graphs <causality-graph>` and :ref:`local ledgers <local-ledger>`.
+This document explains the ordering guarantees that DAML ledgers do provide, by :ref:`example <causality-examples>` and formally via the concept of :ref:`causality graphs <causality-graph>` and :ref:`local ledgers <local-ledger-structure>`.
 
 The presentation assumes that you are familiar with the following concepts:
 
@@ -148,7 +148,16 @@ Causality graphs
 ****************
 
 The above examples indicate that DAML ledgers order transactions only partially.
-DAML ledgers can be represented as finite directed acyclic graphs (DAG) of transactions, which are called causality graphs.
+DAML ledgers can be represented as finite directed acyclic graphs (DAG) of transactions.
+
+.. _def-causality-graph:
+
+Definition »causality graph«
+  A **causality graph** is a finite directed acyclic graph of transactions that is transitively closed.
+  Transitively closed means that whenever `v`:sub:`1` -> `v`:sub:`2` and `v`:sub:`2` -> `v`:sub:`3` are edges,
+  then there is also an edge `v`:sub:`1` -> `v`:sub:`3`.
+
+.. _def-action-order:
 
 Definition »action order«
   For a causality graph `G`,
@@ -158,10 +167,16 @@ Definition »action order«
   * `act`:sub:`1` and `act`:sub:`2` belong to the same transaction and `act`:sub:`1` precedes `act`:sub:`2` in the transaction.
   * `act`:sub:`1` and `act`:sub:`2` belong to different transactions in vertices `tx`:sub:`1` and `tx`:sub:`2` and there is a path in `G` from `tx`:sub:`1` to `tx`:sub:`2`.
 
+    .. note::
+       Checking for an *edge* instead of a *path* in in `G` from `tx`:sub:`1` to `tx`:sub:`2` is equivalent
+       because causality graphs are transitively closed.
+       The definition uses *path* because the figures below omit transitive edges for readability.
+
 The action order is a partial order on the actions in a causality graph.
 For example, the following diagram shows such a causality graph for the ledger in the above :ref:`Out-of-band causality example <causality-example-out-of-band>`.
 Each grey box represents one transaction and the graph edges are the solid arrows between the boxes.
-In this graph, the **Create** action of Alice's `Iou` is ordered before the **Create** action of the `ShowIou` contract because there is an edge from the transaction `tx1` with the `Iou` **Create** to the transaction `tx3` with the `ShowIou` **Create**.
+Diagrams omit transitive edges for readability; in this graph the edge from `tx1` to `tx4`.
+The **Create** action of Alice's `Iou` is ordered before the **Create** action of the `ShowIou` contract because there is an edge from the transaction `tx1` with the `Iou` **Create** to the transaction `tx3` with the `ShowIou` **Create**.
 Moreover, the `ShowIou` **Create** action is ordered before the **Fetch** of Alice's `Iou` because the **Create** action precedes the **Fetch** action in the transaction.
 In contrast, the **Create** actions of the `CounterOffer` and Alice's `Iou` are unordered: neither precedes the other because they belong to different transaction and there is no directed path between them.
 
@@ -183,13 +198,14 @@ Consistency
 Consistency ensures that a causality graph sufficiently orders all the transactions.
 It generalizes :ref:`ledger consistency <da-model-consistency>` from the DAML Ledger Model as :ref:`explained below <causality-consistency-ledger-model>`.
 
+.. _def-causal-consistency-contract:
+
 Definition »Causal consistency for a contract«
   Let `G` be a causality graph and `X` be a set of actions on a contract `c` that belong to transactions in `G`.
   The graph `G` is **causally consistent for the contract** `c` on `X` if all of the following hold:
 
   * If `X` is not empty, then `X` contains exactly one **Create** action.
-
-  * Whenever `act` is in `X`, the **Create** action precedes `act` in `G`\ 's action order unless `act` itself is the **Create** action.
+    This action precedes all other actions in `X` in `G`\ 's action order.
 
   * If `X` contains a consuming **Exercise** action `act`, then `act` follows all actions in `X` other than `act` in `G`\ 's action order.
 
@@ -209,12 +225,12 @@ Definition »Consistency for a causality graph«
   Then `G` is `**consistent** on `X` (or `X`-**consistent**) if `G` is causally consistent for all contracts `c` on the set of actions on `c` in `X` and for all keys `k` on the set of actions on `k` in `X`.
   `G` is **consistent** if `G` is consistent on all the actions in `G`.
 
-When edges are added to an `X`-consistent causality graph such that it remains acyclic,
+When edges are added to an `X`-consistent causality graph such that it remains acyclic and transitively closed,
 the resulting graph remains `X`-consistent.
 So it makes sense to consider minimal consistent causality graphs.
 
 Definition »Minimal consistent causality graph«
-  An `X`-consistent causality graph `G` is `X`\ -**minimal** if removing any edge in `G` yields a causality graph that is not `X`-consistent.
+  An `X`-consistent causality graph `G` is `X`\ -**minimal** if no strict subgraph of `G` is a `X`-consistent causality graph.
   If `X` is the set of all actions in `G`, then `X` is omitted.
 
 For example, the :ref:`above causality graph for the counteroffer workflow <causality-graph-couteroffer-split>` is consistent.
@@ -244,7 +260,7 @@ The `X`\ -minimal consistent causality graph looks as follows, where the actions
    :width: 100%
 
    Minimal consistent causality graph for the highlighted actions.
-           
+
 Another example of a minimal causality graph is shown below.
 At the top, transactions `tx1` to `tx4` create an `Iou` for Alice, exercise two non-consuming choices on it, and transfer the `Iou` to the painter.
 At the bottom, `tx5` asserts that there is no key for an Account contract for the painter.
@@ -257,7 +273,7 @@ Then, `tx6` creates an such account with balance 0 and `tx7` deposits the painte
    :width: 100%
 
 Unlike in a linearly ordered ledger, the causality graph relates the transactions of the `Iou` transfer workflow with the `Account` creation workflow only at the end, when the `Iou` is deposited into the account.
-As will be explained below, the Bank, Alice, and the painter therefore need not observe the transactions `tx1` to `tx6` in the same order.
+As will be formalized below, the Bank, Alice, and the painter therefore need not observe the transactions `tx1` to `tx6` in the same order.
 
 Moreover, transaction `tx2` and `tx3` are unordered in this causality graph even though they act on the same `Iou` contract.
 However, as both actions are non-consuming, they do not interfere with each other and could therefore be parallelized, too.
@@ -281,14 +297,12 @@ Conversely, we can reduce an `X`\ -consistent causality graph to only the causal
 This gives a minimal `X`\ -consistent causality graph.
 
 Definition »Reduction of a consistent causality graph«
-  For an `X`\ -consistent causality graph `G`, there exists a unique minimal `X`\ -consistent causality graph `reduce`:sub:`X`\ `(G)` with the same vertices and the edges being a subset of `G`\ 's transitive closure.
+  For an `X`\ -consistent causality graph `G`, there exists a unique minimal `X`\ -consistent causality graph `reduce`:sub:`X`\ `(G)` with the same vertices and the edges being a subset of `G`.
   `reduce`:sub:`X`\ `(G)` is called the `X`\ -**reduction** of `G`.
   As before, `X` is omitted if it contains all actions in `G`.
 
 The causality graph for the `CounterOffer` workflow is minimal and therefore its own reduction.
 It is also the reduction of the topological sort, i.e., the :ref:`ledger <split-counteroffer-ledger>` in the :ref:`out-of-band causality example <causality-example-out-of-band>`.
-Moreover, it is the reduction of the causality graph `G` with the edges `tx1` -> `tx2`, `tx2` -> `tx3`, `tx3` -> `tx4`.
-This demonstrates that `reduce(G)` need not be a subgraph of `G`: the edge `tx2` -> `tx4` is in `reduce(G)`, but not in `G`.
 
 .. note::
    The reduction `reduce`:sub:`X`\ `(G)` of an `X`\ -consistent causality graph `G` can be computed as follows:
@@ -297,7 +311,7 @@ This demonstrates that `reduce(G)` need not be a subgraph of `G`: the edge `tx2`
    #. The consistency conditions for contracts and keys demand that certain pairs of actions
       `act`:sub:`1` and `act`:sub:`2` in `X` must be action-ordered.
       For each such pair, determine the actions' ordering in `G` and add an edge to `G'` from the earlier action's transaction to the later action's transaction.
-   #. `reduce`:sub:`X`\ `(G)` is the transitive reduction of `G'`.
+   #. `reduce`:sub:`X`\ `(G)` is the transitive closure of `G'`.
 
 Topological sort and reduction link causality graphs `G` to the ledgers `L` from the DAML Ledger Model.
 Topological sort transforms a causality graph `G` into a sequence of transactions `topo(G)`; extending them with the requesters gives a sequence of commits, i.e., a ledger in the DAML Ledger Model.
@@ -335,7 +349,7 @@ Definition »Projection of a consistent causality graph«
   * The vertices of `G'` are the vertices of `G` the `P`\ -projection of whose transaction is not empty.
     Each vertex in `G'` is labelled by the (non-empty) `P`\ -projection of the corresponding `G`\ -vertex's transaction.
 
-  * There is an edge between two vertices `v`:sub:`1` and `v`:sub:`2` in `G'` if the `G`\ -vertex corresponding to `v`:sub:`2` is `G`\ -reachable from the `G`\ -vertex corresponding to `v`:sub:`1`.
+  * There is an edge between two vertices `v`:sub:`1` and `v`:sub:`2` in `G'` if there is an edge from `G`\ -vertex corresponding to `v`:sub:`1` to the `G`\ -vertex corresponding to `v`:sub:`2`.
 
 For the :ref:`Counteroffer causality graph <causality-graph-couteroffer-split>`, the projections to Alice, the Bank, and the painter are as follows.
 
@@ -356,7 +370,7 @@ Moreover, there is no longer an edge from `tx3` to `tx4` in the painter's local 
 This is because the edge is induced by the **Fetch** of Alice's `Iou` preceding the consuming **Exercise**.
 However, the painter is not an informee of those two actions; he merely witnesses the **Fetch** and **Exercse** actions as part of divulgence.
 Therefore no ordering is required from the painter's point of view.
-This reflects the :ref:`divulgence causality example <causality-divulgence-example>`.
+This difference explains the :ref:`divulgence causality example <causality-divulgence-example>`.
 
 
 Ledger API ordering guarantees
@@ -390,7 +404,7 @@ These guarantees are subject to the deployed DAML ledger's trust assumptions.
    A deployed DAML ledger in general does not store or even construct such a shared causality graph.
    The Participant Nodes merely maintain the local ledgers for their parties.
    They synchronize these local ledgers to the extent that they remain consistent.
-   That is, all the local ledgers could be combined into a consistent single causality graph of which they are projections.
+   That is, all the local ledgers can in theory be combined into a consistent single causality graph of which they are projections.
 
    
 Explaining the causality examples
