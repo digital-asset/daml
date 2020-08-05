@@ -5,7 +5,6 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
-import akka.stream.Materializer
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
@@ -44,7 +43,7 @@ class PreExecutingValidatingCommitter[LogResult](
     valueToFingerprint: Option[Value] => Fingerprint,
     postExecutionFinalizer: PostExecutionFinalizer[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
-    cacheUpdatePolicy: CacheUpdatePolicy)(implicit materializer: Materializer) {
+    cacheUpdatePolicy: CacheUpdatePolicy) {
 
   /**
     * Pre-executes and then commits a submission.
