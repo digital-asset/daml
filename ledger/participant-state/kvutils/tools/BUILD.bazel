@@ -34,7 +34,6 @@ da_scala_library(
 
 da_scala_binary(
     name = "integrity-check",
-    srcs = ["src/main/scala/com/daml/ledger/participant/state/kvutils/tools/driver/IntegrityCheck.scala"],
     main_class = "com.daml.ledger.participant.state.kvutils.tools.driver.IntegrityCheck",
     resources = glob(["src/main/resources/*"]),
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-integrity-check:__VERSION__"],
@@ -45,6 +44,7 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        ":tools",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//ledger/metrics",
@@ -58,7 +58,6 @@ da_scala_binary(
 
 da_scala_binary(
     name = "integrity-check-v2",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/kvutils/tools/driver/IntegrityCheckV2.scala"]),
     main_class = "com.daml.ledger.participant.state.kvutils.tools.driver.IntegrityCheckV2",
     resources = glob(["src/main/resources/*"]),
     visibility = [
