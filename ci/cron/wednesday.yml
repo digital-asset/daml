@@ -21,7 +21,7 @@ jobs:
   - checkout: self
     persistCredentials: true
   - bash: |
-      set -euo pipefail
+      set -euxo pipefail
 
       AUTH="$(git config remote.origin.url | grep -o "://.*:.*@" | cut -c4- | rev | cut -c2- | rev)"
       BASE_SHA=$(git rev-parse HEAD)
