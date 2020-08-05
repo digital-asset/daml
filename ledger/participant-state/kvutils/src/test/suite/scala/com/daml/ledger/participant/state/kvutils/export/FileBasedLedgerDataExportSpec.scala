@@ -66,7 +66,7 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
       val baos = new ByteArrayOutputStream()
       val dataOutputStream = new DataOutputStream(baos)
       val instance = new FileBasedLedgerDataExporter(dataOutputStream)
-      val expectedRecordTimeInstant = Instant.now()
+      val expectedRecordTimeInstant = Instant.ofEpochSecond(123456, 123456789)
       val expectedParticipantId = v1.ParticipantId.assertFromString("id")
       instance.addSubmission(
         ByteString.copyFromUtf8("an envelope"),
