@@ -47,8 +47,18 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app",
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
-        # Plugins have to be specified as JARs.
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
         "@maven//:org_spire_math_kind_projector_2_12",
+    ],
+    scalacopts = [
+        "-P:silencer:checkUnused",
+        # codegen eliminates the vast majority of potential unused warnings. For example,
+        # it checks whether tparams are phantom or not and requires evidence only if they
+        # are not. It misses the case where a tparam is used in ContractId position, which
+        # is essentially phantom for the typeclasses.  The fix requires recurring into
+        # referenced types, and only occurs here in this source tree, so I don't consider
+        # it worth fixing for now. -SC
+        "-P:silencer:lineContentFilters=ContractIdNT (Value|LfEncodable).*?implicit .?ev",
     ],
     visibility = [
         "//visibility:public",
@@ -60,6 +70,7 @@ da_scala_library(
     deps = [
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
