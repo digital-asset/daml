@@ -84,25 +84,28 @@ object ScriptLedgerClient {
   final case class ExerciseCommand(
       templateId: Identifier,
       contractId: ContractId,
-      choice: String,
+      choice: ChoiceName,
       argument: SValue)
       extends Command
   final case class ExerciseByKeyCommand(
       templateId: Identifier,
       key: SValue,
-      choice: String,
+      choice: ChoiceName,
       argument: SValue)
       extends Command
   final case class CreateAndExerciseCommand(
       templateId: Identifier,
       template: SValue,
-      choice: String,
+      choice: ChoiceName,
       argument: SValue)
       extends Command
 
   sealed trait CommandResult
   final case class CreateResult(contractId: ContractId) extends CommandResult
-  final case class ExerciseResult(templateId: Identifier, choice: String, result: Value[ContractId])
+  final case class ExerciseResult(
+      templateId: Identifier,
+      choice: ChoiceName,
+      result: Value[ContractId])
       extends CommandResult
 
   final case class ActiveContract(
@@ -301,7 +304,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
         for {
           result <- ValueValidator.validateValue(exercised.getExerciseResult).left.map(_.toString)
           templateId <- Converter.fromApiIdentifier(exercised.getTemplateId)
-        } yield ScriptLedgerClient.ExerciseResult(templateId, exercised.choice, result)
+          choice <- ChoiceName.fromString(exercised.choice)
+        } yield ScriptLedgerClient.ExerciseResult(templateId, choice, result)
       case TreeEvent(TreeEvent.Kind.Empty) =>
         throw new ConverterException("Invalid tree event Empty")
     }
@@ -348,7 +352,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       case ScriptLedgerClient.CreateCommand(tplId, arg) =>
         speedy.Command.Create(tplId, arg)
       case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, arg) =>
-        speedy.Command.Exercise(tplId, SContractId(cid), ChoiceName.assertFromString(choice), arg)
+        speedy.Command.Exercise(tplId, SContractId(cid), choice, arg)
       case ScriptLedgerClient.CreateAndExerciseCommand(_, _, _, _) =>
         // TODO Implement
         throw new RuntimeException(s"Support for CreateAndExercise has not yet been implemented")
@@ -402,7 +406,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                   case exercise: NodeExercises.WithTxValue[_, ContractId] =>
                     ScriptLedgerClient.ExerciseResult(
                       exercise.templateId,
-                      exercise.choiceId.toString,
+                      exercise.choiceId,
                       exercise.exerciseResult.get.value)
                   case n =>
                     // Root nodes can only be creates and exercises.
@@ -439,7 +443,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
               case exercise: NodeExercises.WithTxValue[_, ContractId] =>
                 ScriptLedgerClient.ExerciseResult(
                   exercise.templateId,
-                  exercise.choiceId.toString,
+                  exercise.choiceId,
                   exercise.exerciseResult.get.value)
               case n =>
                 // Root nodes can only be creates and exercises.
@@ -673,13 +677,17 @@ class JsonLedgerClient(
       })
   }
 
-  private def exercise(tplId: Identifier, contractId: ContractId, choice: String, argument: SValue)
+  private def exercise(
+      tplId: Identifier,
+      contractId: ContractId,
+      choice: ChoiceName,
+      argument: SValue)
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
-      .choices(Name.assertFromString(choice))
+      .choices(choice)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
     commandRequest[JsonLedgerClient.ExerciseArgs, JsonLedgerClient.ExerciseResponse](
       "exercise",
@@ -695,13 +703,13 @@ class JsonLedgerClient(
       })
   }
 
-  private def exerciseByKey(tplId: Identifier, key: SValue, choice: String, argument: SValue)
+  private def exerciseByKey(tplId: Identifier, key: SValue, choice: ChoiceName, argument: SValue)
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
-      .choices(Name.assertFromString(choice))
+      .choices(choice)
     val jsonKey = LfValueCodec.apiValueToJsValue(key.toValue)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
     commandRequest[JsonLedgerClient.ExerciseByKeyArgs, JsonLedgerClient.ExerciseResponse](
@@ -721,14 +729,14 @@ class JsonLedgerClient(
   private def createAndExercise(
       tplId: Identifier,
       template: SValue,
-      choice: String,
+      choice: ChoiceName,
       argument: SValue)
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
-      .choices(Name.assertFromString(choice))
+      .choices(choice)
     val jsonTemplate = LfValueCodec.apiValueToJsValue(template.toValue)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
     commandRequest[
@@ -797,20 +805,20 @@ object JsonLedgerClient {
   final case class ExerciseArgs(
       templateId: Identifier,
       contractId: ContractId,
-      choice: String,
+      choice: ChoiceName,
       argument: JsValue)
   final case class ExerciseResponse(result: JsValue)
 
   final case class ExerciseByKeyArgs(
       templateId: Identifier,
       key: JsValue,
-      choice: String,
+      choice: ChoiceName,
       argument: JsValue)
 
   final case class CreateAndExerciseArgs(
       templateId: Identifier,
       payload: JsValue,
-      choice: String,
+      choice: ChoiceName,
       argument: JsValue)
   final case class CreateAndExerciseResponse(contractId: String, result: JsValue)
 
@@ -821,6 +829,7 @@ object JsonLedgerClient {
   final case class AllocatePartyResponse(identifier: Ref.Party)
 
   object JsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+    implicit val choiceNameWriter: JsonWriter[ChoiceName] = choice => JsString(choice.toString)
     implicit val identifierWriter: JsonWriter[Identifier] = identifier =>
       JsString(
         identifier.packageId + ":" + identifier.qualifiedName.module.toString + ":" + identifier.qualifiedName.name.toString)
