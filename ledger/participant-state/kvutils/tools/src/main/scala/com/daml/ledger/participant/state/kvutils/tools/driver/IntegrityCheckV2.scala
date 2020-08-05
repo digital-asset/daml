@@ -8,10 +8,10 @@ import java.util.concurrent.Executors
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
-import com.daml.ledger.participant.state.kvutils.tools.{
+import com.daml.ledger.participant.state.kvutils.tools._
+import com.daml.ledger.participant.state.kvutils.tools.export.{
   IntegrityChecker,
-  LogAppendingCommitStrategySupport,
-  _
+  LogAppendingCommitStrategySupport
 }
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
