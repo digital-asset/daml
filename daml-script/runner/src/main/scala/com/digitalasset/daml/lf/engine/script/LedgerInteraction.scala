@@ -356,9 +356,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       case ScriptLedgerClient.CreateAndExerciseCommand(_, _, _, _) =>
         // TODO Implement
         throw new RuntimeException(s"Support for CreateAndExercise has not yet been implemented")
-      case ScriptLedgerClient.ExerciseByKeyCommand(_, _, _, _) =>
-        // TODO Implement
-        throw new RuntimeException(s"Support for ExerciseByKey has not yet been implemented")
+      case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, arg) =>
+        speedy.Command.ExerciseByKey(tplId, key, choice, arg)
     }
   }
 

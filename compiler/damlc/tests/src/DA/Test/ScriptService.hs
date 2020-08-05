@@ -116,6 +116,31 @@ main =
                         "    _1 = 23; _2 = 42",
                         ""
                       ],
+              testCase "exerciseByKeyCmd" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where",
+                      "import DA.Assert",
+                      "import Daml.Script",
+                      "template WithKey",
+                      "  with",
+                      "    p : Party",
+                      "    v : Int",
+                      "  where",
+                      "    signatory p",
+                      "    key p : Party",
+                      "    maintainer key",
+                      "    choice C : Int",
+                      "      controller p",
+                      "      do pure v",
+                      "testExerciseByKey = do",
+                      "  p <- allocateParty \"p\"",
+                      "  submit p $ createCmd (WithKey p 42)",
+                      "  submit p $ exerciseByKeyCmd @WithKey p C"
+                    ]
+                expectScriptSuccess rs (vr "testExerciseByKey") $ \r ->
+                  matchRegex r "Active contracts: \n\nReturn value: 42\n\n$",
               testCase "failing transactions" $ do
                 rs <-
                   runScripts
