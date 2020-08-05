@@ -3,8 +3,6 @@
 
 package com.daml.lf.engine.script
 
-import com.daml.lf.engine.preprocessing
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
@@ -319,7 +317,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   private val txSeeding = crypto.Hash.hashPrivateKey(s"script-service")
   machine.ptx =
     PartialTransaction.initial(Time.Timestamp.MinValue, InitialSeeding.TransactionSeed(txSeeding))
-  private val valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
