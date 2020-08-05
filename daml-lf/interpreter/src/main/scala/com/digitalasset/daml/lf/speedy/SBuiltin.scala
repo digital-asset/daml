@@ -435,6 +435,15 @@ private[lf] object SBuiltin {
   //    is missing only one argument.
   // 3. `KFoldr1Reduce` is for the second reduce from right-to-left stage when
   //    `f` is missing only one argument.
+  //
+  // We could have omitted the special casse for `f` missing only one argument,
+  // if the semantics of `foldr` had been implemented as
+  // ```
+  // foldr f z [] = z
+  // foldr f z (x:xs) = let y = foldr f z xs in f x y
+  // ```
+  // However, this would be a breaking change compared to the aforementioned
+  // implementation of `foldr`.
   final case object SBFoldr extends SBuiltin(3) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
