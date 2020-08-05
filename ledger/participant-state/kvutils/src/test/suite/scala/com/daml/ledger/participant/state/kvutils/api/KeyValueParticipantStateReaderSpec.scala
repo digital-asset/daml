@@ -261,5 +261,9 @@ object KeyValueParticipantStateReaderSpec {
       reader: LedgerReader,
       logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
         singleUpdateGenerator): KeyValueParticipantStateReader =
-    new KeyValueParticipantStateReader(reader, new Metrics(new MetricRegistry), logEntryToUpdate)
+    new KeyValueParticipantStateReader(
+      reader,
+      new Metrics(new MetricRegistry),
+      logEntryToUpdate,
+      () => None)
 }

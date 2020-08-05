@@ -12,7 +12,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter
+import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
   KeyValueParticipantState
@@ -239,7 +239,7 @@ object RecoveringIndexerIntegrationSpec {
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
       val metrics = new Metrics(new MetricRegistry)
-      new InMemoryLedgerReaderWriter.SingleParticipantOwner(
+      new memory.InMemoryLedgerReaderWriter.SingleParticipantBatchingOwner(
         ledgerId,
         BatchingLedgerWriterConfig.reasonableDefault,
         participantId,

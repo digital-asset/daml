@@ -44,13 +44,14 @@ abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boo
       testId: String,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
-    new InMemoryLedgerReaderWriter.SingleParticipantOwner(
+    new InMemoryLedgerReaderWriter.SingleParticipantBatchingOwner(
       ledgerId,
       batchingLedgerWriterConfig,
       participantId,
       metrics = metrics,
       engine = Engine.DevEngine()
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+
 }
 
 class InMemoryLedgerReaderWriterIntegrationSpec

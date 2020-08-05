@@ -44,7 +44,7 @@ private[lf] object Compiler {
 
   private val SEGetTime = SEBuiltin(SBGetTime)
 
-  private def SBCompareNumeric(b: SBuiltin) =
+  private def SBCompareNumeric(b: SBuiltinPure) =
     SEAbs(3, SEApp(SEBuiltin(b), Array(SEVar(2), SEVar(1))))
   private val SBLessNumeric = SBCompareNumeric(SBLess)
   private val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
