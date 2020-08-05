@@ -56,46 +56,29 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRand
 
   private val numberOfRuns = 500
 
-  private val fillAcs = scenario("FillAcs")
+  private val fillAcs = scenario(s"FillAcsScenario, size: $wantedAcsSize")
     .doWhile(_ => acsQueue.size() < wantedAcsSize) {
       feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(createRequest.silent)
     }
 
-  private val syncQueryScn = scenario("SyncQuery")
-    .doWhile(_ => acsQueue.size() < wantedAcsSize) {
-      pause(1.second)
-    }
-    .repeat(numberOfRuns, "queryCounter") {
-      // run the query
-      feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(queryRequest)
-        // exercise a choice
-        .feed(BlockingIterator(acsQueue, numberOfRuns).map(x => Map("contractId" -> x)))
-        .exec(exerciseRequest.silent)
-        // create a new contract
-        .feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(createRequest.silent)
-    }
+  private val syncQueryScn =
+    scenario(s"SyncQueryWithVariableAcsScenario, request num: $numberOfRuns")
+      .doWhile(_ => acsQueue.size() < wantedAcsSize) {
+        pause(1.second)
+      }
+      .repeat(numberOfRuns) {
+        feed(Iterator.continually(Map("amount" -> randomAmount(), "contractId" -> acsQueue.take())))
+          .exec {
+            // run query in parallel with exercise and create: `resources` is the only way to do this in parallel
+            queryRequest.notSilent.resources(
+              exerciseRequest.silent,
+              createRequest.silent
+            )
+          }
+      }
 
   setUp(
     fillAcs.inject(atOnceUsers(1)),
     syncQueryScn.inject(atOnceUsers(1)),
   ).protocols(httpProtocol)
-}
-
-private[scenario] final case class BlockingIterator[A](
-    private val queue: jutil.concurrent.BlockingQueue[A],
-    private val maxToRetrieve: Int)
-    extends Iterator[A] {
-
-  private val retrieved = new jutil.concurrent.atomic.AtomicInteger(0)
-
-  override def hasNext: Boolean = retrieved.get < maxToRetrieve
-
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  def next(): A = {
-    val a: A = queue.take() // this blocks waiting for the next element in the queue if it is empty
-    retrieved.incrementAndGet()
-    a
-  }
 }
