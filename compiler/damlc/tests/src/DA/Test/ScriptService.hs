@@ -75,7 +75,7 @@ main =
         defaultMain $
           testGroup
             "Script Service"
-            [ testCase "createCmd + exerciseCmd" $ do
+            [ testCase "createCmd + exerciseCmd + createAndExerciseCmd" $ do
                 rs <-
                   runScripts
                     scriptService
@@ -97,6 +97,9 @@ main =
                       "  p <- allocateParty \"p\"",
                       "  cid <- submit p $ createCmd (T p 42)",
                       "  submit p $ exerciseCmd cid C",
+                      "testCreateAndExercise = do",
+                      "  p <- allocateParty \"p\"",
+                      "  submit p $ createAndExerciseCmd (T p 42) C",
                       "testMulti = do",
                       "  p <- allocateParty \"p\"",
                       "  (cid1, cid2) <- submit p $ (,) <$> createCmd (T p 23) <*> createCmd (T p 42)",
@@ -105,6 +108,8 @@ main =
                 expectScriptSuccess rs (vr "testCreate") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: #0:0\n\n$"
                 expectScriptSuccess rs (vr "testExercise") $ \r ->
+                  matchRegex r "Active contracts: \n\nReturn value: 42\n\n$"
+                expectScriptSuccess rs (vr "testCreateAndExercise") $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n\n$"
                 expectScriptSuccess rs (vr "testMulti") $ \r ->
                   matchRegex r $
