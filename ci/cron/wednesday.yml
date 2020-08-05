@@ -26,6 +26,7 @@ jobs:
       export DEBUG=1
       grep --version
       grep --help
+      cat .git/config
       git config remote.origin.url
       git config remote.origin.url | grep -o '://.*:.*@'
       git config remote.origin.url | grep -o '://.*:.*@' | cut -c4-
