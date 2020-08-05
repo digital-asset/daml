@@ -100,36 +100,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     } else {
       val messageMaybe =
         if (expectedWriteSet.size == actualWriteSet.size) {
-          val differencesExplained = expectedWriteSet
-            .zip(actualWriteSet)
-            .map {
-              case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
-                if (expectedKey == actualKey && expectedValue != actualValue) {
-                  explainDifference(expectedKey, expectedValue, actualValue).map {
-                    explainedDifference =>
-                      Seq(
-                        s"expected value:    ${bytesAsHexString(expectedValue)}",
-                        s" vs. actual value: ${bytesAsHexString(actualValue)}",
-                        explainedDifference,
-                      )
-                  }
-                } else if (expectedKey != actualKey) {
-                  Some(
-                    Seq(
-                      s"expected key:    ${bytesAsHexString(expectedKey)}",
-                      s" vs. actual key: ${bytesAsHexString(actualKey)}",
-                    ))
-                } else {
-                  None
-                }
-            }
-            .map(_.toList)
-            .filterNot(_.isEmpty)
-            .map(_.mkString(System.lineSeparator()))
-            .mkString(System.lineSeparator())
-          PartialFunction.condOpt(differencesExplained.isEmpty) {
-            case false => differencesExplained
-          }
+          compareSameSizeWriteSets(expectedWriteSet, actualWriteSet)
         } else {
           Some(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
         }
@@ -138,6 +109,40 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         throw new ComparisonFailureException(message)
       }
     }
+
+  private[tools] def compareSameSizeWriteSets(
+      expectedWriteSet: WriteSet,
+      actualWriteSet: WriteSet): Option[String] = {
+    val differencesExplained = expectedWriteSet
+      .zip(actualWriteSet)
+      .map {
+        case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
+          if (expectedKey == actualKey && expectedValue != actualValue) {
+            explainDifference(expectedKey, expectedValue, actualValue).map { explainedDifference =>
+              Seq(
+                s"expected value:    ${bytesAsHexString(expectedValue)}",
+                s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                explainedDifference,
+              )
+            }
+          } else if (expectedKey != actualKey) {
+            Some(
+              Seq(
+                s"expected key:    ${bytesAsHexString(expectedKey)}",
+                s" vs. actual key: ${bytesAsHexString(actualKey)}",
+              ))
+          } else {
+            None
+          }
+      }
+      .map(_.toList)
+      .filterNot(_.isEmpty)
+      .map(_.mkString(System.lineSeparator()))
+      .mkString(System.lineSeparator())
+    PartialFunction.condOpt(differencesExplained.isEmpty) {
+      case false => differencesExplained
+    }
+  }
 
   private def explainDifference(
       key: Key,
