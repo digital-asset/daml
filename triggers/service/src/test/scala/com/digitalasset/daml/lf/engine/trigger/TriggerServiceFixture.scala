@@ -7,7 +7,6 @@ import java.io.File
 import java.net.InetAddress
 import java.time.Duration
 
-import akka.actor.ActorSystem
 import akka.actor.typed.{ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri

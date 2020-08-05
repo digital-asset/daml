@@ -17,6 +17,8 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
   implicit val esf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
+  private val testLedgerId = "test-ledger-id"
+
   it should "complete auth flow from service account to ledger access token" in
     AuthServiceFixture.withAuthServiceClient(testId) { authServiceClient =>
       for {
