@@ -495,7 +495,7 @@ object DamlDataTypeGen {
           override def encoding(lte: $domainApiAlias.encoding.LfTypeEncoding
                               )(...${if (isTemplate) Seq(q"$view: view[lte.Field]") else Seq.empty}
                               ): lte.Out[$appliedValueType] = {
-            ..${if (isTemplate) Seq.empty else Seq(viewDef)}
+            ..${if (isTemplate || fieldDefs.isEmpty) Seq.empty else Seq(viewDef)}
             $generateEncodingBody
           }
          """
