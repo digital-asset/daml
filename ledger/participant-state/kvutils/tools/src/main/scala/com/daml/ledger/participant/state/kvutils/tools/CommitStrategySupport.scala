@@ -24,7 +24,8 @@ trait CommitStrategySupport[LogResult] {
     : (DamlLedgerStateReader, CommitStrategy[LogResult], QueryableWriteSet)
 
   /**
-    * Determines if there's an actual difference and tries to explain it in case there is.
+    * Determines if there's an actual difference and tries to explain it.
+    *
     * @return  None in case no difference should be signaled to the user; otherwise a message explaining the difference
     */
   def explainMismatchingValue(key: Key, expectedValue: Value, actualValue: Value): Option[String]
