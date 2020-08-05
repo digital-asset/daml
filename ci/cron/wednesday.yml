@@ -38,10 +38,11 @@ jobs:
           git reset --hard
       }
       open_pr() {
-          local branch, title, body, pr_number
+          local branch title body out pr_number
           branch=$1
           title="$2"
           body="$3"
+          out=$4
           git branch -D $branch || true
           git checkout -b $branch
           git add .
@@ -62,7 +63,7 @@ jobs:
               --definition-name "digital-asset.daml" \
               --org "https://dev.azure.com/digitalasset" \
               --project daml
-          echo $pr_number
+          echo $pr_number > $out
       }
       assign_and_label() {
           local pr_number, assignee
@@ -92,9 +93,13 @@ jobs:
 
       ./release.sh new snapshot
       RELEASE=$(head -1 LATEST | awk '{print $2}')
-      PR=$(open_pr "auto-release-pr-$(date -I)" \
-                   "release $RELEASE" \
-                   "This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging.\n\n@$NEXT_GH is in charge of this release.")
+      PR_FILE=$(mktemp)
+      open_pr "auto-release-pr-$(date -I)" \
+              "release $RELEASE" \
+              "This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging.\n\n@$NEXT_GH is in charge of this release.") \
+              $PR_FILE
+
+      PR=$(cat PR_FILE)
 
       assign_and_label $PR $NEXT_GH
 
@@ -103,4 +108,5 @@ jobs:
       rotate
       open_pr "rotate-after-$RELEASE" \
               "rotate release duty after $RELEASE" \
-              "@$NEXT_GH is taking care of $RELEASE (#$PR), so they get pushed back to the end of the line.\n\nPlease do not merge this before #$PR."
+              "@$NEXT_GH is taking care of $RELEASE (#$PR), so they get pushed back to the end of the line.\n\nPlease do not merge this before #$PR." \
+              $(mktemp)
