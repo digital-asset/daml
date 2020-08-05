@@ -49,7 +49,8 @@ private[speedy] sealed abstract class SBuiltinPure(val arity1: Int) extends SBui
 
   override private[speedy] final def execute(
       args: util.ArrayList[SValue],
-      machine: Machine): Unit = {
+      machine: Machine,
+  ): Unit = {
     machine.returnValue = executePure(args)
   }
 
@@ -405,7 +406,8 @@ private[lf] object SBuiltin {
   final case object SBFoldl extends SBuiltin(3) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       val func = SEValue(args.get(0))
       val init = args.get(1)
       val list = args.get(2).asInstanceOf[SList].list
@@ -817,7 +819,8 @@ private[lf] object SBuiltin {
   final case class SBUCreate(templateId: TypeConName) extends SBuiltin(6) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(5))
       val createArg = args.get(0)
       val createArgValue = createArg.toValue
@@ -866,7 +869,8 @@ private[lf] object SBuiltin {
 
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(8))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
@@ -916,7 +920,8 @@ private[lf] object SBuiltin {
   final case class SBUEndExercise(templateId: TypeConName) extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(0))
       val exerciseResult = args.get(1).toValue
       machine.ptx = machine.ptx.endExercises(exerciseResult)
@@ -933,7 +938,8 @@ private[lf] object SBuiltin {
   final case class SBUFetch(templateId: TypeConName) extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(1))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
@@ -979,7 +985,8 @@ private[lf] object SBuiltin {
   final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean) extends SBuiltin(5) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(4))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
@@ -1020,7 +1027,8 @@ private[lf] object SBuiltin {
   final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers =
         extractKeyWithMaintainers(args.get(0))
@@ -1067,7 +1075,8 @@ private[lf] object SBuiltin {
   final case class SBUInsertLookupNode(templateId: TypeConName) extends SBuiltin(3) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(2))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val mbCoid = args.get(1) match {
@@ -1100,7 +1109,8 @@ private[lf] object SBuiltin {
   final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
@@ -1138,7 +1148,8 @@ private[lf] object SBuiltin {
   final case object SBGetTime extends SBuiltin(1) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(0))
       // $ugettime :: Token -> Timestamp
       throw SpeedyHungry(
@@ -1151,7 +1162,8 @@ private[lf] object SBuiltin {
   final case class SBSBeginCommit(optLocation: Option[Location]) extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(1))
       machine.localContracts = Map.empty
       machine.globalDiscriminators = Set.empty
@@ -1165,7 +1177,8 @@ private[lf] object SBuiltin {
   final case class SBSEndCommit(mustFail: Boolean) extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(1))
       if (mustFail) executeMustFail(args, machine)
       else executeCommit(args, machine)
@@ -1244,7 +1257,8 @@ private[lf] object SBuiltin {
   final case object SBSPass extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(1))
       val relTime = args.get(0) match {
         case SInt64(t) => t
@@ -1264,7 +1278,8 @@ private[lf] object SBuiltin {
   final case object SBSGetParty extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       checkToken(args.get(1))
       args.get(0) match {
         case SText(name) =>
@@ -1281,7 +1296,8 @@ private[lf] object SBuiltin {
   final case object SBTrace extends SBuiltin(2) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+    ): Unit = {
       args.get(0) match {
         case SText(message) =>
           machine.traceLog.add(message, machine.lastLocation)
