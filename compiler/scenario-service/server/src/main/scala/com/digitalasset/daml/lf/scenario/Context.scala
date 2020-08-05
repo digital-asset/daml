@@ -197,7 +197,7 @@ class Context(val contextId: Context.ContextId) {
     val compiledPackages =
       PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
     val (scriptPackageId, _) = allPackages.find {
-      case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
+      case (_, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
     }.get
     val scriptExpr = SExpr.SEVal(
       LfDefRef(Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))))

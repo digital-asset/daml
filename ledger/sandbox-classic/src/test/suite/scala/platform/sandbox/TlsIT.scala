@@ -18,8 +18,6 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
 import org.scalatest.AsyncWordSpec
 
-import scala.language.implicitConversions
-
 class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManagementAroundAll {
 
   private val List(
@@ -32,8 +30,6 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       new File(rlocation("ledger/test-common/test-certificates/" + src))
     }
   }
-
-  private implicit def str2File(str: String): File = new File(str)
 
   private lazy val tlsEnabledConfig = LedgerClientConfiguration(
     "appId",

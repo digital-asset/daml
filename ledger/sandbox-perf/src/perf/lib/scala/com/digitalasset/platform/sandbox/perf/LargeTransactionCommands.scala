@@ -8,6 +8,8 @@ import com.daml.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.daml.ledger.api.v1.value.{Identifier, List, Record, RecordField, Value}
 import com.daml.ledger.api.v1.value.Value.{Sum => P}
 
+import com.github.ghik.silencer.silent
+
 object LargeTransactionCommands {
 
   private[this] val party = P.Party("party")
