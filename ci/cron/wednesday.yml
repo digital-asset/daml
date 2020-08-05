@@ -23,17 +23,12 @@ jobs:
   - bash: |
       set -euxo pipefail
 
-      export DEBUG=1
-      grep --version
-      grep --help
-      cat .git/config
-      git config remote.origin.url
-      git config remote.origin.url | grep -o '://.*:.*@'
-      git config remote.origin.url | grep -o '://.*:.*@' | cut -c4-
-      git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev
-      git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2-
-      git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev
-      AUTH="$(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev)"
+      if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
+          AUTH="$header"
+      else
+          AUTH="Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev)"
+      fi
+
       BASE_SHA=$(git rev-parse HEAD)
       az extension add --name azure-devops
       echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
@@ -56,7 +51,7 @@ jobs:
               -m "$(printf "$title\n\n$body\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
           git push origin $branch:$branch
           pr_number=$(curl -H "Content-Type: application/json" \
-                           -u $AUTH \
+                           -H "$AUTH" \
                            --silent \
                            --location \
                            -d "{\"title\": \"$title\", \"head\": \"$branch\", \"base\": \"master\", \"body\": \"$body\"}" \

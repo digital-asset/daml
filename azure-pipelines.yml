@@ -524,7 +524,14 @@ jobs:
         # using basic auth format:
         # https://username:password@github.com/:user/:repo.git
         # This series of pipes extracts the `username:password` part.
-        AUTH="$(git config remote.origin.url | grep -o "://.*:.*@" | cut -c4- | rev | cut -c2- | rev)"
+        #
+        # It looks like in some cases the credentials get stored separately as
+        # a header instead.
+        if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
+            AUTH="$header"
+        else
+            AUTH="Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev)"
+        fi
 
         git checkout origin/master
         BRANCH=update-compat-versions-for-$(release_tag)
@@ -542,7 +549,7 @@ jobs:
             -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
         git push origin $BRANCH:$BRANCH
         curl -H "Content-Type: application/json" \
-             -u $AUTH \
+             -H "$AUTH" \
              --silent \
              --include \
              --location \
