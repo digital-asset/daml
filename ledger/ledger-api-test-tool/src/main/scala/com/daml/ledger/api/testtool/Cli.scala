@@ -14,12 +14,12 @@ import scopt.Read.{intRead, stringRead}
 
 object Cli {
 
-  private def reportUsageOfDeprecatedOption[A, B](
+  private def reportUsageOfDeprecatedOption[B](
       option: String,
-  )(ignoredValue: A, ignoredConfig: B): B = {
+  ) = { (_: Any, config: B) =>
     System.err.println(
       s"WARNING: $option has been deprecated and will be removed in a future version")
-    ignoredConfig
+    config
   }
 
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {

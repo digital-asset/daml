@@ -21,14 +21,6 @@ import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT extends LedgerTestSuite {
 
-  /** A deduplicated submission can either
-    * succeed (if the participant knows that the original submission has succeeded),
-    * or fail with status ALREADY_EXISTS */
-  private[this] def assertDeduplicated(result: Either[Throwable, Unit]): Unit = result match {
-    case Left(e) => assertGrpcError(e, Status.Code.ALREADY_EXISTS, "")
-    case Right(v) => ()
-  }
-
   test(
     "CDSimpleDeduplication",
     "Deduplicate commands within the deduplication time window",
