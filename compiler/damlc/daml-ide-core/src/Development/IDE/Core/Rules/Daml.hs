@@ -976,7 +976,7 @@ ofInterestRule opts = do
         let files = HashSet.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
         let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
-        let runScenarioActions = [runScenarios f  | shouldRunScenarios, f <- files]
+        let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
         _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
   where
