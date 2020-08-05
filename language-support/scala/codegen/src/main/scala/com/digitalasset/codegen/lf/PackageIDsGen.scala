@@ -30,7 +30,7 @@ object PackageIDsGen {
     val packageIdsSrc: Tree =
       q"""
         package ${Util.packageNameToRefTree(util.packageName)} {
-          private object `Package IDs` {
+          private[${Util.packageNameTailToRefTree(util.packageName)}] object `Package IDs` {
             ..$packageIdBindings
           }
         }
