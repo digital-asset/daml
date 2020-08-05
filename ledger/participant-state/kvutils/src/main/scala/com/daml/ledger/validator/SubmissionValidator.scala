@@ -295,12 +295,15 @@ object SubmissionValidator {
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
+  private[validator] type RecordTime = Timestamp
+  private[validator] type InputState = DamlStateMap
+
   private[validator] type ProcessSubmission = (
       DamlLogEntryId,
-      Timestamp,
+      RecordTime,
       DamlSubmission,
       ParticipantId,
-      DamlStateMap,
+      InputState,
   ) => LogEntryAndState
 
   def create[LogResult](
