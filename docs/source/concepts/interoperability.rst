@@ -14,7 +14,7 @@ For example, when an organization initially deploys two workflows to two DAML le
 Interoperability may limit the visibility a Participant Node has into a party's ledger projection, i.e., its :ref:`local ledger <local-ledger>`.
 These limitations influence what parties can observe via the Ledger API.
 In particular, interoperability affects which events a party observes and their order.
-This document explains the visibility limitations due to interoperability and their consequences for the Transaction Service, by :ref:`example <interop-limitation-examples>` and formally by introducing interoperable versions of :ref:`causality graphs <interop-causality-graph>` and :ref:`local ledgers <interop-local-ledger>`.
+This document explains the visibility limitations due to interoperability and their consequences for the Transaction Service, by :ref:`example <interop-limitation-examples>` and formally by introducing interoperable versions of :ref:`causality graphs <interop-causality-graph>` and :ref:`projections <ledger-aware-projection>`.
 
 The presentation assumes that you are familiar with the following concepts:
 
@@ -342,6 +342,7 @@ Namely, if an interoperable causality graph is interoperable consistent for a co
 However, an interoperable-consistent causality graph does not yield a consistent ledger because key consistency may be violated.
 Conversely, a consistent ledger does not talk about the incoming and outgoing ledger annotations and therefore cannot enforce that the annotations are consistent.
 
+.. _ledger-aware-projection:
 
 Ledger-aware projection
 ***********************
