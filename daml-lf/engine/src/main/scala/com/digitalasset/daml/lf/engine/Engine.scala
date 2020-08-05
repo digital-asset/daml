@@ -86,21 +86,18 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
       submissionSeed: crypto.Hash,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
-    val seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime)
-    val submitters = Set(cmds.submitter)
+    val interpreter = new Interpreter(
+      validating = false,
+      submitters = Set(cmds.submitter),
+      ledgerTime = cmds.ledgerEffectiveTime,
+      submissionTime = submissionTime,
+      seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+    )
     preprocessor
       .preprocessCommands(cmds.commands)
       .flatMap {
         case (processedCmds, globalCids) =>
-          interpretCommands(
-            validating = false,
-            submitters = submitters,
-            commands = processedCmds,
-            ledgerTime = cmds.ledgerEffectiveTime,
-            submissionTime = submissionTime,
-            seeding = seeding,
-            globalCids = globalCids,
-          ) map {
+          interpreter.interpretCommands(processedCmds, globalCids) map {
             case (tx, meta) =>
               // Annotate the transaction with the package dependencies. Since
               // all commands are actions on a contract template, with a fully typed
@@ -137,22 +134,22 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] =
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+    val interpreter = new Interpreter(
+      // reinterpret is never used for submission, only for validation.
+      validating = true,
+      submitters = submitters,
+      ledgerTime = ledgerEffectiveTime,
+      submissionTime = submissionTime,
+      seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
+    )
     for {
       commandWithCids <- preprocessor.translateNode(node)
       (command, globalCids) = commandWithCids
-      // reinterpret is never used for submission, only for validation.
-      result <- interpretCommands(
-        validating = true,
-        submitters = submitters,
-        commands = ImmArray(command),
-        ledgerTime = ledgerEffectiveTime,
-        submissionTime = submissionTime,
-        seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
-        globalCids = globalCids,
-      )
+      result <- interpreter.interpretCommands(commands = ImmArray(command), globalCids = globalCids)
       (tx, meta) = result
     } yield (tx, meta)
+  }
 
   def replay(
       tx: SubmittedTransaction,
@@ -187,20 +184,17 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
 
       // For empty transactions, use an empty set of submitters
       submitters = submittersOpt.getOrElse(Set.empty)
+      interpreter = new Interpreter(
+        validating = true,
+        submitters = submitters,
+        ledgerTime = ledgerEffectiveTime,
+        submissionTime = submissionTime,
+        seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+      )
 
       commandsWithCids <- preprocessor.translateTransactionRoots(tx.transaction)
       (commands, globalCids) = commandsWithCids
-      seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime)
-      result <- interpretCommands(
-        validating = true,
-        submitters = submitters,
-        commands = commands,
-        ledgerTime = ledgerEffectiveTime,
-        submissionTime = submissionTime,
-        seeding = seeding,
-        globalCids = globalCids,
-      )
-
+      result <- interpreter.interpretCommands(commands, globalCids)
     } yield result
   }
 
@@ -240,163 +234,6 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
     } yield validationResult
   }
 
-  private def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
-    pkgIds.dropWhile(compiledPackages.packages.isDefinedAt) match {
-      case pkgId :: rest =>
-        ResultNeedPackage(pkgId, {
-          case Some(pkg) =>
-            compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
-          case None =>
-            ResultError(Error(s"package $pkgId not found"))
-        })
-      case Nil =>
-        ResultDone.Unit
-    }
-
-  @inline
-  private[lf] def runSafely[X](handleMissingDependencies: => Result[Unit])(
-      run: => Result[X]): Result[X] = {
-    def start: Result[X] =
-      try {
-        run
-      } catch {
-        case speedy.Compiler.PackageNotFound(_) =>
-          handleMissingDependencies.flatMap(_ => start)
-        case speedy.Compiler.CompilationError(error) =>
-          ResultError(Error(s"CompilationError: $error"))
-      }
-    start
-  }
-
-  /** Interprets the given commands under the authority of @submitters
-    *
-    * Submitters are a set, in order to support interpreting subtransactions
-    * (a subtransaction can be authorized by multiple parties).
-    *
-    * `seeding` is seeding used to derive node seed and contractId discriminator.
-    *
-    */
-  private[engine] def interpretCommands(
-      validating: Boolean,
-      /* See documentation for `Speedy.Machine` for the meaning of this field */
-      submitters: Set[Party],
-      commands: ImmArray[speedy.Command],
-      ledgerTime: Time.Timestamp,
-      submissionTime: Time.Timestamp,
-      seeding: speedy.InitialSeeding,
-      globalCids: Set[Value.ContractId],
-  ): Result[(SubmittedTransaction, Tx.Metadata)] =
-    runSafely(
-      loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
-    ) {
-      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
-      val machine = Machine(
-        compiledPackages = compiledPackages,
-        submissionTime = submissionTime,
-        initialSeeding = seeding,
-        expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
-        globalCids = globalCids,
-        committers = submitters,
-        outputTransactionVersions = config.outputTransactionVersions,
-        validating = validating,
-      )
-      interpretLoop(machine, ledgerTime)
-    }
-
-  // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
-  @SuppressWarnings(Array("org.wartremover.warts.Return"))
-  private[engine] def interpretLoop(
-      machine: Machine,
-      time: Time.Timestamp
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    var finished: Boolean = false
-    while (!finished) {
-      machine.run() match {
-        case SResultFinalValue(_) => finished = true
-
-        case SResultError(err) =>
-          return ResultError(
-            Error(
-              s"Interpretation error: ${Pretty.prettyError(err, machine.ptx).render(80)}",
-              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${machine.ptx.nodesToString}"
-            ))
-
-        case SResultNeedPackage(pkgId, callback) =>
-          return Result.needPackage(
-            pkgId,
-            pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
-                callback(compiledPackages)
-                interpretLoop(machine, time)
-              }
-            }
-          )
-
-        case SResultNeedContract(contractId, _, _, _, cbPresent) =>
-          return Result.needContract(
-            contractId, { coinst =>
-              cbPresent(coinst)
-              interpretLoop(machine, time)
-            }
-          )
-
-        case SResultNeedTime(callback) =>
-          machine.dependsOnTime = true
-          callback(time)
-
-        case SResultNeedKey(gk, _, cb) =>
-          return ResultNeedKey(
-            gk,
-            result =>
-              if (cb(SKeyLookupResult(result)))
-                interpretLoop(machine, time)
-              else
-                ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}"))
-          )
-
-        case _: SResultScenarioCommit =>
-          return ResultError(Error("unexpected ScenarioCommit"))
-
-        case _: SResultScenarioInsertMustFail =>
-          return ResultError(Error("unexpected ScenarioInsertMustFail"))
-        case _: SResultScenarioMustFail =>
-          return ResultError(Error("unexpected ScenarioMustFail"))
-        case _: SResultScenarioPassTime =>
-          return ResultError(Error("unexpected ScenarioPassTime"))
-        case _: SResultScenarioGetParty =>
-          return ResultError(Error("unexpected ScenarioGetParty"))
-      }
-    }
-
-    machine.ptx.finish(
-      machine.outputTransactionVersions,
-      compiledPackages.packageLanguageVersion,
-    ) match {
-      case Left(p) =>
-        ResultError(Error(s"Interpretation error: ended with partial result: $p"))
-      case Right(tx) =>
-        val meta = Tx.Metadata(
-          submissionSeed = None,
-          submissionTime = machine.ptx.submissionTime,
-          usedPackages = Set.empty,
-          dependsOnTime = machine.dependsOnTime,
-          nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
-          byKeyNodes = machine.ptx.byKeyNodes.toImmArray,
-        )
-        profileDir match {
-          case None => ()
-          case Some(profileDir) =>
-            val hash = meta.nodeSeeds(0)._2.toHexString
-            val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"$desc-${hash.substring(0, 6)}"
-            val profileFile =
-              profileDir.resolve(Paths.get(s"${meta.submissionTime}-$desc-$hash.json"))
-            machine.profile.writeSpeedscopeJson(profileFile)
-        }
-        ResultDone((tx, meta))
-    }
-  }
-
   def clearPackages(): Unit = compiledPackages.clear()
 
   /** Note: it's important we return a [[com.daml.lf.CompiledPackages]],
@@ -430,6 +267,170 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
     compiledPackages.stackTraceMode =
       if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
   }
+
+  private[engine] final class Interpreter(
+      validating: Boolean,
+      /* See documentation for `Speedy.Machine` for the meaning of this field */
+      submitters: Set[Party],
+      ledgerTime: Time.Timestamp,
+      submissionTime: Time.Timestamp,
+      seeding: speedy.InitialSeeding,
+  ) {
+
+    /** Interprets the given commands under the authority of @submitters
+      *
+      * Submitters are a set, in order to support interpreting subtransactions
+      * (a subtransaction can be authorized by multiple parties).
+      *
+      * `seeding` is seeding used to derive node seed and contractId discriminator.
+      */
+    def interpretCommands(
+        commands: ImmArray[speedy.Command],
+        globalCids: Set[Value.ContractId],
+    ): Result[(SubmittedTransaction, Tx.Metadata)] =
+      runSafely(
+        loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
+      ) {
+        val sexpr = compiledPackages.compiler.unsafeCompile(commands)
+        val machine = Machine(
+          compiledPackages = compiledPackages,
+          submissionTime = submissionTime,
+          initialSeeding = seeding,
+          expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
+          globalCids = globalCids,
+          committers = submitters,
+          outputTransactionVersions = config.outputTransactionVersions,
+          validating = validating,
+        )
+        interpretLoop(machine, ledgerTime)
+      }
+
+    // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
+    @SuppressWarnings(Array("org.wartremover.warts.Return"))
+    private def interpretLoop(
+        machine: Machine,
+        time: Time.Timestamp,
+    ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+      var finished: Boolean = false
+      while (!finished) {
+        machine.run() match {
+          case SResultFinalValue(_) => finished = true
+
+          case SResultError(err) =>
+            return ResultError(
+              Error(
+                s"Interpretation error: ${Pretty.prettyError(err, machine.ptx).render(80)}",
+                s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${machine.ptx.nodesToString}"
+              ))
+
+          case SResultNeedPackage(pkgId, callback) =>
+            return Result.needPackage(
+              pkgId,
+              pkg => {
+                compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                  callback(compiledPackages)
+                  interpretLoop(machine, time)
+                }
+              }
+            )
+
+          case SResultNeedContract(contractId, _, _, _, cbPresent) =>
+            return Result.needContract(
+              contractId, { coinst =>
+                cbPresent(coinst)
+                interpretLoop(machine, time)
+              }
+            )
+
+          case SResultNeedTime(callback) =>
+            machine.dependsOnTime = true
+            callback(time)
+
+          case SResultNeedKey(gk, _, cb) =>
+            return ResultNeedKey(
+              gk,
+              result =>
+                if (cb(SKeyLookupResult(result)))
+                  interpretLoop(machine, time)
+                else
+                  ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}"))
+            )
+
+          case _: SResultScenarioCommit =>
+            return ResultError(Error("unexpected ScenarioCommit"))
+
+          case _: SResultScenarioInsertMustFail =>
+            return ResultError(Error("unexpected ScenarioInsertMustFail"))
+          case _: SResultScenarioMustFail =>
+            return ResultError(Error("unexpected ScenarioMustFail"))
+          case _: SResultScenarioPassTime =>
+            return ResultError(Error("unexpected ScenarioPassTime"))
+          case _: SResultScenarioGetParty =>
+            return ResultError(Error("unexpected ScenarioGetParty"))
+        }
+      }
+
+      machine.ptx.finish(
+        machine.outputTransactionVersions,
+        compiledPackages.packageLanguageVersion,
+      ) match {
+        case Left(p) =>
+          ResultError(Error(s"Interpretation error: ended with partial result: $p"))
+        case Right(tx) =>
+          val meta = Tx.Metadata(
+            submissionSeed = None,
+            submissionTime = machine.ptx.submissionTime,
+            usedPackages = Set.empty,
+            dependsOnTime = machine.dependsOnTime,
+            nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
+            byKeyNodes = machine.ptx.byKeyNodes.toImmArray,
+          )
+          profileDir match {
+            case None => ()
+            case Some(profileDir) =>
+              val hash = meta.nodeSeeds(0)._2.toHexString
+              val desc = Engine.profileDesc(tx)
+              machine.profile.name = s"$desc-${hash.substring(0, 6)}"
+              val profileFile =
+                profileDir.resolve(Paths.get(s"${meta.submissionTime}-$desc-$hash.json"))
+              machine.profile.writeSpeedscopeJson(profileFile)
+          }
+          ResultDone((tx, meta))
+      }
+    }
+
+    private def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
+      pkgIds.dropWhile(compiledPackages.packages.isDefinedAt) match {
+        case pkgId :: rest =>
+          ResultNeedPackage(pkgId, {
+            case Some(pkg) =>
+              compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
+            case None =>
+              ResultError(Error(s"package $pkgId not found"))
+          })
+        case Nil =>
+          ResultDone.Unit
+      }
+
+    @inline
+    private def runSafely[X](handleMissingDependencies: => Result[Unit])(
+        run: => Result[X],
+    ): Result[X] = {
+      def start: Result[X] =
+        try {
+          run
+        } catch {
+          case speedy.Compiler.PackageNotFound(_) =>
+            handleMissingDependencies.flatMap(_ => start)
+          case speedy.Compiler.CompilationError(error) =>
+            ResultError(Error(s"CompilationError: $error"))
+        }
+
+      start
+    }
+
+  }
+
 }
 
 object Engine {
