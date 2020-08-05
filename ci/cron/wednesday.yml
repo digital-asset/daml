@@ -23,6 +23,9 @@ jobs:
   - bash: |
       set -euxo pipefail
 
+      export DEBUG=1
+      grep --version
+      grep --help
       AUTH="$(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev)"
       BASE_SHA=$(git rev-parse HEAD)
       az extension add --name azure-devops
