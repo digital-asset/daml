@@ -55,7 +55,7 @@ private[speedy] sealed abstract class SBuiltinPure(val arity1: Int) extends SBui
   }
 
   /** Execute the (pure) builtin with 'arity' number of arguments in 'args'.
-    Returns the resultin value */
+    Returns the resulting value */
   private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
 }
 
