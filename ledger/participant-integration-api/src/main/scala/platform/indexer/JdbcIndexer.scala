@@ -360,13 +360,12 @@ private[indexer] class JdbcIndexer private[indexer] (
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              withEnrichedLoggingContext(JdbcIndexer.contextFor(offset, update)) {
-                implicit loggingContext =>
-                  Timed
-                    .future(
-                      metrics.daml.indexer.stateUpdateProcessing,
-                      handleStateUpdate(offset, update),
-                    )
+              withEnrichedLoggingContext(JdbcIndexer.contextFor(offset, update)) { _ =>
+                Timed
+                  .future(
+                    metrics.daml.indexer.stateUpdateProcessing,
+                    handleStateUpdate(offset, update),
+                  )
               }
           }
           .toMat(Sink.ignore)(Keep.both)

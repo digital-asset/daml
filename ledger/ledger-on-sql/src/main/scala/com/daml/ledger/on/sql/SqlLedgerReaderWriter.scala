@@ -49,7 +49,6 @@ final class SqlLedgerReaderWriter(
     seedService: SeedService
 )(
     implicit executionContext: ExecutionContext,
-    loggingContext: LoggingContext,
 ) extends LedgerWriter
     with LedgerReader {
 
@@ -161,9 +160,9 @@ object SqlLedgerReaderWriter {
         )
   }
 
-  private def updateOrRetrieveLedgerId(providedLedgerId: LedgerId, database: Database)(
-      implicit loggingContext: LoggingContext,
-  ): Future[LedgerId] =
+  private def updateOrRetrieveLedgerId(
+      providedLedgerId: LedgerId,
+      database: Database): Future[LedgerId] =
     database.inWriteTransaction("retrieve_ledger_id") { queries =>
       Future.fromTry(
         queries
@@ -181,8 +180,7 @@ object SqlLedgerReaderWriter {
           })
     }
 
-  private final class DispatcherOwner(database: Database)(implicit loggingContext: LoggingContext)
-      extends ResourceOwner[Dispatcher[Index]] {
+  private final class DispatcherOwner(database: Database) extends ResourceOwner[Dispatcher[Index]] {
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[Dispatcher[Index]] =

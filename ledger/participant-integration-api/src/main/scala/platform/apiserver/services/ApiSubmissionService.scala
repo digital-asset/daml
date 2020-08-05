@@ -230,7 +230,7 @@ private[apiserver] final class ApiSubmissionService private (
       transactionInfo: CommandExecutionResult,
       partyAllocationResults: Seq[SubmissionResult],
       ledgerConfig: Configuration,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
+  ): Future[SubmissionResult] =
     partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
       case Some(result) =>
         Future.successful(result)
@@ -258,7 +258,7 @@ private[apiserver] final class ApiSubmissionService private (
 
   private def submitTransaction(
       result: CommandExecutionResult,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
+  ): Future[SubmissionResult] = {
     metrics.daml.commands.validSubmissions.mark()
     writeService
       .submitTransaction(

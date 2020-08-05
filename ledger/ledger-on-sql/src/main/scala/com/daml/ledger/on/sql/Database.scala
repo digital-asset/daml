@@ -29,19 +29,19 @@ final class Database(
 ) {
   def inReadTransaction[T](name: String)(
       body: ReadQueries => Future[T],
-  )(implicit loggingContext: LoggingContext): Future[T] =
+  ): Future[T] =
     inTransaction(name, readerConnectionPool)(connection =>
       Future(body(new TimedQueries(queries(connection), metrics)))(readerExecutionContext).flatten)
 
   def inWriteTransaction[T](name: String)(
       body: Queries => Future[T],
-  )(implicit loggingContext: LoggingContext): Future[T] =
+  ): Future[T] =
     inTransaction(name, writerConnectionPool)(connection =>
       Future(body(new TimedQueries(queries(connection), metrics)))(writerExecutionContext).flatten)
 
   private def inTransaction[T](name: String, connectionPool: DataSource)(
       body: Connection => Future[T],
-  )(implicit loggingContext: LoggingContext): Future[T] = {
+  ): Future[T] = {
     val connection = Timed.value(
       metrics.daml.ledger.database.transactions.acquireConnection(name),
       connectionPool.getConnection())
@@ -226,9 +226,7 @@ object Database {
       )
     }
 
-    def migrateAndReset()(
-        implicit executionContext: ExecutionContext,
-        loggerCtx: LoggingContext): Future[Database] = {
+    def migrateAndReset()(implicit executionContext: ExecutionContext): Future[Database] = {
       val db = migrate()
       db.inWriteTransaction("ledger_reset") { queries =>
           Future.fromTry(queries.truncate())
