@@ -4,17 +4,18 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.command._
-import com.daml.lf.data._
-import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
-import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
-import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
-import com.daml.lf.transaction.Node._
-import com.daml.lf.value.Value
 import java.nio.file.{Files, Path, Paths}
+
+import com.daml.lf.command._
+import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
+import com.daml.lf.data._
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.value.Value
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -66,13 +67,13 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
     * <li> `ResultNeedPackage(packageId, resume)` if the package referenced by `packageId` is needed to execute `cmds`.
     * </li>
     * <li> `ResultError` if the execution of `cmds` fails.
-    *      The execution may fail due to an error during DAML evaluation (e.g. execution of "abort") or
-    *      because the caller has not provided a required contract instance or package.
+    * The execution may fail due to an error during DAML evaluation (e.g. execution of "abort") or
+    * because the caller has not provided a required contract instance or package.
     * </li>
     * </ul>
     *
     *
-    * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
+    * `submissionSeed` is the master hash used to derive node and contractId discriminator.
     * If left undefined, no discriminator will be generated.
     *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
@@ -85,18 +86,20 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
       submissionSeed: crypto.Hash,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
+    val seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime)
+    val submitters = Set(cmds.submitter)
     preprocessor
       .preprocessCommands(cmds.commands)
       .flatMap {
         case (processedCmds, globalCids) =>
           interpretCommands(
             validating = false,
-            submitters = Set(cmds.submitter),
+            submitters = submitters,
             commands = processedCmds,
             ledgerTime = cmds.ledgerEffectiveTime,
             submissionTime = submissionTime,
-            seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-            globalCids,
+            seeding = seeding,
+            globalCids = globalCids,
           ) map {
             case (tx, meta) =>
               // Annotate the transaction with the package dependencies. Since
@@ -121,9 +124,9 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
     * That is, it can be used to reinterpret partially an already interpreted transaction (since it consists of GenNodes).
     *
     *
-    * [[nodeSeed]] is the seed of the Create and Exercise node as generated during submission.
+    * `nodeSeed` is the seed of the Create and Exercise node as generated during submission.
     * If undefined the contract IDs are derive using V0 scheme.
-    * The value of [[nodeSeed]] does not matter for other kind of nodes.
+    * The value of `nodeSeed` does not matter for other kind of nodes.
     *
     * The reinterpretation does not recompute the package dependencies, so the field `usedPackages` in the
     * `Tx.MetaData` component of the output is always set to `empty`.
@@ -146,7 +149,7 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
-        globalCids,
+        globalCids = globalCids,
       )
       (tx, meta) = result
     } yield (tx, meta)
@@ -187,14 +190,15 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
 
       commandsWithCids <- preprocessor.translateTransactionRoots(tx.transaction)
       (commands, globalCids) = commandsWithCids
+      seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime)
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
-        seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        globalCids,
+        seeding = seeding,
+        globalCids = globalCids,
       )
 
     } yield result
@@ -269,7 +273,7 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
     * Submitters are a set, in order to support interpreting subtransactions
     * (a subtransaction can be authorized by multiple parties).
     *
-    * [[seeding]] is seeding used to derive node seed and contractId discriminator.
+    * `seeding` is seeding used to derive node seed and contractId discriminator.
     *
     */
   private[engine] def interpretCommands(
@@ -422,7 +426,7 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
     }
   }
 
-  def enableStackTraces(enable: Boolean) = {
+  def enableStackTraces(enable: Boolean): Unit = {
     compiledPackages.stackTraceMode =
       if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
   }
