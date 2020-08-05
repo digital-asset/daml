@@ -30,8 +30,7 @@ class KeyValueParticipantStateReader private[api] (
     metrics: Metrics,
     logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
-)
-    extends ReadService {
+) extends ReadService {
   import KeyValueParticipantStateReader._
 
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
@@ -81,7 +80,8 @@ object KeyValueParticipantStateReader {
   def apply(
       reader: LedgerReader,
       metrics: Metrics,
-      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault): KeyValueParticipantStateReader =
+      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault)
+    : KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,
