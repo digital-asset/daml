@@ -51,13 +51,18 @@ jobs:
               commit \
               -m "$(printf "$title\n\n$body\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
           git push origin $branch:$branch
-          pr_number=$(curl -H "Content-Type: application/json" \
+          pr_number=$(jq -n \
+                         --arg branch "$branch" \
+                         --arg title "$title" \
+                         --arg body "$body" \
+                         '{"title": $title, "head": $branch, "base": "master", "body": $body}' \
+                    | curl -H "Content-Type: application/json" \
                            -H "$AUTH" \
                            --silent \
                            --location \
-                           -d "{\"title\": \"$title\", \"head\": \"$branch\", \"base\": \"master\", \"body\": \"$body\"}" \
+                           -d @- \
                            https://api.github.com/repos/digital-asset/daml/pulls \
-                      | jq '.number')
+                    | jq '.number')
           az pipelines build queue \
               --branch $branch \
               --definition-name "digital-asset.daml" \
@@ -83,7 +88,7 @@ jobs:
           local tmp
           tmp=$(mktemp)
           cp release/rotation $tmp
-          cat <(tail -n +2 $tmp) <(head -1 $tmp) > release/rotation
+          (tail -n +2 $tmp; head -1 $tmp) > release/rotation
       }
 
       reset
