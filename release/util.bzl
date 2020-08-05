@@ -31,6 +31,7 @@ def sdk_tarball(name, version):
             "//daml-assistant/daml-sdk:sdk_deploy.jar",
         ],
         outs = ["{}.tar.gz".format(name)],
+        tools = ["//bazel_tools/sh:mktgz"],
         cmd = """
           # damlc
           VERSION={version}
@@ -78,9 +79,7 @@ def sdk_tarball(name, version):
           cp -L $(location //triggers/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/trigger-logback.xml
           cp -L $(location //daml-script/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/script-logback.xml
 
-          tar c --format=ustar $$OUT \\
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-            | gzip -n > $@
+          $(execpath //bazel_tools/sh:mktgz) $@ $$OUT
         """.format(version = version),
         visibility = ["//visibility:public"],
     )

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools
+package com.daml.ledger.participant.state.kvutils.tools.export
 
 import java.io.DataInputStream
 import java.util.concurrent.TimeUnit
@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExpor
   WriteSet
 }
 import com.daml.ledger.participant.state.kvutils.export.{NoopLedgerDataExporter, Serialization}
+import com.daml.ledger.participant.state.kvutils.tools._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -30,6 +31,7 @@ import com.google.protobuf.ByteString
 import scala.concurrent.{ExecutionContext, Future}
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
+
   import IntegrityChecker._
 
   def run(input: DataInputStream)(implicit executionContext: ExecutionContext): Future[Unit] = {
