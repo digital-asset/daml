@@ -373,7 +373,7 @@ object DamlDataTypeGen {
 
         lazy val typeObjectCase = if (fields.isEmpty) {
           q"""
-            {_ => _root_.scala.Some(${TermName(damlScalaName.name)}())}
+            {_root_.scala.Function const _root_.scala.Some(${TermName(damlScalaName.name)}())}
           """
         } else {
           val decodeFields =
