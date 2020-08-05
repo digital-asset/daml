@@ -96,7 +96,7 @@ jobs:
       PR_FILE=$(mktemp)
       open_pr "auto-release-pr-$(date -I)" \
               "release $RELEASE" \
-              "This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging.\n\n@$NEXT_GH is in charge of this release.") \
+              "This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging.\n\n@$NEXT_GH is in charge of this release." \
               $PR_FILE
 
       PR=$(cat PR_FILE)
