@@ -25,7 +25,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.{DurationInt, DurationLong}
 
 /**
@@ -121,7 +121,6 @@ private[apiserver] final class LedgerConfigProvider private (
   }
 
   private[this] def submitInitialConfig(writeService: WriteService): Future[Unit] = {
-    implicit val executionContext: ExecutionContext = DE
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
     // - There already is a configuration, it just didn't appear in the index yet

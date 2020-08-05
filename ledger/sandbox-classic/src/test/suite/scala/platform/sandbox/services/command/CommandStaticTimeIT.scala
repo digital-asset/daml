@@ -50,7 +50,7 @@ final class CommandStaticTimeIT
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), unwrappedLedgerId)
       .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
-      .map(tp =>
+      .map(_ =>
         new CommandClient(
           CommandSubmissionServiceGrpc.stub(channel),
           CommandCompletionServiceGrpc.stub(channel),

@@ -69,7 +69,7 @@ private[platform] object ReadOnlySqlLedger {
       val retryDelay = 5.seconds
       val maxAttempts = 100
       RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) {
-        (attempt, _wait) =>
+        (attempt, _) =>
           ledgerDao
             .lookupLedgerId()
             .flatMap {

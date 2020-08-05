@@ -6,7 +6,6 @@ package com.daml.platform.apiserver.services
 import java.time.{Duration, Instant}
 import java.util.UUID
 
-import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
@@ -48,7 +47,6 @@ private[apiserver] object ApiSubmissionService {
 
   def create(
       ledgerId: LedgerId,
-      contractStore: ContractStore,
       writeService: WriteService,
       submissionService: IndexSubmissionService,
       partyManagementService: IndexPartyManagementService,
@@ -61,12 +59,10 @@ private[apiserver] object ApiSubmissionService {
       metrics: Metrics,
   )(
       implicit ec: ExecutionContext,
-      mat: Materializer,
       loggingContext: LoggingContext,
   ): GrpcCommandSubmissionService with GrpcApiService =
     new GrpcCommandSubmissionService(
       service = new ApiSubmissionService(
-        contractStore,
         writeService,
         submissionService,
         partyManagementService,
@@ -93,7 +89,6 @@ private[apiserver] object ApiSubmissionService {
 }
 
 private[apiserver] final class ApiSubmissionService private (
-    contractStore: ContractStore,
     writeService: WriteService,
     submissionService: IndexSubmissionService,
     partyManagementService: IndexPartyManagementService,
@@ -104,7 +99,7 @@ private[apiserver] final class ApiSubmissionService private (
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
-)(implicit ec: ExecutionContext, mat: Materializer, loggingContext: LoggingContext)
+)(implicit ec: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {

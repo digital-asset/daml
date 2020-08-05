@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver
 
 import akka.actor.ActorSystem
-import akka.stream.Materializer
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
@@ -22,7 +21,7 @@ private[daml] final class LedgerApiServer(
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     metrics: Metrics,
-)(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
+)(implicit actorSystem: ActorSystem, loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
   private val logger = ContextualizedLogger.get(this.getClass)

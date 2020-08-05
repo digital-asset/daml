@@ -7,12 +7,10 @@ import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
 
-import akka.actor.Scheduler
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.api.util.TimeProvider
 import com.daml.lf.archive.DarReader
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DE}
@@ -34,9 +32,7 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: WritePackagesService,
-    timeProvider: TimeProvider,
-    materializer: Materializer,
-    scheduler: Scheduler)(implicit loggingContext: LoggingContext)
+    materializer: Materializer)(implicit loggingContext: LoggingContext)
     extends PackageManagementService
     with GrpcApiService {
 
@@ -134,13 +130,7 @@ private[apiserver] object ApiPackageManagementService {
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
-      timeProvider: TimeProvider)(implicit mat: Materializer, loggingContext: LoggingContext)
+  )(implicit mat: Materializer, loggingContext: LoggingContext)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
-    new ApiPackageManagementService(
-      readBackend,
-      transactionsService,
-      writeBackend,
-      timeProvider,
-      mat,
-      mat.system.scheduler)
+    new ApiPackageManagementService(readBackend, transactionsService, writeBackend, mat)
 }

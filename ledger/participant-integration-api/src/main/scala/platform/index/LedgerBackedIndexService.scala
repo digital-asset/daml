@@ -6,7 +6,6 @@ package com.daml.platform.index
 import java.time.Instant
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
@@ -53,8 +52,7 @@ import scala.concurrent.Future
 private[platform] final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
     participantId: ParticipantId,
-)(implicit mat: Materializer)
-    extends IndexService {
+) extends IndexService {
 
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
     Future.successful(ledger.ledgerId)

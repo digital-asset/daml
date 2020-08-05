@@ -123,7 +123,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   private def getFlatTransactionsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetTransactions(
       selectColumns = selectColumns,
-      groupByColumns = groupByColumns,
       sqlFunctions = sqlFunctions,
     )
 
@@ -141,7 +140,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
       selectColumns = selectColumns,
-      groupByColumns = groupByColumns,
       sqlFunctions = sqlFunctions
     )
 

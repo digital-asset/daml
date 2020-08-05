@@ -23,7 +23,6 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.MetricsAround
 import com.daml.platform.sandbox.config.LedgerName
-import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
 import com.daml.platform.store.dao.events.LfValueTranslation
@@ -185,7 +184,6 @@ class SqlLedgerSpec
         initialLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
         participantId = participantId,
         timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveLedgerState.empty,
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)
           .fold(sys.error, identity),

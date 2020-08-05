@@ -13,7 +13,7 @@ import com.daml.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.RawBatch.PartialParameters
 
-private[events] final class RawBatch(query: String, parameters: Vector[PartialParameters]) {
+private[events] final class RawBatch(parameters: Vector[PartialParameters]) {
   def applySerialization(
       lfValueTranslation: LfValueTranslation,
   ): Vector[Vector[NamedParameter]] =

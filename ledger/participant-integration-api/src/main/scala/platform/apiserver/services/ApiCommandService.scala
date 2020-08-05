@@ -10,7 +10,6 @@ import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -52,8 +51,7 @@ private[apiserver] final class ApiCommandService private (
 )(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
-    esf: ExecutionSequencerFactory,
-    loggingContext: LoggingContext,
+    loggingContext: LoggingContext
 ) extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
@@ -172,8 +170,7 @@ private[apiserver] object ApiCommandService {
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
-      esf: ExecutionSequencerFactory,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(services, configuration, ledgerConfigProvider),
