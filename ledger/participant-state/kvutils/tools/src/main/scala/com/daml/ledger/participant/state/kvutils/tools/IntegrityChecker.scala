@@ -94,40 +94,55 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     }
   }
 
-  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
+  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit =
     if (expectedWriteSet == actualWriteSet) {
       println("OK".green)
     } else {
-      println("FAIL".red)
-      val message =
+      val messageMaybe =
         if (expectedWriteSet.size == actualWriteSet.size) {
-          expectedWriteSet
+          val differencesExplained = expectedWriteSet
             .zip(actualWriteSet)
-            .flatMap {
+            .map {
               case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
                 if (expectedKey == actualKey && expectedValue != actualValue) {
-                  Seq(
-                    s"expected value:    ${bytesAsHexString(expectedValue)}",
-                    s" vs. actual value: ${bytesAsHexString(actualValue)}",
-                    explainDifference(expectedKey, expectedValue, actualValue),
-                  )
+                  explainDifference(expectedKey, expectedValue, actualValue).map {
+                    explainedDifference =>
+                      Seq(
+                        s"expected value:    ${bytesAsHexString(expectedValue)}",
+                        s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                        explainedDifference,
+                      )
+                  }
                 } else if (expectedKey != actualKey) {
-                  Seq(
-                    s"expected key:    ${bytesAsHexString(expectedKey)}",
-                    s" vs. actual key: ${bytesAsHexString(actualKey)}",
-                  )
-                } else
-                  Seq.empty
+                  Some(
+                    Seq(
+                      s"expected key:    ${bytesAsHexString(expectedKey)}",
+                      s" vs. actual key: ${bytesAsHexString(actualKey)}",
+                    ))
+                } else {
+                  None
+                }
             }
+            .map(_.toList)
+            .filterNot(_.isEmpty)
+            .map(_.mkString(System.lineSeparator()))
             .mkString(System.lineSeparator())
+          PartialFunction.condOpt(differencesExplained.isEmpty) {
+            case false => differencesExplained
+          }
         } else {
-          s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}"
+          Some(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
         }
-      throw new ComparisonFailureException(message)
+      messageMaybe.foreach { message =>
+        println("FAIL".red)
+        throw new ComparisonFailureException(message)
+      }
     }
-  }
 
-  private def explainDifference(key: Key, expectedValue: Value, actualValue: Value): String =
+  private def explainDifference(
+      key: Key,
+      expectedValue: Value,
+      actualValue: Value): Option[String] =
     kvutils.Envelope
       .openStateValue(expectedValue)
       .toOption
@@ -139,7 +154,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
             |Expected: $expectedStateValue
             |Actual: $actualStateValue""".stripMargin
       }
-      .getOrElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
+      .orElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
 
   private def readSubmissionAndOutputs(input: DataInputStream): (SubmissionInfo, WriteSet) = {
     val (submissionInfo, writeSet) = Serialization.readEntry(input)
