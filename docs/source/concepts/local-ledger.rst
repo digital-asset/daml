@@ -226,8 +226,10 @@ Definition »Consistency for a causality graph«
   `G` is **consistent** if `G` is consistent on all the actions in `G`.
 
 When edges are added to an `X`-consistent causality graph such that it remains acyclic and transitively closed,
-the resulting graph remains `X`-consistent.
+the resulting graph is again `X`-consistent.
 So it makes sense to consider minimal consistent causality graphs.
+
+.. _minimal-consistent-causality-graph:
 
 Definition »Minimal consistent causality graph«
   An `X`-consistent causality graph `G` is `X`\ -**minimal** if no strict subgraph of `G` is a `X`-consistent causality graph.
@@ -296,6 +298,8 @@ For example, the transactions on the :ref:`ledger <split-counteroffer-ledger>` i
 Conversely, we can reduce an `X`\ -consistent causality graph to only the causal dependencies that `X`\ -consistency imposes.
 This gives a minimal `X`\ -consistent causality graph.
 
+.. _def-reduction-causality-graph:
+
 Definition »Reduction of a consistent causality graph«
   For an `X`\ -consistent causality graph `G`, there exists a unique minimal `X`\ -consistent causality graph `reduce`:sub:`X`\ `(G)` with the same vertices and the edges being a subset of `G`.
   `reduce`:sub:`X`\ `(G)` is called the `X`\ -**reduction** of `G`.
@@ -349,7 +353,7 @@ Definition »Projection of a consistent causality graph«
   * The vertices of `G'` are the vertices of `G` the `P`\ -projection of whose transaction is not empty.
     Each vertex in `G'` is labelled by the (non-empty) `P`\ -projection of the corresponding `G`\ -vertex's transaction.
 
-  * There is an edge between two vertices `v`:sub:`1` and `v`:sub:`2` in `G'` if there is an edge from `G`\ -vertex corresponding to `v`:sub:`1` to the `G`\ -vertex corresponding to `v`:sub:`2`.
+  * There is an edge between two vertices `v`:sub:`1` and `v`:sub:`2` in `G'` if there is an edge from the `G`\ -vertex corresponding to `v`:sub:`1` to the `G`\ -vertex corresponding to `v`:sub:`2`.
 
 For the :ref:`Counteroffer causality graph <causality-graph-couteroffer-split>`, the projections to Alice, the Bank, and the painter are as follows.
 
@@ -372,6 +376,7 @@ However, the painter is not an informee of those two actions; he merely witnesse
 Therefore no ordering is required from the painter's point of view.
 This difference explains the :ref:`divulgence causality example <causality-divulgence-example>`.
 
+.. _ordering-guarantees:
 
 Ledger API ordering guarantees
 ==============================
@@ -406,7 +411,7 @@ These guarantees are subject to the deployed DAML ledger's trust assumptions.
    They synchronize these local ledgers to the extent that they remain consistent.
    That is, all the local ledgers can in theory be combined into a consistent single causality graph of which they are projections.
 
-   
+
 Explaining the causality examples
 =================================
 

@@ -8,30 +8,39 @@ Ledger Interoperability
 
 Certain DAML ledgers can interoperate with other DAML ledgers.
 That is, the contracts created on one ledger can be used and archived in transactions on other ledgers.
-Participant Nodes connect to multiple ledgers and provide their parties unified access to those ledgers via the :ref:`Ledger API <ledger-api-services>`.
+Some Participant Nodes can connect to multiple ledgers and provide their parties unified access to those ledgers via the :ref:`Ledger API <ledger-api-services>`.
 For example, when an organization initially deploys two workflows to two DAML ledgers, it can later compose those workflows into a larger workflow that spans both ledgers.
 
-This section covers the following topics:
-
-- The :ref:`topologies <interoperable-topology>` for interoperable ledgers
-
-- The :ref:`aggregation <interoperable-aggregation>` of interoperable ledgers into the local ledgers exposed over the Ledger API
-
-- The :ref:`causality guarantees <interoperable-causality>` for interoperable ledgers.
-
+Interoperability may limit the visibility a Participant Node has into a party's ledger projection, i.e., its :ref:`local ledger <local-ledger>`.
+These limitations influence what parties can observe via the Ledger API.
+In particular, interoperability affects which events a party observes and their order.
+This document explains the visibility limitations due to interoperability and their consequences for the Transaction Service, by :ref:`example <interop-limitation-examples>` and formally by introducing interoperable versions of :ref:`causality graphs <interop-causality-graph>` and :ref:`local ledgers <interop-local-ledger>`.
 
 The presentation assumes that you are familiar with the following concepts:
 
-- :ref:`Local ledgers and causality <local-ledger>`
-- The :ref:`Ledger API <ledger-api-services>`
-- The :ref:`DAML ledger model <da-ledgers>`
+* The :ref:`Ledger API <ledger-api-services>`
 
+* The :ref:`DAML Ledger Model <da-ledgers>`
+
+* :ref:`Local ledgers and causality graphs <local-ledger>`
+
+.. note::
+   Interoperability for DAML ledgers is under active development.
+   This document describes the vision for interoperability
+   and gives an idea of how the Ledger API services may change and what guarantees are provided.
+   The described services and guarantees may change without notice as the interoperability implementation proceeds.
+
+.. _interop-limitation-examples:
+   
+Interoperability examples
+*************************
+   
 .. _interoperable-topology:
 
-Topologies
-**********
+Topology
+========
 
-Participant Nodes connect to DAML ledgers and parties access to projections of these ledgers via the Ledger API.
+Participant Nodes connect to DAML ledgers and parties access projections of these ledgers via the Ledger API.
 The following picture shows such a setup.
 
 .. figure:: ./images/multiple-domains.svg
@@ -59,118 +68,298 @@ The components in this diagram are the following:
 
 .. _interoperable-aggregation:
 
-Aggregation into Local Ledgers
-******************************
+Aggregation at the participant
+==============================
 
+The Participant Node assembles the updates from these ledgers and outputs them via the party's Transaction Service and Active Contract Service.
 When a Participant Node hosts a party only on a subset of the interoperable DAML ledgers,
 then the transaction and active contract services of the Participant Node are derived only from those ledgers.
-In practice, the Participant Node assembles the updates from these ledgers into the party's local ledger,
-which feeds the Transaction Service and Active Contract Service for this party.
 
-In the :ref:`above example <multiple-ledgers>`, when a transaction creates a contract with stakeholder `A` on Ledger 2,
-then this transaction is in `P1`\ 's local ledger for `A`, but not in `P2`\ 's.
-Accordingly, `P1` outputs the transaction and the ``CreatedEvent`` on `A`\ 's event stream and reports the contract as active.
-In contrast, `P2` will neither output the event nor report the contract as active, as `P1` is not connected to domain 2.
+For example, in the :ref:`above topology <multiple-ledgers>`, when a transaction creates a contract with stakeholder Alice on Ledger 2,
+then `P1`\ 's transaction stream for Alice will emit this transaction and report the contract as active, but not `P2`.
 
-Contracts Entering and Leaving Local Ledgers
-============================================
 
-For interoperability, it is important that a transaction can use a contract whose creation comes from a different ledger.
-In the :ref:`above example <multiple-ledgers>`, one transaction can create a contract with stakeholder `A` on Ledger 1 and another archives the contract on Ledger 2.
-Then endpoint `P2` outputs the ``CreatedEvent``, but not the ``ArchiveEvent`` on the transaction service
+.. _enter-leave-event:
+
+Enter and Leave events
+======================
+
+With interoperability, a transaction can use a contract whose creation was recorded on a different ledger.
+In the :ref:`above topology <multiple-ledgers>`, e.g., one transaction creates a contract with stakeholder Alice on Ledger 1 and another archives the contract on Ledger 2.
+Then the Participant Node `P2` outputs the **Create** action as a ``CreatedEvent``, but not the **Exercise** in form of an ``ArchiveEvent`` on the transaction service
 because Ledger 2 need not notify `P2` about updates that pertain to Alice.
-Conversely, when one transaction creates a contract with stakeholder Alice on Ledger 3 and another archives the contract on Ledger 1, then `P1` outputs the ``ArchivedEvent``, but not the ``CreateEvent``.
+Conversely, when one transaction creates a contract with stakeholder Alice on Ledger 3 and another archives the contract on Ledger 1, then `P1` outputs the ``ArchivedEvent``, but not the ``CreatedEvent``.
 
-To keep the transaction stream consistent, `P2` additionally outputs a ``LeaveLocalLedgerEvent`` on Alice's transaction stream.
-This event signals that the endpoint no longer outputs events concerning this contract; in particular not when the contract is archived.
-The contract is no longer reported in the active contract service and cannot be used by command submissions.
+To keep the transaction stream consistent, `P2` additionally outputs a **Leave** action on Alice's transaction stream.
+This action signals that the Participant Node no longer outputs events concerning this contract; in particular not when the contract is archived.
+The contract is accordingly no longer reported in the active contract service and cannot be used by command submissions.
 
-Conversely, `P1` outputs an ``EnterLocalLedgerEvent``\ s some time before the ``ArchivedEvent`` on the transaction stream.
-This event signals that the endpoint starts outputting events concerning this contract.
-The contract is reported in the active contract service and can be used by command submission.
-The ``EnterLocalLedgerEvent`` contains all the information in a ``CreatedEvent``;
-the only difference is that ``EnterLocalLedgerEvent``\ s may occur several times whereas there should be at most one ``CreatedEvent`` for each contract.
+Conversely, `P1` outputs an **Enter** action some time before the ``ArchivedEvent`` on the transaction stream.
+This action signals that the Participant Node starts outputting events concerning this contract.
+The contract is reported in the Active Contract Service and can be used by command submission.
 
-These events are generated when the underlying interoperability protocol synchronizes between the different ledgers.
+The actions **Enter** and **Leave** are similar to **Create** and a consuming **Exercise** action, respectively, except that **Enter** and **Leave** may occur several times for the same contract whereas 
+there should be at most one **Create** action and at most one consuming **Exercise** action for each contract.
+
+These **Enter** and **Leave** events are generated when the underlying interoperability protocol synchronizes between the different ledgers.
 This may happen as part of command submission or for other reasons, e.g., load balancing.
-It is guaranteed that the ``EnterLocalLedgerEvent`` precedes contract usage, subject to the trust assumptions of the underlying ledgers and the interoperability protocol.
+It is guaranteed that the **Enter** precedes contract usage, subject to the trust assumptions of the underlying ledgers and the interoperability protocol.
 
-A contract may enter and leave the local ledger of a Participant Node several times.
+A contract may enter and leave the visibility of a Participant Node several times.
 For example, suppose that Bob submits the following commands and their commits end up on the given ledgers.
 
 #. Create a contract `c` with signatories Alice and Bob on Ledger 2
 #. Exercise a non-consuming choice `ch1` on `c` on Ledger 1.
 #. Exercise a non-consuming choice `ch2` on `c` on Ledger 2.
-#. Exercise a consuming choice on `c` on Ledger 1.
+#. Exercise a consuming choice `ch3` on `c` on Ledger 1.
 
-Then, the transaction tree stream that `P2` provides for `A` contains five events involving contract `c`: ``EnterLocalLedgerEvent``, ``ExercisedEvent``, ``LeaveLocalLedgerEvent``, ``EnterLocalLedgerEvent``, ``ArchivedEvent``.
-These five events can be grouped into between two or five transactions.
-For example, the first three and the last two could be batched into one transaction each.
-However, `P2` cannot combine the ``LeaveLocalLedgerEvent`` with the subsequent ``EnterLocalLedgerEvent`` and `P2` must not elide them either.
-This is because their presence indicates that `P2`\ 's local ledger for Alice may miss some events in between; in this example, exercising the choice `ch2`.
+Then, the transaction tree stream that `P2` provides for `A` contains five actions involving contract `c`: **Enter**, non-consuming **Exercise**, **Leave**, **Enter**, consuming **Exercise**.
+Importantly, `P2` must not omit the **Leave** action and the subsequent **Enter**, even though they seem to cancel out.
+This is because their presence indicates that `P2`\ 's event stream for Alice may miss some events in between; in this example, exercising the choice `ch2`.
 
-The flat transaction stream by `P2` shows omits the non-consuming exercise choices.
-It nevertheless contains the three view change events ``EnterLocalLedgerEvent``, ``LeaveLocalLedgerEvent``, and ``EnterLocalLedgerEvent`` before the ``ArchivedEvent``.
-This is because the endpoint cannot know at the ``LeaveLocalLedgerEvent`` that there will be another ``EnterLocalLedgerEvent``.
+The flat transaction stream by `P2` omits the non-consuming exercise choices.
+It nevertheless contains the three actions **Enter**, **Leave**, **Enter** before the consuming **Exercise**.
+This is because the Participant Node cannot know at the **Leave** that there will be another **Enter** event coming.
 
-In contrast, `P1` need not output the ``EnterLocalLedgerEvent``\ s and ``LeaveLocalLedgerEvent``\ s at all in this example because `P1` hosts `A` on both ledgers.
+In contrast, `P1` need not output the **Enter** and **Leave** actions at all in this example because `P1` hosts Alice on both ledgers.
 
+.. _cross-ledger-transaction:
 
-Local Ledgers with Enter and Leave Actions
-==========================================
-
-The ``EnterLocalLedgerEvent`` and ``LeaveLocalLedgerEvent`` events are included in the transactions of the local ledger that the participant maintains for a party.
-They are abbreviated as **Enter** and **Leave** actions.
-**Enter** counts as a contract activation and **Leave** as a contract deactivation.
-The :ref:`local ledger structure <local-ledger-structure>` for interoperable ledgers generalizes as follows.
-
-The transactions in the local ledger contain all the actions of the DAML Ledger Model and additionally the ``EnterLocalLedgerEvent`` and ``LeaveLocalLedgerEvent`` events,
-which are referred to as **Enter** and **Leave** actions.
-As before, the stream of transactions and transaction trees are derived as a topological sort of the local ledger for the set of parties.
-
-It suffices to extend :ref:`definition of activation and deactivation <local-ledger-structure>` actions as follows.
-The actual definition of local ledger remains the same except that every local ledger implicitly identifies the set of DAML ledgers it aggregates.
-
-Definition »activation, deactivation«
-
-  * A **Enter** action on a contract **activates the contract**.
-
-  * A **Leave** action on a contract **deactivates the contract**.
-
-
-.. _interoperable-causality:
-
-Causality for Interoperable Ledgers
-***********************************
-
-The :ref:`ordering guarantees <order-consistency>` between the local ledger and the transaction service does not need to be changed for interoperability.
-The order consistency of several local ledgers and the shared ledger, however, need to be generalized for interoperability.
-
-The virtual shared ledger
+Cross-ledger transactions
 =========================
 
-While every DAML ledger may keep a physical copy of its shared ledger,
-there is no place that records the result of the interoperability protocol between those ledgers;
-it merely ensures that the individual shared ledgers are consistent.
-Like for local ledgers, consistency is formalized by the existence of a *virtual* shared ledger.
+With interoperability, a cross-ledger transaction can be committed on several interoperable DAML ledgers simultaneously.
+Such a cross-ledger transaction avoids some of the synchronization overhead of **Enter** and **Leave** actions.
+When a cross-ledger transaction uses contracts from several DAML ledgers,
+stakeholders may witness actions on their contracts that are actually not visible on the Participant Node.
 
-Definition »virtual shared ledger«
-  A **virtual shared ledger** for a set `X` of interoperable DAML ledgers
-  is a finite labelled directed acyclic graph of transactions that satisfies the following conditions:
+For example, suppose that the :ref:`paint counteroffer workflow <split-counteroffer-ledger>` from the causality examples is committed as follows:
+The actions on `CounterOffer` and `PaintAgree` contracts are committed on Ledger 1, with Bob being the painter.
+All actions on `Iou`\ s are committed on Ledger 2, assuming that some Participant Node hosts the Bank on Ledger 1.
+The last transaction is a cross-ledger transaction because the archival of the `CounterOffer` and the creation of the `PaintAgree`\ ment commits on Ledger 1 simultaneously with the transfer of Alice's `Iou` to Bob on Ledger 2.
 
-  * It satisfies the conditions for a shared ledger.
+For the last transaction, Participant Node 1 notifies Alice of the transaction tree, the two archivals and the `PaintAgree` creation via the Transaction Service as usual.
+Participant Node 2 also output's the whole transaction tree on Alice's transaction tree stream, which contains the consuming **Exercise** of Alice's `Iou`.
+However, it has not output the **Create** of Alice's `Iou` because `Iou` actions commit on Ledger 2, on which Participant Node 2 does not host Alice.
+So Alice merely *witnesses* the archival even though she is an :ref:`informee <def-informee>` of the exercise.
+The **Exercise** action is therefore marked as merely being witnessed on Participant Node 2's transaction tree stream.
 
-  * It does not contain **Enter** nor **Leave** actions.
+In general, an action is marked as **merely being witnessed** when a party is an informee of the action, but the action is not committed on a ledger on which the Participant Node hosts the party.
+Unlike **Enter** and **Leave**, such witnessed actions do not affect causality from the participant's point of view and therefore provide weaker ordering guarantees.
+Such witnessed actions show up neither in the flat transaction stream nor in the Active Contracts Service.
 
-  * Every action in the vertex transactions is labelled with a DAML ledger from `X`.
+For example, suppose that the **Create** `PaintAgree` action commits on Ledger 2 instead of Ledger 1, i.e., only the `CounterOffer` actions commit on Ledger 1.
+Then, Participant Node 2 marks the **Create** `PaintAgree` action also as merely being witnessed on the transaction tree stream.
+Accordingly, it does not report the contract as active nor can Alice use the contract in her submissions.
 
-Since a cross-ledger transaction can use contracts from different DAML ledgers,
-the :ref:`projection <da-model-projections>` of transactions needs to be aware of the ledgers.
-In the `PaintOffer` workflow, e.g., Alice's and the painter's projections of the acceptance transactions are the whole transaction
-as they are both stakeholders on the `PaintOffer` contract.
-When this transaction is run across two ledgers, say one ledger for dealing with `Iou`\ s and one ledger for dealing with painting,
-Alice's and the painter's participants on the `Iou` ledger will see only the `Iou` part of the transaction.
-Accordingly, the ledger-aware projections look as follows, where yellow represents the `Iou` ledger and blue stands for the painting ledger.
+.. _interop-causality-graph:
+
+Interoperable causality graphs
+******************************
+
+This section generalizes :ref:`causality graphs <causality-graph>` to the interoperability setting.
+
+Every active DAML contract resides on at most one DAML ledger.
+Any use of a contract must be committed on the DAML ledger where it resides.
+Initially, when the contract is created, it takes up residence on the DAML ledger on which the **Create** action is committed.
+To use contracts residing on different DAML ledgers, cross-ledger transactions are committed on several DAML ledgers.
+
+However, cross-ledger transactions incur overheads and if a contract is frequently used on a DAML ledger that is not its residence, the interoperability protocol can migrate the contract to the other DAML ledger.
+The process of the contract giving up residence on the origin DAML ledger and taking up residence on the target DAML ledger is called a **contract transfer**.
+The **Enter** and **Leave** events on the transaction stream originate from such contract transfers, as will be explained below.
+Moreover, contract transfers are synchronization points between the origin and target DAML ledgers and therefore affect the ordering guarantees.
+We therefore generalize causality graphs for interoperability:
+
+Definition »Transfer action«
+  A **transfer action** on a contract `c` is written **Transfer** `c`.
+  The **informees** of the transfer actions are the stakeholders of `c`.
+
+In the following, the term *action* refers to transaction actions (**Create**, **Exercise**, **Fetch**, and **NoSuchKey**) as well as transfer actions.
+In particular, a transfer action on a contract `c` is an action on `c`.
+
+Definition »Interoperable causality graph«
+  An **interoperable causality graph** `G` for a set `Y` of DAML ledgers is a finite, transitively closed, acyclic graph.
+  The vertices are either transactions or transfer actions.
+  Every action is possibly annotated with an **incoming ledger** and an **outgoing ledger** from `Y` according to the following table:
+
+  +---------------+-----------------+-----------------+
+  | Action        | incoming ledger | outgoing ledger |
+  +===============+=================+=================+
+  | **Create**    | no              | yes             |
+  +---------------+-----------------+-----------------+
+  | consuming     |                 |                 |
+  | **Exercise**  | yes             | no              |
+  +---------------+-----------------+-----------------+
+  | non-consuming |                 |                 |
+  | **Exercise**  | yes             | yes             |
+  +---------------+-----------------+-----------------+
+  | **Fetch**     | yes             | yes             |
+  +---------------+-----------------+-----------------+
+  | **NoSuchKey** | no              | no              |
+  +---------------+-----------------+-----------------+
+  | **Transfer**  | maybe           | maybe           |
+  +---------------+-----------------+-----------------+
+
+  For non-consuming **Exercise** and **Fetch** actions, the input ledger must be the same as the output ledger.
+  Not both annotations may be missing on a **Transfer** action.
+  If a **Transfer** action is annotated only with an incoming ledger, this constitutes a **Leave** action.
+  If it is annotated only with an outgoing ledger, this constitutes an **Enter** action.
+
+The :ref:`action order <def-action-order>` generalizes to interoperable causality graphs accordingly.
+
+In the :ref:`example for Enter and Leave events <enter-leave-event>` where Bob exercises three choices on contract `c` with signatories Alice and Bob, the four transactions yield the following interoperable causality graph.
+Input and output ledgers are encoded as colors (green for Ledger 1 and yellow for Ledger 2) and **Transfer** vertices are shown as circles.
+
+.. https://app.lucidchart.com/documents/edit/ef1e60ac-fa1e-40be-b1e6-7b3197d4543b
+
+.. _interoperable-causality-graph-linear:
+   
+.. figure:: ./images/interoperable-causality-graph-linear.svg
+   :align: center
+   :width: 100%
+
+   Interoperable causality graph with transfer actions
+
+.. note::
+   As for ordinary causality graphs, the diagrams for interoperable causality graphs omit transitive edges for readability.
+
+As an example for a cross-domain transaction, consider the :ref:`paint counteroffer workflow with the cross-domain transaction <cross-ledger-transaction>`.
+The corresponding interoperable causality graph is shown below where green stands for Ledger 1 and yellow for Ledger 2.
+The last transaction `tx4` is a cross-ledger transaction because its actions have more than one color.
+
+.. https://app.lucidchart.com/documents/edit/c3b120cf-1974-4ae8-8334-435642f94eed/
+
+.. _counteroffer-interoperable-causality-graph:
+   
+.. figure:: ./images/counteroffer-interoperable-causality-graph.svg
+   :align: center
+   :width: 100%
+
+   Interoperable causality graph for the paint counteroffer workflow on two DAML ledgers
+
+
+Consistency
+===========
+
+Definition »Ledger trace«
+  A **ledger trace** is a finite list of pairs `(a`:sub:`i`\ `, b`:sub:`i`\ `)`
+  such that `b`:sub:`i - 1` = `a`:sub:`i` for all `i` > 0.
+  Here `a`:sub:`i` and `b`:sub:`i` identify DAML ledgers or are the special value `NONE`.
+
+ 
+Definition »Interoperable causal consistency for a contract«
+  Let `G` be an interoperable causality graph and `X` be a set of actions on a contract in `c` that belong to vertices in `G`.
+  The graph `G` is **interoperable consistent for the contract** `c` on `X` if all of the following hold:
+
+  #. If `X` is not empty, then `X` contains a **Create** or **Enter** action.
+     This action precedes all other actions in `X`.
+
+  #. `X` contains at most one **Create** action.
+     If so, this action precedes all other actions in `X`.
+
+  #. If `X` contains a consuming **Exercise** action `act`, then `act` follows all actions in `X` other than `act` in `G`\ 's action order.
+
+  #. For every transfer action `act` in `X`, every other action `act'` in `X` either precedes or follows `act` in `G`\ 's action order.
+
+  #. For every maximal chain in `X` (i.e., maximal totally ordered subset of `X`), the sequence of `(`\ incoming ledger, outgoing ledger\ `)` pairs is a ledger trace, using `NONE` if there is no incoming or outgoing ledger annotation.
+
+The first three conditions mimick the conditions of :ref:`causal consistency <def-causal-consistency-contract>` for ordinary causality graphs.
+They ensure that **Create** actions come first and consuming **Exercise** actions last.
+The fourth condition ensures that all transfer actions are synchronization points for a contract.
+The last condition about ledger traces ensures that contracts reside on only one DAML ledger and all usages happen on the ledger of residence.
+In particular, the next contract action after a **Leave** must be an **Enter**.
+
+For example, the above interoperable causality graph is interoperable consistent for `c`.
+In particular, there is only one maximal chain in the actions on `c`, namely **Create** `c` -> `tf1` -> **ExeN** `B` `c` `ch1` -> `tf2` -> **ExeN** `B` `c` `ch2` -> `tf3` -> **ExeN** `B` `c` `ch3`, and for each edge -> the outgoing ledger color of the left-hand side is the same as the incoming ledger color on the right hand side.
+The restriction to maximal chains ensures that no node is skipped.
+For example, the (non-maximal) chain **Create** `c` -> **ExeN** `B` `c` `ch1` -> `tf2` -> **ExeN** `B` `c` `ch2` -> `tf3` -> **Exe** `B` `c` `ch3` is not a ledger trace because the outgoing ledger of the **Create** action (yellow) is not the same as the incoming ledger of the non-consuming **Exercise** action for `ch1` (green).
+Accordingly, the subgraph without the `tf1` vertex is not interoperable consistent for `c` even though it is an interoperable causality graph.
+
+Definition »Consistency for an interoperable causality graph«
+  Let `X` be a subset of actions in an interoperable causality graph `G`.
+  Then `G` is **interoperable consistent** for `X` (or `X`-**interoperable consistent**)
+  if `G` is interoperable consistent for all contracts `c` on the set of actions on `c` in `X`.
+  `G` is **interoperable consistent** if `G` is interoperable consistent on all the actions in `G`.
+
+.. note::
+   There is no interoperable consistency requirement for contract keys.
+   So interoperability does not provide consistency guarantees beyond those that come from the contracts they reference.
+   In particular, contract keys need not be unique and **NoSuchKey** actions do not check that the contract key is unassigned.
+
+The :ref:`interoperable causality graph for the paint counteroffer workflow <counteroffer-interoperable-causality-graph>` is consistent.
+In particular all maximal chains of actions on a contract are ledger traces:
+
++-------------------------+-----------------------------------------+
+| contract                | maximal chains                          |
++=========================+=========================================+
+| `Iou Bank A`            | **Create** -> **Fetch** -> **Exercise** |
++-------------------------+-----------------------------------------+
+| `ShowIou A P Bank`      | **Create** -> **Exercise**              |
++-------------------------+-----------------------------------------+
+| `Counteroffer A P Bank` | **Create** -> **Exercise**              |
++-------------------------+-----------------------------------------+
+| `Iou Bank P`            | **Create**                              |
++-------------------------+-----------------------------------------+
+| `PaintAgree P A`        | **Create**                              |
++-------------------------+-----------------------------------------+
+   
+Minimality and reduction
+========================
+
+When edges are added to an `X`-interoperable consistent causality graph such that it remains acyclic and transitively closed,
+the resulting graph is again `X`-interoperable consistent.
+The notions :ref:`minimally consistent <minimal-consistent-causality-graph>` and ref:`reduction <def-reduction-causality-graph>` therefore generalize from ordinary causality graphs accordingly.
+
+Definition »Minimal interoperable-consistent causality graph«
+  An `X`-interoperable consistent causality graph `G` is `X`\ -**minimal** if no strict subgraph of `G` is a `X`-interoperable consistent causality graph.
+  If `X` is the set of all actions in `G`, then `X` is omitted.
+
+Definition »Reduction of an interoperable consistent causality graph«
+  For an `X`\ -interoperable consistent causality graph `G`, there exists a unique minimal `X`\ -interoperable consistent causality graph `reduce`:sub:`X`\ `(G)` with the same vertices and the edges being a subset of `G`.
+  `reduce`:sub:`X`\ `(G)` is called the `X`\ -**reduction** of `G`.
+  As before, `X` is omitted if it contains all actions in `G`.
+
+Since interoperable causality graphs are acyclic, their vertices can be sorted topologically and the resulting list is again a causality graph, where every vertex has an outgoing edge to all later vertices.
+If the original causality graph is `X`\ -consistent, then so is the topological sort, as topological sorting merely adds edges.
+
+
+From interoperable causality graphs to ledgers
+==============================================
+
+Interoperable causality graphs `G` are linked to ledgers `L` in the DAML Ledger Model via topological sort and reduction.
+
+* Given an interoperable causality graph `G`,
+  drop the incoming and outgoing ledger annotations and all transfer vertices,
+  topologically sort the transaction vertices,
+  and extend the resulting list of transactions with the requesters to obtain a sequence of commits `L`.
+
+* Given a sequence of commits `L`,
+  use the transactions as vertices and add an edge from `tx1` to `tx2` whenever `tx1`\ 's commit precedes `tx2`\ 's commit in the sequence.
+  Then add transfer vertices and incoming and outgoing ledger annotations as needed.
+
+This link does not preserve consistency only to some extent.
+Namely, if an interoperable causality graph is interoperable consistent for a contract `c`, then the corresponding ledger is consistent for the contract `c`, too.
+However, an interoperable-consistent causality graph does not yield a consistent ledger because key consistency may be violated.
+Conversely, a consistent ledger does not talk about the incoming and outgoing ledger annotations and therefore cannot enforce that the annotations are consistent.
+
+
+Ledger-aware projection
+***********************
+
+A Participant Node maintain a local ledger for each party it hosts and the Transaction Service outputs a topological sort of this local ledger.
+When the Participant Node hosts the party on several ledger, this local ledger is an interoperable causality graph.
+This section defines the ledger-aware projection of an interoperable causality graph, which yields such a local ledger.
+
+Definition »Y-labelled action«
+  An action with incoming and outgoing ledger annotations is **Y-labelled** for a set `Y`
+  if its incoming or outgoing ledger annotation is an element of `Y`.
+
+Definition »Ledger-aware projection for transactions«
+  Let `Y` be a set of DAML ledgers and `tx` a transaction whose actions annotated with incoming and outgoing ledgers.
+  Let `Act` be the set of `Y`-labelled subactions of `tx` that `A` is an informee of.
+  The **ledger-aware projection** of `tx` for a party `P` (`P`-**projection on** `Y`) consists of the maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
+
+The :ref:`cross-domain transaction in the paint counteroffer workflow <counteroffer-interoperable-causality-graph>`, for example, has the following projections for Alice and Bob and the `Iou` ledger (yellow) and the painting ledger (blue).
 Here, the projections to the blue ledger include the actions of the yellow ledger because a projection includes the subactions.
 
 .. https://www.lucidchart.com/documents/edit/f8ec5741-7a37-4cf5-92a9-bf7b3132ba8e
@@ -178,60 +367,85 @@ Here, the projections to the blue ledger include the actions of the yellow ledge
    :align: center
    :width: 60%
 
-Definition »Y-labelled action«
-  An action is **Y-labelled** for a set `Y` if it is labelled with an element of `Y`.
-           
-Definition »ledger-aware projection«
-  Let `tx` be a transaction according to the DAML Ledger Model whose actions are `X`\ -labelled for a set `X` of DAML ledgers
-  and let `Y` be a subset of `X`.
-  Let `Act` be the set of `Y`\ -labelled subactions of `tx` that have `A` as an informee.
-  The **Y-projection** of `tx` to a party `A` consists of maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
+Definition »Projection for transfer actions«
+  Let `act` be a transfer action annotation with an incoming ledger and/or an outgoing ledger.
+  The **projection** of `act` on a set of ledgers `Y` (**projection** on `Y`)
+  removes the annotations from `act` that are not in `Y`.
+  If the projection removes all annotations, it is empty.
 
-Ledger-aware projections extend to the virtual shared ledger straightforwardly.
-  
-Interoperable order consistency
-===============================
-  
-The interoperable order consistency between local ledgers is then defined as follows:
-  
-Definition »interoperable order consistency«
-  A set `Ls` of local ledgers is **interoperable order-consistent**
-  if there exists a virtual shared ledger `G` for a set of `X` of interoperable DAML ledgers with the following properties:
+  The **projection** of `act` to a party `P` on `Y` (`P`\ -**projection** on `Y`)
+  is the projection of `act` on `Y` if `P` is a stakeholder of the contract, and empty otherwise.
 
-  * *Closed world:*
-    The ledgers in `Ls` aggregate only DAML ledgers in `X`.
+Definition »Interoperable consistency for a party«
+  An interoperable causality graph `G` is **consistent for a party** `P` on a set of ledgers `Y` (`P`\ -**consistent** for `Y`).
+  if `G` is interoperable consistent on the set of `Y`\ -labelled actions in `G` of which `P` is an informee.
 
-  * *Injective agreement:*
-    For every local ledgers `L` in `Ls` for party `A` that aggregates a set `Y` of DAML ledgers, the following holds.
-    Let `V` be the vertices in `L` that contain actions other than **Enter** and **Leave**
-    and let `W` be the vertices in `G` that whose `Y`\ -projection to `A` is not empty.
-    Then there is a bijection between `V` and `W` such that removing all **Enter** and **Leave** actions from the transaction in `V` gives the `Y`-projection of the corresponding transaction in `W`.
-    Whenver `L` contains an edge between two in `V`, then `G` contains an edge between the corresponding vertices in `W`.
+The notions of `X`-minimality and `X`-reduction extend to a party `P` on a set `Y` of ledgers accordingly.
 
-  * *Enter and Leave*:
-    For every `Y`\ -labelled action `act` in `G` with informee `A` that uses a contract `c`, the following holds:
+Definition »Ledger-aware projection for interoperable causality graphs«
+  Let `G` be an interoperable-consistent causality graph and `Y` be a set of DAML ledgers.
+  The **projection** of `G` to party `P` on `Y` (`P`\ -**projection** on `Y`) is the `P`\ -reduction on `Y` of the following `P`\ -interoperable consistent causality graph `G'`:
 
-    - If there is no `Y`\ -labelled action that precedes `act` in `G`\ 's action order and acts on the same contract,
-      then `L` contains an **Enter** action for the contract that precedes `act` in `L`.
+  * The vertices of `G'` are the vertices of `G` projected to `P` on `Y`, excluding empty projections.
 
-    - If there are actions `act`:sub:`1` and `act`:sub:`2` such that `act`:sub:`1` precedes `act`:sub:`2` and `act`:sub:`2` precedes `act` in `G` and `act`:sub:`1` is `Y`\ -labelled, but not `act`:sub:`2`, then `L` contains an **Enter** and a **Leave** action for the contract between `act`:sub:`1` and `act`.
+  * There is an edge between two vertices `v`:sub:`1` and `v`:sub:`2` in `G'` if there is an edge from the `G`\ -vertex corresponding to `v`:sub:`1` to the `G`\ -vertex corresponding to `v`:sub:`2`.
 
-    - For every **Leave** action before `act`, `L` contains an **Enter** action between the **Leave** action and `act`.
+If `G` is an interoperable-consistent causality graph, then the `P`\ -projection on `Y` is `P`\ -consistent on `Y`, too.
 
-.. note::
-   There are no ordering guarantees for contract keys other than those that come from the contracts they reference.
+For example, the :ref:`interoperable causality graph for the paint counteroffer workflow <counteroffer-interoperable-causality-graph>` is projected as follows.
 
-Like for a single DAML ledger, interoperable order consistency ensures that the order of transactions is consistent across several Participant Nodes and parties.
-Moreover, if a interoperable order-consistent local ledger contains actions on one of `A`\ ;s contracts,
-then it delimits with **Leave** and **Enter** when actions on that contract may be missing from that ledger.
+.. https://app.lucidchart.com/documents/edit/d788b464-d670-4029-b2c0-d537c023052f
+   
+.. image:: ./images/counteroffer-causality-ledgeraware-projection.svg
+   :align: center
+   :width: 100%
 
-These **Leave** and **Enter** actions are not ordered w.r.t. actions on other contracts.
-So a local ledger may report a contract as active although it has already been archived on another ledger even if the archival's consequences causally precede other actions on the ledger.
+The following points are worth highlighting:
 
-Connection with the DAML Ledger Model
-=====================================
+* In Alice's projection on the green ledger, Alice witnesses the archival of her `Iou`.
+  As explained in the :ref:`interop-ordering-guarantees` below,
+  the **Exercise** action is marked as merely being witnessed
+  in the transaction stream of a Participant Node that hosts Alice on the green ledger but not on the yellow ledger.
+  Similarly, the Painter merely witnesses the **Create** of his `Iou` in the Painter's projection on the green ledger.
 
-The virtual shared ledger can be understood as a ledger of the DAML Ledger Model analogously to a :ref:`shared ledger <connection-ledger-model>`:
-topologically sort the vertices and drop the labels on actions.
-The interoperability protocol ensures that the virtual shared ledger is valid, subject to the trust assumptions of the underlying ledgers and the protocol.
-Accordingly, the local ledgers inherit the validity guarantees from the virtual shared ledger like they do from a shared ledger of a single DAML ledger.
+* In the Painter's projections, the `ShouIou` transaction `tx3` is unordered w.r.t. to the `CounterOffer` acceptance in `tx4`
+  like in the :ref:`case of ordinary causality graphs <counteroffer-causality-projections>`.
+  The edge `tx3` -> `tx4` is removed by the reduction step during projection.
+
+The projection of transfer actions can be illustrated with the :ref:`interoperable-causality-graph-linear`.
+The `A`-projections on the yellow and green ledger look as follows.
+The white color indicates that a transfer action has no incoming or outgoing ledger annotation.
+That is, a **Leave** action is white on the right hand side and an **Enter** action is white on the left hand side.
+
+.. https://app.lucidchart.com/documents/edit/edbf9aaf-b7da-4e68-b9c9-9e631c3a87bb
+
+.. image:: ./images/transfer-projection.svg
+   :align: center
+   :width: 100%
+
+.. _interop-ordering-guarantees:
+
+Ledger API ordering guarantees
+******************************
+
+The Transaction Service and the Active Contract Service are derived from the local ledger that the Participant Node maintains for the party.
+Let `Y` be the set of ledgers on which the Participant Node hosts a party.
+The transaction tree stream outputs a topological sort of the party's local ledger on `Y`, with the following modifications:
+
+#. **Transfer** actions with both incoming and outgoing ledger annotations are omitted.
+
+#. The incoming and outgoing ledger annotations are not output.
+   Transaction actions with an incoming or outgoing ledger annotation that is not in `Y` are marked as merely being witnessed
+   if the party is an informee of the action.
+
+#. **Fetch** nodes and **NoSuchKey** are omitted.
+
+The flat transaction stream contains precisely the ``CreatedEvent``\ s, ``ArchivedEvent``\ s, and the **Enter** and **Leave** actions that correspond to **Create**, consuming **Exercise**, **Enter** and **Leave** actions in transaction trees on the transaction tree stream where the party is a stakeholder of the affected contract and that are not marked as merely being witnessed.
+
+Similarly, the active contract service provides the set of contracts that are active at the returned offset according to the Transaction Service streams.
+That is, the contract state changes of all events from the transaction event stream are taken into account in the provided set of contracts.
+
+The :ref:`ordering guarantees <ordering-guarantees>` for single DAML ledgers extend accordingly.
+In particular, interoperability ensures that all local ledgers are projections of a virtual shared interoperable causality graph that connects to the DAML Ledger Model as described above.
+The ledger validity guarantees therefore extend via the local ledgers to the Ledger API.
+However, 
