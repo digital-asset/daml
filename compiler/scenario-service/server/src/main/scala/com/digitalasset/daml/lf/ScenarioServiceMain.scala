@@ -3,8 +3,14 @@
 
 package com.daml.lf.scenario
 
+import akka.actor.ActorSystem
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import akka.stream.Materializer
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.logging.{Level, Logger}
+import scalaz.std.option._
+import scalaz.std.scalaFuture._
+import scalaz.syntax.traverse._
 
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.Ref
@@ -14,6 +20,8 @@ import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
 
+import scala.concurrent.ExecutionContext
+import scala.util.{Success, Failure}
 import scala.collection.concurrent.TrieMap
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -21,6 +29,14 @@ import scala.util.control.NonFatal
 object ScenarioServiceMain extends App {
   // default to 128MB
   val maxMessageSize = args.headOption.map(_.toInt).getOrElse(128 * 1024 * 1024)
+
+  // Needed for the akka Ledger bindings used by DAML Script.
+  val system = ActorSystem("ScriptService")
+  implicit val sequencer: ExecutionSequencerFactory =
+    new AkkaExecutionSequencerPool("ScriptServicePool")(system)
+  implicit val materializer: Materializer = Materializer(system)
+  implicit val ec: ExecutionContext = system.dispatcher
+
   val server =
     NettyServerBuilder
       .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
@@ -42,6 +58,7 @@ object ScenarioServiceMain extends App {
       while (System.in.read >= 0) {}
       System.err.println("ScenarioService: stdin closed, terminating server.")
       server.shutdown()
+      system.terminate()
       ()
     }
   }).start
@@ -56,7 +73,11 @@ object ScenarioService {
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 }
 
-class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
+class ScenarioService(
+    implicit ec: ExecutionContext,
+    esf: ExecutionSequencerFactory,
+    mat: Materializer)
+    extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   import ScenarioService._
 
@@ -112,6 +133,58 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
       case Some(resp) =>
         respObs.onNext(resp)
         respObs.onCompleted()
+    }
+  }
+
+  override def runScript(
+      req: RunScenarioRequest,
+      respObs: StreamObserver[RunScenarioResponse],
+  ): Unit = {
+    val scenarioId = req.getScenarioId
+    val contextId = req.getContextId
+    val response =
+      contexts
+        .get(contextId)
+        .traverse { context =>
+          val packageId = scenarioId.getPackage.getSumCase match {
+            case PackageIdentifier.SumCase.SELF =>
+              context.homePackageId
+            case PackageIdentifier.SumCase.PACKAGE_ID =>
+              scenarioId.getPackage.getPackageId
+            case PackageIdentifier.SumCase.SUM_NOT_SET =>
+              throw new RuntimeException(
+                s"Package id not set when running scenario, context id $contextId",
+              )
+          }
+          context
+            .interpretScript(packageId, scenarioId.getName)
+            .map(_.map {
+              case (ledger, machine, errOrValue) =>
+                val builder = RunScenarioResponse.newBuilder
+                errOrValue match {
+                  case Left(err) =>
+                    builder.setError(
+                      new Conversions(context.homePackageId, ledger, machine)
+                        .convertScenarioError(err),
+                    )
+                  case Right(value) =>
+                    builder.setResult(new Conversions(context.homePackageId, ledger, machine)
+                      .convertScenarioResult(value))
+                }
+                builder.build
+            })
+        }
+        .map(_.flatMap(x => x))
+
+    response.onComplete {
+      case Success(None) =>
+        log(s"runScript[$contextId]: $scenarioId not found")
+        respObs.onError(notFoundContextError(req.getContextId))
+      case Success(Some(resp)) =>
+        respObs.onNext(resp)
+        respObs.onCompleted()
+      case Failure(err) =>
+        respObs.onError(err)
     }
   }
 

@@ -33,13 +33,15 @@ handle ide (CodeLensParams (TextDocumentIdentifier uri) _) = Right <$> do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath' -> filePath) -> do
           logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
-          mbModMapping <- runAction ide (useWithStale GenerateRawDalf filePath)
+          (mbModMapping, DamlEnv{..}) <- runAction ide $
+              (,) <$> useWithStale GenerateRawDalf filePath
+                  <*> getDamlServiceEnv
           case mbModMapping of
               Nothing -> pure []
               Just (mod, mapping) ->
                   pure
-                      [ virtualResourceToCodeLens (range, "Scenario: " <> name, vr)
-                      | (valRef, Just loc) <- scenariosInModule mod
+                      [ virtualResourceToCodeLens (range, prefix <> name, vr)
+                      | (prefix, (valRef, Just loc)) <- map ("Scenario: ",) (scenariosInModule mod) ++ map ("Script: ",) (scriptsInModule envEnableScripts mod)
                       , let name = LF.unExprValName (LF.qualObject valRef)
                       , let vr = VRScenario filePath name
                       , Just range <- [toCurrentRange mapping $ sourceLocToRange loc]

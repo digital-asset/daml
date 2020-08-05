@@ -62,7 +62,8 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
     results <- runActionSync h $
         Shake.forP files $ \file -> do
             mbScenarioResults <- runScenarios file
-            results <- case mbScenarioResults of
+            mbScriptResults <- runScripts file
+            results <- case liftM2 (++) mbScenarioResults mbScriptResults of
                 Nothing -> failedTestOutput h file
                 Just scenarioResults -> do
                     -- failures are printed out through diagnostics, so just print the sucesses

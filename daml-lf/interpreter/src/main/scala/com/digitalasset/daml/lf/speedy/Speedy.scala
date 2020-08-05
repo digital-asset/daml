@@ -407,7 +407,7 @@ private[lf] object Speedy {
 
     // reinitialize the state of the machine with a new fresh submission seed.
     // Should be used only when running scenario
-    private[speedy] def clearCommit: Unit = {
+    private[lf] def clearCommit: Unit = {
       val freshSeed =
         crypto.Hash.deriveTransactionSeed(
           ptx.context.nextChildrenSeed,

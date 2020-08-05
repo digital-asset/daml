@@ -713,6 +713,45 @@ da_haskell_test(
     ],
 )
 
+da_haskell_test(
+    name = "script-service",
+    srcs = ["src/DA/Test/ScriptService.hs"],
+    data = [
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-script/daml:daml-script.dar",
+        ghc_pkg,
+    ],
+    hackage_deps = [
+        "base",
+        "directory",
+        "data-default",
+        "extra",
+        "filepath",
+        "ghcide",
+        "haskell-lsp-types",
+        "unordered-containers",
+        "regex-tdfa",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.ScriptService.main",
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-package-config",
+        "//compiler/damlc/daml-rule-types",
+        "//compiler/scenario-service/client",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
 sh_test(
     name = "stable-packages",
     srcs = ["src/stable-packages.sh"],
