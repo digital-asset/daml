@@ -7,6 +7,9 @@ import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 
 /**
-  * A key value pair with the log entry.
+  * Raw key-value pairs with a distinct log entry.
   */
-case class RawKeyValuePairsWithLogEntry(logEntry: (Bytes, Bytes), state: RawKeyValuePairs)
+case class RawKeyValuePairsWithLogEntry(
+    state: RawKeyValuePairs,
+    logEntryKey: Bytes,
+    logEntryValue: Bytes)

@@ -114,7 +114,7 @@ object Main {
             )
         }
       parser
-        .opt[Boolean]("force-pre-execute")
+        .opt[Boolean]("force-pre-execution")
         .optional()
         .text("Force pre-execution (mutually exclusive with batching)")
         .action {

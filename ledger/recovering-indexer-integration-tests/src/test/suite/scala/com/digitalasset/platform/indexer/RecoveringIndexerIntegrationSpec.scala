@@ -12,7 +12,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.on.memory.{InMemoryLedgerReaderWriter, InMemoryState}
+import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
   KeyValueParticipantState
@@ -24,13 +24,12 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.ResourceOwner
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
@@ -38,7 +37,7 @@ import org.mockito.Mockito._
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
@@ -240,30 +239,13 @@ object RecoveringIndexerIntegrationSpec {
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
       val metrics = new Metrics(new MetricRegistry)
-      new ResourceOwner[ParticipantState] {
-        override def acquire()(
-            implicit executionContext: ExecutionContext): Resource[ParticipantState] = {
-          val state = InMemoryState.empty
-          for {
-            dispatcher <- Dispatcher
-              .owner(
-                name = "in-memory-key-value-participant-state",
-                zeroIndex = 0,
-                headAtInitialization = 0,
-              )
-              .acquire()
-            readerWriter <- new InMemoryLedgerReaderWriter.BatchingOwner(
-              ledgerId,
-              BatchingLedgerWriterConfig.reasonableDefault,
-              participantId,
-              metrics = metrics,
-              engine = Engine.DevEngine(),
-              state = state,
-              dispatcher = dispatcher,
-            ).acquire()
-          } yield new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-        }
-      }
+      new memory.InMemoryLedgerReaderWriter.SingleParticipantBatchingOwner(
+        ledgerId,
+        BatchingLedgerWriterConfig.reasonableDefault,
+        participantId,
+        metrics = metrics,
+        engine = Engine.DevEngine()
+      ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
   }
 

@@ -81,12 +81,14 @@ object PostExecutionFinalizer {
 
   private def createLogEntry(
       preExecutionOutput: PreExecutionOutput[RawKeyValuePairsWithLogEntry],
-      withinTimeBounds: Boolean): (Bytes, Bytes) =
-    if (withinTimeBounds) {
-      preExecutionOutput.successWriteSet.logEntry
+      withinTimeBounds: Boolean): (Bytes, Bytes) = {
+    val writeSet = if (withinTimeBounds) {
+      preExecutionOutput.successWriteSet
     } else {
-      preExecutionOutput.outOfTimeBoundsWriteSet.logEntry
+      preExecutionOutput.outOfTimeBoundsWriteSet
     }
+    writeSet.logEntryKey -> writeSet.logEntryValue
+  }
 
   private def createWriteSet(
       preExecutionOutput: PreExecutionOutput[RawKeyValuePairsWithLogEntry],

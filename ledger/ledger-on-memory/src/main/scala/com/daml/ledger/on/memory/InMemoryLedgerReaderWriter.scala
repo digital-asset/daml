@@ -68,6 +68,26 @@ final class InMemoryLedgerReaderWriter(
 object InMemoryLedgerReaderWriter {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
+  def apply(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+      dispatcher: Dispatcher[Index],
+      state: InMemoryState,
+      validateAndCommit: ValidateAndCommit,
+      metrics: Metrics,
+  )(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): InMemoryLedgerReaderWriter =
+    new InMemoryLedgerReaderWriter(
+      participantId,
+      ledgerId,
+      dispatcher,
+      state,
+      validateAndCommit,
+      metrics
+    )
+
   final class BatchingOwner(
       ledgerId: LedgerId,
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
@@ -96,13 +116,7 @@ object InMemoryLedgerReaderWriter {
           stateValueCache)
 
       val readerWriter =
-        createInMemoryLedgerReaderWriter(
-          ledgerId,
-          participantId,
-          dispatcher,
-          state,
-          committer,
-          metrics)
+        InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher, state, committer, metrics)
 
       // We need to generate batched submissions for the validator in order to improve throughput.
       // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
@@ -112,6 +126,38 @@ object InMemoryLedgerReaderWriter {
       }
 
       Resource.successful(createKeyValueLedger(readerWriter, ledgerWriter))
+    }
+  }
+
+  final class SingleParticipantBatchingOwner(
+      ledgerId: LedgerId,
+      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
+      participantId: ParticipantId,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+      metrics: Metrics,
+      engine: Engine,
+  )(implicit materializer: Materializer)
+      extends ResourceOwner[KeyValueLedger] {
+
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[KeyValueLedger] = {
+      val state = InMemoryState.empty
+      for {
+        dispatcher <- dispatcherOwner.acquire()
+        readerWriter <- new BatchingOwner(
+          ledgerId,
+          batchingLedgerWriterConfig,
+          participantId,
+          metrics,
+          timeProvider,
+          stateValueCache,
+          dispatcher,
+          state,
+          engine
+        ).acquire()
+      } yield readerWriter
     }
   }
 
@@ -143,13 +189,7 @@ object InMemoryLedgerReaderWriter {
           stateValueCacheForPreExecution)
 
       val readerWriter =
-        createInMemoryLedgerReaderWriter(
-          ledgerId,
-          participantId,
-          dispatcher,
-          state,
-          committer,
-          metrics)
+        InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher, state, committer, metrics)
 
       Resource.successful(createKeyValueLedger(readerWriter, readerWriter))
     }
@@ -227,26 +267,6 @@ object InMemoryLedgerReaderWriter {
         new InMemoryLedgerStateAccess(state, metrics))
     validateAndCommit
   }
-
-  private def createInMemoryLedgerReaderWriter(
-      ledgerId: LedgerId,
-      participantId: ParticipantId,
-      dispatcher: Dispatcher[Index],
-      state: InMemoryState,
-      validateAndCommit: ValidateAndCommit,
-      metrics: Metrics,
-  )(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
-  ): InMemoryLedgerReaderWriter =
-    new InMemoryLedgerReaderWriter(
-      participantId,
-      ledgerId,
-      dispatcher,
-      state,
-      validateAndCommit,
-      metrics
-    )
 
   private def createKeyValueCommitting(
       metrics: Metrics,

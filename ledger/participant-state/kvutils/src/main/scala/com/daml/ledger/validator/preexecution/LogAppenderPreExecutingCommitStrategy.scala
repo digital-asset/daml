@@ -40,10 +40,14 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
     } yield
       PreExecutionCommitResult(
         successWriteSet = RawKeyValuePairsWithLogEntry(
-          serializedSuccessLogEntryPair,
-          serializedSuccessKeyValuePairs),
-        outOfTimeBoundsWriteSet =
-          RawKeyValuePairsWithLogEntry(serializedOutOfTimeBoundsLogEntryPair, Seq.empty),
+          serializedSuccessKeyValuePairs,
+          serializedSuccessLogEntryPair._1,
+          serializedSuccessLogEntryPair._2,
+        ),
+        outOfTimeBoundsWriteSet = RawKeyValuePairsWithLogEntry(
+          Seq.empty,
+          serializedOutOfTimeBoundsLogEntryPair._1,
+          serializedOutOfTimeBoundsLogEntryPair._2),
         // We assume updates for a successful transaction must be visible to every participant for
         // public ledgers.
         involvedParticipants = Set.empty
