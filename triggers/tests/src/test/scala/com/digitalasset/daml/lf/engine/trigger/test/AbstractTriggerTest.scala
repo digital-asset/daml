@@ -121,7 +121,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
           commandId = UUID.randomUUID.toString
         )))
     for {
-      response <- client.commandServiceClient.submitAndWaitForTransaction(request)
+      _ <- client.commandServiceClient.submitAndWaitForTransaction(request)
     } yield ()
   }
 
