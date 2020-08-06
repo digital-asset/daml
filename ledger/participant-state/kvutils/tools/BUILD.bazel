@@ -6,6 +6,7 @@ load(
     "da_scala_benchmark_jmh",
     "da_scala_binary",
     "da_scala_library",
+    "da_scala_test",
     "lf_scalacopts",
 )
 
@@ -73,6 +74,19 @@ da_scala_binary(
         "//libs-scala/direct-execution-context",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
+    ],
+)
+
+da_scala_test(
+    name = "tools-tests",
+    size = "small",
+    srcs = glob(["src/test/**/IntegrityCheckerSpec.scala"]),
+    deps = [
+        ":tools",
+        "//ledger/participant-state/kvutils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
