@@ -13,40 +13,48 @@ import scala.util.Try
 /**
   * Convenient [[ResourceOwner]] factory methods.
   */
-trait ResourceOwnerFactories {
-  def unit: ResourceOwner[Unit] =
+trait ResourceOwnerFactories[Context] {
+  protected implicit val hasExecutionContext: HasExecutionContext[Context]
+
+  def unit: AbstractResourceOwner[Context, Unit] =
     new FutureResourceOwner(() => Future.unit)
 
-  def successful[T](value: T): ResourceOwner[T] =
+  def successful[T](value: T): AbstractResourceOwner[Context, T] =
     new FutureResourceOwner(() => Future.successful(value))
 
-  def failed(throwable: Throwable): ResourceOwner[Nothing] =
+  def failed(throwable: Throwable): AbstractResourceOwner[Context, Nothing] =
     new FutureResourceOwner(() => Future.failed(throwable))
 
-  def forValue[T](acquire: () => T): ResourceOwner[T] =
+  def forValue[T](acquire: () => T): AbstractResourceOwner[Context, T] =
     new FutureResourceOwner(() => Future.successful(acquire()))
 
-  def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
+  def forTry[T](acquire: () => Try[T]): AbstractResourceOwner[Context, T] =
     new FutureResourceOwner(() => Future.fromTry(acquire()))
 
-  def forFuture[T](acquire: () => Future[T]): ResourceOwner[T] =
+  def forFuture[T](acquire: () => Future[T]): AbstractResourceOwner[Context, T] =
     new FutureResourceOwner(acquire)
 
-  def forCompletionStage[T](acquire: () => CompletionStage[T]): ResourceOwner[T] =
+  def forCompletionStage[T](acquire: () => CompletionStage[T]): AbstractResourceOwner[Context, T] =
     new FutureResourceOwner(() => acquire().toScala)
 
-  def forCloseable[T <: AutoCloseable](acquire: () => T): ResourceOwner[T] =
+  def forCloseable[T <: AutoCloseable](acquire: () => T): AbstractResourceOwner[Context, T] =
     new CloseableResourceOwner(acquire)
 
-  def forTryCloseable[T <: AutoCloseable](acquire: () => Try[T]): ResourceOwner[T] =
-    new FutureCloseableResourceOwner[T](() => Future.fromTry(acquire()))
+  def forTryCloseable[T <: AutoCloseable](
+      acquire: () => Try[T]
+  ): AbstractResourceOwner[Context, T] =
+    new FutureCloseableResourceOwner(() => Future.fromTry(acquire()))
 
-  def forFutureCloseable[T <: AutoCloseable](acquire: () => Future[T]): ResourceOwner[T] =
+  def forFutureCloseable[T <: AutoCloseable](
+      acquire: () => Future[T]
+  ): AbstractResourceOwner[Context, T] =
     new FutureCloseableResourceOwner(acquire)
 
-  def forExecutorService[T <: ExecutorService](acquire: () => T): ResourceOwner[T] =
+  def forExecutorService[T <: ExecutorService](
+      acquire: () => T
+  ): AbstractResourceOwner[Context, T] =
     new ExecutorServiceResourceOwner(acquire)
 
-  def forTimer(acquire: () => Timer): ResourceOwner[Timer] =
+  def forTimer(acquire: () => Timer): AbstractResourceOwner[Context, Timer] =
     new TimerResourceOwner(acquire)
 }

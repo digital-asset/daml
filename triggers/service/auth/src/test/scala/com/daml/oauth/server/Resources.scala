@@ -17,7 +17,7 @@ object Resources {
     }
   def authClient(config: Client.Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
-      override def acquire()(implicit ec: ExecutionContext): Resource[ServerBinding] =
+      override def acquire()(implicit executionContext: ExecutionContext): Resource[ServerBinding] =
         Resource(Client.start(config))(_.unbind().map(_ => ()))
     }
 }

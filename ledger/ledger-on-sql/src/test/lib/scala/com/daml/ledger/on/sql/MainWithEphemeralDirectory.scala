@@ -24,7 +24,7 @@ object MainWithEphemeralDirectory {
   private val DirectoryPattern = "%DIR"
 
   def main(args: Array[String]): Unit = {
-    new ProgramResource(new Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
+    new ProgramResource(new Runner("SQL Ledger", TestLedgerFactory).owner(args)).run(identity)
   }
 
   object TestLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {

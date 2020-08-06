@@ -18,7 +18,7 @@ object Resources {
     }
   def authMiddleware(config: Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
-      override def acquire()(implicit ec: ExecutionContext): Resource[ServerBinding] =
+      override def acquire()(implicit executionContext: ExecutionContext): Resource[ServerBinding] =
         Resource(Server.start(config))(_.unbind().map(_ => ()))
     }
 }

@@ -8,6 +8,6 @@ import com.daml.resources.ProgramResource
 
 object Main {
   def main(args: Array[String]): Unit = {
-    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(args)).run()
+    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(args)).run(identity)
   }
 }

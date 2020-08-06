@@ -21,6 +21,6 @@ object MainWithEphemeralPostgresql extends PostgresAround {
       participants = originalConfig.participants.map(_.copy(serverJdbcUrl = database.url)),
       extra = ExtraConfig(jdbcUrl = Some(database.url)),
     )
-    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(config)).run()
+    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(config)).run(identity)
   }
 }

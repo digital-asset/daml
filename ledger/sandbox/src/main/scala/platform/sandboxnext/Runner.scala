@@ -109,7 +109,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         _ <- ResourceOwner.forActorSystem(() => actorSystem)
         _ <- ResourceOwner.forMaterializer(() => materializer)
 
-        apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], StartupMode)](
+        apiServer <- ResettableResourceOwner[
+          ExecutionContext,
+          ApiServer,
+          (Option[Port], StartupMode),
+        ](
           initialValue = (None, startupMode),
           owner = reset => {
             case (currentPort, startupMode) =>

@@ -16,5 +16,5 @@ object Main {
   }
 
   private[sql] def run(config: SandboxConfig): Unit =
-    new ProgramResource(SandboxServer.owner(Name, config)).run()
+    new ProgramResource(SandboxServer.owner(Name, config)).run(identity)
 }

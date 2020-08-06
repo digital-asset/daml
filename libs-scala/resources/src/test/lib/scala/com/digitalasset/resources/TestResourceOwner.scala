@@ -7,15 +7,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.daml.resources.TestResourceOwner._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
-    extends ResourceOwner[T] {
+    extends AbstractResourceOwner[TestContext, T] {
   private val acquired = new AtomicBoolean(false)
 
   def hasBeenAcquired: Boolean = acquired.get
 
-  def acquire()(implicit executionContext: ExecutionContext): Resource[T] = {
+  def acquire()(implicit context: TestContext): Resource[T] = {
     if (!acquired.compareAndSet(false, true)) {
       throw new TriedToAcquireTwice
     }

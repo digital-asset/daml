@@ -4,12 +4,13 @@
 package com.daml.resources.akka
 
 import akka.stream.Materializer
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Resource}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class ActorMaterializerResourceOwner(acquireMaterializer: () => Materializer)
-    extends ResourceOwner[Materializer] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Materializer] =
+class ActorMaterializerResourceOwner[Context: HasExecutionContext](
+    acquireMaterializer: () => Materializer,
+) extends AbstractResourceOwner[Context, Materializer] {
+  override def acquire()(implicit context: Context): Resource[Materializer] =
     Resource(Future(acquireMaterializer()))(materializer => Future(materializer.shutdown()))
 }

@@ -14,19 +14,20 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
-class ProgramResource[T](
-    owner: => ResourceOwner[T],
+class ProgramResource[Context: HasExecutionContext, T](
+    owner: => AbstractResourceOwner[Context, T],
     tearDownTimeout: FiniteDuration = 10.seconds,
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
   private val executorService = Executors.newCachedThreadPool()
 
-  def run(): Unit = {
+  def run(newContext: ExecutionContext => Context): Unit = {
     newLoggingContext { implicit loggingContext =>
       val resource = {
         implicit val executionContext: ExecutionContext =
           ExecutionContext.fromExecutor(executorService)
+        implicit val context: Context = newContext(executionContext)
         Try(owner.acquire()).fold(Resource.failed, identity)
       }
 

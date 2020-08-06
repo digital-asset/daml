@@ -85,7 +85,7 @@ private[daml] object ApiServices {
       seedService: SeedService,
       managementServiceTimeout: Duration,
   )(
-      implicit mat: Materializer,
+      implicit materializer: Materializer,
       esf: ExecutionSequencerFactory,
       loggingContext: LoggingContext,
   ) extends ResourceOwner[ApiServices] {
@@ -109,7 +109,7 @@ private[daml] object ApiServices {
             optWriteService,
             timeProvider,
             ledgerConfiguration)
-          services = createServices(ledgerId, ledgerConfigProvider)(mat.system.dispatcher)
+          services = createServices(ledgerId, ledgerConfigProvider)(materializer.system.dispatcher)
           _ <- ledgerConfigProvider.ready
         } yield (ledgerConfigProvider, services)
       ) {
@@ -185,9 +185,10 @@ private[daml] object ApiServices {
         ledgerId: LedgerId,
         ledgerConfigProvider: LedgerConfigProvider,
         apiCompletionService: GrpcCommandCompletionService,
-        apiTransactionService: GrpcTransactionService)(
-        implicit mat: Materializer,
-        ec: ExecutionContext,
+        apiTransactionService: GrpcTransactionService,
+    )(
+        implicit materializer: Materializer,
+        executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>

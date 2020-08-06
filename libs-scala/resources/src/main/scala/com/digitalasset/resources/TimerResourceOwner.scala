@@ -5,9 +5,10 @@ package com.daml.resources
 
 import java.util.Timer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class TimerResourceOwner(acquireTimer: () => Timer) extends ResourceOwner[Timer] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Timer] =
+class TimerResourceOwner[Context: HasExecutionContext](acquireTimer: () => Timer)
+    extends AbstractResourceOwner[Context, Timer] {
+  override def acquire()(implicit context: Context): Resource[Timer] =
     Resource(Future(acquireTimer()))(timer => Future(timer.cancel()))
 }

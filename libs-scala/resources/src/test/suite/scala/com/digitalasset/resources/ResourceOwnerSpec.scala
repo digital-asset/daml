@@ -17,7 +17,12 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Futu
 import scala.util.{Failure, Success}
 
 final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
-  private val Factories = new ResourceOwnerFactories {}
+  private val Factories = new ResourceOwnerFactories[TestContext] {
+    override protected implicit val hasExecutionContext: HasExecutionContext[TestContext] =
+      TestContext.`TestContext has ExecutionContext`
+  }
+
+  private implicit val context: TestContext = new TestContext(executionContext)
 
   "a resource owner" should {
     "acquire and release a resource" in {
@@ -522,6 +527,7 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     "cause an exception if the result is the execution context, to avoid deadlock upon release" in {
       implicit val executionContext: ExecutionContextExecutorService =
         ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+      implicit val context: TestContext = new TestContext(executionContext)
 
       val resource = Factories.forExecutorService(() => executionContext).acquire()
 
@@ -537,6 +543,7 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val executorService = Executors.newCachedThreadPool()
       implicit val executionContext: ExecutionContext =
         ExecutionContext.fromExecutorService(executorService)
+      implicit val context: TestContext = new TestContext(executionContext)
 
       val resource = Factories.forExecutorService(() => executorService).acquire()
 
@@ -579,8 +586,8 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val acquireOrder = mutable.Buffer[Int]()
       val releaseOrder = mutable.Buffer[Int]()
       val owners = (1 to 10).map(value =>
-        new ResourceOwner[Int] {
-          override def acquire()(implicit executionContext: ExecutionContext): Resource[Int] = {
+        new AbstractResourceOwner[TestContext, Int] {
+          override def acquire()(implicit context: TestContext): Resource[Int] = {
             acquireOrder += value
             Resource(Future(value))(v =>
               Future {

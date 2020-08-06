@@ -7,11 +7,12 @@ import java.util.concurrent.{ExecutorService, TimeUnit}
 
 import com.daml.resources.ExecutorServiceResourceOwner._
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
+import scala.concurrent.{ExecutionContextExecutorService, Future}
 
-class ExecutorServiceResourceOwner[T <: ExecutorService](acquireExecutorService: () => T)
-    extends ResourceOwner[T] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
+class ExecutorServiceResourceOwner[Context: HasExecutionContext, T <: ExecutorService](
+    acquireExecutorService: () => T,
+) extends AbstractResourceOwner[Context, T] {
+  override def acquire()(implicit context: Context): Resource[T] =
     Resource(Future {
       val executorService = acquireExecutorService()
       // If we try and release an executor service which is itself being used to power the

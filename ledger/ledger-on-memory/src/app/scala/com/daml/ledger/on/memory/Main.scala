@@ -13,9 +13,10 @@ object Main {
         RunnerName,
         InMemoryLedgerFactory.extraConfigParser,
         InMemoryLedgerFactory.defaultExtraConfig,
-        args)
+        args,
+      )
       owner <- Owner(config)
     } yield owner
-    new ProgramResource(resource).run()
+    new ProgramResource(resource).run(identity)
   }
 }

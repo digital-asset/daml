@@ -112,7 +112,9 @@ private[sandbox] object SqlLedger {
 
     // Store only the ledger entries (no headref, etc.). This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
-    private def initialize(dao: LedgerDao)(implicit ec: ExecutionContext): Future[LedgerId] = {
+    private def initialize(
+        dao: LedgerDao,
+    )(implicit executionContext: ExecutionContext): Future[LedgerId] = {
       val ledgerId = providedLedgerId.or(LedgerIdGenerator.generateRandomId(name))
       logger.info(s"Initializing node with ledger id '$ledgerId'")
       for {
@@ -275,7 +277,7 @@ private[sandbox] object SqlLedger {
         })(queue => Future.successful(queue.complete()))
 
       private def persistAll(queue: Queue[Offset => Future[Unit]]): Future[Unit] = {
-        implicit val ec: ExecutionContext = DEC
+        implicit val executionContext: ExecutionContext = DEC
         val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
         // This will attempt to run the SQL queries concurrently, but there is no parallelism here,
         // so they will still run sequentially.

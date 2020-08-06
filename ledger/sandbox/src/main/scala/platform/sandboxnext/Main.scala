@@ -15,7 +15,7 @@ object Main {
     System.setProperty("akka.jvm-shutdown-hooks", "off")
     val config = Cli.parse(args).getOrElse(sys.exit(1))
     config.logLevel.foreach(GlobalLogLevel.set)
-    new ProgramResource(new Runner(config)).run()
+    new ProgramResource(new Runner(config)).run(identity)
   }
 
 }

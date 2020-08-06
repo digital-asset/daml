@@ -8,16 +8,16 @@ import java.util.concurrent.atomic.AtomicReference
 import com.daml.resources.ResettableResourceOwner._
 
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 
-class ResettableResourceOwner[A, ResetValue] private (
+class ResettableResourceOwner[Context: HasExecutionContext, A, ResetValue] private (
     initialValue: ResetValue,
-    owner: Reset => ResetValue => ResourceOwner[A],
+    owner: Reset => ResetValue => AbstractResourceOwner[Context, A],
     resetOperation: A => Future[ResetValue],
-) extends ResourceOwner[A] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[A] =
+) extends AbstractResourceOwner[Context, A] {
+  override def acquire()(implicit context: Context): Resource[A] =
     new Resource[A] {
-      private val resettableOwner: ResetValue => ResourceOwner[A] = owner(reset _)
+      private val resettableOwner: ResetValue => AbstractResourceOwner[Context, A] = owner(reset _)
 
       @volatile
       private var resource = resettableOwner(initialValue).acquire()
@@ -58,16 +58,16 @@ class ResettableResourceOwner[A, ResetValue] private (
 object ResettableResourceOwner {
   type Reset = () => Future[Unit]
 
-  def apply[A](owner: Reset => ResourceOwner[A]) =
-    new ResettableResourceOwner[A, Unit](
+  def apply[Context: HasExecutionContext, A](owner: Reset => AbstractResourceOwner[Context, A]) =
+    new ResettableResourceOwner[Context, A, Unit](
       initialValue = (),
       reset => _ => owner(reset),
       resetOperation = _ => Future.unit,
     )
 
-  def apply[A, ResetValue](
+  def apply[Context: HasExecutionContext, A, ResetValue](
       initialValue: ResetValue,
-      owner: Reset => ResetValue => ResourceOwner[A],
+      owner: Reset => ResetValue => AbstractResourceOwner[Context, A],
       resetOperation: A => Future[ResetValue],
   ) = new ResettableResourceOwner(initialValue, owner, resetOperation)
 }

@@ -122,7 +122,7 @@ trait JsonApiFixture
 
   override protected lazy val suiteResource
     : TestResource[(SandboxServer, Channel, ServerBinding)] = {
-    implicit val ec: ExecutionContext = system.dispatcher
+    implicit val executionContext: ExecutionContext = system.dispatcher
     new OwnedResource[(SandboxServer, Channel, ServerBinding)](
       for {
         jdbcUrl <- database
@@ -131,7 +131,9 @@ trait JsonApiFixture
         server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(server.port)
         httpService <- new ResourceOwner[ServerBinding] {
-          override def acquire()(implicit ec: ExecutionContext): Resource[ServerBinding] = {
+          override def acquire()(
+              implicit executionContext: ExecutionContext,
+          ): Resource[ServerBinding] = {
             Resource[ServerBinding] {
               Files.write(jsonAccessTokenFile, getToken(List(), false).getBytes())
               val config = new HttpService.DefaultStartSettings {

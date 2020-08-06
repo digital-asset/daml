@@ -3,9 +3,10 @@
 
 package com.daml.resources
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class FutureResourceOwner[T](acquireFuture: () => Future[T]) extends ResourceOwner[T] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
+class FutureResourceOwner[Context: HasExecutionContext, T](acquireFuture: () => Future[T])
+    extends AbstractResourceOwner[Context, T] {
+  override def acquire()(implicit context: Context): Resource[T] =
     Resource.fromFuture(acquireFuture())
 }

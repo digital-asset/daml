@@ -13,45 +13,49 @@ import scala.util.{Failure, Success}
   * @tparam A The [[Resource]] value type.
   */
 @FunctionalInterface
-trait ResourceOwner[+A] {
+abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
   self =>
+
+  private type R[+T] = AbstractResourceOwner[Context, T]
+
+  protected implicit def executionContext(implicit context: Context): ExecutionContext =
+    HasExecutionContext.executionContext
 
   /**
     * Acquires the [[Resource]].
     *
-    * @param executionContext The asynchronous task execution engine.
+    * @param context The acquisition context, including the asynchronous task execution engine.
     * @return The acquired [[Resource]].
     */
-  def acquire()(implicit executionContext: ExecutionContext): Resource[A]
+  def acquire()(implicit context: Context): Resource[A]
 
-  /** @see [[Resource.map()]] */
-  def map[B](f: A => B): ResourceOwner[B] = new ResourceOwner[B] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[B] =
+  /** @see [[Resource.map()]]*/
+  def map[B](f: A => B): R[B] = new R[B] {
+    override def acquire()(implicit context: Context): Resource[B] =
       self.acquire().map(f)
   }
 
-  /** @see [[Resource.flatMap()]] */
-  def flatMap[B](f: A => ResourceOwner[B]): ResourceOwner[B] = new ResourceOwner[B] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[B] =
+  /** @see [[Resource.flatMap()]]*/
+  def flatMap[B](f: A => R[B]): R[B] = new R[B] {
+    override def acquire()(implicit context: Context): Resource[B] =
       self.acquire().flatMap(value => f(value).acquire())
   }
 
   /** @see [[Resource.withFilter()]] */
-  def withFilter(p: A => Boolean): ResourceOwner[A] =
-    new ResourceOwner[A] {
-      override def acquire()(implicit executionContext: ExecutionContext): Resource[A] =
-        self.acquire().withFilter(p)
-    }
+  def withFilter(p: A => Boolean): R[A] = new R[A] {
+    override def acquire()(implicit context: Context): Resource[A] =
+      self.acquire().withFilter(p)
+  }
 
   /**
     * Acquire the [[Resource]]'s value, use it asynchronously, and release it afterwards.
     *
     * @param behavior The aynchronous computation on the value.
-    * @param executionContext The asynchronous task execution engine.
+    * @param context  The acquisition context, including the asynchronous task execution engine.
     * @tparam T The asynchronous computation's value type.
     * @return The asynchronous computation's [[Future]].
     */
-  def use[T](behavior: A => Future[T])(implicit executionContext: ExecutionContext): Future[T] = {
+  def use[T](behavior: A => Future[T])(implicit context: Context): Future[T] = {
     val resource = acquire()
     resource.asFuture
       .flatMap(behavior)

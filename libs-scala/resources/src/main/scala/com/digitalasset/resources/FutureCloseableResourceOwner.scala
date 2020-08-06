@@ -3,10 +3,11 @@
 
 package com.daml.resources
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class FutureCloseableResourceOwner[T <: AutoCloseable](acquireFutureCloseable: () => Future[T])
-    extends ResourceOwner[T] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
+class FutureCloseableResourceOwner[Context: HasExecutionContext, T <: AutoCloseable](
+    acquireFutureCloseable: () => Future[T],
+) extends AbstractResourceOwner[Context, T] {
+  override def acquire()(implicit context: Context): Resource[T] =
     Resource(acquireFutureCloseable())(closeable => Future(closeable.close()))
 }

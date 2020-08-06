@@ -7,13 +7,19 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
-import com.daml.resources.ResourceOwnerFactories
+import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories, TestContext}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.{Future, Promise}
 
 final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
-  private val Factories = new ResourceOwnerFactories with AkkaResourceOwnerFactories {}
+  private val Factories = new ResourceOwnerFactories[TestContext]
+  with AkkaResourceOwnerFactories[TestContext] {
+    override protected implicit val hasExecutionContext: HasExecutionContext[TestContext] =
+      TestContext.`TestContext has ExecutionContext`
+  }
+
+  private implicit val context: TestContext = new TestContext(executionContext)
 
   "a function returning an ActorSystem" should {
     "convert to a ResourceOwner" in {

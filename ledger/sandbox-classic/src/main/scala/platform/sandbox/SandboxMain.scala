@@ -12,6 +12,6 @@ object SandboxMain {
       val config = Cli.parse(args).getOrElse(sys.exit(1))
       config.logLevel.foreach(GlobalLogLevel.set)
       SandboxServer.owner(Name, config)
-    }).run()
+    }).run(identity)
 
 }
