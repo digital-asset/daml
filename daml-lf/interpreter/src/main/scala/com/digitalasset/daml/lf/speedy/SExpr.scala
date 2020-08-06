@@ -36,7 +36,11 @@ sealed abstract class SExpr extends Product with Serializable {
 object SExpr {
 
   sealed abstract class SExprAtomic extends SExpr {
-    def evaluate(machine: Machine): SValue
+    def lookupValue(machine: Machine): SValue
+
+    final def execute(machine: Machine): Unit = {
+      machine.returnValue = lookupValue(machine)
+    }
   }
 
   /** Reference to a variable. 'index' is the 1-based de Bruijn index,
@@ -46,10 +50,7 @@ object SExpr {
     * This expression form is only allowed prior to closure conversion
     */
   final case class SEVar(index: Int) extends SExprAtomic {
-    def evaluate(machine: Machine): SValue = {
-      crash("unexpected SEVar, expected SELoc(S/A/F)")
-    }
-    def execute(machine: Machine): Unit = {
+    def lookupValue(machine: Machine): SValue = {
       crash("unexpected SEVar, expected SELoc(S/A/F)")
     }
   }
@@ -84,18 +85,9 @@ object SExpr {
 
   /** Reference to a builtin function */
   final case class SEBuiltin(b: SBuiltin) extends SExprAtomic {
-    def evaluate(machine: Machine): SValue = {
+    def lookupValue(machine: Machine): SValue = {
       /* special case for nullary record constructors */
       b match {
-        case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, new util.ArrayList())
-        case _ =>
-          SPAP(PBuiltin(b), new util.ArrayList(), b.arity)
-      }
-    }
-    def execute(machine: Machine): Unit = {
-      /* special case for nullary record constructors */
-      machine.returnValue = b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
           SRecord(id, fields, new util.ArrayList())
         case _ =>
@@ -106,11 +98,8 @@ object SExpr {
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
   final case class SEValue(v: SValue) extends SExprAtomic {
-    def evaluate(machine: Machine): SValue = {
+    def lookupValue(machine: Machine): SValue = {
       v
-    }
-    def execute(machine: Machine): Unit = {
-      machine.returnValue = v
     }
   }
 
@@ -131,7 +120,7 @@ object SExpr {
       extends SExpr
       with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
-      val vfun = fun.evaluate(machine)
+      val vfun = fun.lookupValue(machine)
       executeApplication(machine, vfun, args)
     }
   }
@@ -207,7 +196,7 @@ object SExpr {
       val sValues = Array.ofDim[SValue](fvs.length)
       var i = 0
       while (i < fvs.length) {
-        sValues(i) = fvs(i).lookup(machine)
+        sValues(i) = fvs(i).lookupValue(machine)
         i += 1
       }
       machine.returnValue =
@@ -220,33 +209,25 @@ object SExpr {
     This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
     S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
     */
-  sealed abstract class SELoc extends SExprAtomic {
-    def lookup(machine: Machine): SValue
-    def evaluate(machine: Machine): SValue = {
-      lookup(machine)
-    }
-    def execute(machine: Machine): Unit = {
-      machine.returnValue = lookup(machine)
-    }
-  }
+  sealed abstract class SELoc extends SExprAtomic
 
   // SELocS -- variable is located on the stack (SELet & binding forms of SECasePat)
   final case class SELocS(n: Int) extends SELoc {
-    def lookup(machine: Machine): SValue = {
+    def lookupValue(machine: Machine): SValue = {
       machine.getEnvStack(n)
     }
   }
 
   // SELocS -- variable is located in the args array of the application
   final case class SELocA(n: Int) extends SELoc {
-    def lookup(machine: Machine): SValue = {
+    def lookupValue(machine: Machine): SValue = {
       machine.getEnvArg(n)
     }
   }
 
   // SELocF -- variable is located in the free-vars array of the closure being applied
   final case class SELocF(n: Int) extends SELoc {
-    def lookup(machine: Machine): SValue = {
+    def lookupValue(machine: Machine): SValue = {
       machine.getEnvFree(n)
     }
   }
@@ -424,17 +405,23 @@ object SExpr {
   //
 
   final case class SEBuiltinRecursiveDefinition(ref: SEBuiltinRecursiveDefinition.Reference)
-      extends SExpr {
+      extends SExprAtomic {
 
     import SEBuiltinRecursiveDefinition._
 
-    def execute(machine: Machine): Unit = {
-      val body = ref match {
-        case Reference.FoldR => foldRBody
-        case Reference.EqualList => equalListBody
-      }
-      body.execute(machine)
+    private val frame = Array.ofDim[SValue](0) // no free vars
+    val arity = 3
+
+    private def body: SExpr = ref match {
+      case Reference.FoldR => foldRBody
+      case Reference.EqualList => equalListBody
     }
+
+    private def closure: SValue =
+      SPAP(PClosure(Profile.LabelUnset, body, frame), new util.ArrayList[SValue](), arity)
+
+    def lookupValue(machine: Machine): SValue = closure
+
   }
 
   final object SEBuiltinRecursiveDefinition {
@@ -451,76 +438,68 @@ object SExpr {
 
     private val foldRBody: SExpr =
       // foldr f z xs =
-      SEMakeClo(
-        Array(),
-        3,
-        // case xs of
-        SECase(SELocA(2)) of (// nil -> z
-        SCaseAlt(SCPNil, SELocA(1)),
-        // cons y ys ->
-        SCaseAlt(
-          SCPCons,
-          // f y (foldr f z ys)
-          SEApp(
-            SELocA(0),
-            Array(
-              /* f */
-              SELocS(2), /* y */
-              SEApp(
-                FoldR,
-                Array(
-                  /* foldr f z ys */
-                  SELocA(0), /* f */
-                  SELocA(1), /* z */
-                  SELocS(1) /* ys */
-                )
-              )
-            )
-          )
-        ))
-      )
-
-    private val equalListBody: SExpr =
-      // equalList f xs ys =
-      SEMakeClo(
-        Array(),
-        3,
-        // case xs of
-        SECase(SELocA(1) /* xs */ ) of (
-          // nil ->
-          SCaseAlt(
-            SCPNil,
-            // case ys of
-            //   nil -> True
-            //   default -> False
-            SECase(SELocA(2)) of (SCaseAlt(SCPNil, SEValue.True),
-            SCaseAlt(SCPDefault, SEValue.False))
-          ),
-          // cons x xss ->
-          SCaseAlt(
-            SCPCons,
-            // case ys of
-            //       True -> listEqual f xss yss
-            //       False -> False
-            SECase(SELocA(2) /* ys */ ) of (
-              // nil -> False
-              SCaseAlt(SCPNil, SEValue.False),
-              // cons y yss ->
-              SCaseAlt(
-                SCPCons,
-                // case f x y of
-                SECase(SEApp(SELocA(0), Array(SELocS(2), SELocS(4)))) of (
-                  SCaseAlt(
-                    SCPPrimCon(PCTrue),
-                    SEApp(EqualList, Array(SELocA(0), SELocS(1), SELocS(3))),
-                  ),
-                  SCaseAlt(SCPPrimCon(PCFalse), SEValue.False)
-                )
+      // case xs of
+      SECase(SELocA(2)) of (// nil -> z
+      SCaseAlt(SCPNil, SELocA(1)),
+      // cons y ys ->
+      SCaseAlt(
+        SCPCons,
+        // f y (foldr f z ys)
+        SEApp(
+          SELocA(0),
+          Array(
+            /* f */
+            SELocS(2), /* y */
+            SEApp(
+              FoldR,
+              Array(
+                /* foldr f z ys */
+                SELocA(0), /* f */
+                SELocA(1), /* z */
+                SELocS(1) /* ys */
               )
             )
           )
         )
-      )
+      ))
+
+    private val equalListBody: SExpr =
+      // equalList f xs ys =
+      // case xs of
+      SECase(SELocA(1) /* xs */ ) of (
+        // nil ->
+        SCaseAlt(
+          SCPNil,
+          // case ys of
+          //   nil -> True
+          //   default -> False
+          SECase(SELocA(2)) of (SCaseAlt(SCPNil, SEValue.True),
+          SCaseAlt(SCPDefault, SEValue.False))
+        ),
+        // cons x xss ->
+        SCaseAlt(
+          SCPCons,
+          // case ys of
+          //       True -> listEqual f xss yss
+          //       False -> False
+          SECase(SELocA(2) /* ys */ ) of (
+            // nil -> False
+            SCaseAlt(SCPNil, SEValue.False),
+            // cons y yss ->
+            SCaseAlt(
+              SCPCons,
+              // case f x y of
+              SECase(SEApp(SELocA(0), Array(SELocS(2), SELocS(4)))) of (
+                SCaseAlt(
+                  SCPPrimCon(PCTrue),
+                  SEApp(EqualList, Array(SELocA(0), SELocS(1), SELocS(3))),
+                ),
+                SCaseAlt(SCPPrimCon(PCFalse), SEValue.False)
+              )
+            )
+          )
+        )
+    )
   }
 
   final case object AnonymousClosure

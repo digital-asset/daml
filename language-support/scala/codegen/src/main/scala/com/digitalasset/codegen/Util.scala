@@ -15,6 +15,7 @@ import scala.collection.generic.CanBuildFrom
 import scala.collection.TraversableLike
 import scalaz.{Tree => _, _}
 import scalaz.std.list._
+import scalaz.syntax.std.option._
 
 /**
   *  In order to avoid endlessly passing around "packageName" and "iface" to
@@ -186,6 +187,12 @@ object Util {
       case TypeConName(nm) => List(nm)
       case _: PrimType => Nil
     }
+
+  private[codegen] def packageNameTailToRefTree(packageName: String) =
+    packageName
+      .split('.')
+      .lastOption
+      .cata(TermName(_), sys error s"invalid package name $packageName")
 
   def packageNameToRefTree(packageName: String): RefTree = {
     val ss = packageName.split('.')
