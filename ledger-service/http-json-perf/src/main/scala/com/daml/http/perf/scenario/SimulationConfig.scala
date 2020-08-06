@@ -6,7 +6,7 @@ import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import io.gatling.http.protocol.HttpProtocolBuilder
 
-trait SimulationConfig {
+private[scenario] trait SimulationConfig {
   lazy val httpProtocol: HttpProtocolBuilder = http
     .baseUrl(baseUrl)
     .warmUp(warmupUrl)

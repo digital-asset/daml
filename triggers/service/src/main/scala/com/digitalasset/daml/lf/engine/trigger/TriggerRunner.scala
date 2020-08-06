@@ -40,21 +40,20 @@ class TriggerRunner(
   // Spawn a trigger runner impl. Supervise it. Stop immediately on
   // initialization halted exceptions, retry any initialization or
   // execution failure exceptions.
-  private val child =
-    ctx.spawn(
-      Behaviors
-        .supervise(
-          Behaviors
-            .supervise(TriggerRunnerImpl(config))
-            .onFailure[InitializationHalted](stop)
-        )
-        .onFailure(
-          restartWithBackoff(
-            config.restartConfig.minRestartInterval,
-            config.restartConfig.maxRestartInterval,
-            config.restartConfig.restartIntervalRandomFactor)),
-      name
-    )
+  ctx.spawn(
+    Behaviors
+      .supervise(
+        Behaviors
+          .supervise(TriggerRunnerImpl(config))
+          .onFailure[InitializationHalted](stop)
+      )
+      .onFailure(
+        restartWithBackoff(
+          config.restartConfig.minRestartInterval,
+          config.restartConfig.maxRestartInterval,
+          config.restartConfig.restartIntervalRandomFactor)),
+    name
+  )
 
   override def onMessage(msg: Message): Behavior[Message] =
     Behaviors.receiveMessagePartial[Message] {

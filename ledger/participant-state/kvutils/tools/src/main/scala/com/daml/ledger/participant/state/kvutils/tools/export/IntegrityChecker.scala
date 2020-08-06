@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools
+package com.daml.ledger.participant.state.kvutils.tools.export
 
 import java.io.DataInputStream
 import java.util.concurrent.TimeUnit
@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExpor
   WriteSet
 }
 import com.daml.ledger.participant.state.kvutils.export.{NoopLedgerDataExporter, Serialization}
+import com.daml.ledger.participant.state.kvutils.tools._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -27,10 +28,10 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.PartialFunction.condOpt
 import scala.concurrent.{ExecutionContext, Future}
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
+
   import IntegrityChecker._
 
   def run(input: DataInputStream)(implicit executionContext: ExecutionContext): Future[Unit] = {
@@ -95,61 +96,40 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     }
   }
 
-  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit =
+  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
     if (expectedWriteSet == actualWriteSet) {
       println("OK".green)
     } else {
-      val messageMaybe =
+      println("FAIL".red)
+      val message =
         if (expectedWriteSet.size == actualWriteSet.size) {
-          compareSameSizeWriteSets(expectedWriteSet, actualWriteSet)
-        } else {
-          Some(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
-        }
-      messageMaybe.foreach { message =>
-        println("FAIL".red)
-        throw new ComparisonFailureException(message)
-      }
-    }
-
-  private[tools] def compareSameSizeWriteSets(
-      expectedWriteSet: WriteSet,
-      actualWriteSet: WriteSet): Option[String] = {
-    val differencesExplained = expectedWriteSet
-      .zip(actualWriteSet)
-      .map {
-        case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
-          if (expectedKey == actualKey && expectedValue != actualValue) {
-            explainDifference(expectedKey, expectedValue, actualValue).map { explainedDifference =>
-              Seq(
-                s"expected value:    ${bytesAsHexString(expectedValue)}",
-                s" vs. actual value: ${bytesAsHexString(actualValue)}",
-                explainedDifference,
-              )
+          expectedWriteSet
+            .zip(actualWriteSet)
+            .flatMap {
+              case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
+                if (expectedKey == actualKey && expectedValue != actualValue) {
+                  Seq(
+                    s"expected value:    ${bytesAsHexString(expectedValue)}",
+                    s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                    explainDifference(expectedKey, expectedValue, actualValue),
+                  )
+                } else if (expectedKey != actualKey) {
+                  Seq(
+                    s"expected key:    ${bytesAsHexString(expectedKey)}",
+                    s" vs. actual key: ${bytesAsHexString(actualKey)}",
+                  )
+                } else
+                  Seq.empty
             }
-          } else if (expectedKey != actualKey) {
-            Some(
-              Seq(
-                s"expected key:    ${bytesAsHexString(expectedKey)}",
-                s" vs. actual key: ${bytesAsHexString(actualKey)}",
-              ))
-          } else {
-            None
-          }
-      }
-      .map(_.toList)
-      .filterNot(_.isEmpty)
-      .flatten
-      .flatten
-      .mkString(System.lineSeparator())
-    condOpt(differencesExplained.isEmpty) {
-      case false => differencesExplained
+            .mkString(System.lineSeparator())
+        } else {
+          s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}"
+        }
+      throw new ComparisonFailureException(message)
     }
   }
 
-  private def explainDifference(
-      key: Key,
-      expectedValue: Value,
-      actualValue: Value): Option[String] =
+  private def explainDifference(key: Key, expectedValue: Value, actualValue: Value): String =
     kvutils.Envelope
       .openStateValue(expectedValue)
       .toOption
@@ -161,7 +141,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
             |Expected: $expectedStateValue
             |Actual: $actualStateValue""".stripMargin
       }
-      .orElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
+      .getOrElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
 
   private def readSubmissionAndOutputs(input: DataInputStream): (SubmissionInfo, WriteSet) = {
     val (submissionInfo, writeSet) = Serialization.readEntry(input)

@@ -7,16 +7,10 @@ import java.{util => jutil}
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
+import scala.concurrent.duration._
+
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SyncQueryVariableAcs extends Simulation with SimulationConfig {
-
-  private val rng = new scala.util.Random(123456789)
-
-  // called from two different scenarios, need to synchronize access
-  private def randomAmount(): Int = {
-    val x = this.synchronized { rng.nextInt(10) }
-    x + 5 // [5, 15)
-  }
+class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRandomAmount {
 
   private val acsQueue = new jutil.concurrent.LinkedBlockingQueue[String]()
 
@@ -35,7 +29,7 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig {
 }"""))
       .check(
         status.is(200),
-        jsonPath("$.result[*].contractId").transform(x => acsQueue.put(x))
+        jsonPath("$.result.contractId").transform(x => acsQueue.put(x))
       )
 
   private val queryRequest =
@@ -46,60 +40,49 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig {
     "query": {"amount": ${amount}}
 }"""))
 
-  private val exerciseRequest =
+  private val archiveRequest =
     http("ExerciseCommand")
       .post("/v1/exercise")
       .body(StringBody("""{
     "templateId": "Iou:Iou",
-    "contractId": "${contractId}",
-    "choice": "Iou_Transfer",
-    "argument": {
-        "newOwner": "Alice"
-    }
+    "contractId": "${archiveContractId}",
+    "choice": "Archive",
+    "argument": {}
   }"""))
 
-  private val createContractScn = scenario("CreateContractScenario")
-    .repeat(50) {
-      feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(createRequest.silent)
+  private val wantedAcsSize = 5000
+
+  private val numberOfRuns = 500
+
+  private val fillAcs = scenario(s"FillAcsScenario, size: $wantedAcsSize")
+    .doWhile(_ => acsQueue.size() < wantedAcsSize) {
+      feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(createRequest.silent)
     }
 
-  private val exerciseTransferScn = scenario("ExerciseTransferScenario")
-    .repeat(5) {
-      feed(BlockingIterator(acsQueue, 50).map(x => Map("contractId" -> x)))
-        .foreach("${contractIds}", "contractId")(exec(exerciseRequest))
-    }
-
-  private val syncQueryScn = scenario("SyncQueryScenario")
-    .repeat(5) {
-      feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(queryRequest)
-    }
+  private val syncQueryScn =
+    scenario(s"SyncQueryWithVariableAcsScenario, numberOfRuns: $numberOfRuns")
+      .doWhile(_ => acsQueue.size() < wantedAcsSize) {
+        pause(1.second)
+      }
+      .repeat(numberOfRuns) {
+        feed(
+          Iterator.continually(
+            Map[String, String](
+              "amount" -> String.valueOf(randomAmount()),
+              "archiveContractId" -> acsQueue.take(),
+            )
+          )
+        ).exec {
+          // run query in parallel with archive and create
+          queryRequest.notSilent.resources(
+            archiveRequest.silent,
+            createRequest.silent
+          )
+        }
+      }
 
   setUp(
-    createContractScn.inject(atOnceUsers(1)),
+    fillAcs.inject(atOnceUsers(1)),
     syncQueryScn.inject(atOnceUsers(1)),
-    exerciseTransferScn.inject(atOnceUsers(1)),
   ).protocols(httpProtocol)
-}
-
-private[scenario] final case class BlockingIterator[A](
-    private val queue: jutil.concurrent.BlockingQueue[A],
-    private val maxToRetrieve: Int)
-    extends Iterator[A] {
-
-  private val retrieved = new jutil.concurrent.atomic.AtomicInteger(0)
-
-  override def isEmpty: Boolean = synchronized {
-    queue.size == 0 || retrieved.get >= maxToRetrieve
-  }
-
-  override def hasNext: Boolean = !isEmpty
-
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  def next(): A = synchronized {
-    val a: A = queue.take()
-    retrieved.incrementAndGet()
-    a
-  }
 }
