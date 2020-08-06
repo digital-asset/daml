@@ -14,16 +14,16 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -216,7 +216,10 @@ private[indexer] class JdbcIndexer private[indexer] (
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
     new SubscriptionResourceOwner(readService)
 
-  private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
+  private def handleStateUpdate(
+      offset: Offset,
+      update: Update,
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
     lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
     logger.trace(update.description)
@@ -346,7 +349,9 @@ private[indexer] class JdbcIndexer private[indexer] (
     result.map(_ => ())(DEC)
   }
 
-  private class SubscriptionResourceOwner(readService: ReadService)
+  private class SubscriptionResourceOwner(
+      readService: ReadService,
+  )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -362,11 +367,10 @@ private[indexer] class JdbcIndexer private[indexer] (
             case (offset, update) =>
               withEnrichedLoggingContext(JdbcIndexer.contextFor(offset, update)) {
                 implicit loggingContext =>
-                  Timed
-                    .future(
-                      metrics.daml.indexer.stateUpdateProcessing,
-                      handleStateUpdate(offset, update),
-                    )
+                  Timed.future(
+                    metrics.daml.indexer.stateUpdateProcessing,
+                    handleStateUpdate(offset, update),
+                  )
               }
           }
           .toMat(Sink.ignore)(Keep.both)
