@@ -97,7 +97,7 @@ The following examples assume that Alice splits up her commit into two as follow
 Alice can specify in the `CounterOffer` the `Iou` that she wants to pay the painter with.
 In a deployed implementation, Alice's application first observes the created `Iou` contract via the transaction service or active contract service before she requests to create the `CounterOffer`.
 Such application logic does not induce an ordering between commits.
-So the creation of the `CounterOffer` need not come before the creation of the `Iou`.
+So the creation of the `CounterOffer` need not come after the creation of the `Iou`.
 
 If Alice is hosted on several Participant Nodes, the Participant Nodes can therefore output the two creations in either order.
    
@@ -114,9 +114,9 @@ Divulged actions do not induce order.
 
 The painter witnesses the fetching of Alice's `Iou` when the `ShowIou` contract is consumed.
 The painter also witnesses the **Exercise** of the `Iou` when Alice exercises the transfer choice as a consequence of the painter accepting the `CounterOffer`.
-However, as the painter is not a stakeholder, he may observe Alice's `ShowIou` commit after the archival of the `Iou` as part of accepting the `CounterOffer`.
+However, as the painter is not a stakeholder of Alice's `Iou` contract, he may observe Alice's `ShowIou` commit after the archival of the `Iou` as part of accepting the `CounterOffer`.
 
-Consider a setup where two Participant Nodes `N`:sub:`1` and `N`:sub:`2` host the painter.
+In practice, this can happen in a setup where two Participant Nodes `N`:sub:`1` and `N`:sub:`2` host the painter.
 He sees the divulged `Iou` and the created `CounterOffer` through `N`:sub:`1`\ 's transaction tree stream
 and then submits the acceptance through `N`:sub:`1`.
 Like in the previous example, `N`:sub:`2` does not know about the dependence of the two commits.
@@ -126,7 +126,7 @@ Even though this may seem unexpected, it is in line with stakeholder-based ledge
 Since the painter is not a stakeholder of the `Iou` contract, he should not care about the archivals or creates of the contract.
 In fact, the divulged `Iou` contract shows up neither in the painter's active contract service nor in the flat transaction stream.
 Such witnessed events are included in the transaction tree stream as a convenience:
-They relieve the painter from computing the consequences of the choice and enable him to check that the action conforms to the model.
+They relieve the painter from computing the consequences of the choice and enable him to check that the action conforms to the DAML model.
 
 By a similar argument, being an actor of an **Exercise** action induces order with respect to other uses of the contract only if the actor is a contract stakeholder.
 This is because non-stakeholder actors of an **Exercise** action merely authorize the action, but they do not track whether the contract is active; this is what signatories and observers are for.
@@ -153,29 +153,29 @@ DAML ledgers can be represented as finite directed acyclic graphs (DAG) of trans
 .. _def-causality-graph:
 
 Definition »causality graph«
-  A **causality graph** is a finite directed acyclic graph of transactions that is transitively closed.
-  Transitively closed means that whenever `v`:sub:`1` -> `v`:sub:`2` and `v`:sub:`2` -> `v`:sub:`3` are edges,
-  then there is also an edge `v`:sub:`1` -> `v`:sub:`3`.
+  A **causality graph** is a finite directed acyclic graph `G` of transactions that is transitively closed.
+  Transitively closed means that whenever `v`:sub:`1` -> `v`:sub:`2` and `v`:sub:`2` -> `v`:sub:`3` are edges in `G`,
+  then there is also an edge `v`:sub:`1` -> `v`:sub:`3` in `G`.
 
 .. _def-action-order:
 
 Definition »action order«
   For a causality graph `G`,
-  the induced **action order** on the actions in the transactions combines the graph-induced order between transactions with the total order of actions inside every transaction.
+  the induced **action order** on the actions in the transactions combines the graph-induced order between transactions with the execution order of actions inside each transaction.
   It is the least partial order that includes the following ordering relations between two actions `act`:sub:`1` and `act`:sub:`2`:
   
   * `act`:sub:`1` and `act`:sub:`2` belong to the same transaction and `act`:sub:`1` precedes `act`:sub:`2` in the transaction.
   * `act`:sub:`1` and `act`:sub:`2` belong to different transactions in vertices `tx`:sub:`1` and `tx`:sub:`2` and there is a path in `G` from `tx`:sub:`1` to `tx`:sub:`2`.
 
     .. note::
-       Checking for an *edge* instead of a *path* in in `G` from `tx`:sub:`1` to `tx`:sub:`2` is equivalent
+       Checking for an *edge* instead of a *path* in `G` from `tx`:sub:`1` to `tx`:sub:`2` is equivalent
        because causality graphs are transitively closed.
        The definition uses *path* because the figures below omit transitive edges for readability.
 
 The action order is a partial order on the actions in a causality graph.
 For example, the following diagram shows such a causality graph for the ledger in the above :ref:`Out-of-band causality example <causality-example-out-of-band>`.
 Each grey box represents one transaction and the graph edges are the solid arrows between the boxes.
-Diagrams omit transitive edges for readability; in this graph the edge from `tx1` to `tx4`.
+Diagrams omit transitive edges for readability; in this graph the edge from `tx1` to `tx4` is not shown.
 The **Create** action of Alice's `Iou` is ordered before the **Create** action of the `ShowIou` contract because there is an edge from the transaction `tx1` with the `Iou` **Create** to the transaction `tx3` with the `ShowIou` **Create**.
 Moreover, the `ShowIou` **Create** action is ordered before the **Fetch** of Alice's `Iou` because the **Create** action precedes the **Fetch** action in the transaction.
 In contrast, the **Create** actions of the `CounterOffer` and Alice's `Iou` are unordered: neither precedes the other because they belong to different transaction and there is no directed path between them.
@@ -220,9 +220,11 @@ Definition »Causal consistency for a key«
   * All **NoSuchKey** actions in `X` are action-ordered with respect to all **Create** and consuming **Exercise** actions in `X`.
     No **NoSuchKey** action is action-ordered between a **Create** action and its subsequent consuming **Exercise** action in `X`.
 
+.. _def-consistency-causality-graph:
+    
 Definition »Consistency for a causality graph«
   Let `X` be a subset of the actions in a causality graph `G`.
-  Then `G` is `**consistent** on `X` (or `X`-**consistent**) if `G` is causally consistent for all contracts `c` on the set of actions on `c` in `X` and for all keys `k` on the set of actions on `k` in `X`.
+  Then `G` is **consistent** on `X` (or `X`-**consistent**) if `G` is causally consistent for all contracts `c` on the set of actions on `c` in `X` and for all keys `k` on the set of actions on `k` in `X`.
   `G` is **consistent** if `G` is consistent on all the actions in `G`.
 
 When edges are added to an `X`-consistent causality graph such that it remains acyclic and transitively closed,
@@ -232,7 +234,7 @@ So it makes sense to consider minimal consistent causality graphs.
 .. _minimal-consistent-causality-graph:
 
 Definition »Minimal consistent causality graph«
-  An `X`-consistent causality graph `G` is `X`\ -**minimal** if no strict subgraph of `G` is a `X`-consistent causality graph.
+  An `X`-consistent causality graph `G` is `X`\ -**minimal** if no strict subgraph of `G` (same vertices, fewer edges) is an `X`-consistent causality graph.
   If `X` is the set of all actions in `G`, then `X` is omitted.
 
 For example, the :ref:`above causality graph for the counteroffer workflow <causality-graph-couteroffer-split>` is consistent.
@@ -264,7 +266,7 @@ The `X`\ -minimal consistent causality graph looks as follows, where the actions
    Minimal consistent causality graph for the highlighted actions.
 
 Another example of a minimal causality graph is shown below.
-At the top, transactions `tx1` to `tx4` create an `Iou` for Alice, exercise two non-consuming choices on it, and transfer the `Iou` to the painter.
+At the top, the transactions `tx1` to `tx4` create an `Iou` for Alice, exercise two non-consuming choices on it, and transfer the `Iou` to the painter.
 At the bottom, `tx5` asserts that there is no key for an Account contract for the painter.
 Then, `tx6` creates an such account with balance 0 and `tx7` deposits the painter's `Iou` from `tx4` into the account, updating the balance to 1.
 
@@ -275,7 +277,7 @@ Then, `tx6` creates an such account with balance 0 and `tx7` deposits the painte
    :width: 100%
 
 Unlike in a linearly ordered ledger, the causality graph relates the transactions of the `Iou` transfer workflow with the `Account` creation workflow only at the end, when the `Iou` is deposited into the account.
-As will be formalized below, the Bank, Alice, and the painter therefore need not observe the transactions `tx1` to `tx6` in the same order.
+As will be formalized below, the Bank, Alice, and the painter therefore need not observe the transactions `tx1` to `tx7` in the same order.
 
 Moreover, transaction `tx2` and `tx3` are unordered in this causality graph even though they act on the same `Iou` contract.
 However, as both actions are non-consuming, they do not interfere with each other and could therefore be parallelized, too.
@@ -284,7 +286,7 @@ Alice and the Bank accordingly may observe them in different orders.
 The **NoSuchKey** action in `tx5` must be ordered with respect to the two Account **Create** actions in `tx6` and `tx7` and the consuming **Exercise** on the Account contract in `tx7`, by the key consistency conditions.
 For this set of transactions, consistency allows only one such order: `tx5` comes before `tx6` because `tx7` is atomic: `tx5` cannot be interleaved with `tx7`, e.g., between the consuming **Exercise** of the `Acc Bank P P 0` and the **Create** of the updated account `Acc Bank P P 1`.
 
-**NoSuchKey** actions are similar to non-consuming **Exercise**\ s and **Fetch**\ es of contracts when it comes to causal ordering: If there were another transaction `tx8` with a **NoSuchKey** `(Acc, Bank, P)` action, then `tx5` and `tx8` need not be ordered, just like `tx2` and `tx3` are unordered.
+**NoSuchKey** actions are similar to non-consuming **Exercise**\ s and **Fetch**\ es of contracts when it comes to causal ordering: If there were another transaction `tx5'` with a **NoSuchKey** `(Acc, Bank, P)` action, then `tx5` and `tx5'` need not be ordered, just like `tx2` and `tx3` are unordered.
 
 .. _causality-consistency-ledger-model:
 
@@ -312,20 +314,20 @@ It is also the reduction of the topological sort, i.e., the :ref:`ledger <split-
    The reduction `reduce`:sub:`X`\ `(G)` of an `X`\ -consistent causality graph `G` can be computed as follows:
    
    #. Set the vertices of `G'` to the vertices of `G`.
-   #. The consistency conditions for contracts and keys demand that certain pairs of actions
+   #. The causal consistency conditions for contracts and keys demand that certain pairs of actions
       `act`:sub:`1` and `act`:sub:`2` in `X` must be action-ordered.
       For each such pair, determine the actions' ordering in `G` and add an edge to `G'` from the earlier action's transaction to the later action's transaction.
    #. `reduce`:sub:`X`\ `(G)` is the transitive closure of `G'`.
 
 Topological sort and reduction link causality graphs `G` to the ledgers `L` from the DAML Ledger Model.
 Topological sort transforms a causality graph `G` into a sequence of transactions `topo(G)`; extending them with the requesters gives a sequence of commits, i.e., a ledger in the DAML Ledger Model.
-Conversely, sequence of commits `L` yields a causality graph `G`:sub:`L` by taking the transactions as vertices and adding an edge from `tx1` to `tx2` whenever `tx1`\ 's commit precedes `tx2`\ 's commit in the sequence.
+Conversely, a sequence of commits `L` yields a causality graph `G`:sub:`L` by taking the transactions as vertices and adding an edge from `tx1` to `tx2` whenever `tx1`\ 's commit precedes `tx2`\ 's commit in the sequence.
 
 There are now two consistency definitions:
 
 * :ref:`Ledger Consistency <da-model-ledger-consistency>` according to DAML Ledger Model
 
-* Consistency of causality graph
+* :ref:`Consistency of causality graph <def-consistency-causality-graph>`
 
 Fortunately, the two definitions are equivalent:
 If `G` is a consistent causality graph, then `topo(G)` is ledger consistent.
@@ -344,14 +346,13 @@ Definition »Causal consistency for a party«
 
 The notions of `X`\ -minimality and `X`\ -reduction extend to parties accordingly.
 
-For example, the :ref:`counteroffer causality graph without the tx2 -> tx4 edge <causality-counteroffer-Iou-minimal>` is consistent for the Bank because the Bank is an informee of exactly the highlighted actions.
+For example, the :ref:`counteroffer causality graph without the edge tx2 -> tx4 <causality-counteroffer-Iou-minimal>` is consistent for the Bank because the Bank is an informee of exactly the highlighted actions.
 It is also minimal Bank-consistent and the Bank-reduction of the :ref:`original counteroffer causality graph <causality-graph-couteroffer-split>`.
   
 Definition »Projection of a consistent causality graph«
   The **projection** `proj`:sub:`P`\ `(G)` of a consistent causality graph `G` to a party `P` is the `P`\ -reduction of the following causality graph `G'`:
 
-  * The vertices of `G'` are the vertices of `G` the `P`\ -projection of whose transaction is not empty.
-    Each vertex in `G'` is labelled by the (non-empty) `P`\ -projection of the corresponding `G`\ -vertex's transaction.
+  * The vertices of `G'` are the vertices of `G` projected to `P`, excluding empty projections.
 
   * There is an edge between two vertices `v`:sub:`1` and `v`:sub:`2` in `G'` if there is an edge from the `G`\ -vertex corresponding to `v`:sub:`1` to the `G`\ -vertex corresponding to `v`:sub:`2`.
 
