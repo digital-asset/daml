@@ -3,6 +3,7 @@
 
 load("@os_info//:os_info.bzl", "is_windows", "os_name")
 load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
+load("@io_bazel_rules_scala//scala:scala_cross_version.bzl", "default_maven_server_urls")
 
 runfiles_library = """
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -58,7 +59,7 @@ def _daml_sdk_impl(ctx):
     elif ctx.attr.test_tool_sha256:
         ctx.download(
             output = "ledger-api-test-tool.jar",
-            url = "https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{}/ledger-api-test-tool-{}.jar".format(ctx.attr.version, ctx.attr.version),
+            url = ["{mirror}/com/daml/ledger-api-test-tool/{version}/ledger-api-test-tool-{version}.jar".format(mirror = mirror, version = ctx.attr.version) for mirror in default_maven_server_urls()],
             sha256 = ctx.attr.test_tool_sha256,
         )
     else:
