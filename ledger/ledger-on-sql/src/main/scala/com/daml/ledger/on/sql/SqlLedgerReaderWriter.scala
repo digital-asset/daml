@@ -6,7 +6,6 @@ package com.daml.ledger.on.sql
 import java.util.UUID
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
@@ -50,8 +49,6 @@ final class SqlLedgerReaderWriter(
     seedService: SeedService
 )(
     implicit executionContext: ExecutionContext,
-    materializer: Materializer,
-    loggingContext: LoggingContext,
 ) extends LedgerWriter
     with LedgerReader {
 
@@ -137,7 +134,7 @@ object SqlLedgerReaderWriter {
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
       seedService: SeedService,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext)
+  )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -163,10 +160,9 @@ object SqlLedgerReaderWriter {
         )
   }
 
-  private def updateOrRetrieveLedgerId(providedLedgerId: LedgerId, database: Database)(
-      implicit executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
-  ): Future[LedgerId] =
+  private def updateOrRetrieveLedgerId(
+      providedLedgerId: LedgerId,
+      database: Database): Future[LedgerId] =
     database.inWriteTransaction("retrieve_ledger_id") { queries =>
       Future.fromTry(
         queries
@@ -184,8 +180,7 @@ object SqlLedgerReaderWriter {
           })
     }
 
-  private final class DispatcherOwner(database: Database)(implicit loggingContext: LoggingContext)
-      extends ResourceOwner[Dispatcher[Index]] {
+  private final class DispatcherOwner(database: Database) extends ResourceOwner[Dispatcher[Index]] {
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[Dispatcher[Index]] =

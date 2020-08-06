@@ -24,8 +24,7 @@ private[platform] final class DbDispatcher private (
     executor: Executor,
     overallWaitTimer: Timer,
     overallExecutionTimer: Timer,
-)(implicit loggingContext: LoggingContext)
-    extends ReportsHealth {
+) extends ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 

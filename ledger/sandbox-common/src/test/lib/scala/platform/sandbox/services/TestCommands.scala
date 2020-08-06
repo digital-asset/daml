@@ -23,6 +23,8 @@ import scalaz.syntax.tag._
 
 trait TestCommands {
 
+  import TestCommands.SubmitRequestEnhancer
+
   protected def darFile: File
 
   protected def packageId: PackageId = DarReader().readArchiveFromFile(darFile).get.main._1
@@ -129,7 +131,13 @@ trait TestCommands {
   ): Command =
     Command(Exercise(ExerciseCommand(Some(templateId), contractId, choice, args)))
 
-  implicit class SubmitRequestEnhancer(request: SubmitRequest) {
+  import language.implicitConversions
+  implicit def SubmitRequestEnhancer(request: SubmitRequest): SubmitRequestEnhancer =
+    new SubmitRequestEnhancer(request)
+}
+
+object TestCommands {
+  implicit final class SubmitRequestEnhancer(private val request: SubmitRequest) extends AnyVal {
     def toSync: SubmitAndWaitRequest = SubmitAndWaitRequest(request.commands)
   }
 }

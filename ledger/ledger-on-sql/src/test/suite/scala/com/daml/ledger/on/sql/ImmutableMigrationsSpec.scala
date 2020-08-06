@@ -32,7 +32,7 @@ class ImmutableMigrationsSpec extends WordSpec {
       resources.foreach { resource =>
         val migrationFile = resource.getRelativePath
         val digestFile = migrationFile + ".sha256"
-        val expectedDigest = readExpectedDigest(migrationFile, digestFile, resourceScanner)
+        val expectedDigest = readExpectedDigest(digestFile, resourceScanner)
         val currentDigest = computeCurrentDigest(resource, configuration.getEncoding)
         assert(
           currentDigest == expectedDigest,
@@ -58,7 +58,6 @@ object ImmutableMigrationsSpec {
     )
 
   private def readExpectedDigest(
-      sourceFile: String,
       digestFile: String,
       resourceScanner: Scanner[_],
   ): String = {

@@ -14,14 +14,12 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
-import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
 
 object ScenarioLoader {
-  private val logger = LoggerFactory.getLogger(this.getClass)
 
   /** When loading from the scenario, we also specify by how much to bump the
     * ledger end after each entry. This is because in the scenario transaction
@@ -57,7 +55,7 @@ object ScenarioLoader {
       scenario: String,
       transactionSeed: crypto.Hash,
   ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
-    val (scenarioLedger, scenarioRef) =
+    val (scenarioLedger, _) =
       buildScenarioLedger(packages, compiledPackages, scenario, transactionSeed)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
@@ -65,11 +63,11 @@ object ScenarioLoader {
       new ArrayBuffer[(ScenarioLedger.TransactionId, LedgerEntry)](
         scenarioLedger.scenarioSteps.size)
     type Acc = (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioLedger.TransactionId])
-    val (acs, time, txId) =
+    val (acs, time, _) =
       scenarioLedger.scenarioSteps.iterator
         .foldLeft[Acc]((InMemoryActiveLedgerState.empty, Time.Timestamp.Epoch, None)) {
           case ((acs, time, mbOldTxId), (stepId @ _, step)) =>
-            executeScenarioStep(ledgerEntries, scenarioRef, acs, time, mbOldTxId, stepId, step)
+            executeScenarioStep(ledgerEntries, acs, time, mbOldTxId, stepId, step)
         }
     // now decorate the entries with what the next increment is
     @tailrec
@@ -87,7 +85,7 @@ object ScenarioLoader {
       toProcess match {
         case ImmArray() => processed.toImmArray
         // we have to bump the offsets when the first one is not zero (passTimes),
-        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _))
+        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, _), _))
             if (processed.isEmpty && entryTxId.index > 0) =>
           val newProcessed = (processed :++ ImmArray(
             LedgerEntryOrBump.Bump(entryTxId.index),
@@ -99,7 +97,7 @@ object ScenarioLoader {
         case ImmArrayCons((_, entry), ImmArray()) =>
           (processed :+ LedgerEntryOrBump.Entry(entry)).toImmArray
 
-        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _)) =>
+        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, _), _)) =>
           val newProcessed = processed :+ LedgerEntryOrBump.Entry(entry) :++ bumps(
             entryTxId,
             nextTxId)
@@ -182,7 +180,6 @@ object ScenarioLoader {
 
   private def executeScenarioStep(
       ledger: ArrayBuffer[(ScenarioLedger.TransactionId, LedgerEntry)],
-      scenarioRef: Ref.DefinitionRef,
       acs: InMemoryActiveLedgerState,
       time: Time.Timestamp,
       mbOldTxId: Option[ScenarioLedger.TransactionId],

@@ -43,7 +43,7 @@ final class InMemoryLedgerReaderWriter(
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
     validateAndCommit: ValidateAndCommit,
-    metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
+    metrics: Metrics)(implicit executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
   override def commit(
@@ -76,8 +76,7 @@ object InMemoryLedgerReaderWriter {
       validateAndCommit: ValidateAndCommit,
       metrics: Metrics,
   )(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
+      implicit executionContext: ExecutionContext,
   ): InMemoryLedgerReaderWriter =
     new InMemoryLedgerReaderWriter(
       participantId,
@@ -172,8 +171,7 @@ object InMemoryLedgerReaderWriter {
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[KeyValueLedger] {
+  ) extends ResourceOwner[KeyValueLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext): Resource[KeyValueLedger] = {
       val keyValueCommitting =
@@ -200,8 +198,8 @@ object InMemoryLedgerReaderWriter {
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       state: InMemoryState,
       metrics: Metrics,
-      timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+      timeProvider: TimeProvider,
+      stateValueCache: Cache[DamlStateKey, DamlStateValue],
   )(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
@@ -233,11 +231,10 @@ object InMemoryLedgerReaderWriter {
       keySerializationStrategy: StateKeySerializationStrategy,
       state: InMemoryState,
       metrics: Metrics,
-      timeProvider: TimeProvider = DefaultTimeProvider,
+      timeProvider: TimeProvider,
       stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
   )(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
+      implicit executionContext: ExecutionContext,
   ): ValidateAndCommit = {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val valueToFingerprint: Option[Value] => Fingerprint =
