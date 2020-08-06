@@ -3,6 +3,8 @@
 
 package com.daml.lf.validation
 
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -22,8 +24,7 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
          }
        """
 
-    Recursion.checkPackage(defaultPackageId, p.modules)
-
+    checkPackage(defaultPackageId, p)
   }
 
   "Recursion validation should detect cycles between modules" in {
@@ -61,11 +62,11 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
         ${module("E", "E")}
        """
 
-    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
+    checkPackage(defaultPackageId, negativeCase)
     an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
+      checkPackage(defaultPackageId, positiveCase1)
     an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
+      checkPackage(defaultPackageId, positiveCase2)
 
   }
 
@@ -98,12 +99,15 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
          }
        """
 
-    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
+    checkPackage(defaultPackageId, negativeCase)
     an[ETypeSynCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
+      checkPackage(defaultPackageId, positiveCase1)
     an[ETypeSynCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
+      checkPackage(defaultPackageId, positiveCase2)
 
   }
+
+  private[this] def checkPackage(pkgId: Ref.PackageId, pkg: Ast.Package) =
+    Recursion.checkPackage(new World(Map(pkgId -> pkg)), pkgId, pkg.modules)
 
 }

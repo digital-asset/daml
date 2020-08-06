@@ -30,7 +30,7 @@ object Validation {
       modules: Map[ModuleName, Module]
   ): Unit = {
     Collision.checkPackage(pkgId, modules)
-    Recursion.checkPackage(pkgId, modules)
+    Recursion.checkPackage(world, pkgId, modules)
     modules.values.foreach(unsafeCheckModule(world, pkgId, _))
   }
 
@@ -48,5 +48,6 @@ object Validation {
     Typing.checkModule(world, pkgId, mod)
     Serializability.checkModule(world, pkgId, mod)
     PartyLiterals.checkModule(world, pkgId, mod)
+    DependencyVersion.checkModule(world, pkgId, mod)
   }
 }

@@ -6,6 +6,7 @@ package com.daml.lf.validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 
 sealed abstract class LookupError extends Product with Serializable {
   def pretty: String
@@ -47,6 +48,9 @@ final case class ContextTemplate(tycon: TypeConName) extends Context {
 }
 final case class ContextDefValue(ref: ValueRef) extends Context {
   def pretty: String = s"value type ${ref.qualifiedName}"
+}
+final case class ContextModule(pkgId: PackageId, module: ModuleName) extends Context {
+  def pretty: String = s"module $module"
 }
 
 object ContextDefDataType {
@@ -366,4 +370,23 @@ final case class ECollision(
 
   override protected def prettyInternal: String =
     s"collision between ${entity1.pretty} and ${entity2.pretty}"
+}
+
+final case class EModuleVersionDependencies(
+    pkgId: PackageId,
+    modName: ModuleName,
+    pkgLangVersion: LanguageVersion,
+    depPkgId: PackageId,
+    depModName: ModuleName,
+    dependencyLangVersion: LanguageVersion,
+) extends ValidationError {
+  import com.daml.lf.transaction.VersionTimeline.Implicits._
+
+  assert(!(pkgId == pkgLangVersion && modName == depModName))
+  assert(pkgLangVersion precedes dependencyLangVersion)
+
+  override protected def prettyInternal: String =
+    s"module $modName compiled with $pkgLangVersion dependents on module $depModName compiled with newer version $dependencyLangVersion"
+
+  override def context: Context = NoContext
 }

@@ -5,6 +5,9 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast
+import com.daml.lf.validation.traversable.{ExprTraversable, TypeTraversable}
+
+import scala.collection.mutable
 
 private[validation] class World(packages: PartialFunction[PackageId, Ast.Package]) {
 
@@ -54,5 +57,39 @@ private[validation] class World(packages: PartialFunction[PackageId, Ast.Package
       case _ =>
         throw EUnknownDefinition(ctx, LEValue(name))
     }
+
+  def idsInModule(ctx: => Context, pkgId: PackageId, modName: ModuleName): Set[Identifier] =
+    cacheModIdentifiers.getOrElseUpdate(
+      (pkgId, modName),
+      lookupModule(ctx, pkgId, modName).definitions.values.foldLeft(Set.empty[Identifier])(idsInDef)
+    )
+
+  private[this] val cacheModIdentifiers =
+    mutable.Map.empty[(PackageId, ModuleName), Set[Identifier]]
+
+  private[this] def idsInType(acc: Set[Identifier], typ0: Ast.Type): Set[Identifier] =
+    typ0 match {
+      case Ast.TSynApp(typeSynName, _) =>
+        TypeTraversable(typ0).foldLeft(acc + typeSynName)(idsInType)
+      case Ast.TTyCon(typeConName) =>
+        acc + typeConName
+      case otherwise =>
+        TypeTraversable(otherwise).foldLeft(acc)(idsInType)
+    }
+
+  private[this] def idsInExpr(acc: Set[Identifier], expr0: Ast.Expr): Set[Identifier] =
+    expr0 match {
+      case Ast.EVal(valRef) =>
+        acc + valRef
+      case Ast.EAbs(binder @ _, body, ref) =>
+        ExprTraversable(body).foldLeft(acc ++ ref.iterator)(idsInExpr)
+      case otherwise =>
+        ExprTraversable(otherwise).foldLeft(acc)(idsInExpr)
+    }
+
+  private[this] def idsInDef(acc0: Set[Identifier], definition: Ast.Definition): Set[Identifier] = {
+    val acc1 = TypeTraversable(definition).foldLeft(acc0)(idsInType)
+    ExprTraversable(definition).foldLeft(acc1)(idsInExpr)
+  }
 
 }
