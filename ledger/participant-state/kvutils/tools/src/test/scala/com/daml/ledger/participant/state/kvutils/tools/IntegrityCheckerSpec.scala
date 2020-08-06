@@ -1,6 +1,10 @@
 package com.daml.ledger.participant.state.kvutils.tools
 
 import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.WriteSet
+import com.daml.ledger.participant.state.kvutils.tools.export.{
+  CommitStrategySupport,
+  IntegrityChecker
+}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
@@ -57,7 +61,8 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
         case Some(explanation) =>
           explanation should include("first explanation")
           explanation should include("second explanation")
-          // We output 3 lines per mismatching keys and we don't insert a new line after the last.
+          // We output 3 lines per one pair of mismatching keys and we don't insert a new line
+          // after the last.
           countOccurrences(explanation, System.lineSeparator()) shouldBe 2 * 3 - 1
 
         case None => fail
@@ -75,6 +80,7 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
         case Some(explanation) =>
           explanation should include("expected key")
           explanation should include("actual key")
+          // We output 2 lines per one pair of mismatching keys.
           countOccurrences(explanation, System.lineSeparator()) shouldBe 1
 
         case None => fail

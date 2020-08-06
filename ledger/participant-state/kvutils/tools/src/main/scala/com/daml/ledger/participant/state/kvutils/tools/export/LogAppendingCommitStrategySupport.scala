@@ -37,10 +37,12 @@ object LogAppendingCommitStrategySupport extends CommitStrategySupport[Index] {
   override def explainMismatchingValue(
       logEntryId: Key,
       expectedValue: Value,
-      actualValue: Value): String = {
+      actualValue: Value): Option[String] = {
     val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
     val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
-    s"Log entry ID: ${bytesAsHexString(logEntryId)}${System.lineSeparator()}" +
-      s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
+    Some(
+      s"Log entry ID: ${bytesAsHexString(logEntryId)}${System.lineSeparator()}" +
+        s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
+    )
   }
 }
