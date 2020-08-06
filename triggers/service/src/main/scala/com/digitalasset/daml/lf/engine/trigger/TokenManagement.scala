@@ -78,8 +78,8 @@ object TokenManagement {
       case None => Left("missing Authorization header with Basic Token")
       case Some((username, password)) =>
         Ref.Party.fromString(username) match {
-          case Left(err) => Left("invalid party identifier '" + username + "'")
-          case Right(p) => Right((username, password))
+          case Left(_) => Left("invalid party identifier '" + username + "'")
+          case Right(_) => Right((username, password))
         }
     }
   }

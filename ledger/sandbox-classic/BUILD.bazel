@@ -99,12 +99,9 @@ genrule(
     cmd = """
         mkdir -p sandbox-classic-tarball/sandbox
         cp -L $(location :sandbox-classic-binary_deploy.jar) sandbox-classic-tarball/sandbox/sandbox-classic-{mvn}.jar
-        out=$$(realpath $@)
-        cd sandbox-classic-tarball
-        tar c sandbox \\
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-          | gzip -n > $$out
+        $(execpath //bazel_tools/sh:mktgz) $@ -C sandbox-classic-tarball sandbox
     """.format(mvn = mvn_version),
+    tools = ["//bazel_tools/sh:mktgz"],
     visibility = ["//visibility:public"],
 )
 

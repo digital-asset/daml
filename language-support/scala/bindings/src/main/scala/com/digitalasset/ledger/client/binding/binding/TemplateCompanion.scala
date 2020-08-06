@@ -81,6 +81,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
   }
 
   protected final def ` exercise`[ExOn, Out](
+      actor: Primitive.Party,
       receiver: ExOn,
       choiceId: String,
       arguments: Option[rpcvalue.Value])(
