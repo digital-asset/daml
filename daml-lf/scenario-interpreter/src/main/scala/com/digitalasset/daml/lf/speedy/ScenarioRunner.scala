@@ -255,7 +255,8 @@ final case class ScenarioRunner(
               coid,
               tid @ _,
               observers @ _,
-              stakeholders) =>
+              stakeholders,
+              ) =>
             notVisibleWith(ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders))
         }
     }
