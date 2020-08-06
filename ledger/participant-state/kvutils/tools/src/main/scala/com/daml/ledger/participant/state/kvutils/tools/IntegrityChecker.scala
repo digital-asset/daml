@@ -27,6 +27,7 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
+import scala.PartialFunction.condOpt
 import scala.concurrent.{ExecutionContext, Future}
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
@@ -137,9 +138,10 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       }
       .map(_.toList)
       .filterNot(_.isEmpty)
-      .map(_.mkString(System.lineSeparator()))
+      .flatten
+      .flatten
       .mkString(System.lineSeparator())
-    PartialFunction.condOpt(differencesExplained.isEmpty) {
+    condOpt(differencesExplained.isEmpty) {
       case false => differencesExplained
     }
   }
