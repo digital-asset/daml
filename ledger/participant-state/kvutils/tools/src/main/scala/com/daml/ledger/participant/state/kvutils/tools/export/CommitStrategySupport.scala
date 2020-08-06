@@ -17,11 +17,16 @@ trait QueryableWriteSet {
   def getAndClearRecordedWriteSet(): WriteSet
 }
 
+final case class ComponentsForReplay[LogResult](
+    ledgerStateReader: DamlLedgerStateReader,
+    commitStrategy: CommitStrategy[LogResult],
+    queryableWriteSet: QueryableWriteSet)
+
 trait CommitStrategySupport[LogResult] {
   def stateKeySerializationStrategy(): StateKeySerializationStrategy
 
-  def createComponents()(implicit executionContext: ExecutionContext)
-    : (DamlLedgerStateReader, CommitStrategy[LogResult], QueryableWriteSet)
+  def createComponentsForReplay()(
+      implicit executionContext: ExecutionContext): ComponentsForReplay[LogResult]
 
   /**
     * Determines if there's an actual difference and tries to explain it.
