@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.tools
 
 import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.WriteSet
@@ -96,3 +99,4 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
       case (key, value) => ByteString.copyFromUtf8(key) -> ByteString.copyFromUtf8(value)
     }
 }
+
