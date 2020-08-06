@@ -34,7 +34,7 @@ object Projections {
       // parties this part of the tree has been disclosed to.
       pathState0 = Set.empty[Party]
     ) {
-      case (perPartyRoots, alreadyWitnessed, nodeId, node) =>
+      case (perPartyRoots, alreadyWitnessed, nodeId, node @ _) =>
         // Add this node as a root for each party that has not yet witnessed
         // the parent of this node (if there was one).
         // Note that we're using blinding info instead of repeating the authorization

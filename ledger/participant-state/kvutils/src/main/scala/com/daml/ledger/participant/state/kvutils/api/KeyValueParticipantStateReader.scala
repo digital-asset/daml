@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
@@ -31,8 +30,7 @@ class KeyValueParticipantStateReader private[api] (
     metrics: Metrics,
     logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
-)(implicit materializer: Materializer)
-    extends ReadService {
+) extends ReadService {
   import KeyValueParticipantStateReader._
 
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
@@ -82,8 +80,8 @@ object KeyValueParticipantStateReader {
   def apply(
       reader: LedgerReader,
       metrics: Metrics,
-      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault)(
-      implicit materializer: Materializer): KeyValueParticipantStateReader =
+      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault)
+    : KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,
