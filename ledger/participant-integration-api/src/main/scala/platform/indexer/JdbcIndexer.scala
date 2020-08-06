@@ -235,21 +235,13 @@ private[indexer] class JdbcIndexer private[indexer] (
           recordTime,
           submissionId,
           ) =>
-        ledgerDao
-          .storePartyEntry(
-            offset,
-            PartyLedgerEntry.AllocationAccepted(
-              submissionId,
-              hostingParticipantId,
-              recordTime.toInstant,
-              domain
-                .PartyDetails(
-                  party,
-                  Some(displayName),
-                  this.participantId == hostingParticipantId,
-                )
-            ),
-          )
+        val entry = PartyLedgerEntry.AllocationAccepted(
+          submissionId,
+          hostingParticipantId,
+          recordTime.toInstant,
+          domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId)
+        )
+        ledgerDao.storePartyEntry(offset, entry)
 
       case PartyAllocationRejected(
           submissionId,
@@ -257,16 +249,13 @@ private[indexer] class JdbcIndexer private[indexer] (
           recordTime,
           rejectionReason,
           ) =>
-        ledgerDao
-          .storePartyEntry(
-            offset,
-            PartyLedgerEntry.AllocationRejected(
-              submissionId,
-              hostingParticipantId,
-              recordTime.toInstant,
-              rejectionReason,
-            )
-          )
+        val entry = PartyLedgerEntry.AllocationRejected(
+          submissionId,
+          hostingParticipantId,
+          recordTime.toInstant,
+          rejectionReason,
+        )
+        ledgerDao.storePartyEntry(offset, entry)
 
       case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
         val recordTimeInstant = recordTime.toInstant
@@ -276,31 +265,19 @@ private[indexer] class JdbcIndexer private[indexer] (
               size = archive.getPayload.size.toLong,
               knownSince = recordTimeInstant,
               sourceDescription = optSourceDescription,
-          )
-        )
+          ))
         val optEntry: Option[PackageLedgerEntry] =
           optSubmissionId.map(submissionId =>
             PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
-        ledgerDao
-          .storePackageEntry(
-            offset,
-            packages,
-            optEntry,
-          )
+        ledgerDao.storePackageEntry(offset, packages, optEntry)
 
       case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
-        val entry: PackageLedgerEntry =
-          PackageLedgerEntry.PackageUploadRejected(
-            submissionId,
-            recordTime.toInstant,
-            rejectionReason,
-          )
-        ledgerDao
-          .storePackageEntry(
-            offset,
-            List.empty,
-            Some(entry),
-          )
+        val entry = PackageLedgerEntry.PackageUploadRejected(
+          submissionId,
+          recordTime.toInstant,
+          rejectionReason,
+        )
+        ledgerDao.storePackageEntry(offset, List.empty, Some(entry))
 
       case TransactionAccepted(
           optSubmitterInfo,
@@ -322,26 +299,24 @@ private[indexer] class JdbcIndexer private[indexer] (
         )
 
       case config: ConfigurationChanged =>
-        ledgerDao
-          .storeConfigurationEntry(
-            offset,
-            config.recordTime.toInstant,
-            config.submissionId,
-            config.participantId,
-            config.newConfiguration,
-            None,
-          )
+        ledgerDao.storeConfigurationEntry(
+          offset,
+          config.recordTime.toInstant,
+          config.submissionId,
+          config.participantId,
+          config.newConfiguration,
+          None,
+        )
 
       case configRejection: ConfigurationChangeRejected =>
-        ledgerDao
-          .storeConfigurationEntry(
-            offset,
-            configRejection.recordTime.toInstant,
-            configRejection.submissionId,
-            configRejection.participantId,
-            configRejection.proposedConfiguration,
-            Some(configRejection.rejectionReason),
-          )
+        ledgerDao.storeConfigurationEntry(
+          offset,
+          configRejection.recordTime.toInstant,
+          configRejection.submissionId,
+          configRejection.participantId,
+          configRejection.proposedConfiguration,
+          Some(configRejection.rejectionReason),
+        )
 
       case CommandRejected(recordTime, submitterInfo, reason) =>
         ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offset, reason)
