@@ -63,6 +63,23 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
         case None => fail
       }
     }
+
+    "return differing keys" in {
+      val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
+      val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
+
+      val actual =
+        instance.compareSameSizeWriteSets(toWriteSet("key1" -> "a"), toWriteSet("key2" -> "b"))
+
+      actual match {
+        case Some(explanation) =>
+          explanation should include("expected key")
+          explanation should include("actual key")
+          countOccurrences(explanation, System.lineSeparator()) shouldBe 1
+
+        case None => fail
+      }
+    }
   }
 
   private def countOccurrences(input: String, pattern: String): Int =
