@@ -62,8 +62,8 @@ start_postgresql
 
 # Run the tests.
 bazel test //triggers/service:tests \
-  --runs_per_test=1000 \
-  --test_arg=-z --test_arg='restart triggers with update errors' \
+  --runs_per_test=200 \
+  --test_arg=-z --test_arg='restart triggers after shutdown' \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
