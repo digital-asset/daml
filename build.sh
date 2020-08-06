@@ -61,7 +61,9 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-bazel test //... \
+bazel test //triggers/service:tests \
+  --runs_per_test=100 \
+  --test_arg=-z --test_arg='restart triggers with update errors' \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
