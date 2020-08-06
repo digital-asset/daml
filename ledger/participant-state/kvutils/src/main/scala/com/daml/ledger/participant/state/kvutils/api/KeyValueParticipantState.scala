@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.api
 import java.util.concurrent.CompletionStage
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
@@ -30,8 +29,7 @@ class KeyValueParticipantState(
     reader: LedgerReader,
     writer: LedgerWriter,
     metrics: Metrics,
-)(implicit materializer: Materializer)
-    extends ReadService
+) extends ReadService
     with WriteService {
   private val readerAdapter =
     KeyValueParticipantStateReader(reader, metrics)
