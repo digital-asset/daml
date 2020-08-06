@@ -42,7 +42,6 @@ import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
-import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{ResettableResourceOwner, Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
@@ -107,8 +106,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       val owner = for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
-        _ <- AkkaResourceOwner.forActorSystem(() => actorSystem)
-        _ <- AkkaResourceOwner.forMaterializer(() => materializer)
+        _ <- ResourceOwner.forActorSystem(() => actorSystem)
+        _ <- ResourceOwner.forMaterializer(() => materializer)
 
         apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], StartupMode)](
           initialValue = (None, startupMode),

@@ -190,6 +190,7 @@ da_scala_test_suite(
         "//ledger/test-common",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

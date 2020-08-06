@@ -4,5 +4,6 @@
 package com.daml.ledger.resources
 
 import com.daml.resources.ResourceOwnerFactories
+import com.daml.resources.akka.AkkaResourceOwnerFactories
 
-object ResourceOwner extends ResourceOwnerFactories
+object ResourceOwner extends ResourceOwnerFactories with AkkaResourceOwnerFactories

@@ -13,7 +13,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 import scala.concurrent.{Future, Promise}
 
 final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
-  private val Factories = new ResourceOwnerFactories {}
+  private val Factories = new ResourceOwnerFactories with AkkaResourceOwnerFactories {}
 
   "a function returning an ActorSystem" should {
     "convert to a ResourceOwner" in {
@@ -27,7 +27,7 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       val resource = for {
-        actorSystem <- AkkaResourceOwner
+        actorSystem <- Factories
           .forActorSystem(() => ActorSystem("TestActorSystem"))
           .acquire()
         actor <- Factories
@@ -51,10 +51,10 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
   "a function returning a Materializer" should {
     "convert to a ResourceOwner" in {
       val resource = for {
-        actorSystem <- AkkaResourceOwner
+        actorSystem <- Factories
           .forActorSystem(() => ActorSystem("TestActorSystem"))
           .acquire()
-        materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
+        materializer <- Factories.forMaterializer(() => Materializer(actorSystem)).acquire()
       } yield materializer
 
       for {

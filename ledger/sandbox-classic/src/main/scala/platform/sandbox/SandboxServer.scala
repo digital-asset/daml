@@ -46,7 +46,6 @@ import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndex
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
-import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
@@ -88,8 +87,8 @@ object SandboxServer {
         config.metricsReporter,
         config.metricsReportingInterval,
       )
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
-      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
+      materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- ResourceOwner
         .forTryCloseable(() => Try(new SandboxServer(name, config, materializer, metrics)))
       // Wait for the API server to start.

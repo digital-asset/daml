@@ -23,7 +23,6 @@ import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
@@ -90,8 +89,8 @@ final class Runner[T <: ReadWriteService, Extra](
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits in a `for` comprehension.
-        _ <- AkkaResourceOwner.forActorSystem(() => actorSystem).acquire()
-        _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
+        _ <- ResourceOwner.forActorSystem(() => actorSystem).acquire()
+        _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
 
         // initialize all configured participants
         _ <- Resource.sequence(config.participants.map { participantConfig =>

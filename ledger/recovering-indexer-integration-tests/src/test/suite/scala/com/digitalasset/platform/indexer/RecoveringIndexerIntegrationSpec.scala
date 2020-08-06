@@ -18,6 +18,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantState
 }
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Engine
@@ -30,7 +31,6 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
 import com.daml.resources.ResourceOwner
-import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
@@ -187,8 +187,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
     for {
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem())
-      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
+      materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
         readService = participantState,

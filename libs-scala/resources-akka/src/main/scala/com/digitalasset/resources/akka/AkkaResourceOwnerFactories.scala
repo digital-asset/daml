@@ -7,7 +7,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.resources.ResourceOwner
 
-object AkkaResourceOwner {
+trait AkkaResourceOwnerFactories {
   def forActorSystem(acquire: () => ActorSystem): ResourceOwner[ActorSystem] =
     new ActorSystemResourceOwner(acquire)
 

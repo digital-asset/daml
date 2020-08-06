@@ -12,5 +12,8 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )
