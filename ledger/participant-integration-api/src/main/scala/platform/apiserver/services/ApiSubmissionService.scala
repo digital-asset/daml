@@ -59,7 +59,7 @@ private[apiserver] object ApiSubmissionService {
       metrics: Metrics,
   )(
       implicit ec: ExecutionContext,
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
   ): GrpcCommandSubmissionService with GrpcApiService =
     new GrpcCommandSubmissionService(
       service = new ApiSubmissionService(
