@@ -4,6 +4,7 @@
 package com.daml.platform.sandbox
 import java.util.UUID
 
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.sandbox.services.DbInfo
 import com.daml.platform.store.DbType
 import com.daml.resources.ResourceOwner

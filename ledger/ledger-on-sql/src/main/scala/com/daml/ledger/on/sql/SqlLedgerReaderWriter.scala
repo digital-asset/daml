@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 }
 import com.daml.ledger.participant.state.kvutils.{Bytes, OffsetBuilder}
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref

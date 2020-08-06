@@ -24,13 +24,14 @@ import com.daml.ledger.participant.state.index.v2.{
   PackageDetails
 }
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.Conversions._

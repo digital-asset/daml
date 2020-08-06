@@ -9,6 +9,7 @@ import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
@@ -18,8 +19,8 @@ import com.daml.resources.{Resource, ResourceOwner}
 import com.daml.timer.RetryStrategy
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 private[platform] final class HikariConnection(

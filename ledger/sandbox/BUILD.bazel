@@ -38,6 +38,7 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-on-sql",
+        "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",

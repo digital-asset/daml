@@ -4,6 +4,7 @@
 package com.daml.platform.sandbox.services
 
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.sandbox.config.SandboxConfig

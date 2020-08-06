@@ -12,6 +12,7 @@ import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
 import com.daml.ports.Port

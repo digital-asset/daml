@@ -9,6 +9,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
@@ -23,7 +24,6 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.ResourceOwner
 import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext

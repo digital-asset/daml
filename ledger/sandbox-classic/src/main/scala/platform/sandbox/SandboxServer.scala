@@ -20,6 +20,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.transaction.{

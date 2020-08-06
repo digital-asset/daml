@@ -7,12 +7,14 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
-import com.daml.resources.ResourceOwner
+import com.daml.resources.ResourceOwnerFactories
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.{Future, Promise}
 
-class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
+final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
+  private val Factories = new ResourceOwnerFactories {}
+
   "a function returning an ActorSystem" should {
     "convert to a ResourceOwner" in {
       val testPromise = Promise[Int]()
@@ -28,7 +30,7 @@ class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
         actorSystem <- AkkaResourceOwner
           .forActorSystem(() => ActorSystem("TestActorSystem"))
           .acquire()
-        actor <- ResourceOwner
+        actor <- Factories
           .successful(actorSystem.actorOf(Props(new TestActor)))
           .acquire()
       } yield (actorSystem, actor)

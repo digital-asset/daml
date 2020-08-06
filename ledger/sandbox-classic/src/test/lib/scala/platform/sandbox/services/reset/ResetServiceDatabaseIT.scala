@@ -8,6 +8,7 @@ import java.sql.{Connection, DriverManager}
 import anorm.SqlParser._
 import anorm.{SQL, SqlStringInterpolation}
 import com.daml.ledger.api.testing.utils.MockMessages
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.sandbox.services.reset.ResetServiceDatabaseIT.countRowsOfAllTables
 import com.daml.platform.sandbox.services.{DbInfo, SandboxFixture}
 import com.daml.platform.store.DbType

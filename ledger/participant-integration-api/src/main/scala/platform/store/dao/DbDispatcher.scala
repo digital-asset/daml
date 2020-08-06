@@ -8,8 +8,9 @@ import java.util.concurrent.{Executor, Executors, TimeUnit}
 
 import com.codahale.metrics.Timer
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.resources.ResourceOwner

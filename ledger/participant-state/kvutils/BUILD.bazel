@@ -40,6 +40,7 @@ da_scala_library(
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",

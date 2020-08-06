@@ -7,6 +7,7 @@ import java.io.File
 
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -15,7 +16,6 @@ import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.services.time.TimeProviderType.Static
 import com.daml.ports.Port
-import com.daml.resources.ResourceOwner
 import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
