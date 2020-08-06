@@ -99,4 +99,3 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
       case (key, value) => ByteString.copyFromUtf8(key) -> ByteString.copyFromUtf8(value)
     }
 }
-
