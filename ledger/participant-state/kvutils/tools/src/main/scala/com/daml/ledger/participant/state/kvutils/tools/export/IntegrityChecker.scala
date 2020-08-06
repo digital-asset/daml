@@ -28,6 +28,7 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
+import scala.PartialFunction.condOpt
 import scala.concurrent.{ExecutionContext, Future}
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
@@ -96,40 +97,61 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     }
   }
 
-  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
+  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit =
     if (expectedWriteSet == actualWriteSet) {
       println("OK".green)
     } else {
-      println("FAIL".red)
-      val message =
+      val messageMaybe =
         if (expectedWriteSet.size == actualWriteSet.size) {
-          expectedWriteSet
-            .zip(actualWriteSet)
-            .flatMap {
-              case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
-                if (expectedKey == actualKey && expectedValue != actualValue) {
-                  Seq(
-                    s"expected value:    ${bytesAsHexString(expectedValue)}",
-                    s" vs. actual value: ${bytesAsHexString(actualValue)}",
-                    explainDifference(expectedKey, expectedValue, actualValue),
-                  )
-                } else if (expectedKey != actualKey) {
-                  Seq(
-                    s"expected key:    ${bytesAsHexString(expectedKey)}",
-                    s" vs. actual key: ${bytesAsHexString(actualKey)}",
-                  )
-                } else
-                  Seq.empty
-            }
-            .mkString(System.lineSeparator())
+          compareSameSizeWriteSets(expectedWriteSet, actualWriteSet)
         } else {
-          s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}"
+          Some(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
         }
-      throw new ComparisonFailureException(message)
+      messageMaybe.foreach { message =>
+        println("FAIL".red)
+        throw new ComparisonFailureException(message)
+      }
+    }
+
+  private[tools] def compareSameSizeWriteSets(
+      expectedWriteSet: WriteSet,
+      actualWriteSet: WriteSet): Option[String] = {
+    val differencesExplained = expectedWriteSet
+      .zip(actualWriteSet)
+      .map {
+        case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
+          if (expectedKey == actualKey && expectedValue != actualValue) {
+            explainDifference(expectedKey, expectedValue, actualValue).map { explainedDifference =>
+              Seq(
+                s"expected value:    ${bytesAsHexString(expectedValue)}",
+                s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                explainedDifference,
+              )
+            }
+          } else if (expectedKey != actualKey) {
+            Some(
+              Seq(
+                s"expected key:    ${bytesAsHexString(expectedKey)}",
+                s" vs. actual key: ${bytesAsHexString(actualKey)}",
+              ))
+          } else {
+            None
+          }
+      }
+      .map(_.toList)
+      .filterNot(_.isEmpty)
+      .flatten
+      .flatten
+      .mkString(System.lineSeparator())
+    condOpt(differencesExplained.isEmpty) {
+      case false => differencesExplained
     }
   }
 
-  private def explainDifference(key: Key, expectedValue: Value, actualValue: Value): String =
+  private def explainDifference(
+      key: Key,
+      expectedValue: Value,
+      actualValue: Value): Option[String] =
     kvutils.Envelope
       .openStateValue(expectedValue)
       .toOption
@@ -141,7 +163,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
             |Expected: $expectedStateValue
             |Actual: $actualStateValue""".stripMargin
       }
-      .getOrElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
+      .orElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
 
   private def readSubmissionAndOutputs(input: DataInputStream): (SubmissionInfo, WriteSet) = {
     val (submissionInfo, writeSet) = Serialization.readEntry(input)
