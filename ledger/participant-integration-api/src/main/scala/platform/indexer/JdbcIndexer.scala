@@ -14,16 +14,16 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -216,7 +216,10 @@ private[indexer] class JdbcIndexer private[indexer] (
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
     new SubscriptionResourceOwner(readService)
 
-  private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
+  private def handleStateUpdate(
+      offset: Offset,
+      update: Update,
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
     lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
     logger.trace(update.description)
@@ -232,21 +235,13 @@ private[indexer] class JdbcIndexer private[indexer] (
           recordTime,
           submissionId,
           ) =>
-        ledgerDao
-          .storePartyEntry(
-            offset,
-            PartyLedgerEntry.AllocationAccepted(
-              submissionId,
-              hostingParticipantId,
-              recordTime.toInstant,
-              domain
-                .PartyDetails(
-                  party,
-                  Some(displayName),
-                  this.participantId == hostingParticipantId,
-                )
-            ),
-          )
+        val entry = PartyLedgerEntry.AllocationAccepted(
+          submissionId,
+          hostingParticipantId,
+          recordTime.toInstant,
+          domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId)
+        )
+        ledgerDao.storePartyEntry(offset, entry)
 
       case PartyAllocationRejected(
           submissionId,
@@ -254,16 +249,13 @@ private[indexer] class JdbcIndexer private[indexer] (
           recordTime,
           rejectionReason,
           ) =>
-        ledgerDao
-          .storePartyEntry(
-            offset,
-            PartyLedgerEntry.AllocationRejected(
-              submissionId,
-              hostingParticipantId,
-              recordTime.toInstant,
-              rejectionReason,
-            )
-          )
+        val entry = PartyLedgerEntry.AllocationRejected(
+          submissionId,
+          hostingParticipantId,
+          recordTime.toInstant,
+          rejectionReason,
+        )
+        ledgerDao.storePartyEntry(offset, entry)
 
       case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
         val recordTimeInstant = recordTime.toInstant
@@ -273,31 +265,19 @@ private[indexer] class JdbcIndexer private[indexer] (
               size = archive.getPayload.size.toLong,
               knownSince = recordTimeInstant,
               sourceDescription = optSourceDescription,
-          )
-        )
+          ))
         val optEntry: Option[PackageLedgerEntry] =
           optSubmissionId.map(submissionId =>
             PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
-        ledgerDao
-          .storePackageEntry(
-            offset,
-            packages,
-            optEntry,
-          )
+        ledgerDao.storePackageEntry(offset, packages, optEntry)
 
       case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
-        val entry: PackageLedgerEntry =
-          PackageLedgerEntry.PackageUploadRejected(
-            submissionId,
-            recordTime.toInstant,
-            rejectionReason,
-          )
-        ledgerDao
-          .storePackageEntry(
-            offset,
-            List.empty,
-            Some(entry),
-          )
+        val entry = PackageLedgerEntry.PackageUploadRejected(
+          submissionId,
+          recordTime.toInstant,
+          rejectionReason,
+        )
+        ledgerDao.storePackageEntry(offset, List.empty, Some(entry))
 
       case TransactionAccepted(
           optSubmitterInfo,
@@ -319,26 +299,24 @@ private[indexer] class JdbcIndexer private[indexer] (
         )
 
       case config: ConfigurationChanged =>
-        ledgerDao
-          .storeConfigurationEntry(
-            offset,
-            config.recordTime.toInstant,
-            config.submissionId,
-            config.participantId,
-            config.newConfiguration,
-            None,
-          )
+        ledgerDao.storeConfigurationEntry(
+          offset,
+          config.recordTime.toInstant,
+          config.submissionId,
+          config.participantId,
+          config.newConfiguration,
+          None,
+        )
 
       case configRejection: ConfigurationChangeRejected =>
-        ledgerDao
-          .storeConfigurationEntry(
-            offset,
-            configRejection.recordTime.toInstant,
-            configRejection.submissionId,
-            configRejection.participantId,
-            configRejection.proposedConfiguration,
-            Some(configRejection.rejectionReason),
-          )
+        ledgerDao.storeConfigurationEntry(
+          offset,
+          configRejection.recordTime.toInstant,
+          configRejection.submissionId,
+          configRejection.participantId,
+          configRejection.proposedConfiguration,
+          Some(configRejection.rejectionReason),
+        )
 
       case CommandRejected(recordTime, submitterInfo, reason) =>
         ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offset, reason)
@@ -346,7 +324,9 @@ private[indexer] class JdbcIndexer private[indexer] (
     result.map(_ => ())(DEC)
   }
 
-  private class SubscriptionResourceOwner(readService: ReadService)
+  private class SubscriptionResourceOwner(
+      readService: ReadService,
+  )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -360,9 +340,9 @@ private[indexer] class JdbcIndexer private[indexer] (
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              withEnrichedLoggingContext(JdbcIndexer.contextFor(offset, update)) { _ =>
-                Timed
-                  .future(
+              withEnrichedLoggingContext(JdbcIndexer.contextFor(offset, update)) {
+                implicit loggingContext =>
+                  Timed.future(
                     metrics.daml.indexer.stateUpdateProcessing,
                     handleStateUpdate(offset, update),
                   )
