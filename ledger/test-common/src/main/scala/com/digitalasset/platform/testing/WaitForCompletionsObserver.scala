@@ -37,8 +37,9 @@ final class WaitForCompletionsObserver private (expectedCompletions: Int)
   override def onNext(v: CompletionStreamResponse): Unit = {
     val total = counter.addAndGet(v.completions.size)
     if (total >= expectedCompletions) {
-      val _1 = promise.trySuccess(())
-      val _2 = Context.current().withCancellation().cancel(null)
+      promise.trySuccess(())
+      Context.current().withCancellation().cancel(null)
+      ()
     }
   }
 

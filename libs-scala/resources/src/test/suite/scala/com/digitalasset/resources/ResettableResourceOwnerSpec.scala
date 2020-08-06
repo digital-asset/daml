@@ -181,7 +181,7 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
     }
 
     "not hold on to old values" in {
-      var acquisitions = mutable.Buffer[WeakReference[Object]]()
+      val acquisitions = mutable.Buffer[WeakReference[Object]]()
       val owner = ResettableResourceOwner(reset =>
         new ResourceOwner[(Reset, Object)] {
           override def acquire()(

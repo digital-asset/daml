@@ -751,7 +751,7 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test("TXStakeholders", "Expose the correct stakeholders", allocate(SingleParty, SingleParty))(
     implicit ec => {
-      case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
+      case Participants(Participant(alpha @ _, receiver), Participant(beta, giver)) =>
         for {
           _ <- beta.create(giver, CallablePayout(giver, receiver))
           transactions <- beta.flatTransactions(giver, receiver)
@@ -767,7 +767,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     "There should be no contract key if the template does not specify one",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
-    case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
+    case Participants(Participant(alpha @ _, receiver), Participant(beta, giver)) =>
       for {
         _ <- beta.create(giver, CallablePayout(giver, receiver))
         transactions <- beta.flatTransactions(giver, receiver)
