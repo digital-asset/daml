@@ -21,17 +21,18 @@ object Validation {
   ): Either[ValidationError, Unit] =
     runSafely {
       val world = new World(pkgs)
-      unsafeCheckPackage(world, pkgId, world.lookupPackage(NoContext, pkgId).modules)
+      unsafeCheckPackage(world, pkgId, world.lookupPackage(NoContext, pkgId))
     }
 
   private def unsafeCheckPackage(
       world: World,
       pkgId: PackageId,
-      modules: Map[ModuleName, Module]
+      pkg: Package
   ): Unit = {
-    Collision.checkPackage(pkgId, modules)
-    Recursion.checkPackage(world, pkgId, modules)
-    modules.values.foreach(unsafeCheckModule(world, pkgId, _))
+    Collision.checkPackage(pkgId, pkg)
+    Recursion.checkPackage(pkgId, pkg)
+    DependencyVersion.checkPackage(world, pkgId, pkg)
+    pkg.modules.values.foreach(unsafeCheckModule(world, pkgId, _))
   }
 
   def checkModule(
@@ -48,6 +49,5 @@ object Validation {
     Typing.checkModule(world, pkgId, mod)
     Serializability.checkModule(world, pkgId, mod)
     PartyLiterals.checkModule(world, pkgId, mod)
-    DependencyVersion.checkModule(world, pkgId, mod)
   }
 }

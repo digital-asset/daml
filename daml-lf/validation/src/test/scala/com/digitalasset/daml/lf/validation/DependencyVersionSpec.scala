@@ -64,18 +64,18 @@ class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with
     forEvery(negativeTestCases) { pkgs =>
       pkgs.foreach {
         case (pkgId, pkg) =>
-          DependencyVersion.checkModule(new World(pkgs), pkgId, pkg.modules.head._2)
+          DependencyVersion.checkPackage(new World(pkgs), pkgId, pkg)
       }
     }
 
     forEvery(postiveTestCase) {
-      case ((pkgdId, modName), pkgs) =>
+      case ((pkgdId, _), pkgs) =>
         val world = new World(pkgs)
         an[EModuleVersionDependencies] should be thrownBy
-          DependencyVersion.checkModule(
+          DependencyVersion.checkPackage(
             world,
             pkgdId,
-            world.lookupModule(NoContext, pkgdId, modName),
+            world.lookupPackage(NoContext, pkgdId),
           )
     }
 

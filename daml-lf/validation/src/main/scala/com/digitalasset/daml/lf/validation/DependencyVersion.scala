@@ -10,31 +10,24 @@ import com.daml.lf.transaction.VersionTimeline
 private[validation] object DependencyVersion {
 
   @throws[ValidationError]
-  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit = {
+  def checkPackage(world: World, pkgId: PackageId, pkg: Package): Unit = {
     import VersionTimeline.Implicits._
 
-    val modLangVersion = mod.languageVersion
-    val modName = mod.name
-    val ctx = ContextModule(pkgId, modName)
-
-    val dependencies = world.idsInModule(ctx, pkgId, modName).collect {
-      case Identifier(depPkgId, QualifiedName(depModName, _))
-          if depPkgId != pkgId || depModName != modName =>
-        (depPkgId, depModName)
-    }
-
-    dependencies.foreach {
-      case (depPkgId, depModName) =>
-        val depLangVersion = world.lookupModule(ctx, depPkgId, depModName).languageVersion
-        if (modLangVersion precedes depLangVersion)
-          throw EModuleVersionDependencies(
-            pkgId,
-            modName,
-            modLangVersion,
-            depPkgId,
-            depModName,
-            depLangVersion)
-    }
+    for {
+      pkgFirstModule <- pkg.modules.values.take(1)
+      // all modules of a package are compiled to the same LF version
+      pkgLangVersion = pkgFirstModule.languageVersion
+      depPkgId <- pkg.directDeps
+      depPkg = world.lookupPackage(NoContext, depPkgId)
+      depFirstModule <- depPkg.modules.values.take(1)
+      depLangVersion = depFirstModule.languageVersion
+    } if (pkgLangVersion precedes depLangVersion)
+      throw EModuleVersionDependencies(
+        pkgId,
+        pkgLangVersion,
+        depPkgId,
+        depLangVersion
+      )
   }
 
 }
