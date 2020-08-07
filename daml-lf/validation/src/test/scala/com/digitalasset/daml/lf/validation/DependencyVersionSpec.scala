@@ -46,7 +46,7 @@ class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with
         FeatureFlags.default
       )
 
-      pkgId -> Package(Map(modName -> mod), depRefs.iterator.map(_._1).toSet, None)
+      pkgId -> Package(Map(modName -> mod), depRefs.iterator.map(_._1).toSet - pkgId, None)
     }
 
     val negativeTestCases = Table(
