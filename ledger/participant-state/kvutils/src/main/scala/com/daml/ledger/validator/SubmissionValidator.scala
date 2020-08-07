@@ -75,15 +75,18 @@ class SubmissionValidator[LogResult] private[validator] (
       participantId: ParticipantId,
   ): Future[Either[ValidationFailed, LogResult]] =
     newLoggingContext { implicit loggingContext =>
-      validateAndCommitWithLoggingContext(envelope, correlationId, recordTime, participantId)
+      validateAndCommitWithContext(envelope, correlationId, recordTime, participantId)
     }
 
-  private[validator] def validateAndCommitWithLoggingContext(
+  private[validator] def validateAndCommitWithContext(
       envelope: Bytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  )(implicit loggingContext: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Either[ValidationFailed, LogResult]] =
     runValidation(
       envelope,
       correlationId,
@@ -147,7 +150,10 @@ class SubmissionValidator[LogResult] private[validator] (
           LedgerStateOperations[LogResult],
       ) => Future[T],
       postProcessResultTimer: Option[Timer],
-  )(implicit loggingContext: LoggingContext): Future[Either[ValidationFailed, T]] =
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Either[ValidationFailed, T]] =
     metrics.daml.kvutils.submission.validator.openEnvelope
       .time(() => Envelope.open(envelope)) match {
       case Right(Envelope.SubmissionBatchMessage(batch)) =>
