@@ -400,7 +400,7 @@ object SExpr {
   final case class ChoiceDefRef(ref: DefinitionRef, choiceName: ChoiceName) extends SDefinitionRef
 
   //
-  // List builtins (foldl, foldr, equalList) are implemented as recursive
+  // List builtins (equalList) are implemented as recursive
   // definition to save java stack
   //
 
@@ -413,7 +413,6 @@ object SExpr {
     val arity = 3
 
     private def body: SExpr = ref match {
-      case Reference.FoldR => foldRBody
       case Reference.EqualList => equalListBody
     }
 
@@ -429,39 +428,10 @@ object SExpr {
     sealed abstract class Reference
 
     final object Reference {
-      final case object FoldR extends Reference
       final case object EqualList extends Reference
     }
 
-    val FoldR: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.FoldR)
     val EqualList: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.EqualList)
-
-    private val foldRBody: SExpr =
-      // foldr f z xs =
-      // case xs of
-      SECase(SELocA(2)) of (// nil -> z
-      SCaseAlt(SCPNil, SELocA(1)),
-      // cons y ys ->
-      SCaseAlt(
-        SCPCons,
-        // f y (foldr f z ys)
-        SEApp(
-          SELocA(0),
-          Array(
-            /* f */
-            SELocS(2), /* y */
-            SEApp(
-              FoldR,
-              Array(
-                /* foldr f z ys */
-                SELocA(0), /* f */
-                SELocA(1), /* z */
-                SELocS(1) /* ys */
-              )
-            )
-          )
-        )
-      ))
 
     private val equalListBody: SExpr =
       // equalList f xs ys =

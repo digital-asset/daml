@@ -752,6 +752,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   "List operations" - {
 
     val f = """(\ (x:Int64) (y:Int64) ->  ADD_INT64 3 (MUL_INT64 x y))"""
+    val g = """(\ (x:Int64) -> let z:Int64 = 3 in \ (y:Int64) -> ADD_INT64 z (MUL_INT64 x y))"""
 
     "FOLDL" - {
       "works as expected" in {
@@ -764,6 +765,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       "works as expected" in {
         eval(e"FOLDR @Int64 @Int64 $f 5 ${intList()}") shouldEqual Right(SInt64(5))
         eval(e"FOLDR @Int64 @Int64 $f 5 ${intList(7, 11, 13)}") shouldEqual Right(SInt64(5260))
+      }
+      "works as expected when step function takes one argument" in {
+        eval(e"FOLDR @Int64 @Int64 $g 5 ${intList()}") shouldEqual Right(SInt64(5))
+        eval(e"FOLDR @Int64 @Int64 $g 5 ${intList(7, 11, 13)}") shouldEqual Right(SInt64(5260))
       }
     }
 
