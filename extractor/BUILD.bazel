@@ -218,6 +218,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox-classic",

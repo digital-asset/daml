@@ -6,9 +6,10 @@ package com.daml.platform.apiserver.services
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.TimeUnit
 
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.apiserver.EventLoopGroupOwner
 import com.daml.ports.Port
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.netty.channel.EventLoopGroup

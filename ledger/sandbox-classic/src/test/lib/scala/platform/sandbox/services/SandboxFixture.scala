@@ -10,7 +10,6 @@ import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.ports.Port
-import com.daml.resources.ResourceOwner
 import io.grpc.Channel
 import org.scalatest.Suite
 

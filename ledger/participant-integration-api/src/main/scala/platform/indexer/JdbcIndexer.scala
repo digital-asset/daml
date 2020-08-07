@@ -29,7 +29,7 @@ import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal

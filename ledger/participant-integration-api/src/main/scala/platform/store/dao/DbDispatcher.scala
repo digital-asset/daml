@@ -13,7 +13,6 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
-import com.daml.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}

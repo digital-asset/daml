@@ -3,7 +3,8 @@
 
 package com.daml.platform.apiserver
 
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
+import com.daml.resources.Resource
 import io.grpc.netty.NettyServerBuilder
 import io.netty.channel.{EventLoopGroup, ServerChannel}
 

@@ -46,7 +46,7 @@ import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndex
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import scalaz.syntax.tag._
 
 import scala.collection.JavaConverters._

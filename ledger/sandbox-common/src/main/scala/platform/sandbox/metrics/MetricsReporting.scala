@@ -12,7 +12,7 @@ import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.configuration.MetricsReporter
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 
 import scala.concurrent.{ExecutionContext, Future}
 

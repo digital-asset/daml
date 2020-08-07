@@ -21,6 +21,7 @@ da_scala_library(
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-resources",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",

@@ -4,7 +4,7 @@
 package com.daml.platform.indexer
 
 import com.daml.ledger.participant.state.v1.ReadService
-import com.daml.resources.ResourceOwner
+import com.daml.ledger.resources.ResourceOwner
 
 import scala.concurrent.Future
 

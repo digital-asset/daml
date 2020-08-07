@@ -13,9 +13,10 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ReadWriteService,
   Runner
 }
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.resources.{ProgramResource, Resource, ResourceOwner}
+import com.daml.resources.{ProgramResource, Resource}
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext

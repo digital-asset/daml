@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.nio.file.Paths
 
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext

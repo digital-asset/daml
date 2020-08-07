@@ -56,7 +56,6 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.daml.resources.ResourceOwner
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}

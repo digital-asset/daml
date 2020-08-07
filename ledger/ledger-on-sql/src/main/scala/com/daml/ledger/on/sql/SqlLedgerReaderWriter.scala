@@ -34,7 +34,7 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.MismatchException
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import com.google.protobuf.ByteString
 
 import scala.util.{Failure, Success}

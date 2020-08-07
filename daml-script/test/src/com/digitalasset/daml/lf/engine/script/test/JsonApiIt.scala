@@ -48,7 +48,7 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.ports.Port
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import io.grpc.Channel
 import org.scalatest._
 import scalaz.syntax.traverse._

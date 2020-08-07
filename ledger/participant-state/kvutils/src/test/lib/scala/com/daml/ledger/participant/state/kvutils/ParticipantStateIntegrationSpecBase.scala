@@ -17,6 +17,7 @@ import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOf
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.{DarReader, Decode}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
@@ -27,7 +28,6 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
-import com.daml.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}

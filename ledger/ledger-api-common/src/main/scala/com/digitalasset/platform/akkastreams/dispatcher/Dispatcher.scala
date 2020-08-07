@@ -6,7 +6,6 @@ package com.daml.platform.akkastreams.dispatcher
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.resources.ResourceOwner
 
 /**
   * A fanout signaller, representing a stream of external updates,

@@ -16,6 +16,7 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{SeedService, WriteService}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -43,7 +44,7 @@ import com.daml.platform.server.api.services.grpc.{
   GrpcTransactionService
 }
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._

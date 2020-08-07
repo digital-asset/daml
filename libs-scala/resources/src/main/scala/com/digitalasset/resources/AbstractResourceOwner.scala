@@ -7,8 +7,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
-  * A [[ResourceOwner]] of type [[A]] is can acquire a [[Resource]] of the same type and its operations are applied to
-  * the [[Resource]] after it has been acquired.
+  * A ResourceOwner of type [[A]] is can acquire a [[Resource]] of the same type and its operations
+  * are applied to the [[Resource]] after it has been acquired.
   *
   * @tparam A The [[Resource]] value type.
   */

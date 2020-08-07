@@ -145,6 +145,7 @@ da_scala_test(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox-classic",

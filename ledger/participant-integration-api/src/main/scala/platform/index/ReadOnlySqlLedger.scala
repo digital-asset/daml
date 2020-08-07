@@ -22,7 +22,7 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._

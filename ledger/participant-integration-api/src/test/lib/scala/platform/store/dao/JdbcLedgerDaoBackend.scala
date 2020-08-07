@@ -6,6 +6,7 @@ package com.daml.platform.store.dao
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -14,7 +15,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.{DbType, FlywayMigrations}
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import org.scalatest.Suite
 
 import scala.concurrent.duration.DurationInt

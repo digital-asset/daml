@@ -16,10 +16,11 @@ import com.daml.ledger.participant.state.kvutils.app.{
 }
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext

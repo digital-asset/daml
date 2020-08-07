@@ -129,6 +129,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-on-memory",
         "//ledger/ledger-on-memory:ledger-on-memory-app",
+        "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",

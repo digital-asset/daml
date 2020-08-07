@@ -5,8 +5,9 @@ package com.daml.oauth.middleware
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.oauth.server.{Config => OAuthConfig, Server => OAuthServer}
+import com.daml.resources.Resource
 
 import scala.concurrent.ExecutionContext
 

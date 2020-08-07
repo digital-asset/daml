@@ -30,7 +30,6 @@ import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
-import com.daml.resources.ResourceOwner
 import com.daml.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._

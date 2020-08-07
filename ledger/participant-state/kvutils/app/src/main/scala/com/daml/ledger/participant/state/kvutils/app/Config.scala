@@ -16,7 +16,6 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
 import com.daml.ports.Port
-import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
 final case class Config[Extra](

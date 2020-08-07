@@ -42,7 +42,7 @@ import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
-import com.daml.resources.{ResettableResourceOwner, Resource, ResourceOwner}
+import com.daml.resources.{ResettableResourceOwner, Resource}
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps

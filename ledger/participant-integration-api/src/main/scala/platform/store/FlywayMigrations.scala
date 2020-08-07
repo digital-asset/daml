@@ -3,11 +3,11 @@
 
 package com.daml.platform.store
 
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations._
 import com.daml.platform.store.dao.HikariConnection
-import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion

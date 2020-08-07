@@ -3,7 +3,8 @@
 
 package com.daml.testing.postgresql
 
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
+import com.daml.resources.Resource
 
 import scala.concurrent.{ExecutionContext, Future}
 

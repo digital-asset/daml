@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.v1.{
   ReadService,
   TimeModel
 }
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -22,7 +23,6 @@ import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.ResourceOwner
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.MockitoSugar
 import org.scalatest.{AsyncFlatSpec, Matchers}

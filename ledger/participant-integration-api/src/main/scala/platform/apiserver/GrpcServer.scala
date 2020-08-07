@@ -7,9 +7,10 @@ import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.concurrent.TimeUnit.SECONDS
 
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import com.google.protobuf.Message
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder

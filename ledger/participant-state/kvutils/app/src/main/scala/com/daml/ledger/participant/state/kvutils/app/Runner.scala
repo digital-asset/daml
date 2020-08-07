@@ -23,7 +23,7 @@ import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}

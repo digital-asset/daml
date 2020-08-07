@@ -15,7 +15,7 @@ import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.HikariJdbcConnectionProvider._
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import com.daml.timer.RetryStrategy
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 

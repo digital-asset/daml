@@ -19,6 +19,7 @@ da_scala_library(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//ledger-api/testing-utils",
+        "//ledger/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:commons_io_commons_io",

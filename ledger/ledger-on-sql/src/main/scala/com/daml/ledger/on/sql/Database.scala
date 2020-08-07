@@ -14,7 +14,6 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.flywaydb.core.Flyway

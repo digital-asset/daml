@@ -12,7 +12,6 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.sandbox.services.reset.ResetServiceDatabaseIT.countRowsOfAllTables
 import com.daml.platform.sandbox.services.{DbInfo, SandboxFixture}
 import com.daml.platform.store.DbType
-import com.daml.resources.ResourceOwner
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try

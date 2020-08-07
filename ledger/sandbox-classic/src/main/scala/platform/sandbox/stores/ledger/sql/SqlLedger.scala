@@ -39,7 +39,7 @@ import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import scalaz.Tag
 
 import scala.collection.immutable.Queue

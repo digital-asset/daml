@@ -9,10 +9,11 @@ import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
 import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
 import com.daml.platform.testing.LogCollector
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.collection.mutable

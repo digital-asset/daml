@@ -5,11 +5,12 @@ package com.daml.platform.indexer
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.v1.ReadService
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.resources.Resource
 
 import scala.concurrent.ExecutionContext
 
