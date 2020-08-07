@@ -58,7 +58,7 @@ withDamlIdeState
     -> IO a
 withDamlIdeState opts@Options{..} loggerH eventHandler f = do
     scenarioServiceConfig <- Scenario.readScenarioServiceConfig
-    Scenario.withScenarioService' optScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
+    Scenario.withScenarioService' optScenarioService optDamlLfVersion loggerH scenarioServiceConfig $ \mbScenarioService -> do
         vfs <- makeVFSHandle
         -- We only use withDamlIdeState outside of the IDE where we do not care about
         -- progress reporting.

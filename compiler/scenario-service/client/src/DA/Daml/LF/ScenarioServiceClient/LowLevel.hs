@@ -252,13 +252,10 @@ withScenarioService opts@Options{..} f = do
 
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
-  res <-
-    case (optDamlLfVersion hOptions) of
-      LF.V1 minor -> 
-        performRequest
-          (SS.scenarioServiceNewContext hClient)
-          (optRequestTimeout hOptions)
-          (SS.NewContextRequest (TL.pack $ LF.renderMinorVersion minor))
+  res <- performRequest
+      (SS.scenarioServiceNewContext hClient)
+      (optRequestTimeout hOptions)
+      (SS.NewContextRequest $ TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)

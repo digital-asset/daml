@@ -62,6 +62,7 @@ import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
+import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 
@@ -89,7 +90,13 @@ instance IsOption LfVersionOpt where
 main :: IO ()
 main = do
  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
- SS.withScenarioService Logger.makeNopHandle scenarioConf $ \scenarioService -> do
+ -- This is a bit hacky, we want the LF version before we hand over to
+ -- tasty. To achieve that we first pass with optparse-applicative ignoring
+ -- everything apart from the LF version.
+ LfVersionOpt lfVer <- do
+     let parser = optionCLParser <* many (strArgument @String mempty)
+     execParser (info parser forwardOptions)
+ SS.withScenarioService lfVer Logger.makeNopHandle scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty

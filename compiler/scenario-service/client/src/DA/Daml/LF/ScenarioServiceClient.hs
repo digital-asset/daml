@@ -58,15 +58,13 @@ data Options = Options
   , optLogError :: String -> IO ()
   }
 
-toLowLevelOpts :: Options -> LowLevel.Options
-toLowLevelOpts Options{..} =
+toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
+toLowLevelOpts optDamlLfVersion Options{..} =
     LowLevel.Options{..}
     where
         optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
         optJvmOptions = cnfJvmOptions optScenarioServiceConfig
-        -- FIXME
-        optDamlLfVersion = LF.versionDefault
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -85,10 +83,10 @@ data Handle = Handle
 withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
-withScenarioService :: Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
-withScenarioService loggerH scenarioConfig f = do
+withScenarioService :: LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
+withScenarioService ver loggerH scenarioConfig f = do
   hOptions <- getOptions
-  LowLevel.withScenarioService (toLowLevelOpts hOptions) $ \hLowLevelHandle ->
+  LowLevel.withScenarioService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
       bracket
          (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
          (LowLevel.deleteCtx hLowLevelHandle) $ \rootCtxId -> do
@@ -114,12 +112,13 @@ withScenarioService loggerH scenarioConfig f = do
 
 withScenarioService'
     :: EnableScenarioService
+    -> LF.Version
     -> Logger.Handle IO
     -> ScenarioServiceConfig
     -> (Maybe Handle -> IO a)
     -> IO a
-withScenarioService' (EnableScenarioService enable) loggerH conf f
-    | enable = withScenarioService loggerH conf (f . Just)
+withScenarioService' (EnableScenarioService enable) ver loggerH conf f
+    | enable = withScenarioService ver loggerH conf (f . Just)
     | otherwise = f Nothing
 
 data ScenarioServiceConfig = ScenarioServiceConfig

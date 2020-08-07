@@ -471,7 +471,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
           initPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
-              withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
+              withScenarioService' enableScenarioService (optDamlLfVersion options) loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer
