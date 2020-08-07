@@ -289,14 +289,15 @@ gcCtxs Handle{..} ctxIds = do
 updateCtx :: Handle -> ContextId -> ContextUpdate -> IO (Either BackendError ())
 updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
   res <-
-    performRequest
-      (SS.scenarioServiceUpdateContext hClient)
-      (optRequestTimeout hOptions) $
-      SS.UpdateContextRequest
-          ctxId
-          (Just updModules)
-          (Just updPackages)
-          (getSkipValidation updSkipValidation)
+        performRequest
+          (SS.scenarioServiceUpdateContext hClient)
+          (optRequestTimeout hOptions) $
+          SS.UpdateContextRequest
+              ctxId
+              (Just updModules)
+              (Just updPackages)
+              (getSkipValidation updSkipValidation)
+              lfMinor
   pure (void res)
   where
     updModules =
@@ -309,9 +310,11 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
     encodeName = TL.fromStrict . mangleModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
-    convModule (_, bytes) =
-        case updDamlLfVersion of
-            LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
+    convModule (_, bytes) = SS.ScenarioModule bytes
+    lfMinor =
+      if null updLoadModules then TL.empty
+      else case updDamlLfVersion of
+            LF.V1 minor -> TL.pack $ LF.renderMinorVersion minor
 
 mangleModuleName :: LF.ModuleName -> T.Text
 mangleModuleName (LF.ModuleName modName) =

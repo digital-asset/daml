@@ -15,6 +15,7 @@ import scalaz.syntax.traverse._
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
@@ -286,7 +287,19 @@ class ScenarioService(
             else
               Seq.empty
 
+          val lfVersion =
+            if (req.getLfMinor.nonEmpty)
+              Some(
+                LanguageVersion(
+                  LanguageVersion.Major.V1,
+                  LanguageVersion.Minor.fromProtoIdentifier(req.getLfMinor)
+                )
+              )
+            else
+              None
+
           ctx.update(
+            lfVersion,
             unloadModules,
             loadModules,
             unloadPackages,
