@@ -397,6 +397,7 @@ simplifyExpr = fmap fst . cata go'
     go :: World -> ExprF (Expr, Info) -> (Expr, Info)
     go world = \case
 
+      -- inline typeclass projections for known dictionaries
       ETmAppF (_, i1) (_, i2)
           | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
           , TCDictionary e2 <- tcinfo i2
@@ -409,11 +410,12 @@ simplifyExpr = fmap fst . cata go'
                   -- the argument whose free variables are tracked in i2.
           -> cata (go world) e'
 
+      -- inline typeclass projection for unknown dictionaries
       ETmAppF (_, i1) (e2, i2)
-          | TCProjection (ETmLam (x,t) e1) <- tcinfo i1
-          -> go world
-              (ELetF (BindingF (x,t) (e2, i2))
-                  (e1, cata (infoStep world) e1))
+          | Safe _ <- safety i2
+          , TCProjection (ETmLam (x,_) e1) <- tcinfo i1
+          -> ( applySubstInExpr (exprSubst' x e2 (freeVars i2)) e1
+             , infoStep world (ETmAppF i1 i2) )
 
       -- <...; f = e; ...>.f    ==>    e
       EStructProjF f (stripLoc -> EStructCon fes, s)
