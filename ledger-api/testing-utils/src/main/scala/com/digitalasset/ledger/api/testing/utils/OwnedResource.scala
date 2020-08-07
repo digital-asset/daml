@@ -3,15 +3,15 @@
 
 package com.daml.ledger.api.testing.utils
 
-import com.daml.ledger.resources.ResourceOwner
 import com.daml.resources
+import com.daml.resources.AbstractResourceOwner
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext}
 import scala.reflect.ClassTag
 
 final class OwnedResource[T: ClassTag](
-    owner: ResourceOwner[T],
+    owner: AbstractResourceOwner[ExecutionContext, T],
     acquisitionTimeout: FiniteDuration = 30.seconds,
     releaseTimeout: FiniteDuration = 30.seconds,
 )(implicit executionContext: ExecutionContext)

@@ -3,17 +3,14 @@
 
 package com.daml.testing.postgresql
 
-import com.daml.ledger.resources.ResourceOwner
-import com.daml.resources.Resource
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Resource}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object PostgresResource {
-  def owner(): ResourceOwner[PostgresDatabase] =
-    new ResourceOwner[PostgresDatabase] with PostgresAround {
-      override def acquire()(
-          implicit executionContext: ExecutionContext
-      ): Resource[PostgresDatabase] =
+  def owner[Context: HasExecutionContext](): AbstractResourceOwner[Context, PostgresDatabase] =
+    new AbstractResourceOwner[Context, PostgresDatabase] with PostgresAround {
+      override def acquire()(implicit context: Context): Resource[PostgresDatabase] =
         Resource(Future {
           connectToPostgresqlServer()
           createNewRandomDatabase()
