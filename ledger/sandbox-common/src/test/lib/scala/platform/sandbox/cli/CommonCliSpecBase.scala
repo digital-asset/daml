@@ -121,11 +121,41 @@ abstract class CommonCliSpecBase(
       )
     }
 
+    "reject a console metrics reporter when it has extra information" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "console://foo"))
+      config shouldEqual None
+    }
+
+    "reject a console metrics reporter when it's got trailing information without '//'" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "console:foo"))
+      config shouldEqual None
+    }
+
     "parse a CSV metrics reporter when given" in {
       checkOption(
         Array("--metrics-reporter", "csv:///path/to/file.csv"),
         _.copy(metricsReporter = Some(MetricsReporter.Csv(Paths.get("/path/to/file.csv")))),
       )
+    }
+
+    "reject a CSV metrics reporter when it has no information" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "csv"))
+      config shouldEqual None
+    }
+
+    "reject a CSV metrics reporter when it has no path" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "csv://"))
+      config shouldEqual None
+    }
+
+    "reject a CSV metrics reporter when it has a host" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "csv://hostname/path"))
+      config shouldEqual None
+    }
+
+    "reject a CSV metrics reporter when it's missing '//'" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "csv:/path"))
+      config shouldEqual None
     }
 
     "parse a Graphite metrics reporter when given" in {
@@ -158,6 +188,26 @@ abstract class CommonCliSpecBase(
         Array("--metrics-reporter", "graphite://server:9876/prefix"),
         _.copy(metricsReporter = Some(MetricsReporter.Graphite(expectedAddress, Some("prefix")))),
       )
+    }
+
+    "reject a Graphite metrics reporter when it has no information" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "graphite"))
+      config shouldEqual None
+    }
+
+    "reject a Graphite metrics reporter without a host" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "graphite://"))
+      config shouldEqual None
+    }
+
+    "reject a Graphite metrics reporter without a host but with a prefix" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "graphite:///prefix"))
+      config shouldEqual None
+    }
+
+    "reject a Graphite metrics reporter when it's missing '//'" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "graphite:server:1234"))
+      config shouldEqual None
     }
 
     "parse the metrics reporting interval when given" in {
