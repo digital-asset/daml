@@ -1635,8 +1635,8 @@ Then, a collection of packages ``Ξ`` is well-formed if:
   package of ``Ξ``.
 * There are no cycles between type synonym definitions, modules, and
   packages references.
-* The dependencies of each modules are compiled to an LF version equal or
-  older than the one that module is compiled to.
+* Each package ``p`` only depends on packages whose LF version is older
+  than or the same as the LF version of ``p`` itself.
 
 
 Operational semantics
