@@ -40,38 +40,13 @@ import scala.util.{Failure, Success}
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
-    engine: Engine,
     metrics: Metrics,
-    timeProvider: TimeProvider,
-    stateValueCache: Cache[Bytes, DamlStateValue],
     database: Database,
     dispatcher: Dispatcher[Index],
-    seedService: SeedService
-)(
-    implicit executionContext: ExecutionContext,
-) extends LedgerWriter
+    committer: ValidatingCommitter[Index],
+)(implicit executionContext: ExecutionContext)
+    extends LedgerWriter
     with LedgerReader {
-
-  private def allocateSeededLogEntryId(): DamlLogEntryId =
-    DamlLogEntryId.newBuilder
-      .setEntryId(
-        ByteString.copyFromUtf8(
-          UUID.nameUUIDFromBytes(seedService.nextSeed().bytes.toByteArray).toString))
-      .build()
-
-  private val committer = new ValidatingCommitter[Index](
-    () => timeProvider.getCurrentTime,
-    SubmissionValidator
-      .createForTimeMode(
-        SqlLedgerStateAccess,
-        allocateNextLogEntryId = () => allocateSeededLogEntryId(),
-        stateValueCache = stateValueCache,
-        engine = engine,
-        metrics = metrics,
-        inStaticTimeMode = timeProvider != TimeProvider.UTC,
-      ),
-    latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
-  )
 
   override def currentHealth(): HealthStatus = Healthy
 
@@ -98,25 +73,6 @@ final class SqlLedgerReaderWriter(
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
-
-  private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
-    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-      database.inWriteTransaction("commit") { queries =>
-        body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metrics))
-      }
-  }
-
-  private final class SqlLedgerStateOperations(queries: Queries)
-      extends BatchingLedgerStateOperations[Index] {
-    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-      Future.fromTry(queries.selectStateValuesByKeys(keys))
-
-    override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
-      Future.fromTry(queries.updateState(keyValuePairs))
-
-    override def appendToLog(key: Key, value: Value): Future[Index] =
-      Future.fromTry(queries.insertRecordIntoLog(key, value))
-  }
 }
 
 object SqlLedgerReaderWriter {
@@ -146,23 +102,27 @@ object SqlLedgerReaderWriter {
           else Future.successful(uninitializedDatabase.migrate()))
         ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(ledgerId, database))
         dispatcher <- new DispatcherOwner(database).acquire()
-      } yield
-        new SqlLedgerReaderWriter(
-          ledgerId,
-          participantId,
-          engine,
-          metrics,
-          timeProvider,
-          stateValueCache,
-          database,
-          dispatcher,
-          seedService,
+        validator = SubmissionValidator.createForTimeMode(
+          new SqlLedgerStateAccess(database, metrics),
+          allocateNextLogEntryId = new LogEntryIdAllocator(seedService).allocate _,
+          stateValueCache = stateValueCache,
+          engine = engine,
+          metrics = metrics,
+          inStaticTimeMode = timeProvider != TimeProvider.UTC,
         )
+        committer = new ValidatingCommitter[Index](
+          () => timeProvider.getCurrentTime,
+          validator = validator,
+          postCommit = dispatcher.signalNewHead,
+        )
+      } yield
+        new SqlLedgerReaderWriter(ledgerId, participantId, metrics, database, dispatcher, committer)
   }
 
   private def updateOrRetrieveLedgerId(
       providedLedgerId: LedgerId,
-      database: Database): Future[LedgerId] =
+      database: Database
+  ): Future[LedgerId] =
     database.inWriteTransaction("retrieve_ledger_id") { queries =>
       Future.fromTry(
         queries
@@ -199,6 +159,35 @@ object SqlLedgerReaderWriter {
           )
           .acquire()
       } yield dispatcher
+  }
+
+  private final class LogEntryIdAllocator(seedService: SeedService) {
+    def allocate(): DamlLogEntryId = {
+      val seed = seedService.nextSeed().bytes.toByteArray
+      DamlLogEntryId.newBuilder
+        .setEntryId(ByteString.copyFromUtf8(UUID.nameUUIDFromBytes(seed).toString))
+        .build()
+    }
+  }
+
+  private final class SqlLedgerStateAccess(database: Database, metrics: Metrics)
+      extends LedgerStateAccess[Index] {
+    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
+      database.inWriteTransaction("commit") { queries =>
+        body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metrics))
+      }
+  }
+
+  private final class SqlLedgerStateOperations(queries: Queries)
+      extends BatchingLedgerStateOperations[Index] {
+    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+      Future.fromTry(queries.selectStateValuesByKeys(keys))
+
+    override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
+      Future.fromTry(queries.updateState(keyValuePairs))
+
+    override def appendToLog(key: Key, value: Value): Future[Index] =
+      Future.fromTry(queries.insertRecordIntoLog(key, value))
   }
 
 }
