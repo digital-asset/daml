@@ -6,20 +6,20 @@ package com.daml.platform.apiserver
 import java.util.UUID
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.resources.Resource
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
 import io.netty.channel.{Channel, EventLoopGroup, ServerChannel}
 import io.netty.util.concurrent.DefaultThreadFactory
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
 private[apiserver] final class EventLoopGroupOwner(threadPoolName: String, parallelism: Int)
     extends ResourceOwner[EventLoopGroup] {
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[EventLoopGroup] =
+  override def acquire()(implicit context: ResourceContext): Resource[EventLoopGroup] =
     Resource(
       Future(new NioEventLoopGroup(
         parallelism,

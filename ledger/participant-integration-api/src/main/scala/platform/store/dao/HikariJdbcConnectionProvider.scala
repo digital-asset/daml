@@ -9,7 +9,7 @@ import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
@@ -19,8 +19,8 @@ import com.daml.resources.Resource
 import com.daml.timer.RetryStrategy
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 private[platform] final class HikariConnection(
@@ -37,9 +37,7 @@ private[platform] final class HikariConnection(
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  override def acquire()(
-      implicit executionContext: ExecutionContext
-  ): Resource[HikariDataSource] = {
+  override def acquire()(implicit context: ResourceContext): Resource[HikariDataSource] = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
     config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)

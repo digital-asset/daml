@@ -3,6 +3,7 @@
 
 package com.daml.platform.sandbox
 
+import com.daml.ledger.resources.ResourceContext
 import com.daml.resources.ProgramResource
 
 object SandboxMain {
@@ -12,6 +13,6 @@ object SandboxMain {
       val config = Cli.parse(args).getOrElse(sys.exit(1))
       config.logLevel.foreach(GlobalLogLevel.set)
       SandboxServer.owner(Name, config)
-    }).run(identity)
+    }).run(ResourceContext.apply)
 
 }

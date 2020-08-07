@@ -5,10 +5,8 @@ package com.daml.ledger
 
 import com.daml.resources.AbstractResourceOwner
 
-import scala.concurrent.ExecutionContext
-
 package object resources {
 
-  type ResourceOwner[+A] = AbstractResourceOwner[ExecutionContext, A]
+  type ResourceOwner[+A] = AbstractResourceOwner[ResourceContext, A]
 
 }

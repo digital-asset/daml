@@ -11,11 +11,10 @@ import com.daml.ledger.api.testing.utils.{
   Resource,
   SuiteResource
 }
+import com.daml.ledger.resources.ResourceContext
 import com.daml.oauth.server.{Config => OAuthConfig}
 import com.daml.ports.Port
 import org.scalatest.Suite
-
-import scala.concurrent.ExecutionContext
 
 trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBinding, ServerBinding)] {
   self: Suite =>
@@ -23,8 +22,8 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
   protected val applicationId: String = "test-application"
   protected val jwtSecret: String = "secret"
   override protected lazy val suiteResource: Resource[(ServerBinding, ServerBinding)] = {
-    implicit val ec: ExecutionContext = system.dispatcher
-    new OwnedResource[(ServerBinding, ServerBinding)](
+    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
+    new OwnedResource[ResourceContext, (ServerBinding, ServerBinding)](
       for {
         server <- Resources.authServer(
           OAuthConfig(

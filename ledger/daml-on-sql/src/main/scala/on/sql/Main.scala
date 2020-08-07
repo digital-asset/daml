@@ -3,6 +3,7 @@
 
 package com.daml.on.sql
 
+import com.daml.ledger.resources.ResourceContext
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.{GlobalLogLevel, SandboxServer}
 import com.daml.resources.ProgramResource
@@ -16,5 +17,5 @@ object Main {
   }
 
   private[sql] def run(config: SandboxConfig): Unit =
-    new ProgramResource(SandboxServer.owner(Name, config)).run(identity)
+    new ProgramResource(SandboxServer.owner(Name, config)).run(ResourceContext.apply)
 }

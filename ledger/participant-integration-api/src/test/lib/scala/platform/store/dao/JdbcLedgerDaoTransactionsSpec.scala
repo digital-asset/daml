@@ -5,21 +5,22 @@ package com.daml.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.EventId
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
+import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.transaction.NodeId
-import com.daml.lf.value.Value, Value.ContractId
-import com.daml.ledger.EventId
-import com.daml.ledger.api.{v1 => lav1}
-import com.daml.ledger.api.v1.transaction.Transaction
-import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalacheck.Gen
-import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers, OptionValues}
+import org.scalatest._
 
 import scala.concurrent.Future
 
@@ -383,7 +384,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .runWith(Sink.seq)
     } yield {
       import com.daml.ledger.api.v1.event.Event
-      import com.daml.ledger.api.v1.event.Event.Event.{Created, Archived}
+      import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
 
       val txs = extractAllTransactions(result)
 
@@ -510,8 +511,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       trials: Int,
       txSeq: Gen[Vector[Boolean]],
       codePath: Gen[FlatTransactionCodePath]) = {
-    import scalaz.std.scalaFuture._, scalaz.std.list._
     import JdbcLedgerDaoSuite._
+    import scalaz.std.list._
+    import scalaz.std.scalaFuture._
 
     val trialData = Gen
       .listOfN(trials, Gen.zip(txSeq, codePath))
@@ -606,7 +608,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   private def createLedgerDao(pageSize: Int) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
-      daoOwner(eventsPageSize = pageSize).acquire()
+      daoOwner(eventsPageSize = pageSize).acquire()(ResourceContext(executionContext))
     }.asFuture
 
   // XXX SC much of this is repeated because we're more concerned here

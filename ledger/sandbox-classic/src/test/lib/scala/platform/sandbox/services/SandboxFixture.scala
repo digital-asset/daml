@@ -4,7 +4,7 @@
 package com.daml.platform.sandbox.services
 
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -13,7 +13,6 @@ import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest.Suite
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
 trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxServer, Channel)] {
@@ -32,8 +31,8 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxS
   override protected def channel: Channel = suiteResource.value._2
 
   override protected lazy val suiteResource: Resource[(SandboxServer, Channel)] = {
-    implicit val ec: ExecutionContext = system.dispatcher
-    new OwnedResource[(SandboxServer, Channel)](
+    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
+    new OwnedResource[ResourceContext, (SandboxServer, Channel)](
       for {
         jdbcUrl <- database
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>

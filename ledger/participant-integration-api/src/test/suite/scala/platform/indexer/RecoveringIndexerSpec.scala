@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
 import com.daml.platform.testing.LogCollector
@@ -25,6 +25,7 @@ final class RecoveringIndexerSpec extends AsyncWordSpec with Matchers with Befor
 
   private[this] implicit val executionContext: ExecutionContext = DirectExecutionContext
   private[this] implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+  private[this] implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private[this] var actorSystem: ActorSystem = _
 
   override def beforeEach(): Unit = {
@@ -260,13 +261,11 @@ object RecoveringIndexerSpec {
       }
     }
 
-    def subscribe()(implicit executionContext: ExecutionContext): Resource[IndexFeedHandle] =
+    def subscribe()(implicit context: ResourceContext): Resource[IndexFeedHandle] =
       new Subscription().acquire()
 
     class Subscription extends ResourceOwner[IndexFeedHandle] {
-      override def acquire()(
-          implicit executionContext: ExecutionContext
-      ): Resource[IndexFeedHandle] = {
+      override def acquire()(implicit context: ResourceContext): Resource[IndexFeedHandle] = {
         val result = results.next()
         Resource(Future {
           actionsQueue.add(EventSubscribeCalled(result.name))

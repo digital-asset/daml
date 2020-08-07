@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.kvutils.{
   KeyValueCommitting
 }
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.LedgerStateOperations.Value
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -83,9 +83,7 @@ object InMemoryLedgerReaderWriter {
       engine: Engine,
   )(implicit materializer: Materializer)
       extends ResourceOwner[KeyValueLedger] {
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] =
+    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] =
       for {
         ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
         keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
@@ -126,9 +124,7 @@ object InMemoryLedgerReaderWriter {
   )(implicit materializer: Materializer)
       extends ResourceOwner[KeyValueLedger] {
 
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] = {
+    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
       val state = InMemoryState.empty
       for {
         dispatcher <- dispatcherOwner.acquire()
@@ -160,9 +156,7 @@ object InMemoryLedgerReaderWriter {
       engine: Engine,
   )(implicit materializer: Materializer)
       extends ResourceOwner[KeyValueLedger] {
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] = {
+    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
       val keyValueCommitting =
         createKeyValueCommitting(metrics, timeProvider, engine)
 

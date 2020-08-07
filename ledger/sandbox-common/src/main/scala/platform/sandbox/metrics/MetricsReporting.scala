@@ -9,12 +9,12 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.configuration.MetricsReporter
 import com.daml.resources.Resource
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /** Manages metrics and reporters.
   *
@@ -37,7 +37,7 @@ final class MetricsReporting(
     extraMetricsReporter: Option[MetricsReporter],
     extraMetricsReportingInterval: Duration,
 ) extends ResourceOwner[Metrics] {
-  def acquire()(implicit executionContext: ExecutionContext): Resource[Metrics] = {
+  def acquire()(implicit context: ResourceContext): Resource[Metrics] = {
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
@@ -69,9 +69,6 @@ final class MetricsReporting(
       .build()
 
   private def acquire[T <: Reporter](reporter: => T)(
-      implicit executionContext: ExecutionContext
-  ): Resource[T] =
-    ResourceOwner
-      .forCloseable(() => reporter)
-      .acquire()
+      implicit context: ResourceContext): Resource[T] =
+    ResourceOwner.forCloseable(() => reporter).acquire()
 }

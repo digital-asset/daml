@@ -4,7 +4,7 @@
 package com.daml.platform.sandbox
 import java.util.UUID
 
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.platform.sandbox.services.DbInfo
 import com.daml.platform.store.DbType
 import com.daml.testing.postgresql.PostgresResource
@@ -21,7 +21,9 @@ object SandboxBackend {
   object Postgresql {
 
     def owner: ResourceOwner[DbInfo] =
-      PostgresResource.owner().map(database => DbInfo(database.url, DbType.Postgres))
+      PostgresResource
+        .owner[ResourceContext]()
+        .map(database => DbInfo(database.url, DbType.Postgres))
 
   }
 

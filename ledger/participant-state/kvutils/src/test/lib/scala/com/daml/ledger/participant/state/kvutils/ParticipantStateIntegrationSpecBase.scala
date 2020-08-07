@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOf
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{DarReader, Decode}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
@@ -56,6 +56,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
   // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
   protected val isPersistent: Boolean = true
+
+  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
   protected def participantStateFactory(
       ledgerId: LedgerId,

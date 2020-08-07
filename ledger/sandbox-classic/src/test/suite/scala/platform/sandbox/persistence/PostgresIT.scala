@@ -5,6 +5,7 @@ package com.daml.platform.sandbox.persistence
 
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
@@ -33,7 +34,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
           maxConnections = 4,
           new MetricRegistry,
         )
-        .acquire()(DirectExecutionContext)
+        .acquire()(ResourceContext(DirectExecutionContext))
       connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
     }
   }
@@ -59,7 +60,8 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
   "Flyway" should {
     "execute initialisation script" in {
       newLoggingContext { implicit loggingContext =>
-        new FlywayMigrations(postgresDatabase.url).migrate()(DirectExecutionContext)
+        new FlywayMigrations(postgresDatabase.url)
+          .migrate()(ResourceContext(DirectExecutionContext))
       }.map { _ =>
         connectionProvider.runSQL(metrics.test.db) { conn =>
           def checkTableExists(table: String) = {

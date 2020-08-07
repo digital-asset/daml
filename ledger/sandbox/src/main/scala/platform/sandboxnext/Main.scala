@@ -3,6 +3,7 @@
 
 package com.daml.platform.sandboxnext
 
+import com.daml.ledger.resources.ResourceContext
 import com.daml.platform.sandbox.GlobalLogLevel
 import com.daml.resources.ProgramResource
 
@@ -15,7 +16,7 @@ object Main {
     System.setProperty("akka.jvm-shutdown-hooks", "off")
     val config = Cli.parse(args).getOrElse(sys.exit(1))
     config.logLevel.foreach(GlobalLogLevel.set)
-    new ProgramResource(new Runner(config)).run(identity)
+    new ProgramResource(new Runner(config)).run(ResourceContext.apply)
   }
 
 }

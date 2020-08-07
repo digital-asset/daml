@@ -7,10 +7,10 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.resources.Resource
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 private[daml] final class ExecutionSequencerFactoryOwner(implicit actorSystem: ActorSystem)
     extends ResourceOwner[ExecutionSequencerFactory] {
@@ -23,8 +23,6 @@ private[daml] final class ExecutionSequencerFactoryOwner(implicit actorSystem: A
 
   private val ActorCount = Runtime.getRuntime.availableProcessors() * 8
 
-  override def acquire()(
-      implicit executionContext: ExecutionContext
-  ): Resource[ExecutionSequencerFactory] =
+  override def acquire()(implicit context: ResourceContext): Resource[ExecutionSequencerFactory] =
     Resource(Future(new AkkaExecutionSequencerPool(poolName, ActorCount)))(_.closeAsync())
 }

@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{SeedService, WriteService}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -101,7 +101,7 @@ private[daml] object ApiServices {
     private val configManagementService: IndexConfigManagementService = indexService
     private val submissionService: IndexSubmissionService = indexService
 
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
+    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] =
       Resource(
         for {
           ledgerId <- identityService.getLedgerId()

@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -39,14 +39,13 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
   protected def daoOwner(eventsPageSize: Int)(
       implicit loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
-    JdbcLedgerDao
-      .writeOwner(
-        serverRole = ServerRole.Testing(getClass),
-        jdbcUrl = jdbcUrl,
-        eventsPageSize = eventsPageSize,
-        metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = LfValueTranslation.Cache.none,
-      )
+    JdbcLedgerDao.writeOwner(
+      serverRole = ServerRole.Testing(getClass),
+      jdbcUrl = jdbcUrl,
+      eventsPageSize = eventsPageSize,
+      metrics = new Metrics(new MetricRegistry),
+      lfValueTranslationCache = LfValueTranslation.Cache.none,
+    )
 
   protected final var ledgerDao: LedgerDao = _
 
@@ -56,6 +55,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     implicit val executionContext: ExecutionContext = system.dispatcher
+    implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
     resource = newLoggingContext { implicit loggingContext =>
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())

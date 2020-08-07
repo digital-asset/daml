@@ -4,10 +4,12 @@
 package com.daml.ledger.on.sql
 
 import com.daml.ledger.participant.state.kvutils.app.Runner
+import com.daml.ledger.resources.ResourceContext
 import com.daml.resources.ProgramResource
 
 object Main {
   def main(args: Array[String]): Unit = {
-    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(args)).run(identity)
+    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(args))
+      .run(ResourceContext.apply)
   }
 }

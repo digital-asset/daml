@@ -11,7 +11,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
@@ -21,6 +21,8 @@ import io.grpc.ManagedChannel
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers {
+  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
+
   "a GRPC server" should {
     "handle a request to a valid service" in {
       resources().use { channel =>

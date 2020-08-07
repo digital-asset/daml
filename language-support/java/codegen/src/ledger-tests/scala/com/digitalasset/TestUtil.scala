@@ -19,6 +19,8 @@ import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
 import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
+import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.resources.ResourceContext._
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
@@ -30,7 +32,7 @@ import io.grpc.Channel
 import org.scalatest.Assertion
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.language.implicitConversions
 
 object TestUtil {
@@ -41,8 +43,7 @@ object TestUtil {
   val LedgerID = "ledger-test"
 
   def withClient(testCode: Channel => Assertion)(
-      implicit executionContext: ExecutionContext
-  ): Future[Assertion] = {
+      implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
       port = Port.Dynamic,
       damlPackages = List(testDalf),

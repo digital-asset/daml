@@ -12,6 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -47,6 +48,7 @@ final class SqlLedgerSpec
     with PostgresAroundEach
     with MetricsAround {
 
+  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   protected implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   override val timeLimit: Span = scaled(Span(1, Minute))
@@ -241,7 +243,7 @@ final class SqlLedgerSpec
         eventsPageSize = 100,
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
-      ).acquire()(system.dispatcher)
+      ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture
   }

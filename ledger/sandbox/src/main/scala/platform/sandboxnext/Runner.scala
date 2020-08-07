@@ -24,7 +24,7 @@ import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -98,7 +98,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   private val timeProviderType =
     config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
+  override def acquire()(implicit context: ResourceContext): Resource[Port] =
     newLoggingContext { implicit loggingContext =>
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
@@ -110,7 +110,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         _ <- ResourceOwner.forMaterializer(() => materializer)
 
         apiServer <- ResettableResourceOwner[
-          ExecutionContext,
+          ResourceContext,
           ApiServer,
           (Option[Port], StartupMode),
         ](

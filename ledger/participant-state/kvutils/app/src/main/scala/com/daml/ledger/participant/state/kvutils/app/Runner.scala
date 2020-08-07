@@ -13,11 +13,12 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.ResourceContext._
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -39,7 +40,7 @@ final class Runner[T <: ReadWriteService, Extra](
       .flatMap(owner)
 
   def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
+    override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
       val config = factory.manipulateConfig(originalConfig)
 
       config.mode match {
@@ -53,8 +54,7 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def dumpIndexMetadata(jdbcUrls: Seq[String])(
-      implicit executionContext: ExecutionContext,
-  ): Unit = {
+      implicit resourceContext: ResourceContext): Unit = {
     val logger = ContextualizedLogger.get(this.getClass)
     for (jdbcUrl <- jdbcUrls) {
       newLoggingContext("jdbcUrl" -> jdbcUrl) { implicit loggingContext: LoggingContext =>
@@ -72,9 +72,7 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def run(config: Config[Extra])(
-      implicit executionContext: ExecutionContext,
-  ): Resource[Unit] = {
-
+      implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(
       "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
     implicit val materializer: Materializer = Materializer(actorSystem)

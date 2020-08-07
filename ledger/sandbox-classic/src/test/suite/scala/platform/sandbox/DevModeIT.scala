@@ -15,6 +15,7 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.resources.ResourceContext
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
@@ -27,6 +28,8 @@ class DevModeIT
     extends org.scalatest.AsyncWordSpec
     with org.scalatest.Matchers
     with SandboxFixture {
+
+  private[this] implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
   private[this] implicit val esf: ExecutionSequencerFactory =
     new SingleThreadExecutionSequencerPool("testSequencerPool")

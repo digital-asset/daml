@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantState
 }
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Engine
@@ -42,6 +42,8 @@ import scala.util.Try
 
 class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
   private[this] var testId: UUID = _
+
+  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
   override def beforeEach(): Unit = {
     super.beforeEach()

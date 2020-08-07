@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.{
   ReadService,
   TimeModel
 }
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -36,6 +36,7 @@ final class JdbcIndexerSpec
     with AkkaBeforeAndAfterAll
     with PostgresAroundEach {
 
+  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   behavior of classOf[JdbcIndexer].getSimpleName

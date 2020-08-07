@@ -24,7 +24,8 @@ import com.daml.ledger.api.testing.utils.{
   Resource => TestResource
 }
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.ResourceContext._
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.{
@@ -56,7 +57,7 @@ import scalaz.{-\/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, Future}
 import scala.util.control.NonFatal
 
 trait JsonApiFixture
@@ -122,8 +123,8 @@ trait JsonApiFixture
 
   override protected lazy val suiteResource
     : TestResource[(SandboxServer, Channel, ServerBinding)] = {
-    implicit val executionContext: ExecutionContext = system.dispatcher
-    new OwnedResource[(SandboxServer, Channel, ServerBinding)](
+    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
+    new OwnedResource[ResourceContext, (SandboxServer, Channel, ServerBinding)](
       for {
         jdbcUrl <- database
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
@@ -131,9 +132,7 @@ trait JsonApiFixture
         server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(server.port)
         httpService <- new ResourceOwner[ServerBinding] {
-          override def acquire()(
-              implicit executionContext: ExecutionContext,
-          ): Resource[ServerBinding] = {
+          override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             Resource[ServerBinding] {
               Files.write(jsonAccessTokenFile, getToken(List(), false).getBytes())
               val config = new HttpService.DefaultStartSettings {

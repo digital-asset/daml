@@ -9,7 +9,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
@@ -26,8 +26,6 @@ import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.testing.postgresql.PostgresResource
 
-import scala.concurrent.ExecutionContext
-
 private[sandbox] object LedgerResource {
 
   def inMemory(
@@ -36,7 +34,7 @@ private[sandbox] object LedgerResource {
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
-  )(implicit executionContext: ExecutionContext): Resource[Ledger] =
+  )(implicit resourceContext: ResourceContext): Resource[Ledger] =
     new OwnedResource(
       ResourceOwner.forValue(() =>
         new InMemoryLedger(
@@ -58,13 +56,13 @@ private[sandbox] object LedgerResource {
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
   )(
-      implicit executionContext: ExecutionContext,
+      implicit resourceContext: ResourceContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
   ): Resource[Ledger] =
     new OwnedResource(
       for {
-        database <- PostgresResource.owner()
+        database <- PostgresResource.owner[ResourceContext]()
         ledger <- new SqlLedger.Owner(
           name = LedgerName(testClass.getSimpleName),
           serverRole = ServerRole.Testing(testClass),

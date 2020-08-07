@@ -20,7 +20,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.transaction.{
@@ -93,7 +93,7 @@ object SandboxServer {
         .forTryCloseable(() => Try(new SandboxServer(name, config, materializer, metrics)))
       // Wait for the API server to start.
       _ <- new ResourceOwner[Unit] {
-        override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
+        override def acquire()(implicit context: ResourceContext): Resource[Unit] =
           // We use the Future rather than the Resource to avoid holding onto the API server.
           // Otherwise, we cause a memory leak upon reset.
           Resource.fromFuture(server.apiServer.map(_ => ()))
@@ -240,6 +240,7 @@ final class SandboxServer(
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
+    implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 

@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver
 
 import akka.actor.ActorSystem
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
@@ -12,7 +12,7 @@ import com.daml.resources.Resource
 import io.grpc.ServerInterceptor
 import io.netty.handler.ssl.SslContext
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 
 private[daml] final class LedgerApiServer(
     apiServicesOwner: ResourceOwner[ApiServices],
@@ -27,7 +27,7 @@ private[daml] final class LedgerApiServer(
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
+  override def acquire()(implicit context: ResourceContext): Resource[ApiServer] = {
     val servicesClosedPromise = Promise[Unit]()
 
     for {

@@ -18,7 +18,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionCommitter
@@ -82,7 +82,7 @@ private[sandbox] object SqlLedger {
 
     private val logger = ContextualizedLogger.get(this.getClass)
 
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[Ledger] =
+    override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- ledgerDaoOwner().acquire()
@@ -256,9 +256,7 @@ private[sandbox] object SqlLedger {
 
     private final class PersistenceQueueOwner(dispatcher: Dispatcher[Offset])
         extends ResourceOwner[PersistenceQueue] {
-      override def acquire()(
-          implicit executionContext: ExecutionContext
-      ): Resource[PersistenceQueue] =
+      override def acquire()(implicit context: ResourceContext): Resource[PersistenceQueue] =
         Resource(Future.successful {
           val queue =
             Source.queue[Offset => Future[Unit]](queueDepth, OverflowStrategy.dropNew)

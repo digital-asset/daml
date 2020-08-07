@@ -6,11 +6,9 @@ package com.daml.ledger.resources
 import com.daml.resources.akka.AkkaResourceOwnerFactories
 import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories}
 
-import scala.concurrent.ExecutionContext
-
 object ResourceOwner
-    extends ResourceOwnerFactories[ExecutionContext]
-    with AkkaResourceOwnerFactories[ExecutionContext] {
-  override protected implicit val hasExecutionContext: HasExecutionContext[ExecutionContext] =
-    HasExecutionContext.`ExecutionContext has itself`
+    extends ResourceOwnerFactories[ResourceContext]
+    with AkkaResourceOwnerFactories[ResourceContext] {
+  override protected implicit val hasExecutionContext: HasExecutionContext[ResourceContext] =
+    ResourceContext.`Context has ExecutionContext`
 }
