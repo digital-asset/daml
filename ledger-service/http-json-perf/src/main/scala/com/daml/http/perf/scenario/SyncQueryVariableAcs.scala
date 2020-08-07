@@ -13,33 +13,17 @@ class SyncQueryVariableAcs
     extends Simulation
     with SimulationConfig
     with HasRandomAmount
-    with HasCreateRequest {
-
-  private val queryRequest =
-    http("SyncQueryRequest")
-      .post("/v1/query")
-      .body(StringBody("""{
-    "templateIds": ["Iou:Iou"],
-    "query": {"amount": ${amount}}
-}"""))
-
-  private val archiveRequest =
-    http("ExerciseCommand")
-      .post("/v1/exercise")
-      .body(StringBody("""{
-    "templateId": "Iou:Iou",
-    "contractId": "${archiveContractId}",
-    "choice": "Archive",
-    "argument": {}
-  }"""))
+    with HasCreateRequest
+    with HasQueryRequest
+    with HasArchiveRequest {
 
   private val wantedAcsSize = 5000
 
   private val numberOfRuns = 500
 
-  private val syncQueryScn =
+  private val syncQueryScenario =
     scenario(s"SyncQueryWithVariableAcsScenario, numberOfRuns: $numberOfRuns")
-      .doWhile(_ => acsQueue.size() < wantedAcsSize) {
+      .doWhile(_ => acsSize() < wantedAcsSize) {
         pause(1.second)
       }
       .repeat(numberOfRuns) {
@@ -47,20 +31,20 @@ class SyncQueryVariableAcs
           Iterator.continually(
             Map[String, String](
               "amount" -> String.valueOf(randomAmount()),
-              "archiveContractId" -> acsQueue.take(),
+              "archiveContractId" -> takeNextContractIdFromAcs(),
             )
           )
         ).exec {
           // run query in parallel with archive and create
-          queryRequest.notSilent.resources(
+          randomAmountQueryRequest.notSilent.resources(
             archiveRequest.silent,
-            createRequestAndCollectContractId.silent
+            randomAmountCreateRequest.silent
           )
         }
       }
 
   setUp(
-    fillAcsScenario(wantedAcsSize).inject(atOnceUsers(1)),
-    syncQueryScn.inject(atOnceUsers(1)),
+    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(1)),
+    syncQueryScenario.inject(atOnceUsers(1)),
   ).protocols(httpProtocol)
 }
