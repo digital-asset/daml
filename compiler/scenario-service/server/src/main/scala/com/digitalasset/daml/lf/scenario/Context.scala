@@ -87,14 +87,13 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     newCtx
   }
 
-  private def decodeModule(
-      lfVer: LanguageVersion,
-      bytes: ByteString,
-  ): Ast.Module = {
-    val dop: Decode.OfPackage[_] = Decode.decoders
-      .lift(lfVer)
-      .getOrElse(throw Context.ContextException(s"No decode support for LF ${lfVer.pretty}"))
-      .decoder
+  private[this] val dop: Decode.OfPackage[_] = Decode.decoders
+    .lift(languageVersion)
+    .getOrElse(
+      throw Context.ContextException(s"No decode support for LF ${languageVersion.pretty}"))
+    .decoder
+
+  private def decodeModule(bytes: ByteString): Ast.Module = {
     val lfScenarioModule = dop.protoScenarioModule(Decode.damlLfCodedInputStream(bytes.newInput))
     dop.decodeScenarioModule(homePackageId, lfScenarioModule)
   }
@@ -108,7 +107,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       omitValidation: Boolean,
   ): Unit = synchronized {
 
-    val newModules = loadModules.map(module => decodeModule(languageVersion, module.getDamlLf1))
+    val newModules = loadModules.map(module => decodeModule(module.getDamlLf1))
     modules --= unloadModules
     newModules.foreach(mod => modules += mod.name -> mod)
 
