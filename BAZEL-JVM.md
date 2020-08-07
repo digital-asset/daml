@@ -77,25 +77,26 @@ compiler and core libraries to use:
 
 ```
 load('@io_bazel_rules_scala//scala:scala.bzl', 'scala_repositories')
-scala_repositories(("2.12.6", {
-    "scala_compiler": "3023b07cc02f2b0217b2c04f8e636b396130b3a8544a8dfad498a19c3e57a863",
-    "scala_library": "f81d7144f0ce1b8123335b72ba39003c4be2870767aca15dd0888ba3dab65e98",
-    "scala_reflect": "ffa70d522fc9f9deec14358aa674e6dd75c9dfa39d4668ef15bb52f002ce99fa"
-}))
+scala_repositories((
+    "2.12.11",
+    {
+        "scala_compiler": "e901937dbeeae1715b231a7cfcd547a10d5bbf0dfb9d52d2886eae18b4d62ab6",
+        "scala_library": "dbfe77a3fc7a16c0c7cb6cb2b91fecec5438f2803112a744cb1b187926a138be",
+        "scala_reflect": "5f9e156aeba45ef2c4d24b303405db259082739015190b3b334811843bd90d6a",
+    },
+))
 load('@io_bazel_rules_scala//scala:toolchains.bzl', 'scala_register_toolchains')
 scala_register_toolchains()
 ```
 
 If you need to update the Scala version, make sure to also update the
-corresponding SHA-256 hashes in hexadecimal encoding. The hashes can be looked
-up in the [Artifactory repository browser][artifactory_browser_hash] in the
-very bottom of the "General" pane.
+corresponding SHA-256 hashes in hexadecimal encoding. If you don't know the
+hash, set it to 64 zeroes and Bazel will correct you.
 
 See the [`rules_scala` setup guide][rules_scala_setup] for further details.
 
 [rules_scala]: https://github.com/bazelbuild/rules_scala
 [rules_scala_setup]: https://github.com/bazelbuild/rules_scala#getting-started
-[artifactory_browser_hash]: https://digitalasset.jfrog.io/digitalasset/webapp/#/artifacts/browse/tree/General/jcenter-cache/org/scala-lang/scala-reflect/2.12.6/scala-reflect-2.12.6.jar
 
 ### Maven JAR Dependencies
 
