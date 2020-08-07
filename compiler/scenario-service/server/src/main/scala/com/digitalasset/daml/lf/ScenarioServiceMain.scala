@@ -15,6 +15,7 @@ import scalaz.syntax.traverse._
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
@@ -192,7 +193,11 @@ class ScenarioService(
       req: NewContextRequest,
       respObs: StreamObserver[NewContextResponse],
   ): Unit = {
-    val ctx = Context.newContext
+    val lfVersion = LanguageVersion(
+      LanguageVersion.Major.V1,
+      LanguageVersion.Minor.fromProtoIdentifier(req.getLfMinor)
+    )
+    val ctx = Context.newContext(lfVersion)
     contexts += (ctx.contextId -> ctx)
     val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
     respObs.onNext(response)
