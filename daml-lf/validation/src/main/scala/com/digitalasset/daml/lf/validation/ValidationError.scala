@@ -377,11 +377,11 @@ final case class EModuleVersionDependencies(
 ) extends ValidationError {
   import com.daml.lf.transaction.VersionTimeline.Implicits._
 
-  assert(pkgId != pkgLangVersion)
+  assert(pkgId != depPkgId)
   assert(pkgLangVersion precedes dependencyLangVersion)
 
   override protected def prettyInternal: String =
-    s"package $pkgId compiled with $pkgLangVersion dependents on package $depPkgId compiled with newer version $dependencyLangVersion"
+    s"package $pkgId using version $pkgLangVersion depends on package $depPkgId using newer version $dependencyLangVersion"
 
   override def context: Context = NoContext
 }
