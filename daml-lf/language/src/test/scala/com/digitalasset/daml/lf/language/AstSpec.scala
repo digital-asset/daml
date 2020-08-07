@@ -20,17 +20,21 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
       Package(
         List(
-          Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default),
-          Module(modName2, List.empty, List.empty, defaultVersion, FeatureFlags.default)),
+          Module(modName1, List.empty, List.empty, FeatureFlags.default),
+          Module(modName2, List.empty, List.empty, FeatureFlags.default),
+        ),
         Set.empty,
+        defaultVersion,
         None
       )
       a[PackageError] shouldBe thrownBy(
         Package(
           List(
-            Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default),
-            Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default)),
+            Module(modName1, List.empty, List.empty, FeatureFlags.default),
+            Module(modName1, List.empty, List.empty, FeatureFlags.default),
+          ),
           Set.empty,
+          defaultVersion,
           None
         ))
 
@@ -69,7 +73,6 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           defName("def4") -> valDef
         ),
         templates = List.empty,
-        languageVersion = defaultVersion,
         featureFlags = FeatureFlags.default,
       )
 
@@ -83,7 +86,6 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
             defName("def1") -> valDef
           ),
           templates = List.empty,
-          languageVersion = defaultVersion,
           featureFlags = FeatureFlags.default,
         ))
 
@@ -100,7 +102,6 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         templates = List(
           defName("defName1") -> template,
         ),
-        languageVersion = defaultVersion,
         featureFlags = FeatureFlags.default,
       )
 
@@ -115,7 +116,6 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
             defName("defName1") -> template,
             defName("defName1") -> template,
           ),
-          languageVersion = defaultVersion,
           featureFlags = FeatureFlags.default,
         ))
     }
@@ -131,7 +131,6 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         templates = List(
           defName("defName1") -> template,
         ),
-        languageVersion = defaultVersion,
         featureFlags = FeatureFlags.default,
       )
 
@@ -145,7 +144,6 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           templates = List(
             defName("defName3") -> template,
           ),
-          languageVersion = defaultVersion,
           featureFlags = FeatureFlags.default,
         ))
     }

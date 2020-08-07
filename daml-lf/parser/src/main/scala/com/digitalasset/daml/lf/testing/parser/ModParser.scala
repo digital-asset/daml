@@ -29,7 +29,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   lazy val pkg: Parser[Package] =
     opt(metadata) ~ rep(mod) ^^ {
-      case metadata ~ modules => Package(modules, Set.empty, metadata)
+      case metadata ~ modules => Package(modules, Set.empty, parameters.languageVersion, metadata)
     }
 
   private lazy val metadata: Parser[PackageMetadata] =
@@ -44,7 +44,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         val flags = FeatureFlags(
           forbidPartyLiterals = modTag(noPartyLitsTag)
         )
-        Module(modName, definitions, templates, parameters.languageVersion, flags)
+        Module(modName, definitions, templates, flags)
     }
 
   private lazy val definition: Parser[Def] =

@@ -21,7 +21,8 @@ abstract class CompiledPackages {
   def definitions: PartialFunction[SDefinitionRef, SExpr] =
     Function.unlift(this.getDefinition)
 
-  def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion]
+  def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
+    packages andThen (_.languageVersion)
 
   def stackTraceMode: Compiler.StackTraceMode
   def profilingMode: Compiler.ProfilingMode
@@ -40,13 +41,6 @@ final class PureCompiledPackages private (
   override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
   override def stackTraceMode = stacktracing
   override def profilingMode = profiling
-
-  override val packageLanguageVersion: Map[PackageId, LanguageVersion] =
-    packages.foldLeft(Map.empty[PackageId, LanguageVersion]) {
-      case (acc, (pkgId, pkg)) =>
-        // all modules of a package are compiled to the same LF version
-        pkg.modules.values.headOption.fold(acc)(mod => acc.updated(pkgId, mod.languageVersion))
-    }
 }
 
 object PureCompiledPackages {

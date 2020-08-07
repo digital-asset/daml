@@ -202,7 +202,7 @@ class ReplService(
     // For now we only include the module of the current line
     // we probably need to extend this to merge the
     // modules from each line.
-    val pkg = Package(Seq(mod), Seq(), None)
+    val pkg = Package(Seq(mod), Seq(), lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
     val (scriptPackageId, _) = packages.find {
       case (_, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
