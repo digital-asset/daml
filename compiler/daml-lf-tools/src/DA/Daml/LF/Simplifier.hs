@@ -269,8 +269,8 @@ infoUnstepELet x (Info fv sf _) = (s1, s2)
 -- is as follows:
 -- * If `fv(λx. e1) ⊆ V`, then `fv(e1) ⊆ V ∪ {x}`.
 -- * If `λx. e1` is k-safe, then `e1` is (k-1)-safe.
-infoUnstepETmLam :: ExprVarName -> Info -> Info
-infoUnstepETmLam x (Info fv sf _) = Info (freeExprVar x <> fv) (decrSafety sf) TCNeither
+infoUnstepETmapp :: ExprVarName -> Info -> Info
+infoUnstepETmapp x (Info fv sf _) = Info (freeExprVar x <> fv) (decrSafety sf) TCNeither
 
 -- | Try to get the actual field value from the body of
 -- a typeclass projection function, after substitution of the
@@ -473,7 +473,7 @@ simplifyExpr = fmap fst . cata go'
       ETmAppF (stripLoc -> ETmLam (x, t) e1, s0) (e2, s2) ->
         go world $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
         where
-          s1 = infoUnstepETmLam x s0
+          s1 = infoUnstepETmapp x s0
 
       -- (let x = e1 in e2) e3    ==>    let x = e1 in e2 e3, if x is not free in e3
       ETmAppF (stripLoc -> ELet (Binding (x, t) e1) e2, s0) e3
