@@ -124,8 +124,11 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
 
             // update the packageMaxLanguageVersions
             // If the package is empty, no update
-            computePackageLanguageVersion(_packagesLanguageVersions, pkg)
-              .foreach(_packagesLanguageVersions.update(pkgId, _))
+            pkg.modules.values.headOption
+              .foreach(
+                mod =>
+                  // all modules of a package are compiled to the same LF version
+                  _packagesLanguageVersions.update(pkgId, mod.languageVersion))
           }
         }
       }
