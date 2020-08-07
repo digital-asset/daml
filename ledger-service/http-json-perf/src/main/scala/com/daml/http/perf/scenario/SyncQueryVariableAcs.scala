@@ -1,8 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.daml.http.perf.scenario
 
-import java.{util => jutil}
+package com.daml.http.perf.scenario
 
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
@@ -10,27 +9,11 @@ import io.gatling.http.Predef._
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRandomAmount {
-
-  private val acsQueue = new jutil.concurrent.LinkedBlockingQueue[String]()
-
-  private val createRequest =
-    http("CreateCommand")
-      .post("/v1/create")
-      .body(StringBody("""{
-  "templateId": "Iou:Iou",
-  "payload": {
-    "issuer": "Alice",
-    "owner": "Alice",
-    "currency": "USD",
-    "amount": "${amount}",
-    "observers": []
-  }
-}"""))
-      .check(
-        status.is(200),
-        jsonPath("$.result.contractId").transform(x => acsQueue.put(x))
-      )
+class SyncQueryVariableAcs
+    extends Simulation
+    with SimulationConfig
+    with HasRandomAmount
+    with HasCreateRequest {
 
   private val queryRequest =
     http("SyncQueryRequest")
@@ -54,11 +37,6 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRand
 
   private val numberOfRuns = 500
 
-  private val fillAcs = scenario(s"FillAcsScenario, size: $wantedAcsSize")
-    .doWhile(_ => acsQueue.size() < wantedAcsSize) {
-      feed(Iterator.continually(Map("amount" -> randomAmount()))).exec(createRequest.silent)
-    }
-
   private val syncQueryScn =
     scenario(s"SyncQueryWithVariableAcsScenario, numberOfRuns: $numberOfRuns")
       .doWhile(_ => acsQueue.size() < wantedAcsSize) {
@@ -76,13 +54,13 @@ class SyncQueryVariableAcs extends Simulation with SimulationConfig with HasRand
           // run query in parallel with archive and create
           queryRequest.notSilent.resources(
             archiveRequest.silent,
-            createRequest.silent
+            createRequestAndCollectContractId.silent
           )
         }
       }
 
   setUp(
-    fillAcs.inject(atOnceUsers(1)),
+    fillAcsScenario(wantedAcsSize).inject(atOnceUsers(1)),
     syncQueryScn.inject(atOnceUsers(1)),
   ).protocols(httpProtocol)
 }

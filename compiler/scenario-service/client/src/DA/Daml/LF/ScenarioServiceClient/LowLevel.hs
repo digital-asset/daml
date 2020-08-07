@@ -72,6 +72,7 @@ data Options = Options
   , optGrpcMaxMessageSize :: Maybe Int
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
+  , optDamlLfVersion :: LF.Version
   }
 
 type TimeoutSeconds = Int
@@ -93,7 +94,6 @@ data ContextUpdate = ContextUpdate
   , updUnloadModules :: ![LF.ModuleName]
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
-  , updDamlLfVersion :: LF.Version
   , updSkipValidation :: SkipValidation
   }
 
@@ -252,11 +252,10 @@ withScenarioService opts@Options{..} f = do
 
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
-  res <-
-    performRequest
+  res <- performRequest
       (SS.scenarioServiceNewContext hClient)
       (optRequestTimeout hOptions)
-      SS.NewContextRequest
+      (SS.NewContextRequest $ TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
@@ -309,9 +308,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
     encodeName = TL.fromStrict . mangleModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
-    convModule (_, bytes) =
-        case updDamlLfVersion of
-            LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
+    convModule (_, bytes) = SS.ScenarioModule bytes
 
 mangleModuleName :: LF.ModuleName -> T.Text
 mangleModuleName (LF.ModuleName modName) =

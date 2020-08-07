@@ -291,6 +291,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-ide-core:ide-testing",
@@ -740,6 +741,7 @@ da_haskell_test(
     main_function = "DA.Test.ScriptService.main",
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts:daml-opts-types",

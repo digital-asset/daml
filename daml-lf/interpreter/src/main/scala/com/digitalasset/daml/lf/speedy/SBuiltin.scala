@@ -13,7 +13,7 @@ import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy.{KFoldl, Machine, SpeedyHungry}
+import com.daml.lf.speedy.Speedy.{KFoldl, KFoldr, KFoldr1Map, Machine, SpeedyHungry}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SValue.{SValue => SV}
@@ -413,6 +413,67 @@ private[lf] object SBuiltin {
       val list = args.get(2).asInstanceOf[SList].list
       machine.pushKont(KFoldl(func, list, machine.frame, machine.actuals, machine.env.size))
       machine.returnValue = init
+    }
+  }
+
+  // NOTE: Past implementations of `foldr` have used the semantics given by the
+  // recursive definition
+  // ```
+  // foldr f z [] = z
+  // foldr f z (x::xs) = f x (foldr f z xs)
+  // ```
+  // When the PAP for `f` expects at least two more arguments, this leads to the
+  // expected right-to-left evaluation order. However, if the PAP `f` is missing
+  // only one argument, the evaluation order suddenly changes. First, `f` is
+  // applied to all the elements of `xs` in left-to-right order, then the
+  // resulting list of PAPs is reduced from right-to-left by application, using
+  // `z` as the initial value argument.
+  //
+  // For this reason, we need three different continuations for `foldr`:
+  // 1. `KFoldr` is for the case where `f` expects at least two more arguments.
+  // 2. `KFoldr1Map` is for the first mapping from left-to-right stage when `f`
+  //    is missing only one argument.
+  // 3. `KFoldr1Reduce` is for the second reduce from right-to-left stage when
+  //    `f` is missing only one argument.
+  //
+  // We could have omitted the special casse for `f` missing only one argument,
+  // if the semantics of `foldr` had been implemented as
+  // ```
+  // foldr f z [] = z
+  // foldr f z (x:xs) = let y = foldr f z xs in f x y
+  // ```
+  // However, this would be a breaking change compared to the aforementioned
+  // implementation of `foldr`.
+  final case object SBFoldr extends SBuiltin(3) {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
+      val pap = args.get(0).asInstanceOf[SPAP]
+      val func = SEValue(pap)
+      val init = args.get(1)
+      val list = args.get(2)
+      if (pap.arity - pap.actuals.size >= 2) {
+        val array = list.asInstanceOf[SList].list.toImmArray
+        machine.pushKont(
+          KFoldr(func, array, array.length, machine.frame, machine.actuals, machine.env.size))
+        machine.returnValue = init
+      } else {
+        val stack = list.asInstanceOf[SList].list
+        stack.pop match {
+          case None => machine.returnValue = init
+          case Some((head, tail)) =>
+            machine.pushKont(
+              KFoldr1Map(
+                func,
+                tail,
+                FrontStack.empty,
+                init,
+                machine.frame,
+                machine.actuals,
+                machine.env.size))
+            machine.ctrl = SEAppAtomicFun(func, Array(SEValue(head)))
+        }
+      }
     }
   }
 
