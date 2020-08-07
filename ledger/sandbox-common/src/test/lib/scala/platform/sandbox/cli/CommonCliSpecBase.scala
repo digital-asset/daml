@@ -4,11 +4,15 @@
 package com.daml.platform.sandbox.cli
 
 import java.io.File
-import java.nio.file.Files
+import java.net.InetSocketAddress
+import java.nio.file.{Files, Paths}
+import java.time.Duration
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
+import com.daml.platform.configuration.MetricsReporter
+import com.daml.platform.configuration.MetricsReporter.Graphite
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -27,7 +31,6 @@ abstract class CommonCliSpecBase(
   private val defaultConfig = expectedDefaultConfig.getOrElse(cli.defaultConfig)
 
   "Cli" should {
-
     "return the input config when no arguments are specified (except any required arguments)" in {
       val config = cli.parse(requiredArgs)
       config shouldEqual Some(defaultConfig)
@@ -109,6 +112,59 @@ abstract class CommonCliSpecBase(
 
     "parse the eager package loading flag when given" in {
       checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
+    }
+
+    "parse a console metrics reporter when given" in {
+      checkOption(
+        Array("--metrics-reporter", "console"),
+        _.copy(metricsReporter = Some(MetricsReporter.Console)),
+      )
+    }
+
+    "parse a CSV metrics reporter when given" in {
+      checkOption(
+        Array("--metrics-reporter", "csv:///path/to/file.csv"),
+        _.copy(metricsReporter = Some(MetricsReporter.Csv(Paths.get("/path/to/file.csv")))),
+      )
+    }
+
+    "parse a Graphite metrics reporter when given" in {
+      val expectedAddress = new InetSocketAddress("server", Graphite.defaultPort)
+      checkOption(
+        Array("--metrics-reporter", "graphite://server"),
+        _.copy(metricsReporter = Some(MetricsReporter.Graphite(expectedAddress, None))),
+      )
+    }
+
+    "parse a Graphite metrics reporter with a port when given" in {
+      val expectedAddress = new InetSocketAddress("server", 9876)
+      checkOption(
+        Array("--metrics-reporter", "graphite://server:9876"),
+        _.copy(metricsReporter = Some(MetricsReporter.Graphite(expectedAddress, None))),
+      )
+    }
+
+    "parse a Graphite metrics reporter with a prefix when given" in {
+      val expectedAddress = new InetSocketAddress("server", Graphite.defaultPort)
+      checkOption(
+        Array("--metrics-reporter", "graphite://server/prefix"),
+        _.copy(metricsReporter = Some(MetricsReporter.Graphite(expectedAddress, Some("prefix")))),
+      )
+    }
+
+    "parse a Graphite metrics reporter with a port and prefix when given" in {
+      val expectedAddress = new InetSocketAddress("server", 9876)
+      checkOption(
+        Array("--metrics-reporter", "graphite://server:9876/prefix"),
+        _.copy(metricsReporter = Some(MetricsReporter.Graphite(expectedAddress, Some("prefix")))),
+      )
+    }
+
+    "parse the metrics reporting interval when given" in {
+      checkOption(
+        Array("--metrics-reporting-interval", "PT1M30S"),
+        _.copy(metricsReportingInterval = Duration.ofSeconds(90)),
+      )
     }
   }
 
