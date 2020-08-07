@@ -153,3 +153,17 @@ data VoidRecord = VoidRecord with
 
 data VoidEnum = VoidEnum VoidEnum
   deriving (Eq, Show)
+
+template Counter with
+    p: Party
+    t: Text
+    c: Int
+  where
+    signatory p
+    key (p, t): (Party, Text)
+    maintainer key._1
+    controller p can
+      preconsuming Change: ContractId Counter
+        with n: Int
+        do
+          create Counter {c = n, ..}

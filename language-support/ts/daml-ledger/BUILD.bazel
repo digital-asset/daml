@@ -24,6 +24,7 @@ da_ts_library(
         "//language-support/ts/daml-types",
         "@language_support_ts_deps//@mojotech/json-type-validation",
         "@language_support_ts_deps//@types/jest",
+        "@language_support_ts_deps//@types/lodash",
         "@language_support_ts_deps//@types/ws",
         "@language_support_ts_deps//cross-fetch",
         "@language_support_ts_deps//events",
