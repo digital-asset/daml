@@ -412,8 +412,7 @@ simplifyExpr = fmap fst . cata go'
 
       -- inline typeclass projection for unknown dictionaries
       ETmAppF (_, i1) (e2, i2)
-          | Safe _ <- safety i2
-          , TCProjection (ETmLam (x,_) e1) <- tcinfo i1
+          | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
           -> ( applySubstInExpr (exprSubst' x e2 (freeVars i2)) e1
              , infoStep world (ETmAppF i1 i2) )
 
