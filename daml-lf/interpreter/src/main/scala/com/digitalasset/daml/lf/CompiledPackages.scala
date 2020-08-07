@@ -27,19 +27,6 @@ abstract class CompiledPackages {
   def profilingMode: Compiler.ProfilingMode
 
   def compiler: Compiler = Compiler(packages, stackTraceMode, profilingMode)
-
-  // computes the newest language version used in `pkg` and all its dependencies.
-  // assumes that `maxVersionOfDependencies` is defined for all dependencies of `pkg`
-  // returns None iff the package is empty.
-  protected def computePackageLanguageVersion(
-      dependenciesPackageVersion: PartialFunction[PackageId, LanguageVersion],
-      pkg: Package,
-  ): Option[LanguageVersion] = {
-    import transaction.VersionTimeline.maxVersion
-    val moduleVersions = pkg.modules.values.iterator.map(_.languageVersion)
-    val dependencyVersions = pkg.directDeps.iterator.map(dependenciesPackageVersion)
-    (moduleVersions ++ dependencyVersions).reduceOption(maxVersion[LanguageVersion])
-  }
 }
 
 final class PureCompiledPackages private (
@@ -54,20 +41,12 @@ final class PureCompiledPackages private (
   override def stackTraceMode = stacktracing
   override def profilingMode = profiling
 
-  private[this] def sortedPkgIds: List[PackageId] = {
-    val dependencyGraph = packageIds.view
-      .flatMap(pkgId => getPackage(pkgId).map(pkg => pkgId -> pkg.directDeps).toList)
-      .toMap
-    language.Graphs
-      .topoSort(dependencyGraph)
-      .getOrElse(throw new IllegalArgumentException("cyclic package definitions"))
-  }
-
   override val packageLanguageVersion: Map[PackageId, LanguageVersion] =
-    sortedPkgIds.foldLeft(Map.empty[PackageId, LanguageVersion])(
-      (acc, pkgId) =>
-        computePackageLanguageVersion(acc, packages(pkgId)).fold(acc)(acc.updated(pkgId, _))
-    )
+    packages.foldLeft(Map.empty[PackageId, LanguageVersion]) {
+      case (acc, (pkgId, pkg)) =>
+        // all modules of a package are compiled to the same LF version
+        pkg.modules.values.headOption.fold(acc)(mod => acc.updated(pkgId, mod.languageVersion))
+    }
 }
 
 object PureCompiledPackages {
