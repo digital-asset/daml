@@ -49,13 +49,14 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext: Context = new Context(contextCounter.incrementAndGet())
+  def newContext(lfVerion: LanguageVersion): Context =
+    new Context(contextCounter.incrementAndGet(), lfVerion)
 
   private def assert[X](either: Either[String, X]): X =
     either.fold(e => throw new ParseError(e), identity)
 }
 
-class Context(val contextId: Context.ContextId) {
+class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion) {
 
   import Context._
 
@@ -77,7 +78,7 @@ class Context(val contextId: Context.ContextId) {
   def loadedPackages(): Iterable[PackageId] = extPackages.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext
+    val newCtx = Context.newContext(languageVersion)
     newCtx.extPackages = extPackages
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -87,11 +88,9 @@ class Context(val contextId: Context.ContextId) {
   }
 
   private def decodeModule(
-      major: LanguageVersion.Major,
-      minor: String,
+      lfVer: LanguageVersion,
       bytes: ByteString,
   ): Ast.Module = {
-    val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
     val dop: Decode.OfPackage[_] = Decode.decoders
       .lift(lfVer)
       .getOrElse(throw Context.ContextException(s"No decode support for LF ${lfVer.pretty}"))
@@ -109,8 +108,7 @@ class Context(val contextId: Context.ContextId) {
       omitValidation: Boolean,
   ): Unit = synchronized {
 
-    val newModules = loadModules.map(module =>
-      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
+    val newModules = loadModules.map(module => decodeModule(languageVersion, module.getDamlLf1))
     modules --= unloadModules
     newModules.foreach(mod => modules += mod.name -> mod)
 

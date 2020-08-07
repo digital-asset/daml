@@ -65,6 +65,8 @@ toLowLevelOpts Options{..} =
         optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
         optJvmOptions = cnfJvmOptions optScenarioServiceConfig
+        -- FIXME
+        optDamlLfVersion = LF.versionDefault
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -152,7 +154,6 @@ parseScenarioServiceConfig conf = do
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
-  , ctxDamlLfVersion :: LF.Version
   , ctxSkipValidation :: LowLevel.SkipValidation
   }
 
@@ -175,7 +176,6 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       (S.toList unloadModules)
       loadPackages
       (S.toList unloadPackages)
-      ctxDamlLfVersion
       ctxSkipValidation
   rootCtxId <- readIORef hContextId
   runExceptT $ do
