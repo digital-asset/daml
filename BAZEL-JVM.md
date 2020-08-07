@@ -91,7 +91,7 @@ scala_register_toolchains()
 
 If you need to update the Scala version, make sure to also update the
 corresponding SHA-256 hashes in hexadecimal encoding. If you don't know the
-hash, set it to all zeroes and Bazel will correct you.
+hash, set it to 64 zeroes and Bazel will correct you.
 
 See the [`rules_scala` setup guide][rules_scala_setup] for further details.
 
