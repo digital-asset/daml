@@ -3,12 +3,11 @@
 
 package com.daml.platform.configuration
 
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.InetSocketAddress
 import java.nio.file.{Path, Paths}
 
 import com.codahale.metrics
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter}
-
 import scopt.Read
 
 sealed abstract class MetricsReporter {
@@ -41,14 +40,7 @@ object MetricsReporter {
   }
 
   object Graphite {
-    val defaultHost: InetAddress = InetAddress.getLoopbackAddress
     val defaultPort: Int = 2003
-
-    def apply(): Graphite =
-      Graphite(new InetSocketAddress(defaultHost, defaultPort))
-
-    def apply(port: Int): Graphite =
-      Graphite(new InetSocketAddress(defaultHost, port))
   }
 
   implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads { value =>
