@@ -45,8 +45,6 @@ cd compatibility
 cp ../.bazelrc .bazelrc
 
 bazel shutdown
-# Temporary, remove once cache reset is complete
-bazel clean --expunge
 bazel fetch @nodejs_dev_env//...
 bazel build //...
 bazel shutdown
