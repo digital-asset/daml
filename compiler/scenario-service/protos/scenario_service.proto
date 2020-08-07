@@ -104,11 +104,6 @@ message UpdateContextRequest {
   UpdateModules update_modules = 2;
   UpdatePackages update_packages = 3;
   bool noValidation = 4; // if true, does not run the package validations
-  // The lf v1 minor of the modules in `load_packages`
-  // The empty sting means no changed.
-  // Can be changed from one call to the other only if all the previously
-  // loaded modules are unloaded or replaced
-  string lf_minor = 5;
 }
 
 message UpdateContextResponse {
@@ -351,6 +346,9 @@ message GenMap{
 message ScenarioModule {
   // each LF v1 module is wrapped in a proto package
   bytes daml_lf_1 = 2;
+
+  // for daml_lf_dev the minor version is ignored by the scenario service.
+  string minor = 1;
 }
 
 message RunScenarioResponse {

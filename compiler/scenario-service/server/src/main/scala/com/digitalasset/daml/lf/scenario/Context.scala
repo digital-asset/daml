@@ -72,7 +72,6 @@ class Context(val contextId: Context.ContextId) {
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
   private var modDefns: Map[ModuleName, Map[SDefinitionRef, SExpr]] = HashMap.empty
   private var defns: Map[SDefinitionRef, SExpr] = HashMap.empty
-  private var languageVersion: LanguageVersion = LanguageVersion.defaultV1
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extPackages.keys
@@ -88,9 +87,11 @@ class Context(val contextId: Context.ContextId) {
   }
 
   private def decodeModule(
-      lfVer: LanguageVersion,
+      major: LanguageVersion.Major,
+      minor: String,
       bytes: ByteString,
   ): Ast.Module = {
+    val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
     val dop: Decode.OfPackage[_] = Decode.decoders
       .lift(lfVer)
       .getOrElse(throw Context.ContextException(s"No decode support for LF ${lfVer.pretty}"))
@@ -101,7 +102,6 @@ class Context(val contextId: Context.ContextId) {
 
   @throws[ParseError]
   def update(
-      lfVer: Option[LanguageVersion],
       unloadModules: Set[ModuleName],
       loadModules: Seq[ProtoScenarioModule],
       unloadPackages: Set[PackageId],
@@ -109,20 +109,9 @@ class Context(val contextId: Context.ContextId) {
       omitValidation: Boolean,
   ): Unit = synchronized {
 
-    val previousLangVersion = languageVersion
-    lfVer.foreach(languageVersion = _)
-
+    val newModules = loadModules.map(module =>
+      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
     modules --= unloadModules
-    val newModules = loadModules.map(module => decodeModule(languageVersion, module.getDamlLf1))
-
-    if (languageVersion != previousLangVersion && modules.nonEmpty) {
-      val newModNames = newModules.iterator.map(_.name).toSet
-      if (!modules.keys.forall(newModNames.contains))
-        throw Context.ContextException(
-          "Cannot change the LF version if all the modules are not unloaded or replaced."
-        )
-    }
-
     newModules.foreach(mod => modules += mod.name -> mod)
 
     val newPackages =
