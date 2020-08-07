@@ -4,6 +4,7 @@
 package com.daml.ledger.on.sql
 
 import java.util.UUID
+import java.util.concurrent.Executors
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -44,8 +45,8 @@ final class SqlLedgerReaderWriter(
     database: Database,
     dispatcher: Dispatcher[Index],
     committer: ValidatingCommitter[Index],
-)(implicit executionContext: ExecutionContext)
-    extends LedgerWriter
+    committerExecutionContext: ExecutionContext,
+) extends LedgerWriter
     with LedgerReader {
 
   override def currentHealth(): HealthStatus = Healthy
@@ -72,7 +73,7 @@ final class SqlLedgerReaderWriter(
       envelope: Bytes,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope, participantId)
+    committer.commit(correlationId, envelope, participantId)(committerExecutionContext)
 }
 
 object SqlLedgerReaderWriter {
@@ -115,8 +116,20 @@ object SqlLedgerReaderWriter {
           validator = validator,
           postCommit = dispatcher.signalNewHead,
         )
+        committerExecutionContext <- ResourceOwner
+          .forExecutorService(() =>
+            ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()))
+          .acquire()
       } yield
-        new SqlLedgerReaderWriter(ledgerId, participantId, metrics, database, dispatcher, committer)
+        new SqlLedgerReaderWriter(
+          ledgerId,
+          participantId,
+          metrics,
+          database,
+          dispatcher,
+          committer,
+          committerExecutionContext,
+        )
   }
 
   private def updateOrRetrieveLedgerId(
