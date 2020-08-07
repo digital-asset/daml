@@ -51,7 +51,8 @@ class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with
 
     val negativeTestCases = Table(
       "valid packages",
-      Map(pkg(A, v1_8, A, B, E), pkg(B, v1_7, B, E), pkg(E, v1_6, E))
+      Map(pkg(A, v1_8, A, B, E), pkg(B, v1_7, B, E), pkg(E, v1_6, E)),
+      Map(pkg(A, v1_8, A, B, E), pkg(B, v1_8, B, E), pkg(E, v1_6, E)),
     )
 
     val postiveTestCase = Table(
