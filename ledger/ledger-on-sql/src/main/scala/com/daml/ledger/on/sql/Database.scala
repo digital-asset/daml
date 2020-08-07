@@ -3,9 +3,10 @@
 
 package com.daml.ledger.on.sql
 
-import java.sql.Connection
+import java.sql.{Connection, SQLException}
 import java.util.concurrent.Executors
 
+import com.daml.ledger.on.sql.Database._
 import com.daml.ledger.on.sql.queries._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
@@ -27,24 +28,25 @@ final class Database(
     writerExecutionContext: ExecutionContext,
     metrics: Metrics,
 ) {
-  def inReadTransaction[T](name: String)(
-      body: ReadQueries => Future[T],
-  ): Future[T] =
+  def inReadTransaction[T](name: String)(body: ReadQueries => Future[T]): Future[T] =
     inTransaction(name, readerConnectionPool)(connection =>
       Future(body(new TimedQueries(queries(connection), metrics)))(readerExecutionContext).flatten)
 
-  def inWriteTransaction[T](name: String)(
-      body: Queries => Future[T],
-  ): Future[T] =
+  def inWriteTransaction[T](name: String)(body: Queries => Future[T]): Future[T] =
     inTransaction(name, writerConnectionPool)(connection =>
       Future(body(new TimedQueries(queries(connection), metrics)))(writerExecutionContext).flatten)
 
   private def inTransaction[T](name: String, connectionPool: DataSource)(
       body: Connection => Future[T],
   ): Future[T] = {
-    val connection = Timed.value(
-      metrics.daml.ledger.database.transactions.acquireConnection(name),
-      connectionPool.getConnection())
+    val connection = try {
+      Timed.value(
+        metrics.daml.ledger.database.transactions.acquireConnection(name),
+        connectionPool.getConnection())
+    } catch {
+      case exception: SQLException =>
+        throw new ConnectionAcquisitionException(name, exception)
+    }
     Timed.future(
       metrics.daml.ledger.database.transactions.run(name), {
         body(connection)
@@ -243,4 +245,8 @@ object Database {
   class InvalidDatabaseException(message: String)
       extends RuntimeException(message)
       with StartupException
+
+  class ConnectionAcquisitionException(name: String, cause: Throwable)
+      extends RuntimeException(s"""Failed to acquire the connection during "$name".""", cause)
+
 }
