@@ -46,13 +46,6 @@ object MetricsReporter {
   }
 
   implicit val metricsReporterRead: Read[MetricsReporter] = {
-    def parseUri(value: String): URI =
-      try {
-        new URI(value)
-      } catch {
-        case NonFatal(_) => throw invalidRead
-      }
-
     Read.reads {
       case "console" =>
         Console
@@ -76,7 +69,17 @@ object MetricsReporter {
     }
   }
 
+  def parseUri(value: String): URI =
+    try {
+      new URI(value)
+    } catch {
+      case NonFatal(exception) =>
+        throw new InvalidConfigException(invalidReadError + " " + exception.getMessage)
+    }
+
+  private val invalidReadError: String =
+    """Must be one of "console", "csv:///PATH", or "graphite://HOST[:PORT][/METRIC_PREFIX]"."""
+
   private def invalidRead: InvalidConfigException =
-    new InvalidConfigException(
-      """Must be one of "console", "csv:///PATH", or "graphite://HOST[:PORT][/METRIC_PREFIX]".""")
+    new InvalidConfigException(invalidReadError)
 }
