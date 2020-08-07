@@ -122,7 +122,7 @@ trait JsonApiFixture
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
                   case \/-(a) => Future.successful(a)
                 })
-            }((binding: ServerBinding) => binding.unbind().map(done => ()))
+            }((binding: ServerBinding) => binding.unbind().map(_ => ()))
           }
         }
       } yield (server, channel, httpService)

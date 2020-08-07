@@ -72,9 +72,7 @@ common_scalacopts = [
     # Gives a warning for functions declared as returning Unit, but the body returns a value
     "-Ywarn-value-discard",
     "-Ywarn-unused-import",
-    # unfortunately give false warning for the `(a, b) = someTuple`
-    # line inside a for comprehension
-    # "-Ywarn-unused"
+    "-Ywarn-unused",
 ]
 
 plugin_deps = [
@@ -135,7 +133,6 @@ plugin_scalacopts = [
 # []
 # ^ means nothing to remove
 lf_scalacopts = [
-    "-Ywarn-unused",
 ]
 
 default_compile_arguments = {

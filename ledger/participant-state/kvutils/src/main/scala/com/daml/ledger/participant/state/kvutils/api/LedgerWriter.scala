@@ -33,7 +33,7 @@ trait LedgerWriter extends ReportsHealth {
     *         [[com.daml.ledger.participant.state.v1.SubmissionResult]]
     */
   @silent(
-    "method commit in trait LedgerWriter is deprecated \\(since 1.3.0\\): Will be removed in 1.4.0")
+    "method commit in trait LedgerWriter is deprecated \\(since 1.3.0\\): Will be removed in 1.4.0| metadata .* is never used")
   def commit(
       correlationId: String,
       envelope: Bytes,

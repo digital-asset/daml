@@ -66,7 +66,7 @@ final class CommandClientIT
   private val testNotLedgerId = domain.LedgerId("hotdog")
 
   private def commandClientWithoutTime(
-      ledgerId: domain.LedgerId = testLedgerId,
+      ledgerId: domain.LedgerId,
       applicationId: String = MockMessages.applicationId,
       configuration: CommandClientConfiguration = defaultCommandClientConfiguration)
     : CommandClient =
@@ -78,7 +78,7 @@ final class CommandClientIT
       configuration,
     )
 
-  private def timeProvider(ledgerId: domain.LedgerId = testLedgerId): Future[TimeProvider] = {
+  private def timeProvider(ledgerId: domain.LedgerId): Future[TimeProvider] = {
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), ledgerId.unwrap)
       .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
@@ -91,7 +91,7 @@ final class CommandClientIT
     : Future[CommandClient] =
     timeProvider(ledgerId)
       .map(
-        tp => commandClientWithoutTime(ledgerId, applicationId, configuration)
+        _ => commandClientWithoutTime(ledgerId, applicationId, configuration)
       )(DirectExecutionContext)
 
   override protected def config: SandboxConfig =
@@ -127,7 +127,7 @@ final class CommandClientIT
   private def readExpectedElements[T](
       src: Source[T, NotUsed],
       expected: Set[T],
-      timeLimit: Span = 3.seconds): Future[(Set[T], Set[T])] =
+      timeLimit: Span): Future[(Set[T], Set[T])] =
     src
       .scan((Set[T](), expected)) {
         case ((elementsSeen, elementsUnseen), t) =>
