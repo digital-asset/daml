@@ -43,7 +43,8 @@ final class InMemoryLedgerReaderWriter(
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
     validateAndCommit: ValidateAndCommit,
-    metrics: Metrics)(implicit executionContext: ExecutionContext)
+    metrics: Metrics,
+)(implicit executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
   override def commit(

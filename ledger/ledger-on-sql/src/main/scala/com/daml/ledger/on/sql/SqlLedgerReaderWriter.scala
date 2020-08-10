@@ -185,7 +185,9 @@ object SqlLedgerReaderWriter {
 
   private final class SqlLedgerStateAccess(database: Database, metrics: Metrics)
       extends LedgerStateAccess[Index] {
-    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
+    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T])(
+        implicit executionContext: ExecutionContext
+    ): Future[T] =
       database.inWriteTransaction("commit") { queries =>
         body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metrics))
       }
@@ -193,13 +195,19 @@ object SqlLedgerReaderWriter {
 
   private final class SqlLedgerStateOperations(queries: Queries)
       extends BatchingLedgerStateOperations[Index] {
-    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+    override def readState(keys: Seq[Key])(
+        implicit executionContext: ExecutionContext
+    ): Future[Seq[Option[Value]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys))
 
-    override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
+    override def writeState(keyValuePairs: Seq[(Key, Value)])(
+        implicit executionContext: ExecutionContext
+    ): Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs))
 
-    override def appendToLog(key: Key, value: Value): Future[Index] =
+    override def appendToLog(key: Key, value: Value)(
+        implicit executionContext: ExecutionContext
+    ): Future[Index] =
       Future.fromTry(queries.insertRecordIntoLog(key, value))
   }
 

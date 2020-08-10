@@ -7,11 +7,11 @@ import java.io.Closeable
 import java.util.UUID
 
 import akka.stream.Materializer
+import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.api.health.HealthStatus
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
@@ -40,7 +40,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
   override def commit(
       correlationId: String,
       envelope: kvutils.Bytes,
-      metadata: CommitMetadata): Future[SubmissionResult] =
+      metadata: CommitMetadata,
+  ): Future[SubmissionResult] =
     queueHandle
       .offer(
         DamlSubmissionBatch.CorrelatedSubmission.newBuilder
