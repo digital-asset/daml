@@ -51,7 +51,11 @@ object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
 case class Participant(participant: String)
 case class Party(party: String)
-case class ApiParameters(host: String, port: Int, access_token: Option[String])
+case class ApiParameters(
+    host: String,
+    port: Int,
+    access_token: Option[String],
+    application_id: Option[ApplicationId])
 case class Participants[+T](
     default_participant: Option[T],
     participants: Map[Participant, T],
@@ -121,7 +125,14 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
         case _ => deserializationError("ContractId must be a string")
       }
     }
-  implicit val apiParametersFormat = jsonFormat3(ApiParameters)
+  implicit object ApplicationIdFormat extends JsonFormat[ApplicationId] {
+    def read(value: JsValue) = value match {
+      case JsString(s) => ApplicationId(s)
+      case _ => deserializationError("Expected ApplicationId string")
+    }
+    def write(id: ApplicationId) = JsString(ApplicationId.unwrap(id))
+  }
+  implicit val apiParametersFormat = jsonFormat4(ApiParameters)
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
@@ -165,11 +176,11 @@ object Runner {
   val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
   private def connectApiParameters(
       params: ApiParameters,
-      applicationId: ApplicationId,
       tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
+    val applicationId = params.application_id.getOrElse(Runner.DEFAULT_APPLICATION_ID)
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
@@ -189,16 +200,15 @@ object Runner {
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(
       participantParams: Participants[ApiParameters],
-      applicationId: ApplicationId,
       tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {
     for {
       defaultClient <- participantParams.default_participant.traverse(x =>
-        connectApiParameters(x, applicationId, tlsConfig, maxInboundMessageSize))
+        connectApiParameters(x, tlsConfig, maxInboundMessageSize))
       participantClients <- participantParams.participants.traverse(v =>
-        connectApiParameters(v, applicationId, tlsConfig, maxInboundMessageSize))
+        connectApiParameters(v, tlsConfig, maxInboundMessageSize))
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
 
@@ -211,7 +221,13 @@ object Runner {
         case None =>
           Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
         case Some(token) =>
-          Future.successful(new JsonLedgerClient(uri, Jwt(token), envIface, system))
+          val client = new JsonLedgerClient(uri, Jwt(token), envIface, system)
+          if (params.application_id.isDefined && params.application_id != client.tokenPayload.applicationId) {
+            Future.failed(new RuntimeException(
+              s"ApplicationId specified in token ${client.tokenPayload.applicationId} must match ${params.application_id}"))
+          } else {
+            Future.successful(new JsonLedgerClient(uri, Jwt(token), envIface, system))
+          }
       }
 
     }

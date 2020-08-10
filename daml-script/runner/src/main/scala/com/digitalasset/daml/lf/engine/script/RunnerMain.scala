@@ -40,7 +40,6 @@ object RunnerMain {
         val scriptId: Identifier =
           Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 
-        val applicationId = Runner.DEFAULT_APPLICATION_ID
         val timeMode: ScriptTimeMode = config.timeMode.getOrElse(RunnerConfig.DefaultTimeMode)
 
         implicit val system: ActorSystem = ActorSystem("ScriptRunner")
@@ -61,10 +60,9 @@ object RunnerMain {
 
         val participantParams = config.participantConfig match {
           case Some(file) => {
-            // To avoid a breaking change, we allow specifying
-            // --access-token-file and --participant-config
-            // together and use the token file as the default for all participants
-            // that do not specify an explicit token.
+            // We allow specifying --access-token-file/--application-id together with
+            // --participant-config and use the values as the default for
+            // all participants that do not specify an explicit token.
             val source = Source.fromFile(file)
             val fileContent = try {
               source.mkString
@@ -76,7 +74,11 @@ object RunnerMain {
             import ParticipantsJsonProtocol._
             jsVal
               .convertTo[Participants[ApiParameters]]
-              .map(params => params.copy(access_token = params.access_token.orElse(token)))
+              .map(
+                params =>
+                  params.copy(
+                    access_token = params.access_token.orElse(token),
+                    application_id = params.application_id.orElse(config.applicationId)))
           }
           case None =>
             val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
@@ -85,7 +87,8 @@ object RunnerMain {
                 ApiParameters(
                   config.ledgerHost.get,
                   config.ledgerPort.get,
-                  tokenHolder.flatMap(_.token))),
+                  tokenHolder.flatMap(_.token),
+                  config.applicationId)),
               participants = Map.empty,
               party_participants = Map.empty
             )
@@ -97,11 +100,7 @@ object RunnerMain {
             val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
             Runner.jsonClients(participantParams, envIface)
           } else {
-            Runner.connect(
-              participantParams,
-              applicationId,
-              config.tlsConfig,
-              config.maxInboundMessageSize)
+            Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
           }
           result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
           _ <- Future {

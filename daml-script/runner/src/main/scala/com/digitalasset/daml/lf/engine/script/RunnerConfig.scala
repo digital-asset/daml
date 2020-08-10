@@ -7,6 +7,7 @@ import java.nio.file.{Path, Paths}
 import java.io.File
 import java.time.Duration
 
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerConfig(
@@ -24,6 +25,10 @@ case class RunnerConfig(
     tlsConfig: TlsConfiguration,
     jsonApi: Boolean,
     maxInboundMessageSize: Int,
+    // While we do have a default application id, we
+    // want to differentiate between not specifying the application id
+    // and specifying the default for better error messages.
+    applicationId: Option[ApplicationId],
 )
 
 object RunnerConfig {
@@ -110,6 +115,12 @@ object RunnerConfig {
       .text(
         s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize")
 
+    opt[String]("application-id")
+      .action((x, c) => c.copy(applicationId = Some(ApplicationId(x))))
+      .optional()
+      .text(
+        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}")
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -154,6 +165,7 @@ object RunnerConfig {
         tlsConfig = TlsConfiguration(false, None, None, None),
         jsonApi = false,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        applicationId = None,
       )
     )
 }
