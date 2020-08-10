@@ -134,7 +134,7 @@ object SqlLedgerReaderWriter {
 
   private def updateOrRetrieveLedgerId(
       providedLedgerId: LedgerId,
-      database: Database
+      database: Database,
   ): Future[LedgerId] =
     database.inWriteTransaction("retrieve_ledger_id") { queries =>
       Future.fromTry(
