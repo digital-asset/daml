@@ -17,9 +17,9 @@ class SyncQueryNewAcs
     with HasArchiveRequest
     with HasQueryRequest {
 
-  private val wantedAcsSize = 100
+  private val wantedAcsSize = 1000
 
-  private val numberOfRuns = 5
+  private val numberOfRuns = 100
 
   private val syncQueryNewAcs =
     scenario(s"SyncQueryNewAcs, numberOfRuns: $numberOfRuns, ACS size: $wantedAcsSize")
