@@ -25,7 +25,7 @@ class SyncQueryNewAcs
         group("Populate ACS") {
           doWhile(_ => acsSize() < wantedAcsSize) {
             feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
-              .exec(randomAmountCreateRequest.check(status.is(200), captureContractId).notSilent)
+              .exec(randomAmountCreateRequest.check(status.is(200), captureContractId).silent)
           }
         }.group("Run Query") {
             feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
@@ -34,7 +34,7 @@ class SyncQueryNewAcs
           .group("Archive ACS") {
             doWhile(_ => acsSize() > 0) {
               feed(Iterator.continually(Map("archiveContractId" -> removeNextContractIdFromAcs())))
-                .exec(archiveRequest.notSilent)
+                .exec(archiveRequest.silent)
             }
           }
       }
