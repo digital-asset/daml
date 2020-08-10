@@ -6,6 +6,7 @@ package com.daml.lf.engine.trigger.test
 import akka.stream.scaladsl.{Flow}
 import com.daml.lf.data.Ref._
 import com.daml.platform.sandbox.services.SandboxFixtureWithAuth
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.commands.CreateCommand
@@ -23,8 +24,11 @@ class Jwt
     with TryValues {
   self: Suite =>
 
+  // Override to make sure we set it correctly.
+  override protected val applicationId: ApplicationId = ApplicationId("custom app id")
+
   override protected def ledgerClientConfiguration = super.ledgerClientConfiguration.copy(
-    token = Some(toHeader(readWriteToken(party)))
+    token = Some(toHeader(forApplicationId("custom app id", readWriteToken(party))))
   )
 
   private val party = "AliceAuth"

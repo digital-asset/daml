@@ -6,6 +6,7 @@ package com.daml.lf.engine.trigger
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.platform.services.time.TimeProviderType
@@ -23,12 +24,15 @@ case class RunnerConfig(
     timeProviderType: Option[TimeProviderType],
     commandTtl: Duration,
     accessTokenFile: Option[Path],
+    applicationId: ApplicationId,
     tlsConfig: TlsConfiguration,
 )
 
 object RunnerConfig {
-  val DefaultMaxInboundMessageSize: Int = 4194304
-  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+  private[trigger] val DefaultMaxInboundMessageSize: Int = 4194304
+  private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+  private[trigger] val DefaultApplicationId: ApplicationId =
+    ApplicationId("daml-trigger")
 
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
     head("trigger-runner")
@@ -83,6 +87,12 @@ object RunnerConfig {
         c.copy(accessTokenFile = Some(Paths.get(f)))
       }
       .text("File from which the access token will be read, required to interact with an authenticated ledger")
+
+    opt[String]("application-id")
+      .action { (appId, c) =>
+        c.copy(applicationId = ApplicationId(appId))
+      }
+      .text(s"Application ID used to submit commands. Defaults to ${DefaultApplicationId}")
 
     TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
       c.copy(tlsConfig = f(c.tlsConfig)))
@@ -140,6 +150,7 @@ object RunnerConfig {
         commandTtl = Duration.ofSeconds(30L),
         accessTokenFile = None,
         tlsConfig = TlsConfiguration(false, None, None, None),
+        applicationId = DefaultApplicationId,
       )
     )
 }
