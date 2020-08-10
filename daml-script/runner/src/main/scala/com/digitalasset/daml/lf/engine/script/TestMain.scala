@@ -10,7 +10,6 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
@@ -55,7 +54,7 @@ object TestMain extends StrictLogging {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
-        val applicationId = ApplicationId("Script Test")
+        val applicationId = Runner.DEFAULT_APPLICATION_ID
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptTestPool")(system)
@@ -135,7 +134,7 @@ object TestMain extends StrictLogging {
           _ <- sequentialTraverse(testScripts.toList) {
             case (id, script) =>
               val runner =
-                new Runner(compiledPackages, script, applicationId, config.timeMode)
+                new Runner(compiledPackages, script, config.timeMode)
               val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
               // Print test result and remember failure.
               testRun.onComplete {

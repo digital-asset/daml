@@ -23,7 +23,6 @@ import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.auth.TokenHolder
 
 object RunnerMain {
@@ -41,7 +40,7 @@ object RunnerMain {
         val scriptId: Identifier =
           Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 
-        val applicationId = ApplicationId("Script Runner")
+        val applicationId = Runner.DEFAULT_APPLICATION_ID
         val timeMode: ScriptTimeMode = config.timeMode.getOrElse(RunnerConfig.DefaultTimeMode)
 
         implicit val system: ActorSystem = ActorSystem("ScriptRunner")
@@ -98,16 +97,13 @@ object RunnerMain {
             val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
             Runner.jsonClients(participantParams, envIface)
           } else {
-            // Note (MK): For now, we only support using a single-token for everything.
-            // We might want to extend this to allow for multiple tokens, e.g., one token per party +
-            // one admin token for allocating parties.
             Runner.connect(
               participantParams,
               applicationId,
               config.tlsConfig,
               config.maxInboundMessageSize)
           }
-          result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeMode)
+          result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
           _ <- Future {
             config.outputFile.foreach { outputFile =>
               val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
