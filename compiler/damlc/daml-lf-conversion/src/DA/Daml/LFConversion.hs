@@ -700,6 +700,30 @@ convertBind env (name, x)
         (name', type') <- convValWithType env name
         body <- mkFastComparisonPredicate name BEEqualGeneric type'
         pure [defValue name (name', type') body]
+    -- | T.isPrefixOf "$c<=" (getOccText name)
+    -- , envLfVersion env `supports` featureGenericComparison
+    -- = do
+    --     (name', type') <- convValWithType env name
+    --     body <- mkFastComparisonPredicate name BELessEqGeneric type'
+    --     pure [defValue name (name', type') body]
+    -- | T.isPrefixOf "$c<" (getOccText name)
+    -- , envLfVersion env `supports` featureGenericComparison
+    -- = do
+    --     (name', type') <- convValWithType env name
+    --     body <- mkFastComparisonPredicate name BELessGeneric type'
+    --     pure [defValue name (name', type') body]
+    -- | T.isPrefixOf "$c>=" (getOccText name)
+    -- , envLfVersion env `supports` featureGenericComparison
+    -- = do
+    --     (name', type') <- convValWithType env name
+    --     body <- mkFastComparisonPredicate name BEGreaterEqGeneric type'
+    --     pure [defValue name (name', type') body]
+    -- | T.isPrefixOf "$c>" (getOccText name)
+    -- , envLfVersion env `supports` featureGenericComparison
+    -- = do
+    --     (name', type') <- convValWithType env name
+    --     body <- mkFastComparisonPredicate name BEGreaterGeneric type'
+    --     pure [defValue name (name', type') body]
 
     | otherwise
     = withRange (convNameLoc name) $ do
@@ -763,6 +787,28 @@ convertExpr env0 e = do
     -- see through $ to give better matching power
     go env (VarIn DA_Internal_Prelude "$") (LType _ : LType _ : LExpr x : y : args)
         = go env x (y : args)
+
+    go env (VarIn GHC_Classes "==") (LType t : LExpr _ : args)
+        = do
+            t <- convertType env t
+            pure (EBuiltin BEEqualGeneric `ETyApp` t, args)
+    -- go env (VarIn GHC_Classes "<=") (LType t : LExpr _ : args)
+    --     = do
+    --         t <- convertType env t
+    --         pure (EBuiltin BELessEqGeneric `ETyApp` t, args)
+    -- go env (VarIn GHC_Classes "<") (LType t : LExpr _ : args)
+    --     = do
+    --         t <- convertType env t
+    --         pure (EBuiltin BELessGeneric `ETyApp` t, args)
+    -- go env (VarIn GHC_Classes ">=") (LType t : LExpr _ : args)
+    --     = do
+    --         t <- convertType env t
+    --         pure (EBuiltin BEGreaterEqGeneric `ETyApp` t, args)
+    -- go env (VarIn GHC_Classes ">") (LType t : LExpr _ : args)
+    --     = do
+    --         t <- convertType env t
+    --         pure (EBuiltin BEGreaterGeneric `ETyApp` t, args)
+
     go env (VarIn DA_Internal_LF "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
         = fmap (, args) $ do
             t1 <- convertType env t1
