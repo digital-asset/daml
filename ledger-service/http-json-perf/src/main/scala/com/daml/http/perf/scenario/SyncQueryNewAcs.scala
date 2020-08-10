@@ -15,31 +15,31 @@ class SyncQueryNewAcs
     with HasArchiveRequest
     with HasQueryRequest {
 
-  private val wantedAcsSize = 1000
+  private val wantedAcsSize = 5000
 
   private val numberOfRuns = 25
 
   private val syncQueryNewAcs =
     scenario(s"SyncQueryNewAcs, numberOfRuns: $numberOfRuns, ACS size: $wantedAcsSize")
       .repeat(numberOfRuns) {
-        group("Populate ACS") {
-          doWhile(_ => this.acsSize() < wantedAcsSize) {
-            feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
-              .exec(
-                randomAmountCreateRequest
-                  .check(status.is(200))
-                  .check(captureContractId)
-                  .silent)
+        group("Archive ACS") {
+          doWhile(_ => this.acsSize() > 0) {
+            feed(Iterator.continually(Map("archiveContractId" -> takeNextContractIdFromAcs())))
+              .exec(archiveRequest.silent)
           }
-        }.group("Run Query") {
+        }.group("Populate ACS") {
+            doWhile(_ => this.acsSize() < wantedAcsSize) {
+              feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
+                .exec(
+                  randomAmountCreateRequest
+                    .check(status.is(200))
+                    .check(captureContractId)
+                    .silent)
+            }
+          }
+          .group("Run Query") {
             feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
               .exec(randomAmountQueryRequest.notSilent)
-          }
-          .group("Archive ACS") {
-            doWhile(_ => this.acsSize() > 0) {
-              feed(Iterator.continually(Map("archiveContractId" -> takeNextContractIdFromAcs())))
-                .exec(archiveRequest.silent)
-            }
           }
       }
 
