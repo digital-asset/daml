@@ -32,6 +32,7 @@ import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -161,8 +162,7 @@ class Server(
 
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
     val entry = (LocalDateTime.now, msg)
-    triggerLog.merge(triggerInstance, Vector(entry), _ ++ _)
-    ()
+    discard(triggerLog.merge(triggerInstance, Vector(entry), _ ++ _))
   }
 
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =

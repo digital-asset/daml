@@ -3,15 +3,15 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.{Behavior, PostStop}
+import akka.actor.typed.{ActorRef, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.SupervisorStrategy._
-import akka.actor.typed.Signal
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.ActorContext
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.scalautil.Statement.discard
 
 class InitializationHalted(s: String) extends Exception(s) {}
 class InitializationException(s: String) extends Exception(s) {}
@@ -40,20 +40,22 @@ class TriggerRunner(
   // Spawn a trigger runner impl. Supervise it. Stop immediately on
   // initialization halted exceptions, retry any initialization or
   // execution failure exceptions.
-  ctx.spawn(
-    Behaviors
-      .supervise(
-        Behaviors
-          .supervise(TriggerRunnerImpl(config))
-          .onFailure[InitializationHalted](stop)
-      )
-      .onFailure(
-        restartWithBackoff(
-          config.restartConfig.minRestartInterval,
-          config.restartConfig.maxRestartInterval,
-          config.restartConfig.restartIntervalRandomFactor)),
-    name
-  )
+  discard[ActorRef[Message]] {
+    ctx.spawn(
+      Behaviors
+        .supervise(
+          Behaviors
+            .supervise(TriggerRunnerImpl(config))
+            .onFailure[InitializationHalted](stop)
+        )
+        .onFailure(
+          restartWithBackoff(
+            config.restartConfig.minRestartInterval,
+            config.restartConfig.maxRestartInterval,
+            config.restartConfig.restartIntervalRandomFactor)),
+      name
+    )
+  }
 
   override def onMessage(msg: Message): Behavior[Message] =
     Behaviors.receiveMessagePartial[Message] {
