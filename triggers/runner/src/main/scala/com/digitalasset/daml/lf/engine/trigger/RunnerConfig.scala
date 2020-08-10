@@ -34,6 +34,7 @@ object RunnerConfig {
   private[trigger] val DefaultApplicationId: ApplicationId =
     ApplicationId("daml-trigger")
 
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
     head("trigger-runner")
 

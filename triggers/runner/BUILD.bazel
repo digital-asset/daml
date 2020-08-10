@@ -7,9 +7,14 @@ load(
     "da_scala_library",
 )
 
+tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+    "NonUnitStatements",
+]]
+
 da_scala_library(
     name = "trigger-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = tsvc_main_scalacopts,
     tags = ["maven_coordinates=com.daml:trigger-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
