@@ -414,7 +414,7 @@ object Server {
         }
         .receiveSignal {
           case (_, PostStop) =>
-            binding.unbind()
+            discard[Future[akka.Done]](binding.unbind())
             Behaviors.same
         }
 
