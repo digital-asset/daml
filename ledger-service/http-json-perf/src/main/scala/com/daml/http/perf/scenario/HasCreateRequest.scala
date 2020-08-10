@@ -6,9 +6,7 @@ package com.daml.http.perf.scenario
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 import io.gatling.core.Predef._
-import io.gatling.core.action.{Action, ChainableAction}
-import io.gatling.core.action.builder.ActionBuilder
-import io.gatling.core.structure.{ScenarioBuilder, ScenarioContext}
+import io.gatling.core.structure.ScenarioBuilder
 import io.gatling.http.Predef._
 import io.gatling.http.check.HttpCheck
 import io.gatling.http.request.builder.HttpRequestBuilder
