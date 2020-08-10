@@ -20,6 +20,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 
@@ -416,7 +417,8 @@ object SingleParticipant {
       ledgerId = None,
       participantId = None,
       exp = None,
-      applicationId = None,
+      // Set the application id to make sure it is set correctly.
+      applicationId = Some("daml-script-test"),
       actAs = parties,
       admin = admin,
       readAs = List()
@@ -449,10 +451,15 @@ object SingleParticipant {
                 ApiParameters(
                   "localhost",
                   config.ledgerPort,
-                  Some(getToken(List("Alice"), false)))),
+                  Some(getToken(List("Alice"), false)),
+                  Some(ApplicationId("daml-script-test")))),
               (
                 Participant("bob"),
-                ApiParameters("localhost", config.ledgerPort, Some(getToken(List("Bob"), false))))
+                ApiParameters(
+                  "localhost",
+                  config.ledgerPort,
+                  Some(getToken(List("Bob"), false)),
+                  Some(ApplicationId("daml-script-test"))))
             ).toMap,
             List(
               (ScriptParty("Alice"), Participant("alice")),
@@ -460,7 +467,7 @@ object SingleParticipant {
           )
         } else {
           Participants(
-            Some(ApiParameters("localhost", config.ledgerPort, None)),
+            Some(ApiParameters("localhost", config.ledgerPort, None, None)),
             Map.empty,
             Map.empty)
         }

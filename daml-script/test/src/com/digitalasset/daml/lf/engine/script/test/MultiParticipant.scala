@@ -148,8 +148,10 @@ object MultiParticipant {
         val participantParams = Participants(
           None,
           Seq(
-            (Participant("one"), ApiParameters("localhost", config.ledgerPort, None)),
-            (Participant("two"), ApiParameters("localhost", config.extraParticipantPort, None))
+            (Participant("one"), ApiParameters("localhost", config.ledgerPort, None, None)),
+            (
+              Participant("two"),
+              ApiParameters("localhost", config.extraParticipantPort, None, None))
           ).toMap,
           Map.empty
         )

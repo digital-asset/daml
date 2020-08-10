@@ -513,7 +513,7 @@ class JsonLedgerClient(
     case -\/(e) => throw new IllegalArgumentException(e.toString)
     case \/-(a) => a
   }
-  private val tokenPayload: AuthServiceJWTPayload =
+  private[script] val tokenPayload: AuthServiceJWTPayload =
     AuthServiceJWTCodec.readFromString(decodedJwt.payload) match {
       case Failure(e) => throw e
       case Success(s) => s

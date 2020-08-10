@@ -91,11 +91,7 @@ class TestRunner(
     implicit val ec: ExecutionContext = system.dispatcher
 
     val clientsF =
-      Runner.connect(
-        participantParams,
-        Runner.DEFAULT_APPLICATION_ID,
-        tlsConfig,
-        maxInboundMessageSize)
+      Runner.connect(participantParams, tlsConfig, maxInboundMessageSize)
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF

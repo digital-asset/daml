@@ -54,7 +54,6 @@ object TestMain extends StrictLogging {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
-        val applicationId = Runner.DEFAULT_APPLICATION_ID
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptTestPool")(system)
@@ -85,10 +84,10 @@ object TestMain extends StrictLogging {
               val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
               val sandboxPort =
                 Await.result(sandboxResource.asFuture.flatMap(_.portF).map(_.value), Duration.Inf)
-              (ApiParameters("localhost", sandboxPort, None), () => sandboxResource.release())
+              (ApiParameters("localhost", sandboxPort, None, None), () => sandboxResource.release())
             } else {
               (
-                ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None),
+                ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None, None),
                 () => Future.successful(()),
               )
             }
@@ -120,7 +119,6 @@ object TestMain extends StrictLogging {
         val flow: Future[Boolean] = for {
           clients <- Runner.connect(
             participantParams,
-            applicationId,
             TlsConfiguration(false, None, None, None),
             config.maxInboundMessageSize,
           )

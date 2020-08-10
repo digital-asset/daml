@@ -33,6 +33,7 @@ object ReplServiceMain extends App {
       ledgerHost: Option[String],
       ledgerPort: Option[Int],
       accessTokenFile: Option[Path],
+      applicationId: Option[ApplicationId],
       maxInboundMessageSize: Int,
       tlsConfig: TlsConfiguration,
       // optional so we can detect if both --static-time and --wall-clock-time are passed.
@@ -66,6 +67,12 @@ object ReplServiceMain extends App {
         .optional()
         .action { (tokenFile, c) =>
           c.copy(accessTokenFile = Some(Paths.get(tokenFile)))
+        }
+
+      opt[String]("application-id")
+        .optional()
+        .action { (appId, c) =>
+          c.copy(applicationId = Some(ApplicationId(appId)))
         }
 
       TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
@@ -109,6 +116,7 @@ object ReplServiceMain extends App {
           tlsConfig = TlsConfiguration(false, None, None, None),
           maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
           timeMode = None,
+          applicationId = None,
         )
       )
   }
@@ -129,15 +137,15 @@ object ReplServiceMain extends App {
 
   val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
   val defaultParticipant = (config.ledgerHost, config.ledgerPort) match {
-    case (Some(host), Some(port)) => Some(ApiParameters(host, port, tokenHolder.flatMap(_.token)))
+    case (Some(host), Some(port)) =>
+      Some(ApiParameters(host, port, tokenHolder.flatMap(_.token), config.applicationId))
     case _ => None
   }
   val participantParams =
     Participants(defaultParticipant, Map.empty, Map.empty)
-  val applicationId = ApplicationId("daml repl")
   val clients = Await.result(
     Runner
-      .connect(participantParams, applicationId, config.tlsConfig, config.maxInboundMessageSize),
+      .connect(participantParams, config.tlsConfig, config.maxInboundMessageSize),
     30.seconds)
   val timeMode = config.timeMode.getOrElse(ScriptTimeMode.WallClock)
 
