@@ -6,8 +6,6 @@ package com.daml.http.perf.scenario
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 
-import scala.concurrent.duration._
-
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class SyncQueryNewAcs
     extends Simulation
@@ -19,25 +17,21 @@ class SyncQueryNewAcs
 
   private val wantedAcsSize = 1000
 
-  private val numberOfRuns = 100
+  private val numberOfRuns = 25
 
   private val syncQueryNewAcs =
     scenario(s"SyncQueryNewAcs, numberOfRuns: $numberOfRuns, ACS size: $wantedAcsSize")
       .repeat(numberOfRuns) {
-        // fill ACS
-        repeat(wantedAcsSize) {
+        doWhile(_ => this.acsSize() < wantedAcsSize) {
           feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
             .exec(
               randomAmountCreateRequest
                 .check(status.is(200))
                 .check(captureContractId)
                 .silent)
-        }
-        // run a query
-        feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
+        }.feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
           .exec(randomAmountQueryRequest.notSilent)
-          // archive ACS
-          .repeat(wantedAcsSize) {
+          .doWhile(_ => this.acsSize() > 0) {
             feed(Iterator.continually(Map("archiveContractId" -> takeNextContractIdFromAcs())))
               .exec(archiveRequest.silent)
           }
