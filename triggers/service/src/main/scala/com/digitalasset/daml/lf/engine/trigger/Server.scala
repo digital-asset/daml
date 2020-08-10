@@ -447,7 +447,16 @@ object Server {
           // We got a stop message but haven't completed starting
           // yet. We cannot stop until starting has completed.
           starting(wasStopped = true, req = None)
-        case _ =>
+
+        case TriggerStarting(triggerInstance) =>
+          server.logTriggerStatus(triggerInstance, "s11 starting received in 'starting' state")
+          Behaviors.same
+
+        case TriggerStarted(triggerInstance) =>
+          server.logTriggerStatus(triggerInstance, "s11 running received in 'starting' state")
+          Behaviors.same
+
+        case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
           Behaviors.unhandled
       }
 
