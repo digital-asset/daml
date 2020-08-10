@@ -7,6 +7,7 @@ import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
+import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import DA.Daml.Options.Types
@@ -71,7 +72,7 @@ main =
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
       -- Spinning up the scenario service is expensive so we do it once at the beginning.
-      SS.withScenarioService logger scenarioConfig $ \scriptService ->
+      SS.withScenarioService LF.versionDefault logger scenarioConfig $ \scriptService ->
         defaultMain $
           testGroup
             "Script Service"

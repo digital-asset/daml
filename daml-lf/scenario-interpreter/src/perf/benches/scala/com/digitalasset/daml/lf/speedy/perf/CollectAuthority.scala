@@ -32,9 +32,9 @@ class CollectAuthority {
 class CollectAuthorityState {
 
   @Param(Array("//daml-lf/scenario-interpreter/CollectAuthority.dar"))
-  private var dar: String = _
+  private[perf] var dar: String = _
   @Param(Array("CollectAuthority:test"))
-  private var scenario: String = _
+  private[perf] var scenario: String = _
 
   var machine: Machine = null
   var the_sexpr: SExpr = null

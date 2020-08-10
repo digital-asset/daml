@@ -793,6 +793,82 @@ private[lf] object Speedy {
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
+  private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Unit = {
+    val altOpt = v match {
+      case SBool(b) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPPrimCon(PCTrue) => b
+            case SCPPrimCon(PCFalse) => !b
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SVariant(_, _, rank1, arg) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPVariant(_, _, rank2) if rank1 == rank2 =>
+              machine.pushEnv(arg)
+              true
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SEnum(_, _, rank1) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPEnum(_, _, rank2) => rank1 == rank2
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SList(lst) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPNil if lst.isEmpty => true
+            case SCPCons if !lst.isEmpty =>
+              val Some((head, tail)) = lst.pop
+              machine.pushEnv(head)
+              machine.pushEnv(SList(tail))
+              true
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SUnit =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPPrimCon(PCUnit) => true
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SOptional(mbVal) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPNone if mbVal.isEmpty => true
+            case SCPSome =>
+              mbVal match {
+                case None => false
+                case Some(x) =>
+                  machine.pushEnv(x)
+                  true
+              }
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
+            _) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) | SAny(_, _) |
+          STypeRep(_) | STNat(_) | _: SPAP | SToken =>
+        crash("Match on non-matchable value")
+    }
+
+    machine.ctrl = altOpt
+      .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
+      .body
+  }
+
   private[speedy] final case class KMatch(
       alts: Array[SCaseAlt],
       frame: Frame,
@@ -802,79 +878,7 @@ private[lf] object Speedy {
       with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       machine.restoreEnv(frame, actuals, envSize)
-      val altOpt = v match {
-        case SBool(b) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPPrimCon(PCTrue) => b
-              case SCPPrimCon(PCFalse) => !b
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SVariant(_, _, rank1, arg) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPVariant(_, _, rank2) if rank1 == rank2 =>
-                machine.pushEnv(arg)
-                true
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SEnum(_, _, rank1) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPEnum(_, _, rank2) => rank1 == rank2
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SList(lst) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPNil if lst.isEmpty => true
-              case SCPCons if !lst.isEmpty =>
-                val Some((head, tail)) = lst.pop
-                machine.pushEnv(head)
-                machine.pushEnv(SList(tail))
-                true
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SUnit =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPPrimCon(PCUnit) => true
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SOptional(mbVal) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPNone if mbVal.isEmpty => true
-              case SCPSome =>
-                mbVal match {
-                  case None => false
-                  case Some(x) =>
-                    machine.pushEnv(x)
-                    true
-                }
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) |
-            STimestamp(_) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) |
-            SAny(_, _) | STypeRep(_) | STNat(_) | _: SPAP | SToken =>
-          crash("Match on non-matchable value")
-      }
-
-      machine.ctrl = altOpt
-        .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
-        .body
+      executeMatchAlts(machine, alts, v);
     }
   }
 
@@ -920,6 +924,81 @@ private[lf] object Speedy {
           // TODO(MH): This looks like it has some potential for further
           // performance gains once the AST nodes related to ANF have landed.
           machine.ctrl = SEAppAtomicFun(func, Array(SEValue(acc), SEValue(item)))
+      }
+    }
+  }
+
+  private[speedy] final case class KFoldr(
+      func: SEValue,
+      list: ImmArray[SValue],
+      var lastIndex: Int,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(acc: SValue, machine: Machine) = {
+      if (lastIndex > 0) {
+        machine.restoreEnv(frame, actuals, envSize)
+        val currentIndex = lastIndex - 1
+        val item = list(currentIndex)
+        lastIndex = currentIndex
+        machine.pushKont(this) // NOTE: We've updated `lastIndex`.
+        // TODO(MH): This looks like it has some potential for further
+        // performance gains once the AST nodes related to ANF have landed.
+        // The same applies to `KFoldr1Map/Reduce` below.
+        machine.ctrl = SEAppAtomicFun(func, Array(SEValue(item), SEValue(acc)))
+      } else {
+        machine.returnValue = acc
+      }
+    }
+  }
+
+  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
+  // this continuation and what it does.
+  private[speedy] final case class KFoldr1Map(
+      func: SEValue,
+      var list: FrontStack[SValue],
+      var revClosures: FrontStack[SValue],
+      init: SValue,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(closure: SValue, machine: Machine) = {
+      revClosures = closure +: revClosures
+      list.pop match {
+        case None =>
+          machine.pushKont(KFoldr1Reduce(revClosures, frame, actuals, envSize))
+          machine.returnValue = init
+        case Some((item, rest)) =>
+          machine.restoreEnv(frame, actuals, envSize)
+          list = rest
+          machine.pushKont(this) // NOTE: We've updated `revClosures` and `list`.
+          machine.ctrl = SEAppAtomicFun(func, Array(SEValue(item)))
+      }
+    }
+  }
+
+  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
+  // this continuation and what it does.
+  private[speedy] final case class KFoldr1Reduce(
+      var revClosures: FrontStack[SValue],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(acc: SValue, machine: Machine) = {
+      revClosures.pop match {
+        case None =>
+          machine.returnValue = acc
+        case Some((closure, rest)) =>
+          machine.restoreEnv(frame, actuals, envSize)
+          revClosures = rest
+          machine.pushKont(this) // NOTE: We've updated `revClosures`.
+          machine.ctrl = SEAppAtomicFun(SEValue(closure), Array(SEValue(acc)))
       }
     }
   }

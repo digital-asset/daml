@@ -106,6 +106,7 @@ showCommaSpace : ShowS
 showCommaSpace = showString ", "
 
 deriving instance Show ()
+deriving instance Show Ordering
 deriving instance Show Bool
 deriving instance (Show a, Show b) => Show (Either a b)
 

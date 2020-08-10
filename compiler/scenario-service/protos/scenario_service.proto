@@ -42,6 +42,7 @@ service ScenarioService {
 //
 
 message NewContextRequest {
+  string lf_minor = 1;
 }
 
 message NewContextResponse {
@@ -346,9 +347,6 @@ message GenMap{
 message ScenarioModule {
   // each LF v1 module is wrapped in a proto package
   bytes daml_lf_1 = 2;
-
-  // for daml_lf_dev the minor version is ignored by the scenario service.
-  string minor = 1;
 }
 
 message RunScenarioResponse {

@@ -10,8 +10,8 @@ import com.daml.lf.validation.Util._
 
 private[validation] object Collision {
 
-  def checkPackage(pkgId: PackageId, modules: Traversable[(ModuleName, Ast.Module)]): Unit = {
-    val entitiesMap = namedEntitiesFromPkg(modules).groupBy(_.fullyResolvedName)
+  def checkPackage(pkgId: PackageId, pkg: Ast.Package): Unit = {
+    val entitiesMap = namedEntitiesFromPkg(pkg.modules).groupBy(_.fullyResolvedName)
     entitiesMap.values.foreach(cs => checkCollisions(pkgId, cs.toList))
   }
 

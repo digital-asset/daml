@@ -173,7 +173,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
                 PackageName.assertFromString("encodespec"),
                 PackageVersion.assertFromString("1.0.0")))
           } else None
-        val pkg = Package(parseModules(text).right.get, Set.empty, metadata)
+        val pkg = Package(parseModules(text).right.get, Set.empty, version, metadata)
         val archive = Encode.encodeArchive(pkgId -> pkg, version)
         val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 

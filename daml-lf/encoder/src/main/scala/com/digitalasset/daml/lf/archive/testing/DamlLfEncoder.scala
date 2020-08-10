@@ -66,7 +66,11 @@ private[daml] object DamlLfEncoder extends App {
             Ref.PackageVersion.assertFromString("1.0.0")))
       } else None
 
-    val pkgs = Map(pkgId -> Ast.Package(modules, Set.empty[Ref.PackageId], metadata))
+    val pkgs =
+      Map(
+        pkgId ->
+          Ast.Package(modules, Set.empty[Ref.PackageId], parserParameters.languageVersion, metadata)
+      )
 
     Validation.checkPackage(pkgs, pkgId).left.foreach(e => error(e.pretty))
 

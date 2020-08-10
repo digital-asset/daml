@@ -14,6 +14,7 @@ import com.daml.assistant.config.{
 }
 import com.daml.navigator.model.PartyState
 import com.daml.ledger.api.refinements.ApiTypes
+import com.github.ghik.silencer.silent
 import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import org.slf4j.LoggerFactory
 import pureconfig.{ConfigConvert, ConfigWriter}
@@ -69,6 +70,7 @@ object Config {
   def loadNavigatorConfig(
       configFile: Path,
       useDatabase: Boolean): Either[ConfigReadError, Config] = {
+    @silent(" partyConfigConvert .* is never used") // false positive; macro uses aren't seen
     implicit val partyConfigConvert: ConfigConvert[PartyState] = mkPartyConfigConvert(
       useDatabase = useDatabase)
     if (Files.exists(configFile)) {
@@ -123,6 +125,7 @@ object Config {
       ))
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
+    @silent(" partyConfigConvert .* is never used") // false positive; macro uses aren't seen
     implicit val partyConfigConvert: ConfigConvert[PartyState] = mkPartyConfigConvert(
       useDatabase = useDatabase)
     val config = ConfigWriter[Config].to(template(useDatabase))

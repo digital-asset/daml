@@ -3,8 +3,6 @@
 
 package com.daml.lf.engine.script
 
-import com.daml.lf.engine.preprocessing
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
@@ -38,7 +36,7 @@ import com.daml.lf.data.{Time}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, SResult}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.Speedy.Machine
@@ -122,10 +120,9 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
-  def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
   def allocateParty(partyIdHint: String, displayName: String)(
@@ -147,7 +144,8 @@ trait ScriptLedgerClient {
       mat: Materializer): Future[Unit]
 }
 
-class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient {
+class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
+    extends ScriptLedgerClient {
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
@@ -175,10 +173,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
         })))
   }
 
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
     val ledgerCommands = commands.traverse(toCommand(_)) match {
@@ -319,7 +314,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   private val txSeeding = crypto.Hash.hashPrivateKey(s"script-service")
   machine.ptx =
     PartialTransaction.initial(Time.Timestamp.MinValue, InitialSeeding.TransactionSeed(txSeeding))
-  private val valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
@@ -333,13 +327,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     Future.successful(filtered.map {
       case (cid, c) => ScriptLedgerClient.ActiveContract(templateId, cid, c.value)
     })
-  }
-
-  private def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
-    val args: Array[SExpr] = values.map(SEValue(_))
-    // We can safely introduce a let-expression here to bind the `func` expression,
-    // because there are no stack-references in `args`, since they are pure speedy values.
-    SEApp(func, args)
   }
 
   // Translate from a ledger command to an Update expression
@@ -363,21 +350,19 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   // Translate a list of commands submitted by the given party
   // into an expression corresponding to a scenario commit of the same
   // commands of type `Scenario ()`.
-  private def translateCommands(p: SParty, commands: List[ScriptLedgerClient.Command]): SExpr = {
+  private def translateCommands(commands: List[ScriptLedgerClient.Command]): SExpr = {
     val cmds: ImmArray[speedy.Command] = ImmArray(commands.map(translateCommand(_)))
     compiledPackages.compiler.unsafeCompile(cmds)
   }
 
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     machine.returnValue = null
-    var translated = translateCommands(party, commands)
+    val translated = translateCommands(commands)
     machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
     machine.committers = Set(party.value)
-    var r: SResult = SResultFinalValue(SUnit)
     var result: Try[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = null
     while (result == null) {
       machine.run() match {
@@ -528,7 +513,7 @@ class JsonLedgerClient(
     case -\/(e) => throw new IllegalArgumentException(e.toString)
     case \/-(a) => a
   }
-  private val tokenPayload: AuthServiceJWTPayload =
+  private[script] val tokenPayload: AuthServiceJWTPayload =
     AuthServiceJWTCodec.readFromString(decodedJwt.payload) match {
       case Failure(e) => throw e
       case Success(s) => s
@@ -573,10 +558,9 @@ class JsonLedgerClient(
       parsedResults
     }
   }
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
       () <- validateTokenParty(party, "submit a command")

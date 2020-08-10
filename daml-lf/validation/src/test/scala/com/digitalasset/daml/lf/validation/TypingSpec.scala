@@ -7,7 +7,7 @@ import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.testing.parser.{defaultPackageId, defaultLanguageVersion}
 import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -644,8 +644,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
       """
 
-      val world = new World(Map(defaultPackageId -> pkg))
-
       val typeMismatchCases = Table(
         "moduleName",
         "PositiveTestCase1",
@@ -662,7 +660,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       )
 
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-        world,
+        new World(Map(defaultPackageId -> pkg)),
         defaultPackageId,
         pkg.modules(DottedName.assertFromString(modName))
       )
@@ -674,7 +672,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       forAll(kindMismatchCases)(module =>
         an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
       an[EIllegalKeyExpression] shouldBe thrownBy(
-        checkModule(pkg.updateVersion(version1_3), "PositiveTestCase6"))
+        checkModule(pkg.copy(languageVersion = version1_3), "PositiveTestCase6"))
       checkModule(pkg, "PositiveTestCase6")
       an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
       an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
@@ -711,7 +709,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     val modName = DottedName.assertFromString("Mod")
 
     forEvery(testCases) { (version: LV, rejected: Boolean) =>
-      val pkg = pkg0.updateVersion(version)
+      val pkg = pkg0.copy(languageVersion = version)
       val mod = pkg.modules(modName)
       val world = new World(Map(defaultPackageId -> pkg))
 
@@ -755,7 +753,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     val modName = DottedName.assertFromString("Mod")
 
     forEvery(testCases) { (version: LV, rejected: Boolean) =>
-      val pkg = pkg0.updateVersion(version)
+      val pkg = pkg0.copy(languageVersion = version)
       val mod = pkg.modules(modName)
       val world = new World(Map(defaultPackageId -> pkg))
 
@@ -848,34 +846,34 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   }
 
   "reject ill formed type synonym definitions" in {
-    val testCases = Table(
-      "module"
-        -> "reject",
-      //Good
-      m"""module Mod { synonym S = Int64 ; }""" -> false,
-      m"""module Mod { synonym S a = a ; }""" -> false,
-      m"""module Mod { synonym S a b = a ; }""" -> false,
-      m"""module Mod { synonym S (f: *) = f ; }""" -> false,
-      m"""module Mod { synonym S (f: * -> *) = f Int64; }""" -> false,
-      //Bad
-      m"""module Mod { synonym S = a ; }""" -> true,
-      m"""module Mod { synonym S a = b ; }""" -> true,
-      m"""module Mod { synonym S a a = a ; }""" -> true,
-      m"""module Mod { synonym S = List ; }""" -> true,
-      m"""module Mod { synonym S (f: * -> *) = f ; }""" -> true,
-      m"""module Mod { synonym S (f: *) = f Int64; }""" -> true,
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
+    }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { synonym S = Int64 ; }""",
+      m"""module Mod { synonym S a = a ; }""",
+      m"""module Mod { synonym S a b = a ; }""",
+      m"""module Mod { synonym S (f: *) = f ; }""",
+      m"""module Mod { synonym S (f: * -> *) = f Int64; }""",
     )
 
-    forEvery(testCases) { (mod: Module, rejected: Boolean) =>
-      val world = new World(Map())
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { synonym S = a ; }""",
+      m"""module Mod { synonym S a = b ; }""",
+      m"""module Mod { synonym S a a = a ; }""",
+      m"""module Mod { synonym S = List ; }""",
+      m"""module Mod { synonym S (f: * -> *) = f ; }""",
+      m"""module Mod { synonym S (f: *) = f Int64; }""",
+    )
 
-      if (rejected)
-        a[ValidationError] should be thrownBy
-          Typing.checkModule(world, defaultPackageId, mod)
-      else
-        Typing.checkModule(world, defaultPackageId, mod)
-      ()
-    }
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
   }
 
   private val pkg =

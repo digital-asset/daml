@@ -224,6 +224,22 @@ describe("streamQuery", () => {
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(2)]);
   });
+
+  test("stop lisetning to a stream", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    const count1 = jest.fn();
+    const count2 = jest.fn();
+    stream.on("change", count1);
+    stream.on("change", count2);
+    mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
+    expect(count1).toHaveBeenCalledTimes(1);
+    expect(count2).toHaveBeenCalledTimes(1);
+    stream.off("change", count1)
+    mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
+    expect(count1).toHaveBeenCalledTimes(1);
+    expect(count2).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("streamFetchByKey", () => {

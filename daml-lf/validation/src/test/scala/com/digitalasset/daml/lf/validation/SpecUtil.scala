@@ -3,8 +3,7 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.language.Ast.{Expr, Kind, Package, Type}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.Ast.{Expr, Kind, Type}
 import com.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
 
@@ -46,14 +45,4 @@ private[validation] object SpecUtil {
       b.mkString
     }
   }
-
-  implicit class PackageOps(val pkg: Package) extends AnyVal {
-    def updateVersion(version: LanguageVersion) = {
-      val modMap = pkg.modules.map {
-        case (modName, mod) => modName -> mod.copy(languageVersion = version)
-      }
-      pkg.copy(modules = modMap)
-    }
-  }
-
 }

@@ -228,11 +228,12 @@ private[validation] object Typing {
     case PCUnit => TUnit
   }
 
-  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit =
+  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit = {
+    val languageVersion = world.lookupPackage(NoContext, pkgId).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
@@ -248,13 +249,14 @@ private[validation] object Typing {
             env.checkEnumType(tyConName, params, values)
         }
       case (dfnName, dfn: DValue) =>
-        Env(mod.languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
+  }
 
   case class Env(
       languageVersion: LanguageVersion,

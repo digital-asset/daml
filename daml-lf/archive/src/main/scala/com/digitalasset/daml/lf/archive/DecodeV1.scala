@@ -62,6 +62,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             _,
             onlySerializableDataDefs).decode),
       directDeps = dependencyTracker.getDependencies,
+      languageVersion = languageVersion,
       metadata = metadata,
     )
 
@@ -238,7 +239,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         templates += ((defName, decodeTemplate(defn)))
       }
 
-      Module(moduleName, defs, templates, languageVersion, decodeFeatureFlags(lfModule.getFlags))
+      Module(moduleName, defs, templates, decodeFeatureFlags(lfModule.getFlags))
     }
 
     // -----------------------------------------------------------------------

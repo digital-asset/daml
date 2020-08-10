@@ -561,7 +561,7 @@ class Ledger {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const on = (type: string, listener: any): void => void emitter.on(type, listener);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const off = (type: string, listener: any): void => void emitter.on(type, listener);
+    const off = (type: string, listener: any): void => void emitter.off(type, listener);
     const close = (): void => {
       emitter.removeAllListeners();
       ws.close();
