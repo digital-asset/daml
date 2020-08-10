@@ -17,39 +17,33 @@ class SyncQueryNewAcs
     with HasArchiveRequest
     with HasQueryRequest {
 
-  private val wantedAcsSize = 1000
+  private val wantedAcsSize = 100
 
-  private val numberOfRuns = 100
+  private val numberOfRuns = 5
 
   private val syncQueryNewAcs =
-    scenario(s"SyncQueryNewAcs, numberOfRuns: $numberOfRuns")
-      .doWhile(_ => acsSize() < wantedAcsSize) {
-        pause(1.second)
-      }
+    scenario(s"SyncQueryNewAcs, numberOfRuns: $numberOfRuns, ACS size: $wantedAcsSize")
       .repeat(numberOfRuns) {
+        // fill ACS
+        repeat(wantedAcsSize) {
+          feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
+            .exec(
+              randomAmountCreateRequest
+                .check(status.is(200))
+                .check(captureContractId)
+                .silent)
+        }
         // run a query
         feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
           .exec(randomAmountQueryRequest.notSilent)
-          // archive and re-fill the ACS
-          .repeat(wantedAcsSize)(
-            feed(
-              Iterator.continually(
-                Map[String, String](
-                  "archiveContractId" -> takeNextContractIdFromAcs(),
-                  "amount" -> String.valueOf(randomAmount())
-                )
-              )
-            ).exec(archiveRequest.silent)
-              .exec(
-                randomAmountCreateRequest
-                  .check(status.is(200))
-                  .check(captureContractId)
-                  .silent)
-          )
+          // archive ACS
+          .repeat(wantedAcsSize) {
+            feed(Iterator.continually(Map("archiveContractId" -> takeNextContractIdFromAcs())))
+              .exec(archiveRequest.silent)
+          }
       }
 
   setUp(
-    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(1)),
     syncQueryNewAcs.inject(atOnceUsers(1)),
   ).protocols(httpProtocol)
 }
