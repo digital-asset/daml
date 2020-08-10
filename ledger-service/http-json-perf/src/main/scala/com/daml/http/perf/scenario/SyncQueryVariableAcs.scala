@@ -30,7 +30,7 @@ class SyncQueryVariableAcs
           Iterator.continually(
             Map[String, String](
               "amount" -> String.valueOf(randomAmount()),
-              "archiveContractId" -> takeNextContractIdFromAcs(),
+              "archiveContractId" -> removeNextContractIdFromAcs(),
             )
           )
         ).exec {

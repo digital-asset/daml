@@ -18,8 +18,8 @@ private[scenario] trait HasCreateRequest {
 
   def acsSize(): Int = acsQueue.size
 
-  // would block until at least one element gets available in the queue
-  def takeNextContractIdFromAcs(): String = acsQueue.take
+  // does not block throws an exception if queue is empty
+  def removeNextContractIdFromAcs(): String = acsQueue.remove
 
   lazy val randomAmountCreateRequest: HttpRequestBuilder =
     http("CreateCommand")
