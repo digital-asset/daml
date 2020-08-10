@@ -30,7 +30,7 @@ abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boo
       // (otherwise some of those would be rejected).
       // See [[ParticipantStateIntegrationSpecBase]].
       maxBatchQueueSize = if (enableBatching) 100 else 1000,
-      maxBatchSizeBytes = 4 * 1024 * 1024 /* 4MB */,
+      maxBatchSizeBytes = 4L * 1024L * 1024L /* 4MB */,
       maxBatchWaitDuration = 100.millis,
       // In-memory ledger doesn't support concurrent commits.
       maxBatchConcurrentCommits = 1
