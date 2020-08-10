@@ -15,7 +15,7 @@ class SyncQueryNewAcs
     with HasArchiveRequest
     with HasQueryRequest {
 
-  private val wantedAcsSize = 5000
+  private val wantedAcsSize = 1000
 
   private val numberOfRuns = 25
 
