@@ -31,22 +31,23 @@ class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with
 
       val mod = Module(
         modName,
-        (
-          (u -> DValue(TUnit, true, EUnit, false)) +:
-            depRefs.map {
-            case (depPkgId, depModName) =>
-              depModName -> DValue(
-                TUnit,
-                true,
-                EVal(Identifier(depPkgId, QualifiedName(depModName, u))),
-                false)
-          }
-        ),
-        langVersion,
+        (u -> DValue(TUnit, true, EUnit, false)) +:
+          depRefs.map {
+          case (depPkgId, depModName) =>
+            depModName -> DValue(
+              TUnit,
+              true,
+              EVal(Identifier(depPkgId, QualifiedName(depModName, u))),
+              false)
+        },
         FeatureFlags.default
       )
 
-      pkgId -> Package(Map(modName -> mod), depRefs.iterator.map(_._1).toSet - pkgId, None)
+      pkgId -> Package(
+        Map(modName -> mod),
+        depRefs.iterator.map(_._1).toSet - pkgId,
+        langVersion,
+        None)
     }
 
     val negativeTestCases = Table(

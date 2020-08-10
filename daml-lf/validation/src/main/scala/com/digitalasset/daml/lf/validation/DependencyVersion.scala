@@ -14,20 +14,15 @@ private[validation] object DependencyVersion {
     import VersionTimeline.Implicits._
 
     for {
-      pkgFirstModule <- pkg.modules.values.take(1)
-      // all modules of a package are compiled to the same LF version
-      pkgLangVersion = pkgFirstModule.languageVersion
       depPkgId <- pkg.directDeps
       depPkg = world.lookupPackage(NoContext, depPkgId)
-      depFirstModule <- depPkg.modules.values.take(1)
-      depLangVersion = depFirstModule.languageVersion
-    } if (pkgLangVersion precedes depLangVersion)
-      throw EModuleVersionDependencies(
-        pkgId,
-        pkgLangVersion,
-        depPkgId,
-        depLangVersion
-      )
+      if pkg.languageVersion precedes depPkg.languageVersion
+    } throw EModuleVersionDependencies(
+      pkgId,
+      pkg.languageVersion,
+      depPkgId,
+      depPkg.languageVersion
+    )
   }
 
 }

@@ -148,7 +148,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   }
 
   def allPackages: Map[PackageId, Ast.Package] = synchronized {
-    extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet, None))
+    extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet, languageVersion, None))
   }
 
   // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
