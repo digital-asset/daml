@@ -31,14 +31,16 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
+import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
+import org.scalactic.source
 import scalaz.syntax.std.option._
 
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.sys.process.Process
 
-object TriggerServiceFixture {
+object TriggerServiceFixture extends StrictLogging {
 
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
@@ -51,7 +53,11 @@ object TriggerServiceFixture {
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
       implicit mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext): Future[A] = {
+      ec: ExecutionContext,
+      pos: source.Position,
+  ): Future[A] = {
+    logger.info(s"s11 ${pos.fileName}:${pos.lineNumber}: setting up trigger service")
+
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
 
