@@ -23,7 +23,6 @@ import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 
 import com.daml.lf.engine.script.{
   Runner,
@@ -202,8 +201,6 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
-      // TODO The application id should be part of the client.
-      ApplicationId("Script Service"),
       ScriptTimeMode.Static
     )
     val client = new IdeClient(compiledPackages)

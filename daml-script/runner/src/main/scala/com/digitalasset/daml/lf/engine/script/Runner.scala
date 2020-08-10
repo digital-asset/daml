@@ -162,6 +162,7 @@ object Script {
 }
 
 object Runner {
+  val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
   private def connectApiParameters(
       params: ApiParameters,
       applicationId: ApplicationId,
@@ -183,7 +184,7 @@ object Runner {
           .maxInboundMessageSize(maxInboundMessageSize),
         clientConfig,
       )
-      .map(new GrpcLedgerClient(_))
+      .map(new GrpcLedgerClient(_, applicationId))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(
@@ -229,7 +230,6 @@ object Runner {
       scriptId: Identifier,
       inputValue: Option[JsValue],
       initialClients: Participants[ScriptLedgerClient],
-      applicationId: ApplicationId,
       timeMode: ScriptTimeMode)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -258,17 +258,12 @@ object Runner {
       case (_: Script.Function, None) =>
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
-    val runner =
-      new Runner(compiledPackages, scriptAction, applicationId, timeMode)
+    val runner = new Runner(compiledPackages, scriptAction, timeMode)
     runner.runWithClients(initialClients)
   }
 }
 
-class Runner(
-    compiledPackages: CompiledPackages,
-    script: Script.Action,
-    applicationId: ApplicationId,
-    timeMode: ScriptTimeMode)
+class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode: ScriptTimeMode)
     extends StrictLogging {
 
   private val utcClock = Clock.systemUTC()
@@ -370,7 +365,7 @@ class Runner(
                       client <- Converter.toFuture(
                         clients
                           .getPartyParticipant(Party(party.value)))
-                      submitRes <- client.submit(applicationId, party, commands)
+                      submitRes <- client.submit(party, commands)
                       v <- submitRes match {
                         case Right(results) => {
                           for {

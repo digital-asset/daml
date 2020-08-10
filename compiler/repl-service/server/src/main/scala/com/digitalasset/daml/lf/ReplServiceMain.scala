@@ -224,11 +224,8 @@ class ReplService(
         compiledDefinitions ++ defs,
         Compiler.FullStackTrace,
         Compiler.NoProfile)
-    val runner = new Runner(
-      compiledPackages,
-      Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
-      ApplicationId("daml repl"),
-      timeMode)
+    val runner =
+      new Runner(compiledPackages, Script.Action(scriptExpr, ScriptIds(scriptPackageId)), timeMode)
     runner.runWithClients(clients).onComplete {
       case Failure(e: SError.SError) =>
         // The error here is already printed by the logger in stepToValue.

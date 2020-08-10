@@ -120,10 +120,9 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
-  def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
   def allocateParty(partyIdHint: String, displayName: String)(
@@ -145,7 +144,8 @@ trait ScriptLedgerClient {
       mat: Materializer): Future[Unit]
 }
 
-class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient {
+class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
+    extends ScriptLedgerClient {
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
@@ -173,10 +173,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
         })))
   }
 
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
     val ledgerCommands = commands.traverse(toCommand(_)) match {
@@ -358,10 +355,9 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     compiledPackages.compiler.unsafeCompile(cmds)
   }
 
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     machine.returnValue = null
     val translated = translateCommands(commands)
@@ -562,10 +558,9 @@ class JsonLedgerClient(
       parsedResults
     }
   }
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
       () <- validateTokenParty(party, "submit a command")

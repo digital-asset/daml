@@ -40,9 +40,7 @@ import com.daml.http.HttpService
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
-  MockMessages,
   OwnedResource,
   SuiteResource,
   SuiteResourceManagementAroundAll,
@@ -103,7 +101,7 @@ trait JsonApiFixture
               val config = new HttpService.DefaultStartSettings {
                 override val ledgerHost = "localhost"
                 override val ledgerPort = server.port.value
-                override val applicationId = ApplicationId(MockMessages.applicationId)
+                override val applicationId = Runner.DEFAULT_APPLICATION_ID
                 override val address = "localhost"
                 override val httpPort = 0
                 override val portFile = None
@@ -197,13 +195,7 @@ final class JsonApiIt
       inputValue: Option[JsValue] = Some(JsString(party)),
       dar: Dar[(PackageId, Package)] = dar): Future[SValue] = {
     val scriptId = Identifier(dar.main._1, name)
-    Runner.run(
-      dar,
-      scriptId,
-      inputValue,
-      clients,
-      ApplicationId(MockMessages.applicationId),
-      ScriptTimeMode.WallClock)
+    Runner.run(dar, scriptId, inputValue, clients, ScriptTimeMode.WallClock)
   }
 
   "DAML Script over JSON API" can {
