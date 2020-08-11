@@ -14,11 +14,9 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import scala.collection.compat._
 
 object Transactions {
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def allCreatedEvents(transaction: Transaction): ImmArraySeq[CreatedEvent] =
     transaction.events.iterator.flatMap(_.event.created.toList).to(ImmArraySeq)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def allArchivedEvents(transaction: Transaction): ImmArraySeq[ArchivedEvent] =
     transaction.events.iterator.flatMap(_.event.archived.toList).to(ImmArraySeq)
 

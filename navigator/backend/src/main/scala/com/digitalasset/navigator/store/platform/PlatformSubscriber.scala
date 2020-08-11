@@ -46,7 +46,6 @@ object PlatformSubscriber {
 }
 
 /** Actor subscribing to platform event stream of a single DA party. */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class PlatformSubscriber(
     ledgerClient: LedgerClient,
     party: PartyState,

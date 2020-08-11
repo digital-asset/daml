@@ -79,7 +79,6 @@ object PlatformStore {
 }
 
 /** Store implementation that accesses the platform API to fetch data and execute commands. */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class PlatformStore(
     platformHost: String,
     platformPort: Int,

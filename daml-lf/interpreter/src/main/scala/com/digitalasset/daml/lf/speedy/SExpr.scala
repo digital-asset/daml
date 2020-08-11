@@ -27,12 +27,10 @@ import com.daml.lf.speedy.SBuiltin._
   */
 sealed abstract class SExpr extends Product with Serializable {
   def execute(machine: Machine): Unit
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override def toString: String =
     productPrefix + productIterator.map(SExpr.prettyPrint).mkString("(", ",", ")")
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SExpr {
 
   sealed abstract class SExprAtomic extends SExpr {

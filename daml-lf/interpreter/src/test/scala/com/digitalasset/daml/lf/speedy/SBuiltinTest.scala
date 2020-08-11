@@ -1479,14 +1479,12 @@ object SBuiltinTest {
     SStruct(entryFields, args)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private implicit def resultEq: Equality[Either[SError, SValue]] = {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2
     case _ => false
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private implicit def optionEq: Equality[Option[SValue]] = {
     case (Some(v1: SValue), Some(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (None, None) => true

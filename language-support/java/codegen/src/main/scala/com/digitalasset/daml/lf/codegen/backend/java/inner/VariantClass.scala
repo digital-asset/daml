@@ -15,7 +15,6 @@ import javax.lang.model.element.Modifier
 
 import scala.collection.JavaConverters.{asJavaIterableConverter, iterableAsScalaIterableConverter}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[inner] object VariantClass extends StrictLogging {
 
   def generate(

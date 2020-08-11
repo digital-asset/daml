@@ -67,7 +67,6 @@ object ContractDao {
         fconn.raiseError(StaleOffsetException(party, templateId, newOffset, lastOffset))
     } yield ()
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def selectContracts(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,

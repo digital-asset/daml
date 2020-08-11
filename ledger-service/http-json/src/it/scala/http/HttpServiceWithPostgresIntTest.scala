@@ -56,7 +56,6 @@ class HttpServiceWithPostgresIntTest
     }
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def selectAllDbContracts
     : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
     import com.daml.http.dbbackend.Queries.Implicits._

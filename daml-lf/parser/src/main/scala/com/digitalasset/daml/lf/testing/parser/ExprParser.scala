@@ -9,7 +9,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 
-@SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
 private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   import ExprParser._

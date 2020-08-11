@@ -168,7 +168,6 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
 object VersionTimelineSpec {
   import VersionTimeline._
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private val constNil: Any => List[Nothing] = _ => Nil
 
   private sealed abstract class Exists[F[_]] {

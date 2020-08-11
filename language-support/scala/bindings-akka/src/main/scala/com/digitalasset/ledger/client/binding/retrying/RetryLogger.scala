@@ -51,7 +51,6 @@ object RetryLogger extends LazyLogging {
       (ERROR_DETAILS, status.details.mkString(","))
     )
 
-  @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable", "org.wartremover.warts.Any"))
   private def format(fs: (String, Any)*): String = fs.map(f => s"${f._1} = ${f._2}").mkString(", ")
 
   private val PARTY = "party"

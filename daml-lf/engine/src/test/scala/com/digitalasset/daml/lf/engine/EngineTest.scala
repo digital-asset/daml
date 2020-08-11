@@ -37,12 +37,7 @@ import scalaz.syntax.apply._
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.Serializable",
-    "org.wartremover.warts.Product"
-  ))
+@SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunfiles {
 
   import EngineTest._
@@ -1645,7 +1640,6 @@ object EngineTest {
       idx: Int) =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private implicit def resultEq: Equality[Either[Error, SValue]] = {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2

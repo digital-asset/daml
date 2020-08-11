@@ -60,7 +60,6 @@ private[http] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
 
   abstract class Cid[-C] extends (C AbstractFunction1 String)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   object Cid {
     implicit val ofDBC: Cid[DBContract[Any, Any, Any, Any]] = _.contractId
     implicit val ofAC: Cid[domain.ActiveContract[Any]] = _.contractId.unwrap

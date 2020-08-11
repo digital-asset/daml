@@ -6,7 +6,6 @@ package com.daml.lf.speedy
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{WordSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SomeArrayEqualsTest extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
   import com.daml.lf.speedy.{SomeArrayEquals => SAE}
   import SomeArrayEqualsTest._

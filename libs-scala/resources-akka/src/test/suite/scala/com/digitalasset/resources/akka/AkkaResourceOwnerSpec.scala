@@ -17,7 +17,6 @@ class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
     "convert to a ResourceOwner" in {
       val testPromise = Promise[Int]()
       class TestActor extends Actor {
-        @SuppressWarnings(Array("org.wartremover.warts.Any"))
         override def receive: Receive = {
           case value: Int => testPromise.success(value)
           case value => testPromise.failure(new IllegalArgumentException(s"$value"))

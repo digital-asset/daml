@@ -36,7 +36,6 @@ object CidMapper {
   type CidSuffixer[-A1, +A2] =
     CidMapper[A1, A2, Value.ContractId, Value.ContractId.V1]
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private val _trivialMapper: CidMapper[Any, Any, Nothing, Any] =
     new CidMapper[Any, Any, Nothing, Any] {
       override def map(f: Nothing => Any): Any => Any = identity

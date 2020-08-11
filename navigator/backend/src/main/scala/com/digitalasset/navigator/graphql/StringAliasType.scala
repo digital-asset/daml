@@ -10,7 +10,6 @@ import sangria.validation.StringCoercionViolation
 import scalaz.{@@, Tag}
 
 /** GraphQL alias type for string value. */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object StringAliasType {
   def apply(name: String, description: Option[String] = None): ScalarType[String] =
     ScalarType(

@@ -12,7 +12,6 @@ class PrettyPrintWriter(val target: PrettyPrintTarget) extends PrinterFunctionWr
   private val pprinter: PPrinter = PPrinter(target.width, target.height)
   private def pprint(x: Any): Unit = pprinter.pprintln(x)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def printer: Any => Unit = pprint
 
   def handlePackage(id: String, interface: Interface): Unit = {

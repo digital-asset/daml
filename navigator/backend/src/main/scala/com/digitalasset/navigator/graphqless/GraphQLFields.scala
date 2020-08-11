@@ -17,7 +17,6 @@ object GraphQLFields {
     graphQLFields
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 trait DerivedGraphQLFields {
 
   def mkField[Ctx, C, Repr <: HList, K <: Symbol, V](

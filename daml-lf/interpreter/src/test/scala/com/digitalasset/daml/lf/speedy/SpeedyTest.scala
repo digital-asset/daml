@@ -430,7 +430,6 @@ object SpeedyTest {
     machine.profile.events
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private implicit def resultEq: Equality[Either[SError, SValue]] = {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2

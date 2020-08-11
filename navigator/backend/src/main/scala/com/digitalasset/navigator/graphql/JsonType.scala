@@ -24,11 +24,7 @@ import spray.json._
   *
   * Adapted from https://gist.github.com/OlegIlyenko/5b96f4b54f656aac226d3c4bc33fd2a6
   */
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Product",
-    "org.wartremover.warts.Serializable",
-    "org.wartremover.warts.Any"))
+@SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 object JsonType {
 
   case object JsonCoercionViolation extends ValueCoercionViolation("Not valid JSON")

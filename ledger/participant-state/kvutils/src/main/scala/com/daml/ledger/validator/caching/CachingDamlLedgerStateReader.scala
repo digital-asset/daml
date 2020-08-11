@@ -44,7 +44,6 @@ class CachingDamlLedgerStateReader(
 
   override def readState(keys: Seq[DamlStateKey]): Future[Seq[Option[DamlStateValue]]] = {
     this.synchronized { readSet ++= keys }
-    @SuppressWarnings(Array("org.wartremover.warts.Any")) // Required to make `.view` work.
     val cachedValues = keys.view
       .map(key => key -> cache.getIfPresent(key))
       .filter(_._2.isDefined)

@@ -426,7 +426,6 @@ private[http] object ContractsFetch {
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
     doobie.free.connection.async[A](k => fa.onComplete(ta => k(ta.toEither)))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
       step: InsertDeleteStep[Any, PreInsertContract],
   )(implicit log: doobie.LogHandler): ConnectionIO[Unit] = {

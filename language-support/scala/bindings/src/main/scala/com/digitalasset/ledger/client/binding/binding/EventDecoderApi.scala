@@ -11,7 +11,6 @@ import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 
 abstract class EventDecoderApi(val templateTypes: Seq[TemplateCompanion[_]]) {
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   val decoderTable: Map[ApiTypes.TemplateId, rpcevent.CreatedEvent => Option[Template[_]]] =
     templateTypes.map(_.decoderEntry).toMap
 
@@ -20,7 +19,6 @@ abstract class EventDecoderApi(val templateTypes: Seq[TemplateCompanion[_]]) {
     ApiTypes.TemplateId.unsubst[F, rpcvalue.Identifier](decoderTable.lift)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   final def createdEventToContractRef(
       createdEvent: rpcevent.CreatedEvent): Either[EventDecoderError, Contract.OfAny] = {
     for {

@@ -29,11 +29,9 @@ object Implicits {
     def m[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Module =
       interpolate(new ModParser[P](parserParameters).mod)(args)
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def n(args: Any*): Ref.Name =
       Ref.Name.assertFromString(sc.standardInterpolator(identity, args.map(prettyPrint)))
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     private def interpolate[T](p: Parsers.Parser[T])(args: Seq[Any]): T =
       Parsers.parseAll(Parsers.phrase(p), sc.standardInterpolator(identity, args.map(prettyPrint)))
   }

@@ -62,7 +62,6 @@ object AkkaExecutionSequencer {
 }
 
 private[grpc] class RunnableSequencingActor extends Actor with ActorLogging {
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override val receive: Receive = {
     case runnable: Runnable =>
       try {
