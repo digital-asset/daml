@@ -75,9 +75,6 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                # This fixes a ghc-lib specific build issue and is not upstreamable.
-                # This might also be fixed by using `stack_snapshot` in the future.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
