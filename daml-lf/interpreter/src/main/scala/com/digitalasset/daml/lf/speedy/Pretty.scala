@@ -75,7 +75,7 @@ private[lf] object Pretty {
         )
 
       case DamlEDisallowedInputValueVersion(VersionRange(expectedMin, expectedMax), actual) =>
-        text("Update failed due to wrong value version") /
+        text("Update failed due to disallowed value version") /
           text("Expected value version between") & text(expectedMin.protoValue) &
           text("and") & text(expectedMax.protoValue) & text("but got") &
           text(actual.protoValue)

@@ -187,13 +187,13 @@ object Repl {
     val (inputValueVersion, outputTransactionVersions) =
       if (devMode)
         (
-          value.ValueVersions.SupportedDevVersions,
-          transaction.TransactionVersions.SupportedDevVersions
+          value.ValueVersions.DevOutputVersions,
+          transaction.TransactionVersions.DevOutputVersions
         )
       else
         (
-          value.ValueVersions.SupportedStableVersions,
-          transaction.TransactionVersions.SupportedStableVersions,
+          value.ValueVersions.StableOutputVersions,
+          transaction.TransactionVersions.StableOutputVersions,
         )
 
     def run(expr: Expr): (

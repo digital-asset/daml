@@ -21,8 +21,8 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
         compiledPackages,
         txSeed,
         e,
-        lf.value.ValueVersions.SupportedDevVersions,
-        transaction.TransactionVersions.SupportedDevVersions,
+        lf.value.ValueVersions.DevOutputVersions,
+        transaction.TransactionVersions.DevOutputVersions,
       )
       val sr = ScenarioRunner(m, _ + "-XXX")
       sr.run() match {

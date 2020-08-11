@@ -330,8 +330,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     expr = null,
     globalCids = Set.empty,
     committers = Set.empty,
-    inputValueVersions = value.ValueVersions.SupportedDevVersions,
-    outputTransactionVersions = transaction.TransactionVersions.SupportedDevVersions,
+    inputValueVersions = value.ValueVersions.DevOutputVersions,
+    outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
   )
   (compiledPackages, SEValue(SUnit))
   val scenarioRunner = ScenarioRunner(machine)

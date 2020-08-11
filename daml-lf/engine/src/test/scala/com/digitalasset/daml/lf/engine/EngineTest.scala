@@ -1658,14 +1658,14 @@ class EngineTest
         .consume(contracts.get, lookupPackage, lookupKey)
     }
 
-    "should succeeds if fed with allowed value version" in {
+    "succeed if fed with allowed value version" in {
       run(cidV6) shouldBe 'right
     }
 
-    "should succeeds if fed with disallowed value version" in {
+    "fail if fed with disallowed value version" in {
       val result = run(cidV7)
       result shouldBe 'left
-      result.left.get.msg should include("Update failed due to wrong value version")
+      result.left.get.msg should include("Update failed due to disallowed value version")
     }
 
   }

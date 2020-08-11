@@ -293,8 +293,8 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        inputValueVersions = config.inputValueVersions,
-        outputTransactionVersions = config.outputTransactionVersions,
+        inputValueVersions = config.allowedInputValueVersions,
+        outputTransactionVersions = config.allowedOutputTransactionVersions,
         validating = validating,
       )
       interpretLoop(machine, ledgerTime)
