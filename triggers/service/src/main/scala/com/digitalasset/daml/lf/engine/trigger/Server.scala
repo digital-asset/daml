@@ -414,6 +414,9 @@ object Server {
         }
         .receiveSignal {
           case (_, PostStop) =>
+            // TODO SC until this future returns, connections may still be accepted. Consider
+            // coordinating this future with the actor in some way, or use addToCoordinatedShutdown
+            // (though I have a feeling it will not work out so neatly)
             discard[Future[akka.Done]](binding.unbind())
             Behaviors.same
         }
