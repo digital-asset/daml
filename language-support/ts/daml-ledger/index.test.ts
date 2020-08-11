@@ -19,7 +19,7 @@ type Foo = {key: string};
 const fooKey = 'fooKey';
 
 type Message =
-  | { events: Event<Foo>[]; offset?: string }
+  | { events: Event<Foo>[]; offset?: string | null }
   | { warnings: string[] }
   | { errors: string[] }
   | string //for unexpected messages
@@ -161,6 +161,17 @@ describe("streamQuery", () => {
     expect(mockLive).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)])
+  });
+
+  test("receive null offset", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    stream.on("live", mockLive);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [], offset: null });
+    expect(mockLive).toHaveBeenCalledTimes(1);
+    expect(mockLive).toHaveBeenLastCalledWith([]);
+    expect(mockChange).not.toHaveBeenCalled();
   });
 
   test("reconnect on close", async () => {
