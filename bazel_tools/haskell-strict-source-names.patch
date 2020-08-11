@@ -181,7 +181,7 @@ index e89fc402..c0604c45 100644
        deps: List of other Haskell libraries to be linked to this target.
        data: See [Bazel documentation](https://docs.bazel.build/versions/master/be/common-definitions.html#common.data).,
 diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
-index d1bf0bd1..0f7c6198 100644
+index cb5b6ece..f4fa21a9 100644
 --- a/haskell/private/actions/compile.bzl
 +++ b/haskell/private/actions/compile.bzl
 @@ -10,7 +10,6 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
@@ -192,7 +192,7 @@ index d1bf0bd1..0f7c6198 100644
      "target_unique_name",
  )
  load(":private/pkg_id.bzl", "pkg_id")
-@@ -89,7 +88,7 @@ def _process_hsc_file(hs, cc, hsc_flags, hsc_inputs, hsc_file):
+@@ -104,7 +103,7 @@ def _process_hsc_file(hs, cc, hsc_flags, hsc_inputs, hsc_file):
  
      return hs_out, idir
  
@@ -201,7 +201,7 @@ index d1bf0bd1..0f7c6198 100644
      """Compute variables common to all compilation targets (binary and library).
  
      Returns:
-@@ -99,8 +98,8 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+@@ -114,8 +113,8 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
          inputs: default inputs
          input_manifests: input manifests
          outputs: default outputs
@@ -212,7 +212,7 @@ index d1bf0bd1..0f7c6198 100644
          source_files: set of files that contain Haskell modules
          extra_source_files: depset of non-Haskell source files
          import_dirs: c2hs Import hierarchy roots
-@@ -121,32 +120,51 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+@@ -136,32 +135,51 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
      ]
      compile_flags += cc_args
  
@@ -284,7 +284,7 @@ index d1bf0bd1..0f7c6198 100644
  
      # Default compiler flags.
      compile_flags += hs.toolchain.compiler_flags
-@@ -267,9 +285,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+@@ -282,9 +300,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
      # Output directories
      args.add_all([
          "-odir",
@@ -296,7 +296,7 @@ index d1bf0bd1..0f7c6198 100644
      ])
  
      # Interface files with profiling have to have the extension "p_hi":
-@@ -339,9 +357,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+@@ -354,9 +372,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
              plugin_tool_inputs,
          ]),
          input_manifests = preprocessors.input_manifests + plugin_tool_input_manifests,
@@ -309,7 +309,7 @@ index d1bf0bd1..0f7c6198 100644
          source_files = source_files,
          extra_source_files = extra_source_files,
          import_dirs = import_dirs,
-@@ -370,7 +388,7 @@ def compile_binary(
+@@ -385,7 +403,7 @@ def compile_binary(
          dep_info,
          plugin_dep_info,
          srcs,
@@ -318,7 +318,7 @@ index d1bf0bd1..0f7c6198 100644
          import_dir_map,
          extra_srcs,
          user_compile_flags,
-@@ -390,7 +408,7 @@ def compile_binary(
+@@ -405,7 +423,7 @@ def compile_binary(
          modules: set of module names
          source_files: set of Haskell source files
      """
@@ -327,7 +327,7 @@ index d1bf0bd1..0f7c6198 100644
      c.args.add_all(["-main-is", main_function])
      if dynamic:
          # For binaries, GHC creates .o files even for code to be
-@@ -402,10 +420,9 @@ def compile_binary(
+@@ -417,10 +435,9 @@ def compile_binary(
      coverage_data = []
      if inspect_coverage:
          c.args.add_all(_hpc_compiler_args(hs))
@@ -340,7 +340,7 @@ index d1bf0bd1..0f7c6198 100644
  
      hs.toolchain.actions.run_ghc(
          hs,
-@@ -420,7 +437,7 @@ def compile_binary(
+@@ -435,7 +452,7 @@ def compile_binary(
      )
  
      return struct(
@@ -349,7 +349,7 @@ index d1bf0bd1..0f7c6198 100644
          source_files = c.source_files,
          extra_source_files = c.extra_source_files,
          import_dirs = c.import_dirs,
-@@ -436,6 +453,7 @@ def compile_library(
+@@ -451,6 +468,7 @@ def compile_library(
          dep_info,
          plugin_dep_info,
          srcs,
@@ -357,7 +357,7 @@ index d1bf0bd1..0f7c6198 100644
          import_dir_map,
          extra_srcs,
          user_compile_flags,
-@@ -457,7 +475,7 @@ def compile_library(
+@@ -472,7 +490,7 @@ def compile_library(
          source_files: set of Haskell module files
          import_dirs: import directories that should make all modules visible (for GHCi)
      """
@@ -366,7 +366,7 @@ index d1bf0bd1..0f7c6198 100644
      if with_shared:
          c.args.add("-dynamic-too")
          if not hs.toolchain.is_darwin and not hs.toolchain.is_windows:
-@@ -467,11 +485,10 @@ def compile_library(
+@@ -482,11 +500,10 @@ def compile_library(
      coverage_data = []
      if hs.coverage_enabled:
          c.args.add_all(_hpc_compiler_args(hs))
@@ -381,7 +381,7 @@ index d1bf0bd1..0f7c6198 100644
  
      if srcs:
          hs.toolchain.actions.run_ghc(
-@@ -485,76 +502,13 @@ def compile_library(
+@@ -500,76 +517,13 @@ def compile_library(
              env = c.env,
              arguments = c.args,
          )
@@ -712,7 +712,7 @@ index a122332c..bcb83c73 100644
  
      return conf_file, cache_file
 diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
-index 219b8cb9..38b1eb9d 100644
+index 3705f167..ae2f8405 100644
 --- a/haskell/private/haskell_impl.bzl
 +++ b/haskell/private/haskell_impl.bzl
 @@ -11,10 +11,6 @@ load(
@@ -767,7 +767,7 @@ index 219b8cb9..38b1eb9d 100644
 +    module_map = determine_module_names(srcs_files)
  
      with_shared = not ctx.attr.linkstatic
-     if with_profiling or hs.toolchain.is_static:
+     if with_profiling or hs.toolchain.static_runtime:
 @@ -384,6 +383,7 @@ def haskell_library_impl(ctx):
          dep_info,
          plugin_dep_info,

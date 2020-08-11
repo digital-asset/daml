@@ -33,8 +33,8 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "152715b05547f160a512bae9b3d9e77a4888e243"
 rules_scala_sha256 = "9b117bf591780b5665a8271d83c2530943330f06e2dd99574ca9cf538009d09d"
 
-rules_haskell_version = "eb16a5401770098a801775ea3a893b09cafe054c"
-rules_haskell_sha256 = "2fcab6b01a184435359f6bcbb9403f0457c2a4e0f1b1a4572b9d7f89d2fc5431"
+rules_haskell_version = "130121dac45dc726175fbb15230c02325b6fe73a"
+rules_haskell_sha256 = "423112ebcd17ae609caf6b76c75d5785f58a41a197fb62545d46f89bd66b508c"
 rules_nixpkgs_version = "659cf9db456f5a3c1a5a27747116fc50b709cdab"
 rules_nixpkgs_sha256 = "6a76b8004ad94daa9ce7e95d902c790646f8abd598ae9f1b1978fb74a95e9ebd"
 buildifier_version = "3.3.0"
