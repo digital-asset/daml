@@ -41,7 +41,7 @@ trait ResourceOwner[+A] {
   }
 
   /** @see [[Resource.withFilter()]] */
-  def withFilter(p: A => Boolean)(implicit executionContext: ExecutionContext): ResourceOwner[A] =
+  def withFilter(p: A => Boolean): ResourceOwner[A] =
     new ResourceOwner[A] {
       override def acquire()(implicit executionContext: ExecutionContext): Resource[A] =
         self.acquire().withFilter(p)

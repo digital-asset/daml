@@ -3,6 +3,7 @@
 
 package com.daml.ledger.validator
 
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.validator.LedgerStateOperations._
 import com.daml.metrics.{Metrics, Timed}
@@ -66,10 +67,9 @@ trait LedgerStateOperations[LogResult] {
 /**
   * Convenience class for implementing read and write operations on a backing store that supports batched operations.
   */
-abstract class BatchingLedgerStateOperations[LogResult](implicit executionContext: ExecutionContext)
-    extends LedgerStateOperations[LogResult] {
+abstract class BatchingLedgerStateOperations[LogResult] extends LedgerStateOperations[LogResult] {
   override final def readState(key: Key): Future[Option[Value]] =
-    readState(Seq(key)).map(_.head)
+    readState(Seq(key)).map(_.head)(DirectExecutionContext)
 
   override final def writeState(key: Key, value: Value): Future[Unit] =
     writeState(Seq(key -> value))

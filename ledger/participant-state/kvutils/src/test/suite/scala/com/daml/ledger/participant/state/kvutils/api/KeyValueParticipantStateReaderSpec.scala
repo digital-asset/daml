@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -261,8 +260,7 @@ object KeyValueParticipantStateReaderSpec {
   private def createInstance(
       reader: LedgerReader,
       logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
-        singleUpdateGenerator)(
-      implicit materializer: Materializer): KeyValueParticipantStateReader =
+        singleUpdateGenerator): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       new Metrics(new MetricRegistry),

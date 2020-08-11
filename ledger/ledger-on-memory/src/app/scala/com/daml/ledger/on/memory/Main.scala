@@ -62,7 +62,6 @@ object Main {
 
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
-        loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
       if (config.extra.alwaysPreExecute)

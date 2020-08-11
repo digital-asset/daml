@@ -6,6 +6,7 @@ package com.daml.lf.validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 
 sealed abstract class LookupError extends Product with Serializable {
   def pretty: String
@@ -366,4 +367,21 @@ final case class ECollision(
 
   override protected def prettyInternal: String =
     s"collision between ${entity1.pretty} and ${entity2.pretty}"
+}
+
+final case class EModuleVersionDependencies(
+    pkgId: PackageId,
+    pkgLangVersion: LanguageVersion,
+    depPkgId: PackageId,
+    dependencyLangVersion: LanguageVersion,
+) extends ValidationError {
+  import com.daml.lf.transaction.VersionTimeline.Implicits._
+
+  assert(pkgId != depPkgId)
+  assert(pkgLangVersion precedes dependencyLangVersion)
+
+  override protected def prettyInternal: String =
+    s"package $pkgId using version $pkgLangVersion depends on package $depPkgId using newer version $dependencyLangVersion"
+
+  override def context: Context = NoContext
 }

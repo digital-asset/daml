@@ -50,13 +50,12 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
         transientContracts.contains(contractId)
 
     private def prepareRawNonEmpty(
-        query: String,
         contractIdToParameters: Map[ContractId, PartialParameters],
     ): Option[(Set[ContractId], RawBatch)] = {
       if (contractIdToParameters.nonEmpty) {
         val contractIds = contractIdToParameters.keySet
         val parameters = contractIdToParameters.valuesIterator.toVector
-        val batch = new RawBatch(query, parameters)
+        val batch = new RawBatch(parameters)
         Some(contractIds -> batch)
       } else {
         None
@@ -79,7 +78,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 
     def prepare: RawBatches =
       new RawBatches(
-        insertions = prepareRawNonEmpty(insertContractQuery, insertions),
+        insertions = prepareRawNonEmpty(insertions),
         deletions = prepareNonEmpty(deleteContractQuery, deletions),
         transientContracts = transientContracts,
       )

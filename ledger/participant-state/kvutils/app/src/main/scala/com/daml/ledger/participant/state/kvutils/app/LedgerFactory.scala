@@ -22,6 +22,7 @@ import com.daml.resources.ResourceOwner
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
+@com.github.ghik.silencer.silent(" config .* is never used") // possibly used in overrides
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 

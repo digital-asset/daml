@@ -438,7 +438,7 @@ object PostCommitValidationSpec {
   private def committed(
       id: String,
       ledgerEffectiveTime: Instant,
-      key: Option[Key] = None,
+      key: Option[Key],
   ): ContractFixture =
     ContractFixture(
       ContractId.assertFromString(id),

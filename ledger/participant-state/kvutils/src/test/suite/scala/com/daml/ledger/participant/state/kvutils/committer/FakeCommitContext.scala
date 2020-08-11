@@ -11,8 +11,7 @@ import com.daml.lf.data.Time.Timestamp
 class FakeCommitContext(
     recordTime: Option[Timestamp],
     override val inputs: DamlStateMap = Map.empty,
-    participantId: Int = 0,
-    entryId: Int = 0)
+    participantId: Int = 0)
     extends CommitContext {
   override def getRecordTime: Option[Timestamp] = recordTime
 

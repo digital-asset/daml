@@ -58,9 +58,7 @@ object SandboxIndexAndWriteService {
       initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
-      initialConfig: ParticipantState.Configuration,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
       queueDepth: Int,
@@ -80,7 +78,6 @@ object SandboxIndexAndWriteService {
       initialLedgerId = initialLedgerId,
       participantId = participantId,
       timeProvider = timeProvider,
-      acs = acs,
       packages = templateStore,
       initialLedgerEntries = ledgerEntries,
       queueDepth = queueDepth,
@@ -89,14 +86,12 @@ object SandboxIndexAndWriteService {
       eventsPageSize = eventsPageSize,
       metrics = metrics,
       lfValueTranslationCache
-    ).flatMap(ledger =>
-      owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
+    ).flatMap(ledger => owner(MeteredLedger(ledger, metrics), participantId, timeProvider))
 
   def inMemory(
       name: LedgerName,
       initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
-      intialConfig: ParticipantState.Configuration,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
@@ -117,13 +112,12 @@ object SandboxIndexAndWriteService {
         templateStore,
         ledgerEntries,
       )
-    owner(MeteredLedger(ledger, metrics), participantId, intialConfig, timeProvider)
+    owner(MeteredLedger(ledger, metrics), participantId, timeProvider)
   }
 
   private def owner(
       ledger: Ledger,
       participantId: ParticipantId,
-      initialConfig: Configuration,
       timeProvider: TimeProvider,
   )(
       implicit mat: Materializer,

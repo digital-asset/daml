@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-import com.daml.ledger.api.testtool.infrastructure.Result.Retired
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.Result.Retired
 
 import scala.concurrent.Future
 

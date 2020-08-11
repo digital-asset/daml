@@ -17,7 +17,7 @@ trait InfiniteRetries {
     action.transformWith {
       case Success(v) =>
         Future.successful(v)
-      case Failure(t) =>
+      case Failure(_) =>
         val p = Promise[T]()
         system.scheduler.scheduleOnce(
           delay,

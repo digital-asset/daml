@@ -7,6 +7,7 @@ import com.daml.navigator.dotnot._
 import com.daml.navigator.model._
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.json.ApiValueImplicits._
+import com.github.ghik.silencer.silent
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -102,6 +103,7 @@ package object filter {
     rootArgument.fold[Either[DotNotFailure, Boolean]](Right(false))(
       checkValue(_, cursor, expectedValue, ps))
 
+  @silent(" ps .* is never used") // conform to opaque's signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,

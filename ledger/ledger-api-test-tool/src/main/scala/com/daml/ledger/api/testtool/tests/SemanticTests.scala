@@ -189,7 +189,7 @@ final class SemanticTests extends LedgerTestSuite {
     "It should not be possible to exercise a choice without the consent of the controller",
     allocate(TwoParties, SingleParty),
   )(implicit ec => {
-    case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
+    case Participants(Participant(alpha @ _, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))

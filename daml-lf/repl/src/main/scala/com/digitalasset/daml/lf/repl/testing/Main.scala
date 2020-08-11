@@ -209,7 +209,7 @@ object Repl {
 
   final val commands = ListMap(
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
-    ":reset" -> Command("reset the REPL.", (s, _) => initialState()),
+    ":reset" -> Command("reset the REPL.", (_, _) => initialState()),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
     ":speedy" -> Command("compile given expression to speedy and print it", (s, args) => {
       speedyCompile(s, args); s
@@ -443,7 +443,7 @@ object Repl {
 
     parser.parseExprs[this.type](args.mkString(" ")) match {
 
-      case Left(error) =>
+      case Left(error @ _) =>
         println(s"Error: cannot parser arguments '${args.mkString(" ")}'")
 
       case Right(argExprs) =>
@@ -574,7 +574,7 @@ object Repl {
           case Left((err, ledger @ _)) =>
             println(prettyError(err, machine.ptx).render(128))
             (false, state)
-          case Right((diff @ _, steps @ _, ledger, value @ _)) =>
+          case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
             println("Writing profile...")
             machine.profile.name = scenarioId
             machine.profile.writeSpeedscopeJson(outputFile)

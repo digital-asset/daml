@@ -75,7 +75,7 @@ final class DivulgenceIT extends LedgerTestSuite {
         )
 
         val createDivulgence2 =
-          createDivulgence2Transaction.eventsById(createDivulgence2Transaction.rootEventIds(0))
+          createDivulgence2Transaction.eventsById(createDivulgence2Transaction.rootEventIds.head)
         assert(
           createDivulgence2.kind.isCreated,
           s"Event expected to be a create",
@@ -94,7 +94,7 @@ final class DivulgenceIT extends LedgerTestSuite {
         )
 
         val exerciseOnDivulgence2 = exerciseOnDivulgence2Transaction.eventsById(
-          exerciseOnDivulgence2Transaction.rootEventIds(0),
+          exerciseOnDivulgence2Transaction.rootEventIds.head,
         )
         assert(
           exerciseOnDivulgence2.kind.isExercised,
@@ -107,7 +107,7 @@ final class DivulgenceIT extends LedgerTestSuite {
 
         val exerciseOnDivulgence1 =
           exerciseOnDivulgence2Transaction.eventsById(
-            exerciseOnDivulgence2.getExercised.childEventIds(0),
+            exerciseOnDivulgence2.getExercised.childEventIds.head,
           )
 
         assert(exerciseOnDivulgence1.kind.isExercised)

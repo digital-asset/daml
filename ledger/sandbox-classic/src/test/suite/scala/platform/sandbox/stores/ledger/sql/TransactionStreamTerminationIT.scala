@@ -55,7 +55,7 @@ class TransactionStreamTerminationIT
   private def newTransactionClient(ledgerId: domain.LedgerId) =
     new TransactionClient(ledgerId, TransactionServiceGrpc.stub(channel))
 
-  private def newPartyManagement(ledgerId: domain.LedgerId) =
+  private def newPartyManagement() =
     new PartyManagementClient(PartyManagementServiceGrpc.stub(channel))
 
   private def newCommandSubmissionClient(ledgerId: domain.LedgerId) =
@@ -92,7 +92,7 @@ class TransactionStreamTerminationIT
 
         val commandClient = newCommandSubmissionClient(actualLedgerId)
         val txClient = newTransactionClient(actualLedgerId)
-        val partyManagementClient = newPartyManagement(actualLedgerId)
+        val partyManagementClient = newPartyManagement()
 
         def getLedgerEnd = txClient.getLedgerEnd().map(_.getOffset.value.absolute.get.toLong)
         for {

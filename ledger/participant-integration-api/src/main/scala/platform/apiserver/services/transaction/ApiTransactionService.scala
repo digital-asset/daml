@@ -52,13 +52,8 @@ private[apiserver] object ApiTransactionService {
 
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
-    parallelism: Int = 4,
-)(
-    implicit executionContext: ExecutionContext,
-    materializer: Materializer,
-    esf: ExecutionSequencerFactory,
-    loggingContext: LoggingContext,
-) extends TransactionService
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+    extends TransactionService
     with ErrorFactories {
 
   private val logger = ContextualizedLogger.get(this.getClass)

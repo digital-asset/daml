@@ -32,8 +32,6 @@ object Identification {
     "omega",
   )
 
-  val latinAlphabet = Vector('a'.to('z'): _*).map(_.toString)
-
   /**
     * E.g.
     *
