@@ -33,7 +33,7 @@ trait Resource[+A] {
     */
   def map[B](f: A => B)(implicit executionContext: ExecutionContext): Resource[B] =
     // A mapped Resource is a mapped future plus a nesting of an empty release operation and the actual one
-    Resource.nest(asFuture.map(f))(_ => Future.successful(()), release _)
+    Resource.nest(asFuture.map(f))(_ => Future.unit, release _)
 
   /**
     * Just like [[Future]]s, [[Resource]]s can be chained. Both component [[Resource]]s will be released correctly
@@ -49,7 +49,7 @@ trait Resource[+A] {
     val nextRelease = (_: B) =>
       nextFuture.transformWith {
         case Success(b) => b.release() // Release next resource
-        case Failure(_) => Future.successful(()) // Already released by future failure
+        case Failure(_) => Future.unit // Already released by future failure
     }
     val future = nextFuture.flatMap(_.asFuture)
     Resource.nest(future)(nextRelease, release _) // Nest next resource release and this resource release
@@ -65,7 +65,7 @@ trait Resource[+A] {
           Future.successful(value)
         else
           Future.failed(new ResourceAcquisitionFilterException()))
-    Resource.nest(future)(_ => Future.successful(()), release _)
+    Resource.nest(future)(_ => Future.unit, release _)
   }
 
   /**
@@ -143,13 +143,13 @@ object Resource {
   def apply[T](future: Future[T])(releaseResource: T => Future[Unit])(
       implicit executionContext: ExecutionContext
   ): Resource[T] =
-    nest(future)(releaseResource, () => Future.successful(()))
+    nest(future)(releaseResource, () => Future.unit)
 
   /**
     * Wraps a simple [[Future]] in a [[Resource]] that doesn't need to be released.
     */
   def fromFuture[T](future: Future[T])(implicit executionContext: ExecutionContext): Resource[T] =
-    apply(future)(_ => Future.successful(()))
+    apply(future)(_ => Future.unit)
 
   /**
     * Produces a [[Resource]] that has already succeeded with the [[Unit]] value.

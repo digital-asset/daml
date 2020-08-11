@@ -64,9 +64,9 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
           knownPackages.groupBy(_.packageId).mapValues(_.size).filter(_._2 > 1)
         assert(
           duplicatePackageIds.isEmpty,
-          s"There are duplicate package identifiers: ${duplicatePackageIds map {
-            case (name, count) => s"$name ($count)"
-          } mkString (", ")}",
+          s"There are duplicate package identifiers: ${duplicatePackageIds
+            .map { case (name, count) => s"$name ($count)" }
+            .mkString(", ")}",
         )
         assert(
           acsBefore.size == 1,

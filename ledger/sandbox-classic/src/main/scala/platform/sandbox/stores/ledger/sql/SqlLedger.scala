@@ -208,7 +208,7 @@ object SqlLedger {
           .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
             DEC)
       } else {
-        Future.successful(())
+        Future.unit
       }
     }
 
