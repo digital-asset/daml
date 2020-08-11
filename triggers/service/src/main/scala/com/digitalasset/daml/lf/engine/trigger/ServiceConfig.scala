@@ -12,7 +12,7 @@ import scalaz.Show
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
-case class ServiceConfig(
+private[trigger] final case class ServiceConfig(
     // For convenience, we allow passing in a DAR on startup
     // as opposed to uploading it dynamically.
     darPath: Option[Path],
@@ -74,10 +74,10 @@ object JdbcConfig {
   private val indent: String = List.fill(8)(" ").mkString
 }
 
-object ServiceConfig {
-  val DefaultHttpPort: Int = 8088
+private[trigger] object ServiceConfig {
+  private val DefaultHttpPort: Int = 8088
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
-  val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
+  private val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
