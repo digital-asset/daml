@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import java.io.File
 import java.nio.file.{Path, Paths}
 
 import akka.actor.ActorSystem
@@ -143,28 +142,14 @@ object Main extends StrictLogging {
         .required()
         .text("Ledger port number")
 
-      opt[String]("address")
-        .action((x, c) => c.copy(address = x))
-        .optional()
-        .text(
-          s"IP address that HTTP JSON API service listens on. Defaults to ${Config.Empty.address: String}.")
+      import com.daml.cliopts
 
-      opt[Int]("http-port")
-        .action((x, c) => c.copy(httpPort = x))
-        .required()
-        .text(
-          "HTTP JSON API service port number. " +
-            "A port number of 0 will let the system pick an ephemeral port. " +
-            "Consider specifying `--port-file` option with port number 0.")
-
-      opt[File]("port-file")
-        .action((x, c) => c.copy(portFile = Some(x.toPath)))
-        .optional()
-        .text(
-          "Optional unique file name where to write the allocated HTTP port number. " +
-            "If process terminates gracefully, this file will be deleted automatically. " +
-            "Used to inform clients in CI about which port HTTP JSON API listens on. " +
-            "Defaults to none, that is, no file gets created.")
+      cliopts.Http.serverParse(this, serviceName = "HTTP JSON API")(
+        address = (f, c) => c copy (address = f(c.address)),
+        httpPort = (f, c) => c copy (httpPort = f(c.httpPort)),
+        defaultHttpPort = None,
+        portFile = Some((f, c) => c copy (portFile = f(c.portFile))),
+      )
 
       opt[String]("application-id")
         .action((x, c) => c.copy(applicationId = ApplicationId(x)))

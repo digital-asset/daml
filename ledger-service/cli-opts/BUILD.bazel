@@ -17,5 +17,6 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:io_netty_netty_handler",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
