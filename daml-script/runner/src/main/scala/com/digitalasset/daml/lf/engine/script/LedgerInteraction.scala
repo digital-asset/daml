@@ -418,39 +418,9 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                   result = Success(Right(results.toSeq))
               }
           }
-        case SResultScenarioCommit(value, tx, committers, callback) =>
-          val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
-            tx.nodes(n) match {
-              case create: NodeCreate.WithTxValue[ContractId] =>
-                ScriptLedgerClient.CreateResult(create.coid)
-              case exercise: NodeExercises.WithTxValue[_, ContractId] =>
-                ScriptLedgerClient.ExerciseResult(
-                  exercise.templateId,
-                  exercise.choiceId,
-                  exercise.exerciseResult.get.value)
-              case n =>
-                // Root nodes can only be creates and exercises.
-                throw new RuntimeException(s"Unexpected node: $n")
-            }
-          }
-          val committer = committers.head
-          ScenarioLedger.commitTransaction(
-            committer = committer,
-            effectiveAt = scenarioRunner.ledger.currentTime,
-            optLocation = machine.commitLocation,
-            tx = tx,
-            l = scenarioRunner.ledger
-          ) match {
-            case Left(fas) =>
-              // Capture the error and exit.
-              result = Failure(ScenarioErrorCommitError(fas))
-            case Right(commitResult) =>
-              scenarioRunner.ledger = commitResult.newLedger
-              // Run the side effects
-              callback(value)
-              // Capture the result and exit.
-              result = Success(Right(results.toSeq))
-          }
+        case SResultScenarioCommit(_, _, _, _) =>
+          result = Failure(
+            new RuntimeException("FATAL: Encountered scenario commit in DAML Script"))
         case SResultError(err) =>
           // Capture the error and exit.
           result = Failure(err)
