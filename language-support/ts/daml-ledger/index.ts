@@ -502,13 +502,16 @@ class Ledger {
     const protocols = ['jwt.token.' + this.token, 'daml.ws.auth'];
     let ws = new WebSocket(this.wsBaseUrl + endpoint, protocols);
     let isLiveSince: undefined | number = undefined;
-    let lastOffset: undefined | string = undefined;
+    let lastOffset: undefined | null | string = undefined;
     let state = init;
     let isReconnecting: boolean = false;
     const emitter = new EventEmitter();
     const onOpen = (): void => {
       if (isReconnecting) {
-          ws.send(JSON.stringify({ 'offset': lastOffset }));
+          // the JSON API server can't handle null offsets, even though it sends them out under
+          // special conditions when there are no transactions yet. Not sending the `offset` message
+          // will start the stream from the very beginning of the transaction log.
+          if (lastOffset !== null) ws.send(JSON.stringify({ 'offset': lastOffset }));
           ws.send(JSON.stringify(reconnectRequest()));
       } else {
         ws.send(JSON.stringify(request));
@@ -524,7 +527,7 @@ class Ledger {
           emitter.emit('change', state, events);
         }
         if (isRecordWith('offset', json)) {
-          lastOffset = jtv.Result.withException(jtv.string().run(json.offset));
+          lastOffset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
           if (isLiveSince === undefined) {
             isLiveSince = Date.now();
             emitter.emit('live', state);
