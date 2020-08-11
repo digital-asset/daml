@@ -82,6 +82,7 @@ def daml_deps():
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-8.10.2-bindist.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-8.windows-response-file.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,

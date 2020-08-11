@@ -1,0 +1,34 @@
+diff --git a/haskell/private/cc_wrapper_windows.sh.tpl b/haskell/private/cc_wrapper_windows.sh.tpl
+index e62c07a5..e22eba36 100644
+--- a/haskell/private/cc_wrapper_windows.sh.tpl
++++ b/haskell/private/cc_wrapper_windows.sh.tpl
+@@ -86,7 +86,6 @@ RESPONSE_FILE="$(mktemp rspXXXX)"
+ rm_response_file() {
+     rm -f "$RESPONSE_FILE"
+ }
+-trap rm_response_file EXIT
+ 
+ quote_arg() {
+     # Gcc expects one argument per line, surrounded by double quotes, with
+@@ -183,7 +182,9 @@ handle_arg() {
+         handle_lib_dir "$arg"
+     elif [[ "$arg" =~ ^@(.*)$ ]]; then
+         (( ++IN_RESPONSE_FILE ))
++        cat "${BASH_REMATCH[1]}"
+         while read -r line; do
++            line="$(printf "%s" "$line" | tr -d '\r')"
+             handle_arg "$line"
+         done < "${BASH_REMATCH[1]}"
+         (( --IN_RESPONSE_FILE )) || true
+@@ -210,6 +211,11 @@ done
+ # ----------------------------------------------------------
+ # Call compiler
+ 
++# echo "$@"
++# echo "$#"
++
++# echo "RESPONSE_FILE: $PWD/$RESPONSE_FILE"
++
+ "$CC" "@$RESPONSE_FILE"
+ 
+ # vim: ft=sh
