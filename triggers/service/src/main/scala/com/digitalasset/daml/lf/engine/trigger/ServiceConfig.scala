@@ -80,6 +80,7 @@ object ServiceConfig {
   val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
 
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
 

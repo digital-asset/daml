@@ -10,9 +10,14 @@ load(
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
+tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+    "NonUnitStatements",
+]]
+
 da_scala_library(
     name = "trigger-service",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = tsvc_main_scalacopts,
     # Uncomment this if/when the target is published to maven.
     # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -35,6 +40,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:com_chuusai_shapeless_2_12",
