@@ -1,9 +1,13 @@
 diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
-index 1d9c007c..f3677ef6 100644
+index 6194cf3b..f4fa63e0 100644
 --- a/haskell/ghc_bindist.bzl
 +++ b/haskell/ghc_bindist.bzl
-@@ -327,6 +327,7 @@ haskell_toolchain(
-         execute_or_fail_loudly(ctx, ["rm", "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libstdc++.dll.a"])
+@@ -345,9 +345,10 @@ haskell_toolchain(
+     if os == "windows":
+         # These libraries cause linking errors on Windows when linking
+         # pthreads, due to libwinpthread-1.dll not being loaded.
+-        execute_or_fail_loudly(ctx, ["rm", "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libstdc++.dll.a"])
++        execute_or_fail_loudly(ctx, ["rm", "mingw/lib/gcc/x86_64-w64-mingw32/9.2.0/libstdc++.dll.a"])
          execute_or_fail_loudly(ctx, ["rm", "mingw/x86_64-w64-mingw32/lib/libpthread.dll.a"])
          execute_or_fail_loudly(ctx, ["rm", "mingw/x86_64-w64-mingw32/lib/libwinpthread.dll.a"])
 +        execute_or_fail_loudly(ctx, ["rm", "mingw/lib/libz.dll.a"])
