@@ -14,6 +14,7 @@ import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
 import java.util.UUID
 
+import org.scalactic.source
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
@@ -80,9 +81,9 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     }
   }
 
-  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])
-    : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
-    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)
+  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
+      testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
+    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)(testFn)
 
   def startTrigger(uri: Uri, triggerName: String, party: User): Future[HttpResponse] = {
     val req = HttpRequest(
