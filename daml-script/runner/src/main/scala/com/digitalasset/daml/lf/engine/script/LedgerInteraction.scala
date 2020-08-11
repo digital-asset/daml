@@ -479,68 +479,14 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Either[Unit, Unit]] = {
-    machine.returnValue = null
-    val translated = translateCommands(commands)
-    machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
-    machine.committers = Set(party.value)
-    var result: Try[Either[Unit, Unit]] = null
-    while (result == null) {
-      machine.run() match {
-        case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          scenarioRunner.lookupContract(coid, committers, cbMissing, cbPresent).left.foreach { _ =>
-            result = Success(Right(()))
-          }
-        case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).left.foreach { _ =>
-            result = Success(Right(()))
-          }
-        case SResultFinalValue(SUnit) =>
-          machine.ptx.finish(
-            machine.outputTransactionVersions,
-            machine.compiledPackages.packageLanguageVersion) match {
-            case Left(x) => result = Failure(new RuntimeException(s"Unexpected abort: $x"))
-            case Right(tx) =>
-              ScenarioLedger.commitTransaction(
-                committer = party.value,
-                effectiveAt = scenarioRunner.ledger.currentTime,
-                optLocation = machine.commitLocation,
-                tx = tx,
-                l = scenarioRunner.ledger
-              ) match {
-                case Left(_) =>
-                  // Expected failure
-                  result = Success(Right(()))
-                case Right(_) =>
-                  // Unexpected success
-                  result = Success(Left(()))
-              }
-          }
-        case SResultScenarioCommit(value @ _, tx, committers, callback @ _) =>
-          val committer = committers.head
-          ScenarioLedger.commitTransaction(
-            committer = committer,
-            effectiveAt = scenarioRunner.ledger.currentTime,
-            optLocation = machine.commitLocation,
-            tx = tx,
-            l = scenarioRunner.ledger
-          ) match {
-            case Left(_) =>
-              // Expected failure
-              result = Success(Right(()))
-            case Right(_) =>
-              // Unexpected success
-              result = Success(Left(()))
-          }
-        case SResultError(_) =>
-          // Expected failure
-          result = Success(Right(()))
-        case err =>
-          // TODO: Figure out when we hit this
-          // Capture the error (but not as SError) and exit.
-          result = Failure(new RuntimeException(s"FAILED: $err"))
-      }
-    }
-    Future.fromTry(result)
+    submit(party, commands)
+      .map({
+        case Right(_) => Left(())
+        case Left(_) => Right(())
+      })
+      .recoverWith({
+        case _: SError => Future.successful(Right(()))
+      })
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(
