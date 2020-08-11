@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
 
+import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{
@@ -12,7 +13,6 @@ import com.daml.ledger.api.testtool.infrastructure.{
   LedgerServices,
   PartyAllocationConfiguration
 }
-import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
@@ -226,7 +226,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           .map(_ => ())
       }
     } else {
-      Future.successful(())
+      Future.unit
     }
 
   def activeContracts(

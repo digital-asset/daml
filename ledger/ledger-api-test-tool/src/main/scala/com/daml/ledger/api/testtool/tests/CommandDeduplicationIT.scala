@@ -15,8 +15,8 @@ import com.daml.timer.Delayed
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
-import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT extends LedgerTestSuite {
@@ -145,7 +145,7 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
         // a resubmission of exactly the same command should succeed.
         _ <- submissionResults
           .collectFirst { case (request, Failure(_)) => request }
-          .fold(Future.successful(()))(request => ledger.submitAndWait(request))
+          .fold(Future.unit)(request => ledger.submitAndWait(request))
       } yield {
         ()
       }

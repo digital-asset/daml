@@ -31,7 +31,7 @@ final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
 
 object TestResourceOwner {
   def apply[T](value: T): TestResourceOwner[T] =
-    new TestResourceOwner(Future.successful(value), _ => Future.successful(()))
+    new TestResourceOwner(Future.successful(value), _ => Future.unit)
 
   final class TriedToAcquireTwice extends Exception("Tried to acquire twice.")
 
