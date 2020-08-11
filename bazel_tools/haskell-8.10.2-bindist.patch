@@ -1,0 +1,25 @@
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+index 291f28c4..6194cf3b 100644
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -225,6 +225,20 @@ GHC_BINDIST = \
+                 "38a3166ea50cccd5bae7e1680eae3aae2b4ae31b61f82a1d8168fb821f43bd67",
+             ),
+         },
++        "8.10.2": {
++            "darwin_amd64": (
++                "https://downloads.haskell.org/~ghc/8.10.2/ghc-8.10.2-x86_64-apple-darwin.tar.xz",
++                "edb772b00c0d7f18bb56ad27765162ee09c508104d40f82128c9114a02f6cfc2",
++            ),
++            "linux_amd64": (
++                "https://downloads.haskell.org/~ghc/8.10.2/ghc-8.10.2-x86_64-deb9-linux.tar.xz",
++                "4dbe3b479e76767bfeb4cbb7a4db8b761c4720266193483ca370b2ace3f10f7c",
++            ),
++            "windows_amd64": (
++                "https://downloads.haskell.org/~ghc/8.10.2/ghc-8.10.2-x86_64-unknown-mingw32.tar.xz",
++                "dcae4c173b9896e07ff048de5509aa0a4537233150e06e5ce8848303dfadc176",
++            ),
++        },
+     }
+ 
+ def _ghc_bindist_impl(ctx):

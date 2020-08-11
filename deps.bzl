@@ -81,6 +81,7 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-8.10.2-bindist.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
