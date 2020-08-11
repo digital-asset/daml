@@ -82,7 +82,7 @@ class RecoveringIndexerSpec
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
 
       for {
-        _ <- akka.pattern.after(100.millis, actorSystem.scheduler)(Future.successful(()))
+        _ <- akka.pattern.after(100.millis, actorSystem.scheduler)(Future.unit)
         _ <- resource.release()
         complete <- resource.asFuture
         _ <- complete

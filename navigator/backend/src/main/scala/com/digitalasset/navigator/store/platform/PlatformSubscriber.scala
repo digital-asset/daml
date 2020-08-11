@@ -217,7 +217,7 @@ class PlatformSubscriber(
       .runWith(Sink.ignore)
 
     // This stream starts immediately
-    Future.successful(())
+    Future.unit
   }
 
   private def startTrackingCommands()
@@ -289,7 +289,7 @@ class PlatformSubscriber(
         log.info(
           "Successfully loaded packages {}",
           interfaces.map(_.packageId).mkString("[", ", ", "]"))
-        Future.successful(())
+        Future.unit
       })
       .recoverWith(apiFailureF)
   }

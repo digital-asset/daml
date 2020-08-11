@@ -118,7 +118,7 @@ object HttpServiceTestFixture {
           Seq(
             ledgerF.map(_._1.close()),
             httpServiceF.flatMap(_.unbind()),
-          ) map (_ fallbackTo Future.successful(())))
+          ) map (_ fallbackTo Future.unit))
         .transform(_ => ta)
     }
   }

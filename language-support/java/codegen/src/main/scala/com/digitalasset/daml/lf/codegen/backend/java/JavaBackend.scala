@@ -70,7 +70,7 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
           }
         }
       case _ =>
-        Future.successful(())
+        Future.unit
     }
   }
 

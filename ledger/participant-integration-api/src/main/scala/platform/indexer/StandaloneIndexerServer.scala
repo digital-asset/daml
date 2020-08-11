@@ -34,7 +34,7 @@ final class StandaloneIndexerServer(
     val indexer = new RecoveringIndexer(materializer.system.scheduler, config.restartDelay)
     config.startupMode match {
       case IndexerStartupMode.MigrateOnly =>
-        Resource.successful(())
+        Resource.unit
       case IndexerStartupMode.MigrateAndStart =>
         Resource
           .fromFuture(indexerFactory.migrateSchema(config.allowExistingSchema))
