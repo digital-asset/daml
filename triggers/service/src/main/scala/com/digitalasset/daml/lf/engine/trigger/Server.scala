@@ -371,18 +371,23 @@ object Server {
       }
     }
 
+    def logTriggerStarting(m: TriggerStarting): Unit =
+      server.logTriggerStatus(m.triggerInstance, "starting")
+    def logTriggerStarted(m: TriggerStarted): Unit =
+      server.logTriggerStatus(m.triggerInstance, "running")
+
     // The server running state.
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case TriggerStarting(triggerInstance) =>
-            server.logTriggerStatus(triggerInstance, "starting")
+          case m: TriggerStarting =>
+            logTriggerStarting(m)
             Behaviors.same
 
           // Running triggers are added to the store optimistically when the user makes a start
           // request so we don't need to add an entry here.
-          case TriggerStarted(triggerInstance) =>
-            server.logTriggerStatus(triggerInstance, "running")
+          case m: TriggerStarted =>
+            logTriggerStarted(m)
             Behaviors.same
 
           // Trigger failures are handled by the TriggerRunner actor using a restart strategy with
@@ -448,12 +453,12 @@ object Server {
           // yet. We cannot stop until starting has completed.
           starting(wasStopped = true, req = None)
 
-        case TriggerStarting(triggerInstance) =>
-          server.logTriggerStatus(triggerInstance, "s11 starting received in 'starting' state")
+        case m: TriggerStarting =>
+          logTriggerStarting(m)
           Behaviors.same
 
-        case TriggerStarted(triggerInstance) =>
-          server.logTriggerStatus(triggerInstance, "s11 running received in 'starting' state")
+        case m: TriggerStarted =>
+          logTriggerStarted(m)
           Behaviors.same
 
         case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
