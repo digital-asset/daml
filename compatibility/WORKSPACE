@@ -112,11 +112,11 @@ haskell_register_ghc_bindists(
 haskell_register_ghc_nixpkgs(
     attribute_path = "ghcStatic",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
-    static_runtime = True,
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
+    static_runtime = True,
     version = "8.6.5",
 )
 
