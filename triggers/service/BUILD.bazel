@@ -38,6 +38,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/scala-utils",

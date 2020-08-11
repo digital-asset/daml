@@ -89,10 +89,14 @@ object ServiceConfig {
       .action((f, c) => c.copy(darPath = Some(Paths.get(f))))
       .text("Path to the dar file containing the trigger.")
 
-    opt[Int]("http-port")
-      .optional()
-      .action((t, c) => c.copy(httpPort = t))
-      .text(s"Optional HTTP port. Defaults to ${DefaultHttpPort}.")
+    import com.daml.cliopts
+
+    cliopts.Http.serverParse(this, serviceName = "Trigger")(
+      address = (_, _) => sys.error("TODO SC --address"),
+      httpPort = (f, c) => c.copy(httpPort = f(c.httpPort)),
+      defaultHttpPort = Some(DefaultHttpPort),
+      portFile = None,
+    )
 
     opt[String]("ledger-host")
       .required()
