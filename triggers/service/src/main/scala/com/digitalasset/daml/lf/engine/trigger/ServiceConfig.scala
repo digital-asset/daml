@@ -6,6 +6,7 @@ package com.daml.lf.engine.trigger
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
+import com.daml.cliopts
 import com.daml.platform.services.time.TimeProviderType
 import scalaz.Show
 
@@ -16,6 +17,7 @@ private[trigger] final case class ServiceConfig(
     // For convenience, we allow passing in a DAR on startup
     // as opposed to uploading it dynamically.
     darPath: Option[Path],
+    address: String,
     httpPort: Int,
     ledgerHost: String,
     ledgerPort: Int,
@@ -89,10 +91,8 @@ private[trigger] object ServiceConfig {
       .action((f, c) => c.copy(darPath = Some(Paths.get(f))))
       .text("Path to the dar file containing the trigger.")
 
-    import com.daml.cliopts
-
     cliopts.Http.serverParse(this, serviceName = "Trigger")(
-      address = (_, _) => sys.error("TODO SC --address"),
+      address = (f, c) => c.copy(address = f(c.address)),
       httpPort = (f, c) => c.copy(httpPort = f(c.httpPort)),
       defaultHttpPort = Some(DefaultHttpPort),
       portFile = None,
@@ -160,6 +160,7 @@ private[trigger] object ServiceConfig {
       args,
       ServiceConfig(
         darPath = None,
+        address = cliopts.Http.defaultAddress,
         httpPort = DefaultHttpPort,
         ledgerHost = null,
         ledgerPort = 0,
