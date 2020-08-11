@@ -8,12 +8,8 @@ import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.export.NoopLedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.tools.export.IntegrityChecker.bytesAsHexString
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
-import com.daml.ledger.validator.{
-  CommitStrategy,
-  DamlLedgerStateReader,
-  StateKeySerializationStrategy
-}
 
 import scala.concurrent.ExecutionContext
 
@@ -21,8 +17,8 @@ object LogAppendingCommitStrategySupport extends CommitStrategySupport[Index] {
   override val stateKeySerializationStrategy: StateKeySerializationStrategy =
     StateKeySerializationStrategy.createDefault()
 
-  override def createComponents()(implicit executionContext: ExecutionContext)
-    : (DamlLedgerStateReader, CommitStrategy[Index], QueryableWriteSet) = {
+  override def createComponentsForReplay()(
+      implicit executionContext: ExecutionContext): ComponentsForReplay[Index] = {
     val inMemoryLedgerStateOperations = InMemoryLedgerStateOperations()
     val writeRecordingLedgerStateOperations =
       new WriteRecordingLedgerStateOperations[Index](inMemoryLedgerStateOperations)
@@ -31,7 +27,7 @@ object LogAppendingCommitStrategySupport extends CommitStrategySupport[Index] {
         writeRecordingLedgerStateOperations,
         stateKeySerializationStrategy,
         NoopLedgerDataExporter)
-    (reader, commitStrategy, writeRecordingLedgerStateOperations)
+    ComponentsForReplay(reader, commitStrategy, writeRecordingLedgerStateOperations)
   }
 
   override def explainMismatchingValue(

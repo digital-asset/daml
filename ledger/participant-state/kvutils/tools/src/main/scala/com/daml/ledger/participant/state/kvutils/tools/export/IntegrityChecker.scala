@@ -49,7 +49,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       metrics,
       NoopLedgerDataExporter,
     )
-    val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
+    val ComponentsForReplay(reader, commitStrategy, queryableWriteSet) =
+      commitStrategySupport.createComponentsForReplay()
     processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
       .map { _ =>
         reportDetailedMetrics(metricRegistry)
