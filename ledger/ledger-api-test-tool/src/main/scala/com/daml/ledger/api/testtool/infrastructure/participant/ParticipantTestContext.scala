@@ -226,7 +226,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           .map(_ => ())
       }
     } else {
-      Future.successful(())
+      Future.unit
     }
 
   def activeContracts(

@@ -369,7 +369,7 @@ class CommandTrackerFlowTest
             _ <- completionStreamMock.breakCompletionsStream()
             offset3 <- completionStreamMock.getLastOffset
             _ <- if (offset3 != checkPointOffset) breakUntilOffsetArrives()
-            else Future.successful(())
+            else Future.unit
           } yield ()
 
         def sendCommand(commandId: String) = {

@@ -145,7 +145,7 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
         // a resubmission of exactly the same command should succeed.
         _ <- submissionResults
           .collectFirst { case (request, Failure(_)) => request }
-          .fold(Future.successful(()))(request => ledger.submitAndWait(request))
+          .fold(Future.unit)(request => ledger.submitAndWait(request))
       } yield {
         ()
       }

@@ -70,7 +70,7 @@ object TestMain extends StrictLogging {
             }
             val jsVal = fileContent.parseJson
             import ParticipantsJsonProtocol._
-            (jsVal.convertTo[Participants[ApiParameters]], () => Future.successful(()))
+            (jsVal.convertTo[Participants[ApiParameters]], () => Future.unit)
           case None =>
             val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
               val timeProviderType = config.timeMode match {
@@ -88,7 +88,7 @@ object TestMain extends StrictLogging {
             } else {
               (
                 ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None, None),
-                () => Future.successful(()),
+                () => Future.unit,
               )
             }
             (

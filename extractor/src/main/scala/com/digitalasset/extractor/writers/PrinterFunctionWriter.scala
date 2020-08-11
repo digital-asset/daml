@@ -25,7 +25,7 @@ trait PrinterFunctionWriter { self: Writer =>
     printer("DAML Extractor")
     printer("==============")
 
-    Future.successful(())
+    Future.unit
   }
 
   def handlePackages(packageStore: PackageStore): Future[Unit] = {
@@ -34,7 +34,7 @@ trait PrinterFunctionWriter { self: Writer =>
     printer("====================")
     packageStore.foreach((handlePackage _).tupled)
 
-    Future.successful(())
+    Future.unit
   }
 
   def handleTransaction(transaction: TransactionTree): Future[RefreshPackages \/ Unit] = {
