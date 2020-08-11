@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.google.protobuf
+
 import scala.concurrent.{duration => scalaDuration}
 
 object ProtobufConverters {

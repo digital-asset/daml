@@ -6,11 +6,11 @@ package com.daml.ledger.api.testtool
 import java.io.File
 import java.nio.file.{Path, Paths}
 
-import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.buildinfo.BuildInfo
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.tls.TlsConfiguration
-import scopt.Read
 import scopt.Read.{intRead, stringRead}
+import scopt.{OptionParser, Read}
 
 object Cli {
 
@@ -38,6 +38,8 @@ object Cli {
       case n: Int => (s.slice(0, n), s.slice(n + 1, s.length))
     }
 
+  private val Name = "ledger-api-test-tool"
+
   private val pemConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
@@ -61,8 +63,7 @@ object Cli {
 
   private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
-  private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
-
+  private val argParser: OptionParser[Config] = new scopt.OptionParser[Config](Name) {
     private def invalidPerformanceTestName[A](name: String): Either[String, Unit] =
       failure(s"$name is not a valid performance test name. Use `--list` to see valid names.")
 
