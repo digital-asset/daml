@@ -52,7 +52,7 @@ single ``Accept`` choice which, when exercised by the controller will
 create the corresponding ``Coin``.
 
 Having defined the templates, we can now move on to write DAML scripts
-that operate on these templates. To get accees to the API used to implement DAML scripts, you need to add the ``daml-script``
+that operate on these templates. To get access to the API used to implement DAML scripts, you need to add the ``daml-script``
 library to the ``dependencies`` field in ``daml.yaml``.
 
 .. literalinclude:: ./template-root/daml.yaml.template
