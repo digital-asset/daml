@@ -20,7 +20,8 @@ trait QueryableWriteSet {
 final case class ComponentsForReplay[LogResult](
     ledgerStateReader: DamlLedgerStateReader,
     commitStrategy: CommitStrategy[LogResult],
-    queryableWriteSet: QueryableWriteSet)
+    queryableWriteSet: QueryableWriteSet,
+  )
 
 trait CommitStrategySupport[LogResult] {
   def stateKeySerializationStrategy(): StateKeySerializationStrategy
