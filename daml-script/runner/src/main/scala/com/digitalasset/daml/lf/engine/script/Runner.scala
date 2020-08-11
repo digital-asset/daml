@@ -448,7 +448,8 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                         case Right(()) =>
                           run(SEApp(SEValue(vals.get(2)), Array(SEValue(SUnit))))
                         case Left(()) =>
-                          Future.failed(new DamlEUserError("Expected submit to fail but it succeeded"))
+                          Future.failed(
+                            new DamlEUserError("Expected submit to fail but it succeeded"))
                       }
                     } yield v
                   }

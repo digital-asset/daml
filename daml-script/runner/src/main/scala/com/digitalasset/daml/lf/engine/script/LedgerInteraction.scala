@@ -125,10 +125,9 @@ trait ScriptLedgerClient {
       mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
-  def submitMustFail(
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
-    : Future[Either[Unit, Unit]]
+  def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Either[Unit, Unit]]
 
   def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
@@ -216,9 +215,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       }))
   }
 
-  override def submitMustFail(
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(
+  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
     submit(party, commands).map({
@@ -481,8 +478,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
 
   override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
-      mat: Materializer)
-    : Future[Either[Unit, Unit]] = {
+      mat: Materializer): Future[Either[Unit, Unit]] = {
     machine.returnValue = null
     val translated = translateCommands(commands)
     machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
@@ -491,14 +487,12 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     while (result == null) {
       machine.run() match {
         case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          scenarioRunner.lookupContract(coid, committers, cbMissing, cbPresent).left.foreach {
-            _ =>
-              result = Success(Right(()))
+          scenarioRunner.lookupContract(coid, committers, cbMissing, cbPresent).left.foreach { _ =>
+            result = Success(Right(()))
           }
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).left.foreach {
-            _ =>
-              result = Success(Right(()))
+          scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).left.foreach { _ =>
+            result = Success(Right(()))
           }
         case SResultFinalValue(SUnit) =>
           machine.ptx.finish(
@@ -521,7 +515,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                   result = Success(Left(()))
               }
           }
-        case SResultScenarioCommit(value@_, tx, committers, callback@_) =>
+        case SResultScenarioCommit(value @ _, tx, committers, callback @ _) =>
           val committer = committers.head
           ScenarioLedger.commitTransaction(
             committer = committer,
@@ -670,9 +664,7 @@ class JsonLedgerClient(
       }
     } yield result
   }
-  override def submitMustFail(
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(
+  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
     submit(party, commands).map({
