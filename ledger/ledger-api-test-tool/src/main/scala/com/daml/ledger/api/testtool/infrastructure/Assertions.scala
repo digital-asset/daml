@@ -3,9 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.util.regex.Pattern
+
 import ai.x.diff.DiffShow
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import java.util.regex.Pattern
 import io.grpc.Status
 
 import scala.language.higherKinds
