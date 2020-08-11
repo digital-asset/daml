@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createLedgerContext, FetchResult, QueryResult, LedgerProps } from "./createLedgerContext";
-import { Party, Template } from '@daml/types';
+import { ContractId, Party, Template } from '@daml/types';
 import Ledger, { Query } from '@daml/ledger';
 
 /**
@@ -46,6 +46,22 @@ export function useQuery<T extends object, K, I extends string>(template: Templa
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
   return ledgerContext.useQuery(template, queryFactory, queryDeps);
+}
+
+/**
+ * React Hook for a lookup by contractId against the `/v1/fetch` endpoint of the JSON API.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ *
+ * @param template The template of the contracts to fetch.
+ * @param contractId The contractId to fetch.
+ *
+ * @return The fetched contract.
+ */
+export function useFetch<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): FetchResult<T, K, I> {
+  return ledgerContext.useFetch(template, contractId);
 }
 
 /**
