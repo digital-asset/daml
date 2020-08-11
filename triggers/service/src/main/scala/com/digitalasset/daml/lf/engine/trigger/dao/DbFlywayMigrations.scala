@@ -4,23 +4,22 @@
 package com.daml.lf.engine.trigger
 package dao
 
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+/*
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.HikariConnection
-import com.daml.platform.store.DbType
 import com.daml.resources.ResourceOwner
+ */
+import com.typesafe.scalalogging.StrictLogging
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
-import scala.concurrent.duration.DurationInt
+// import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-private[trigger] class DbFlywayMigrations(jdbcUrl: String)(implicit loggingContext: LoggingContext) {
+private[trigger] class DbFlywayMigrations(jdbcUrl: String) extends StrictLogging {
   import DbFlywayMigrations._
-
-  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val dbType = DbType.jdbcType(jdbcUrl)
 
@@ -60,6 +59,12 @@ private[trigger] class DbFlywayMigrations(jdbcUrl: String)(implicit loggingConte
       }
     }
 
+  private object dataSource {
+    def use[T](f: HikariDataSource => Future[T])(implicit ec: ExecutionContext): Future[T] =
+      Future failed (new IllegalStateException(s"s11 TODO dataSource $f $ec"))
+  }
+
+  /*
   private def dataSource: ResourceOwner[HikariDataSource] =
     HikariConnection.owner(
       serverRole = ServerRole.IndexMigrations,
@@ -69,6 +74,7 @@ private[trigger] class DbFlywayMigrations(jdbcUrl: String)(implicit loggingConte
       connectionTimeout = 250.millis,
       metrics = None,
     )
+ */
 }
 
 private[trigger] object DbFlywayMigrations {

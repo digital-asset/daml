@@ -53,6 +53,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:com_zaxxer_HikariCP",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_flywaydb_flyway_core",
