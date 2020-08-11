@@ -56,7 +56,7 @@ object TriggerServiceFixture extends StrictLogging {
       ec: ExecutionContext,
       pos: source.Position,
   ): Future[A] = {
-    logger.info(s"s11 ${pos.fileName}:${pos.lineNumber}: setting up trigger service")
+    logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
 
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")

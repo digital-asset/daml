@@ -161,7 +161,6 @@ class Server(
 
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
     val entry = (LocalDateTime.now, msg)
-    ctx.log.info(s"s11 server logging <$triggerInstance> $msg")
     triggerLog.merge(triggerInstance, Vector(entry), _ ++ _)
     ()
   }
@@ -348,8 +347,6 @@ object Server {
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers
-          _ = ctx.log.info(
-            s"s11 restarting ${triggers.size} triggers: ${triggers map (_.triggerInstance)}")
           _ <- server.restartTriggers(triggers)
         } yield ()
         recovery match {
