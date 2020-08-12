@@ -36,7 +36,6 @@ class WebsocketServiceOffsetTickIntTest
       msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
         .take(10)
         .runWith(collectResultsAsTextMessage)
-
     } yield {
       inside(eventsBlockVector(msgs.toVector)) {
         case \/-(offsetTicks) =>
@@ -54,9 +53,6 @@ class WebsocketServiceOffsetTickIntTest
         msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
           .take(10)
           .runWith(collectResultsAsTextMessage)
-
-        _ = println(s" ----- $msgs")
-
       } yield {
         inside(eventsBlockVector(msgs.toVector)) {
           case \/-(acs +: offsetTicks) =>
