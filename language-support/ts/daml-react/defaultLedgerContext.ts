@@ -55,7 +55,7 @@ export function useQuery<T extends object, K, I extends string>(template: Templa
  * @typeparam K The contract key type of the query.
  * @typeparam I The template id type.
  *
- * @param template The template of the contracts to fetch.
+ * @param template The template of the contract to fetch.
  * @param contractId The contractId to fetch.
  *
  * @return The fetched contract.
