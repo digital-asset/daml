@@ -14,12 +14,9 @@ This page contains release notes for the SDK.
 Highlights
 ~~~~~~~~~~
 
-- DAML on SQL is available as a standalone JAR, `you can find it on
+- DAML on SQL is available as an Early Access standalone JAR, `you can find it on
   the GH Release
   page <https://github.com/digital-asset/daml/releases>`__
-
-  - If you are using the Sandbox with SQL backing, you are advised
-    to migrate to DAML on SQL
 
 - Improvements to Ledger API and documentation for client
   application failover
@@ -51,8 +48,6 @@ users.
   to make a minor adjustment to the CLI parameters to start it.
 - If you are working on application failover, you need to
   incorporate some API improvements.
-- If you are running the Sandbox with persistence, you are advised
-  to start migrating to DAML on SQL.
 
 Standalone Early Access release of DAML on SQL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
