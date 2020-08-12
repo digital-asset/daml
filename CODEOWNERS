@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS  @hurryabit @gerolf-da
-LATEST      @hurryabit @gerolf-da @bame-da
+CODEOWNERS  @hurryabit @gerolf-da @cocreature
+LATEST      @hurryabit @gerolf-da @bame-da @cocreature
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
