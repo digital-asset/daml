@@ -6,6 +6,304 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-1.4.0:
+
+1.4.0 - 2020-08-12
+------------------
+
+Highlights
+~~~~~~~~~~
+
+- DAML on SQL is available as a standalone JAR, `you can find it on
+  the GH Release
+  page <https://github.com/digital-asset/daml/releases>`__
+
+  - If you are using the Sandbox with SQL backing, you are advised
+    to migrate to DAML on SQL
+
+- Improvements to Ledger API and documentation for client
+  application failover
+
+  - This involves changes in the Ledger API in corner cases, but
+    unless you are dealing with application failover, you are
+    unlikely to be affected.
+
+- DAML REPL is stable and has gained new features, including the
+  ability to run without being connected to a ledger
+
+  - Module imports now need to be made explicit when starting DAML
+    REPL
+
+- ``daml codegen js`` is significantly faster when generating
+  Javascript/TypeScript code
+- New Previous/Next buttons on
+  `docs.daml.com <https://docs.daml.com/>`__. Thanks to Alex Mason
+  `for the
+  suggestion <https://discuss.daml.com/t/ledger-model-documentation-improvements/828/2>`__!
+
+Impact and Migration
+~~~~~~~~~~~~~~~~~~~~
+
+Migration from SDK 1.3 to 1.4 should require no action for almost all
+users.
+
+- If you were using the Early Access version of DAML REPL, you need
+  to make a minor adjustment to the CLI parameters to start it.
+- If you are working on application failover, you need to
+  incorporate some API improvements.
+- If you are running the Sandbox with persistence, you are advised
+  to start migrating to DAML on SQL.
+
+Standalone release of DAML on SQL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Background
+^^^^^^^^^^
+
+The DAML Sandbox’s primary purpose is to serve as an in-memory
+development tool, but has had support for SQL backing for a long
+time. This made it a popular choice as a prototyping ledger and test
+tool, but lacking a separate distribution, required an entire SDK
+installation to run. To add clarity and ease deployment, the
+developer tool “Sandbox”, and the Ledger “DAML on SQL” are now being
+separated. As a first step, DAML on SQL is now available as a
+standalone JAR file on GitHub releases.
+
+Specific Changes
+^^^^^^^^^^^^^^^^
+
+- DAML on SQL is now available with every release `from the GitHub
+  Releases page <https://github.com/digital-asset/daml/releases>`__.
+
+Impact and Migration
+^^^^^^^^^^^^^^^^^^^^
+
+For now, this is a purely additive change, but with SDK 1.5,
+persistence mode in Sandbox will be deprecated, and after a
+transition period, both support for persistence in Sandbox, and the
+already deprecated Sandbox-classic will be removed from the SDK.
+Users of Sandbox-classic or Sandbox with SQL backing are advised to
+switch over to the new DAML on SQL distribution.
+
+Client Application Failover
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Background
+^^^^^^^^^^
+
+Client applications have to be able to deal with the possibility that
+participant nodes become unavailable, for example due to network or
+hardware failure. For such cases, some DAML Ledgers offer the
+possibility to run hot (or cold) standbys of participant nodes. When
+a failover from a primary to a standby node occurs, the client
+application has to handle the possibility that due to latency or
+initialization, the standby is not yet fully caught up with the
+Ledger. Improvements to Ledger API and documentation makes this
+significantly easier.
+
+Specific Changes
+^^^^^^^^^^^^^^^^
+
+- The error code for requesting a transaction stream with an offset
+  beyond the ledger end changed from ``INVALID_ARGUMENT`` to
+  ``OUT_OF_RANGE``.
+- The command completion service now validates the offset and
+  returns the ``OUT_OF_RANGE`` error if the request offset is beyond
+  the ledger end.
+- Added a `documentation
+  section <https://docs.daml.com/1.4.0/app-dev/app-arch.html#failing-over-between-ledger-api-endpoints>`__
+  on how to write DAML applications that can fail over between
+  eventually consistent Ledger API endpoints.
+
+Impact and Migration
+^^^^^^^^^^^^^^^^^^^^
+
+The behaviour of the transaction and command completion services have
+changed in cases where an offset beyond ledger end are given. This
+should only happen if a client application re-connects to a different
+node which is not fully caught up, so you are only likely to be
+affected if your application fails over.
+
+If you were relying on the old behaviors (returning
+``INVALID_ARGUMENT``, or accepting the argument, respectively), you
+now need to handle the ``OUT_OF_RANGE`` error and implement retry
+logic.
+
+REPL is now Stable
+~~~~~~~~~~~~~~~~~~
+
+Background
+^^^^^^^^^^
+
+DAML REPL, a developer tool to interactively evaluate DAML and
+interact with DAML Ledgers has been in Early Access since SDK
+0.13.55. With this release, it becomes stable, meaning its developer
+facing APIs are final and won’t break outside of major SDK versions.
+In addition, it has gained a number of new useful features including
+the ability to run without being connected to a DAML Ledger,
+allowing interactive testing of pure functions, for example.
+
+Specific Changes
+^^^^^^^^^^^^^^^^
+
+- Run DAML REPL without connecting to a ledger by omitting the
+  ``--ledger-host`` and ``--ledger-port`` parameters.
+- List the currently imported modules using the REPL command
+  ``:show imports``.
+- Type ``:help`` at the REPL prompt to see a list of possible REPL
+  commands.
+- Add and remove module imports using ``:module [+-] Some.Module``.
+- Use ``let`` bindings to bind pure expressions
+- The list of DARs passed to DAML REPL can now be empty.
+- The REPL now supports loading multiple DARs specified at the
+  command line. The DARs are loaded as data-dependencies.
+- The REPL no longer loads modules by default to avoid collisions
+  when multiple DARs are loaded.
+
+Impact and Migration
+^^^^^^^^^^^^^^^^^^^^
+
+You now need to either explicitly import all modules of your DAR file
+using the ``--import`` flag, or use ``:module + …`` inside the REPL.
+For example, if you previously started the REPL with
+
+.. code::
+
+    daml repl .daml/dist/script-example-0.0.1.dar``
+
+you now need to either run
+
+.. code::
+
+    daml repl .daml/dist/script-example-0.0.1.dar --import script-example``
+
+or import modules individually with
+
+.. code::
+
+    :module + ScriptExample
+
+Faster JavaScript codegen
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Background
+^^^^^^^^^^
+
+The TypeScript/JavaScript codegen ``daml codegen js`` used to
+generate TypeScript files and then use ``yarn`` to compile these to
+JavaScript and declaration files. The codegen now generates
+JavaScript and declarations directly, significantly improving speed,
+and removing the dependency on ``yarn``.
+
+Specific Changes
+^^^^^^^^^^^^^^^^
+
+- ``daml codegen js`` no longer requires ``yarn`` and is
+  significantly faster.
+
+Impact and Migration
+^^^^^^^^^^^^^^^^^^^^
+
+No action is required to consume this improvement.
+
+Minor Improvements
+~~~~~~~~~~~~~~~~~~
+
+- The DAML compiler will now compile type synonyms (``type X = Y``)
+  into the DAR,whenever possible, and will expose these synonyms via
+  data-dependencies. This works for DAML-LF 1.8 (the current
+  default) and upwards.
+- DAML Ledgers now print detailed log messages whenever a request
+  was rejected due to a failed JWT authentication/authorization,
+  allowing for easier debugging.
+- You can now use ``daml new project-name --template=template-name``
+  instead of ``daml new project-name template-name``. The positional
+  arguments led to confusion so the named version is now preferred,
+  but both continue to work.
+- Successful package uploads to the Sandbox are now logged on the
+  server. See https://github.com/digital-asset/daml/issues/6144.
+- Sandbox now allows the user to specify the participant ID with the
+  ``--participant-id`` switch.
+- The ``daml ledger`` commands now accept a ``--timeout`` option
+  which can be used to change the timeout for API requests from the
+  default of 30s.
+- You can now specify the version of Sandbox and the JSON API
+  independently of your SDK version by setting ``platform-version``
+  in your ``daml.yaml``. This is useful if you are deploying to a
+  ledger that is running components from a different SDK version.
+  See
+  https://docs.daml.com/1.4.0/tools/assistant.html#project-config-file-daml-yaml
+  for details.
+- ``daml new foobar --template=create-daml-app`` now properly
+  respects the project name and creates a project called ``foobar``
+  in ``daml.yaml`` and ``package.json`` instead of hardcoding the
+  name to ``create-daml-app``.
+- Scala codegen has gained support for exercise-by-key commands. See
+  `Issue #6466 <https://github.com/digital-asset/daml/pull/6466>`__.
+
+Bug and Security fixes
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Fix an issue in the JavaScript Client Libraries where some
+  recursive types resulted in a stack overflow.
+- The ActiveContractService now only sets the offset in the last
+  response, as intended, instead of in every response element.
+- A bug relating to how Fetch nodes are validated in some DAML
+  ledgers was fixed.
+
+Integration Kit
+~~~~~~~~~~~~~~~
+
+- The performance test names have been changed.
+  To learn more about the available tests, consult the documentation
+  for the Ledger API Test Tool and run it with ``--list``. Docs:
+  https://docs.daml.com/tools/ledger-api-test-tool/index.html
+- Fixed a bug in the Ledger API test tool that caused the full
+  conformance test suite to be run when trying to run performance
+  tests but using a wrong name. See
+  https://github.com/digital-asset/daml/issues/6823
+- Truncate GRPC error messages at 4 KB. This ensures that we won’t
+  trigger a protocol error when sending errors to the client.
+- Change the callback for contract keys from
+  ``GlobalKey => Option[ContractId]`` to
+  ``GlobalKeyWithMaintainers => Option[ContractId]`` in DAML Engine
+- Removed Sandbox specific code from the API intended to be used by
+  ledger integrations. Use the maven coordinates
+  ``com.daml:participant-integration-api:VERSION`` instead of
+  ``com.daml:ledger-api-server`` or ``com.daml:sandbox``.
+- ``StandaloneApiServer`` can now be run in a read-only mode
+
+  - The type of the constructor parameter ``writeService`` of
+    ``StandaloneApiServer`` changed to ``Option[WriteService]``.
+    Passing ``None`` will not start any of the admin services, the
+    command service, and the command submission service.
+  - The constructor parameter ``readService`` of
+    ``StandaloneApiServer`` has been removed.
+  - A new constructor parameter ``ledgerId`` has been added to
+    ``StandaloneApiServer``. It is used to verify that
+    ``StandaloneApiServer`` is run against an index storage for the
+    same ``ledgerId``. Initialization is aborted if this is not the
+    case.
+- The ``LedgerConfigurationService`` now properly streams
+  configuration changes.
+- Default new ``Engine constructor`` to ``Engine.StableConfig`` so
+  it does not need to be overridden unless you specifically want to
+  run in ``Engine.DevConfig`` mode
+- The ``LotsOfPartiesIT`` and ``TransactionScaleIT`` test suite have
+  been deemed not providing relevant signal to DAML ledger
+  implementers and have been retired. The tests will be nominally
+  kept in but will be skipped while they are in a deprecation
+  period. You are advised to remove explicit references to those
+  tests before they are fully removed.
+- All tests are now run by default. The ``--all-tests`` option is
+  now ineffective and deprecated. You are advised to remove its
+  usages from your build scripts. Non-isolated tests that could
+  affect the global state of the ledger and interfere with other
+  tests are now automatically scheduled by the test tool to run
+  sequentially at the end of the run.
+- The ``--load-scale-factor`` option is now unused and deprecated.
+  You are advised to remove its usages from your build scripts.
+
 .. _release-1.3.0:
 
 1.3.0 - 2020-07-16
