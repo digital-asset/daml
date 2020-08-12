@@ -811,7 +811,7 @@ jobs:
           }
 
           tell_daml() {
-              local message, pr_handler
+              local message pr_handler
               message=$1
               pr_handler=$(head -1 release/rotation | awk "${print $1}")
               curl -XPOST \
