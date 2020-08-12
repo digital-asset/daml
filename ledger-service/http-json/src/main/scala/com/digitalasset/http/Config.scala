@@ -4,7 +4,6 @@
 package com.daml.http
 
 import java.io.File
-import java.net.InetAddress
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
@@ -24,7 +23,7 @@ import scala.util.Try
 private[http] final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
-    address: String = InetAddress.getLoopbackAddress.getHostAddress,
+    address: String = com.daml.cliopts.Http.defaultAddress,
     httpPort: Int,
     portFile: Option[Path] = None,
     applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
