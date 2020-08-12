@@ -421,7 +421,7 @@ class WebSocketService(
         case ((state, _), TickTrigger) =>
           // convert TickTrigger into a Step, get the last seen offset from the state
           state.step match {
-            case Acs(_) => (ledgerBeginTick, Step(ledgerBeginTick))
+            case Acs(_) => (state, TickTrigger) // we don't know the offset yet
             case LiveBegin(LedgerBegin) => (ledgerBeginTick, Step(ledgerBeginTick))
             case LiveBegin(AbsoluteBookmark(offset)) => (state, Step(offsetTick(offset)))
             case Txn(_, offset) => (state, Step(offsetTick(offset)))
