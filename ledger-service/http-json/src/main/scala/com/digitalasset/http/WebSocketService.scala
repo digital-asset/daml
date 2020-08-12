@@ -412,7 +412,7 @@ class WebSocketService(
       StepAndErrors(Seq(), LiveBegin(LedgerBegin))
     )
     Flow[StepAndErrors[Pos, JsValue]]
-      .map(a => Step(a): TickTriggerOrStep[Pos])
+      .map(a => Step(a))
       .keepAlive(config.heartBeatPer, () => TickTrigger)
       .scan((zeroStep, TickTrigger: TickTriggerOrStep[Pos])) {
         case ((_, TickTrigger), TickTrigger) =>
@@ -430,7 +430,7 @@ class WebSocketService(
           // filter out empty steps, capture the current step, so we keep the last seen offset for the next tick
           (step, if (step.nonEmpty) x else TickTrigger)
       }
-      .collect { case (_, Step(x)) => x } // emit only Steps
+      .collect { case (_, Step(x)) => x } // emit only Steps including TickTriggers converted into Steps
   }
 
   private def ledgerBeginTick[Pos] =
