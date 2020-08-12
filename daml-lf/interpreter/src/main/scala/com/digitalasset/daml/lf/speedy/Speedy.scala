@@ -984,7 +984,7 @@ private[lf] object Speedy {
   }
 
   private[speedy] final case class KFoldl(
-      func: SEValue,
+      func: SValue,
       var list: FrontStack[SValue],
       frame: Frame,
       actuals: Actuals,
@@ -1001,15 +1001,13 @@ private[lf] object Speedy {
           // remainder of the list to avoid allocating a new continuation.
           list = rest
           machine.pushKont(this)
-          // TODO(MH): This looks like it has some potential for further
-          // performance gains once the AST nodes related to ANF have landed.
-          machine.ctrl = SEAppAtomicFun(func, Array(SEValue(acc), SEValue(item)))
+          enterApplication(machine, func, Array(SEValue(acc), SEValue(item)))
       }
     }
   }
 
   private[speedy] final case class KFoldr(
-      func: SEValue,
+      func: SValue,
       list: ImmArray[SValue],
       var lastIndex: Int,
       frame: Frame,
@@ -1024,10 +1022,7 @@ private[lf] object Speedy {
         val item = list(currentIndex)
         lastIndex = currentIndex
         machine.pushKont(this) // NOTE: We've updated `lastIndex`.
-        // TODO(MH): This looks like it has some potential for further
-        // performance gains once the AST nodes related to ANF have landed.
-        // The same applies to `KFoldr1Map/Reduce` below.
-        machine.ctrl = SEAppAtomicFun(func, Array(SEValue(item), SEValue(acc)))
+        enterApplication(machine, func, Array(SEValue(item), SEValue(acc)))
       } else {
         machine.returnValue = acc
       }
@@ -1037,7 +1032,7 @@ private[lf] object Speedy {
   // NOTE: See the explanation above the definition of `SBFoldr` on why we need
   // this continuation and what it does.
   private[speedy] final case class KFoldr1Map(
-      func: SEValue,
+      func: SValue,
       var list: FrontStack[SValue],
       var revClosures: FrontStack[SValue],
       init: SValue,
@@ -1056,7 +1051,7 @@ private[lf] object Speedy {
           machine.restoreEnv(frame, actuals, envSize)
           list = rest
           machine.pushKont(this) // NOTE: We've updated `revClosures` and `list`.
-          machine.ctrl = SEAppAtomicFun(func, Array(SEValue(item)))
+          enterApplication(machine, func, Array(SEValue(item)))
       }
     }
   }
@@ -1078,7 +1073,7 @@ private[lf] object Speedy {
           machine.restoreEnv(frame, actuals, envSize)
           revClosures = rest
           machine.pushKont(this) // NOTE: We've updated `revClosures`.
-          machine.ctrl = SEAppAtomicFun(SEValue(closure), Array(SEValue(acc)))
+          enterApplication(machine, closure, Array(SEValue(acc)))
       }
     }
   }
