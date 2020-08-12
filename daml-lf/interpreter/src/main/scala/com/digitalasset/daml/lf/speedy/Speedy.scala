@@ -663,6 +663,86 @@ private[lf] object Speedy {
     }
   }
 
+  /** This function is used to enter an ANF application.  The function has been evaluated to
+    a value, and so have the arguments - they just need looking up */
+  // TODO: share common code with executeApplication
+  private[speedy] def enterApplication(
+      machine: Machine,
+      vfun: SValue,
+      newArgs: Array[SExprAtomic]): Unit = {
+    vfun match {
+      case SPAP(prim, actualsSoFar, arity) =>
+        val missing = arity - actualsSoFar.size
+        val newArgsLimit = Math.min(missing, newArgs.length)
+
+        val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
+        actuals.addAll(actualsSoFar)
+
+        val othersLength = newArgs.length - missing
+
+        // Evaluate the arguments
+        for (i <- 0 to newArgsLimit - 1) {
+          val newArg = newArgs(i)
+          val v = newArg.lookupValue(machine)
+          actuals.add(v)
+        }
+
+        // Not enough arguments. Return a PAP.
+        if (othersLength < 0) {
+          machine.returnValue = SPAP(prim, actuals, arity)
+
+        } else {
+          // Too many arguments: Push a continuation to re-apply the over-applied args.
+          if (othersLength > 0) {
+            val others = new Array[SExprAtomic](othersLength)
+            System.arraycopy(newArgs, missing, others, 0, othersLength)
+            machine.pushKont(KOverApp(others, machine.frame, machine.actuals, machine.env.size))
+          }
+          // Now the correct number of arguments is ensured. What kind of prim do we have?
+          prim match {
+            case closure: PClosure =>
+              machine.frame = closure.frame
+              machine.actuals = actuals
+              // Maybe push a continuation for the profiler
+              val label = closure.label
+              if (label != null) {
+                machine.profile.addOpenEvent(label)
+                machine.pushKont(KLeaveClosure(label))
+              }
+              // Start evaluating the body of the closure.
+              machine.ctrl = closure.expr
+
+            case PBuiltin(builtin) =>
+              machine.actuals = actuals
+              try {
+                builtin.execute(actuals, machine)
+              } catch {
+                // We turn arithmetic exceptions into a daml exception that can be caught.
+                case e: ArithmeticException =>
+                  throw DamlEArithmeticError(e.getMessage)
+              }
+
+          }
+        }
+
+      case _ =>
+        crash(s"Applying non-PAP: $vfun")
+    }
+  }
+
+  private[speedy] final case class KOverApp(
+      newArgs: Array[SExprAtomic],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
+    def execute(vfun: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
+      enterApplication(machine, vfun, newArgs)
+    }
+  }
+
   /** Evaluate the first 'n' arguments in 'args'.
     'args' will contain at least 'n' expressions, but it may contain more(!)
 
