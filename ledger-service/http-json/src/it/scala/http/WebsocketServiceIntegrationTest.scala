@@ -44,6 +44,8 @@ class WebsocketServiceIntegrationTest
 
   override def useTls = UseTls.NoTls
 
+  override def wsConfig: Option[WebsocketConfig] = Some(Config.DefaultWsConfig)
+
   private val baseQueryInput: Source[Message, NotUsed] =
     Source.single(TextMessage.Strict("""{"templateIds": ["Account:Account"]}"""))
 

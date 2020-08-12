@@ -82,6 +82,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   def useTls: UseTls
 
+  def wsConfig: Option[WebsocketConfig]
+
   protected def testId: String = this.getClass.getSimpleName
 
   protected val metdata2: MetadataReader.LfMetadata =
@@ -123,7 +125,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
         List(dar1, dar2),
         jdbcConfig,
         staticContentConfig,
-        useTls = useTls)
+        useTls = useTls,
+        wsConfig = wsConfig)
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
