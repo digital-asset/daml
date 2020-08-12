@@ -499,15 +499,19 @@ jobs:
     - checkout: self
       persistCredentials: true
     - bash: ci/dev-env-install.sh
+    - template: ci/bash-lib.yml
+      parameters:
+        var_name: bash_lib
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
+
+        source $(bash_lib)
 
         setvar() {
             echo "Setting '$1' to '$2'"
             echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
         }
-
 
         DELAY=1
         while ! curl --fail -I https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/$(release_tag)/ledger-api-test-tool-$(release_tag).jar; do
@@ -519,19 +523,7 @@ jobs:
             fi
         done
 
-        # With `persistCredentials: true`, Azure Pipelines will store the
-        # credentials to interact with GitHub in the url for the origin remote,
-        # using basic auth format:
-        # https://username:password@github.com/:user/:repo.git
-        # This series of pipes extracts the `username:password` part.
-        #
-        # It looks like in some cases the credentials get stored separately as
-        # a header instead.
-        if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
-            AUTH="$header"
-        else
-            AUTH="Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev)"
-        fi
+        AUTH="$(get_gh_auth_header)"
 
         git checkout origin/master
         BRANCH=update-compat-versions-for-$(release_tag)
@@ -551,6 +543,7 @@ jobs:
         curl -H "Content-Type: application/json" \
              -H "$AUTH" \
              --silent \
+             --fail \
              --include \
              --location \
              -d "{\"title\": \"update compat versions for $(release_tag)\", \"head\": \"$BRANCH\", \"base\": \"master\"}" \

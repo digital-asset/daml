@@ -20,14 +20,15 @@ jobs:
   steps:
   - checkout: self
     persistCredentials: true
+  - template: ../bash-lib.yml
+    parameters:
+      var_name: bash_lib
   - bash: |
       set -euo pipefail
 
-      if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
-          AUTH="$header"
-      else
-          AUTH="Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev)"
-      fi
+      source "$(bash_lib)"
+
+      AUTH="$(get_gh_auth_header)"
 
       BASE_SHA=$(git rev-parse HEAD)
       az extension add --name azure-devops
