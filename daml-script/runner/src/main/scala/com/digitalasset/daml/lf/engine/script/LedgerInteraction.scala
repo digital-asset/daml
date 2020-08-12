@@ -125,6 +125,10 @@ trait ScriptLedgerClient {
       mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
+  def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Either[Unit, Unit]]
+
   def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SParty]
@@ -209,6 +213,15 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
           case Right(results) => results
         }
       }))
+  }
+
+  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
+    submit(party, commands).map({
+      case Right(_) => Left(())
+      case Left(_) => Right(())
+    })
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(
@@ -433,6 +446,20 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     Future.fromTry(result)
   }
 
+  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Either[Unit, Unit]] = {
+    submit(party, commands)
+      .map({
+        case Right(_) => Left(())
+        // We don't expect to hit this case but list it for completeness.
+        case Left(_) => Right(())
+      })
+      .recoverWith({
+        case _: SError => Future.successful(Right(()))
+      })
+  }
+
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
@@ -553,6 +580,14 @@ class JsonLedgerClient(
               "Multi-command submissions are not supported by the HTTP JSON API."))
       }
     } yield result
+  }
+  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
+    submit(party, commands).map({
+      case Right(_) => Left(())
+      case Left(_) => Right(())
+    })
   }
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,

@@ -42,7 +42,7 @@ jobs:
           branch=$1
           title="$2"
           body="$3"
-          out=$4
+          out="${4:-}"
           git branch -D $branch || true
           git checkout -b $branch
           git add .

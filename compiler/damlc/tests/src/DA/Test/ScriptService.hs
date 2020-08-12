@@ -347,6 +347,28 @@ main =
                   expectScriptFailure rs (vr "testAbort") $ \r ->
                     matchRegex r "Aborted:  abortCrash"
                   pure (),
+              testCase "submitMustFail" $ do
+                  rs <-
+                    runScripts
+                      scriptService
+                      [ "module Test where",
+                        "import Daml.Script",
+                        "template T",
+                        "  with",
+                        "    p : Party",
+                        "  where",
+                        "    signatory p",
+                        "    choice AssertFail : ()",
+                        "      controller p",
+                        "      do assert False",
+                        "testAssertFail = do",
+                        "  p <- allocateParty \"p\"",
+                        "  cid <- submit p (createCmd (T p))",
+                        "  submitMustFail p (exerciseCmd cid AssertFail)"
+                      ]
+                  expectScriptSuccess rs (vr "testAssertFail") $ \r ->
+                    matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
+                  pure (),
               testCase "contract keys" $ do
                 rs <-
                   runScripts
