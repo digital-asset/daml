@@ -54,8 +54,8 @@ users.
 - If you are running the Sandbox with persistence, you are advised
   to start migrating to DAML on SQL.
 
-Standalone release of DAML on SQL
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Standalone Early Access release of DAML on SQL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Background
 ^^^^^^^^^^
@@ -64,26 +64,30 @@ The DAML Sandbox’s primary purpose is to serve as an in-memory
 development tool, but has had support for SQL backing for a long
 time. This made it a popular choice as a prototyping ledger and test
 tool, but lacking a separate distribution, required an entire SDK
-installation to run. To add clarity and ease deployment, the
-developer tool “Sandbox”, and the Ledger “DAML on SQL” are now being
+installation to run. To add clarity and ease deployment, the developer
+tool “Sandbox”, and the Ledger “DAML on SQL” are now being
 separated. As a first step, DAML on SQL is now available as a
-standalone JAR file on GitHub releases.
+standalone JAR file on GitHub releases. Some minor changes to
+functionality and CLI are planned for upcoming releases to further
+differentiate developer tooling and actual Ledger. The standalone JAR
+will remain in Early Access until those changes have been made.
 
 Specific Changes
 ^^^^^^^^^^^^^^^^
 
-- DAML on SQL is now available with every release `from the GitHub
+DAML on SQL is now available with every release  `from the GitHub
   Releases page <https://github.com/digital-asset/daml/releases>`__.
 
 Impact and Migration
 ^^^^^^^^^^^^^^^^^^^^
 
-For now, this is a purely additive change, but with SDK 1.5,
-persistence mode in Sandbox will be deprecated, and after a
-transition period, both support for persistence in Sandbox, and the
-already deprecated Sandbox-classic will be removed from the SDK.
-Users of Sandbox-classic or Sandbox with SQL backing are advised to
-switch over to the new DAML on SQL distribution.
+For now, this is a purely additive change, but at the same time DAML
+on SQL will become stable,, persistence mode in Sandbox will be
+deprecated, and after a transition period, both support for
+persistence in Sandbox, and the already deprecated Sandbox-classic
+will be removed from the SDK. Users of Sandbox-classic or Sandbox with
+SQL backing are advised to start migrating over to the new DAML on SQL
+distribution.
 
 Client Application Failover
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
