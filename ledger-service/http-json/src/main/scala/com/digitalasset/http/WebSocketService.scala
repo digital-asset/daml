@@ -281,6 +281,10 @@ object WebSocketService {
       request traverse (_.contractIdAtOffset) map NelO.toSet
     }
   }
+
+  private abstract sealed class TickTriggerOrStep[+A] extends Product with Serializable
+  private final case object TickTrigger extends TickTriggerOrStep[Nothing]
+  private final case class Step[A](payload: StepAndErrors[A, JsValue]) extends TickTriggerOrStep[A]
 }
 
 class WebSocketService(
@@ -403,31 +407,30 @@ class WebSocketService(
   private def emitOffsetTicksAndFilterOutEmptySteps[Pos](startFrom: Option[domain.StartingOffset])
     : Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
 
-    type TickTriggerOrStep = Unit \/ StepAndErrors[Pos, JsValue]
-
-    val tickTrigger: TickTriggerOrStep = -\/(())
-    val zeroState: StepAndErrors[Pos, JsValue] = startFrom.cata(
+    val zeroStep: StepAndErrors[Pos, JsValue] = startFrom.cata(
       x => StepAndErrors(Seq(), LiveBegin(AbsoluteBookmark(x.offset))),
       StepAndErrors(Seq(), LiveBegin(LedgerBegin))
     )
     Flow[StepAndErrors[Pos, JsValue]]
-      .map(a => \/-(a): TickTriggerOrStep)
-      .keepAlive(config.heartBeatPer, () => tickTrigger)
-      .scan((zeroState, tickTrigger)) {
-        case ((state, _), -\/(())) =>
-          // convert tick trigger into a tick message, get the last seen offset from the state
+      .map(a => Step(a): TickTriggerOrStep[Pos])
+      .keepAlive(config.heartBeatPer, () => TickTrigger)
+      .scan((zeroStep, TickTrigger: TickTriggerOrStep[Pos])) {
+        case ((_, TickTrigger), TickTrigger) =>
+          // skip all TickTriggers preceding the initial ACS retrieval
+          (zeroStep, TickTrigger)
+        case ((state, _), TickTrigger) =>
+          // convert TickTrigger into a Step, get the last seen offset from the state
           state.step match {
-            case Acs(_) => (ledgerBeginTick, \/-(ledgerBeginTick))
-            case LiveBegin(LedgerBegin) => (ledgerBeginTick, \/-(ledgerBeginTick))
-            case LiveBegin(AbsoluteBookmark(offset)) => (state, \/-(offsetTick(offset)))
-            case Txn(_, offset) => (state, \/-(offsetTick(offset)))
+            case Acs(_) => (ledgerBeginTick, Step(ledgerBeginTick))
+            case LiveBegin(LedgerBegin) => (ledgerBeginTick, Step(ledgerBeginTick))
+            case LiveBegin(AbsoluteBookmark(offset)) => (state, Step(offsetTick(offset)))
+            case Txn(_, offset) => (state, Step(offsetTick(offset)))
           }
-        case ((_, _), x @ \/-(step)) =>
+        case ((_, _), x @ Step(step)) =>
           // filter out empty steps, capture the current step, so we keep the last seen offset for the next tick
-          val nonEmptyStep: TickTriggerOrStep = if (step.nonEmpty) x else tickTrigger
-          (step, nonEmptyStep)
+          (step, if (step.nonEmpty) x else TickTrigger)
       }
-      .collect { case (_, \/-(x)) => x }
+      .collect { case (_, Step(x)) => x } // emit only Steps
   }
 
   private def ledgerBeginTick[Pos] =
