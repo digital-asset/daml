@@ -482,6 +482,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     submit(party, commands)
       .map({
         case Right(_) => Left(())
+        // We don't expect to hit this case but list it for completeness.
         case Left(_) => Right(())
       })
       .recoverWith({
