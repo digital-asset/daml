@@ -70,8 +70,8 @@ will remain in Early Access until those changes have been made.
 Specific Changes
 ^^^^^^^^^^^^^^^^
 
-DAML on SQL is now available with every release  `from the GitHub
-  Releases page <https://github.com/digital-asset/daml/releases>`__.
+DAML on SQL is now available with every release
+`from the GitHub Releases page <https://github.com/digital-asset/daml/releases>`__.
 
 Impact and Migration
 ^^^^^^^^^^^^^^^^^^^^
