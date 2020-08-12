@@ -439,6 +439,21 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
           case \/-(x) => x
         }
     }
+
+  protected def initialIouCreate(serviceUri: Uri): Future[(StatusCode, JsValue)] = {
+    val payload = TestUtil.readFile("it/iouCreateCommand.json")
+    TestUtil.postJsonStringRequest(
+      serviceUri.withPath(Uri.Path("/v1/create")),
+      payload,
+      headersWithAuth)
+  }
+
+  protected def initialAccountCreate(
+      serviceUri: Uri,
+      encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
+    val command = accountCreateCommand(domain.Party("Alice"), "abc123")
+    postCreateCommand(command, encoder, serviceUri)
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
