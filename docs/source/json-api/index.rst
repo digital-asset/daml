@@ -82,68 +82,7 @@ After the first run make sure ``createSchema=false`` so that it doesn't attempt 
     daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
     --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
 
-.. code-block:: shell
-
-    $ daml json-api --ledger-host localhost --ledger-port 6865 \
-        --http-port 7575 --max-inbound-message-size 4194304 --package-reload-interval 5s \
-        --application-id HTTP-JSON-API-Gateway --static-content "prefix=static,directory=./static-content" \
-        --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
-
-.. code-block:: none
-
-    $ daml json-api --help
-    HTTP JSON API daemon
-    Usage: http-json-binary [options]
-
-      --help
-            Print this usage text
-      --ledger-host <value>
-            Ledger host name or IP address
-      --ledger-port <value>
-            Ledger port number
-      --address <value>
-            IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
-      --http-port <value>
-            HTTP JSON API service port number. A port number of 0 will let the system pick an ephemeral port. Consider specifying `--port-file` option with port number 0.
-      --port-file <value>
-            Optional unique file name where to write the allocated HTTP port number. If process terminates gracefully, this file will be deleted automatically. Used to inform clients in CI about which port HTTP JSON API listens on. Defaults to none, that is, no file gets created.
-      --application-id <value>
-            Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
-      --pem <value>
-            TLS: The pem file to be used as the private key.
-      --crt <value>
-            TLS: The crt file to be used as the cert chain.
-            Required for client authentication.
-      --cacrt <value>
-            TLS: The crt file to be used as the trusted root CA.
-      --tls
-            TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set
-      --package-reload-interval <value>
-            Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
-      --max-inbound-message-size <value>
-            Optional max inbound message size in bytes. Defaults to 4194304
-      --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
-            Optional query store JDBC configuration string. Query store is a search index, use it if you need to query large active contract sets. Contains comma-separated key-value pairs. Where:
-            driver -- JDBC driver class name, only org.postgresql.Driver supported right now,
-            url -- JDBC connection URL, only jdbc:postgresql supported right now,
-            user -- database user name,
-            password -- database user password,
-            createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
-            Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
-      --static-content "prefix=<URL prefix>,directory=<directory>"
-            DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
-            prefix -- URL prefix,
-            directory -- local directory that will be mapped to the URL prefix.
-            Example: "prefix=static,directory=./static-content"
-      --allow-insecure-tokens
-            DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.
-      --access-token-file <value>
-            provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
-      --websocket-config "maxDuration=<Maximum websocket session duration in minutes>,heartBeatPer=Server-side heartBeat interval in seconds"
-            Optional websocket configuration string. Contains comma-separated key-value pairs. Where:
-            maxDuration -- Maximum websocket session duration in minutes
-            heartBeatPer -- Server-side heartBeat interval in seconds
-            Example: "maxDuration=120,heartBeatPer=5"
+NOTE: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
 
 With Authentication
 ===================
