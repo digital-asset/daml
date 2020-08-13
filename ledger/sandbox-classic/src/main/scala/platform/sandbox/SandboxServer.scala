@@ -212,7 +212,7 @@ final class SandboxServer(
         val (acs, records, ledgerTime) =
           ScenarioLoader.fromScenario(
             packageStore,
-            engine.compiledPackages(),
+            engine,
             scenario,
             seedingService.nextSeed(),
           )
@@ -310,7 +310,7 @@ final class SandboxServer(
         optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),
         indexService = new TimedIndexService(indexAndWriteService.indexService, metrics),
         authorizer = authorizer,
-        engine = SandboxServer.engine,
+        engine = engine,
         timeProvider = timeProvider,
         timeProviderType = timeProviderType,
         ledgerConfiguration = ledgerConfiguration,

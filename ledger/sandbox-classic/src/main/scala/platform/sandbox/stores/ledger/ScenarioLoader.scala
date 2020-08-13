@@ -5,13 +5,13 @@ package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.daml.lf.{CompiledPackages, crypto}
+import com.daml.lf.crypto
 import com.daml.lf.data.{Relation => _, _}
+import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.platform.packages.InMemoryPackageStore
-import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
 
@@ -51,12 +51,12 @@ object ScenarioLoader {
     */
   def fromScenario(
       packages: InMemoryPackageStore,
-      compiledPackages: CompiledPackages,
+      engine: Engine,
       scenario: String,
       transactionSeed: crypto.Hash,
   ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
     val (scenarioLedger, _) =
-      buildScenarioLedger(packages, compiledPackages, scenario, transactionSeed)
+      buildScenarioLedger(packages, engine, scenario, transactionSeed)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
@@ -110,7 +110,7 @@ object ScenarioLoader {
 
   private[this] def buildScenarioLedger(
       packages: InMemoryPackageStore,
-      compiledPackages: CompiledPackages,
+      engine: Engine,
       scenario: String,
       transactionSeed: crypto.Hash,
   ): (ScenarioLedger, Ref.DefinitionRef) = {
@@ -118,13 +118,8 @@ object ScenarioLoader {
     val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     @com.github.ghik.silencer.silent("can be used only by sandbox classic.")
-    val scenarioLedger = ScenarioRunner.getScenarioLedger(
-      scenarioRef = scenarioRef,
-      scenarioDef = scenarioDef,
-      compiledPackages = compiledPackages,
-      transactionSeed = transactionSeed,
-      outputTransactionVersions = SandboxServer.engineConfig.outputTransactionVersions,
-    )
+    val scenarioLedger =
+      ScenarioRunner.getScenarioLedger(engine, scenarioRef, scenarioDef, transactionSeed)
     (scenarioLedger, scenarioRef)
   }
 
