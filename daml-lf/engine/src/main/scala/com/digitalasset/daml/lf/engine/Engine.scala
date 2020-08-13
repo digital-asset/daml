@@ -429,13 +429,13 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
   }
 
   private[engine] def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
-    if (config.languageVersions.contains(pkg.languageVersion))
+    if (config.allowedLanguageVersions.contains(pkg.languageVersion))
       compiledPackages.addPackage(pkgId, pkg)
     else
       ResultError(
         Error(
           s"Disallowed language version in package $pkgId: " +
-            s"Expected version between ${config.languageVersions.min} and ${config.languageVersions.max} but got ${pkg.languageVersion}"
+            s"Expected version between ${config.allowedLanguageVersions.min} and ${config.allowedLanguageVersions.max} but got ${pkg.languageVersion}"
         )
       )
 

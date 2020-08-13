@@ -1677,7 +1677,7 @@ class EngineTest
     def engine(min: LV.Minor, max: LV.Minor) =
       new Engine(
         EngineConfig.Dev.copy(
-          languageVersions = VersionRange(LV(LV.Major.V1, min), LV(LV.Major.V1, max))
+          allowedLanguageVersions = VersionRange(LV(LV.Major.V1, min), LV(LV.Major.V1, max))
         )
       )
 

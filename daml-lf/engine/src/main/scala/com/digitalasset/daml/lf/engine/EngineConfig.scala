@@ -52,7 +52,7 @@ object EngineConfig {
   @deprecated("Sandbox_Classic is to be used by sandbox classic only", since = "1.4.0")
   val Sandbox_Classic: EngineConfig = new EngineConfig(
     allowedLanguageVersions = VersionRange(
-      LV(LV.Major.V0, LV.Minor.Stable("")),
+      LV(LV.Major.V1, LV.Minor.Stable("0")),
       LV(LV.Major.V1, LV.Minor.Dev),
     ),
     allowedInputTransactionVersions = VersionRange(
