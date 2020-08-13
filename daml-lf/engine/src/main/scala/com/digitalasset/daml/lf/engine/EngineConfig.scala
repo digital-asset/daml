@@ -64,7 +64,7 @@ object EngineConfig {
   val Sandbox_Classic_Stable: EngineConfig =
     Stable.copy(
       allowedLanguageVersions =
-        Stable.allowedLanguageVersions.copy(min = LV(LV.Major.V0, LV.Minor.Stable(""))),
+        Stable.allowedLanguageVersions.copy(min = LV(LV.Major.V1, LV.Minor.Stable("0"))),
       allowedInputTransactionVersions = Stable.allowedInputTransactionVersions.copy(
         min = TransactionVersions.acceptedVersions.head),
       allowedOutputTransactionVersions = Stable.allowedOutputTransactionVersions.copy(
