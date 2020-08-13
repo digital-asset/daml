@@ -491,7 +491,7 @@ genrule(
         VERSION_DATE=$$(cat bazel-out/stable-status.txt | grep STABLE_VERSION_DATE | head -1 | cut -f 2 -d' ')
         tar -zxf $(location :redirects)
         tar -zxf $(location :docs-no-pdf)
-        cp -rn redirects/* html
+        cp -rf redirects/* html
         cp -L docs/error.html html
         cd html
         find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
