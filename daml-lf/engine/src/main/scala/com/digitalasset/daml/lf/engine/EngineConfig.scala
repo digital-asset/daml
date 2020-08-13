@@ -67,8 +67,6 @@ object EngineConfig {
         Stable.allowedLanguageVersions.copy(min = LV(LV.Major.V1, LV.Minor.Stable("0"))),
       allowedInputTransactionVersions = Stable.allowedInputTransactionVersions.copy(
         min = TransactionVersions.acceptedVersions.head),
-      allowedOutputTransactionVersions = Stable.allowedOutputTransactionVersions.copy(
-        min = TransactionVersions.acceptedVersions.head),
     )
 
   // Legacy configuration, to be used by sandbox classic only
