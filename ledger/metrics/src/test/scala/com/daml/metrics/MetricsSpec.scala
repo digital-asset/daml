@@ -15,7 +15,7 @@ class MetricsSpec extends AsyncWordSpec with Matchers {
       implicit val executionContext: ExecutionContext = ExecutionContext.global
       val metricName = MetricName.DAML :+ "a" :+ "test"
       val instances =
-        (1 to 1000).map(_ => Future(metrics.gauge[Double](metricName, () => () => 1.0)))
+        (1 to 1000).map(_ => Future(metrics.register[Double](metricName, () => () => 1.0)))
       Future.sequence(instances).map { _ =>
         succeed
       }
