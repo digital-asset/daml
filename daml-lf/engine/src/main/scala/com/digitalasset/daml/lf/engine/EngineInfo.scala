@@ -60,7 +60,7 @@ class EngineInfo(config: EngineConfig) {
         formatValVersions("input", allowedInputValueVersions),
         formatTxVersions("output", allowedOutputTransactionVersions),
         formatValVersions("output", allowedOutputValueVersions)
-      ).mkString("Engine config allows ", "; ", ".")
+      ).mkString("DAML LF Engine config allows ", "; ", ".")
     )
   }
 

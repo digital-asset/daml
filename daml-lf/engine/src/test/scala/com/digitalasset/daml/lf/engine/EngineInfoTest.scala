@@ -27,13 +27,13 @@ class EngineInfoTest extends WordSpec with Matchers {
     "show allowed LF, Transaction and Value versions" in {
 
       engineInfoStable.pretty.toSeq(1) shouldBe
-        "Engine config allows LF versions: 1.6, 1.7, 1.8; input transaction versions: 10; input value versions: 6; output transaction versions: 10; output value versions: 6."
+        "DAML LF Engine config allows LF versions: 1.6, 1.7, 1.8; input transaction versions: 10; input value versions: 6; output transaction versions: 10; output value versions: 6."
 
       engineInfoDev.pretty.toSeq(1) shouldBe
-        "Engine config allows LF versions: 1.6, 1.7, 1.8, 1.dev; input transaction versions: 10, 11; input value versions: 6, 7; output transaction versions: 10, 11; output value versions: 6, 7."
+        "DAML LF Engine config allows LF versions: 1.6, 1.7, 1.8, 1.dev; input transaction versions: 10, 11; input value versions: 6, 7; output transaction versions: 10, 11; output value versions: 6, 7."
 
       engineInfoLegacy.pretty.toSeq(1) shouldBe
-        "Engine config allows LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; input transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; input value versions: 1, 2, 3, 4, 5, 6, 7; output transaction versions: 10, 11; output value versions: 6, 7."
+        "DAML LF Engine config allows LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; input transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; input value versions: 1, 2, 3, 4, 5, 6, 7; output transaction versions: 10, 11; output value versions: 6, 7."
 
     }
 
