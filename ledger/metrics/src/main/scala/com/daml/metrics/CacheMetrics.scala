@@ -23,8 +23,9 @@ final class CacheMetrics(
   def registerWeightGauge(weightGauge: Gauge[Long]): Unit =
     register(prefix :+ "weight", () => weightGauge)
 
-  private def register[T](name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Gauge[T] = {
-    registry.remove(name)
-    registry.gauge(name, gaugeSupplier).asInstanceOf[Gauge[T]]
-  }
+  private def register[T](name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Gauge[T] =
+    registry.synchronized {
+      registry.remove(name)
+      registry.gauge(name, gaugeSupplier).asInstanceOf[Gauge[T]]
+    }
 }
