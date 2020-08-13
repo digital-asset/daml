@@ -121,7 +121,7 @@ object SExpr {
       with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       val vfun = fun.lookupValue(machine)
-      executeApplication(machine, vfun, args)
+      machine.executeApplication(vfun, args)
     }
   }
 
@@ -137,7 +137,7 @@ object SExpr {
       with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       val vfun = fun.lookupValue(machine)
-      enterApplication(machine, vfun, args)
+      machine.enterApplication(vfun, args)
     }
   }
 
