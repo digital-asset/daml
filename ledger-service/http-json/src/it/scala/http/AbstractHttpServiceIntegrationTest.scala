@@ -82,6 +82,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   def useTls: UseTls
 
+  def wsConfig: Option[WebsocketConfig]
+
   protected def testId: String = this.getClass.getSimpleName
 
   protected val metdata2: MetadataReader.LfMetadata =
@@ -123,7 +125,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
         List(dar1, dar2),
         jdbcConfig,
         staticContentConfig,
-        useTls = useTls)
+        useTls = useTls,
+        wsConfig = wsConfig)
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
@@ -436,6 +439,21 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
           case \/-(x) => x
         }
     }
+
+  protected def initialIouCreate(serviceUri: Uri): Future[(StatusCode, JsValue)] = {
+    val payload = TestUtil.readFile("it/iouCreateCommand.json")
+    TestUtil.postJsonStringRequest(
+      serviceUri.withPath(Uri.Path("/v1/create")),
+      payload,
+      headersWithAuth)
+  }
+
+  protected def initialAccountCreate(
+      serviceUri: Uri,
+      encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
+    val command = accountCreateCommand(domain.Party("Alice"), "abc123")
+    postCreateCommand(command, encoder, serviceUri)
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
