@@ -66,7 +66,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   private[this] val engineConfig =
     if (config.devMode) EngineConfig.Dev else EngineConfig.Stable
 
-  private[this] val engine = Engine.DevEngine()
+  private[this] val engine = new Engine(engineConfig)
   engine.setProfileDir(config.profileDir)
   engine.enableStackTraces(config.stackTraces)
 
