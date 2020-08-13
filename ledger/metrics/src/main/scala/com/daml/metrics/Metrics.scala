@@ -8,7 +8,9 @@ import com.codahale.metrics._
 
 final class Metrics(val registry: MetricRegistry) {
 
-  private def gauge[T](name: MetricName, metricSupplier: MetricSupplier[Gauge[_]]): Gauge[T] = {
+  private[metrics] def gauge[T](
+      name: MetricName,
+      metricSupplier: MetricSupplier[Gauge[_]]): Gauge[T] = {
     registry.remove(name)
     registry.gauge(name, metricSupplier).asInstanceOf[Gauge[T]]
   }
