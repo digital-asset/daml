@@ -36,24 +36,51 @@ We welcome feedback about the JSON API on `our issue tracker
    lf-value-specification
    search-query-language
 
-How to start
-************
+Running the JSON API
+********************
 
-Start sandbox
-=============
+Start a DAML Ledger
+===================
 
-From a DAML project directory:
+You can run the JSON API alongside any DAML Ledger you want, if you don't have a DAML Ledger you want to run it with then start a sandbox ledger as so:
 
 .. code-block:: shell
 
-    $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+    daml new my_project --template quickstart-java
+    cd my_project
+    daml build
+    daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
 .. _start-http-service:
 
-Start HTTP service
-==================
+Start the HTTP JSON API Service
+===============================
 
-From a DAML project directory:
+Basic
+-----
+
+The most basic way to start the JSON API is with the command:
+
+.. code-block:: shell
+
+    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+
+This will connect to your ledger that is running on ``localhost:6865`` and start your JSON API server which you'll be able to query on ``localhost:7575``
+
+With Query Storage
+------------------
+
+Often when running the JSON API you'll want to cache queries to decrease the workload of your underlying ledger.
+The JSON API provides a way to do this by allowing you to specify a database to cache queries (currently PostgreSQL only).
+
+In this case you can use the ``--query-store-jdbc-config`` flag, an example of which is below. 
+Note that when you do this you'll want your first run to specify ``createSchema=true`` so that all the necessary tables are created.
+After the first run make sure ``createSchema=false`` so that it doesn't attempt to create the tables again.
+
+.. code-block:: shell
+
+    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
+    --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
 
 .. code-block:: shell
 
