@@ -1,7 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.daml.lf
+package engine
+package script
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -27,16 +29,12 @@ import spray.json._
 import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
-import com.daml.lf.CompiledPackages
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.data.{Time}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.Speedy.Machine
@@ -321,12 +319,23 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
 
 // Client for the script service.
 class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClient {
+  private val txSeeding =
+    speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"script-service"))
+
   // Machine for scenario expressions.
-  val machine = Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
+  val machine = Machine(
+    compiledPackages,
+    submissionTime = Time.Timestamp.Epoch,
+    initialSeeding = txSeeding,
+    expr = null,
+    globalCids = Set.empty,
+    committers = Set.empty,
+    inputValueVersions = value.ValueVersions.DevOutputVersions,
+    outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
+  )
+  (compiledPackages, SEValue(SUnit))
   val scenarioRunner = ScenarioRunner(machine)
-  private val txSeeding = crypto.Hash.hashPrivateKey(s"script-service")
-  machine.ptx =
-    PartialTransaction.initial(Time.Timestamp.MinValue, InitialSeeding.TransactionSeed(txSeeding))
+
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {

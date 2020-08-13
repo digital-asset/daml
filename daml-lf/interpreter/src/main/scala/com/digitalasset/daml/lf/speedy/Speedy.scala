@@ -15,7 +15,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.{TransactionVersion, TransactionVersions}
-import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.{ValueVersion, ValueVersions, Value => V}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -98,8 +98,10 @@ private[lf] object Speedy {
 
   /** The speedy CEK machine. */
   final class Machine(
+      /* Transaction versions that the machine can read */
+      val inputValueVersions: VersionRange[ValueVersion],
       /* Transaction versions that the machine can output */
-      val outputTransactionVersions: VersionRange[transaction.TransactionVersion],
+      val outputTransactionVersions: VersionRange[TransactionVersion],
       /* Whether the current submission is validating the transaction, or interpreting
        * it. If this is false, the committers must be a singleton set.
        */
@@ -550,7 +552,6 @@ private[lf] object Speedy {
     // to speedy value and set the control of with the result.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-
     private[speedy] def importValue(value: V[V.ContractId]): Unit = {
       def go(value0: V[V.ContractId]): SValue =
         value0 match {
@@ -658,10 +659,12 @@ private[lf] object Speedy {
         expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
-        outputTransactionVersions: VersionRange[transaction.TransactionVersion],
+        inputValueVersions: VersionRange[ValueVersion],
+        outputTransactionVersions: VersionRange[TransactionVersion],
         validating: Boolean = false,
     ): Machine =
       new Machine(
+        inputValueVersions = inputValueVersions,
         outputTransactionVersions = outputTransactionVersions,
         validating = validating,
         ctrl = expr,
@@ -693,6 +696,7 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: SExpr,
+        inputValueVersions: VersionRange[ValueVersion],
         outputTransactionVersions: VersionRange[TransactionVersion],
     ): Machine = Machine(
       compiledPackages = compiledPackages,
@@ -701,6 +705,7 @@ private[lf] object Speedy {
       expr = SEApp(scenario, Array(SEValue.Token)),
       globalCids = Set.empty,
       committers = Set.empty,
+      inputValueVersions: VersionRange[ValueVersion],
       outputTransactionVersions = outputTransactionVersions,
     )
 
@@ -711,12 +716,14 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: Expr,
+        inputValueVersions: VersionRange[ValueVersion],
         outputTransactionVersions: VersionRange[TransactionVersion],
     ): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         transactionSeed = transactionSeed,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
+        inputValueVersions = inputValueVersions,
         outputTransactionVersions = outputTransactionVersions,
       )
 
@@ -734,7 +741,8 @@ private[lf] object Speedy {
         expr = expr,
         globalCids = Set.empty,
         committers = Set.empty,
-        outputTransactionVersions = TransactionVersions.SupportedDevOutputVersions,
+        inputValueVersions = ValueVersions.Empty,
+        outputTransactionVersions = TransactionVersions.Empty,
       )
 
     @throws[PackageNotFound]

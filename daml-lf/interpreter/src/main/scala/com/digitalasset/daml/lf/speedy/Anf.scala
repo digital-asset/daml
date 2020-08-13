@@ -345,7 +345,7 @@ private[lf] object Anf {
       }
 
       case x: SEAbs => throw CompilationError(s"flatten: unexpected: $x")
-      case x: SEWronglyTypeContractId => throw CompilationError(s"flatten: unexpected: $x")
+      case x: SEDamlException => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEAppAtomicFun => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEAppAtomicGeneral => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"flatten: unexpected: $x")

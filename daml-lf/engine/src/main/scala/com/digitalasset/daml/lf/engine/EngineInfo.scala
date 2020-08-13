@@ -1,53 +1,85 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
-
-import com.daml.lf.language.{LanguageVersion => LV}
-import com.daml.lf.transaction.TransactionVersions
-import com.daml.lf.value.ValueVersions
+package com.daml.lf
+package engine
 
 class EngineInfo(config: EngineConfig) {
 
-  override lazy val toString: String = show
+  import language.{LanguageVersion => LV}
 
-  lazy val show: String =
-    s"DAML LF Engine supports LF versions: $formatLfVersions; Input Transaction versions: $formatInputTransactionVersions; Input Value versions: $formatInputValueVersions; Output Transaction versions: $formatOutputTransactionVersions; Output Value versions: $formatOutputValueVersions"
+  override def toString: String = show
+  def show: String = pretty.mkString(System.lineSeparator())
 
-  private[this] def formatInputTransactionVersions: String =
-    format(TransactionVersions.acceptedVersions.map(_.protoValue))
+  lazy val pretty: Iterable[String] = {
 
-  private[this] def formatOutputTransactionVersions: String =
-    format(
-      TransactionVersions.acceptedVersions
-        .collect {
-          case v if config.outputTransactionVersions.contains(v) =>
-            v.protoValue
-        }
+    val allLangVersions =
+      for {
+        major <- LV.Major.All
+        minor <- major.supportedMinorVersions
+      } yield LV(major, minor)
+
+    val allTransactionVersions =
+      transaction.TransactionVersions.acceptedVersions
+
+    val allValueVersions =
+      value.ValueVersions.acceptedVersions
+
+    val allOutputTransactionVersions =
+      allTransactionVersions.filter(transaction.TransactionVersions.DevOutputVersions.contains)
+
+    val allOutputValueVersions =
+      allOutputTransactionVersions.map(transaction.TransactionVersions.assignValueVersion)
+
+    val allowedLangVersions =
+      allLangVersions.filter(config.allowedLanguageVersions.contains)
+
+    val allowedInputTransactionVersions =
+      allTransactionVersions.filter(config.allowedInputTransactionVersions.contains)
+
+    val allowedInputValueVersions =
+      allValueVersions.filter(config.allowedInputValueVersions.contains)
+
+    val allowedOutputTransactionVersions =
+      allTransactionVersions.filter(config.allowedOutputTransactionVersions.contains)
+
+    val allowedOutputValueVersions =
+      allValueVersions.filter(config.allowedOutputValueVersions.contains)
+
+    List(
+      List(
+        formatLangVersions(allLangVersions),
+        formatTxVersions("input", allTransactionVersions),
+        formatValVersions("input", allValueVersions),
+        formatTxVersions("output", allOutputTransactionVersions),
+        formatValVersions("output", allOutputValueVersions)
+      ).mkString("DAML LF Engine supports ", "; ", "."),
+      List(
+        formatLangVersions(allowedLangVersions),
+        formatTxVersions("input", allowedInputTransactionVersions),
+        formatValVersions("input", allowedInputValueVersions),
+        formatTxVersions("output", allowedOutputTransactionVersions),
+        formatValVersions("output", allowedOutputValueVersions)
+      ).mkString("DAML LF Engine config allows ", "; ", ".")
     )
-
-  private[this] def formatInputValueVersions: String =
-    format(ValueVersions.acceptedVersions.map(_.protoValue))
-
-  private[this] def formatOutputValueVersions: String = {
-    val outputValueVersions =
-      config.outputTransactionVersions.map(TransactionVersions.assignValueVersion)
-    format(ValueVersions.acceptedVersions.filter(outputValueVersions.contains).map(_.protoValue))
   }
 
-  private def formatLfVersions: String = {
-    val allVersions: Iterable[String] =
-      LV.Major.All flatMap (mv => lfVersions(mv.pretty, mv.supportedMinorVersions))
-    format(allVersions)
-  }
-
-  private def lfVersions(
-      majorVersion: String,
-      minorVersions: Iterable[LV.Minor]): Iterable[String] =
-    minorVersions.map { a =>
-      val ap = a.toProtoIdentifier
-      s"$majorVersion${if (ap.isEmpty) "" else s".$ap"}"
+  private[this] def formatLangVersions(versions: Iterable[LV]) = {
+    val prettyVersions = versions.map {
+      case LV(major, minor) =>
+        val ap = minor.toProtoIdentifier
+        s"${major.pretty}${if (ap.isEmpty) "" else s".$ap"}"
     }
+    s"LF versions: ${prettyVersions.mkString(", ")}"
+  }
 
-  private def format(as: Iterable[String]): String = as.mkString(", ")
+  private[this] def formatTxVersions(
+      prefix: String,
+      versions: List[transaction.TransactionVersion],
+  ) =
+    s"$prefix transaction versions: ${versions.map(_.protoValue).mkString(", ")}"
+
+  private[this] def formatValVersions(prefix: String, versions: List[value.ValueVersion]) =
+    s"$prefix value versions: ${versions.map(_.protoValue).mkString(", ")}"
+
 }

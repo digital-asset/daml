@@ -8,6 +8,7 @@ import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import Value.{NodeId => _, _}
+import com.daml.lf.VersionRange
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
@@ -72,6 +73,12 @@ private[lf] object Pretty {
           text("Expected contract of type") & prettyTypeConName(expected) & text("but got") & prettyTypeConName(
           actual,
         )
+
+      case DamlEDisallowedInputValueVersion(VersionRange(expectedMin, expectedMax), actual) =>
+        text("Update failed due to disallowed value version") /
+          text("Expected value version between") & text(expectedMin.protoValue) &
+          text("and") & text(expectedMax.protoValue) & text("but got") &
+          text(actual.protoValue)
     }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
@@ -578,7 +585,7 @@ private[lf] object Pretty {
         case x: SEBuiltinRecursiveDefinition => str(x)
         case x: SEImportValue => str(x)
         case x: SELabelClosure => str(x)
-        case x: SEWronglyTypeContractId => str(x)
+        case x: SEDamlException => str(x)
       }
   }
 

@@ -11,45 +11,55 @@ import com.daml.lf.transaction.{TransactionVersions, TransactionVersion => TV}
 // Currently only outputTransactionVersions is used.
 // languageVersions and outputTransactionVersions should be plug
 final case class EngineConfig(
-    // constrains the version of language accepted by the engine
-    languageVersions: VersionRange[LV],
-    // constrains the version of output transactions
-    inputTransactionVersions: VersionRange[TV],
-    // constrains the version of output transactions
-    outputTransactionVersions: VersionRange[TV],
-)
+    // constrains the versions of language accepted by the engine
+    allowedLanguageVersions: VersionRange[LV],
+    // constrains the versions of input transactions
+    allowedInputTransactionVersions: VersionRange[TV],
+    // constrains the versions of output transactions
+    allowedOutputTransactionVersions: VersionRange[TV],
+) {
+
+  private[lf] val allowedInputValueVersions =
+    VersionRange(
+      TransactionVersions.assignValueVersion(allowedInputTransactionVersions.min),
+      TransactionVersions.assignValueVersion(allowedInputTransactionVersions.max),
+    )
+
+  private[lf] val allowedOutputValueVersions =
+    VersionRange(
+      TransactionVersions.assignValueVersion(allowedOutputTransactionVersions.min),
+      TransactionVersions.assignValueVersion(allowedOutputTransactionVersions.max),
+    )
+
+}
 
 object EngineConfig {
 
-  // development configuration, should not be used in PROD.
-  // accept all language and transaction versions supported by SDK_1_x plus development versions.
+  // Development configuration, should not be used in PROD.
   val Dev: EngineConfig = new EngineConfig(
-    languageVersions = VersionRange(
+    allowedLanguageVersions = VersionRange(
       LV(LV.Major.V1, LV.Minor.Stable("6")),
       LV(LV.Major.V1, LV.Minor.Dev),
     ),
-    inputTransactionVersions = VersionRange(
+    allowedInputTransactionVersions = VersionRange(
       TV("10"),
       TransactionVersions.acceptedVersions.last
     ),
-    outputTransactionVersions = VersionRange(
-      TV("10"),
-      TransactionVersions.acceptedVersions.last
-    )
+    allowedOutputTransactionVersions = TransactionVersions.DevOutputVersions
   )
 
   // Legacy configuration, to be used by sandbox classic only
   @deprecated("Sandbox_Classic is to be used by sandbox classic only", since = "1.4.0")
   val Sandbox_Classic: EngineConfig = new EngineConfig(
-    languageVersions = VersionRange(
-      LV(LV.Major.V1, LV.Minor.Stable("1")),
+    allowedLanguageVersions = VersionRange(
+      LV(LV.Major.V1, LV.Minor.Stable("0")),
       LV(LV.Major.V1, LV.Minor.Dev),
     ),
-    inputTransactionVersions = VersionRange(
+    allowedInputTransactionVersions = VersionRange(
       TransactionVersions.acceptedVersions.head,
       TransactionVersions.acceptedVersions.last
     ),
-    outputTransactionVersions = VersionRange(
+    allowedOutputTransactionVersions = VersionRange(
       TV("10"),
       TransactionVersions.acceptedVersions.last
     )
@@ -57,12 +67,12 @@ object EngineConfig {
 
   // recommended configuration
   val Stable: EngineConfig = new EngineConfig(
-    languageVersions = VersionRange(
+    allowedLanguageVersions = VersionRange(
       LV(LV.Major.V1, LV.Minor.Stable("6")),
       LV(LV.Major.V1, LV.Minor.Stable("8")),
     ),
-    inputTransactionVersions = VersionRange(TV("10"), TV("10")),
-    outputTransactionVersions = VersionRange(TV("10"), TV("10"))
+    allowedInputTransactionVersions = VersionRange(TV("10"), TV("10")),
+    allowedOutputTransactionVersions = VersionRange(TV("10"), TV("10"))
   )
 
 }
