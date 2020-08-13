@@ -32,6 +32,7 @@ We welcome feedback about the JSON API on `our issue tracker
 
 .. toctree::
    :hidden:
+   :maxdepth: 3
 
    lf-value-specification
    search-query-language
@@ -403,10 +404,10 @@ Where:
 
 .. _create-request-with-meta:
 
-Create a new Contract with an optional meta field
-*************************************************
+Creating a Contract with a Command ID
+*************************************
 
-When creating a new contract, client may specify an optional ``meta`` field:
+When creating a new contract you may specify an optional ``meta`` field.
 
 .. code-block:: json
 
@@ -522,7 +523,7 @@ Where:
 Exercise by Contract Key
 ************************
 
-The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Account`` contract with a ``(Party, Text)`` key defined like this:
+The JSON command below, demonstrates how to exercise ``Archive`` a choice on ``Account`` contract with a ``(Party, Text)`` :doc:`contract key </daml/reference/contract-keys>` defined like this:
 
 .. code-block:: daml
 
@@ -805,12 +806,14 @@ Contract Found HTTP Response
     }
 
 
-Contract Search, All Templates
-******************************
+Get all Active Contracts
+************************
 
 List all currently active contracts for all known templates.
 
-Note that the retrieved contracts do not get persisted into a query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with a query store enabled.
+.. note:: Retrieved contracts do not get persisted into a query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with a query store enabled.
+
+.. note:: You can only query active contracts with the ``/v1/query`` endpoint. Archived contracts (those that were archived or consumed during an exercise operation) will not be shown in the results.
 
 HTTP Request
 ============
@@ -824,8 +827,8 @@ HTTP Response
 
 The response is the same as for the POST method below.
 
-Contract Search
-***************
+Query all Active Contracts
+**************************
 
 List currently active contracts that match a given query.
 
@@ -1388,7 +1391,7 @@ Some notes on behavior:
    results.
 
 3. Within a given array, if an ``archived`` and ``created`` refer to
-   contracts with the same template ID and contract key, the
+   contracts with the same template ID and :doc:`contract key </daml/reference/contract-keys>`, the
    ``archived`` is guaranteed to occur before the ``created``.
 
 4. Except in cases of #3, within a single response array, the order of
