@@ -335,6 +335,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   )
   (compiledPackages, SEValue(SUnit))
   val scenarioRunner = ScenarioRunner(machine)
+  private var knownParties: Map[String, PartyDetails] = Map()
 
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
@@ -472,13 +473,30 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    // TODO Figure out how we want to handle this in the script service.
-    Future.successful(SParty(Ref.Party.assertFromString(displayName)))
+    Future.fromTry(for {
+      name <- if (partyIdHint != "") {
+        // Try to allocate the given hint as party name. Will fail if the name is already taken.
+        if (knownParties contains partyIdHint) {
+          Failure(new RuntimeException(s"Party $partyIdHint already exists"))
+        } else {
+          Success(partyIdHint)
+        }
+      } else {
+        // Allocate a fresh name based on the display name.
+        val candidates = displayName #:: Stream.from(1).map(displayName + _.toString())
+        Success(candidates.find(s => !(knownParties contains s)).get)
+      }
+      // Create and store the new party.
+      partyDetails = PartyDetails(
+        party = Ref.Party.assertFromString(name),
+        displayName = Some(displayName),
+        isLocal = true)
+      _ = knownParties += (name -> partyDetails)
+    } yield SParty(partyDetails.party))
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    // TODO Implement
-    Future.failed(new RuntimeException("listKnownParties is not yet implemented"))
+    Future.successful(knownParties.values.toList)
   }
 
   override def getStaticTime()(
