@@ -428,17 +428,15 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
   }
 
   private[engine] def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
-    pkg.modules.values
-      .collectFirst {
-        case Module(name, _, lv, _) if !config.languageVersions.contains(lv) =>
-          ResultError(
-            Error(
-              s"Disallowed language version in module $name of package $pkgId: " +
-                s"Expected value version between ${config.languageVersions.min} and ${config.languageVersions.max} but got $lv"
-            )
-          )
-      }
-      .getOrElse(compiledPackages.addPackage(pkgId, pkg))
+    if (config.languageVersions.contains(pkg.languageVersion))
+      compiledPackages.addPackage(pkgId, pkg)
+    else
+      ResultError(
+        Error(
+          s"Disallowed language version in package $pkgId: " +
+            s"Expected version between ${config.languageVersions.min} and ${config.languageVersions.max} but got ${pkg.languageVersion}"
+        )
+      )
 
 }
 
