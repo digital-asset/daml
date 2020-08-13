@@ -684,7 +684,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
-      LV.defaultV0 -> true,
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
@@ -728,7 +727,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
-      LV.defaultV0 -> true,
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
