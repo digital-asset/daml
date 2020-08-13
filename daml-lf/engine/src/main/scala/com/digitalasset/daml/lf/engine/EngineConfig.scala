@@ -3,6 +3,8 @@
 
 package com.daml.lf.engine
 
+import java.nio.file.Path
+
 import com.daml.lf.VersionRange
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.lf.transaction.{TransactionVersions, TransactionVersion => TV}
@@ -17,6 +19,8 @@ final case class EngineConfig(
     allowedInputTransactionVersions: VersionRange[TV],
     // constrains the versions of output transactions
     allowedOutputTransactionVersions: VersionRange[TV],
+    profileDir: Option[Path] = None,
+    stackTraceMode: Boolean = false,
 ) {
 
   private[lf] val allowedInputValueVersions =

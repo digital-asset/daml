@@ -48,6 +48,9 @@ import java.nio.file.{Files, Path, Paths}
   */
 class Engine(val config: EngineConfig = EngineConfig.Stable) {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
+  setProfileDir(config.profileDir)
+  enableStackTraces(config.stackTraceMode)
+
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
   private[this] var profileDir: Option[Path] = None
   def info = new EngineInfo(config)
@@ -412,7 +415,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     addPackage(pkgId, pkg)
 
-  def setProfileDir(optProfileDir: Option[Path]): Unit = {
+  private[this] def setProfileDir(optProfileDir: Option[Path]): Unit = {
     optProfileDir match {
       case None =>
         compiledPackages.profilingMode = speedy.Compiler.NoProfile
@@ -423,7 +426,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     }
   }
 
-  def enableStackTraces(enable: Boolean) = {
+  private[this] def enableStackTraces(enable: Boolean) = {
     compiledPackages.stackTraceMode =
       if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
   }
