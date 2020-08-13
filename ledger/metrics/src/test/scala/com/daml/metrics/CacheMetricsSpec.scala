@@ -9,8 +9,8 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 import scala.concurrent.{ExecutionContext, Future}
 
 class CacheMetricsSpec extends AsyncWordSpec with Matchers {
-  "gauge registration" should {
-    "succeed on multiple threads in parallel for the same metric name" in {
+  "gauge registrations" should {
+    "succeed on multiple threads in parallel for the same metric registry" in {
       val cacheMetrics = new CacheMetrics(new MetricRegistry, MetricName.DAML)
       implicit val executionContext: ExecutionContext = ExecutionContext.global
       val instances =
