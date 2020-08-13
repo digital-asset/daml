@@ -30,6 +30,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{EitherValues, Matchers, WordSpec}
 import scalaz.std.either._
 import scalaz.syntax.apply._
@@ -43,7 +44,12 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Serializable",
     "org.wartremover.warts.Product"
   ))
-class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunfiles {
+class EngineTest
+    extends WordSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with EitherValues
+    with BazelRunfiles {
 
   import EngineTest._
 
@@ -1621,6 +1627,54 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       err.msg should include("precondition violation")
     }
   }
+
+  "Engine.addPackage" should {
+
+    import com.daml.lf.language.{LanguageVersion => LV}
+
+    def engine(min: LV.Minor, max: LV.Minor) =
+      new Engine(
+        EngineConfig.Dev.copy(
+          languageVersions = VersionRange(LV(LV.Major.V1, min), LV(LV.Major.V1, max))
+        )
+      )
+
+    val pkgId = Ref.PackageId.assertFromString("-pkg-")
+
+    def pkg(v: LV.Minor) =
+      language.Ast.Package(
+        Traversable.empty,
+        Traversable.empty,
+        LV(LV.Major.V1, v),
+        None
+      )
+
+    "reject disallow packages" in {
+      val negativeTestCases = Table(
+        ("pkg version", "minVersion", "maxVertion"),
+        (LV.Minor.Stable("6"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+        (LV.Minor.Stable("7"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+        (LV.Minor.Stable("8"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+        (LV.Minor.Dev, LV.Minor.Stable("6"), LV.Minor.Dev),
+      )
+      val positiveTestCases = Table(
+        ("pkg version", "minVersion", "maxVertion"),
+        (LV.Minor.Stable("6"), LV.Minor.Stable("7"), LV.Minor.Dev),
+        (LV.Minor.Stable("7"), LV.Minor.Stable("8"), LV.Minor.Stable("8")),
+        (LV.Minor.Stable("8"), LV.Minor.Stable("6"), LV.Minor.Stable("7")),
+        (LV.Minor.Dev, LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+      )
+
+      forEvery(negativeTestCases)((v, min, max) =>
+        engine(min, max).addPackage(pkgId, pkg(v)) shouldBe a[ResultDone[_]])
+
+      forEvery(positiveTestCases)((v, min, max) =>
+        engine(min, max).addPackage(pkgId, pkg(v)) shouldBe a[ResultError])
+
+    }
+
+  }
+
 }
 
 object EngineTest {

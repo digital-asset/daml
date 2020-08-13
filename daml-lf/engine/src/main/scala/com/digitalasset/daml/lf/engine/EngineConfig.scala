@@ -3,22 +3,21 @@
 
 package com.daml.lf.engine
 
-import com.daml.lf.data.NoCopy
-import com.daml.lf.{VersionRange, data}
+import com.daml.lf.VersionRange
 import com.daml.lf.language.{LanguageVersion => LV}
-import com.daml.lf.transaction.{TransactionVersion => TV, TransactionVersions}
+import com.daml.lf.transaction.{TransactionVersions, TransactionVersion => TV}
 
 // FIXME: https://github.com/digital-asset/daml/issues/5164
 // Currently only outputTransactionVersions is used.
 // languageVersions and outputTransactionVersions should be plug
-final case class EngineConfig private (
+final case class EngineConfig(
     // constrains the version of language accepted by the engine
     languageVersions: VersionRange[LV],
     // constrains the version of output transactions
     inputTransactionVersions: VersionRange[TV],
     // constrains the version of output transactions
     outputTransactionVersions: VersionRange[TV],
-) extends NoCopy
+)
 
 object EngineConfig {
 
@@ -56,39 +55,8 @@ object EngineConfig {
     )
   )
 
-  def build(
-      languageVersions: VersionRange[LV],
-      inputTransactionVersions: VersionRange[TV],
-      outputTransactionVersions: VersionRange[TV],
-  ): Either[String, EngineConfig] = {
-    val config = new EngineConfig(
-      languageVersions = languageVersions intersect Dev.languageVersions,
-      inputTransactionVersions = inputTransactionVersions intersect Dev.inputTransactionVersions,
-      outputTransactionVersions = outputTransactionVersions intersect Dev.outputTransactionVersions,
-    )
-
-    Either.cond(
-      config.languageVersions.nonEmpty && config.inputTransactionVersions.nonEmpty && config.outputTransactionVersions.nonEmpty,
-      config,
-      "invalid engine configuration"
-    )
-  }
-
-  def assertBuild(
-      languageVersions: VersionRange[LV],
-      inputTransactionVersions: VersionRange[TV],
-      outputTransactionVersions: VersionRange[TV],
-  ): EngineConfig =
-    data.assertRight(
-      build(
-        languageVersions: VersionRange[LV],
-        inputTransactionVersions: VersionRange[TV],
-        outputTransactionVersions: VersionRange[TV],
-      )
-    )
-
   // recommended configuration
-  val Stable: EngineConfig = assertBuild(
+  val Stable: EngineConfig = new EngineConfig(
     languageVersions = VersionRange(
       LV(LV.Major.V1, LV.Minor.Stable("6")),
       LV(LV.Major.V1, LV.Minor.Stable("8")),
