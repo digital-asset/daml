@@ -68,10 +68,12 @@ object SandboxServer {
   private[this] var engine: Option[Engine] = None
 
   private def getEngine(config: EngineConfig): Engine = synchronized {
-    engine.getOrElse {
-      val engine = new Engine(config)
-      this.engine = Some(engine)
-      engine
+    engine match {
+      case Some(eng) if eng.config == config => eng
+      case _ =>
+        val eng = new Engine(config)
+        engine = Some(eng)
+        eng
     }
   }
 
