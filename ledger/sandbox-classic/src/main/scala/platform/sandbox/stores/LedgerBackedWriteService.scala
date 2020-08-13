@@ -25,7 +25,7 @@ import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
 
 import scala.compat.java8.FutureConverters
 
-final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
+private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
     implicit loggingContext: LoggingContext,
 ) extends WriteService {
 

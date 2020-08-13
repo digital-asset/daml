@@ -31,13 +31,13 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
-trait IndexAndWriteService {
+private[sandbox] trait IndexAndWriteService {
   def indexService: IndexService
 
   def writeService: WriteService
 }
 
-object SandboxIndexAndWriteService {
+private[sandbox] object SandboxIndexAndWriteService {
   //TODO: internalise the template store as well
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
