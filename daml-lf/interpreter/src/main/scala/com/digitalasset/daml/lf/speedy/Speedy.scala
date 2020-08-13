@@ -681,10 +681,12 @@ private[lf] object Speedy {
         val othersLength = newArgs.length - missing
 
         // Evaluate the arguments
-        for (i <- 0 to newArgsLimit - 1) {
+        var i = 0
+        while (i < newArgsLimit) {
           val newArg = newArgs(i)
           val v = newArg.lookupValue(machine)
           actuals.add(v)
+          i += 1
         }
 
         // Not enough arguments. Return a PAP.

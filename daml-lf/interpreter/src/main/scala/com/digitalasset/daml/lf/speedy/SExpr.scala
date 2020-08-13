@@ -149,10 +149,12 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
-      for (i <- 0 to arity - 1) {
+      var i = 0
+      while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
         actuals.add(v)
+        i += 1
       }
       builtin.execute(actuals, machine)
     }
@@ -282,10 +284,12 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
-      for (i <- 0 to arity - 1) {
+      var i = 0
+      while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
         actuals.add(v)
+        i += 1
       }
       val v = builtin.executePure(actuals)
       machine.env.add(v)
@@ -320,10 +324,12 @@ object SExpr {
           machine.env.size + bounds.size - 1))
 
       // Start evaluating the let binders
-      for (i <- 1 until bounds.size) {
+      var i = 0
+      while (i < bounds.size) {
         val b = bounds(bounds.size - i)
         val expectedEnvSize = machine.env.size + bounds.size - i - 1
         machine.pushKont(KPushTo(machine.env, b, machine.frame, machine.actuals, expectedEnvSize))
+        i += 1
       }
       machine.ctrl = bounds.head
     }
