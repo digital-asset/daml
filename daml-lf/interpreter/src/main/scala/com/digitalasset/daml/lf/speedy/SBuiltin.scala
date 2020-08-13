@@ -470,7 +470,7 @@ private[lf] object SBuiltin {
                 machine.frame,
                 machine.actuals,
                 machine.env.size))
-            enterApplication(machine, func, Array(SEValue(head)))
+            machine.enterApplication(func, Array(SEValue(head)))
         }
       }
     }
