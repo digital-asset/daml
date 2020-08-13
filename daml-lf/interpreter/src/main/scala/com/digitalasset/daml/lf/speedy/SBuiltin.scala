@@ -13,7 +13,7 @@ import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy.{KFoldl, KFoldr, KFoldr1Map, Machine, SpeedyHungry}
+import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SValue.{SValue => SV}
@@ -408,7 +408,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      val func = SEValue(args.get(0))
+      val func = args.get(0)
       val init = args.get(1)
       val list = args.get(2).asInstanceOf[SList].list
       machine.pushKont(KFoldl(func, list, machine.frame, machine.actuals, machine.env.size))
@@ -448,11 +448,10 @@ private[lf] object SBuiltin {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
         machine: Machine): Unit = {
-      val pap = args.get(0).asInstanceOf[SPAP]
-      val func = SEValue(pap)
+      val func = args.get(0).asInstanceOf[SPAP]
       val init = args.get(1)
       val list = args.get(2)
-      if (pap.arity - pap.actuals.size >= 2) {
+      if (func.arity - func.actuals.size >= 2) {
         val array = list.asInstanceOf[SList].list.toImmArray
         machine.pushKont(
           KFoldr(func, array, array.length, machine.frame, machine.actuals, machine.env.size))
@@ -471,7 +470,7 @@ private[lf] object SBuiltin {
                 machine.frame,
                 machine.actuals,
                 machine.env.size))
-            machine.ctrl = SEAppAtomicFun(func, Array(SEValue(head)))
+            machine.enterApplication(func, Array(SEValue(head)))
         }
       }
     }

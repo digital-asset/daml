@@ -476,16 +476,21 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[Time.Timestamp] = {
-    // TODO Implement
-    Future.failed(new RuntimeException("getStaticTime is not yet implemented"))
+    Future.successful(scenarioRunner.ledger.currentTime)
   }
 
   override def setStaticTime(time: Time.Timestamp)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[Unit] = {
-    // TODO Implement
-    Future.failed(new RuntimeException("setStaticTime is not yet implemented"))
+    val diff = time.micros - scenarioRunner.ledger.currentTime.micros
+    // ScenarioLedger only provides pass, so we have to check the difference.
+    if (diff < 0) {
+      Future.failed(new RuntimeException("Time cannot be set backwards"))
+    } else {
+      scenarioRunner.ledger = scenarioRunner.ledger.passTime(diff)
+      Future.unit
+    }
   }
 }
 
