@@ -25,7 +25,7 @@ import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.apiserver._
@@ -63,9 +63,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       None
   }
 
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // should not use DevEngine
-  private val engine = Engine.DevEngine()
+  private[this] val engineConfig =
+    if (config.devMode) EngineConfig.Dev else EngineConfig.Stable
+
+  private[this] val engine = Engine.DevEngine()
   engine.setProfileDir(config.profileDir)
   engine.enableStackTraces(config.stackTraces)
 
