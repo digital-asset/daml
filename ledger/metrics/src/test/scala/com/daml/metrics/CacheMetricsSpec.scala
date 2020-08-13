@@ -13,12 +13,11 @@ class CacheMetricsSpec extends AsyncWordSpec with Matchers {
     "succeed on multiple threads in parallel for the same metric registry" in {
       val cacheMetrics = new CacheMetrics(new MetricRegistry, MetricName.DAML)
       implicit val executionContext: ExecutionContext = ExecutionContext.global
-      val instances =
-        (1 to 1000).map(_ =>
-          Future {
-            cacheMetrics.registerSizeGauge(() => 1L)
-            cacheMetrics.registerWeightGauge(() => 2L)
-        })
+      val instances = (1 to 1000).map(_ =>
+        Future {
+          cacheMetrics.registerSizeGauge(() => 1L)
+          cacheMetrics.registerWeightGauge(() => 2L)
+      })
       Future.sequence(instances).map { _ =>
         succeed
       }

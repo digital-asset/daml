@@ -23,6 +23,6 @@ final class CacheMetrics(
   def registerWeightGauge(weightGauge: Gauge[Long]): Unit =
     register(prefix :+ "weight", () => weightGauge)
 
-  private def register[T](name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Gauge[T] =
+  private def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
     registerGauge(name, gaugeSupplier, registry)
 }

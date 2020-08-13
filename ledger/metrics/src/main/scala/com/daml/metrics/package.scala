@@ -8,14 +8,15 @@ import com.codahale.metrics.MetricRegistry.MetricSupplier
 
 package object metrics {
 
-  private[metrics] def registerGauge[T](
+  private[metrics] def registerGauge(
       name: MetricName,
       gaugeSupplier: MetricSupplier[Gauge[_]],
       registry: MetricRegistry,
-  ): Gauge[T] =
+  ): Unit =
     registry.synchronized {
       registry.remove(name)
-      registry.gauge(name, gaugeSupplier).asInstanceOf[Gauge[T]]
+      registry.gauge(name, gaugeSupplier)
+      ()
     }
 
 }

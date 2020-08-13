@@ -8,10 +8,7 @@ import com.codahale.metrics._
 
 final class Metrics(val registry: MetricRegistry) {
 
-  private[metrics] def register[T](
-      name: MetricName,
-      gaugeSupplier: MetricSupplier[Gauge[_]],
-  ): Gauge[T] =
+  private[metrics] def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
     registerGauge(name, gaugeSupplier, registry)
 
   object test {
@@ -106,7 +103,8 @@ final class Metrics(val registry: MetricRegistry) {
           val decodeTimer: Timer = registry.timer(Prefix :+ "decode_timer")
           val accepts: Counter = registry.counter(Prefix :+ "accepts")
           val rejections: Counter = registry.counter(Prefix :+ "rejections")
-          def loadedPackages(value: () => Int): Gauge[Nothing] = {
+
+          def loadedPackages(value: () => Int): Unit = {
             register(Prefix :+ "loaded_packages", () => () => value())
           }
         }
@@ -429,7 +427,7 @@ final class Metrics(val registry: MetricRegistry) {
       val lastReceivedOffset = new VarGauge[String]("<none>")
       registry.register(Prefix :+ "last_received_offset", lastReceivedOffset)
 
-      def currentRecordTimeLag(value: () => Long): Gauge[Nothing] =
+      def currentRecordTimeLag(value: () => Long): Unit =
         register(Prefix :+ "current_record_time_lag", () => () => value())
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
