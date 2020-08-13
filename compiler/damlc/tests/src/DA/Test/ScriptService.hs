@@ -423,7 +423,42 @@ main =
                           "  DA\\.Types:Tuple2@[a-z0-9]+ with",
                           "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z",
                           ""
-                        ]
+                        ],
+              testCase "partyManagement" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where",
+                      "import DA.Assert",
+                      "import DA.Optional",
+                      "import Daml.Script",
+                      "template T",
+                      "  with",
+                      "    owner : Party",
+                      "    observer : Party",
+                      "  where",
+                      "    signatory owner",
+                      "    observer observer",
+                      "    choice InventObserver : ContractId T with name : Text",
+                      "      controller owner",
+                      "        do create this { observer = fromSome $ partyFromText name }",
+                      "partyManagement = do",
+                      "  alice <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
+                      "  alice1 <- allocateParty \"alice\"",
+                      "  t1 <- submit alice $ createCmd T { owner = alice, observer = alice1 }",
+                      "  t2 <- submit alice $ exerciseCmd t1 (InventObserver \"bob\")",
+                      "  details <- listKnownParties",
+                      "  assertEq (length details) 2",
+                      "  let [aliceDetails, alice1Details] = details",
+                      "  assertEq aliceDetails.party alice",
+                      "  assertEq aliceDetails.displayName (Some \"alice\")",
+                      "  assertEq aliceDetails.isLocal True",
+                      "  assertEq alice1Details.party (fromSome $ partyFromText \"alice1\")",
+                      "  assertEq alice1Details.displayName (Some \"alice\")",
+                      "  assertEq alice1Details.isLocal True"
+                    ]
+                expectScriptSuccess rs (vr "partyManagement") $ \r ->
+                  matchRegex r "Active contracts:  #1:1\n\nReturn value: {}\n\n$"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
