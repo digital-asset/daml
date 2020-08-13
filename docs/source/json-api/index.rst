@@ -42,7 +42,7 @@ Running the JSON API
 Start a DAML Ledger
 ===================
 
-You can run the JSON API alongside any DAML Ledger you want, if you don't have a DAML Ledger you want to run it with then start a sandbox ledger as so:
+You can run the JSON API alongside any Ledger API you want, if you don't have a Ledger API you want to run it with then start a sandbox ledger as so:
 
 .. code-block:: shell
 
@@ -67,56 +67,60 @@ The most basic way to start the JSON API is with the command:
 
 This will connect to your ledger that is running on ``localhost:6865`` and start your JSON API server which you'll be able to query on ``localhost:7575``
 
-With Query Storage
+With Query Store
 ------------------
 
-Often when running the JSON API you'll want to cache queries to decrease the workload of your underlying ledger.
+Often when running the JSON API you'll want to cache queries, especially large queries, to decrease the workload of your underlying ledger.
 The JSON API provides a way to do this by allowing you to specify a database to cache queries (currently PostgreSQL only).
 
 In this case you can use the ``--query-store-jdbc-config`` flag, an example of which is below. 
-Note that when you do this you'll want your first run to specify ``createSchema=true`` so that all the necessary tables are created.
-After the first run make sure ``createSchema=false`` so that it doesn't attempt to create the tables again.
+
+.. note:: When you use the Query Store you'll want your first run to specify ``createSchema=true`` so that all the necessary tables are created. After the first run make sure ``createSchema=false`` so that it doesn't attempt to create the tables again.
 
 .. code-block:: shell
 
     daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
     --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
 
-NOTE: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
+.. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
 
-With Authentication
-===================
+Authentication and Authorization
+================================
 
-Apart from interacting with the Ledger API on behalf of the user, the HTTP JSON API server must also interact with the Ledger API to maintain some relevant internal state.
+The Ledger API and JSON API use the terms Authentication and Authorization to describe different aspects of their operation.
+While these terms may sound similar they mean different things.
 
-For this reason, you must provide an access token when you start the HTTP JSON API if you're running it against a Ledger API server that requires authentication.
+The JSON API essentially performs two separate tasks:
 
-Note that this token is used exclusively for maintaining the internal list of known packages and templates, and that it will not be use to authenticate client calls to the HTTP JSON API: the user is expected to provide a valid authentication token with each call.
+1. It talks to the Ledger API to get data it needs to operate, for this it needs to may need to provide an *authentication token* to the Ledger API if the Ledger API requires *authentication*.
+2. It handles the requests coming from one or more Parties, for this each party needs to provide an *authorization token* with each request it sends to the JSON API.
 
-The HTTP JSON API server requires no access to party-specific data, only access to the ledger identity and package services. A token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that. Please refer to your ledger operator's documentation to find out how.
+Authentication
+--------------
 
-Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file. Give the path to it with the ``--access-token-file`` command line option.
+The authentication token is used exclusively for maintaining the internal list of known packages and templates.
 
-If the token cannot be read from the provided path or the Ledger API reports an authentication error (for example due to token expiration), the HTTP JSON API will report the error via logging. The token file can be updated with a valid token, and it will be picked up at the next attempt to send a request.
+.. note:: At no point should an authentication token be provided to an end user, these are for internal use only.
 
-Example session
-***************
+Every authentication token is different and will depend on what your specific ledger or ledger operator requires.
+The JSON API server requires no access to party-specific data, only access to the ledger identity and package services.
+A token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that.
+Please refer to your ledger operator's documentation to find out how.
 
-.. code-block:: shell
+Once you have retrieved your access token, you can provide it to the JSON API by storing it in a file
+and starting ``daml json-api`` with the flag ``--access-token-file /path/to/your/token.file``.
 
-    $ daml new iou-quickstart-java --template quickstart-java
-    $ cd iou-quickstart-java/
-    $ daml build
-    $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
-    $ daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+If the token cannot be read from the provided path or the Ledger API reports an authentication error
+(for example due to token expiration), the JSON API will report the error via logging. 
 
-Choosing a party
-****************
+.. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without interrupting your JSON API service.
 
-Every request requires you to specify a party and some other settings,
-with a JWT token.  Normal HTTP requests pass the token in an
-``Authentication`` header, while WebSocket requests pass the token in a
-subprotocol.
+Authorization
+-------------
+
+Every request from a client to the JSON API requires you to specify a party and some other settings,
+with a JWT token.  Normal HTTP requests pass the token in an ``Authentication`` header, 
+while WebSocket requests pass the token in a subprotocol.
 
 In testing environments, you can use https://jwt.io to generate your
 token.  The default "header" is fine.  Under "Payload", fill in:
@@ -126,12 +130,20 @@ token.  The default "header" is fine.  Under "Payload", fill in:
     {
       "https://daml.com/ledger-api": {
         "ledgerId": "MyLedger",
-        "applicationId": "foobar",
+        "applicationId": "HTTP-JSON-API-Gateway",
         "actAs": ["Alice"]
       }
     }
 
-Keep in mind that the value of the ``ledgerId`` payload field has to match the one passed to the sandbox with the ``--ledgerid`` argument. You can replace ``Alice`` with whatever party you want to use.
+The value of the ``ledgerId`` field has to match the ``ledgerId` of your underlying DAML Ledger.
+For the ``daml sandbox`` this corresponds to the ``--ledgerid MyLedger`` flag.
+
+The value of the ``applicationId`` field must match that provided to the ``daml json-api`` command with the flag
+``--application-id`` (default is ``HTTP-JSON-API-Gateway``).
+
+The value for ``actAs`` is specified as a list. You can replace ``Alice`` with whatever party you want to use,
+provided that it is a valid party on the ledger.
+For the ``daml sandbox`` any string will create a party with that name.
 
 Under "Verify Signature", put ``secret`` as the secret (*not* base64
 encoded); that is the hardcoded secret for testing.
@@ -141,24 +153,38 @@ the service as described in the following sections.
 
 Alternatively, here are two tokens you can use for testing:
 
-- ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Alice"]}}``
-  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU``
+``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Alice"]}}``:
 
-- ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Bob"]}}``
-  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJCb2IiXX19.zU-iMSFG90na8IHacrS25xho3u6AKnSlTKbvpkaSyYw``
+.. code-block:: none
+
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
+
+
+``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Bob"]}}``:
+
+.. code-block:: none
+
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJCb2IiXX19.0uPPZtM1AmKvnGixt_Qo53cMDcpnziCjKKiWLvMX2VM
 
 For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
 
-Passing token with HTTP
-=======================
+In the meantime you can also use whichever JWT libraries are available in the language of your choice.
 
-Set HTTP header ``Authorization: Bearer copy-paste-token-here`` for
-normal requests.
+Authorization with HTTP
+^^^^^^^^^^^^^^^^^^^^^^^
 
-Passing token with WebSockets
-=============================
+Set HTTP header ``Authorization: Bearer paste-jwt-here``
+
+Example: 
+
+.. code-block:: none 
+
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
+
+Authorization with WebSockets
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 WebSocket clients support a "subprotocols" argument (sometimes simply
 called "protocols"); this is usually in a list form but occasionally in
@@ -168,12 +194,16 @@ choice for details.
 For HTTP JSON requests, you must pass two subprotocols:
 
 - ``daml.ws.auth``
-- ``jwt.token.paste-token-here``
+- ``jwt.token.paste-jwt-here``
 
-where ``paste-token-here`` is the encoded JWT token described above.
+Example: 
 
-Error Reporting
-***************
+.. code-block:: none
+
+    jwt.token.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk``
+
+HTTP Status Codes
+*****************
 
 The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes into 3 groups indicating:
 
@@ -1157,7 +1187,7 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
     const wsProtocol = "daml.ws.auth";
     const tokenPrefix = "jwt.token.";
     const jwt =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU";
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdp";
     const subprotocols = [`${tokenPrefix}${jwt}`, wsProtocol];
 
     const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols);
