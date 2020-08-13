@@ -30,7 +30,7 @@ object SError {
   /** DAML exceptions that can be caught. These include
     * arithmetic errors, call to error builtin or update
     * errors. */
-  sealed trait SErrorDamlException extends SError
+  sealed abstract class SErrorDamlException extends SError
 
   /** Arithmetic error such as division by zero */
   final case class DamlEArithmeticError(message: String) extends SErrorDamlException {

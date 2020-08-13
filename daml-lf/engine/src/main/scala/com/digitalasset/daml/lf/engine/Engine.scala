@@ -241,7 +241,7 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
       case pkgId :: rest =>
         ResultNeedPackage(pkgId, {
           case Some(pkg) =>
-            compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
+            addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
           case None =>
             ResultError(Error(s"package $pkgId not found"))
         })
@@ -321,7 +321,7 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
           return Result.needPackage(
             pkgId,
             pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+              addPackage(pkgId, pkg).flatMap { _ =>
                 callback(compiledPackages)
                 interpretLoop(machine, time)
               }
@@ -409,7 +409,7 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
     * be loaded.
     */
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
-    compiledPackages.addPackage(pkgId, pkg)
+    addPackage(pkgId, pkg)
 
   def setProfileDir(optProfileDir: Option[Path]): Unit = {
     optProfileDir match {
@@ -426,6 +426,18 @@ class Engine(private[lf] val config: EngineConfig = EngineConfig.Stable) {
     compiledPackages.stackTraceMode =
       if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
   }
+
+  private[engine] def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
+    if (config.languageVersions.contains(pkg.languageVersion))
+      compiledPackages.addPackage(pkgId, pkg)
+    else
+      ResultError(
+        Error(
+          s"Disallowed language version in package $pkgId: " +
+            s"Expected version between ${config.languageVersions.min} and ${config.languageVersions.max} but got ${pkg.languageVersion}"
+        )
+      )
+
 }
 
 object Engine {
