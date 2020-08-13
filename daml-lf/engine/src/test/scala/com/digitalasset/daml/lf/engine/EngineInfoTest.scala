@@ -19,13 +19,13 @@ class EngineInfoTest extends WordSpec with Matchers {
     "show supported LF, Transaction and Value versions" in {
 
       engineInfoStable.show shouldBe
-        "DAML LF Engine supports LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Input Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; Input Value versions: 1, 2, 3, 4, 5, 6, 7; Output Transaction versions: 10; Output Value versions: 6"
+        "DAML LF Engine supports LF versions: 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Input Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; Input Value versions: 1, 2, 3, 4, 5, 6, 7; Output Transaction versions: 10; Output Value versions: 6"
 
       engineInfoDev.show shouldBe
-        "DAML LF Engine supports LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Input Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; Input Value versions: 1, 2, 3, 4, 5, 6, 7; Output Transaction versions: 10, 11; Output Value versions: 6, 7"
+        "DAML LF Engine supports LF versions: 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Input Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; Input Value versions: 1, 2, 3, 4, 5, 6, 7; Output Transaction versions: 10, 11; Output Value versions: 6, 7"
 
       engineInfoLegacy.show shouldBe
-        "DAML LF Engine supports LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Input Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; Input Value versions: 1, 2, 3, 4, 5, 6, 7; Output Transaction versions: 10, 11; Output Value versions: 6, 7"
+        "DAML LF Engine supports LF versions: 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Input Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11; Input Value versions: 1, 2, 3, 4, 5, 6, 7; Output Transaction versions: 10, 11; Output Value versions: 6, 7"
 
     }
 
