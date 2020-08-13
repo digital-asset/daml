@@ -305,6 +305,22 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case object SBToTextContractId extends SBuiltin(1) {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
+      args.get(0) match {
+        case SContractId(cid) =>
+          if (machine.onLedger) {
+            machine.returnValue = SOptional(None)
+          } else {
+            machine.returnValue = SOptional(Some(SText(cid.coid)))
+          }
+        case _ => crash(s"type mismatch toTextContractId: $args")
+      }
+    }
+  }
+
   final case object SBToTextNumeric extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val x = args.get(1).asInstanceOf[SNumeric].value

@@ -114,6 +114,16 @@ class DecodeV1Spec
     LV.Minor.Dev,
   )
 
+  private val preContractIdTextConversionVersions = Table(
+    "minVersion",
+    List(1, 4, 6, 7).map(i => LV.Minor.Stable(i.toString)): _*
+  )
+
+  private val postContractIdTextConversionVersions = Table(
+    "minVersion",
+    LV.Minor.Dev
+  )
+
   "decodeKind" should {
 
     "reject nat kind if lf version < 1.7" in {
@@ -390,6 +400,11 @@ class DecodeV1Spec
       DamlLf1.BuiltinFunction.APPEND_TEXT -> Ast.EBuiltin(Ast.BAppendText)
     )
 
+    val contractIdTextConversionCases = Table(
+      "builtin" -> "expected output",
+      DamlLf1.BuiltinFunction.TO_TEXT_CONTRACT_ID -> Ast.EBuiltin(Ast.BToTextContractId)
+    )
+
     "translate non numeric/decimal builtin as is for any version" in {
       val allVersions = Table("all versions", preNumericMinVersions ++ postNumericMinVersions: _*)
 
@@ -620,6 +635,23 @@ class DecodeV1Spec
       }
     }
 
+    "translate contract id text conversions as is if version >= 1.9" in {
+      forEvery(postContractIdTextConversionVersions) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(contractIdTextConversionCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+        }
+      }
+    }
+
+    "reject contract id text conversions if version < 1.9" in {
+      forEvery(preContractIdTextConversionVersions) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(contractIdTextConversionCases) { (proto, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+        }
+      }
+    }
   }
 
   "decodeModuleRef" should {
