@@ -10,10 +10,11 @@ final class Metrics(val registry: MetricRegistry) {
 
   private[metrics] def gauge[T](
       name: MetricName,
-      metricSupplier: MetricSupplier[Gauge[_]]): Gauge[T] = registry.synchronized {
-    registry.remove(name)
-    registry.gauge(name, metricSupplier).asInstanceOf[Gauge[T]]
-  }
+      metricSupplier: MetricSupplier[Gauge[_]]): Gauge[T] =
+    registry.synchronized {
+      registry.remove(name)
+      registry.gauge(name, metricSupplier).asInstanceOf[Gauge[T]]
+    }
 
   object test {
     private val Prefix: MetricName = MetricName("test")
