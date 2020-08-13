@@ -22,4 +22,3 @@ class MetricsSpec extends AsyncWordSpec with Matchers {
     }
   }
 }
-
