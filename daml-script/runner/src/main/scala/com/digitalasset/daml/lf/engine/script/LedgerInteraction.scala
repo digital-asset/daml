@@ -484,7 +484,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       name <- if (partyIdHint != "") {
         // Try to allocate the given hint as party name. Will fail if the name is already taken.
         if (usedNames contains partyIdHint) {
-          Failure(new RuntimeException(s"Party $partyIdHint already exists"))
+          Failure(new ScenarioErrorPartyAlreadyExists(partyIdHint))
         } else {
           Success(partyIdHint)
         }

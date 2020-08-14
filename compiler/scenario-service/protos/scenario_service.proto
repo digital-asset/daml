@@ -239,6 +239,7 @@ message ScenarioError {
     Empty scenario_mustfail_succeeded = 20;
     string scenario_invalid_party_name = 21;
     ContractKeyNotVisible scenario_contract_key_not_visible = 22;
+    string scenario_party_already_exists = 23;
   }
 }
 

@@ -454,10 +454,23 @@ main =
                       "  assertEq aliceDetails (PartyDetails alice (Some \"alice\") True)",
                       "  assertEq alice1Details (PartyDetails alice1 (Some \"alice\") True)",
                       "  assertEq bobDetails (PartyDetails (fromSome $ partyFromText \"bob\") None True)",
-                      "  assertEq bob1Details (PartyDetails bob1 (Some \"bob\") True)"
+                      "  assertEq bob1Details (PartyDetails bob1 (Some \"bob\") True)",
+                      "duplicateAllocateWithHint = do",
+                      "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
+                      "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
+                      "  pure ()",
+                      "duplicatePartyFromText = do",
+                      "  alice <- allocateParty \"alice\"",
+                      "  _ <- submit alice $ createAndExerciseCmd (T alice alice) (InventObserver \"bob\")",
+                      "  _ <- allocatePartyWithHint \"bob\" (PartyIdHint \"bob\")",
+                      "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
                   matchRegex r "Active contracts:  #1:1\n\nReturn value: {}\n\n$"
+                expectScriptFailure rs (vr "duplicateAllocateWithHint") $ \r ->
+                  matchRegex r "Tried to allocate a party that already exists:  alice"
+                expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
+                  matchRegex r "Tried to allocate a party that already exists:  bob"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

@@ -145,6 +145,8 @@ private[lf] object Pretty {
         text("due to a mustfailAt that succeeded.")
 
       case ScenarioErrorInvalidPartyName(_, msg) => text(s"Invalid party: $msg")
+
+      case ScenarioErrorPartyAlreadyExists(party) => text(s"Tried to allocate a party that already exists: $party")
     })
 
   def prettyFailedAuthorizations(fas: FailedAuthorizations): Doc =
