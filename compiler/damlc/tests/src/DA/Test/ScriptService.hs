@@ -447,15 +447,14 @@ main =
                       "  alice1 <- allocateParty \"alice\"",
                       "  t1 <- submit alice $ createCmd T { owner = alice, observer = alice1 }",
                       "  t2 <- submit alice $ exerciseCmd t1 (InventObserver \"bob\")",
+                      "  bob1 <- allocateParty \"bob\"",
                       "  details <- listKnownParties",
-                      "  assertEq (length details) 2",
-                      "  let [aliceDetails, alice1Details] = details",
-                      "  assertEq aliceDetails.party alice",
-                      "  assertEq aliceDetails.displayName (Some \"alice\")",
-                      "  assertEq aliceDetails.isLocal True",
-                      "  assertEq alice1Details.party (fromSome $ partyFromText \"alice1\")",
-                      "  assertEq alice1Details.displayName (Some \"alice\")",
-                      "  assertEq alice1Details.isLocal True"
+                      "  assertEq (length details) 4",
+                      "  let [aliceDetails, alice1Details, bobDetails, bob1Details] = details",
+                      "  assertEq aliceDetails (PartyDetails alice (Some \"alice\") True)",
+                      "  assertEq alice1Details (PartyDetails alice1 (Some \"alice\") True)",
+                      "  assertEq bobDetails (PartyDetails (fromSome $ partyFromText \"bob\") None True)",
+                      "  assertEq bob1Details (PartyDetails bob1 (Some \"bob\") True)"
                     ]
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
                   matchRegex r "Active contracts:  #1:1\n\nReturn value: {}\n\n$"
