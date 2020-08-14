@@ -40,6 +40,8 @@ We welcome feedback about the JSON API on `our issue tracker
 Running the JSON API
 ********************
 
+.. warning:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via nginx <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
+
 Start a DAML Ledger
 ===================
 
