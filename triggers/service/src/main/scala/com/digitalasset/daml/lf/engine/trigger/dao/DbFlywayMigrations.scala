@@ -59,28 +59,16 @@ private[trigger] class DbFlywayMigrations(private val ds: DataSource) extends St
     }
 
   private object dataSource {
-    def use[T](f: HikariDataSource => Future[T])(implicit ec: ExecutionContext): Future[T] =
-      Future failed (new IllegalStateException(s"s11 TODO dataSource $f $ec"))
+    def use[T](f: ds.type => Future[T]): Future[T] =
+      f(ds)
   }
-
-  /*
-  private def dataSource: ResourceOwner[HikariDataSource] =
-    HikariConnection.owner(
-      serverRole = ServerRole.IndexMigrations,
-      jdbcUrl = jdbcUrl,
-      minimumIdle = 2,
-      maxPoolSize = 2,
-      connectionTimeout = 250.millis,
-      metrics = None,
-    )
- */
 }
 
 private[trigger] object DbFlywayMigrations {
-  def configurationBase(dbType: DbType): FluentConfiguration =
+  def configurationBase(): FluentConfiguration =
     Flyway
       .configure()
       .locations(
-        "classpath:com/daml/lf/engine/trigger/db/migration/" + dbType.name,
+        "classpath:com/daml/lf/engine/trigger/db/migration/postgres",
       )
 }
