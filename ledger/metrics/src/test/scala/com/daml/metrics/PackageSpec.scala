@@ -8,17 +8,14 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class CacheMetricsSpec extends AsyncWordSpec with Matchers {
-  "gauge registrations" should {
-    "succeed on multiple threads in parallel for the same metric registry" in {
-      val cacheMetrics = new CacheMetrics(new MetricRegistry, MetricName.DAML)
+class PackageSpec extends AsyncWordSpec with Matchers {
+  "gauge registration" should {
+    "succeed on multiple threads in parallel for the same metric name" in {
+      val registry = new MetricRegistry
       implicit val executionContext: ExecutionContext = ExecutionContext.global
+      val metricName = MetricName.DAML :+ "a" :+ "test"
       val instances =
-        (1 to 1000).map(_ =>
-          Future {
-            cacheMetrics.registerSizeGauge(() => 1L)
-            cacheMetrics.registerWeightGauge(() => 2L)
-        })
+        (1 to 1000).map(_ => Future(registerGauge(metricName, () => () => 1.0, registry)))
       Future.sequence(instances).map { _ =>
         succeed
       }
