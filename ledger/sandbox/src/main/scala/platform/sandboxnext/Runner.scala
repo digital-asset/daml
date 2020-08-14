@@ -67,8 +67,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     if (config.devMode) EngineConfig.Dev else EngineConfig.Stable
 
   private[this] val engine = new Engine(engineConfig)
-  engine.setProfileDir(config.profileDir)
-  engine.enableStackTraces(config.stackTraces)
 
   private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
       String,

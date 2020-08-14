@@ -316,7 +316,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
         SEMakeClo(Array(), 1, SELocA(0))
     }
-    new CompiledPackages {
+    new CompiledPackages(Compiler.FullStackTrace, Compiler.NoProfile) {
       override def getPackage(pkgId: PackageId): Option[Package] =
         compiledPackages.getPackage(pkgId)
       override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
@@ -327,11 +327,8 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       // FIXME: avoid override of non abstract method
       override def definitions: PartialFunction[SDefinitionRef, SExpr] =
         fromLedgerValue.orElse(compiledPackages.definitions)
-      override def stackTraceMode: Compiler.FullStackTrace.type = Compiler.FullStackTrace
-      override def profilingMode: Compiler.NoProfile.type = Compiler.NoProfile
       override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
         compiledPackages.packageLanguageVersion
-
     }
   }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)

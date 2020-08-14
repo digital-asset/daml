@@ -9,18 +9,12 @@ import com.daml.lf.VersionRange
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.lf.transaction.{TransactionVersions, TransactionVersion => TV}
 
-// FIXME: https://github.com/digital-asset/daml/issues/5164
-// Currently only outputTransactionVersions is used.
-// languageVersions and outputTransactionVersions should be plug
 final case class EngineConfig(
-    // constrains the versions of language accepted by the engine
     allowedLanguageVersions: VersionRange[LV],
-    // constrains the versions of input transactions
     allowedInputTransactionVersions: VersionRange[TV],
-    // constrains the versions of output transactions
     allowedOutputTransactionVersions: VersionRange[TV],
-    profileDir: Option[Path] = None,
     stackTraceMode: Boolean = false,
+    profileDir: Option[Path] = None,
 ) {
 
   private[lf] val allowedInputValueVersions =
