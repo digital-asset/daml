@@ -63,13 +63,15 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       None
   }
 
-  private[this] val engineConfig =
-    (if (config.devMode) EngineConfig.Dev else EngineConfig.Stable).copy(
+  private[this] val engine = {
+    val engineConfig = (
+      if (config.devMode) EngineConfig.Dev else EngineConfig.Stable
+    ).copy(
       profileDir = config.profileDir,
       stackTraceMode = config.stackTraces,
     )
-
-  private[this] val engine = new Engine(engineConfig)
+    new Engine(engineConfig)
+  }
 
   private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
       String,

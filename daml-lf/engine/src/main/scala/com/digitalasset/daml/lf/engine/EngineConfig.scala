@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 
 import java.nio.file.Path
 
-import com.daml.lf.VersionRange
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.lf.transaction.{TransactionVersions, TransactionVersion => TV}
 

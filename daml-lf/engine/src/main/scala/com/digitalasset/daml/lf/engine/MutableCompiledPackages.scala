@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 
-import com.daml.lf.{CompiledPackages, speedy}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.Compiler
