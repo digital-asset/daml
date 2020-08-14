@@ -62,6 +62,6 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
 
 }
 
-object MeteredLedger {
+private[sandbox] object MeteredLedger {
   def apply(ledger: Ledger, metrics: Metrics): Ledger = new MeteredLedger(ledger, metrics)
 }

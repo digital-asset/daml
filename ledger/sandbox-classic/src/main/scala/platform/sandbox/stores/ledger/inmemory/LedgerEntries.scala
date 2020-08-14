@@ -17,7 +17,7 @@ import com.daml.platform.sandbox.stores.ledger.SandboxOffset
 
 import scala.collection.immutable.TreeMap
 
-private[ledger] class LedgerEntries[T](identify: T => String) {
+private[inmemory] class LedgerEntries[T](identify: T => String) {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 

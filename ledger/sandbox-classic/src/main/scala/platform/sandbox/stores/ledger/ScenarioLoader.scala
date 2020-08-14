@@ -19,7 +19,7 @@ import scala.annotation.tailrec
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
 
-object ScenarioLoader {
+private[sandbox] object ScenarioLoader {
 
   /** When loading from the scenario, we also specify by how much to bump the
     * ledger end after each entry. This is because in the scenario transaction
