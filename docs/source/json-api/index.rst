@@ -409,6 +409,8 @@ Creating a Contract with a Command ID
 
 When creating a new contract you may specify an optional ``meta`` field.
 
+.. note:: You cannot currently use ``commandIds`` anywhere else in the JSON API, but you can use it for observing the results of its commands outside the JSON API in logs or via the Ledger API's :doc:`Command Services </app-dev/services>`
+
 .. code-block:: json
 
     {
