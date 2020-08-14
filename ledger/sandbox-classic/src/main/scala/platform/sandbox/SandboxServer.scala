@@ -142,20 +142,21 @@ final class SandboxServer(
     metrics: Metrics,
 ) extends AutoCloseable {
 
-  @silent("Sandbox_Classic_Dev in object EngineConfig is deprecated")
-  @silent("Sandbox_Classic_Stable in object EngineConfig is deprecated")
-  private[this] val engineConfig =
-    (if (config.devMode) EngineConfig.Sandbox_Classic_Stable else EngineConfig.Sandbox_Classic_Dev)
-
-  private[this] val engine = getEngine(engineConfig)
+  private[this] val engine = {
+    @silent("Sandbox_Classic_Dev in object EngineConfig is deprecated")
+    @silent("Sandbox_Classic_Stable in object EngineConfig is deprecated")
+    val engineConfig = (
+      if (config.devMode) EngineConfig.Sandbox_Classic_Stable else EngineConfig.Sandbox_Classic_Dev
+    ).copy(
+      profileDir = config.profileDir,
+      stackTraceMode = config.stackTraces,
+    )
+    getEngine(engineConfig)
+  }
 
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
     this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
-
-  // NOTE(MH): We must do this _before_ we load the first package.
-  engine.setProfileDir(config.profileDir)
-  engine.enableStackTraces(config.stackTraces)
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
   private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))

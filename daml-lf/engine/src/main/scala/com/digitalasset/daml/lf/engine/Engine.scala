@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Files
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -47,9 +47,19 @@ import java.nio.file.{Files, Path, Paths}
   * This class is thread safe as long `nextRandomInt` is.
   */
 class Engine(val config: EngineConfig = EngineConfig.Stable) {
-  private[this] val compiledPackages = ConcurrentCompiledPackages()
+
+  config.profileDir.foreach(Files.createDirectories(_))
+
+  private[this] val compiledPackages = {
+    val stacktraceMode =
+      if (config.stackTraceMode) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
+    val profileMode =
+      if (config.profileDir.isDefined) speedy.Compiler.FullProfile else speedy.Compiler.NoProfile
+    ConcurrentCompiledPackages(stacktraceMode, profileMode)
+  }
+
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
-  private[this] var profileDir: Option[Path] = None
+
   def info = new EngineInfo(config)
 
   /**
@@ -380,15 +390,12 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
           nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
           byKeyNodes = machine.ptx.byKeyNodes.toImmArray,
         )
-        profileDir match {
-          case None => ()
-          case Some(profileDir) =>
-            val hash = meta.nodeSeeds(0)._2.toHexString
-            val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"$desc-${hash.substring(0, 6)}"
-            val profileFile =
-              profileDir.resolve(Paths.get(s"${meta.submissionTime}-$desc-$hash.json"))
-            machine.profile.writeSpeedscopeJson(profileFile)
+        config.profileDir.foreach { dir =>
+          val hash = meta.nodeSeeds(0)._2.toHexString
+          val desc = Engine.profileDesc(tx)
+          machine.profile.name = s"$desc-${hash.substring(0, 6)}"
+          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc-$hash.json")
+          machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
     }
@@ -411,22 +418,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     */
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     addPackage(pkgId, pkg)
-
-  def setProfileDir(optProfileDir: Option[Path]): Unit = {
-    optProfileDir match {
-      case None =>
-        compiledPackages.profilingMode = speedy.Compiler.NoProfile
-      case Some(profileDir) =>
-        Files.createDirectories(profileDir)
-        this.profileDir = Some(profileDir)
-        compiledPackages.profilingMode = speedy.Compiler.FullProfile
-    }
-  }
-
-  def enableStackTraces(enable: Boolean) = {
-    compiledPackages.stackTraceMode =
-      if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
-  }
 
   private[engine] def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     if (config.allowedLanguageVersions.contains(pkg.languageVersion))

@@ -1,22 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 
-import com.daml.lf.VersionRange
+import java.nio.file.Path
+
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.lf.transaction.{TransactionVersions, TransactionVersion => TV}
 
-// FIXME: https://github.com/digital-asset/daml/issues/5164
-// Currently only outputTransactionVersions is used.
-// languageVersions and outputTransactionVersions should be plug
 final case class EngineConfig(
-    // constrains the versions of language accepted by the engine
     allowedLanguageVersions: VersionRange[LV],
-    // constrains the versions of input transactions
     allowedInputTransactionVersions: VersionRange[TV],
-    // constrains the versions of output transactions
     allowedOutputTransactionVersions: VersionRange[TV],
+    stackTraceMode: Boolean = false,
+    profileDir: Option[Path] = None,
 ) {
 
   private[lf] val allowedInputValueVersions =
