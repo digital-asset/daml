@@ -503,7 +503,9 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    val ledgerParties = getLedgerParties.map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true))).toMap
+    val ledgerParties = getLedgerParties
+      .map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true)))
+      .toMap
     Future.successful((ledgerParties ++ allocatedParties).values.toList)
   }
 
