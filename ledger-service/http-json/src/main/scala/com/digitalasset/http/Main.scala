@@ -174,7 +174,7 @@ object Main extends StrictLogging {
         .optional()
         .text(
           s"Optional max inbound message size in bytes used for uploading and downloading package updates." +
-            s" Defaults to the 'max-inbound-message-size' setting.")
+            s" Defaults to the `max-inbound-message-size` setting.")
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
