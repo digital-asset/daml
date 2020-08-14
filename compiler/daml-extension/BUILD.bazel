@@ -73,6 +73,10 @@ genrule(
     tools = ["//bazel_tools/sh:mktgz"],
 )
 
+# This rule is not reproducible. `vsce package` generates a `.vsix` file which
+# is just a zip archive. The order of entries in that archive is
+# non-deterministic and the individual entries contain non-reproducible
+# timestamps.
 genrule(
     name = "vsix",
     srcs = glob([

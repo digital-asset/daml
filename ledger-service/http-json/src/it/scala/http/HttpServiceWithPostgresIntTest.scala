@@ -18,6 +18,8 @@ class HttpServiceWithPostgresIntTest
 
   override def staticContentConfig: Option[StaticContentConfig] = None
 
+  override def wsConfig: Option[WebsocketConfig] = None
+
   // has to be lazy because postgresFixture is NOT initialized yet
   private lazy val jdbcConfig_ = JdbcConfig(
     driver = "org.postgresql.Driver",

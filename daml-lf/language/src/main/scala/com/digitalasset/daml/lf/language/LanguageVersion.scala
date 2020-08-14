@@ -15,9 +15,6 @@ object LanguageVersion {
   type Minor = LanguageMinorVersion
   val Minor = LanguageMinorVersion
 
-  val defaultV0: LanguageVersion =
-    LanguageVersion(Major.V0, Major.V0.maxSupportedStableMinorVersion)
-
   val defaultV1: LanguageVersion =
     LanguageVersion(Major.V1, Major.V1.maxSupportedStableMinorVersion)
 

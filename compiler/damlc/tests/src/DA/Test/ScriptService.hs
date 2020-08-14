@@ -347,6 +347,28 @@ main =
                   expectScriptFailure rs (vr "testAbort") $ \r ->
                     matchRegex r "Aborted:  abortCrash"
                   pure (),
+              testCase "submitMustFail" $ do
+                  rs <-
+                    runScripts
+                      scriptService
+                      [ "module Test where",
+                        "import Daml.Script",
+                        "template T",
+                        "  with",
+                        "    p : Party",
+                        "  where",
+                        "    signatory p",
+                        "    choice AssertFail : ()",
+                        "      controller p",
+                        "      do assert False",
+                        "testAssertFail = do",
+                        "  p <- allocateParty \"p\"",
+                        "  cid <- submit p (createCmd (T p))",
+                        "  submitMustFail p (exerciseCmd cid AssertFail)"
+                      ]
+                  expectScriptSuccess rs (vr "testAssertFail") $ \r ->
+                    matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
+                  pure (),
               testCase "contract keys" $ do
                 rs <-
                   runScripts
@@ -379,7 +401,29 @@ main =
                       "  t === T p"
                     ]
                 expectScriptSuccess rs (vr "testFetchByKey") $ \r ->
-                  matchRegex r "Active contracts:  #0:0, #1:0\n\n"
+                  matchRegex r "Active contracts:  #0:0, #1:0\n\n",
+              testCase "time" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where",
+                      "import Daml.Script",
+                      "import DA.Date",
+                      "import DA.Time",
+                      "testTime = do",
+                      "  t0 <- getTime",
+                      "  setTime (time (date 2000 Feb 2) 0 1 2)",
+                      "  t1 <- getTime",
+                      "  pure (t0, t1)"
+                    ]
+                expectScriptSuccess rs (vr "testTime") $ \r ->
+                    matchRegex r $
+                      T.unlines
+                        [ "Return value:",
+                          "  DA\\.Types:Tuple2@[a-z0-9]+ with",
+                          "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z",
+                          ""
+                        ]
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

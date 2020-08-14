@@ -83,7 +83,7 @@ object ServiceMain {
         val system: ActorSystem[Message] =
           ActorSystem(
             Server(
-              "localhost",
+              config.address,
               config.httpPort,
               ledgerConfig,
               restartConfig,

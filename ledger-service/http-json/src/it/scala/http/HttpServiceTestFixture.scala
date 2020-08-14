@@ -48,7 +48,8 @@ object HttpServiceTestFixture {
       jdbcConfig: Option[JdbcConfig],
       staticContentConfig: Option[StaticContentConfig],
       leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
-      useTls: UseTls = UseTls.NoTls
+      useTls: UseTls = UseTls.NoTls,
+      wsConfig: Option[WebsocketConfig] = None,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
@@ -77,7 +78,7 @@ object HttpServiceTestFixture {
         httpPort = 0,
         portFile = None,
         tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
-        wsConfig = Some(Config.DefaultWsConfig),
+        wsConfig = wsConfig,
         accessTokenFile = None,
         allowNonHttps = leakPasswords,
         staticContentConfig = staticContentConfig,

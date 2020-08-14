@@ -26,6 +26,7 @@ module Daml.Script
   , sleep
   ) where
 
+import DA.Functor
 import DA.Optional
 import DA.Time
 
@@ -80,6 +81,7 @@ newtype Commands a = Commands (Ap CommandsF a)
 
 data ScriptF a
   = Submit (SubmitCmd a)
+  | SubmitMustFail (SubmitMustFailCmd a)
   | Query (QueryACS a)
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
@@ -227,7 +229,16 @@ data SubmitFailure = SubmitFailure
   , description : Text
   }
 
+-- | Details of the @submit@ command.
+--
+-- The @handleFailure@ field is kept on @submit@ for backwards compatibility.
+-- Older versions of the DAML SDK didn't distinguish @Submit@ and
+-- @SubmitMustFail@ in the script runner.
 data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a }
+  deriving Functor
+
+-- | Details of the @submitMustFail@ command.
+data SubmitMustFailCmd a = SubmitMustFailCmd { party : Party, commands : Commands a, continue : () -> a }
   deriving Functor
 
 -- | Submit the commands as a single transaction.
@@ -238,8 +249,7 @@ instance HasSubmit Script Commands where
   submit p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
     where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
 
-  submitMustFail p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
-    where fail _ = error "Expected submit to fail but it succeeded"
+  submitMustFail p cmds = lift $ Free (fmap pure $ SubmitMustFail $ SubmitMustFailCmd p (void cmds) (const ()))
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
