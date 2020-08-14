@@ -72,12 +72,14 @@ object HttpService extends StrictLogging {
     val allowNonHttps: Boolean
     val staticContentConfig: Option[StaticContentConfig]
     val packageReloadInterval: FiniteDuration
+    val packageMaxInboundMessageSize: Option[Int]
     val maxInboundMessageSize: Int
   }
 
   trait DefaultStartSettings extends StartSettings {
     override val staticContentConfig: Option[StaticContentConfig] = None
     override val packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval
+    override val packageMaxInboundMessageSize: Option[Int] = None
     override val maxInboundMessageSize: Int = DefaultMaxInboundMessageSize
   }
 
@@ -106,9 +108,17 @@ object HttpService extends StrictLogging {
     )
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
-      client <- eitherT(client(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)): ET[
-        LedgerClient,
-      ]
+      client <- eitherT(
+        ledgerClient(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)
+      ): ET[LedgerClient]
+
+      pkgManagementClient <- eitherT(
+        ledgerClient(
+          ledgerHost,
+          ledgerPort,
+          clientConfig,
+          packageMaxInboundMessageSize.getOrElse(maxInboundMessageSize))
+      ): ET[LedgerClient]
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
@@ -116,7 +126,7 @@ object HttpService extends StrictLogging {
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       packageService = new PackageService(
-        loadPackageStoreUpdates(client.packageClient, tokenHolder),
+        loadPackageStoreUpdates(pkgManagementClient.packageClient, tokenHolder),
       )
 
       // load all packages right away
@@ -147,10 +157,10 @@ object HttpService extends StrictLogging {
       )
 
       packageManagementService = new PackageManagementService(
-        LedgerClientJwt.listPackages(client),
-        LedgerClientJwt.getPackage(client),
+        LedgerClientJwt.listPackages(pkgManagementClient),
+        LedgerClientJwt.getPackage(pkgManagementClient),
         uploadDarAndReloadPackages(
-          LedgerClientJwt.uploadDar(client),
+          LedgerClientJwt.uploadDar(pkgManagementClient),
           () => packageService.reload(ec))
       )
 
@@ -288,7 +298,7 @@ object HttpService extends StrictLogging {
     })
   }
 
-  private def client(
+  private def ledgerClient(
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
