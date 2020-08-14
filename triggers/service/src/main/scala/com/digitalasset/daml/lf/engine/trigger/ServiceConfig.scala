@@ -41,8 +41,6 @@ object JdbcConfig {
   implicit val showInstance: Show[JdbcConfig] =
     Show.shows(a => s"JdbcConfig(url=${a.url}, user=${a.user})")
 
-  val driver: String = "org.postgresql.Driver"
-
   def create(x: Map[String, String]): Either[String, JdbcConfig] =
     for {
       url <- requiredField(x)("url")

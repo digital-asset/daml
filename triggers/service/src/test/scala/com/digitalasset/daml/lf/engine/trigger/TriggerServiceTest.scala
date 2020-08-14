@@ -503,7 +503,7 @@ class TriggerServiceTestWithDb
   }
 
   override protected def afterEach(): Unit = {
-    triggerDao.destroy match {
+    triggerDao.destroy() match {
       case Left(err) => fail(err)
       case Right(()) =>
     }

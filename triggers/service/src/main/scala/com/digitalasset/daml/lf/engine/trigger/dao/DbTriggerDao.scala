@@ -12,28 +12,50 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.{EncryptedToken, JdbcConfig, RunningTrigger, UserCredentials}
+import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.postgres.implicits._
 import doobie.util.log
 import doobie.{LogHandler, Transactor, _}
 
+import java.io.Closeable
+import javax.sql.DataSource
+
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
+import scala.language.existentials
 
 object Connection {
 
-  type T = Transactor.Aux[IO, Unit]
+  private[dao] type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
-  def connect(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(
-      implicit cs: ContextShift[IO]): T =
-    Transactor
-      .fromDriverManager[IO](jdbcDriver, jdbcUrl, username, password)(IO.ioConcurrentEffect(cs), cs)
+  private[dao] def connect(jdbcUrl: String, username: String, password: String)(
+      implicit ec: ExecutionContext,
+      cs: ContextShift[IO]): (DataSource with Closeable, T) = {
+    val ds = dataSource(jdbcUrl, username, password)
+    (
+      ds,
+      Transactor
+        .fromDataSource[IO](ds, connectEC = ec, transactEC = ec)(IO.ioConcurrentEffect(cs), cs))
+  }
+
+  private[this] def dataSource(jdbcUrl: String, username: String, password: String) = {
+    val c = new HikariConfig
+    c.setJdbcUrl(jdbcUrl)
+    c.setUsername(username)
+    c.setPassword(password)
+    c.setMaximumPoolSize(8)
+    new HikariDataSource(c)
+  }
 }
 
-class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
+final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Connection.T)
+    extends RunningTriggerDao {
 
   private val logHandler: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
+
+  val flywayMigrations = new DbFlywayMigrations(dataSource) // TODO SC make private
 
   private def createTables(implicit logHandler: LogHandler): ConnectionIO[Unit] = {
     // Running trigger table.
@@ -193,15 +215,18 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   def initialize: Either[String, Unit] =
     run(createTables(logHandler), "Failed to initialize database.")
 
-  def destroy: Either[String, Unit] =
-    run(dropTables, "Failed to remove database objects.")
+  private[trigger] def destroy(): Either[String, Unit] = {
+    import cats.instances.either._
+    (run(dropTables, "Failed to remove database objects.") *>
+      Try(dataSource.close()).toEither.left.map(t => s"Failed to close database.\n${t.getMessage}"))
+  }
 }
 
 object DbTriggerDao {
 
   def apply(c: JdbcConfig)(implicit ec: ExecutionContext): DbTriggerDao = {
-    val cs: ContextShift[IO] = IO.contextShift(ec)
-    val conn: Connection.T = Connection.connect(JdbcConfig.driver, c.url, c.user, c.password)(cs)
-    new DbTriggerDao(conn)
+    implicit val cs: ContextShift[IO] = IO.contextShift(ec)
+    val (ds, conn) = Connection.connect(c.url, c.user, c.password)
+    new DbTriggerDao(ds, conn)
   }
 }

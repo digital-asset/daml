@@ -10,23 +10,22 @@ import com.daml.platform.store.dao.HikariConnection
 import com.daml.resources.ResourceOwner
  */
 import com.typesafe.scalalogging.StrictLogging
-import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
+import javax.sql.DataSource
+
 // import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-private[trigger] class DbFlywayMigrations(jdbcUrl: String) extends StrictLogging {
+private[trigger] class DbFlywayMigrations(private val ds: DataSource) extends StrictLogging {
   import DbFlywayMigrations._
-
-  private val dbType = DbType.jdbcType(jdbcUrl)
 
   def validate()(implicit executionContext: ExecutionContext): Future[Unit] =
     dataSource.use { ds =>
       Future {
-        val flyway = configurationBase(dbType).dataSource(ds).load()
+        val flyway = configurationBase().dataSource(ds).load()
         logger.info("Running Flyway validation...")
         flyway.validate()
         logger.info("Flyway schema validation finished successfully.")
@@ -38,7 +37,7 @@ private[trigger] class DbFlywayMigrations(jdbcUrl: String) extends StrictLogging
   ): Future[Unit] =
     dataSource.use { ds =>
       Future {
-        val flyway = configurationBase(dbType)
+        val flyway = configurationBase()
           .dataSource(ds)
           .baselineOnMigrate(allowExistingSchema)
           .baselineVersion(MigrationVersion.fromVersion("0"))
@@ -52,7 +51,7 @@ private[trigger] class DbFlywayMigrations(jdbcUrl: String) extends StrictLogging
   def reset()(implicit executionContext: ExecutionContext): Future[Unit] =
     dataSource.use { ds =>
       Future {
-        val flyway = configurationBase(dbType).dataSource(ds).load()
+        val flyway = configurationBase().dataSource(ds).load()
         logger.info("Running Flyway clean...")
         flyway.clean()
         logger.info("Flyway schema clean finished successfully.")
