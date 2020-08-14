@@ -120,10 +120,12 @@ Authorization
 -------------
 
 Every request from a client to the JSON API requires you to specify a party and some other settings,
-with a JWT token.  Normal HTTP requests pass the token in an ``Authentication`` header, 
+with a JWT token.  Normal HTTP requests pass the token in an ``Authorization`` header, 
 while WebSocket requests pass the token in a subprotocol.
 
-In testing environments, you can use https://jwt.io to generate your
+.. note:: While the JSON API receives the token it doesn't handle it itself. Upon receiving a token it will pass it on to the underlying Ledger's AuthService which will then determine if the token is valid and authorized. As such each token format is ledger/implementation-specific and the below example reflects only the format that is used for the DAML Sandbox.
+
+In the DAML Sandbox testing environment, you can use https://jwt.io to generate your
 token.  The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
