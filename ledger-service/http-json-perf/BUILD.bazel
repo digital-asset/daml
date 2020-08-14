@@ -22,9 +22,6 @@ da_scala_library(
     scalacopts = hj_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json-perf:__VERSION__"],
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-    ],
     deps = [
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_fasterxml_jackson_core_jackson_databind",
