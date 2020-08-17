@@ -443,7 +443,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
           }
         case SResultFinalValue(v) =>
           // The final result should always be unit.
-          result = Failure(new RuntimeException(s"Unexpected non-unit final result: $v"))
+          result = Failure(new RuntimeException(s"FATAL: Unexpected non-unit final result: $v"))
         case SResultScenarioCommit(_, _, _, _) =>
           result = Failure(
             new RuntimeException("FATAL: Encountered scenario commit in DAML Script"))
@@ -453,7 +453,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         case SResultNeedTime(callback @ _) =>
           result = Failure(
             new RuntimeException(
-              "FATAL: GetTime should have been handled by the DAML Script runner"))
+              "FATAL: Encountered scenario instruction getTime in DAML Script"))
         case SResultNeedPackage(pkg, callback @ _) =>
           result = Failure(
             new RuntimeException(
@@ -461,15 +461,15 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
           result = Failure(
             new RuntimeException(
-              "FATAL: submitMustFail should have been handled by the DAML Script runner"))
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML script"))
         case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
           result = Failure(
             new RuntimeException(
-              "FATAL: submitMustFail should have been handled by the DAML Script runner"))
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"))
         case SResultScenarioPassTime(relTime @ _, callback @ _) =>
           result = Failure(
             new RuntimeException(
-              "FATAL: SetTime should have been handled by the DAML Script runner"))
+              "FATAL: Encountered scenario instruction setTime in DAML Script"))
         case SResultScenarioGetParty(partyText @ _, callback @ _) =>
           result = Failure(
             new RuntimeException("FATAL: Encountered scenario instruction getParty in DAML Script"))
