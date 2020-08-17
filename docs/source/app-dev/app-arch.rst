@@ -49,7 +49,7 @@ with a JSON API server by running
 
 in the root of the project. This is the most simple DAML ledger implementation. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and DAML artefacts of your project to a production ledger. See :ref:`Deploying to DAML
+your frontend and DAML artifacts of your project to a production ledger. See :ref:`Deploying to DAML
 Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
 Frontend

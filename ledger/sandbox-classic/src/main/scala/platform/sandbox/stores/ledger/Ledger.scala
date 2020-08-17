@@ -18,7 +18,7 @@ import com.daml.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
 
-trait Ledger extends ReadOnlyLedger {
+private[sandbox] trait Ledger extends ReadOnlyLedger {
 
   def publishTransaction(
       submitterInfo: SubmitterInfo,
@@ -50,7 +50,7 @@ trait Ledger extends ReadOnlyLedger {
 
 }
 
-object Ledger {
+private[sandbox] object Ledger {
 
   type Divulgence = Relation[ContractId, Party]
 

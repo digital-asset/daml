@@ -73,7 +73,7 @@ object IouMain extends App with StrictLogging {
   private val issuerWorkflowId: WorkflowId = workflowIdFromParty(issuer)
 
   def validatePackageId(allPackageIds: Set[String], packageId: String): Future[Unit] =
-    if (allPackageIds(packageId)) Future.successful(())
+    if (allPackageIds(packageId)) Future.unit
     else
       Future.failed(
         new IllegalArgumentException(

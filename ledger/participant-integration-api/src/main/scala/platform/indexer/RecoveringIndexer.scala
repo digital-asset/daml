@@ -92,7 +92,7 @@ private[indexer] final class RecoveringIndexer(
               }
             }
           } else {
-            Future.successful(())
+            Future.unit
           }
         }
       } yield ()

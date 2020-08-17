@@ -1,7 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.daml.lf
+package engine
+package script
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -27,16 +29,12 @@ import spray.json._
 import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
-import com.daml.lf.CompiledPackages
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.data.{Time}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.Speedy.Machine
@@ -120,11 +118,14 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
-  def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
+
+  def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Either[Unit, Unit]]
 
   def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
@@ -145,7 +146,8 @@ trait ScriptLedgerClient {
       mat: Materializer): Future[Unit]
 }
 
-class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient {
+class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
+    extends ScriptLedgerClient {
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
@@ -173,10 +175,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
         })))
   }
 
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
     val ledgerCommands = commands.traverse(toCommand(_)) match {
@@ -212,6 +211,15 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
           case Right(results) => results
         }
       }))
+  }
+
+  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
+    submit(party, commands).map({
+      case Right(_) => Left(())
+      case Left(_) => Right(())
+    })
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(
@@ -311,12 +319,24 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
 
 // Client for the script service.
 class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClient {
+  private val txSeeding =
+    speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"script-service"))
+
   // Machine for scenario expressions.
-  val machine = Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
+  val machine = Machine(
+    compiledPackages,
+    submissionTime = Time.Timestamp.Epoch,
+    initialSeeding = txSeeding,
+    expr = null,
+    globalCids = Set.empty,
+    committers = Set.empty,
+    inputValueVersions = value.ValueVersions.DevOutputVersions,
+    outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
+  )
+  (compiledPackages, SEValue(SUnit))
   val scenarioRunner = ScenarioRunner(machine)
-  private val txSeeding = crypto.Hash.hashPrivateKey(s"script-service")
-  machine.ptx =
-    PartialTransaction.initial(Time.Timestamp.MinValue, InitialSeeding.TransactionSeed(txSeeding))
+  private var allocatedParties: Map[String, PartyDetails] = Map()
+
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
@@ -358,10 +378,9 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     compiledPackages.compiler.unsafeCompile(cmds)
   }
 
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     machine.returnValue = null
     val translated = translateCommands(commands)
@@ -422,39 +441,9 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                   result = Success(Right(results.toSeq))
               }
           }
-        case SResultScenarioCommit(value, tx, committers, callback) =>
-          val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
-            tx.nodes(n) match {
-              case create: NodeCreate.WithTxValue[ContractId] =>
-                ScriptLedgerClient.CreateResult(create.coid)
-              case exercise: NodeExercises.WithTxValue[_, ContractId] =>
-                ScriptLedgerClient.ExerciseResult(
-                  exercise.templateId,
-                  exercise.choiceId,
-                  exercise.exerciseResult.get.value)
-              case n =>
-                // Root nodes can only be creates and exercises.
-                throw new RuntimeException(s"Unexpected node: $n")
-            }
-          }
-          val committer = committers.head
-          ScenarioLedger.commitTransaction(
-            committer = committer,
-            effectiveAt = scenarioRunner.ledger.currentTime,
-            optLocation = machine.commitLocation,
-            tx = tx,
-            l = scenarioRunner.ledger
-          ) match {
-            case Left(fas) =>
-              // Capture the error and exit.
-              result = Failure(ScenarioErrorCommitError(fas))
-            case Right(commitResult) =>
-              scenarioRunner.ledger = commitResult.newLedger
-              // Run the side effects
-              callback(value)
-              // Capture the result and exit.
-              result = Success(Right(results.toSeq))
-          }
+        case SResultScenarioCommit(_, _, _, _) =>
+          result = Failure(
+            new RuntimeException("FATAL: Encountered scenario commit in DAML Script"))
         case SResultError(err) =>
           // Capture the error and exit.
           result = Failure(err)
@@ -467,32 +456,78 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     Future.fromTry(result)
   }
 
+  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Either[Unit, Unit]] = {
+    submit(party, commands)
+      .map({
+        case Right(_) => Left(())
+        // We don't expect to hit this case but list it for completeness.
+        case Left(_) => Right(())
+      })
+      .recoverWith({
+        case _: SError => Future.successful(Right(()))
+      })
+  }
+
+  // All parties known to the ledger. This may include parties that were not
+  // allocated explicitly, e.g. parties created by `partyFromText`.
+  private def getLedgerParties(): Iterable[Ref.Party] = {
+    scenarioRunner.ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
+  }
+
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    // TODO Figure out how we want to handle this in the script service.
-    Future.successful(SParty(Ref.Party.assertFromString(displayName)))
+    val usedNames = getLedgerParties.toSet ++ allocatedParties.keySet
+    Future.fromTry(for {
+      name <- if (partyIdHint != "") {
+        // Try to allocate the given hint as party name. Will fail if the name is already taken.
+        if (usedNames contains partyIdHint) {
+          Failure(new ScenarioErrorPartyAlreadyExists(partyIdHint))
+        } else {
+          Success(partyIdHint)
+        }
+      } else {
+        // Allocate a fresh name based on the display name.
+        val candidates = displayName #:: Stream.from(1).map(displayName + _.toString())
+        Success(candidates.find(s => !(usedNames contains s)).get)
+      }
+      // Create and store the new party.
+      partyDetails = PartyDetails(
+        party = Ref.Party.assertFromString(name),
+        displayName = Some(displayName),
+        isLocal = true)
+      _ = allocatedParties += (name -> partyDetails)
+    } yield SParty(partyDetails.party))
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    // TODO Implement
-    Future.failed(new RuntimeException("listKnownParties is not yet implemented"))
+    val ledgerParties = getLedgerParties
+      .map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true)))
+      .toMap
+    Future.successful((ledgerParties ++ allocatedParties).values.toList)
   }
 
   override def getStaticTime()(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[Time.Timestamp] = {
-    // TODO Implement
-    Future.failed(new RuntimeException("getStaticTime is not yet implemented"))
+    Future.successful(scenarioRunner.ledger.currentTime)
   }
 
   override def setStaticTime(time: Time.Timestamp)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[Unit] = {
-    // TODO Implement
-    Future.failed(new RuntimeException("setStaticTime is not yet implemented"))
+    val diff = time.micros - scenarioRunner.ledger.currentTime.micros
+    // ScenarioLedger only provides pass, so we have to check the difference.
+    if (diff < 0) {
+      Future.failed(new RuntimeException("Time cannot be set backwards"))
+    } else {
+      scenarioRunner.ledger = scenarioRunner.ledger.passTime(diff)
+      Future.unit
+    }
   }
 }
 
@@ -517,7 +552,7 @@ class JsonLedgerClient(
     case -\/(e) => throw new IllegalArgumentException(e.toString)
     case \/-(a) => a
   }
-  private val tokenPayload: AuthServiceJWTPayload =
+  private[script] val tokenPayload: AuthServiceJWTPayload =
     AuthServiceJWTCodec.readFromString(decodedJwt.payload) match {
       case Failure(e) => throw e
       case Success(s) => s
@@ -562,10 +597,9 @@ class JsonLedgerClient(
       parsedResults
     }
   }
-  override def submit(
-      applicationId: ApplicationId,
-      party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
+  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
       () <- validateTokenParty(party, "submit a command")
@@ -588,6 +622,14 @@ class JsonLedgerClient(
               "Multi-command submissions are not supported by the HTTP JSON API."))
       }
     } yield result
+  }
+  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
+    submit(party, commands).map({
+      case Right(_) => Left(())
+      case Left(_) => Right(())
+    })
   }
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,

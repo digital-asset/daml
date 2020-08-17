@@ -44,7 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-object SqlLedger {
+private[sandbox] object SqlLedger {
 
   private type PersistenceQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
@@ -208,7 +208,7 @@ object SqlLedger {
           .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
             DEC)
       } else {
-        Future.successful(())
+        Future.unit
       }
     }
 

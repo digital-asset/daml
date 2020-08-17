@@ -3,11 +3,12 @@
 
 package com.daml.lf.speedy
 
+import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
-import com.daml.lf.value.Value
+import com.daml.lf.value.{Value, ValueVersion}
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.value.Value.ContractId
 
@@ -30,7 +31,7 @@ object SError {
   /** DAML exceptions that can be caught. These include
     * arithmetic errors, call to error builtin or update
     * errors. */
-  sealed trait SErrorDamlException extends SError
+  sealed abstract class SErrorDamlException extends SError
 
   /** Arithmetic error such as division by zero */
   final case class DamlEArithmeticError(message: String) extends SErrorDamlException {
@@ -88,6 +89,14 @@ object SError {
       actual: TypeConName,
   ) extends SErrorDamlException
 
+  /** We tried to fetch data with disallowed value version --
+    *  see <https://github.com/digital-asset/daml/issues/5164>
+    */
+  final case class DamlEDisallowedInputValueVersion(
+      allowed: VersionRange[ValueVersion],
+      actual: ValueVersion,
+  ) extends SErrorDamlException
+
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'. */
   final case class ScenarioErrorContractNotVisible(
@@ -116,4 +125,7 @@ object SError {
 
   /** Invalid party name supplied to 'getParty'. */
   final case class ScenarioErrorInvalidPartyName(name: String, msg: String) extends SErrorScenario
+
+  /** Tried to allocate a party that already exists. */
+  final case class ScenarioErrorPartyAlreadyExists(name: String) extends SErrorScenario
 }

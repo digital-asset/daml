@@ -156,7 +156,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
       when(
         mockStateOperations.writeState(writtenKeyValuesCaptor.capture())(any[ExecutionContext]()))
-        .thenReturn(Future.successful(()))
+        .thenReturn(Future.unit)
       val logEntryCaptor = captor[Bytes]
       when(
         mockStateOperations.appendToLog(any[Bytes](), logEntryCaptor.capture())(
@@ -194,7 +194,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
       when(
         mockStateOperations.writeState(writtenKeyValuesCaptor.capture())(any[ExecutionContext]()))
-        .thenReturn(Future.successful(()))
+        .thenReturn(Future.unit)
       val logEntryCaptor = captor[Bytes]
       when(
         mockStateOperations.appendToLog(any[Bytes](), logEntryCaptor.capture())(

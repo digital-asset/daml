@@ -49,7 +49,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       metrics,
       NoopLedgerDataExporter,
     )
-    val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
+    val ComponentsForReplay(reader, commitStrategy, queryableWriteSet) =
+      commitStrategySupport.createComponentsForReplay()
     processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
       .map { _ =>
         reportDetailedMetrics(metricRegistry)
@@ -72,8 +73,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       if (input.available() == 0) {
         Future.successful(0)
       } else {
-        val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
         for {
+          (submissionInfo, expectedWriteSet) <- Future(readSubmissionAndOutputs(input))
           _ <- submissionValidator.validateAndCommit(
             submissionInfo.submissionEnvelope,
             submissionInfo.correlationId,

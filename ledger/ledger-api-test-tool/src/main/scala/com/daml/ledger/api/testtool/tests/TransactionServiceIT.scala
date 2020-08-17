@@ -484,15 +484,15 @@ class TransactionServiceIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val template = ParameterShowcase(
-        party,
-        42L,
-        BigDecimal("47.0000000000"),
-        "some text",
-        true,
-        Primitive.Timestamp.MIN,
-        NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
-        Primitive.List(0L, 1L, 2L, 3L),
-        Primitive.Optional("some optional text"),
+        operator = party,
+        integer = 42L,
+        decimal = BigDecimal("47.0000000000"),
+        text = "some text",
+        bool = true,
+        time = Primitive.Timestamp.MIN,
+        nestedOptionalInteger = NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
+        integerList = Primitive.List(0L, 1L, 2L, 3L),
+        optionalText = Primitive.Optional("some optional text"),
       )
       val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
@@ -510,15 +510,15 @@ class TransactionServiceIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val template = ParameterShowcase(
-        party,
-        42L,
-        BigDecimal("47.0000000000"),
-        "some text",
-        true,
-        Primitive.Timestamp.MIN,
-        NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
-        Primitive.List(0L, 1L, 2L, 3L),
-        Primitive.Optional("some optional text"),
+        operator = party,
+        integer = 42L,
+        decimal = BigDecimal("47.0000000000"),
+        text = "some text",
+        bool = true,
+        time = Primitive.Timestamp.MIN,
+        nestedOptionalInteger = NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
+        integerList = Primitive.List(0L, 1L, 2L, 3L),
+        optionalText = Primitive.Optional("some optional text"),
       )
       val choice1 = Choice1(
         template.integer,
@@ -551,15 +551,15 @@ class TransactionServiceIT extends LedgerTestSuite {
       val n = 10000
       val veryLongList = Primitive.List(List.iterate(0L, n)(_ + 1): _*)
       val template = ParameterShowcase(
-        party,
-        42L,
-        BigDecimal("47.0000000000"),
-        "some text",
-        true,
-        Primitive.Timestamp.MIN,
-        NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
-        veryLongList,
-        Primitive.Optional("some optional text"),
+        operator = party,
+        integer = 42L,
+        decimal = BigDecimal("47.0000000000"),
+        text = "some text",
+        bool = true,
+        time = Primitive.Timestamp.MIN,
+        nestedOptionalInteger = NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
+        integerList = veryLongList,
+        optionalText = Primitive.Optional("some optional text"),
       )
       val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
@@ -595,7 +595,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(_, bob)) =>
-      val template = BranchingSignatories(true, alice, bob)
+      val template = BranchingSignatories(whichSign = true, signTrue = alice, signFalse = bob)
       for {
         _ <- alpha.create(alice, template)
         transactions <- alpha.flatTransactions(alice)
@@ -610,7 +610,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
-      val template = BranchingSignatories(false, alice, bob)
+      val template = BranchingSignatories(whichSign = false, signTrue = alice, signFalse = bob)
       val create = beta.submitAndWaitRequest(bob, template.create.command)
       for {
         transaction <- beta.submitAndWaitForTransaction(create)
@@ -630,7 +630,8 @@ class TransactionServiceIT extends LedgerTestSuite {
     allocate(SingleParty, TwoParties),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
-      val template = BranchingControllers(alice, true, bob, eve)
+      val template =
+        BranchingControllers(giver = alice, whichCtrl = true, ctrlTrue = bob, ctrlFalse = eve)
       for {
         _ <- alpha.create(alice, template)
         _ <- eventually {
@@ -667,7 +668,8 @@ class TransactionServiceIT extends LedgerTestSuite {
     allocate(SingleParty, TwoParties),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
-      val template = BranchingControllers(alice, false, bob, eve)
+      val template =
+        BranchingControllers(giver = alice, whichCtrl = false, ctrlTrue = bob, ctrlFalse = eve)
       val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
         transaction <- alpha.submitAndWaitForTransaction(create)

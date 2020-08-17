@@ -28,7 +28,7 @@ import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
 
-object LedgerResource {
+private[sandbox] object LedgerResource {
 
   def inMemory(
       ledgerId: LedgerId,

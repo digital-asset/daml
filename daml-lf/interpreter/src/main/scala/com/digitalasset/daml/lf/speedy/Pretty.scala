@@ -8,6 +8,7 @@ import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import Value.{NodeId => _, _}
+import com.daml.lf.VersionRange
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
@@ -72,6 +73,12 @@ private[lf] object Pretty {
           text("Expected contract of type") & prettyTypeConName(expected) & text("but got") & prettyTypeConName(
           actual,
         )
+
+      case DamlEDisallowedInputValueVersion(VersionRange(expectedMin, expectedMax), actual) =>
+        text("Update failed due to disallowed value version") /
+          text("Expected value version between") & text(expectedMin.protoValue) &
+          text("and") & text(expectedMax.protoValue) & text("but got") &
+          text(actual.protoValue)
     }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
@@ -138,6 +145,9 @@ private[lf] object Pretty {
         text("due to a mustfailAt that succeeded.")
 
       case ScenarioErrorInvalidPartyName(_, msg) => text(s"Invalid party: $msg")
+
+      case ScenarioErrorPartyAlreadyExists(party) =>
+        text(s"Tried to allocate a party that already exists: $party")
     })
 
   def prettyFailedAuthorizations(fas: FailedAuthorizations): Doc =
@@ -492,6 +502,7 @@ private[lf] object Pretty {
             case other => str(other)
           }
 
+        case SECaseAtomic(scrut, alts) => prettySExpr(index)(SECase(scrut, alts))
         case SECase(scrut, alts) =>
           (text("case") & prettySExpr(index)(scrut) & text("of") +
             line +
@@ -524,15 +535,19 @@ private[lf] object Pretty {
             case _ => str(x)
           }
         case SEAppGeneral(fun, args) =>
-          val prefix = prettySExpr(index)(fun) + char('(')
+          val prefix = prettySExpr(index)(fun) + text("@E(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
         case SEAppAtomicFun(fun, args) =>
-          val prefix = prettySExpr(index)(fun) + char('(')
+          val prefix = prettySExpr(index)(fun) + text("@N(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
-        case SEAppSaturatedBuiltinFun(builtin, args) =>
-          val prefix = prettySExpr(index)(SEBuiltin(builtin)) + char('(')
+        case SEAppAtomicGeneral(fun, args) =>
+          val prefix = prettySExpr(index)(fun) + text("@A(")
+          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
+            .tightBracketBy(prefix, char(')'))
+        case SEAppAtomicSaturatedBuiltin(builtin, args) =>
+          val prefix = prettySExpr(index)(SEBuiltin(builtin)) + text("@B(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
         case SEAbs(n, body) =>
@@ -565,11 +580,15 @@ private[lf] object Pretty {
               str(index + n) & char('=') & prettySExpr(index + n)(x)
           })).tightBracketBy(text("let ["), char(']')) +
             lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
+        case SELet1General(rhs, body) =>
+          prettySExpr(index)(SELet(Array(rhs), body))
+        case SELet1Builtin(builtin, args, body) =>
+          prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
 
         case x: SEBuiltinRecursiveDefinition => str(x)
         case x: SEImportValue => str(x)
         case x: SELabelClosure => str(x)
-        case x: SEWronglyTypeContractId => str(x)
+        case x: SEDamlException => str(x)
       }
   }
 

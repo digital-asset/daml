@@ -66,7 +66,7 @@ final class WitnessesIT extends LedgerTestSuite {
         val expectedWitnessesOfCreation = Tag.unsubst(Seq(alice, bob)).sorted
         assert(
           creationEvent.getCreated.witnessParties.sorted == expectedWitnessesOfCreation,
-          s"The parties for witnessing the CreatedEvent should be ${expectedWitnessesOfCreation}, but were ${creationEvent.getCreated.witnessParties}",
+          s"The parties for witnessing the CreatedEvent should be $expectedWitnessesOfCreation, but were ${creationEvent.getCreated.witnessParties}",
         )
         assert(
           nonConsumingTree.eventsById.size == 1,
@@ -81,7 +81,7 @@ final class WitnessesIT extends LedgerTestSuite {
         val expectedWitnessesOfNonConsumingChoice = Tag.unsubst(Seq(alice, charlie)).sorted
         assert(
           nonConsumingEvent.getExercised.witnessParties.sorted == expectedWitnessesOfNonConsumingChoice,
-          s"The parties for witnessing the non-consuming ExercisedEvent should be ${expectedWitnessesOfNonConsumingChoice}, but were ${nonConsumingEvent.getCreated.witnessParties}",
+          s"The parties for witnessing the non-consuming ExercisedEvent should be $expectedWitnessesOfNonConsumingChoice, but were ${nonConsumingEvent.getCreated.witnessParties}",
         )
         assert(
           consumingTree.eventsById.size == 1,
@@ -96,7 +96,7 @@ final class WitnessesIT extends LedgerTestSuite {
         val expectedWitnessesOfConsumingChoice = Tag.unsubst(Seq(alice, bob, charlie)).sorted
         assert(
           consumingEvent.getExercised.witnessParties.sorted == expectedWitnessesOfConsumingChoice,
-          s"The parties for witnessing the consuming ExercisedEvent should be ${expectedWitnessesOfConsumingChoice}, but were ${consumingEvent.getCreated.witnessParties}",
+          s"The parties for witnessing the consuming ExercisedEvent should be $expectedWitnessesOfConsumingChoice, but were ${consumingEvent.getCreated.witnessParties}",
         )
 
       }

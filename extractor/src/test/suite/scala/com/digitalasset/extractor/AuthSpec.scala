@@ -115,11 +115,15 @@ final class AuthSpec
         (_, _, _) =>
           new Writer {
             private val lastOffset = new AtomicReference[String]
-            override def init(): Future[Unit] = Future.successful(())
+
+            override def init(): Future[Unit] = Future.unit
+
             override def handlePackages(packageStore: PackageStore): Future[Unit] =
-              Future.successful(())
+              Future.unit
+
             override def handleTransaction(
-                transaction: TransactionTree): Future[Writer.RefreshPackages \/ Unit] = {
+                transaction: TransactionTree
+            ): Future[Writer.RefreshPackages \/ Unit] = {
               Future.successful {
                 \/.right {
                   lastOffset.set {

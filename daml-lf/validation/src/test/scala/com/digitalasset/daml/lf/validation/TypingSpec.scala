@@ -196,6 +196,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"TypeRep",
         E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
           T"TypeRep",
+        // TO_TEXT_CONTRACT_ID
+        E"""Λ (σ : ⋆). λ (c : (ContractId σ)) → TO_TEXT_CONTRACT_ID @σ c""" ->
+          T"∀ (σ : ⋆). ContractId σ → Option Text"
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -684,7 +687,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
-      LV.defaultV0 -> true,
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
@@ -728,7 +730,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
-      LV.defaultV0 -> true,
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,

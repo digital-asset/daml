@@ -162,7 +162,7 @@ class BatchingQueueSpec
         ).run { batch =>
           {
             batches += batch
-            Future.successful(())
+            Future.unit
           }
         }
 

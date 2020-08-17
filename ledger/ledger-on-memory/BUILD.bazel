@@ -15,7 +15,7 @@ da_scala_library(
     name = "ledger-on-memory",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml:daml-on-memory:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-on-memory:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

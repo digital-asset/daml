@@ -45,7 +45,7 @@ class AsyncQueryConstantAcs
   }
 
   private val asyncQueryScenario = scenario(s"AsyncQueryConstantAcs, numberOfRuns: $numberOfRuns")
-    .doWhile(_ => acsQueue.size() < wantedAcsSize) {
+    .doWhile(_ => acsSize() < wantedAcsSize) {
       pause(1.second)
     }
     .exec(
@@ -53,7 +53,7 @@ class AsyncQueryConstantAcs
     )
 
   setUp(
-    fillAcsScenario(wantedAcsSize).inject(atOnceUsers(1)),
+    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(1)),
     asyncQueryScenario.inject(atOnceUsers(1)),
   ).protocols(httpProtocol)
 

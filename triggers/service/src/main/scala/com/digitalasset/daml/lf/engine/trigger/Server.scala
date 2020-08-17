@@ -32,6 +32,7 @@ import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -161,8 +162,7 @@ class Server(
 
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
     val entry = (LocalDateTime.now, msg)
-    triggerLog.merge(triggerInstance, Vector(entry), _ ++ _)
-    ()
+    discard(triggerLog.merge(triggerInstance, Vector(entry), _ ++ _))
   }
 
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
@@ -368,18 +368,23 @@ object Server {
       }
     }
 
+    def logTriggerStarting(m: TriggerStarting): Unit =
+      server.logTriggerStatus(m.triggerInstance, "starting")
+    def logTriggerStarted(m: TriggerStarted): Unit =
+      server.logTriggerStatus(m.triggerInstance, "running")
+
     // The server running state.
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case TriggerStarting(triggerInstance) =>
-            server.logTriggerStatus(triggerInstance, "starting")
+          case m: TriggerStarting =>
+            logTriggerStarting(m)
             Behaviors.same
 
           // Running triggers are added to the store optimistically when the user makes a start
           // request so we don't need to add an entry here.
-          case TriggerStarted(triggerInstance) =>
-            server.logTriggerStatus(triggerInstance, "running")
+          case m: TriggerStarted =>
+            logTriggerStarted(m)
             Behaviors.same
 
           // Trigger failures are handled by the TriggerRunner actor using a restart strategy with
@@ -414,7 +419,10 @@ object Server {
         }
         .receiveSignal {
           case (_, PostStop) =>
-            binding.unbind()
+            // TODO SC until this future returns, connections may still be accepted. Consider
+            // coordinating this future with the actor in some way, or use addToCoordinatedShutdown
+            // (though I have a feeling it will not work out so neatly)
+            discard[Future[akka.Done]](binding.unbind())
             Behaviors.same
         }
 
@@ -444,7 +452,16 @@ object Server {
           // We got a stop message but haven't completed starting
           // yet. We cannot stop until starting has completed.
           starting(wasStopped = true, req = None)
-        case _ =>
+
+        case m: TriggerStarting =>
+          logTriggerStarting(m)
+          Behaviors.same
+
+        case m: TriggerStarted =>
+          logTriggerStarted(m)
+          Behaviors.same
+
+        case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
           Behaviors.unhandled
       }
 

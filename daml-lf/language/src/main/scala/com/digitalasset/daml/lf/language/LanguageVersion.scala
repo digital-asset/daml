@@ -15,9 +15,6 @@ object LanguageVersion {
   type Minor = LanguageMinorVersion
   val Minor = LanguageMinorVersion
 
-  val defaultV0: LanguageVersion =
-    LanguageVersion(Major.V0, Major.V0.maxSupportedStableMinorVersion)
-
   val defaultV1: LanguageVersion =
     LanguageVersion(Major.V1, Major.V1.maxSupportedStableMinorVersion)
 
@@ -66,6 +63,7 @@ object LanguageVersion {
     val genComparison = v1_dev
     val genMap = v1_dev
     val scenarioMustFailAtMsg = v1_dev
+    val contractIdTextConversions = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate

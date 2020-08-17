@@ -39,8 +39,6 @@ object VersionTimeline {
     */
   private[lf] val inAscendingOrder: NonEmptyList[Release] =
     NonEmptyList(
-      That(LanguageVersion(LMV.V0, "")),
-      That(LanguageVersion(LMV.V0, Dev)),
       Both(Both(ValueVersion("1"), TransactionVersion("1")), LanguageVersion(LMV.V1, "0")),
       Both(Both(ValueVersion("2"), TransactionVersion("2")), LanguageVersion(LMV.V1, "1")),
       This(That(TransactionVersion("3"))),
