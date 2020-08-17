@@ -450,10 +450,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         case SResultError(err) =>
           // Capture the error and exit.
           result = Failure(err)
-        case SResultNeedTime(callback @ _) =>
-          result = Failure(
-            new RuntimeException(
-              "FATAL: Encountered scenario instruction getTime in DAML Script"))
+        case SResultNeedTime(callback) =>
+          callback(scenarioRunner.ledger.currentTime)
         case SResultNeedPackage(pkg, callback @ _) =>
           result = Failure(
             new RuntimeException(
