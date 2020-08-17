@@ -441,16 +441,35 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                   result = Success(Right(results.toSeq))
               }
           }
+        case SResultFinalValue(v) =>
+          // The final result should always be unit.
+          result = Failure(new RuntimeException(s"FATAL: Unexpected non-unit final result: $v"))
         case SResultScenarioCommit(_, _, _, _) =>
           result = Failure(
             new RuntimeException("FATAL: Encountered scenario commit in DAML Script"))
         case SResultError(err) =>
           // Capture the error and exit.
           result = Failure(err)
-        case err =>
-          // TODO: Figure out when we hit this
-          // Capture the error (but not as SError) and exit.
-          result = Failure(new RuntimeException(s"FAILED: $err"))
+        case SResultNeedTime(callback) =>
+          callback(scenarioRunner.ledger.currentTime)
+        case SResultNeedPackage(pkg, callback @ _) =>
+          result = Failure(
+            new RuntimeException(
+              s"FATAL: Missing package $pkg should have been reported at Script compilation"))
+        case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
+          result = Failure(
+            new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML script"))
+        case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
+          result = Failure(
+            new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"))
+        case SResultScenarioPassTime(relTime @ _, callback @ _) =>
+          result = Failure(
+            new RuntimeException("FATAL: Encountered scenario instruction setTime in DAML Script"))
+        case SResultScenarioGetParty(partyText @ _, callback @ _) =>
+          result = Failure(
+            new RuntimeException("FATAL: Encountered scenario instruction getParty in DAML Script"))
       }
     }
     Future.fromTry(result)
