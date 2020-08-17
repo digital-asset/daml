@@ -312,7 +312,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SContractId(cid) =>
           if (machine.onLedger) {
-            machine.returnValue = SOptional(None)
+            machine.returnValue = SValue.SValue.None
           } else {
             machine.returnValue = SOptional(Some(SText(cid.coid)))
           }
