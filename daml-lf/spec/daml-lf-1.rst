@@ -298,6 +298,8 @@ Version: 1.dev
 
   + **Add** generic map type ``GenMap``.
 
+  + **Add** ``TO_TEXT_CONTRACT_ID`` builtin.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -3600,6 +3602,13 @@ ContractId functions
   Returns the given contract ID unchanged at a different type.
 
   [*Available in versions >= 1.5*]
+
+* ``TO_TEXT_CONTRACT_ID : ∀ (α : ⋆) . 'ContractId' α -> 'Optional' 'Text'``
+
+  Always returns ``None`` in ledger code. This function is only useful
+  for off-ledger code which is not covered by this specification.
+
+  [*Available in versions >= 1.dev*]
 
 List functions
 ~~~~~~~~~~~~~~

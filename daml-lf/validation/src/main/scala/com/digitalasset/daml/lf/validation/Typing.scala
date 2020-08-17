@@ -180,6 +180,7 @@ private[validation] object Typing {
       BToTextTimestamp -> (TTimestamp ->: TText),
       BToTextParty -> (TParty ->: TText),
       BToTextDate -> (TDate ->: TText),
+      BToTextContractId -> TForall(alpha.name -> KStar, TContractId(alpha) ->: TOptional(TText)),
       BSHA256Text -> (TText ->: TText),
       BToQuotedTextParty -> (TParty ->: TText),
       BToTextCodePoints -> (TList(TInt64) ->: TText),

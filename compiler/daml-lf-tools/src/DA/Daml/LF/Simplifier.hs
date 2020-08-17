@@ -94,6 +94,7 @@ safetyStep = \case
       BEGreaterEq _       -> Safe 2
       BEGreater _         -> Safe 2
       BEToText _          -> Safe 1
+      BEToTextContractId  -> Safe 1
       BETextFromCodePoints  -> Safe 1
       BEAddDecimal        -> Safe 1
       BESubDecimal        -> Safe 1
