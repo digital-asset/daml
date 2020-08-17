@@ -23,14 +23,14 @@ To specify the PostgreSQL instance you wish to connect, use the
 valid JDBC URL containing the username, password and database name to connect
 to (for example, ``jdbc:postgresql://localhost/test?user=fred&password=secret``).
 
-You will also need to provide a ledger ID with the `--ledgerid` flag, which must
-be the same upon restart. This value is expected in many API endpoints, to
+You will also need to provide a ledger ID with the ``--ledgerid`` flag, which
+must be the same upon restart. This value is expected in many API endpoints, to
 ensure ledger clients are connecting to the correct ledger.
 
 Due to possible conflicts between the ``&`` character and various shells, we
 recommend quoting the JDBC URL in the terminal, as follows:
 
-.. code-block:: none
+.. code-block::
 
   $ java -jar daml-on-sql-<version>.jar --ledgerid=test --sql-backend-jdbcurl='jdbc:postgresql://localhost/test?user=fred&password=secret'
 
@@ -57,14 +57,14 @@ Server hardware and software requirements
 
 *DAML on SQL* is provided as a self-contained JAR file, containing the
 application and all dependencies. The application is routinely tested with
-OpenJDK 8 on an x86 architecture, with Ubuntu 16.04, macOS 10.15, and Windows
-Server 2016.
+OpenJDK 8 on a 64-bit x86 architecture, with Ubuntu 16.04, macOS 10.15, and
+Windows Server 2016.
 
-In production, we recommend running on an x86 architecture in a Linux
+In production, we recommend running on a 64-bit x86 architecture in a Linux
 environment. Core requirements in such a situation include:
 
 - a Java SE Runtime Environment such as OpenJDK JRE
-  - the minimum supported Java version is 8
+  - must be compatible with OpenJDK version 1.8.0_202 or later
 - OpenSSL 1.1 or later, made available to the above JRE
 - glibc, made available to the above JRE
 
@@ -225,7 +225,7 @@ The following command line options are available to enable authorization:
 .. warning::
 
   For testing purposes only, the following option may also be used.
-  None of them is considered safe for production:
+  This is not considered safe for production:
 
   - ``--auth-jwt-hs256-unsafe=<secret>``.
     *DAML on SQL* will expect all tokens to be signed with HMAC256 with the given plaintext secret.
@@ -799,15 +799,15 @@ The following setup has been used to run the performance envelope
 tests:
 
 - PostgreSQL server: a GCP Cloud SQL managed instance using PostgreSQL 12,
-with a 1 vCPU, 3.75 GB of RAM, 250 MB/s of network throughput, a 10 GB SDD HD,
-1.2 MB/s of R/W disk throughput, 8 RIOPS and 15 WIOPS, no automatic failover
-or disk increase, default PostgreSQL 12 configuration.
+  with a 1 vCPU, 3.75 GB of RAM, 250 MB/s of network throughput, a 10 GB SDD HD,
+  1.2 MB/s of R/W disk throughput, 8 RIOPS and 15 WIOPS, no automatic failover
+  or disk increase, default PostgreSQL 12 configuration.
 
 - *DAML on SQL* server: a GCP N1-Standard-1 instance, with 1 vCPU, 3.75 GB
-of RAM, Ubuntu 20.04 LTS (64 bit), 10 GB boot disk, OpenJDK 1.8.0_242
+  of RAM, Ubuntu 20.04 LTS (64 bit), 10 GB boot disk, OpenJDK 1.8.0_242
 
 - Ledger API test tool client: a GCP F1-Micro instance, with 1 shared vCPU,
-614 MB of RAM, Ubuntu 20.04 LTS (64 bit), 10 GB boot disk, OpenJDK 1.8.0_242
+  614 MB of RAM, Ubuntu 20.04 LTS (64 bit), 10 GB boot disk, OpenJDK 1.8.0_242
 
 The three instances were in the same region and availability
 zone to minimize the latency between the three.
