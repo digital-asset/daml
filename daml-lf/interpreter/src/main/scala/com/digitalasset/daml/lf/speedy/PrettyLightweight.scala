@@ -49,13 +49,18 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     case SEVar(n) => s"D#$n" //dont expect these at runtime
     case loc: SELoc => pp(loc)
     case SEAppGeneral(func, args) => s"@E(${pp(func)},${commas(args.map(pp))})"
-    case SEAppAtomicFun(func, args) => s"@A(${pp(func)},${commas(args.map(pp))})"
-    case SEAppSaturatedBuiltinFun(builtin, args) => s"@B($builtin,${commas(args.map(pp))})"
+    case SEAppAtomicFun(func, args) => s"@N(${pp(func)},${commas(args.map(pp))})"
+    case SEAppAtomicGeneral(func, args) => s"@A(${pp(func)},${commas(args.map(pp))})"
+    case SEAppAtomicSaturatedBuiltin(b, args) => s"@B(${pp(SEBuiltin(b))},${commas(args.map(pp))})"
     case SEMakeClo(fvs, arity, body) => s"[${commas(fvs.map(pp))}]\\$arity.${pp(body)}"
     case SEBuiltin(b) => s"(BUILTIN)$b"
     case SEVal(ref) => s"(DEF)${pp(ref)}"
     case SELocation(_, exp) => s"LOC(${pp(exp)})"
-    case SELet(rhss, body) => s"let (${commas(rhss.map(pp))}) in ${pp(body)}"
+    case SELet(rhss, body) => s"letG (${commas(rhss.map(pp))}) in ${pp(body)}"
+    case SELet1General(rhs, body) => s"let ${pp(rhs)} in ${pp(body)}"
+    case SELet1Builtin(builtin, args, body) =>
+      s"letB (${pp(SEBuiltin(builtin))},${commas(args.map(pp))}) in ${pp(body)}"
+    case SECaseAtomic(scrut, _) => s"case(atomic) ${pp(scrut)} of..."
     case SECase(scrut, _) => s"case ${pp(scrut)} of..."
     case _ => "<" + e.getClass.getSimpleName + "...>"
   }

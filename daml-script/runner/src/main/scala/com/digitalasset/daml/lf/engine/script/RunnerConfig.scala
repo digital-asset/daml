@@ -6,8 +6,8 @@ package com.daml.lf.engine.script
 import java.nio.file.{Path, Paths}
 import java.io.File
 import java.time.Duration
-import scala.util.Try
 
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerConfig(
@@ -25,17 +25,16 @@ case class RunnerConfig(
     tlsConfig: TlsConfiguration,
     jsonApi: Boolean,
     maxInboundMessageSize: Int,
+    // While we do have a default application id, we
+    // want to differentiate between not specifying the application id
+    // and specifying the default for better error messages.
+    applicationId: Option[ApplicationId],
 )
 
 object RunnerConfig {
 
   val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
   val DefaultMaxInboundMessageSize: Int = 4194304
-
-  private def validatePath(path: String, message: String): Either[String, Unit] = {
-    val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-    if (readable) Right(()) else Left(message)
-  }
 
   private val parser = new scopt.OptionParser[RunnerConfig]("script-runner") {
     head("script-runner")
@@ -105,7 +104,7 @@ object RunnerConfig {
       c.copy(tlsConfig = f(c.tlsConfig)))
 
     opt[Unit]("json-api")
-      .action { (t, c) =>
+      .action { (_, c) =>
         c.copy(jsonApi = true)
       }
       .text("Run DAML Script via the HTTP JSON API instead of via gRPC (experimental).")
@@ -115,6 +114,12 @@ object RunnerConfig {
       .optional()
       .text(
         s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize")
+
+    opt[String]("application-id")
+      .action((x, c) => c.copy(applicationId = Some(ApplicationId(x))))
+      .optional()
+      .text(
+        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}")
 
     help("help").text("Print this usage text")
 
@@ -160,6 +165,7 @@ object RunnerConfig {
         tlsConfig = TlsConfiguration(false, None, None, None),
         jsonApi = false,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        applicationId = None,
       )
     )
 }

@@ -50,12 +50,12 @@ object LedgerApiTestTool {
     println()
     Tests.PerformanceTestsKeys.foreach(println(_))
   }
-  private def printAvailableTestSuites(config: Config): Unit = {
+  private def printAvailableTestSuites(): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
     printListOfTests(Tests.all)(_.name)
   }
 
-  private def printAvailableTests(config: Config): Unit = {
+  private def printAvailableTests(): Unit = {
     println("Listing all tests. Run with --list to only see test suites.")
     printListOfTests(Tests.all.flatMap(_.tests))(_.name)
   }
@@ -83,12 +83,12 @@ object LedgerApiTestTool {
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
     if (config.listTestSuites) {
-      printAvailableTestSuites(config)
+      printAvailableTestSuites()
       sys.exit(0)
     }
 
     if (config.listTests) {
-      printAvailableTests(config)
+      printAvailableTests()
       sys.exit(0)
     }
 

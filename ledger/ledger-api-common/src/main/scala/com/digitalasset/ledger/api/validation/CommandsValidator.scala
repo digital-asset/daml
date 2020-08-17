@@ -46,7 +46,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
       submitter <- requireParty(commands.party, "party")
       commandz <- requireNonEmpty(commands.commands, "commands")
-      validatedCommands <- validateInnerCommands(commandz, submitter)
+      validatedCommands <- validateInnerCommands(commandz)
       ledgerEffectiveTime <- validateLedgerTime(currentLedgerTime, commands)
       ledgerEffectiveTimestamp <- Time.Timestamp
         .fromInstant(ledgerEffectiveTime)
@@ -96,7 +96,6 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
   private def validateInnerCommands(
       commands: Seq[ProtoCommand],
-      submitter: Ref.Party
   ): Either[StatusRuntimeException, immutable.Seq[Command]] =
     commands.foldLeft[Either[StatusRuntimeException, Vector[Command]]](
       Right(Vector.empty[Command]))((commandz, command) => {

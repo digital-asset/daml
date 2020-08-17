@@ -8,7 +8,6 @@ import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.defaultPackageId
-import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -296,7 +295,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
       )
 
       forEvery(versions) { version =>
-        val pkg = pkg0.updateVersion(version)
+        val pkg = pkg0.copy(languageVersion = version)
         forEvery(testCases) { (modName: String, shouldFail: LanguageVersion => Boolean) =>
           if (shouldFail(version)) {
             an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))

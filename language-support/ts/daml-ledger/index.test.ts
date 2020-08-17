@@ -19,7 +19,7 @@ type Foo = {key: string};
 const fooKey = 'fooKey';
 
 type Message =
-  | { events: Event<Foo>[]; offset?: string }
+  | { events: Event<Foo>[]; offset?: string | null }
   | { warnings: string[] }
   | { errors: string[] }
   | string //for unexpected messages
@@ -163,6 +163,17 @@ describe("streamQuery", () => {
     expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)])
   });
 
+  test("receive null offset", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    stream.on("live", mockLive);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [], offset: null });
+    expect(mockLive).toHaveBeenCalledTimes(1);
+    expect(mockLive).toHaveBeenLastCalledWith([]);
+    expect(mockChange).not.toHaveBeenCalled();
+  });
+
   test("reconnect on close", async () => {
     const reconnectThreshold = 200;
     const ledger = new Ledger({...mockOptions, reconnectThreshold: reconnectThreshold});
@@ -223,6 +234,22 @@ describe("streamQuery", () => {
     mockInstance.serverSend({ events: [fooArchiveEvent(1)]});
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(2)]);
+  });
+
+  test("stop lisetning to a stream", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    const count1 = jest.fn();
+    const count2 = jest.fn();
+    stream.on("change", count1);
+    stream.on("change", count2);
+    mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
+    expect(count1).toHaveBeenCalledTimes(1);
+    expect(count2).toHaveBeenCalledTimes(1);
+    stream.off("change", count1)
+    mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
+    expect(count1).toHaveBeenCalledTimes(1);
+    expect(count2).toHaveBeenCalledTimes(2);
   });
 });
 

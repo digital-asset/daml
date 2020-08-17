@@ -55,7 +55,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       } yield {
         assert(
           activeContracts.isEmpty,
-          s"There should be no active contracts, but received ${activeContracts}",
+          s"There should be no active contracts, but received $activeContracts",
         )
       }
   })
@@ -77,21 +77,21 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
 
         assert(
           activeContracts.exists(_.contractId == dummy),
-          s"Didn't find Dummy contract with contractId ${dummy}.",
+          s"Didn't find Dummy contract with contractId $dummy.",
         )
         assert(
           activeContracts.exists(_.contractId == dummyWithParam),
-          s"Didn't find DummyWithParam contract with contractId ${dummy}.",
+          s"Didn't find DummyWithParam contract with contractId $dummy.",
         )
         assert(
           activeContracts.exists(_.contractId == dummyFactory),
-          s"Didn't find DummyFactory contract with contractId ${dummy}.",
+          s"Didn't find DummyFactory contract with contractId $dummy.",
         )
 
         val invalidSignatories = activeContracts.filterNot(_.signatories == Seq(party.unwrap))
         assert(
           invalidSignatories.isEmpty,
-          s"Found contracts with signatories other than ${party}: $invalidSignatories",
+          s"Found contracts with signatories other than $party: $invalidSignatories",
         )
 
         val invalidObservers = activeContracts.filterNot(_.observers.isEmpty)
@@ -123,7 +123,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         )
         assert(
           activeContracts.head.contractId == dummy,
-          s"Expected contract with contractId ${dummy}, but received ${activeContracts.head.contractId}.",
+          s"Expected contract with contractId $dummy, but received ${activeContracts.head.contractId}.",
         )
       }
   })
@@ -148,7 +148,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
 
         assert(
           contractsBeforeExercise.exists(_.contractId == dummy),
-          s"Expected to receive contract with contractId ${dummy}, but received ${contractsBeforeExercise
+          s"Expected to receive contract with contractId $dummy, but received ${contractsBeforeExercise
             .map(_.contractId)
             .mkString(", ")} instead.",
         )
@@ -161,7 +161,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
 
         assert(
           !contractsAfterExercise.exists(_.contractId == dummy),
-          s"Expected to not receive contract with contractId ${dummy}.",
+          s"Expected to not receive contract with contractId $dummy.",
         )
       }
   })
@@ -185,7 +185,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         assert(onlyDummy.size == 1)
         assert(
           onlyDummy.exists(_.contractId == dummy),
-          s"Expected to receive ${dummy} in active contracts, but didn't receive it.",
+          s"Expected to receive $dummy in active contracts, but didn't receive it.",
         )
 
         assert(
@@ -204,7 +204,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         }
         assert(
           createdEvent.exists(_.contractId == dummyWithParam),
-          s"Expected a CreateEvent for ${dummyWithParam}, but received ${createdEvent}.",
+          s"Expected a CreateEvent for $dummyWithParam, but received $createdEvent.",
         )
       }
   })
@@ -283,13 +283,13 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
           dummyContractsForAlice.size == 1,
           s"$alice expected 1 event, but received ${dummyContractsForAlice.size}.",
         )
-        assertTemplates((Seq(alice)), dummyContractsForAlice, Dummy.id, 1)
+        assertTemplates(Seq(alice), dummyContractsForAlice, Dummy.id, 1)
 
         assert(
           dummyContractsForAliceAndBob.size == 2,
           s"$alice and $bob expected 2 events, but received ${dummyContractsForAliceAndBob.size}.",
         )
-        assertTemplates((Seq(alice, bob)), dummyContractsForAliceAndBob, Dummy.id, 2)
+        assertTemplates(Seq(alice, bob), dummyContractsForAliceAndBob, Dummy.id, 2)
       }
   })
 

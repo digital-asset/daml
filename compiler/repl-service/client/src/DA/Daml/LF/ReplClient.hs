@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 module DA.Daml.LF.ReplClient
   ( Options(..)
+  , ApplicationId(..)
   , MaxInboundMessageSize(..)
   , ReplTimeMode(..)
   , Handle
@@ -41,10 +42,13 @@ newtype MaxInboundMessageSize = MaxInboundMessageSize Int
 
 data ReplTimeMode = ReplWallClock | ReplStatic
 
+newtype ApplicationId = ApplicationId String
+
 data Options = Options
   { optServerJar :: FilePath
   , optLedgerConfig :: Maybe (String, String)
   , optMbAuthTokenFile :: Maybe FilePath
+  , optMbApplicationId :: Maybe ApplicationId
   , optMbSslConfig :: Maybe ClientSSLConfig
   , optMaxInboundMessageSize :: Maybe MaxInboundMessageSize
   , optTimeMode :: ReplTimeMode
@@ -87,6 +91,7 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
           | Just (host, port) <- [optLedgerConfig]
           ]
         , [ "--access-token-file=" <> tokenFile | Just tokenFile <- [optMbAuthTokenFile] ]
+        , [ "--application-id=" <> appId | Just (ApplicationId appId)  <- [ optMbApplicationId] ]
         , do Just tlsConf <- [ optMbSslConfig ]
              "--tls" :
                  concat

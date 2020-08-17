@@ -18,7 +18,9 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   Runner
 }
-import com.daml.ledger.participant.state.kvutils.caching._
+import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
+import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
+import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -60,22 +62,36 @@ object Main {
 
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
-        loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
-      new InMemoryLedgerReaderWriter.Owner(
-        ledgerId = config.ledgerId,
-        config.extra.batchingLedgerWriterConfig,
-        participantId = participantConfig.participantId,
-        metrics = metrics,
-        stateValueCache = caching.WeightedCache.from(
-          configuration = config.stateValueCache,
-          metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
-        ),
-        dispatcher = dispatcher,
-        state = state,
-        engine = engine,
-      )
+      if (config.extra.alwaysPreExecute)
+        new InMemoryLedgerReaderWriter.PreExecutingOwner(
+          ledgerId = config.ledgerId,
+          participantId = participantConfig.participantId,
+          keySerializationStrategy = DefaultStateKeySerializationStrategy,
+          metrics = metrics,
+          stateValueCacheForPreExecution = caching.WeightedCache.from(
+            configuration = config.stateValueCache,
+            metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+          ),
+          dispatcher = dispatcher,
+          state = state,
+          engine = engine,
+        )
+      else
+        new InMemoryLedgerReaderWriter.BatchingOwner(
+          ledgerId = config.ledgerId,
+          batchingLedgerWriterConfig = config.extra.batchingLedgerWriterConfig,
+          participantId = participantConfig.participantId,
+          metrics = metrics,
+          stateValueCache = caching.WeightedCache.from(
+            configuration = config.stateValueCache,
+            metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+          ),
+          dispatcher = dispatcher,
+          state = state,
+          engine = engine,
+        )
     }
 
     override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
@@ -96,6 +112,24 @@ object Main {
               )
             )
         }
+      parser
+        .opt[Boolean]("force-pre-execution")
+        .optional()
+        .text("Force pre-execution (mutually exclusive with batching)")
+        .action {
+          case (preExecute, config) =>
+            config.copy(
+              extra = config.extra.copy(
+                alwaysPreExecute = preExecute
+              )
+            )
+        }
+      parser.checkConfig { config =>
+        if (config.extra.alwaysPreExecute && config.extra.batchingLedgerWriterConfig.enableBatching)
+          Left("Either pre-executing can be forced or batching can be enabled, but not both.")
+        else
+          Right(())
+      }
       ()
     }
   }

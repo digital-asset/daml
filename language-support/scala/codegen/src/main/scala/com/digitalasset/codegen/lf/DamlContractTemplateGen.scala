@@ -71,7 +71,7 @@ object DamlContractTemplateGen {
     def consumingChoicesMethod = LFUtil.genConsumingChoicesMethod(templateInterface.template)
 
     val Identifier(_, QualifiedName(moduleName, baseName)) = templateId
-    val packageIdRef = PackageIDsGen.reference(util)(moduleName)
+    val packageIdRef = PackageIDsGen.reference(moduleName)
 
     def templateObjectMembers = Seq(
       q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})",

@@ -141,9 +141,7 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     runRequest(req)(_ => Future(()))
   }
 
-  def getNewCredentialId(
-      authServiceToken: AuthServiceToken,
-      serviceAccountId: String): Future[CredentialId] =
+  def getNewCredentialId(authServiceToken: AuthServiceToken): Future[CredentialId] =
     for {
       sa <- getServiceAccount(authServiceToken)
       initialNumCreds = sa.creds.length

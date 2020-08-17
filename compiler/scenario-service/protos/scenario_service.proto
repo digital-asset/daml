@@ -13,6 +13,11 @@ service ScenarioService {
   // Run a scenario, returning the scenario results or an error.
   rpc RunScenario (RunScenarioRequest) returns (RunScenarioResponse);
 
+  // Run a script, returning the results or an error.
+  // Note that we reuse the request and response types from scenarios.
+  // We might want to switch to a more generic name.
+  rpc RunScript (RunScenarioRequest) returns (RunScenarioResponse);
+
   // Allocate a new scenario interpretation context.
   // The context essentially defines the state consisting of a set of
   // project's modules and a set of external packages.
@@ -37,6 +42,7 @@ service ScenarioService {
 //
 
 message NewContextRequest {
+  string lf_minor = 1;
 }
 
 message NewContextResponse {
@@ -341,9 +347,6 @@ message GenMap{
 message ScenarioModule {
   // each LF v1 module is wrapped in a proto package
   bytes daml_lf_1 = 2;
-
-  // for daml_lf_dev the minor version is ignored by the scenario service.
-  string minor = 1;
 }
 
 message RunScenarioResponse {

@@ -45,11 +45,11 @@ class LogAppenderPreExecutingCommitStrategySpec
         actual =>
           verify(mockStateKeySerializationStrategy, times(preExecutionResult.stateUpdates.size))
             .serializeStateKey(any[DamlStateKey])
-          actual.successWriteSet should have size (preExecutionResult.stateUpdates.size + 1L)
-          actual.successWriteSet.toMap.keys should contain(expectedLogEntryKey)
+          actual.successWriteSet.state should have size preExecutionResult.stateUpdates.size.toLong
+          actual.successWriteSet.logEntryKey should be(expectedLogEntryKey)
 
-          actual.outOfTimeBoundsWriteSet should have size 1
-          actual.outOfTimeBoundsWriteSet.toMap.keys should contain(expectedLogEntryKey)
+          actual.outOfTimeBoundsWriteSet.state should have size 0
+          actual.outOfTimeBoundsWriteSet.logEntryKey should be(expectedLogEntryKey)
 
           actual.involvedParticipants shouldBe Set.empty
       }

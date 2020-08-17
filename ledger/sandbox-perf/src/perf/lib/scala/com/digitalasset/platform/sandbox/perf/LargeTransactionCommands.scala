@@ -8,6 +8,8 @@ import com.daml.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.daml.ledger.api.v1.value.{Identifier, List, Record, RecordField, Value}
 import com.daml.ledger.api.v1.value.Value.{Sum => P}
 
+import com.github.ghik.silencer.silent
+
 object LargeTransactionCommands {
 
   private[this] val party = P.Party("party")
@@ -81,6 +83,7 @@ object LargeTransactionCommands {
     * this implementation is for daml 1.2 prior to DEL-6677 fix.
     * once daml-tools is upgrade, it has to be the 3rd option from above.
     */
+  @silent(" choice .* is never used") // part of public API
   def emptyChoiceArgs(choice: String): Value = {
     Value(P.Record(Record(recordId = None, fields = Seq())))
   }

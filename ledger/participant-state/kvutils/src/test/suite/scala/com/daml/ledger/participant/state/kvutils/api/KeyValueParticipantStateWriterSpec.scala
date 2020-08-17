@@ -117,7 +117,7 @@ object KeyValueParticipantStateWriterSpec {
     writer
   }
 
-  private def submitterInfo(recordTime: Timestamp, party: Ref.Party, commandId: String = "X") =
+  private def submitterInfo(recordTime: Timestamp, party: Ref.Party, commandId: String) =
     SubmitterInfo(
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),

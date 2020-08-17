@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS  @hurryabit @gerolf-da
-LATEST      @hurryabit @gerolf-da @bame-da
+CODEOWNERS  @hurryabit @gerolf-da @cocreature
+LATEST      @hurryabit @gerolf-da @bame-da @cocreature
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -17,7 +17,7 @@ azure-cron.yml      @garyverhaegen-da
 # Language
 /compiler/          @hurryabit @cocreature
 /libs-haskell/      @hurryabit @cocreature
-/daml-assistant/    @associahedron @hurryabit @cocreature
+/daml-assistant/    @sofiafaro-da @hurryabit @cocreature
 /daml-script/       @cocreature @hurryabit @aherrmann-da
 /triggers/          @cocreature @hurryabit @aherrmann-da
 /ghc-lib/           @cocreature
@@ -51,7 +51,7 @@ azure-cron.yml      @garyverhaegen-da
 /language-support/hs/       @nickchapman-da
 /language-support/java/     @gerolf-da @stefanobaghino-da @cocreature
 /language-support/scala/    @leo-da @S11001001 @cocreature
-/language-support/ts/       @hurryabit @robin-da @cocreature
+/language-support/ts/       @hurryabit @robin-da @cocreature @garyverhaegen-da
 
 # Tools
 /extractor/         @leo-da @S11001001

@@ -11,7 +11,7 @@ import org.scalatest.{Matchers, WordSpec}
 class CollisionSpec extends WordSpec with Matchers {
 
   def check(pkg: Package): Unit =
-    Collision.checkPackage(defaultPackageId, pkg.modules)
+    Collision.checkPackage(defaultPackageId, pkg)
 
   "Collision validation" should {
 

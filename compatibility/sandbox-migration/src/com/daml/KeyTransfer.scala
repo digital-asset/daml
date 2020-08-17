@@ -51,7 +51,6 @@ object KeyTransfer {
 
     def transfer(
         asset: Application.Contract,
-        from: Application.Party,
         to: Application.Party,
     ): Future[Application.Contract] =
       to.exercise(Transfer, asset).map(v => Application.Contract(v.getContractId))
@@ -94,7 +93,7 @@ final class KeyTransfer(
       toArchive <- model.createAsset(owner, receiver, s"archive-$suffix")
       _ <- model.archive(asset = toArchive, as = owner)
       toTransfer <- model.createAsset(owner, receiver, s"transfer-$suffix")
-      _ <- model.transfer(asset = toTransfer, from = owner, to = receiver)
+      _ <- model.transfer(asset = toTransfer, to = receiver)
       newTransactions <- owner.transactions(Seq(model.Asset))
       newAssets <- owner.activeContracts(model.Asset)
     } yield {

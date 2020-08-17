@@ -187,7 +187,6 @@ object TransactionGenerator {
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
-    parties <- Gen.listOf(nonEmptyId)
   } yield
     (
       Created(

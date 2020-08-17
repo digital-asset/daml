@@ -37,7 +37,7 @@ class BatchingQueueSpec
         maxBatchSizeBytes = correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
         maxWaitDuration = 1.millis,
         maxConcurrentCommits = 1
-      ).run { batch =>
+      ).run { _ =>
         throw new RuntimeException("kill the queue")
       }
 
@@ -162,7 +162,7 @@ class BatchingQueueSpec
         ).run { batch =>
           {
             batches += batch
-            Future.successful(())
+            Future.unit
           }
         }
 

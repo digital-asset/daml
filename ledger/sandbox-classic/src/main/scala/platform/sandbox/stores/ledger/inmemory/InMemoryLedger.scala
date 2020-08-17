@@ -8,25 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  CommandDeduplicationResult,
-  PackageDetails
-}
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId => _,
-  LedgerId => _,
-  TransactionId => _,
-  _
-}
 import com.daml.api.util.TimeProvider
-import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger
 import com.daml.ledger.api.domain.{
@@ -50,6 +32,24 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails
+}
+import com.daml.ledger.participant.state.v1.{
+  ApplicationId => _,
+  LedgerId => _,
+  TransactionId => _,
+  _
+}
+import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.packages.InMemoryPackageStore
@@ -57,6 +57,8 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
+import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -64,28 +66,16 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.{ApiOffset, index}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
 import scala.util.Try
 
-sealed trait InMemoryEntry extends Product with Serializable
-final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
-final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
-final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
-final case class InMemoryPackageEntry(entry: PackageLedgerEntry) extends InMemoryEntry
-
-final case class CommandDeduplicationEntry(
-    deduplicationKey: String,
-    deduplicateUntil: Instant,
-)
-
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
   */
-class InMemoryLedger(
+private[sandbox] final class InMemoryLedger(
     val ledgerId: LedgerId,
     participantId: ParticipantId,
     timeProvider: TimeProvider,
@@ -299,9 +289,7 @@ class InMemoryLedger(
     )
 
   // Validates the given ledger time according to the ledger time model
-  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant)(
-      implicit loggingContext: LoggingContext,
-  ): Either[String, Unit] = {
+  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[String, Unit] = {
     ledgerConfiguration
       .fold[Either[String, Unit]](
         Left("No ledger configuration available, cannot validate ledger time")
@@ -646,4 +634,23 @@ class InMemoryLedger(
         ()
       }
     }
+}
+
+private[sandbox] object InMemoryLedger {
+
+  sealed trait InMemoryEntry extends Product with Serializable
+
+  final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
+
+  final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
+
+  final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
+
+  final case class InMemoryPackageEntry(entry: PackageLedgerEntry) extends InMemoryEntry
+
+  final case class CommandDeduplicationEntry(
+      deduplicationKey: String,
+      deduplicateUntil: Instant,
+  )
+
 }

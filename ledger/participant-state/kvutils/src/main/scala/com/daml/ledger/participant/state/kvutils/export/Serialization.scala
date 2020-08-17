@@ -34,7 +34,8 @@ object Serialization {
     out.writeUTF(submissionInfo.correlationId)
     out.writeInt(submissionInfo.submissionEnvelope.size())
     submissionInfo.submissionEnvelope.writeTo(out)
-    out.writeLong(submissionInfo.recordTimeInstant.toEpochMilli)
+    out.writeLong(submissionInfo.recordTimeInstant.getEpochSecond)
+    out.writeInt(submissionInfo.recordTimeInstant.getNano)
     out.writeUTF(submissionInfo.participantId)
   }
 
@@ -43,12 +44,13 @@ object Serialization {
     val submissionEnvelopeSize = input.readInt()
     val submissionEnvelope = new Array[Byte](submissionEnvelopeSize)
     input.readFully(submissionEnvelope)
-    val recordTimeEpochMillis = input.readLong()
+    val recordTimeEpochSeconds = input.readLong()
+    val recordTimeEpochNanos = input.readInt()
     val participantId = input.readUTF()
     SubmissionInfo(
       ByteString.copyFrom(submissionEnvelope),
       correlationId,
-      Instant.ofEpochMilli(recordTimeEpochMillis),
+      Instant.ofEpochSecond(recordTimeEpochSeconds, recordTimeEpochNanos.toLong),
       state.v1.ParticipantId.assertFromString(participantId)
     )
   }

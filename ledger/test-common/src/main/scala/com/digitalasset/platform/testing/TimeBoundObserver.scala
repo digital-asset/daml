@@ -30,7 +30,8 @@ final class TimeBoundObserver[T](duration: FiniteDuration)(
   }
 
   override def onCompleted(): Unit = {
-    val _succeeded = promise.trySuccess(buffer.result())
-    val _cancelled = Context.current().withCancellation().cancel(null)
+    promise.trySuccess(buffer.result())
+    Context.current().withCancellation().cancel(null)
+    ()
   }
 }

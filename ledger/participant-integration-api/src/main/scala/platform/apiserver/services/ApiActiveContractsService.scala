@@ -19,13 +19,10 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
-import scala.concurrent.ExecutionContext
-
 private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
 )(
-    implicit executionContext: ExecutionContext,
-    protected val mat: Materializer,
+    implicit protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
     loggingContext: LoggingContext,
 ) extends ActiveContractsServiceAkkaGrpc
@@ -40,7 +37,7 @@ private[apiserver] final class ApiActiveContractsService private (
       implicit loggingContext: LoggingContext =>
         logger.trace("Serving an Active Contracts request...")
         TransactionFilterValidator
-          .validate(request.getFilter, "filter")
+          .validate(request.getFilter)
           .fold(Source.failed, backend.getActiveContracts(_, request.verbose))
           .via(logger.logErrorsOnStream)
     }
@@ -52,8 +49,7 @@ private[apiserver] final class ApiActiveContractsService private (
 private[apiserver] object ApiActiveContractsService {
 
   def create(ledgerId: LedgerId, backend: ACSBackend)(
-      implicit ec: ExecutionContext,
-      mat: Materializer,
+      implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
       loggingContext: LoggingContext,
   ): ActiveContractsService with GrpcApiService =

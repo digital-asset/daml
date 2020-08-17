@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.util.concurrent.TimeUnit
 
+import scala.collection.immutable
 import scala.concurrent.duration.Duration
 
 sealed abstract class Envelope(val name: String) extends Product with Serializable {
@@ -19,7 +20,7 @@ object Envelope {
 
   private val Prefix = Vector("PerformanceEnvelope")
 
-  val All = Latency.All ++ Throughput.All ++ TransactionSize.All
+  val All: immutable.Seq[Envelope] = Latency.All ++ Throughput.All ++ TransactionSize.All
 
   sealed abstract class Latency(name: String, val latency: Duration)
       extends Envelope(Latency.Prefix :+ name)
@@ -28,7 +29,7 @@ object Envelope {
 
     private val Prefix = Envelope.Prefix :+ "Latency"
 
-    val All =
+    val All: immutable.Seq[Latency] =
       Vector(SixtySeconds, ThreeSeconds, OneSecond, HalfSecond)
 
     case object SixtySeconds extends Latency("60000ms", latency = Duration(60, TimeUnit.SECONDS))
@@ -44,7 +45,7 @@ object Envelope {
 
     private val Prefix = Envelope.Prefix :+ "Throughput"
 
-    val All =
+    val All: immutable.Seq[Envelope] =
       Vector(NoThroughput, FivePerSecond, TwentyPerSecond, FiftyPerSecond, FiveHundredPerSecond)
 
     case object NoThroughput extends Throughput("ZeroOPS", operationsPerSecond = 0)
@@ -61,7 +62,7 @@ object Envelope {
 
     private val Prefix = Envelope.Prefix :+ "TransactionSize"
 
-    val All =
+    val All: immutable.Seq[Envelope] =
       Vector(OneKilobyte, OneHundredKilobytes, OneMegabyte, FiveMegabytes, TwentyFiveMegabytes)
 
     case object OneKilobyte extends TransactionSize("1KB", kilobytes = 1)

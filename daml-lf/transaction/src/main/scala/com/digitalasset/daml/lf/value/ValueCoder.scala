@@ -546,7 +546,7 @@ object ValueCoder {
   private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion] = ValueVersions.SupportedDevVersions,
+      supportedVersions: VersionRange[ValueVersion] = ValueVersions.DevOutputVersions,
   ): Either[EncodeError, Array[Byte]] =
     encodeVersionedValue(encodeCid, v, supportedVersions).map(_.toByteArray)
 

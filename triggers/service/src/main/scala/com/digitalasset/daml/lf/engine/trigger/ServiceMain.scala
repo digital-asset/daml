@@ -11,6 +11,7 @@ import akka.util.Timeout
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -82,7 +83,7 @@ object ServiceMain {
         val system: ActorSystem[Message] =
           ActorSystem(
             Server(
-              "localhost",
+              config.address,
               config.httpPort,
               ledgerConfig,
               restartConfig,
@@ -108,7 +109,7 @@ object ServiceMain {
             case Failure(ex) =>
               system.log.info("Failure encountered shutting down the server: " + ex.toString)
           }
-          val _: Future[ServerBinding] = Await.ready(serviceF, 5.seconds)
+          discard[serviceF.type](Await.ready(serviceF, 5.seconds))
         }
     }
   }

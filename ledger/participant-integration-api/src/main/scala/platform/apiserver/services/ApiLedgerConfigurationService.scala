@@ -17,8 +17,6 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
-import scala.concurrent.ExecutionContext
-
 private[apiserver] final class ApiLedgerConfigurationService private (
     configurationService: IndexConfigurationService,
 )(
@@ -49,8 +47,7 @@ private[apiserver] final class ApiLedgerConfigurationService private (
 
 private[apiserver] object ApiLedgerConfigurationService {
   def create(ledgerId: LedgerId, configurationService: IndexConfigurationService)(
-      implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
+      implicit esf: ExecutionSequencerFactory,
       mat: Materializer,
       loggingContext: LoggingContext,
   ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =

@@ -7,7 +7,6 @@ import java.io.File
 import java.net.InetAddress
 import java.time.Duration
 
-import akka.actor.ActorSystem
 import akka.actor.typed.{ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
@@ -32,13 +31,16 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
+import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
+import org.scalactic.source
+import scalaz.syntax.std.option._
 
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.sys.process.Process
 
-object TriggerServiceFixture {
+object TriggerServiceFixture extends StrictLogging {
 
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
@@ -49,10 +51,13 @@ object TriggerServiceFixture {
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
-      implicit asys: ActorSystem,
-      mat: Materializer,
+      implicit mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext): Future[A] = {
+      ec: ExecutionContext,
+      pos: source.Position,
+  ): Future[A] = {
+    logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
+
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
 
@@ -110,9 +115,10 @@ object TriggerServiceFixture {
         minRestartInterval,
         ServiceConfig.DefaultMaxRestartInterval,
       )
+      servicePort = LockedFreePort.find()
       service <- ServiceMain.startServer(
         host.getHostName,
-        Port(0).value,
+        servicePort.port.value,
         ledgerConfig,
         restartConfig,
         encodedDar,
@@ -134,14 +140,27 @@ object TriggerServiceFixture {
       a <- testFn(uri, client, ledgerProxy)
     } yield a
 
-    fa.onComplete { _ =>
-      serviceF.foreach({ case (_, system) => system ! Stop })
-      ledgerF.foreach(_._1.close())
-      toxiproxyF.foreach(_._1.destroy)
+    fa.transformWith { ta =>
+      for {
+        se <- optErr(serviceF.flatMap {
+          case (_, system) =>
+            system ! Stop
+            system.whenTerminated
+        })
+        le <- optErr(ledgerF.map(_._1.close()))
+        te <- optErr(toxiproxyF.map {
+          case (proc, _) =>
+            proc.destroy()
+            proc.exitValue() // destroy is async
+        })
+        result <- (ta.failed.toOption orElse se orElse le orElse te)
+          .cata(Future.failed, Future fromTry ta)
+      } yield result
     }
-
-    fa
   }
+
+  private def optErr(fut: Future[_])(implicit ec: ExecutionContext): Future[Option[Throwable]] =
+    fut transform (te => scala.util.Success(te.failed.toOption))
 
   private def ledgerConfig(
       ledgerPort: Port,

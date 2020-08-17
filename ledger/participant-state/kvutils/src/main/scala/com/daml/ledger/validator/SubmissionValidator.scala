@@ -19,6 +19,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.github.ghik.silencer.silent
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -40,13 +41,7 @@ import scala.util.{Failure, Success, Try}
   */
 class SubmissionValidator[LogResult] private[validator] (
     ledgerStateAccess: LedgerStateAccess[LogResult],
-    processSubmission: (
-        DamlLogEntryId,
-        Timestamp,
-        DamlSubmission,
-        ParticipantId,
-        DamlStateMap,
-    ) => LogEntryAndState,
+    processSubmission: SubmissionValidator.ProcessSubmission,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean,
     stateValueCache: Cache[Bytes, DamlStateValue],
@@ -81,15 +76,18 @@ class SubmissionValidator[LogResult] private[validator] (
       participantId: ParticipantId,
   ): Future[Either[ValidationFailed, LogResult]] =
     newLoggingContext { implicit loggingContext =>
-      validateAndCommitWithLoggingContext(envelope, correlationId, recordTime, participantId)
+      validateAndCommitWithContext(envelope, correlationId, recordTime, participantId)
     }
 
-  private[validator] def validateAndCommitWithLoggingContext(
+  private[validator] def validateAndCommitWithContext(
       envelope: Bytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  )(implicit loggingContext: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Either[ValidationFailed, LogResult]] =
     runValidation(
       envelope,
       correlationId,
@@ -121,9 +119,10 @@ class SubmissionValidator[LogResult] private[validator] (
       )
     }
 
+  @silent(" ignored .* is never used") // matches runValidation signature
   private def commit(
       logEntryId: DamlLogEntryId,
-      ignored: StateMap,
+      ignored: Any,
       logEntryAndState: LogEntryAndState,
       stateOperations: LedgerStateOperations[LogResult],
   ): Future[LogResult] = {
@@ -153,7 +152,10 @@ class SubmissionValidator[LogResult] private[validator] (
           LedgerStateOperations[LogResult],
       ) => Future[T],
       postProcessResultTimer: Option[Timer],
-  )(implicit loggingContext: LoggingContext): Future[Either[ValidationFailed, T]] =
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Either[ValidationFailed, T]] =
     metrics.daml.kvutils.submission.validator.openEnvelope
       .time(() => Envelope.open(envelope)) match {
       case Right(Envelope.SubmissionBatchMessage(batch)) =>
@@ -298,6 +300,17 @@ object SubmissionValidator {
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
+
+  private[validator] type RecordTime = Timestamp
+  private[validator] type InputState = DamlStateMap
+
+  private[validator] type ProcessSubmission = (
+      DamlLogEntryId,
+      RecordTime,
+      DamlSubmission,
+      ParticipantId,
+      InputState,
+  ) => LogEntryAndState
 
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],

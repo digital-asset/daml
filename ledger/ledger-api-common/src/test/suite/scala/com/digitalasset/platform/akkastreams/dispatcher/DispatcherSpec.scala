@@ -167,7 +167,7 @@ class DispatcherSpec
   "A Dispatcher" should {
 
     "fail to initialize if end index < begin index" in {
-      forAllSteppingModes() { subSrc =>
+      forAllSteppingModes() { _ =>
         recoverToSucceededIf[IllegalArgumentException](Future(newDispatcher(Index(0), Index(-1))))
       }
     }

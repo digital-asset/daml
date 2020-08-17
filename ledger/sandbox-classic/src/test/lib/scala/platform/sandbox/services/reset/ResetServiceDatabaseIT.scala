@@ -108,14 +108,13 @@ object ResetServiceDatabaseIT {
           .as(str("table_name").*)(connection)
     }
 
-  private def countRows(tableName: String)(_noDialectDifference: DbType)(
-      connection: Connection): Int =
+  private def countRows(tableName: String)(connection: Connection): Int =
     SQL(s"select count(*) as no_rows from $tableName").as(int("no_rows").single)(connection)
 
   private def countRowsOfAllTables(ignored: Set[String])(dbType: DbType)(
       connection: Connection): Map[String, Int] =
     listTables(dbType)(connection).collect {
-      case table if !ignored(table) => table.toLowerCase -> countRows(table)(dbType)(connection)
+      case table if !ignored(table) => table.toLowerCase -> countRows(table)(connection)
     }.toMap
 
   def countRowsOfAllTables(ignored: Set[String], dbInfoOwner: ResourceOwner[DbInfo])(

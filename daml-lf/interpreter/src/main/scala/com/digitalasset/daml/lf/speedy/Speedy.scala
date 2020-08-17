@@ -15,7 +15,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.{TransactionVersion, TransactionVersions}
-import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.{ValueVersion, ValueVersions, Value => V}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -98,8 +98,10 @@ private[lf] object Speedy {
 
   /** The speedy CEK machine. */
   final class Machine(
+      /* Transaction versions that the machine can read */
+      val inputValueVersions: VersionRange[ValueVersion],
       /* Transaction versions that the machine can output */
-      val outputTransactionVersions: VersionRange[transaction.TransactionVersion],
+      val outputTransactionVersions: VersionRange[TransactionVersion],
       /* Whether the current submission is validating the transaction, or interpreting
        * it. If this is false, the committers must be a singleton set.
        */
@@ -383,6 +385,130 @@ private[lf] object Speedy {
       }
     }
 
+    /** This function is used to enter an ANF application.  The function has been evaluated to
+      a value, and so have the arguments - they just need looking up */
+    // TODO: share common code with executeApplication
+    private[speedy] def enterApplication(vfun: SValue, newArgs: Array[SExprAtomic]): Unit = {
+      vfun match {
+        case SPAP(prim, actualsSoFar, arity) =>
+          val missing = arity - actualsSoFar.size
+          val newArgsLimit = Math.min(missing, newArgs.length)
+
+          val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
+          actuals.addAll(actualsSoFar)
+
+          val othersLength = newArgs.length - missing
+
+          // Evaluate the arguments
+          for (i <- 0 to newArgsLimit - 1) {
+            val newArg = newArgs(i)
+            val v = newArg.lookupValue(this)
+            actuals.add(v)
+          }
+
+          // Not enough arguments. Return a PAP.
+          if (othersLength < 0) {
+            this.returnValue = SPAP(prim, actuals, arity)
+
+          } else {
+            // Too many arguments: Push a continuation to re-apply the over-applied args.
+            if (othersLength > 0) {
+              val others = new Array[SExprAtomic](othersLength)
+              System.arraycopy(newArgs, missing, others, 0, othersLength)
+              this.pushKont(KOverApp(others, this.frame, this.actuals, this.env.size))
+            }
+            // Now the correct number of arguments is ensured. What kind of prim do we have?
+            prim match {
+              case closure: PClosure =>
+                this.frame = closure.frame
+                this.actuals = actuals
+                // Maybe push a continuation for the profiler
+                val label = closure.label
+                if (label != null) {
+                  this.profile.addOpenEvent(label)
+                  this.pushKont(KLeaveClosure(label))
+                }
+                // Start evaluating the body of the closure.
+                this.ctrl = closure.expr
+
+              case PBuiltin(builtin) =>
+                this.actuals = actuals
+                try {
+                  builtin.execute(actuals, this)
+                } catch {
+                  // We turn arithmetic exceptions into a daml exception that can be caught.
+                  case e: ArithmeticException =>
+                    throw DamlEArithmeticError(e.getMessage)
+                }
+
+            }
+          }
+
+        case _ =>
+          crash(s"Applying non-PAP: $vfun")
+      }
+    }
+
+    /** The function has been evaluated to a value, now start evaluating the arguments. */
+    private[speedy] def executeApplication(vfun: SValue, newArgs: Array[SExpr]): Unit = {
+      vfun match {
+        case SPAP(prim, actualsSoFar, arity) =>
+          val missing = arity - actualsSoFar.size
+          val newArgsLimit = Math.min(missing, newArgs.length)
+
+          val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
+          actuals.addAll(actualsSoFar)
+
+          val othersLength = newArgs.length - missing
+
+          // Not enough arguments. Push a continuation to construct the PAP.
+          if (othersLength < 0) {
+            this.pushKont(KPap(prim, actuals, arity))
+          } else {
+            // Too many arguments: Push a continuation to re-apply the over-applied args.
+            if (othersLength > 0) {
+              val others = new Array[SExpr](othersLength)
+              System.arraycopy(newArgs, missing, others, 0, othersLength)
+              this.pushKont(KArg(others, this.frame, this.actuals, this.env.size))
+            }
+            // Now the correct number of arguments is ensured. What kind of prim do we have?
+            prim match {
+              case closure: PClosure =>
+                // Push a continuation to execute the function body when the arguments have been evaluated
+                this.pushKont(KFun(closure, actuals, this.env.size))
+
+              case PBuiltin(builtin) =>
+                // Push a continuation to execute the builtin when the arguments have been evaluated
+                this.pushKont(KBuiltin(builtin, actuals, this.env.size))
+            }
+          }
+          this.evaluateArguments(actuals, newArgs, newArgsLimit)
+
+        case _ =>
+          crash(s"Applying non-PAP: $vfun")
+      }
+    }
+
+    /** Evaluate the first 'n' arguments in 'args'.
+      'args' will contain at least 'n' expressions, but it may contain more(!)
+
+      This is because, in the call from 'executeApplication' below, although over-applied
+      arguments are pushed into a continuation, they are not removed from the original array
+      which is passed here as 'args'.
+      */
+    private[speedy] def evaluateArguments(
+        actuals: util.ArrayList[SValue],
+        args: Array[SExpr],
+        n: Int) = {
+      var i = 1
+      while (i < n) {
+        val arg = args(n - i)
+        this.pushKont(KPushTo(actuals, arg, this.frame, this.actuals, this.env.size))
+        i = i + 1
+      }
+      this.ctrl = args(0)
+    }
+
     private[speedy] def print(count: Int) = {
       println(s"Step: $count")
       if (returnValue != null) {
@@ -407,7 +533,7 @@ private[lf] object Speedy {
 
     // reinitialize the state of the machine with a new fresh submission seed.
     // Should be used only when running scenario
-    private[speedy] def clearCommit: Unit = {
+    private[lf] def clearCommit: Unit = {
       val freshSeed =
         crypto.Hash.deriveTransactionSeed(
           ptx.context.nextChildrenSeed,
@@ -426,7 +552,6 @@ private[lf] object Speedy {
     // to speedy value and set the control of with the result.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-
     private[speedy] def importValue(value: V[V.ContractId]): Unit = {
       def go(value0: V[V.ContractId]): SValue =
         value0 match {
@@ -534,10 +659,12 @@ private[lf] object Speedy {
         expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
-        outputTransactionVersions: VersionRange[transaction.TransactionVersion],
+        inputValueVersions: VersionRange[ValueVersion],
+        outputTransactionVersions: VersionRange[TransactionVersion],
         validating: Boolean = false,
     ): Machine =
       new Machine(
+        inputValueVersions = inputValueVersions,
         outputTransactionVersions = outputTransactionVersions,
         validating = validating,
         ctrl = expr,
@@ -569,6 +696,7 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: SExpr,
+        inputValueVersions: VersionRange[ValueVersion],
         outputTransactionVersions: VersionRange[TransactionVersion],
     ): Machine = Machine(
       compiledPackages = compiledPackages,
@@ -577,6 +705,7 @@ private[lf] object Speedy {
       expr = SEApp(scenario, Array(SEValue.Token)),
       globalCids = Set.empty,
       committers = Set.empty,
+      inputValueVersions: VersionRange[ValueVersion],
       outputTransactionVersions = outputTransactionVersions,
     )
 
@@ -587,12 +716,14 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: Expr,
+        inputValueVersions: VersionRange[ValueVersion],
         outputTransactionVersions: VersionRange[TransactionVersion],
     ): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         transactionSeed = transactionSeed,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
+        inputValueVersions = inputValueVersions,
         outputTransactionVersions = outputTransactionVersions,
       )
 
@@ -610,7 +741,8 @@ private[lf] object Speedy {
         expr = expr,
         globalCids = Set.empty,
         committers = Set.empty,
-        outputTransactionVersions = TransactionVersions.SupportedDevOutputVersions,
+        inputValueVersions = ValueVersions.Empty,
+        outputTransactionVersions = TransactionVersions.Empty,
       )
 
     @throws[PackageNotFound]
@@ -663,67 +795,16 @@ private[lf] object Speedy {
     }
   }
 
-  /** Evaluate the first 'n' arguments in 'args'.
-    'args' will contain at least 'n' expressions, but it may contain more(!)
-
-    This is because, in the call from 'executeApplication' below, although over-applied
-    arguments are pushed into a continuation, they are not removed from the original array
-    which is passed here as 'args'.
-    */
-  private[speedy] def evaluateArguments(
-      machine: Machine,
-      actuals: util.ArrayList[SValue],
-      args: Array[SExpr],
-      n: Int) = {
-    var i = 1
-    while (i < n) {
-      val arg = args(n - i)
-      machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
-      i = i + 1
-    }
-    machine.ctrl = args(0)
-  }
-
-  /** The function has been evaluated to a value, now start evaluating the arguments. */
-  private[speedy] def executeApplication(
-      machine: Machine,
-      vfun: SValue,
-      newArgs: Array[SExpr]): Unit = {
-    vfun match {
-      case SPAP(prim, actualsSoFar, arity) =>
-        val missing = arity - actualsSoFar.size
-        val newArgsLimit = Math.min(missing, newArgs.length)
-
-        val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-        actuals.addAll(actualsSoFar)
-
-        val othersLength = newArgs.length - missing
-
-        // Not enough arguments. Push a continuation to construct the PAP.
-        if (othersLength < 0) {
-          machine.pushKont(KPap(prim, actuals, arity))
-        } else {
-          // Too many arguments: Push a continuation to re-apply the over-applied args.
-          if (othersLength > 0) {
-            val others = new Array[SExpr](othersLength)
-            System.arraycopy(newArgs, missing, others, 0, othersLength)
-            machine.pushKont(KArg(others, machine.frame, machine.actuals, machine.env.size))
-          }
-          // Now the correct number of arguments is ensured. What kind of prim do we have?
-          prim match {
-            case closure: PClosure =>
-              // Push a continuation to execute the function body when the arguments have been evaluated
-              machine.pushKont(KFun(closure, actuals, machine.env.size))
-
-            case PBuiltin(builtin) =>
-              // Push a continuation to execute the builtin when the arguments have been evaluated
-              machine.pushKont(KBuiltin(builtin, actuals, machine.env.size))
-          }
-        }
-        evaluateArguments(machine, actuals, newArgs, newArgsLimit)
-
-      case _ =>
-        crash(s"Applying non-PAP: $vfun")
+  private[speedy] final case class KOverApp(
+      newArgs: Array[SExprAtomic],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
+    def execute(vfun: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
+      machine.enterApplication(vfun, newArgs)
     }
   }
 
@@ -737,7 +818,7 @@ private[lf] object Speedy {
       with SomeArrayEquals {
     def execute(vfun: SValue, machine: Machine) = {
       machine.restoreEnv(frame, actuals, envSize)
-      executeApplication(machine, vfun, newArgs)
+      machine.executeApplication(vfun, newArgs)
     }
   }
 
@@ -793,6 +874,82 @@ private[lf] object Speedy {
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
+  private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Unit = {
+    val altOpt = v match {
+      case SBool(b) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPPrimCon(PCTrue) => b
+            case SCPPrimCon(PCFalse) => !b
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SVariant(_, _, rank1, arg) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPVariant(_, _, rank2) if rank1 == rank2 =>
+              machine.pushEnv(arg)
+              true
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SEnum(_, _, rank1) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPEnum(_, _, rank2) => rank1 == rank2
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SList(lst) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPNil if lst.isEmpty => true
+            case SCPCons if !lst.isEmpty =>
+              val Some((head, tail)) = lst.pop
+              machine.pushEnv(head)
+              machine.pushEnv(SList(tail))
+              true
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SUnit =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPPrimCon(PCUnit) => true
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SOptional(mbVal) =>
+        alts.find { alt =>
+          alt.pattern match {
+            case SCPNone if mbVal.isEmpty => true
+            case SCPSome =>
+              mbVal match {
+                case None => false
+                case Some(x) =>
+                  machine.pushEnv(x)
+                  true
+              }
+            case SCPDefault => true
+            case _ => false
+          }
+        }
+      case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
+            _) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) | SAny(_, _) |
+          STypeRep(_) | STNat(_) | _: SPAP | SToken =>
+        crash("Match on non-matchable value")
+    }
+
+    machine.ctrl = altOpt
+      .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
+      .body
+  }
+
   private[speedy] final case class KMatch(
       alts: Array[SCaseAlt],
       frame: Frame,
@@ -802,79 +959,7 @@ private[lf] object Speedy {
       with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       machine.restoreEnv(frame, actuals, envSize)
-      val altOpt = v match {
-        case SBool(b) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPPrimCon(PCTrue) => b
-              case SCPPrimCon(PCFalse) => !b
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SVariant(_, _, rank1, arg) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPVariant(_, _, rank2) if rank1 == rank2 =>
-                machine.pushEnv(arg)
-                true
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SEnum(_, _, rank1) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPEnum(_, _, rank2) => rank1 == rank2
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SList(lst) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPNil if lst.isEmpty => true
-              case SCPCons if !lst.isEmpty =>
-                val Some((head, tail)) = lst.pop
-                machine.pushEnv(head)
-                machine.pushEnv(SList(tail))
-                true
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SUnit =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPPrimCon(PCUnit) => true
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SOptional(mbVal) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPNone if mbVal.isEmpty => true
-              case SCPSome =>
-                mbVal match {
-                  case None => false
-                  case Some(x) =>
-                    machine.pushEnv(x)
-                    true
-                }
-              case SCPDefault => true
-              case _ => false
-            }
-          }
-        case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) |
-            STimestamp(_) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) |
-            SAny(_, _) | STypeRep(_) | STNat(_) | _: SPAP | SToken =>
-          crash("Match on non-matchable value")
-      }
-
-      machine.ctrl = altOpt
-        .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
-        .body
+      executeMatchAlts(machine, alts, v);
     }
   }
 
@@ -900,7 +985,7 @@ private[lf] object Speedy {
   }
 
   private[speedy] final case class KFoldl(
-      func: SEValue,
+      func: SValue,
       var list: FrontStack[SValue],
       frame: Frame,
       actuals: Actuals,
@@ -917,9 +1002,79 @@ private[lf] object Speedy {
           // remainder of the list to avoid allocating a new continuation.
           list = rest
           machine.pushKont(this)
-          // TODO(MH): This looks like it has some potential for further
-          // performance gains once the AST nodes related to ANF have landed.
-          machine.ctrl = SEAppAtomicFun(func, Array(SEValue(acc), SEValue(item)))
+          machine.enterApplication(func, Array(SEValue(acc), SEValue(item)))
+      }
+    }
+  }
+
+  private[speedy] final case class KFoldr(
+      func: SValue,
+      list: ImmArray[SValue],
+      var lastIndex: Int,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(acc: SValue, machine: Machine) = {
+      if (lastIndex > 0) {
+        machine.restoreEnv(frame, actuals, envSize)
+        val currentIndex = lastIndex - 1
+        val item = list(currentIndex)
+        lastIndex = currentIndex
+        machine.pushKont(this) // NOTE: We've updated `lastIndex`.
+        machine.enterApplication(func, Array(SEValue(item), SEValue(acc)))
+      } else {
+        machine.returnValue = acc
+      }
+    }
+  }
+
+  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
+  // this continuation and what it does.
+  private[speedy] final case class KFoldr1Map(
+      func: SValue,
+      var list: FrontStack[SValue],
+      var revClosures: FrontStack[SValue],
+      init: SValue,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(closure: SValue, machine: Machine) = {
+      revClosures = closure +: revClosures
+      list.pop match {
+        case None =>
+          machine.pushKont(KFoldr1Reduce(revClosures, frame, actuals, envSize))
+          machine.returnValue = init
+        case Some((item, rest)) =>
+          machine.restoreEnv(frame, actuals, envSize)
+          list = rest
+          machine.pushKont(this) // NOTE: We've updated `revClosures` and `list`.
+          machine.enterApplication(func, Array(SEValue(item)))
+      }
+    }
+  }
+
+  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
+  // this continuation and what it does.
+  private[speedy] final case class KFoldr1Reduce(
+      var revClosures: FrontStack[SValue],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+  ) extends Kont
+      with SomeArrayEquals {
+    def execute(acc: SValue, machine: Machine) = {
+      revClosures.pop match {
+        case None =>
+          machine.returnValue = acc
+        case Some((closure, rest)) =>
+          machine.restoreEnv(frame, actuals, envSize)
+          revClosures = rest
+          machine.pushKont(this) // NOTE: We've updated `revClosures`.
+          machine.enterApplication(closure, Array(SEValue(acc)))
       }
     }
   }

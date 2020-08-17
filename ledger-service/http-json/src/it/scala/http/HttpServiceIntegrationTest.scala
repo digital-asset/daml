@@ -27,6 +27,8 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
 
   override def jdbcConfig: Option[JdbcConfig] = None
 
+  override def wsConfig: Option[WebsocketConfig] = None
+
   private val expectedDummyContent: String = Gen
     .listOfN(100, Gen.identifier)
     .map(_.mkString(" "))

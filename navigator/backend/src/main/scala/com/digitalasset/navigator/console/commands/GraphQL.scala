@@ -5,7 +5,7 @@ package com.daml.navigator.console.commands
 
 import com.daml.navigator.console._
 
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -30,7 +30,6 @@ case object GraphQL extends SimpleCommand {
       set: CommandSet): Either[CommandError, (State, String)] = {
     // TODO: Use a jline3 parser that parses parameters according to their type
     val query = args.mkString(" ")
-    implicit val executionContext: ExecutionContext = state.ec
     for {
       ps <- state.getPartyState ~> s"Unknown party ${state.party}"
       parsed <- state.graphQL.parse(createQuery(query)) ~> "Failed to parse query"

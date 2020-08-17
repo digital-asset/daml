@@ -87,7 +87,7 @@ object DamlDataTypeGen {
       else
         (tq"$domainApiAlias.ValueRef", tq"$domainApiAlias.ValueRefCompanion")
 
-    val packageIdRef = PackageIDsGen.reference(util)(moduleName)
+    val packageIdRef = PackageIDsGen.reference(moduleName)
     val idField =
       if (isTemplate) None
       else Some(q"""
@@ -373,7 +373,7 @@ object DamlDataTypeGen {
 
         lazy val typeObjectCase = if (fields.isEmpty) {
           q"""
-            {_ => _root_.scala.Some(${TermName(damlScalaName.name)}())}
+            {_root_.scala.Function const _root_.scala.Some(${TermName(damlScalaName.name)}())}
           """
         } else {
           val decodeFields =
@@ -495,7 +495,7 @@ object DamlDataTypeGen {
           override def encoding(lte: $domainApiAlias.encoding.LfTypeEncoding
                               )(...${if (isTemplate) Seq(q"$view: view[lte.Field]") else Seq.empty}
                               ): lte.Out[$appliedValueType] = {
-            ..${if (isTemplate) Seq.empty else Seq(viewDef)}
+            ..${if (isTemplate || fieldDefs.isEmpty) Seq.empty else Seq(viewDef)}
             $generateEncodingBody
           }
          """

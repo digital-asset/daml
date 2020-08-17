@@ -43,7 +43,6 @@ private[services] final class TrackerImpl(queue: SourceQueueWithComplete[Tracker
 
   private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Completion])(
       implicit ec: ExecutionContext,
-      loggingContext: LoggingContext,
   ): Future[Completion] = {
     queue
       .offer(

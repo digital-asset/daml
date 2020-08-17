@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Files
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -46,10 +46,20 @@ import java.nio.file.{Files, Path, Paths}
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(config: EngineConfig = EngineConfig.Stable) {
-  private[this] val compiledPackages = ConcurrentCompiledPackages()
+class Engine(val config: EngineConfig = EngineConfig.Stable) {
+
+  config.profileDir.foreach(Files.createDirectories(_))
+
+  private[this] val compiledPackages = {
+    val stacktraceMode =
+      if (config.stackTraceMode) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
+    val profileMode =
+      if (config.profileDir.isDefined) speedy.Compiler.FullProfile else speedy.Compiler.NoProfile
+    ConcurrentCompiledPackages(stacktraceMode, profileMode)
+  }
+
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
-  private[this] var profileDir: Option[Path] = None
+
   def info = new EngineInfo(config)
 
   /**
@@ -241,7 +251,7 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
       case pkgId :: rest =>
         ResultNeedPackage(pkgId, {
           case Some(pkg) =>
-            compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
+            addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
           case None =>
             ResultError(Error(s"package $pkgId not found"))
         })
@@ -293,7 +303,8 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        outputTransactionVersions = config.outputTransactionVersions,
+        inputValueVersions = config.allowedInputValueVersions,
+        outputTransactionVersions = config.allowedOutputTransactionVersions,
         validating = validating,
       )
       interpretLoop(machine, ledgerTime)
@@ -321,7 +332,7 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
           return Result.needPackage(
             pkgId,
             pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+              addPackage(pkgId, pkg).flatMap { _ =>
                 callback(compiledPackages)
                 interpretLoop(machine, time)
               }
@@ -379,15 +390,12 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
           nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
           byKeyNodes = machine.ptx.byKeyNodes.toImmArray,
         )
-        profileDir match {
-          case None => ()
-          case Some(profileDir) =>
-            val hash = meta.nodeSeeds(0)._2.toHexString
-            val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"$desc-${hash.substring(0, 6)}"
-            val profileFile =
-              profileDir.resolve(Paths.get(s"${meta.submissionTime}-$desc-$hash.json"))
-            machine.profile.writeSpeedscopeJson(profileFile)
+        config.profileDir.foreach { dir =>
+          val hash = meta.nodeSeeds(0)._2.toHexString
+          val desc = Engine.profileDesc(tx)
+          machine.profile.name = s"$desc-${hash.substring(0, 6)}"
+          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc-$hash.json")
+          machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
     }
@@ -409,23 +417,19 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
     * be loaded.
     */
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
-    compiledPackages.addPackage(pkgId, pkg)
+    addPackage(pkgId, pkg)
 
-  def setProfileDir(optProfileDir: Option[Path]): Unit = {
-    optProfileDir match {
-      case None =>
-        compiledPackages.profilingMode = speedy.Compiler.NoProfile
-      case Some(profileDir) =>
-        Files.createDirectories(profileDir)
-        this.profileDir = Some(profileDir)
-        compiledPackages.profilingMode = speedy.Compiler.FullProfile
-    }
-  }
+  private[engine] def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
+    if (config.allowedLanguageVersions.contains(pkg.languageVersion))
+      compiledPackages.addPackage(pkgId, pkg)
+    else
+      ResultError(
+        Error(
+          s"Disallowed language version in package $pkgId: " +
+            s"Expected version between ${config.allowedLanguageVersions.min} and ${config.allowedLanguageVersions.max} but got ${pkg.languageVersion}"
+        )
+      )
 
-  def enableStackTraces(enable: Boolean) = {
-    compiledPackages.stackTraceMode =
-      if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
-  }
 }
 
 object Engine {

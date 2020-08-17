@@ -112,10 +112,9 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       copy(archives = archives :+ archive)
 
     private def prepareRawNonEmpty(
-        query: String,
         params: Vector[RawBatch.Event[_]],
     ): Option[RawBatch] =
-      if (params.nonEmpty) Some(new RawBatch(query, params)) else None
+      if (params.nonEmpty) Some(new RawBatch(params)) else None
 
     private def prepareNonEmpty(
         query: String,
@@ -125,7 +124,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
 
     def prepare: RawBatches =
       new RawBatches(
-        prepareRawNonEmpty(insertEvent, events),
+        prepareRawNonEmpty(events),
         prepareNonEmpty(updateArchived, archives),
       )
 

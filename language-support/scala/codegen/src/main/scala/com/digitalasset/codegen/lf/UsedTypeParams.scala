@@ -22,7 +22,7 @@ object UsedTypeParams {
     foldMapGenTypes(typeDecl)(collectTypeParams)
 
   private def foldMapGenTypes[Z: Monoid](typeDecl: DataType)(f: iface.Type => Z): Z = {
-    val notAGT = (s: String) => mzero[Z]
+    val notAGT = (_: String) => mzero[Z]
     (typeDecl: ScopedDataType[iface.DataType[iface.Type, VariantField]])
       .foldMap(_.bifoldMap(f)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f)))
   }

@@ -475,10 +475,11 @@ jobs:
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail
+          pr_handler=$(head -1 release/rotation | awk '{print $1}')
           curl -XPOST \
                -i \
                -H 'Content-Type: application/json' \
-               --data "{\"text\":\"Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
+               --data "{\"text\":\"<@${pr_handler}> Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
                $(Slack.team-daml)
       - template: ci/tell-slack-failed.yml
         parameters:
@@ -498,15 +499,19 @@ jobs:
     - checkout: self
       persistCredentials: true
     - bash: ci/dev-env-install.sh
+    - template: ci/bash-lib.yml
+      parameters:
+        var_name: bash_lib
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
+
+        source $(bash_lib)
 
         setvar() {
             echo "Setting '$1' to '$2'"
             echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
         }
-
 
         DELAY=1
         while ! curl --fail -I https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/$(release_tag)/ledger-api-test-tool-$(release_tag).jar; do
@@ -518,12 +523,7 @@ jobs:
             fi
         done
 
-        # With `persistCredentials: true`, Azure Pipelines will store the
-        # credentials to interact with GitHub in the url for the origin remote,
-        # using basic auth format:
-        # https://username:password@github.com/:user/:repo.git
-        # This series of pipes extracts the `username:password` part.
-        AUTH="$(git config remote.origin.url | grep -o "://.*:.*@" | cut -c4- | rev | cut -c2- | rev)"
+        AUTH="$(get_gh_auth_header)"
 
         git checkout origin/master
         BRANCH=update-compat-versions-for-$(release_tag)
@@ -541,8 +541,9 @@ jobs:
             -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
         git push origin $BRANCH:$BRANCH
         curl -H "Content-Type: application/json" \
-             -u $AUTH \
+             -H "$AUTH" \
              --silent \
+             --fail \
              --include \
              --location \
              -d "{\"title\": \"update compat versions for $(release_tag)\", \"head\": \"$BRANCH\", \"base\": \"master\"}" \
@@ -774,8 +775,10 @@ jobs:
           PR_NUM: $(pr.num)
           PR_BRANCH: $(pr.branch)
 
-  - job: notify_user
-    condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
+  - job: notify_release_pr
+    condition: and(not(canceled()),
+                   startsWith(variables['Build.SourceBranchName'], 'auto-release-pr-'),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
     dependsOn:
       - git_sha
       - collect_build_data
@@ -792,6 +795,36 @@ jobs:
       - bash: |
           set -euo pipefail
 
+          tell_daml() {
+              local message pr_handler
+              message=$1
+              pr_handler=$(head -1 release/rotation | awk '{print $1}')
+              curl -XPOST \
+                   -i \
+                   -H 'Content-Type: application/json' \
+                   --data "{\"text\":\"<@${pr_handler}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/$(pr.num)|#$(pr.num)> has completed with status ${message}.\"}" \
+                   $(Slack.team-daml)
+          }
+
+          tell_daml "$(status)"
+
+  - job: notify_user
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
+    dependsOn:
+      - git_sha
+      - collect_build_data
+      - check_for_release
+    pool:
+      name: 'linux-pool'
+      demands: assignment -equals default
+    variables:
+      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+      status: $[ dependencies.collect_build_data.result ]
+    steps:
+      - bash: |
+          set -euo pipefail
+
           tell_slack() {
               local MESSAGE=$1
               local USER_ID=$2
@@ -801,22 +834,6 @@ jobs:
                    --data "{\"text\":\"<@${USER_ID}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status ${MESSAGE}.\"}" \
                    $(Slack.team-daml-ci)
           }
-
-          tell_daml() {
-              local message
-              message=$1
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/$(pr.num)|#$(pr.num)> has completed with status ${message}.\"}" \
-                   $(Slack.team-daml)
-          }
-
-          if [ "$(is_release)" == "true" ]; then
-              # releases matter to everyone
-              tell_daml "$(status)"
-              exit 0
-          fi
 
           EMAIL=$(git log -n 1 --format=%ae $(branch_sha))
           user_registered() {

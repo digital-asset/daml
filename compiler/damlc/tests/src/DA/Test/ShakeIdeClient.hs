@@ -20,6 +20,7 @@ import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
+import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
@@ -28,7 +29,7 @@ import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()
-main = SS.withScenarioService Logger.makeNopHandle scenarioConfig $ \scenarioService -> do
+main = SS.withScenarioService LF.versionDefault Logger.makeNopHandle scenarioConfig $ \scenarioService -> do
   -- The scenario service is a shared resource so running tests in parallel doesn’t work properly.
   setEnv "TASTY_NUM_THREADS" "1" True
   -- The startup of the scenario service is fairly expensive so instead of launching a separate

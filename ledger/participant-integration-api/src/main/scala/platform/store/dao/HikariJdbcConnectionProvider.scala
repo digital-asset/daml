@@ -99,8 +99,6 @@ private[platform] object HikariConnection {
 private[platform] class HikariJdbcConnectionProvider(
     dataSource: HikariDataSource,
     healthPoller: Timer,
-)(
-    implicit loggingContext: LoggingContext
 ) extends JdbcConnectionProvider {
   private val transientFailureCount = new AtomicInteger(0)
 

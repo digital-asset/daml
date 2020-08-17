@@ -6,6 +6,7 @@
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
+    , EnableScripts(..)
     , SkipScenarioValidation(..)
     , DlintUsage(..)
     , Haddock(..)
@@ -75,6 +76,9 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
     -- ^ Controls whether the scenario service is started.
+  , optEnableScripts :: EnableScripts
+    -- ^ Whether scripts should be run by the scenario service.
+    -- This will be switched to True by default once it has stabilized.
   , optSkipScenarioValidation :: SkipScenarioValidation
     -- ^ Controls whether the scenario service server run package validations.
     -- This is mostly used to run additional checks on CI while keeping the IDE fast.
@@ -122,6 +126,9 @@ newtype SkipScenarioValidation = SkipScenarioValidation { getSkipScenarioValidat
   deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
+    deriving Show
+
+newtype EnableScripts = EnableScripts { getEnableScripts :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath
@@ -175,6 +182,7 @@ defaultOptions mbVersion =
         , optDebug = False
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
+        , optEnableScripts = EnableScripts False
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False

@@ -220,9 +220,6 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
-    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
-    # confuses the JAR query in `daml-sdk-head`.
-    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -243,9 +240,6 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
-    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
-    # confuses the JAR query in `daml-sdk-head`.
-    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -449,7 +443,6 @@ haskell_register_ghc_nixpkgs(
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],
     },
-    is_static = True,
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
@@ -459,6 +452,7 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
+    static_runtime = True,
     version = "8.6.5",
 )
 

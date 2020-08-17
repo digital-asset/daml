@@ -24,14 +24,14 @@ class LedgerSpec extends WordSpec with Matchers {
   private val bob = ApiTypes.Party("Bob")
   private val charlie = ApiTypes.Party("Charlie")
 
-  def transaction(id: String): Transaction =
+  private def transaction(id: String): Transaction =
     Transaction(
       ApiTypes.TransactionId(id),
       Some(ApiTypes.CommandId("commandId")),
       Instant.now(),
       "0",
       List.empty)
-  def contract(id: String): Contract =
+  private def contract(id: String): Contract =
     Contract(
       ApiTypes.ContractId(id),
       template,
@@ -40,7 +40,6 @@ class LedgerSpec extends WordSpec with Matchers {
       List(alice),
       List(bob, charlie),
       None)
-  def error(commandId: String): CommandStatusError = CommandStatusError("code", "details")
 
   "A ledger with existing contracts" when {
     val subject = Ledger(alice, None, false).withTransaction(

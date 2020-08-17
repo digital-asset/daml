@@ -137,7 +137,6 @@ private[events] object EventsTableFlatEventsRangeQueries {
 
   final class GetTransactions(
       selectColumns: String,
-      groupByColumns: String,
       sqlFunctions: SqlFunctions,
   ) extends EventsTableFlatEventsRangeQueries[EventsRange[Long]] {
 
@@ -283,7 +282,6 @@ private[events] object EventsTableFlatEventsRangeQueries {
 
   final class GetActiveContracts(
       selectColumns: String,
-      groupByColumns: String,
       sqlFunctions: SqlFunctions,
   ) extends EventsTableFlatEventsRangeQueries[EventsRange[(Offset, Long)]] {
 

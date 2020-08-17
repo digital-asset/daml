@@ -1,0 +1,26 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  var_name: ''
+
+steps:
+- bash: |
+    set -euo pipefail
+    TMP=$(mktemp)
+    cat > $TMP <<'END'
+    get_gh_auth_header() {
+        # Credentials are persisted in a different way on GCP and Azure nodes.
+        if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
+            # On Azure nodes, the auth header is stored directly in the git
+            # config.
+            echo $header
+        else
+            # On GCP nodes, the credentials are stored as part of the remote
+            # url instead of as a separate header. The format is
+            # https://username:password@github.com/:user/:repo.git
+            echo "Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev | tr -d '\n' | base64 -w0)"
+        fi
+    }
+    END
+    echo "##vso[task.setvariable variable=${{parameters.var_name}}]$TMP"

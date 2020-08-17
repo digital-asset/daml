@@ -7,9 +7,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 object DelayedReleaseResourceOwner {
-  def apply[T](value: T, releaseDelay: FiniteDuration)(
-      implicit executionContext: ExecutionContext
-  ): TestResourceOwner[T] =
+  def apply[T](value: T, releaseDelay: FiniteDuration): TestResourceOwner[T] =
     new TestResourceOwner(
       Future.successful(value),
       _ => Future(Thread.sleep(releaseDelay.toMillis))(ExecutionContext.global))
