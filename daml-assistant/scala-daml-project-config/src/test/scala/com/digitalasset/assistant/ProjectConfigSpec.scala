@@ -94,7 +94,7 @@ class ProjectConfigSpec extends WordSpec with Matchers {
         } yield result
         config.isLeft shouldBe true
         config.left.exists {
-          case pe: ConfigParseError => true
+          case _: ConfigParseError => true
           case _ => false
         } shouldBe true
       }

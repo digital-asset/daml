@@ -14,7 +14,6 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.platform.participant.util.ValueConversions._
@@ -22,7 +21,6 @@ import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.platform.testing.StreamConsumer
-import com.google.rpc.status.Status
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._
 
@@ -103,9 +101,6 @@ class CompletionServiceIT
       )
     ).within(completionTimeout)
       .map(_.flatMap(_.completions).map(_.commandId))
-
-  private[this] def ok(commandId: String) =
-    Completion(commandId, Some(Status(0)))
 
   "CommandCompletionService" should {
     "return correct completions" in {

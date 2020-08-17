@@ -4,18 +4,20 @@
 package com.daml.ledger.participant.state.kvutils.test
 
 import com.daml.lf.data._
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{Transaction => Tx, GlobalKey, Node, NodeId, SubmittedTransaction}
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
 import scala.collection.mutable
 
-private[test] final class Adapter(packages: Map[Ref.PackageId, Ast.Package]) {
+private[test] final class Adapter(
+    packages: Map[Ref.PackageId, Ast.Package],
+    pkgLangVersion: Ref.PackageId => LanguageVersion) {
 
   def adapt(tx: Tx.Transaction): SubmittedTransaction =
-    tx.foldWithPathState(new TxBuilder, Option.empty[NodeId])(
+    tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
         (builder, parent, _, node) =>
           (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
       )

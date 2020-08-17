@@ -75,6 +75,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
+    scalacopts = ["-P:silencer:checkUnused"],
     tags = ["maven_coordinates=com.daml:participant-integration-api:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -119,6 +120,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings",
@@ -140,6 +142,7 @@ da_scala_library(
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_transport",
+        "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
@@ -230,7 +233,11 @@ scaladoc_jar(
         "//ledger/participant-state:sources",
     ],
     doctitle = "DAML participant integration API",
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     root_content = "rootdoc.txt",
+    scalacopts = ["-P:silencer:checkUnused"],
     visibility = [
         "//visibility:public",
     ],

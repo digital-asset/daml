@@ -27,7 +27,7 @@ Download the quickstart application
 
 You can get the quickstart application using the DAML assistant (``daml``):
 
-#. Run ``daml new quickstart quickstart-java``
+#. Run ``daml new quickstart --template quickstart-java``
 
    This creates the ``quickstart-java`` application into a new folder called ``quickstart``.
 #. Run ``cd quickstart`` to change into the new directory.

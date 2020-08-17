@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import com.daml.http.Statement.discard
+import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresAroundAll
 import spray.json.{JsString, JsValue}
 
@@ -17,6 +17,8 @@ class HttpServiceWithPostgresIntTest
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
   override def staticContentConfig: Option[StaticContentConfig] = None
+
+  override def wsConfig: Option[WebsocketConfig] = None
 
   // has to be lazy because postgresFixture is NOT initialized yet
   private lazy val jdbcConfig_ = JdbcConfig(

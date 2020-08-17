@@ -1,115 +1,49 @@
 # Making a Release
 
-First, you need to decide whether you are making a technical snapshot
-("prerelease" at the github level, hereafter "snapshot") or an officially
-supported release (hereafter "stable release"). For the latter, there are
-extra steps marked as **[STABLE]** in the following instructions. You have to
-skip those if you are making a snapshot release, that is, one intended mostly
-for internal use and early testing, but which makes no promises about future
-compatibility.
-
-In either case, before going through the following list, you need to know which
-commit you want to create the release from, `$SHA`. For a stable release, it is
-highly recommended that this be the same commit as an existing snapshot, and
-these instructions will be written from that perspective.
+For snapshot releases, skip the steps marked **[STABLE]**. For stable releases,
+skip the steps marked **[SNAPSHOT]**.
 
 Valid commits for a release should come from either the `master` branch or one
 of the support `release/a.b.x` branches (e.g. `release/1.0.x` branch is for
 patches we backport to the 1.0 release branch).
 
-> **IMPORTANT**: If the release fails, please do not just abandon it. There are
-> some cleanup steps that need to be taken.
+> **IMPORTANT**: If the release fails, please delete it from the releases page
+> and write how it failed on the PR.
 
-1. **[STABLE]** Coordinate with the product and marketing teams to define
-   release highlights, tweets, blog posts, as well as timeline for publishing
-   the release. Define a version number, `$VERSION`. As a starting point, find
-   out the sha of the reference version (previous stable release in the same
-   release branch), say `$PREV_SHA`, and run:
+1. **[STABLE]** Go through the [checklist] before making the release. Note that
+   the checklist is not available publicly.
+
+1. **[STABLE]** Stable releases are promoted from snapshot releases. Open a PR
+   that changes the `LATEST` file to remove the `-snapshot` suffix on the
+   corresponding snapshot, and add the `Standard-Change` label.
+
+1. **[SNAPSHOT]** For most snapshot releases, the PR is created automatically.
+   Double-check the snapshot version: it may need incrementing. Ask on Slack
+   (#team-daml) if you're not sure.
+
+   If you are manually creating the PR for an out-of-schedule snapshot, start
+   from latest master and run
    ```
-   ./unreleased.sh $PREV_SHA..$SHA
+   ./release.sh snapshot <sha> <prefix>
    ```
-
-1. **[STABLE]** Go through the checklist at
-   https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
-   before making the release. Note that the checklist is not available publicly.
-
-1. Pull the latest master branch of the `daml` repository and create a new,
-   clean branch off it. Now, we have three possible cases:
-
-   - For a stable release, just remove the snapshot suffix from the latest
-     entry for that branch in the LATEST file, replacing the existing line.
-
-   - If you are making the first snapshot for a new target version (i.e. there
-     is no snapshot for it yet), add a new line for that version. It does not
-     matter to the process where that line is, but try to keep versions sorted
-     by version number (higher version numbers go higher in the file).
-
-   - If you are making a new snapshot for an existing target version, i.e. the
-     stable part of the version number is the same, replace the existing line.
-
-   In both of the latter cases, you can get the correct line by running the
-   `release.sh` script with both the SHA and the version prefix, e.g.
+   for example:
    ```
    $ ./release.sh snapshot cc880e2 0.1.2
    cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
    ```
-
-1. **[STABLE]** In `docs/source/support/release-notes.rst`, add a new header
-   and label for the new version. (See previous releases as examples.)
-
-   Note that the release notes page is not version dependent, i.e. you are
-   editing the one and only release notes page. If the release your are making
-   is a patch on a support branch, it should be included in-between the next
-   "minor" release and the latest patch to the branch your are targeting.
-
-   Once we are ready to make a release stable, preliminary release
-   notes will already have been published to the blog, e.g., the
-   preliminary release notes for 1.0 were at
-   https://blog.daml.com/release-notes/1.0.
-
-   These release notes now have to be converted to Rst so we can
-   include them in the documentation. You can do that manually or you
-   can use `pandoc` to create a first version and then fine tune
-   that. For the latter, download everything inside `<div
-   class="section post-body">` from the web page displaying the
-   release notes and save it as `release_notes.html`. Then you can run
-   `pandoc release_notes.html -o release_notes.rst`. Now copy those
-   release notes under the header you created above in
-   `docs/source/support/release-notes.rst` and start editing
-   them. Here are a couple of things that you should pay attention to:
-
-   1. Try to match the formatting of previous release notes.
-   1. Make sure that links from the release notes to our documentation
-      point to the documentation for the version you are about to
-      release. In particular, this means that in Rst terminology all
-      of these are external links.
-   1. Pandoc does not seem to preserve markup of inline code blocks so
-      you will have to manually wrap them in double backslashes.
-
-1. Once this is done, create a GitHub pull request (PR) with the above changes
-   to the `LATEST` and (for a stable release) `release-notes.rst` files. It is
-   important that your PR changes no other file. Your PR also needs to have the
-   `Standard-Change` label. Note that if the build failed because of this, you
-   should be able to add the label and "rerun failed checks" in a few seconds;
-   there is no need to restart an entire build cycle.
+   Then open a PR with the changed `LATEST` file, and add the `Standard-Change`
+   label.
 
 1. Once the PR has built, check that it was considered a release build by our
    CI. You can do that by looking at the output of the `check_for_release`
    build step.
 
-1. Get a review and approval on your PR and then merge it into master.
-   **[STABLE]** For a stable release, the approval **MUST** be from the team
-   lead of the Language, Runtime or Product team.
+1. **[STABLE]** The PR **must** be approved by a team lead before merging. As
+   of this writing (2020-08-13), @bame-da, @gerolf-da, @cocreature or
+   @hurryabit.
 
-1. Once the CI checks have passed for the corresponding master build, the release
-   should be available on Maven Central and GitHub, and have a Git tag.
-   The release should be visible on GitHub with _prerelease_ status, meaning it's
-   not yet ready for users to consume. The release notes should not be defined yet
-   and will be adjusted later on. Maven central has a delay of around 20 minutes
-   until the new version is visible. (**Note:** The 20-minute delay is for
-   artifacts to be available through e.g. `mvn build`; the delay for artifacts to
-   show up in web searches on the Maven Central website is up to two hours. Do not
-   worry if the artifacts do not show on the website yet.)
+1. Merge the PR and wait for the corresponding `master` build to finish. You
+   will be notified on #team-daml.
 
 1. On Windows, install the new SDK using the installer on
    https://github.com/digital-asset/daml/releases.
@@ -121,24 +55,20 @@ patches we backport to the 1.0 release branch).
    where `$VERSION` is the full version tag of the new release you are making,
    i.e. the second column of the `LATEST` file.
 
-1. Windows prerequisites for running the tests:
+1. Prerequisites for running the tests:
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
-      - The above link takes you docs.daml.com's "getting started" installation guide;
-    - [Maven](https://maven.apache.org/install.html)
-      - You may have to manually set the  environment variable `JAVA_HOME`;
-      - For example, assuming the Zulu Java-SDK, something like
-        `C:\Program Files\Zulu\zulu-14`;
     - [Node.js](https://nodejs.org/en/download/)
-      - Just the bare install; you don't need Visual Studio build
-        tools for compiling C dependencies (and trying to install them
-        takes forever and in the end hangs it seems);
+      - Just the bare install; no need to build C dependencies.
     - [Yarn](https://classic.yarnpkg.com/en/docs/install/)
       - Install Node.js first.
 
 1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.
 
-1. Tests for the getting started guide (macOS/Linux **and** Windows)
+1. Tests for the getting started guide (macOS/Linux **and** Windows). Note: if
+   using a remote Windows VM and an RDP client that supports copy/paste, you
+   can run through this on both Windows and your local unix in parallel fairly
+   easily.
 
     1. For these steps you will need the documentation for the
        release you are about to make. Documentation is published at
@@ -147,18 +77,23 @@ patches we backport to the 1.0 release branch).
        Otherwise, check out the commit that you are referencing in the `LATEST` file
        and build documentation locally via `./docs/scripts/preview.sh`.
 
-    1. Create a new project using `daml new create-daml-app create-daml-app`
-       and switch to the project directory using `cd create-daml-app`.
+    1. To open a new terminal on Windows: Start menu -> type "cmd" -> click cmd.exe.
 
-    1. Build the project using `daml build`.
+    1. `daml new create-daml-app --template create-daml-app`
 
-    1. Run the JavaScript codegen using `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js`.
+    1. `cd create-daml-app`
 
-    1. Install yarn dependencies using `cd ui && yarn install`.
+       1. `daml build`
 
-    1. Run `daml start` from the project root directory.
+       1. `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js`
 
-    1. In a separate terminal run `yarn start` from the `ui` directory.
+       1. `daml start`
+
+    1. In a new terminal, from the `ui` folder:
+
+       1. `yarn install`
+
+       1. `yarn start`
 
     1. Open two browser windows (you want to see them simultaneously ideally) at `localhost:3000`.
 
@@ -236,7 +171,7 @@ patches we backport to the 1.0 release branch).
    for now since it covers things not covered by the new GSG
    (Navigator, scenarios, Maven artifacts, …)
 
-    1. Create a new project with `daml new quickstart quickstart-java`
+    1. Create a new project with `daml new quickstart --template quickstart-java`
        and switch to it using `cd quickstart`.
 
     1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
@@ -312,11 +247,6 @@ patches we backport to the 1.0 release branch).
 1. Run through the following test plan on Windows. This is slightly shortened to
    make testing faster and since most issues are not platform specific.
 
-   1. Close any running SDK instance in PowerShell (Navigator or Sandbox).
-   1. Download and run the Windows installer (the `.exe` file) from
-      `https://github.com/digital-asset/daml/releases`.
-   1. If asked if you want to remove an existing installation, click `Yes`.
-   1. Open a new PowerShell.
    1. Run `daml new quickstart` to create a new project and switch to it using
       `cd quickstart`.
    1. Run `daml start`.
@@ -325,34 +255,35 @@ patches we backport to the 1.0 release branch).
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the scenario result appears within 30 seconds.
-   1. Add `+` at the end of line 22 after `"Alice"` and verify that you get an
+   1. Add `+` at the end of line 23 after `"Alice"` and verify that you get an
       error.
-   1. Run through the tests for the getting started guide described above.
 
 1. On your PR, add the comment:
 
    > Manual tests passed on Windows.
 
-1. If the release is bad, delete the release from [the releases
-   page](https://github.com/digital-asset/daml/releases). Mention why it is bad
-   as a comment on your PR, and **stop the process here**.
-
-1. **[STABLE]** Go to [the releases page](https://github.com/digital-asset/daml/releases)
-   and add the release notes. This unfortunately involves translating the
-   release notes from rst to markdown. Once the release has been adequately
-   tested, untick the `pre-release` box.
+1. If the release is bad, delete the release from [the releases page]. Mention
+   why it is bad as a comment on your PR, and **stop the process here**.
 
 1. Announce the release on the relevant internal Slack channels (#product-daml,
    \#team-daml). For a stable release, direct people to the release blog post;
    for a prerelease, you can include the raw output of the `unreleased.sh`
-   script as explained above.
+   script.
+
+1. **[STABLE]** Go to the [releases page] and remove the prerelease marker on
+   the release. Also change the text to
+   ```See [the release notes blog]() for details.```
+   adding in the direct link to this version's [release notes]. Documentation
+   for this release will be added to docs.daml.com on the next hour.
 
 1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
    announcements (public Slack, Twitter, etc.).
 
 1. **[STABLE]** Documentation is published automatically once the release is
-   public on Github, however it runs on an hourly job and takes about 20
-   minutes to complete, so it could take up to an hour and a half depending on
-   when the prerelease tag was removed.
+   public on GitHub, though this runs on an hourly cron.
 
 Thanks for making a release!
+
+[checklist]: https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
+[releases page]: https://github.com/digital-asset/daml/releases
+[release notes]: https://daml.com/release-notes/

@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
 import com.daml.dec.DirectExecutionContext
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
 import com.daml.platform.testing.LogCollector
 import com.daml.resources.{Resource, ResourceOwner}
@@ -28,6 +28,7 @@ class RecoveringIndexerSpec
     with BeforeAndAfterEach {
 
   private[this] implicit val executionContext: ExecutionContext = DirectExecutionContext
+  private[this] implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private[this] var actorSystem: ActorSystem = _
 
   override def beforeEach(): Unit = {
@@ -44,7 +45,7 @@ class RecoveringIndexerSpec
   private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, RecoveringIndexer]
 
   "RecoveringIndexer" should {
-    "work when the stream completes" in newLoggingContext { implicit logCtx =>
+    "work when the stream completes" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis),
@@ -71,7 +72,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "work when the stream is stopped" in newLoggingContext { implicit logCtx =>
+    "work when the stream is stopped" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
@@ -81,7 +82,7 @@ class RecoveringIndexerSpec
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
 
       for {
-        _ <- akka.pattern.after(100.millis, actorSystem.scheduler)(Future.successful(()))
+        _ <- akka.pattern.after(100.millis, actorSystem.scheduler)(Future.unit)
         _ <- resource.release()
         complete <- resource.asFuture
         _ <- complete
@@ -102,7 +103,7 @@ class RecoveringIndexerSpec
       }
     }
 
-    "wait until the subscription completes" in newLoggingContext { implicit logCtx =>
+    "wait until the subscription completes" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis),
@@ -131,7 +132,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "recover from failure" in newLoggingContext { implicit logCtx =>
+    "recover from failure" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
@@ -173,7 +174,7 @@ class RecoveringIndexerSpec
         }
     }
 
-    "respect restart delay" in newLoggingContext { implicit logCtx =>
+    "respect restart delay" in {
       val restartDelay = 500.millis
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, restartDelay)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.

@@ -414,7 +414,6 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
             DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef
           ),
           templates = List.empty,
-          languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -435,13 +434,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         DValue(t"Int64 -> Int64", true, e"""\(x: Int64) -> ERROR @INT64 "not implemented"""", false)
 
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("fact") -> valDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(DottedName.assertFromString("fact") -> valDef),
+            templates = List.empty,
+            featureFlags = FeatureFlags.default
+          )))
 
     }
 
@@ -503,13 +502,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"), Some(template))
       )
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("Person") -> recDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(DottedName.assertFromString("Person") -> recDef),
+            templates = List.empty,
+            featureFlags = FeatureFlags.default
+          )))
 
     }
 
@@ -548,15 +547,33 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         DataRecord(ImmArray.empty, Some(template))
       )
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("R") -> recDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(DottedName.assertFromString("R") -> recDef),
+            templates = List.empty,
+            featureFlags = FeatureFlags.default
+          )))
 
     }
+  }
+
+  "parses location annotations" in {
+    e"loc(Mod, def, 0, 1, 2, 3) f" shouldEqual
+      ELocation(
+        Location(
+          defaultPackageId,
+          ModuleName.assertFromString("Mod"),
+          "def",
+          (0, 1),
+          (2, 3)
+        ),
+        EVar(n"f"),
+      )
+  }
+
+  "rejects bad location annotations" in {
+    a[ParsingError] should be thrownBy e"loc(Mod, def, 0, 1, 2, 3) f g"
   }
 
   private val keywords = Table(

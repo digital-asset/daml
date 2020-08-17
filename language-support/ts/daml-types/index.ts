@@ -10,11 +10,9 @@ import * as jtv from '@mojotech/json-type-validation';
  */
 export interface Serializable<T> {
   /**
-   * The decoder for a contract of template T.
-   *
-   * NB: This is a function to allow for mutually recursive decoders.
+   * @internal The decoder for a contract of template T.
    */
-  decoder: () => jtv.Decoder<T>;
+  decoder: jtv.Decoder<T>;
 }
 
 /**
@@ -28,7 +26,10 @@ export interface Serializable<T> {
  */
 export interface Template<T extends object, K = unknown, I extends string = string> extends Serializable<T> {
   templateId: I;
-  keyDecoder: () => jtv.Decoder<K>;
+  /**
+   * @internal
+   */
+  keyDecoder: jtv.Decoder<K>;
   Archive: Choice<T, {}, {}, K>;
 }
 
@@ -47,13 +48,13 @@ export interface Choice<T extends object, C, R, K = unknown> {
    */
   template: () => Template<T, K>;
   /**
-   * Returns a decoder to decode the choice arguments.
+   * @internal Returns a decoder to decode the choice arguments.
    */
-  argumentDecoder: () => jtv.Decoder<C>;
+  argumentDecoder: jtv.Decoder<C>;
   /**
-   * Returns a deocoder to decode the return value.
+   * @internal Returns a deocoder to decode the return value.
    */
-  resultDecoder: () => jtv.Decoder<R>;
+  resultDecoder: jtv.Decoder<R>;
   /**
    * The choice name.
    */
@@ -91,6 +92,32 @@ export const lookupTemplate = (templateId: string): Template<object> => {
 }
 
 /**
+ * @internal Turn a thunk into a memoized version of itself. The memoized thunk
+ * invokes the original thunk only on its first invocation and caches the result
+ * for later uses. We use this to implement a version of `jtv.lazy` with
+ * memoization.
+ */
+export function memo<A>(thunk: () => A): () => A {
+  let memoized: () => A = () => {
+      const cache = thunk();
+      memoized = (): A => cache;
+      return cache;
+  };
+  // NOTE(MH): Since we change `memoized` when the resultung thunk is invoked
+  // for the first time, we need to return it "by reference". Thus, we return
+  // a closure which contains a reference to `memoized`.
+  return (): A => memoized();
+}
+
+/**
+ * @internal Variation of `jtv.lazy` which memoizes the computed decoder on its
+ * first invocation.
+ */
+export function lazyMemo<A>(mkDecoder: () => jtv.Decoder<A>): jtv.Decoder<A> {
+  return jtv.lazy(memo(mkDecoder));
+}
+
+/**
  * The counterpart of DAML's `()` type.
  */
 export type Unit = {};
@@ -99,7 +126,7 @@ export type Unit = {};
  * Companion obect of the [[Unit]] type.
  */
 export const Unit: Serializable<Unit> = {
-  decoder: () => jtv.object({}),
+  decoder: jtv.object({}),
 }
 
 /**
@@ -111,7 +138,7 @@ export type Bool = boolean;
  * Companion object of the [[Bool]] type.
  */
 export const Bool: Serializable<Bool> = {
-  decoder: jtv.boolean,
+  decoder: jtv.boolean(),
 }
 
 /**
@@ -125,7 +152,7 @@ export type Int = string;
  * Companion object of the [[Int]] type.
  */
 export const Int: Serializable<Int> = {
-  decoder: jtv.string,
+  decoder: jtv.string(),
 }
 
 /**
@@ -150,7 +177,7 @@ export type Decimal = Numeric;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const Numeric = (_: number): Serializable<Numeric> =>
   ({
-    decoder: jtv.string,
+    decoder: jtv.string(),
   })
 
 /**
@@ -167,7 +194,7 @@ export type Text = string;
  * Companion object of the [[Text]] type.
  */
 export const Text: Serializable<Text> = {
-  decoder: jtv.string,
+  decoder: jtv.string(),
 }
 
 /**
@@ -181,7 +208,7 @@ export type Time = string;
  * Companion object of the [[Time]] type.
  */
 export const Time: Serializable<Time> = {
-  decoder: jtv.string,
+  decoder: jtv.string(),
 }
 
 /**
@@ -195,7 +222,7 @@ export type Party = string;
  * Companion object of the [[Party]] type.
  */
 export const Party: Serializable<Party> = {
-  decoder: jtv.string,
+  decoder: jtv.string(),
 }
 
 /**
@@ -211,7 +238,7 @@ export type List<T> = T[];
  * Companion object of the [[List]] type.
  */
 export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
-  decoder: (): jtv.Decoder<T[]> => jtv.array(jtv.lazy(() => t.decoder())),
+  decoder: jtv.array(t.decoder),
 });
 
 /**
@@ -225,7 +252,7 @@ export type Date = string;
  * Companion object of the [[Date]] type.
  */
 export const Date: Serializable<Date> = {
-  decoder: jtv.string,
+  decoder: jtv.string(),
 }
 
 /**
@@ -253,7 +280,7 @@ export type ContractId<T> = string & { [ContractIdBrand]: T }
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => ({
-  decoder: jtv.string as () => jtv.Decoder<ContractId<T>>,
+  decoder: jtv.string() as jtv.Decoder<ContractId<T>>,
 });
 
 /**
@@ -276,14 +303,11 @@ type OptionalInner<T> = null extends T ? [] | [Exclude<T, null>] : T
  * @typeparam T The type of the optionally present value.
  */
 class OptionalWorker<T> implements Serializable<Optional<T>> {
-  constructor(private payload: Serializable<T>) { }
+  decoder: jtv.Decoder<Optional<T>>;
+  private innerDecoder: jtv.Decoder<OptionalInner<T>>;
 
-  decoder(): jtv.Decoder<Optional<T>> {
-      return jtv.oneOf(jtv.constant(null), jtv.lazy(() => this.innerDecoder()));
-  }
-
-  private innerDecoder(): jtv.Decoder<OptionalInner<T>> {
-    if (this.payload instanceof OptionalWorker) {
+  constructor(payload: Serializable<T>) {
+    if (payload instanceof OptionalWorker) {
       // NOTE(MH): `T` is of the form `Optional<U>` for some `U` here, that is
       // `T = Optional<U> = null | OptionalInner<U>`. Since `null` does not
       // extend `OptionalInner<V>` for any `V`, this implies
@@ -291,16 +315,17 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
       // `OptionalInner<T> = [] | [Exclude<T, null>]`.
       type OptionalInnerU = Exclude<T, null>
       const payloadInnerDecoder =
-        this.payload.innerDecoder() as jtv.Decoder<unknown> as jtv.Decoder<OptionalInnerU>;
-      return jtv.oneOf<[] | [Exclude<T, null>]>(
+        payload.innerDecoder as jtv.Decoder<unknown> as jtv.Decoder<OptionalInnerU>;
+      this.innerDecoder = jtv.oneOf<[] | [Exclude<T, null>]>(
         jtv.constant<[]>([]),
         jtv.tuple([payloadInnerDecoder]),
       ) as jtv.Decoder<OptionalInner<T>>;
     } else {
       // NOTE(MH): `T` is not of the form `Optional<U>` here and hence `null`
       // does not extend `T`. Thus, `OptionalInner<T> = T`.
-      return this.payload.decoder() as jtv.Decoder<OptionalInner<T>>;
+      this.innerDecoder = payload.decoder as jtv.Decoder<OptionalInner<T>>;
     }
+    this.decoder = jtv.oneOf(jtv.constant(null), this.innerDecoder);
   }
 }
 
@@ -323,7 +348,7 @@ export type TextMap<T> = { [key: string]: T };
  * Companion object of the [[TextMap]] type.
  */
 export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
-    decoder: (): jtv.Decoder<TextMap<T>> => jtv.dict(jtv.lazy(() => t.decoder())),
+    decoder: jtv.dict(t.decoder),
 });
 
 // TODO(MH): `Map` type.

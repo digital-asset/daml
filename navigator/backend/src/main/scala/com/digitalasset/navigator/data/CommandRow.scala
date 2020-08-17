@@ -61,7 +61,7 @@ final case class CommandRow(
           t <- Try(types.template(tid).get)
           cId <- Try(contractId.get)
           ch <- Try(choice.get)
-          c <- Try(t.choices.find(_.name.unwrap == ch).get)
+          _ <- Try(t.choices.find(_.name.unwrap == ch).get)
           argJson <- Try(argumentValue.get)
           arg <- Try(ApiCodecVerbose.jsValueToApiValue(argJson.parseJson))
         } yield {

@@ -246,7 +246,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
   private def transactionHandled(t: TransactionTree): Future[Unit] = {
     startOffSet = LedgerOffset.Value.Absolute(t.offset)
-    Future.successful(())
+    Future.unit
   }
 
   private def createClient: Future[LedgerClient] =

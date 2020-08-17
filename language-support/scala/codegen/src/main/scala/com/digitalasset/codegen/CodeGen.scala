@@ -245,7 +245,7 @@ object CodeGen {
   ) = {
 
     val (recordAndVariants, enums) = partitionEithers(definitions map {
-      case sdt @ ScopedDataType(qualName, typeVars, ddt) =>
+      case sdt @ ScopedDataType(_, _, ddt) =>
         ddt match {
           case r: Record[RT] =>
             Left(Left(sdt copy (dataType = r)))

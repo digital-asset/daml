@@ -9,9 +9,9 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
-import com.daml.ledger.participant.state.kvutils.{Bytes, DamlStateMap, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyValuePairs}
+import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
@@ -87,14 +87,8 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       when(mockStateOperations.readState(any[Seq[Bytes]]()))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
 
-      def failingProcessSubmission(
-          damlLogEntryId: DamlLogEntryId,
-          recordTime: Timestamp,
-          damlSubmission: DamlSubmission,
-          participantId: ParticipantId,
-          inputState: DamlStateMap
-      ): LogEntryAndState =
-        throw new IllegalArgumentException("Validation failed")
+      val failingProcessSubmission: SubmissionValidator.ProcessSubmission =
+        (_, _, _, _, _) => throw new IllegalArgumentException("Validation failed")
 
       val instance =
         new SubmissionValidator(
@@ -159,7 +153,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
       when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture()))
-        .thenReturn(Future.successful(()))
+        .thenReturn(Future.unit)
       val logEntryCaptor = captor[Bytes]
       when(mockStateOperations.appendToLog(any[Bytes](), logEntryCaptor.capture()))
         .thenReturn(Future.successful(expectedLogResult))
@@ -194,7 +188,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
       when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture()))
-        .thenReturn(Future.successful(()))
+        .thenReturn(Future.unit)
       val logEntryCaptor = captor[Bytes]
       when(mockStateOperations.appendToLog(any[Bytes](), logEntryCaptor.capture()))
         .thenReturn(Future.successful(expectedLogResult))

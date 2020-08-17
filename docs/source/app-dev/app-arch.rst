@@ -49,7 +49,7 @@ with a JSON API server by running
 
 in the root of the project. This is the most simple DAML ledger implementation. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and DAML artefacts of your project to a production ledger. See :ref:`Deploying to DAML
+your frontend and DAML artifacts of your project to a production ledger. See :ref:`Deploying to DAML
 Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
 Frontend
@@ -124,10 +124,10 @@ typical DAML developer workflow is to
 
 .. image:: ./developer_workflow.svg
 
-.. _handling-submission-failures:
+.. _command-deduplication:
 
-Handle failures when submitting commands
-****************************************
+Command deduplication
+*********************
 
 The interaction of a DAML application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
 
@@ -147,6 +147,42 @@ To use command deduplication, you should:
 
 
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
+
+
+.. _failing-over-between-ledger-api-endpoints:
+
+Failing over between Ledger API endpoints
+*****************************************
+
+Some DAML Ledgers support exposing multiple eventually consistent Ledger API
+endpoints where command deduplication works across these Ledger API endpoints.
+For example, these endpoints might be hosted by separate Ledger API servers
+that replicate the same data and host the same parties. Contact your ledger
+operator to find out whether this applies to your ledger.
+
+Below we describe how you can build your application such that it can switch
+between such eventually consistent Ledger API endpoints to tolerate server
+failures. You can do this using the following two steps.
+
+First, your application must keep track of the last ledger offset received
+from the :ref:`transaction service <transaction-service>` or the :ref:`command
+completion service <command-completion-service>`.  When switching to a new
+Ledger API endpoint, it must resume consumption of the transaction (tree)
+and/or the command completion streams starting from this last received
+offset.
+
+Second, your application must retry on ``OUT_OF_RANGE`` errors (see `gRPC
+status codes <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_)
+received from a stream subscription -- using an appropriate backoff strategy
+to avoid overloading the server. Such errors can be raised because of eventual
+consistency. The Ledger API endpoint that the application is newly subscribing
+to might be behind the endpoint that it subscribed to before the switch, and
+needs time to catch up. Thanks to eventual consistency this is guaranteed to
+happen at some point in the future.
+
+Once the application successfully subscribes to its required streams on the
+new endpoint, it will resume normal operation.
+
 
 .. _dealing-with-time:
 

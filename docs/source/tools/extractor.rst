@@ -254,28 +254,14 @@ Exercise events are stored in the ``exercise`` table in the ``public`` schema, w
 JSON format
 ***********
 
-Values on the ledger can be either primitive types, user-defined ``records``, or ``variants``. An extracted contract is represented in the database as a ``record`` of its create argument, and the fields of that ``records`` are either primitive types, other ``records``, or ``variants``. A contract can be a recursive structure of arbitrary depth.
+Extractor stores create and choice arguments
+using the :doc:`/json-api/lf-value-specification`. The parameters of the
+JSON schema are instantiated as follows in Extractor:
 
-These types are translated to `JSON types <https://json-schema.org/understanding-json-schema/reference/index.html>`_ the following way:
+.. code::
 
-**Primitive types**
-
-- ``ContractID``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Int64``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Decimal``: A decimal value with precision 38 (38 decimal digits), of which 10 after the comma / period. Represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``List``: represented as `array <https://json-schema.org/understanding-json-schema/reference/array.html>`_.
-- ``Text``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Date``: days since the unix epoch. represented as `integer <https://json-schema.org/understanding-json-schema/reference/numeric.html#integer>`_.
-- ``Time``: Microseconds since the UNIX epoch. Represented as `number <https://json-schema.org/understanding-json-schema/reference/numeric.html#number>`_.
-- ``Bool``: represented as `boolean <https://json-schema.org/understanding-json-schema/reference/boolean.html>`_.
-- ``Party``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Unit`` and ``Empty`` are represented as empty records.
-- ``Optional``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, as it was a ``Variant`` with two possible constructors: ``None`` and ``Some``.
-
-**User-defined types**
-
-- ``Record``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, where each create parameter’s name is a key, and the parameter’s value is the JSON-encoded value.
-- ``Variant``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, using the ``{constructor: body}`` format, e.g. ``{"Left": true}``.
+    encodeDecimalAsString: true
+    encodeInt64AsString: false
 
 Examples of output
 ******************

@@ -108,13 +108,11 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
         override val inputs: DamlStateMap = inputState
       }
-      preExecute(submission, participantId, inputState, commitContext)
+      preExecute(submission, commitContext)
     }
 
   private[committer] def preExecute(
       submission: DamlSubmission,
-      participantId: ParticipantId,
-      inputState: DamlStateMap,
       commitContext: CommitContext,
   ): PreExecutionResult = {
     val successfulLogEntry = runSteps(commitContext, submission)

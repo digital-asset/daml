@@ -15,7 +15,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.LegacyTransactionCommitter
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
@@ -45,6 +45,8 @@ class SqlLedgerSpec
     with AkkaBeforeAndAfterAll
     with PostgresAroundEach
     with MetricsAround {
+
+  protected implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   override val timeLimit: Span = scaled(Span(1, Minute))
   implicit override val patienceConfig: PatienceConfig =
@@ -173,7 +175,7 @@ class SqlLedgerSpec
       packages: List[DamlLf.Archive],
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    val ledger = newLoggingContext { implicit logCtx =>
+    val ledger =
       new SqlLedger.Owner(
         name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),
@@ -191,7 +193,6 @@ class SqlLedgerSpec
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
       ).acquire()(system.dispatcher)
-    }
     createdLedgers += ledger
     ledger.asFuture
   }

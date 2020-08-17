@@ -3,13 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{Node, NodeId}
+import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -59,9 +58,6 @@ class ProjectionsSpec extends WordSpec with Matchers {
     Projections.computePerPartyProjectionRoots(tx, bi)
   }
 
-  private def toCid(nid: NodeId) =
-    ContractId.V1(crypto.Hash.hashPrivateKey(nid.toString))
-
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {
@@ -69,7 +65,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
     }
 
     "yield two projection roots for single root transaction with two parties" in {
-      val builder = new TransactionBuilder
+      val builder = TransactionBuilder()
       val nid = builder.add(
         makeCreateNode(
           builder.newCid,
@@ -85,7 +81,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
     }
 
     "yield proper projection roots in complex transaction" in {
-      val builder = new TransactionBuilder
+      val builder = TransactionBuilder()
 
       // Alice creates an "offer contract" to Bob as part of her workflow.
       // Alice sees both the exercise and the create, and Bob only

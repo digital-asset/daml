@@ -8,10 +8,8 @@ import com.codahale.metrics._
 
 final class Metrics(val registry: MetricRegistry) {
 
-  private def gauge[T](name: MetricName, metricSupplier: MetricSupplier[Gauge[_]]): Gauge[T] = {
-    registry.remove(name)
-    registry.gauge(name, metricSupplier).asInstanceOf[Gauge[T]]
-  }
+  private[metrics] def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
+    registerGauge(name, gaugeSupplier, registry)
 
   object test {
     private val Prefix: MetricName = MetricName("test")
@@ -105,8 +103,9 @@ final class Metrics(val registry: MetricRegistry) {
           val decodeTimer: Timer = registry.timer(Prefix :+ "decode_timer")
           val accepts: Counter = registry.counter(Prefix :+ "accepts")
           val rejections: Counter = registry.counter(Prefix :+ "rejections")
-          def loadedPackages(value: () => Int): Gauge[Nothing] = {
-            gauge(Prefix :+ "loaded_packages", () => () => value())
+
+          def loadedPackages(value: () => Int): Unit = {
+            register(Prefix :+ "loaded_packages", () => () => value())
           }
         }
 
@@ -200,6 +199,13 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = kvutils.Prefix :+ "writer"
 
         val commit: Timer = registry.timer(Prefix :+ "commit")
+
+        val preExecutedCount: Counter = registry.counter(Prefix :+ "pre_executed_count")
+        val preExecutedInterpretationCosts: Histogram =
+          registry.histogram(Prefix :+ "pre_executed_interpretation_costs")
+        val committedCount: Counter = registry.counter(Prefix :+ "committed_count")
+        val committedInterpretationCosts: Histogram =
+          registry.histogram(Prefix :+ "committed_interpretation_costs")
       }
 
       object conflictdetection {
@@ -421,8 +427,8 @@ final class Metrics(val registry: MetricRegistry) {
       val lastReceivedOffset = new VarGauge[String]("<none>")
       registry.register(Prefix :+ "last_received_offset", lastReceivedOffset)
 
-      def currentRecordTimeLag(value: () => Long): Gauge[Nothing] =
-        gauge(Prefix :+ "current_record_time_lag", () => () => value())
+      def currentRecordTimeLag(value: () => Long): Unit =
+        register(Prefix :+ "current_record_time_lag", () => () => value())
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
     }

@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.io.PrintStream
+import java.io.{PrintStream, PrintWriter, StringWriter}
 
 import scala.util.Try
 
@@ -16,16 +16,21 @@ object Reporter {
     private val reset = "\u001b[0m"
 
     private def red(s: String): String = s"\u001b[31m$s$reset"
+
     private def green(s: String): String = s"\u001b[32m$s$reset"
+
     private def yellow(s: String): String = s"\u001b[33m$s$reset"
+
     private def blue(s: String): String = s"\u001b[34m$s$reset"
+
     private def cyan(s: String): String = s"\u001b[36m$s$reset"
 
-    private def render(t: Throwable): Seq[String] =
-      s"${t.getClass.getName}: ${t.getMessage}" +: t.getStackTrace.map(render)
-
-    private def render(e: StackTraceElement): String =
-      s"\tat ${e.getClassName}.${e.getMethodName}(${e.getFileName}:${e.getLineNumber})"
+    private def render(t: Throwable): Iterator[String] = {
+      val stringWriter = new StringWriter
+      val writer = new PrintWriter(stringWriter)
+      t.printStackTrace(writer)
+      stringWriter.toString.linesIterator
+    }
 
     private def extractRelevantLineNumber(t: Throwable): Option[Int] =
       t.getStackTrace

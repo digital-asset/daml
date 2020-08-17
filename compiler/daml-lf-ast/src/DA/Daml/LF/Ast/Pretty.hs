@@ -218,6 +218,7 @@ instance Pretty BuiltinExpr where
     BEGreater t   -> pPrintAppKeyword lvl prec "GREATER"    [TyArg (TBuiltin t)]
     BEGreaterEq t -> pPrintAppKeyword lvl prec "GREATER_EQ" [TyArg (TBuiltin t)]
     BEToText t    -> pPrintAppKeyword lvl prec "TO_TEXT"    [TyArg (TBuiltin t)]
+    BEToTextContractId -> "TO_TEXT_CONTRACT_ID"
     BEAddDecimal -> "ADD_DECIMAL"
     BESubDecimal -> "SUB_DECIMAL"
     BEMulDecimal -> "MUL_DECIMAL"

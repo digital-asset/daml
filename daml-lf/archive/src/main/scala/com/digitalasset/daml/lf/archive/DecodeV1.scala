@@ -62,6 +62,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             _,
             onlySerializableDataDefs).decode),
       directDeps = dependencyTracker.getDependencies,
+      languageVersion = languageVersion,
       metadata = metadata,
     )
 
@@ -238,7 +239,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         templates += ((defName, decodeTemplate(defn)))
       }
 
-      Module(moduleName, defs, templates, languageVersion, decodeFeatureFlags(lfModule.getFlags))
+      Module(moduleName, defs, templates, decodeFeatureFlags(lfModule.getFlags))
     }
 
     // -----------------------------------------------------------------------
@@ -1555,6 +1556,11 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
       BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty, minVersion = partyTextConversions),
       BuiltinFunctionInfo(TO_TEXT_TEXT, BToTextText),
+      BuiltinFunctionInfo(
+        TO_TEXT_CONTRACT_ID,
+        BToTextContractId,
+        minVersion = contractIdTextConversions,
+      ),
       BuiltinFunctionInfo(TO_QUOTED_TEXT_PARTY, BToQuotedTextParty),
       BuiltinFunctionInfo(TEXT_FROM_CODE_POINTS, BToTextCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(FROM_TEXT_PARTY, BFromTextParty, minVersion = partyTextConversions),

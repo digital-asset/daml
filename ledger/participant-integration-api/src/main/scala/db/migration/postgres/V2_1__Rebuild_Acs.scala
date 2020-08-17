@@ -23,7 +23,6 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
 import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
@@ -50,33 +49,11 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
-
-  private def lookupLedgerId()(implicit conn: Connection): Option[String] =
-    SQL_SELECT_LEDGER_ID
-      .as(ledgerString("ledger_id").singleOpt)
-
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 
   private def lookupLedgerEnd()(implicit conn: Connection): Option[Long] =
     SQL_SELECT_LEDGER_END
       .as(SqlParser.long("ledger_end").singleOpt)
-
-  private val SQL_INITIALIZE = SQL(
-    "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
-
-  // Note that the ledger entries grow monotonically, however we store many ledger entries in parallel,
-  // and thus we need to make sure to only update the ledger end when the ledger entry we're committing
-  // is advancing it.
-  private val SQL_UPDATE_LEDGER_END = SQL(
-    "update parameters set ledger_end = {LedgerEnd} where ledger_end < {LedgerEnd}")
-
-  private def updateLedgerEnd(ledgerEnd: Long)(implicit conn: Connection): Unit = {
-    SQL_UPDATE_LEDGER_END
-      .on("LedgerEnd" -> ledgerEnd)
-      .execute()
-    ()
-  }
 
   private val SQL_INSERT_CONTRACT_KEY =
     SQL(
@@ -274,19 +251,6 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private val SQL_ARCHIVE_CONTRACT =
     SQL("""update contracts set archive_offset = {archive_offset} where id = {id}""")
 
-  private val SQL_INSERT_TRANSACTION =
-    SQL(
-      """insert into ledger_entries(typ, ledger_offset, transaction_id, command_id, application_id, submitter, workflow_id, effective_at, recorded_at, transaction)
-        |values('transaction', {ledger_offset}, {transaction_id}, {command_id}, {application_id}, {submitter}, {workflow_id}, {effective_at}, {recorded_at}, {transaction})""".stripMargin)
-
-  private val SQL_INSERT_REJECTION =
-    SQL(
-      """insert into ledger_entries(typ, ledger_offset, command_id, application_id, submitter, recorded_at, rejection_type, rejection_description)
-        |values('rejection', {ledger_offset}, {command_id}, {application_id}, {submitter}, {recorded_at}, {rejection_type}, {rejection_description})""".stripMargin)
-
-  private val SQL_BATCH_INSERT_DISCLOSURES =
-    "insert into disclosures(transaction_id, event_id, party) values({transaction_id}, {event_id}, {party})"
-
   // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
   // more than once through BlindingInfo.divulgence.
   // The ledger offsets for the same (contract, party) tuple should always be increasing, and the database
@@ -305,10 +269,6 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
       |where transaction_id={transaction_id}
       |on conflict on constraint contract_divulgences_idx
       |do nothing""".stripMargin
-
-  private val SQL_INSERT_CHECKPOINT =
-    SQL(
-      "insert into ledger_entries(typ, ledger_offset, recorded_at) values('checkpoint', {ledger_offset}, {recorded_at})")
 
   /**
     * Updates the active contract set from the given DAML transaction.
@@ -414,44 +374,6 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             ()
         }
     }
-
-  private def storeTransaction(offset: Long, tx: LedgerEntry.Transaction)(
-      implicit connection: Connection): Unit = {
-    SQL_INSERT_TRANSACTION
-      .on(
-        "ledger_offset" -> offset,
-        "transaction_id" -> tx.transactionId,
-        "command_id" -> tx.commandId,
-        "application_id" -> tx.applicationId,
-        "submitter" -> (tx.submittingParty: Option[String]),
-        "workflow_id" -> tx.workflowId,
-        "effective_at" -> tx.ledgerEffectiveTime,
-        "recorded_at" -> tx.recordedAt,
-        "transaction" -> transactionSerializer
-          .serializeTransaction(tx.transactionId, tx.transaction)
-          .getOrElse(sys.error(s"failed to serialize transaction! trId: ${tx.transactionId}"))
-      )
-      .execute()
-
-    val disclosureParams = tx.explicitDisclosure.flatMap {
-      case (nodeId, parties) =>
-        parties.map(
-          p =>
-            Seq[NamedParameter](
-              "transaction_id" -> tx.transactionId,
-              "event_id" -> EventId(tx.transactionId, nodeId),
-              "party" -> p
-          ))
-    }
-    if (disclosureParams.nonEmpty) {
-      executeBatchSql(
-        SQL_BATCH_INSERT_DISCLOSURES,
-        disclosureParams
-      )
-    }
-
-    ()
-  }
 
   private def readRejectionReason(rejectionType: String, description: String): RejectionReason =
     rejectionType match {
@@ -574,20 +496,6 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
     SQL(
       "select c.*, le.recorded_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
 
-  private val SQL_SELECT_WITNESS =
-    SQL("select witness from contract_witnesses where contract_id={contract_id}")
-
-  private val DivulgenceParser = (party("party")
-    ~ long("ledger_offset")
-    ~ ledgerString("transaction_id") map flatten)
-
-  private val SQL_SELECT_DIVULGENCE =
-    SQL(
-      "select party, ledger_offset, transaction_id from contract_divulgences where contract_id={contract_id}")
-
-  private val SQL_SELECT_KEY_MAINTAINERS =
-    SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
-
   /** Note: at the time this migration was written, divulged contracts were not stored separately from active contracts.
     * This method therefore treats all contracts as active contracts.
     */
@@ -599,9 +507,6 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
       .map {
         case (_, _, _, let, _, _, _) => Let(let.toInstant)
       }
-
-  private val SQL_GET_LEDGER_ENTRIES = SQL(
-    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
 
   // Note that here we are reading, non transactionally, the stream in chunks. The reason why this is
   // safe is that
@@ -621,12 +526,6 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             .concat(paginatingStream(startInclusive + pageSize, endExclusive, pageSize, queryPage))
       }
       .mapMaterializedValue(_ => NotUsed)
-
-  private val PageSize = 100
-
-  private val SQL_SELECT_ACTIVE_CONTRACTS =
-    SQL(
-      "select c.*, le.recorded_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {

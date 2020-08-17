@@ -138,7 +138,7 @@ Example session
 
 .. code-block:: shell
 
-    $ daml new iou-quickstart-java quickstart-java
+    $ daml new iou-quickstart-java --template quickstart-java
     $ cd iou-quickstart-java/
     $ daml build
     $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
@@ -1302,7 +1302,9 @@ Every ``events`` block following the end of contracts that existed when
 the request started includes an ``offset``.  The stream is guaranteed to
 send an offset immediately at the beginning of this "live" data, which
 may or may not contain any ``events``; if it does not contain events and
-no events were emitted before, it may be ``null`` or a string;
+no events were emitted before, it may be ``null`` if there was no
+transaction on the ledger
+or a string representing the current ledger end;
 otherwise, it will be a string.  For example, you might use it to turn
 off an initial "loading" indicator::
 

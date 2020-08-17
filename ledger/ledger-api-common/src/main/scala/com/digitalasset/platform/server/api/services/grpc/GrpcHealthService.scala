@@ -21,7 +21,7 @@ import io.grpc.health.v1.health.{
 import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 class GrpcHealthService(
@@ -30,7 +30,6 @@ class GrpcHealthService(
 )(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
-    executionContext: ExecutionContext,
 ) extends HealthAkkaGrpc
     with GrpcApiService {
   override def bindService(): ServerServiceDefinition =

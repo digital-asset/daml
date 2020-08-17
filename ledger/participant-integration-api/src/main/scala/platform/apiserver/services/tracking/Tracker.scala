@@ -5,12 +5,17 @@ package com.daml.platform.apiserver.services.tracking
 
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.completion.Completion
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[tracking] trait Tracker extends AutoCloseable {
 
-  def track(request: SubmitAndWaitRequest)(implicit ec: ExecutionContext): Future[Completion]
+  def track(request: SubmitAndWaitRequest)(
+      implicit ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Completion]
+
 }
 
 private[tracking] object Tracker {
@@ -24,7 +29,9 @@ private[tracking] object Tracker {
     def getLastSubmission: Long = lastSubmission
 
     override def track(request: SubmitAndWaitRequest)(
-        implicit ec: ExecutionContext): Future[Completion] = {
+        implicit ec: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[Completion] = {
       lastSubmission = System.nanoTime()
       delegate.track(request)
     }

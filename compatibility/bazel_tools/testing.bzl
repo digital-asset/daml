@@ -197,7 +197,11 @@ def create_daml_app_codegen(sdk_version):
         name = "create-daml-app-codegen-{}".format(version_to_name(sdk_version)),
         outs = ["create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version))],
         srcs = [dar, daml_types, daml_ledger],
-        tools = [daml, "//bazel_tools/create-daml-app:run-with-yarn"],
+        tools = [
+            daml,
+            "//bazel_tools/create-daml-app:run-with-yarn",
+            "@daml//bazel_tools/sh:mktgz",
+        ],
         cmd = """\
 set -euo pipefail
 TMP_DIR=$$(mktemp -d)
@@ -208,9 +212,7 @@ tar xf $(rootpath {daml_types}) --strip-components=1 -C $$TMP_DIR/daml-types
 tar xf $(rootpath {daml_ledger}) --strip-components=1 -C $$TMP_DIR/daml-ledger
 $(execpath //bazel_tools/create-daml-app:run-with-yarn) $$TMP_DIR $$PWD/$(execpath {daml}) codegen js -o $$TMP_DIR/daml.js $(execpath {dar})
 rm -rf $$TMP_DIR/daml.js/node_modules
-tar c --format=ustar -C $$TMP_DIR daml.js \
-  --owner=0 --group=0 --numeric-owner --mtime="2000-01-01 00:00Z" --sort=name \
-  | gzip -n > $@
+$(execpath @daml//bazel_tools/sh:mktgz) $@ -C $$TMP_DIR daml.js
 """.format(
             daml = daml,
             daml_types = daml_types,

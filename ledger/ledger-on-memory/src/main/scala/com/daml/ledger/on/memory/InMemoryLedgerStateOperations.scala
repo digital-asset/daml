@@ -11,13 +11,13 @@ import com.daml.ledger.validator.BatchingLedgerStateOperations
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 private[memory] final class InMemoryLedgerStateOperations(
     log: InMemoryState.MutableLog,
     state: InMemoryState.MutableState,
-)(implicit executionContext: ExecutionContext)
-    extends BatchingLedgerStateOperations[Index] {
+) extends BatchingLedgerStateOperations[Index] {
+
   import InMemoryLedgerStateOperations.appendEntry
 
   override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
@@ -33,7 +33,7 @@ private[memory] final class InMemoryLedgerStateOperations(
 }
 
 object InMemoryLedgerStateOperations {
-  def apply()(implicit executionContext: ExecutionContext): InMemoryLedgerStateOperations = {
+  def apply(): InMemoryLedgerStateOperations = {
     val inMemoryState = mutable.Map.empty[Key, Value]
     val inMemoryLog = mutable.ArrayBuffer[LedgerRecord]()
     new InMemoryLedgerStateOperations(inMemoryLog, inMemoryState)

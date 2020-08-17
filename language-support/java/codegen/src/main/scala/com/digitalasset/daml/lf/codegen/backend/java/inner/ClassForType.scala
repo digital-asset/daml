@@ -29,7 +29,6 @@ object ClassForType extends StrictLogging {
             className,
             typeVars.map(JavaEscaper.escapeString),
             record,
-            None,
             packagePrefixes)
         List(javaFile(typeWithContext, javaPackage, typeSpec))
 
@@ -50,7 +49,7 @@ object ClassForType extends StrictLogging {
       case Some(Normal(DefDataType(_, enum: Enum))) =>
         List(
           JavaFile
-            .builder(javaPackage, EnumClass.generate(className, typeWithContext.identifier, enum))
+            .builder(javaPackage, EnumClass.generate(className, enum))
             .build())
 
       case Some(Template(record, template)) =>

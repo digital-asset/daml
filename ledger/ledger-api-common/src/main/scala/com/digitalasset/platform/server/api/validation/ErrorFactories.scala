@@ -25,6 +25,9 @@ trait ErrorFactories {
   def invalidField(fieldName: String, message: String) =
     grpcError(Status.INVALID_ARGUMENT.withDescription(s"Invalid field $fieldName: $message"))
 
+  def outOfRange(description: String): StatusRuntimeException =
+    grpcError(Status.OUT_OF_RANGE.withDescription(description))
+
   def notFound(target: String): StatusRuntimeException =
     grpcError(Status.NOT_FOUND.withDescription(s"$target not found."))
 

@@ -103,6 +103,11 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
+    # Spinning up jest, Sandbox and the JSON API is expensive.
+    # The expensive stuff should be Sandbox and the JSON API so we
+    # go for 2 CPUs. Feel free to change this to something more adequate
+    # if needed.
+    tags = ["cpu:2"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

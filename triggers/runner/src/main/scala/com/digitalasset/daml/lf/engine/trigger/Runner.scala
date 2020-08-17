@@ -167,7 +167,7 @@ object Trigger extends StrictLogging {
                 module.definitions.toList.flatMap({
                   case (entityName, definition) =>
                     definition match {
-                      case DDataType(_, _, DataRecord(_, Some(tpl))) =>
+                      case DDataType(_, _, DataRecord(_, Some(_))) =>
                         Seq(toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName))))
                       case _ => Seq()
                     }
@@ -206,7 +206,7 @@ class Runner(
   // This is the set of command IDs emitted by the trigger.  We track
   // this to detect collisions.
   private var usedCommandIds: Set[String] = Set.empty
-  private var transactionFilter: TransactionFilter =
+  private val transactionFilter: TransactionFilter =
     TransactionFilter(Seq((party, trigger.filters)).toMap)
 
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
@@ -373,7 +373,7 @@ class Runner(
           } catch {
             // This happens for invalid UUIDs which we might get for
             // completions not emitted by the trigger.
-            case e: IllegalArgumentException => List()
+            case _: IllegalArgumentException => List()
           }
         case TransactionMsg(t) =>
           try {
@@ -386,7 +386,7 @@ class Runner(
           } catch {
             // This happens for invalid UUIDs which we might get for
             // transactions not emitted by the trigger.
-            case e: IllegalArgumentException => List(TransactionMsg(t.copy(commandId = "")))
+            case _: IllegalArgumentException => List(TransactionMsg(t.copy(commandId = "")))
           }
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
@@ -454,7 +454,6 @@ class Runner(
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
     def submit(req: SubmitRequest): Unit = {
       val f: Future[Empty] = client.commandClient
-        .withTimeProvider(Some(Runner.getTimeProvider(timeProviderType)))
         .submitSingleCommand(req)
       f.failed.foreach({
         case s: StatusRuntimeException =>

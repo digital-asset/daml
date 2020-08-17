@@ -31,7 +31,7 @@ private[platform] final class HikariConnection(
     metrics: Option[MetricRegistry],
     connectionPoolPrefix: String,
     maxInitialConnectRetryAttempts: Int,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends ResourceOwner[HikariDataSource] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -82,7 +82,7 @@ private[platform] object HikariConnection {
       connectionTimeout: FiniteDuration,
       metrics: Option[MetricRegistry],
   )(
-      implicit logCtx: LoggingContext
+      implicit loggingContext: LoggingContext
   ): HikariConnection =
     new HikariConnection(
       serverRole,
@@ -99,8 +99,6 @@ private[platform] object HikariConnection {
 private[platform] class HikariJdbcConnectionProvider(
     dataSource: HikariDataSource,
     healthPoller: Timer,
-)(
-    implicit logCtx: LoggingContext
 ) extends JdbcConnectionProvider {
   private val transientFailureCount = new AtomicInteger(0)
 
@@ -160,7 +158,7 @@ private[platform] object HikariJdbcConnectionProvider {
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
-  )(implicit logCtx: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
+  )(implicit loggingContext: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
     for {
       // these connections should never time out as we have the same number of threads as connections
       dataSource <- HikariConnection.owner(

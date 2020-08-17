@@ -17,20 +17,20 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
-import scala.concurrent.ExecutionContext
-
 private[apiserver] final class ApiLedgerConfigurationService private (
-    configurationService: IndexConfigurationService)(
+    configurationService: IndexConfigurationService,
+)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
-    logCtx: LoggingContext)
-    extends LedgerConfigurationServiceAkkaGrpc
+    loggingContext: LoggingContext,
+) extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override protected def getLedgerConfigurationSource(
-      request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] =
+      request: GetLedgerConfigurationRequest,
+  ): Source[GetLedgerConfigurationResponse, NotUsed] =
     configurationService
       .getLedgerConfiguration()
       .map(
@@ -47,11 +47,10 @@ private[apiserver] final class ApiLedgerConfigurationService private (
 
 private[apiserver] object ApiLedgerConfigurationService {
   def create(ledgerId: LedgerId, configurationService: IndexConfigurationService)(
-      implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
+      implicit esf: ExecutionSequencerFactory,
       mat: Materializer,
-      logCtx: LoggingContext)
-    : LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
+      loggingContext: LoggingContext,
+  ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
     new LedgerConfigurationServiceValidation(
       new ApiLedgerConfigurationService(configurationService),
       ledgerId) with BindableService {

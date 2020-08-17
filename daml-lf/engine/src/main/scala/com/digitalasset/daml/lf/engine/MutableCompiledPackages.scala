@@ -1,16 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 
-import com.daml.lf.CompiledPackages
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.speedy.Compiler
 
 /** Trait that extends [[CompiledPackages]] with the ability to
   * add new packages.
   */
-abstract class MutableCompiledPackages extends CompiledPackages {
+abstract class MutableCompiledPackages(
+    stackTraceMode: speedy.Compiler.StackTraceMode,
+    profilingMode: Compiler.ProfilingMode,
+) extends CompiledPackages(stackTraceMode, profilingMode) {
 
   /** Add a new package and compile it to internal form. If package
     * depends on another package the call may return with [[ResultNeedPackage]].

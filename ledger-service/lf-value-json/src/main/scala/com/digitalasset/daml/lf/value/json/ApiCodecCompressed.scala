@@ -237,7 +237,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
         case JsArray(fValues) =>
           if (fValues.length != fields.length)
             deserializationError(
-              s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields")
+              s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields (expected ${fields.length}, found ${fValues.length}).")
           else
             V.ValueRecord(
               Some(id),

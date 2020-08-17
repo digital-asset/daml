@@ -25,7 +25,7 @@ import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.apiserver._
@@ -63,11 +63,15 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       None
   }
 
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // should not use DevEngine
-  private val engine = Engine.DevEngine()
-  engine.setProfileDir(config.profileDir)
-  engine.enableStackTraces(config.stackTraces)
+  private[this] val engine = {
+    val engineConfig = (
+      if (config.devMode) EngineConfig.Dev else EngineConfig.Stable
+    ).copy(
+      profileDir = config.profileDir,
+      stackTraceMode = config.stackTraces,
+    )
+    new Engine(engineConfig)
+  }
 
   private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
       String,
@@ -94,7 +98,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
 

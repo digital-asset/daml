@@ -4,19 +4,15 @@
 package com.daml.codegen
 
 import com.daml.codegen.dependencygraph._
-import com.daml.lf.data.Ref.QualifiedName
 
 import org.scalatest.{FlatSpec, Matchers}
 import dependencygraph.Graph._
 
 class GraphSpec extends FlatSpec with Matchers {
 
-  private[this] def intQualifiedName(i: Int): QualifiedName = {
-    val si = i.toString.replace('-', '_')
-    QualifiedName.assertFromString(s"M$si:E$si")
-  }
-
-  def intNode(contentAndId: Int, deps: List[Int] = List.empty[Int]): (Int, BaseNode[Int, Int]) =
+  private[this] def intNode(
+      contentAndId: Int,
+      deps: List[Int] = List.empty[Int]): (Int, BaseNode[Int, Int]) =
     contentAndId -> Node(contentAndId, deps, true)
 
   private[this] def orderedDependencies[K, A](

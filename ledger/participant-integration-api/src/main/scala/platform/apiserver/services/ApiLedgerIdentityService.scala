@@ -22,7 +22,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 
 private[apiserver] final class ApiLedgerIdentityService private (
-    getLedgerId: () => Future[LedgerId])(implicit logCtx: LoggingContext)
+    getLedgerId: () => Future[LedgerId])(implicit loggingContext: LoggingContext)
     extends GrpcLedgerIdentityService
     with GrpcApiService {
 
@@ -31,17 +31,17 @@ private[apiserver] final class ApiLedgerIdentityService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerIdentity(
-      request: GetLedgerIdentityRequest): Future[GetLedgerIdentityResponse] =
+      request: GetLedgerIdentityRequest,
+  ): Future[GetLedgerIdentityResponse] =
     if (closed)
       Future.failed(
         new ApiException(
           Status.UNAVAILABLE
             .withDescription("Ledger Identity Service closed.")))
-    else {
+    else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))(DirectExecutionContext)
         .andThen(logger.logErrorsOnCall[GetLedgerIdentityResponse])(DirectExecutionContext)
-    }
 
   override def close(): Unit = closed = true
 
@@ -51,7 +51,8 @@ private[apiserver] final class ApiLedgerIdentityService private (
 
 private[apiserver] object ApiLedgerIdentityService {
   def create(getLedgerId: () => Future[LedgerId])(
-      implicit logCtx: LoggingContext): ApiLedgerIdentityService with BindableService = {
+      implicit loggingContext: LoggingContext,
+  ): ApiLedgerIdentityService with BindableService = {
     new ApiLedgerIdentityService(getLedgerId)
   }
 }

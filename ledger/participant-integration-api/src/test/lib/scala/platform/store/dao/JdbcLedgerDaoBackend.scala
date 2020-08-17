@@ -24,7 +24,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
   protected def jdbcUrl: String
 
   protected def daoOwner(eventsPageSize: Int)(
-      implicit logCtx: LoggingContext
+      implicit loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao
       .writeOwner(
@@ -43,7 +43,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     implicit val executionContext: ExecutionContext = system.dispatcher
-    resource = newLoggingContext { implicit logCtx =>
+    resource = newLoggingContext { implicit loggingContext =>
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- daoOwner(100).acquire()

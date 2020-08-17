@@ -31,6 +31,7 @@ da_scala_binary(
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
         "@maven//:com_github_scopt_scopt_2_12",

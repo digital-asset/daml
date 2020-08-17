@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS  @hurryabit @gerolf-da
-LATEST      @hurryabit @gerolf-da @bame-da
+CODEOWNERS  @hurryabit @gerolf-da @cocreature
+LATEST      @hurryabit @gerolf-da @bame-da @cocreature
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -17,10 +17,10 @@ azure-cron.yml      @garyverhaegen-da
 # Language
 /compiler/          @hurryabit @cocreature
 /libs-haskell/      @hurryabit @cocreature
-/daml-assistant/    @associahedron @hurryabit @cocreature
+/daml-assistant/    @sofiafaro-da @hurryabit @cocreature
 /daml-script/       @cocreature @hurryabit @aherrmann-da
 /triggers/          @cocreature @hurryabit @aherrmann-da
-/ghc-lib/           @shayne-fletcher @cocreature
+/ghc-lib/           @cocreature
 /compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
@@ -39,7 +39,7 @@ azure-cron.yml      @garyverhaegen-da
 /daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001
 /daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001
 
-/ledger-service/    @leo-da @S11001001
+/ledger-service/    @leo-da @S11001001 @cocreature
 
 /ledger/      @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
 /ledger-api/  @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
@@ -49,9 +49,9 @@ azure-cron.yml      @garyverhaegen-da
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da
-/language-support/java/     @gerolf-da @stefanobaghino-da
-/language-support/scala/    @leo-da @S11001001
-/language-support/ts/       @hurryabit @shayne-fletcher @robin-da
+/language-support/java/     @gerolf-da @stefanobaghino-da @cocreature
+/language-support/scala/    @leo-da @S11001001 @cocreature
+/language-support/ts/       @hurryabit @robin-da @cocreature @garyverhaegen-da
 
 # Tools
 /extractor/         @leo-da @S11001001

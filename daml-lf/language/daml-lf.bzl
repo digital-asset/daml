@@ -21,4 +21,4 @@ LF_VERSION_PACKAGE_DIGITALASSET = {"1.6": "digitalasset", "1.7": "digitalasset",
 def lf_version_package(version):
     return LF_VERSION_PACKAGE_DIGITALASSET.get(version, "daml")
 
-LF_MAJOR_VERSIONS = ["0", "1"]
+LF_MAJOR_VERSIONS = ["1"]

@@ -10,7 +10,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -54,7 +54,6 @@ object TestMain extends StrictLogging {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
-        val applicationId = ApplicationId("Script Test")
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptTestPool")(system)
@@ -71,7 +70,7 @@ object TestMain extends StrictLogging {
             }
             val jsVal = fileContent.parseJson
             import ParticipantsJsonProtocol._
-            (jsVal.convertTo[Participants[ApiParameters]], () => Future.successful(()))
+            (jsVal.convertTo[Participants[ApiParameters]], () => Future.unit)
           case None =>
             val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
               val timeProviderType = config.timeMode match {
@@ -85,11 +84,11 @@ object TestMain extends StrictLogging {
               val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
               val sandboxPort =
                 Await.result(sandboxResource.asFuture.flatMap(_.portF).map(_.value), Duration.Inf)
-              (ApiParameters("localhost", sandboxPort, None), () => sandboxResource.release())
+              (ApiParameters("localhost", sandboxPort, None, None), () => sandboxResource.release())
             } else {
               (
-                ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None),
-                () => Future.successful(()),
+                ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None, None),
+                () => Future.unit,
               )
             }
             (
@@ -120,8 +119,7 @@ object TestMain extends StrictLogging {
         val flow: Future[Boolean] = for {
           clients <- Runner.connect(
             participantParams,
-            applicationId,
-            None,
+            TlsConfiguration(false, None, None, None),
             config.maxInboundMessageSize,
           )
           _ <- clients.getParticipant(None) match {
@@ -134,7 +132,7 @@ object TestMain extends StrictLogging {
           _ <- sequentialTraverse(testScripts.toList) {
             case (id, script) =>
               val runner =
-                new Runner(compiledPackages, script, applicationId, config.timeMode)
+                new Runner(compiledPackages, script, config.timeMode)
               val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
               // Print test result and remember failure.
               testRun.onComplete {

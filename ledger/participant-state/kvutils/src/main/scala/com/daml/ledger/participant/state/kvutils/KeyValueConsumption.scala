@@ -185,6 +185,9 @@ object KeyValueConsumption {
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
         outOfTimeBoundsEntryToUpdate(recordTime, entry.getOutOfTimeBoundsEntry).toList
 
+      case DamlLogEntry.PayloadCase.TIME_UPDATE_ENTRY =>
+        List.empty
+
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InternalError("logEntryToUpdate: PAYLOAD_NOT_SET!")
     }

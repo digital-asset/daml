@@ -14,6 +14,7 @@ import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
 import java.util.UUID
 
+import org.scalactic.source
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
@@ -36,6 +37,8 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import eu.rekawek.toxiproxy._
 
 abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually with Matchers {
+
+  import AbstractTriggerServiceTest.CompatAssertion
 
   // Abstract member for testing with and without a database
   def jdbcConfig: Option[JdbcConfig]
@@ -78,9 +81,9 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     }
   }
 
-  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])
-    : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
-    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)
+  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
+      testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
+    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)(testFn)
 
   def startTrigger(uri: Uri, triggerName: String, party: User): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -187,11 +190,11 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     } yield statusMsgs
   }
 
-  def assertTriggerStatus(
+  def assertTriggerStatus[A](
       uri: Uri,
       triggerInstance: UUID,
-      pred: Vector[String] => Boolean,
-      timeoutSeconds: Long = 15): Future[Assertion] = {
+      pred: Vector[String] => A,
+      timeoutSeconds: Long = 15)(implicit A: CompatAssertion[A]): Future[Assertion] = {
     implicit val patienceConfig: PatienceConfig =
       PatienceConfig(
         timeout = scaled(Span(timeoutSeconds, Seconds)),
@@ -201,17 +204,17 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         resp <- triggerStatus(uri, triggerInstance)
         result <- parseTriggerStatus(resp)
       } yield result, Duration.Inf)
-      assert(pred(actualTriggerStatus))
+      A(pred(actualTriggerStatus))
     }
   }
 
   it should "start up and shut down server" in
-    withTriggerService(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    withTriggerService(Some(dar)) { (_, _, _) =>
       Future(succeed)
     }
 
   it should "allow repeated uploads of the same packages" in
-    withTriggerService(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    withTriggerService(Some(dar)) { (uri: Uri, _, _) =>
       for {
         resp <- uploadDar(uri, darPath) // same dar as in initialization
         _ <- parseResult(resp)
@@ -221,7 +224,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     }
 
   it should "fail to start non-existent trigger" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    (uri: Uri, _, _) =>
       val expectedError = StatusCodes.UnprocessableEntity
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", alice)
@@ -235,24 +238,23 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       } yield succeed
   }
 
-  it should "start a trigger after uploading it" in withTriggerService(None) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      for {
-        resp <- uploadDar(uri, darPath)
-        JsObject(fields) <- parseResult(resp)
-        Some(JsString(mainPackageId)) = fields.get("mainPackageId")
-        _ <- mainPackageId should not be empty
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        triggerId <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, Vector(triggerId))
-        resp <- stopTrigger(uri, triggerId, alice)
-        stoppedTriggerId <- parseTriggerId(resp)
-        _ <- stoppedTriggerId should equal(triggerId)
-      } yield succeed
+  it should "start a trigger after uploading it" in withTriggerService(None) { (uri: Uri, _, _) =>
+    for {
+      resp <- uploadDar(uri, darPath)
+      JsObject(fields) <- parseResult(resp)
+      Some(JsString(mainPackageId)) = fields.get("mainPackageId")
+      _ <- mainPackageId should not be empty
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      triggerId <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(triggerId))
+      resp <- stopTrigger(uri, triggerId, alice)
+      stoppedTriggerId <- parseTriggerId(resp)
+      _ <- stoppedTriggerId should equal(triggerId)
+    } yield succeed
   }
 
   it should "start multiple triggers and list them by party" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    (uri: Uri, _, _) =>
       for {
         resp <- listTriggers(uri, alice)
         result <- parseTriggerIds(resp)
@@ -284,7 +286,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "should enable a trigger on http request" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    (uri: Uri, client: LedgerClient, _) =>
       for {
         // Start the trigger
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
@@ -324,7 +326,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "restart trigger on initialization failure due to failed connection" in withTriggerService(
-    Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    Some(dar)) { (uri: Uri, _, ledgerProxy: Proxy) =>
     for {
       // Simulate a failed ledger connection which will prevent triggers from initializing.
       _ <- Future(ledgerProxy.disable())
@@ -342,7 +344,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "restart trigger on run-time failure due to dropped connection" in withTriggerService(
-    Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    Some(dar)) { (uri: Uri, _, ledgerProxy: Proxy) =>
     // Simulate the ledger being briefly unavailable due to network connectivity loss.
     // We continually restart the trigger until the connection returns.
     for {
@@ -362,7 +364,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "restart triggers with initialization errors" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    (uri: Uri, _, _) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
@@ -380,7 +382,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "restart triggers with update errors" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    (uri: Uri, _, _) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
@@ -389,13 +391,16 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         // Just check that we see a few failures and restart attempts.
         // This relies on a small minimum restart interval as the interval doubles after each
         // failure.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "stopped: runtime failure") > 2)
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") should be > 2)
+        _ <- assertTriggerStatus(
+          uri,
+          aliceTrigger,
+          _.count(_ == "stopped: runtime failure") should be > 2)
       } yield succeed
   }
 
   it should "give an 'unauthorized' response for a stop request without an authorization header" in withTriggerService(
-    None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    None) { (uri: Uri, _, _) =>
     val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
     val req = HttpRequest(
       method = HttpMethods.DELETE,
@@ -413,7 +418,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "give an 'unauthorized' response for a start request with an invalid party identifier" in withTriggerService(
-    Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    Some(dar)) { (uri: Uri, _, _) =>
     for {
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", User("Alice-!", "&alC2l3SDS*V"))
       _ <- resp.status should equal(StatusCodes.Unauthorized)
@@ -426,7 +431,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
-    None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    None) { (uri: Uri, _, _) =>
     val uuid: String = "No More Mr Nice Guy"
     val req = HttpRequest(
       method = HttpMethods.DELETE,
@@ -439,7 +444,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   }
 
   it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerService(
-    None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    None) { (uri: Uri, _, _) =>
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
       resp <- stopTrigger(uri, uuid, alice)
@@ -450,6 +455,23 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       _ <- fields.get("errors") should equal(
         Some(JsArray(JsString(s"No trigger running with id $uuid"))))
     } yield succeed
+  }
+}
+
+object AbstractTriggerServiceTest {
+  import org.scalactic.Prettifier, org.scalactic.source.Position
+  import Assertions.{assert, assertionsHelper}
+
+  sealed trait CompatAssertion[-A] {
+    def apply(a: A): Assertion
+  }
+  object CompatAssertion {
+    private def mk[A](f: A => Assertion) = new CompatAssertion[A] {
+      override def apply(a: A) = f(a)
+    }
+    implicit val id: CompatAssertion[Assertion] = mk(a => a)
+    implicit def bool(implicit pretty: Prettifier, pos: Position): CompatAssertion[Boolean] =
+      mk(assert(_)(pretty, pos))
   }
 }
 
@@ -488,15 +510,17 @@ class TriggerServiceTestWithDb
     super.afterEach()
   }
 
+  behavior of "persistent backend"
+
   it should "recover packages after shutdown" in (for {
-    _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    _ <- withTriggerService(None) { (uri: Uri, _, _) =>
       for {
         resp <- uploadDar(uri, darPath)
         _ <- parseResult(resp)
       } yield succeed
     }
     // Once service is shutdown, start a new one and try to use the previously uploaded dar
-    _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    _ <- withTriggerService(None) { (uri: Uri, _, _) =>
       for {
         // start trigger defined in previously uploaded dar
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
@@ -506,33 +530,33 @@ class TriggerServiceTestWithDb
     }
   } yield succeed)
 
-  ignore should "restart triggers after shutdown" in (for {
-    _ <- withTriggerService(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+  it should "restart triggers after shutdown" in (for {
+    _ <- withTriggerService(Some(dar)) { (uri: Uri, _, _) =>
       for {
         // Start a trigger in the first run of the service.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         triggerId <- parseTriggerId(resp)
         // The new trigger should be in the running trigger store and eventually running.
         _ <- assertTriggerIds(uri, alice, Vector(triggerId))
-        _ <- assertTriggerStatus(uri, triggerId, _.last == "running")
+        _ <- assertTriggerStatus(uri, triggerId, _.last should ===("running"))
       } yield succeed
     }
     // Once service is shutdown, start a new one and check the previously running trigger is restarted.
-    _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    _ <- withTriggerService(None) { (uri: Uri, _, _) =>
       for {
         // Get the previous trigger instance using a list request
         resp <- listTriggers(uri, alice)
         triggerIds <- parseTriggerIds(resp)
-        _ <- assert(triggerIds.length == 1)
+        _ = triggerIds.length should ===(1)
         aliceTrigger = triggerIds.head
         // Currently the logs aren't persisted so we can check that the trigger was restarted by
         // inspecting the new log.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running", 30)
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("running"), 60)
 
         // Finally go ahead and stop the trigger.
-        resp <- stopTrigger(uri, aliceTrigger, alice)
+        _ <- stopTrigger(uri, aliceTrigger, alice)
         _ <- assertTriggerIds(uri, alice, Vector())
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "stopped: by user request")
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("stopped: by user request"))
       } yield succeed
     }
   } yield succeed)

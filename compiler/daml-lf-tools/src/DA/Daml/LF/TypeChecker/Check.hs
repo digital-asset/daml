@@ -205,6 +205,7 @@ typeOfBuiltin = \case
   BEGreater   btype  -> pure $ tComparison btype
   BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
+  BEToTextContractId -> pure $ TForall (alpha, KStar) $ TContractId tAlpha :-> TOptional TText
   BETextFromCodePoints -> pure $ TList TInt64 :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BEPartyFromText    -> pure $ TText :-> TOptional TParty

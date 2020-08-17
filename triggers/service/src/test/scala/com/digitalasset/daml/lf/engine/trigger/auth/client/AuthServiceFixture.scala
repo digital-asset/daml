@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger.auth.client
 
-import java.net.{InetAddress, ServerSocket, Socket}
+import java.net.InetAddress
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
@@ -14,7 +14,7 @@ import com.daml.lf.engine.trigger.AuthServiceClient
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
-import com.daml.ports.Port
+import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
@@ -23,20 +23,11 @@ import scala.sys.process.Process
 
 object AuthServiceFixture {
 
-  private def findFreePort(): Port = {
-    val socket = new ServerSocket(Port(0).value)
-    try {
-      Port(socket.getLocalPort)
-    } finally {
-      socket.close()
-    }
-  }
-
   def withAuthServiceClient[A](testName: String)(testFn: AuthServiceClient => Future[A])(
       implicit system: ActorSystem,
       mat: Materializer,
       ec: ExecutionContext): Future[A] = {
-    val adminLedgerId = LedgerId("admin-ledger")
+    val adminLedgerId = LedgerId(s"admin-ledger-$testName")
     val adminLedgerF = for {
       ledger <- Future(
         new SandboxServer(
@@ -57,7 +48,7 @@ object AuthServiceFixture {
     val host = InetAddress.getLoopbackAddress
 
     val authServiceInstanceF: Future[(Process, Port)] = for {
-      port <- Future { findFreePort() }
+      lockedPort <- Future(LockedFreePort.find())
       (_, ledgerPort) <- adminLedgerF
       ledgerUri = Uri.from(scheme = "http", host = host.getHostAddress, port = ledgerPort.value)
       process <- Future {
@@ -65,18 +56,15 @@ object AuthServiceFixture {
           Seq(authServiceBinaryLoc),
           None,
           ("DABL_AUTHENTICATION_SERVICE_ADDRESS", host.getHostAddress),
-          ("DABL_AUTHENTICATION_SERVICE_PORT", port.toString),
+          ("DABL_AUTHENTICATION_SERVICE_PORT", lockedPort.port.toString),
           ("DABL_AUTHENTICATION_SERVICE_LEDGER_URL", ledgerUri.toString),
           ("DABL_AUTHENTICATION_SERVICE_TEST_MODE", "true") // Needed for initial authorize call with basic credentials
         ).run()
       }
       // Wait for the auth service instance to be ready to accept connections.
-      _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds) { (_, _) =>
-        for {
-          channel <- Future(new Socket(host, port.value))
-        } yield channel.close()
-      }
-    } yield (process, port)
+      _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds)((_, _) =>
+        Future(lockedPort.testAndUnlock(host)))
+    } yield (process, lockedPort.port)
 
     val testF: Future[A] = for {
       (_, authServicePort) <- authServiceInstanceF

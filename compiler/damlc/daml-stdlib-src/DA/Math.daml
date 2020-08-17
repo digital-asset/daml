@@ -22,7 +22,7 @@ import DA.Numeric (pi)
 
 infixr 8 **
 
--- | Take a power of a number Example: `2.0 ** 2.0 == 4.0`.
+-- | Take a power of a number Example: `2.0 ** 3.0 == 8.0`.
 (**) : Decimal -> Decimal -> Decimal
 x ** y = exp (y * log x)
 

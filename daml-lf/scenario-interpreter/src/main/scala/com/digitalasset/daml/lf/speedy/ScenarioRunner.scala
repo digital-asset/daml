@@ -3,17 +3,13 @@
 
 package com.daml.lf.speedy
 
-import com.daml.lf.{CompiledPackages, VersionRange, crypto}
+import com.daml.lf.crypto
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{
-  GlobalKey,
-  SubmittedTransaction,
-  TransactionVersion,
-  Transaction => Tx
-}
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
@@ -37,14 +33,18 @@ final case class ScenarioRunner(
   import scala.util.{Try, Success, Failure}
 
   def run(): Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)] =
-    Try(runUnsafe) match {
-      case Failure(SRunnerException(err)) =>
-        Left((err, ledger))
-      case Failure(other) =>
-        throw other
-      case Success(res) =>
-        Right(res)
+    handleUnsafe(runUnsafe) match {
+      case Left(err) => Left((err, ledger))
+      case Right(t) => Right(t)
     }
+
+  private def handleUnsafe[T](unsafe: => T): Either[SError, T] = {
+    Try(unsafe) match {
+      case Failure(SRunnerException(err)) => Left(err)
+      case Failure(other) => throw other
+      case Success(t) => Right(t)
+    }
+  }
 
   private def runUnsafe(): (Double, Int, ScenarioLedger, SValue) = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
@@ -92,7 +92,7 @@ final case class ScenarioRunner(
           getParty(partyText, callback)
 
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          lookupKey(keyWithMaintainers.globalKey, committers, cb)
+          lookupKeyUnsafe(keyWithMaintainers.globalKey, committers, cb)
       }
     }
     val endTime = System.nanoTime()
@@ -158,7 +158,14 @@ final case class ScenarioRunner(
     callback(ledger.currentTime)
   }
 
-  private def lookupContract(
+  private[lf] def lookupContract(
+      acoid: ContractId,
+      committers: Set[Party],
+      cbMissing: Unit => Boolean,
+      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit): Either[SError, Unit] =
+    handleUnsafe(lookupContractUnsafe(acoid, committers, cbMissing, cbPresent))
+
+  private def lookupContractUnsafe(
       acoid: ContractId,
       committers: Set[Party],
       cbMissing: Unit => Boolean,
@@ -195,7 +202,14 @@ final case class ScenarioRunner(
     }
   }
 
-  private def lookupKey(
+  private[lf] def lookupKey(
+      gk: GlobalKey,
+      committers: Set[Party],
+      canContinue: SKeyLookupResult => Boolean,
+  ): Either[SError, Unit] =
+    handleUnsafe(lookupKeyUnsafe(gk, committers, canContinue))
+
+  private def lookupKeyUnsafe(
       gk: GlobalKey,
       committers: Set[Party],
       canContinue: SKeyLookupResult => Boolean,
@@ -233,7 +247,12 @@ final case class ScenarioRunner(
             missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
           case ScenarioLedger.LookupContractNotActive(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
-          case ScenarioLedger.LookupContractNotVisible(coid, tid, observers @ _, stakeholders) =>
+          case ScenarioLedger.LookupContractNotVisible(
+              coid,
+              tid @ _,
+              observers @ _,
+              stakeholders,
+              ) =>
             notVisibleWith(ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders))
         }
     }
@@ -248,18 +267,18 @@ object ScenarioRunner {
 
   @deprecated("can be used only by sandbox classic.", since = "1.4.0")
   def getScenarioLedger(
+      engine: Engine,
       scenarioRef: Ref.DefinitionRef,
       scenarioDef: Ast.Definition,
-      compiledPackages: CompiledPackages,
       transactionSeed: crypto.Hash,
-      outputTransactionVersions: VersionRange[TransactionVersion],
   ): ScenarioLedger = {
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
     val speedyMachine = Speedy.Machine.fromScenarioExpr(
-      compiledPackages,
+      engine.compiledPackages(),
       transactionSeed,
       scenarioExpr,
-      outputTransactionVersions,
+      engine.config.allowedInputValueVersions,
+      engine.config.allowedOutputTransactionVersions,
     )
     ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>

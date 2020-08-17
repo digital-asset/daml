@@ -326,7 +326,7 @@ class SubmitRequestValidatorTest
           )
 
         forEvery(signs) { sign =>
-          forEvery(absoluteValues) { (absoluteValue, scale) =>
+          forEvery(absoluteValues) { (absoluteValue, _) =>
             val s = sign + absoluteValue
             val input = Value(Sum.Numeric(s))
             requestMustFailWith(

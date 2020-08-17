@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Record
-import com.squareup.javapoet.{ClassName, TypeName, TypeSpec, TypeVariableName}
+import com.squareup.javapoet.{ClassName, TypeSpec, TypeVariableName}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
@@ -16,7 +16,6 @@ private[inner] object RecordClass extends StrictLogging {
       className: ClassName,
       typeParameters: IndexedSeq[String],
       record: Record.FWT,
-      superclass: Option[TypeName],
       packagePrefixes: Map[PackageId, String]): TypeSpec = {
     TrackLineage.of("record", className.simpleName()) {
       logger.info("Start")

@@ -71,7 +71,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
           response2.configurationGeneration < response3.configurationGeneration,
           "Expected configuration generation to have increased after setting time model the second time",
         )
-        assert(response2.timeModel.equals(Some(newTimeModel)), "Setting the new time model failed")
+        assert(response2.timeModel.contains(newTimeModel), "Setting the new time model failed")
         assert(
           response3.timeModel.equals(response1.timeModel),
           "Restoring the original time model failed",

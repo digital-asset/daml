@@ -19,7 +19,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.daml.ledger.api.tls.TlsConfiguration
 
 import com.daml.lf.engine.script._
@@ -63,10 +62,8 @@ class TestRunner(
     val wallclockTime: Boolean,
     val rootCa: Option[File],
 ) {
-  val applicationId = ApplicationId("DAML Script Test Runner")
-
-  val tlsConfig =
-    rootCa.map(file => TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)))
+  val tlsConfig = rootCa.fold(TlsConfiguration(false, None, None, None))(file =>
+    TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)))
 
   val ttl = java.time.Duration.ofSeconds(30)
   val timeMode: ScriptTimeMode =
@@ -94,11 +91,11 @@ class TestRunner(
     implicit val ec: ExecutionContext = system.dispatcher
 
     val clientsF =
-      Runner.connect(participantParams, applicationId, tlsConfig, maxInboundMessageSize)
+      Runner.connect(participantParams, tlsConfig, maxInboundMessageSize)
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF
-      result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeMode)
+      result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
       _ <- expectedLog match {
         case None => Future.unit
         case Some(expectedLogs) =>

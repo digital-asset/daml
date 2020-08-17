@@ -152,7 +152,7 @@ private[validation] object Serializability {
   }
 
   def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
-    val version = module.languageVersion
+    val version = world.lookupPackage(NoContext, pkgId).languageVersion
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))

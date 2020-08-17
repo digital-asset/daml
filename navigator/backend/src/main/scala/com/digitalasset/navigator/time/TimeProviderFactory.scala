@@ -8,14 +8,13 @@ import java.time.Duration
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.client.services.testing.time.StaticTime
 
-import scala.concurrent.ExecutionContext
-
 case class TimeProviderWithType(time: TimeProvider, `type`: TimeProviderType)
 
 object TimeProviderFactory {
 
-  def apply(timeProviderType: TimeProviderType, ledgerTime: Option[StaticTime])(
-      implicit ec: ExecutionContext): Option[TimeProviderWithType] =
+  def apply(
+      timeProviderType: TimeProviderType,
+      ledgerTime: Option[StaticTime]): Option[TimeProviderWithType] =
     timeProviderType match {
       case TimeProviderType.Auto =>
         ledgerTime.fold(

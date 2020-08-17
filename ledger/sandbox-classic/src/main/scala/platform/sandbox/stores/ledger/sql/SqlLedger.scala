@@ -44,7 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-object SqlLedger {
+private[sandbox] object SqlLedger {
 
   private type PersistenceQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
@@ -63,7 +63,7 @@ object SqlLedger {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext)
+  )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
     private val logger = ContextualizedLogger.get(this.getClass)
@@ -207,7 +207,7 @@ object SqlLedger {
           .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
             DEC)
       } else {
-        Future.successful(())
+        Future.unit
       }
     }
 
@@ -307,8 +307,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-)(implicit mat: Materializer, logCtx: LoggingContext)
-    extends BaseLedger(ledgerId, ledgerDao, dispatcher)
+) extends BaseLedger(ledgerId, ledgerDao, dispatcher)
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -327,7 +326,8 @@ private final class SqlLedger(
   // Validates the given ledger time according to the ledger time model
   private def checkTimeModel(
       ledgerTime: Instant,
-      recordTime: Instant): Either[RejectionReason, Unit] = {
+      recordTime: Instant,
+  ): Either[RejectionReason, Unit] = {
     currentConfiguration
       .get()
       .fold[Either[RejectionReason, Unit]](
@@ -343,7 +343,7 @@ private final class SqlLedger(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
-  ): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     enqueue { offset =>
       val transactionId = offset.toApiString
 
@@ -397,7 +397,8 @@ private final class SqlLedger(
   override def publishPartyAllocation(
       submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[SubmissionResult] = {
+      displayName: Option[String],
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
     enqueue { offset =>
       ledgerDao
         .storePartyEntry(
@@ -422,7 +423,8 @@ private final class SqlLedger(
       submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[SubmissionResult] = {
+      payload: List[Archive],
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
     enqueue { offset =>
@@ -445,7 +447,8 @@ private final class SqlLedger(
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
-      config: Configuration): Future[SubmissionResult] =
+      config: Configuration,
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     enqueue { offset =>
       val recordTime = timeProvider.getCurrentTime
       val mrt = maxRecordTime.toInstant

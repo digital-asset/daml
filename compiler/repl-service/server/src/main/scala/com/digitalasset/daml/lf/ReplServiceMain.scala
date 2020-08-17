@@ -16,17 +16,16 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
-import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object ReplServiceMain extends App {
   case class Config(
@@ -34,16 +33,13 @@ object ReplServiceMain extends App {
       ledgerHost: Option[String],
       ledgerPort: Option[Int],
       accessTokenFile: Option[Path],
+      applicationId: Option[ApplicationId],
       maxInboundMessageSize: Int,
-      tlsConfig: Option[TlsConfiguration],
+      tlsConfig: TlsConfiguration,
       // optional so we can detect if both --static-time and --wall-clock-time are passed.
       timeMode: Option[ScriptTimeMode],
   )
   object Config {
-    private def validatePath(path: String, message: String): Either[String, Unit] = {
-      val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-      if (readable) Right(()) else Left(message)
-    }
     private def setTimeMode(
         config: Config,
         timeMode: ScriptTimeMode,
@@ -73,39 +69,14 @@ object ReplServiceMain extends App {
           c.copy(accessTokenFile = Some(Paths.get(tokenFile)))
         }
 
-      opt[String]("pem")
+      opt[String]("application-id")
         .optional()
-        .text("TLS: The pem file to be used as the private key.")
-        .validate(path => validatePath(path, "The file specified via --pem does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-            Some(c.copy(keyFile = Some(new File(path)))))))
+        .action { (appId, c) =>
+          c.copy(applicationId = Some(ApplicationId(appId)))
+        }
 
-      opt[String]("crt")
-        .optional()
-        .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
-        .validate(path => validatePath(path, "The file specified via --crt does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-            Some(c.copy(keyFile = Some(new File(path)))))))
-
-      opt[String]("cacrt")
-        .optional()
-        .text("TLS: The crt file to be used as the trusted root CA.")
-        .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
-            Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
-
-      opt[Unit]("tls")
-        .optional()
-        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
-        .action((path, arguments) =>
-          arguments.copy(tlsConfig =
-            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+        c copy (tlsConfig = f(c.tlsConfig)))
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
@@ -142,9 +113,10 @@ object ReplServiceMain extends App {
           ledgerHost = None,
           ledgerPort = None,
           accessTokenFile = None,
-          tlsConfig = None,
+          tlsConfig = TlsConfiguration(false, None, None, None),
           maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
           timeMode = None,
+          applicationId = None,
         )
       )
   }
@@ -165,15 +137,15 @@ object ReplServiceMain extends App {
 
   val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
   val defaultParticipant = (config.ledgerHost, config.ledgerPort) match {
-    case (Some(host), Some(port)) => Some(ApiParameters(host, port, tokenHolder.flatMap(_.token)))
+    case (Some(host), Some(port)) =>
+      Some(ApiParameters(host, port, tokenHolder.flatMap(_.token), config.applicationId))
     case _ => None
   }
   val participantParams =
     Participants(defaultParticipant, Map.empty, Map.empty)
-  val applicationId = ApplicationId("daml repl")
   val clients = Await.result(
     Runner
-      .connect(participantParams, applicationId, config.tlsConfig, config.maxInboundMessageSize),
+      .connect(participantParams, config.tlsConfig, config.maxInboundMessageSize),
     30.seconds)
   val timeMode = config.timeMode.getOrElse(ScriptTimeMode.WallClock)
 
@@ -238,10 +210,10 @@ class ReplService(
     // For now we only include the module of the current line
     // we probably need to extend this to merge the
     // modules from each line.
-    val pkg = Package(Seq(mod), Seq(), None)
+    val pkg = Package(Seq(mod), Seq(), lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
     val (scriptPackageId, _) = packages.find {
-      case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
+      case (_, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
     }.get
 
     var scriptExpr: SExpr = SEVal(
@@ -260,11 +232,8 @@ class ReplService(
         compiledDefinitions ++ defs,
         Compiler.FullStackTrace,
         Compiler.NoProfile)
-    val runner = new Runner(
-      compiledPackages,
-      Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
-      ApplicationId("daml repl"),
-      timeMode)
+    val runner =
+      new Runner(compiledPackages, Script.Action(scriptExpr, ScriptIds(scriptPackageId)), timeMode)
     runner.runWithClients(clients).onComplete {
       case Failure(e: SError.SError) =>
         // The error here is already printed by the logger in stepToValue.

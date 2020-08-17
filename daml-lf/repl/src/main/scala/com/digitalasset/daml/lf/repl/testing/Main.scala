@@ -22,7 +22,6 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
-import com.daml.lf.transaction.TransactionVersions
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -185,11 +184,17 @@ object Repl {
 
     private val seed = nextSeed()
 
-    val txVersions =
+    val (inputValueVersion, outputTransactionVersions) =
       if (devMode)
-        TransactionVersions.SupportedOutputDevVersions
+        (
+          value.ValueVersions.DevOutputVersions,
+          transaction.TransactionVersions.DevOutputVersions
+        )
       else
-        TransactionVersions.SupportedOutputStableVersions
+        (
+          value.ValueVersions.StableOutputVersions,
+          transaction.TransactionVersions.StableOutputVersions,
+        )
 
     def run(expr: Expr): (
         Speedy.Machine,
@@ -199,7 +204,8 @@ object Repl {
           compiledPackages,
           seed,
           expr,
-          txVersions,
+          inputValueVersion,
+          outputTransactionVersions,
         )
       (machine, ScenarioRunner(machine).run())
     }
@@ -209,7 +215,7 @@ object Repl {
 
   final val commands = ListMap(
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
-    ":reset" -> Command("reset the REPL.", (s, _) => initialState()),
+    ":reset" -> Command("reset the REPL.", (_, _) => initialState()),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
     ":speedy" -> Command("compile given expression to speedy and print it", (s, args) => {
       speedyCompile(s, args); s
@@ -443,7 +449,7 @@ object Repl {
 
     parser.parseExprs[this.type](args.mkString(" ")) match {
 
-      case Left(error) =>
+      case Left(error @ _) =>
         println(s"Error: cannot parser arguments '${args.mkString(" ")}'")
 
       case Right(argExprs) =>
@@ -574,7 +580,7 @@ object Repl {
           case Left((err, ledger @ _)) =>
             println(prettyError(err, machine.ptx).render(128))
             (false, state)
-          case Right((diff @ _, steps @ _, ledger, value @ _)) =>
+          case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
             println("Writing profile...")
             machine.profile.name = scenarioId
             machine.profile.writeSpeedscopeJson(outputFile)

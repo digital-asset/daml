@@ -5,7 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 load("@io_bazel_rules_docker//java:image.bzl", "java_image")
@@ -15,7 +15,7 @@ da_scala_library(
     name = "ledger-on-memory",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml:daml-on-memory:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-on-memory:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -38,7 +38,33 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+da_scala_library(
+    name = "ledger-on-memory-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    deps = [
+        ":ledger-on-memory",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-health",
+        "//ledger/metrics",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/resources",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)
+
+da_scala_test_suite(
     name = "ledger-on-memory-tests",
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
@@ -48,12 +74,11 @@ da_scala_test(
     resources = glob(["src/test/resources/*"]),
     deps = [
         ":ledger-on-memory",
+        ":ledger-on-memory-test-lib",
         "//daml-lf/data",
-        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/metrics",
@@ -127,6 +152,21 @@ conformance_test(
 )
 
 conformance_test(
+    name = "conformance-test-pre-execution",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865",
+        "--batching enable=false",
+        "--force-pre-execution=true",
+    ],
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+conformance_test(
     name = "conformance-test-multi-participant",
     ports = [
         6865,
@@ -155,9 +195,9 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--perf-tests=PerformanceEnvelope.Beta.Throughput",
-        "--perf-tests=PerformanceEnvelope.Beta.Latency",
-        "--perf-tests=PerformanceEnvelope.Beta.TransactionSize",
+        "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
+        "--perf-tests=PerformanceEnvelope.Latency.1000ms",
+        "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
     ],
 )
 

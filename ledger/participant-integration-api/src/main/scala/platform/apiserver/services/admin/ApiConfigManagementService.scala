@@ -38,7 +38,7 @@ private[apiserver] final class ApiConfigManagementService private (
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
     materializer: Materializer
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends ConfigManagementService
     with GrpcApiService {
 
@@ -196,8 +196,10 @@ private[apiserver] object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
-      ledgerConfiguration: LedgerConfiguration)(implicit mat: Materializer, logCtx: LoggingContext)
-    : ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
+      ledgerConfiguration: LedgerConfiguration)(
+      implicit mat: Materializer,
+      loggingContext: LoggingContext,
+  ): ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,
       writeBackend,

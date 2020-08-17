@@ -6,37 +6,19 @@
 load("@os_info//:os_info.bzl", "is_windows")
 
 def _package_app_impl(ctx):
-    files = depset(ctx.attr.binary.files)
-    runfiles = ctx.attr.binary.default_runfiles.files
-    datafiles = ctx.attr.binary[DefaultInfo].data_runfiles.files
-
     args = ctx.actions.args()
-    inputs = depset([], transitive = [files, runfiles, datafiles] + [r.files for r in ctx.attr.resources])
-    tools = [ctx.executable.tar, ctx.executable.gzip] if is_windows else [ctx.executable.patchelf, ctx.executable.tar, ctx.executable.gzip]
-    ctx.actions.run_shell(
+    args.add(ctx.executable.binary.path)
+    args.add(ctx.outputs.out.path)
+    args.add_all(ctx.attr.resources, map_each = _get_resource_path)
+    ctx.actions.run(
+        executable = ctx.executable.package_app,
         outputs = [ctx.outputs.out],
-        tools = [ctx.executable.package_app] + tools,
-        inputs = inputs.to_list(),
+        inputs = ctx.files.resources,
+        # Binaries are passed through tools so that Bazel can make the runfiles
+        # tree available to the action.
+        tools = [ctx.executable.binary],
         arguments = [args],
         progress_message = "Packaging " + ctx.attr.name,
-        command = """
-      set -eu
-      export PATH=$PATH:{path}
-      {package_app} \
-        "$PWD/{binary}" \
-        "$PWD/{output}" \
-        {resources}
-    """.format(
-            path = ":".join(["$PWD/`dirname {tool}`".format(tool = tool.path) for tool in tools]),
-            output = ctx.outputs.out.path,
-            name = ctx.attr.name,
-            package_app = ctx.executable.package_app.path,
-            binary = ctx.executable.binary.path,
-            resources = " ".join([
-                _get_resource_path(r)
-                for r in ctx.attr.resources
-            ]),
-        ),
     )
 
 def _get_resource_path(r):
@@ -71,26 +53,8 @@ package_app = rule(
         "resources": attr.label_list(
             allow_files = True,
         ),
-        "patchelf": attr.label(
-            default = None if is_windows else Label("@patchelf_nix//:bin/patchelf"),
-            cfg = "host",
-            executable = True,
-            allow_files = True,
-        ),
-        "tar": attr.label(
-            default = Label("@tar_dev_env//:tar"),
-            cfg = "host",
-            executable = True,
-            allow_files = True,
-        ),
-        "gzip": attr.label(
-            default = Label("@gzip_dev_env//:gzip"),
-            cfg = "host",
-            executable = True,
-            allow_files = True,
-        ),
         "package_app": attr.label(
-            default = Label("//bazel_tools/packaging:package-app.sh"),
+            default = Label("//bazel_tools/packaging:package-app"),
             cfg = "host",
             executable = True,
             allow_files = True,

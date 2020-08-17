@@ -26,6 +26,10 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+
+rules_pkg_dependencies()
+
 register_toolchains(
     "//:c2hs-toolchain",
 )
@@ -216,9 +220,6 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
-    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
-    # confuses the JAR query in `daml-sdk-head`.
-    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -239,9 +240,6 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
-    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
-    # confuses the JAR query in `daml-sdk-head`.
-    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -445,7 +443,6 @@ haskell_register_ghc_nixpkgs(
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],
     },
-    is_static = True,
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
@@ -455,6 +452,7 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
+    static_runtime = True,
     version = "8.6.5",
 )
 
@@ -737,7 +735,7 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
 
 container_pull(
     name = "java_base",
-    digest = "sha256:7cef6d99241bc86e09659d41842e3656a1cab99adf0e440a44d2858c8e52a71a",
+    digest = "sha256:17b8b592d923f375972a59e902426bfaa30900d18fdb5e451f48089258fd621c",
     registry = "gcr.io",
     repository = "distroless/java",
     tag = "8",
@@ -787,15 +785,6 @@ yarn_install(
     package_json = "//:package.json",
     yarn_lock = "//:yarn.lock",
 )
-
-# Install all Bazel dependencies of the @npm packages
-load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
-
-install_bazel_dependencies()
-
-load("@npm_bazel_typescript//:index.bzl", "ts_setup_workspace")
-
-ts_setup_workspace()
 
 # TODO use fine-grained managed dependency
 yarn_install(

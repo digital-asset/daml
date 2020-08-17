@@ -18,13 +18,13 @@ import com.daml.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.daml.platform.store._
 import scalaz.syntax.std.map._
 
-case class InMemoryActiveLedgerState(
+private[sandbox] case class InMemoryActiveLedgerState(
     activeContracts: Map[ContractId, ActiveContract],
     divulgedContracts: Map[ContractId, DivulgedContract],
     keys: Map[GlobalKey, ContractId],
     reverseKeys: Map[ContractId, GlobalKey],
-    parties: Map[Party, PartyDetails])
-    extends ActiveLedgerState[InMemoryActiveLedgerState] {
+    parties: Map[Party, PartyDetails],
+) extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
   def isVisibleForDivulgees(contractId: ContractId, forParty: Party): Boolean =
     activeContracts
@@ -174,7 +174,7 @@ case class InMemoryActiveLedgerState(
   }
 }
 
-object InMemoryActiveLedgerState {
+private[sandbox] object InMemoryActiveLedgerState {
   def empty: InMemoryActiveLedgerState =
     InMemoryActiveLedgerState(Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
 }

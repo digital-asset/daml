@@ -34,7 +34,7 @@ import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.Graph
 import Data.IORef
-import Data.List (intercalate)
+import Data.List (foldl', intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -222,8 +222,60 @@ topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
       ]
     toPkg = (\(pkg, _, _) -> pkg) . fromVertex
 
+-- | Mapping from module name to all imports for that module.
+--
+-- Invariant: Imports for a module should be associated to its module name and
+-- multiple imports of a module should never subsume each other, see
+-- 'importInsert'.
+--
+-- This avoids redundant import lines and eases removing of module imports.
+newtype Imports = Imports (Map.Map ModuleName [ImportDecl GhcPs])
+
+-- | Add an import declaration.
+--
+-- If the new import declaration subsumes a previous import declaration, then
+-- new one will replace the old one. If the new import declaration is subsumed
+-- by an already existing import declaration, then it will not be added.
+--
+-- Subsumption of import declarations is based on the implementation of
+-- 'GHCi.UI.iiSubsumes'. Note, that this is not fully precise. For example,
+-- @import DA.Time (days, hours)@ should subsume @import DA.Time (hours)@, but
+-- does not because of different source locations on the imported symbols.
+importInsert :: ImportDecl GhcPs -> Imports -> Imports
+importInsert i (Imports m) = Imports $ Map.alter insert name m
+  where
+    name = unLoc . ideclName $ i
+    -- Based on 'GHCi.UI.addNotSubsumed'.
+    insert Nothing = Just [i]
+    insert (Just is)
+      | any (`subsumes` i) is = Just is
+      | otherwise = Just $! i : filter (not . (i `subsumes`)) is
+    -- Based on 'GHCi.UI.iiSubsumes'.
+    --
+    -- Returns True if the left import subsumes the right one.
+    d1 `subsumes` d2
+      = unLoc (ideclName d1) == unLoc (ideclName d2)
+        && ideclAs d1 == ideclAs d2
+        && (not (ideclQualified d1) || ideclQualified d2)
+        && (ideclHiding d1 `hidingSubsumes` ideclHiding d2)
+    _                    `hidingSubsumes` Just (False, L _ []) = True
+    Just (False, L _ xs) `hidingSubsumes` Just (False, L _ ys) = all (`elem` xs) ys
+    h1                   `hidingSubsumes` h2                   = h1 == h2
+
+importDelete :: ModuleName -> Imports -> Imports
+importDelete name (Imports m) = Imports $ Map.delete name m
+
+importMember :: ModuleName -> Imports -> Bool
+importMember name (Imports m) = Map.member name m
+
+importFromList :: [ImportDecl GhcPs] -> Imports
+importFromList = foldl' (flip importInsert) (Imports Map.empty)
+
+importToList :: Imports -> [ImportDecl GhcPs]
+importToList (Imports imports) = concat $ Map.elems imports
+
 data ReplState = ReplState
-  { imports :: ![ImportDecl GhcPs]
+  { imports :: !Imports
   , bindings :: ![(LPat GhcPs, Type)]
   , lineNumber :: !Int
   }
@@ -319,7 +371,7 @@ runRepl
 runRepl importPkgs opts replClient logger ideState = do
     imports <- loadPackages importPkgs replClient ideState
     let initReplState = ReplState
-          { imports = imports
+          { imports = importFromList imports
           , bindings = []
           , lineNumber = 0
           }
@@ -428,35 +480,25 @@ runRepl importPkgs opts replClient logger ideState = do
     replOptions =
       [ ("help", mkReplOption optHelp)
       , ("module", mkReplOption optModule)
+      , ("show", mkReplOption optShow)
       ]
     optHelp _dflags _args = liftIO $ T.putStrLn $ T.unlines
       [ " Commands available from the prompt:"
       , ""
       , "   <statement>                 evaluate/run <statement>"
       , "   :module [+/-] <mod> ...     add or remove the modules from the import list"
+      , "   :show imports               show the current module imports"
       ]
-    optModule _dflags ("-" : modules) = do
-        ReplState {imports} <- lift State.get
-        -- TODO[AH] Use a more appropriate data structure to track imports.
-        let unknown =
-              [ removed
-              | removed <- map mkModuleName modules
-              , removed `notElem` map (unLoc . ideclName) imports
-              ]
-            newImports =
-              [ simpleImportDecl imported
-              | imported <- map (unLoc . ideclName) imports
-              , imported `notElem` map mkModuleName modules
-              ]
-        unless (null unknown) $
-            throwError $ NotImportedModules unknown
-        lift $ State.modify $ \s -> s { imports = newImports }
-    optModule dflags ("+" : modules) = do
-        let imports = map (simpleImportDecl . mkModuleName) modules
-        addImports dflags imports
-    optModule dflags modules = do
-        let imports = map (simpleImportDecl . mkModuleName) modules
-        addImports dflags imports
+    optModule _dflags ("-" : names) =
+        removeImports $ map mkModuleName names
+    optModule dflags ("+" : names) =
+        addImports dflags $ map (simpleImportDecl . mkModuleName) names
+    optModule dflags names =
+        addImports dflags $ map (simpleImportDecl . mkModuleName) names
+    optShow dflags ["imports"] = do
+        ReplState {imports} <- State.get
+        liftIO $ putStr $ unlines $ moduleImports dflags imports
+    optShow _dflags _ = liftIO $ putStrLn ":show [imports]"
 
     addImports
         :: DynFlags
@@ -464,11 +506,20 @@ runRepl importPkgs opts replClient logger ideState = do
         -> ExceptT Error ReplM ()
     addImports dflags additional = do
         ReplState {imports, lineNumber} <- State.get
-        -- TODO[AH] Deduplicate imports.
-        let newImports = additional ++ imports
+        let newImports = foldl' (flip importInsert) imports additional
         _ <- printDelayedDiagnostics $ tryTypecheck lineNumber $
             T.pack (unlines $ moduleHeader dflags newImports lineNumber)
         State.modify $ \s -> s { imports = newImports }
+    removeImports
+        :: [ModuleName]
+        -> ExceptT Error ReplM ()
+    removeImports modules = do
+        ReplState {imports} <- lift State.get
+        let unknown = [name | name <- modules, not $ name `importMember` imports]
+            newImports = foldl' (flip importDelete) imports modules
+        unless (null unknown) $
+            throwError $ NotImportedModules unknown
+        lift $ State.modify $ \s -> s { imports = newImports }
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
@@ -506,25 +557,30 @@ data ModuleRenderings
           -- reason to run them.
         }
 
+moduleImports
+    :: DynFlags
+    -> Imports
+    -> [String]
+moduleImports dflags imports =
+    "import Daml.Script -- implicit"
+    : map renderImport (importToList imports)
+  where
+    renderImport imp = showSDoc dflags (ppr imp)
+
 moduleHeader
     :: DynFlags
-    -> [ImportDecl GhcPs]
+    -> Imports
     -> Int
     -> [String]
 moduleHeader dflags imports line =
     [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
     , "{-# LANGUAGE PartialTypeSignatures #-}"
     , "module " <> lineModuleName line <> " where"
-    ] <>
-    ( "import Daml.Script"
-    : map renderImport imports
-    )
-  where
-    renderImport imp = showSDoc dflags (ppr imp)
+    ] <> moduleImports dflags imports
 
 renderModule
     :: DynFlags
-    -> [ImportDecl GhcPs]
+    -> Imports
     -> Int
     -> [(LPat GhcPs, Type)]
     -> SupportedStatement

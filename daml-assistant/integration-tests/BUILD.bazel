@@ -65,9 +65,9 @@ genrule(
         $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \\
         $(location //ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml)
       "$$MVN" -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
-      tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB) \\
-        --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name
+      $(execpath //bazel_tools/sh:mktar) $@ -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
     """.format(mvn = mvn_version),
+    tools = ["//bazel_tools/sh:mktar"],
 )
 
 ts_libraries = [

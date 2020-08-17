@@ -298,6 +298,8 @@ Version: 1.dev
 
   + **Add** generic map type ``GenMap``.
 
+  + **Add** ``TO_TEXT_CONTRACT_ID`` builtin.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -1635,6 +1637,8 @@ Then, a collection of packages ``Ξ`` is well-formed if:
   package of ``Ξ``.
 * There are no cycles between type synonym definitions, modules, and
   packages references.
+* Each package ``p`` only depends on packages whose LF version is older
+  than or the same as the LF version of ``p`` itself.
 
 
 Operational semantics
@@ -2672,13 +2676,74 @@ as described by the ledger model::
        ⇓ᵤ
      Ok (cid, tr) ‖ (st₁, keys₁)
 
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercMissing
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st; keys)
+       ⇓ᵤ
+     Err "Exercise on unknown contract"
+
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'inactive')
+   —————————————————————————————————————————————————————————————————————— EvUpdExercInactive
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀; keys₀)
+       ⇓ᵤ
+     Err "Exercise on inactive contract"
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[y ↦ v₂, x ↦ vₜ]  ⇓  Ok vₚ
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdExercActorEvalErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ ≠ₛ vₚ
+   —————————————————————————————————————————————————————————————————————— EvUpdExercBadActors
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st; keys)
+       ⇓ᵤ
+     Err "Exercise actors do not match"
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
-     eₐ[y ↦ cid, z ↦ v₂, x ↦ vₜ]  ⇓  Ok uₐ
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     Err t
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     keys₁ = keys₀ - keys₀⁻¹(cid)
+     st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
+     uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdExercConsumErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     Err t
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
@@ -2688,48 +2753,67 @@ as described by the ledger model::
      Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'consuming' trₐ) ‖ (st₂, keys₂)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[z ↦ v₂, x ↦ vₜ]  ⇓  Ok vₚ
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
-     eₐ[y ↦ cid, z ↦ v₂, x ↦ vₜ]  ⇓  Ok uₐ
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     Err t
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsum
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
 
-     'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (z : 'ContractId' Mod:T) (y : τ) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
-     cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'inactive')
-   —————————————————————————————————————————————————————————————————————— EvUpdExercInactive
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀; keys₀)
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActorsMissing
+     'exercise_without_actors' Mod:T.Ch cid v ‖ (st, keys)
        ⇓ᵤ
-     Err "Exercise on inactive contract" ‖ (st₀; keys₀)
+     Err "Exercise on unknown contract"
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (z : 'ContractId' Mod:T) (y : τ) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ]  ⇓  Ok vₚ
-     v₁ ≠ₛ vₚ
-   —————————————————————————————————————————————————————————————————————— EvUpdExercBadActors
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st; keys)
-       ⇓ᵤ
-     Err "Exercise actors do not match"  ‖ (st; keys)
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActorsErr
+     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (z : 'ContractId' Mod:T) (y : τ) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[y ↦ cid, z ↦ v₂, x ↦ vₜ]  ⇓  Ok vₚ
-     'exercise' Mod:T.Ch cid vₚ v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur ‖ (st₁, keys₁)
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     'exercise' Mod:T.Ch cid vₚ v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur
    —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActors
-     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur
+
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchMissing
+     'fetch' @Mod:T cid ‖ (st; keys)
        ⇓ᵤ
-     ur ‖ (st₁, keys₁)
+     Err "Exercise on unknown contract"
+
+     'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
+     cid ∈ dom(st)
+     st(cid) = (Mod:T, vₜ, 'inactive')
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchInactive
+     'fetch' @Mod:T cid ‖ (st; keys)
+       ⇓ᵤ
+     Err "Exercise on inactive contract"
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
@@ -2739,57 +2823,61 @@ as described by the ledger model::
        ⇓ᵤ
      Ok (vₜ, ε) ‖ (st; keys)
 
-      e  ⇓  Ok vₖ
-      (Mod:T, vₖ) ∈ dom(keys₀)      cid = keys((Mod:T, v))
-      st(cid) = (Mod:T, vₜ, 'active')
-   —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyFound
-     'fetch_by_key' @Mod:T e ‖ (st; keys)
-        ⇓ᵤ
-     Ok ⟨'contractId': cid, 'contract': vₜ⟩ ‖ (st; keys)
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
+     (eₘ vₖ)  ⇓  Err t
+     (Mod:T, vₖ) ∉ dom(keys₀)
+    —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyErr
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  Err t
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
-     e  ⇓  Ok vₖ
-     (eₘ vₖ)  ⇓  vₘ
+     (eₘ vₖ)  ⇓  Ok  vₘ
      (Mod:T, vₖ) ∉ dom(keys₀)
     —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyNotFound
-     'fetch_by_key' @Mod:T e ‖ (st; keys)
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
         ⇓ᵤ
-     Err "Lookup key not found"  ‖ (st; keys)
+     Err "Lookup key not found"
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
-     e  ⇓  Ok vₖ
+     (eₘ vₖ)  ⇓  Ok  vₘ
+     (Mod:T, vₖ) ∈ dom(keys)
+     cid = keys((Mod:T, v))
+     st(cid) = (Mod:T, vₜ, 'inactive')
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyInactive
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
+        ⇓ᵤ
+     Err "Exercise on inactive contract"
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     (eₘ vₖ)  ⇓  Ok  vₘ
+     (Mod:T, vₖ) ∈ dom(keys)
+     cid = keys((Mod:T, v))
+     st(cid) = (Mod:T, vₜ, 'active')
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyFound
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
+        ⇓ᵤ
+     Ok ⟨'ContractId': cid, 'contract': vₜ⟩ ‖ (st; keys)
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     (eₘ vₖ)  ⇓  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyErr
+     'lookup_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  Err t
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  vₘ
-     (Mod:T, vₖ) ∈ dom(keys)   cid = keys((Mod:T, v))
-   —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyErr1
-     'lookup_by_key' @Mod:T e ‖ (st; keys) ⇓ᵤ Err t
-
-     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
-     e  ⇓  Ok vₖ
-     (eₘ vₖ)  ⇓  vₘ
-     (Mod:T, vₖ) ∈ dom(keys)   cid = keys((Mod:T, v))
-   —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyErr2
-     'lookup_by_key' @Mod:T e ‖ (st; keys)
-       ⇓ᵤ
-     Ok ('Some' @(Contract:Id Mod:T) cid, ε) ‖ (st; keys)
-
-
-     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
-     e  ⇓  Ok vₖ
-     (eₘ vₖ)  ⇓  Ok vₘ
-     (Mod:T, vₖ) ∈ dom(keys)   cid = keys((Mod:T, v))
-   —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyFound
-     'lookup_by_key' @Mod:T e ‖ (st; keys)
-       ⇓ᵤ
-     Ok ('Some' @(Contract:Id Mod:T) cid, ε) ‖ (st; keys)
-
-     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
-     e  ⇓  Ok vₖ
-     (eₘ vₖ)  ⇓  Ok vₘ
      (Mod:T, vₖ) ∉ dom(keys)
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyNotFound
-     'lookup_by_key' @Mod:T e ‖ (st; keys)
-         ⇓ᵤ
-     Ok ('None' @(Contract:Id Mod:T), ε) ‖ (st; keys)
+     'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
+       ⇓ᵤ
+     Ok ('None' @('ContractId' Mod:T), ε) ‖ (st; keys)
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     (eₘ vₖ)  ⇓  vₘ
+     (Mod:T, vₖ) ∈ dom(keys)
+     cid = keys((Mod:T, v))
+   —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyFound
+     'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
+       ⇓ᵤ
+     Ok ('Some' @('ContractId' Mod:T) cid, ε) ‖ (st; keys)
 
      LitTimestamp is the current ledger time
    —————————————————————————————————————————————————————————————————————— EvUpdGetTime
@@ -3514,6 +3602,13 @@ ContractId functions
   Returns the given contract ID unchanged at a different type.
 
   [*Available in versions >= 1.5*]
+
+* ``TO_TEXT_CONTRACT_ID : ∀ (α : ⋆) . 'ContractId' α -> 'Optional' 'Text'``
+
+  Always returns ``None`` in ledger code. This function is only useful
+  for off-ledger code which is not covered by this specification.
+
+  [*Available in versions >= 1.dev*]
 
 List functions
 ~~~~~~~~~~~~~~

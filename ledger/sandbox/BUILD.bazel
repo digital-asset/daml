@@ -1,9 +1,7 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
-load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@io_bazel_rules_docker//java:image.bzl", "java_image")
@@ -35,6 +33,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/caching",
         "//ledger/ledger-api-auth",
@@ -95,12 +94,9 @@ genrule(
     cmd = """
         mkdir -p sandbox-tarball/sandbox
         cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
-        out=$$(realpath $@)
-        cd sandbox-tarball
-        tar c sandbox \\
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-          | gzip -n > $$out
+        $(execpath //bazel_tools/sh:mktgz) $@ -C sandbox-tarball sandbox
     """.format(mvn = mvn_version),
+    tools = ["//bazel_tools/sh:mktgz"],
     visibility = ["//visibility:public"],
 )
 

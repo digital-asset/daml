@@ -16,8 +16,7 @@ import scalaz.syntax.traverse._
 object TransactionFilterValidator {
 
   def validate(
-      txFilter: TransactionFilter,
-      fieldName: String): Either[StatusRuntimeException, domain.TransactionFilter] = {
+      txFilter: TransactionFilter): Either[StatusRuntimeException, domain.TransactionFilter] = {
     if (txFilter.filtersByParty.isEmpty) {
       Left(ErrorFactories.invalidArgument("filtersByParty cannot be empty"))
     } else {

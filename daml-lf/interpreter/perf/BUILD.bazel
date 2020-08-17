@@ -32,6 +32,8 @@ da_scala_binary(
     data = [
         ":Examples.dar",
         ":Examples.dar.pp",
+        ":JsonParser.dar",
+        ":JsonParser.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.ExploreDar",
     runtime_deps = [

@@ -30,7 +30,7 @@ object PackageIDsGen {
     val packageIdsSrc: Tree =
       q"""
         package ${Util.packageNameToRefTree(util.packageName)} {
-          private object `Package IDs` {
+          private[${Util.packageNameTailToRefTree(util.packageName)}] object `Package IDs` {
             ..$packageIdBindings
           }
         }
@@ -42,6 +42,6 @@ object PackageIDsGen {
     (filePath, trees)
   }
 
-  private[lf] def reference(util: LFUtil)(moduleName: ModuleName) =
+  private[lf] def reference(moduleName: ModuleName) =
     q"`Package IDs`.${TermName(moduleName.dottedName)}"
 }

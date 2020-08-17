@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
 
-import akka.actor.Scheduler
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.{
@@ -16,7 +15,6 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
 import com.daml.dec.{DirectExecutionContext => DE}
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.PartyEntry.{AllocationAccepted, AllocationRejected}
 import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
@@ -29,15 +27,14 @@ import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
     materializer: Materializer,
-    scheduler: Scheduler,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends PartyManagementService
     with GrpcApiService {
 
@@ -139,17 +136,12 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
-  )(
-      implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-      logCtx: LoggingContext)
+  )(implicit mat: Materializer, loggingContext: LoggingContext)
     : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
       transactionsService,
       writeBackend,
-      mat,
-      mat.system.scheduler)
+      mat)
 
 }

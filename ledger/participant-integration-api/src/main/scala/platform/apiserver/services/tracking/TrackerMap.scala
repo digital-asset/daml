@@ -21,8 +21,8 @@ import scala.util.{Failure, Success}
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
 private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(
-    implicit logCtx: LoggingContext)
-    extends AutoCloseable {
+    implicit loggingContext: LoggingContext,
+) extends AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -149,6 +149,6 @@ private[services] object TrackerMap {
     }
   }
 
-  def apply(retentionPeriod: FiniteDuration)(implicit logCtx: LoggingContext): TrackerMap =
+  def apply(retentionPeriod: FiniteDuration)(implicit loggingContext: LoggingContext): TrackerMap =
     new TrackerMap(retentionPeriod)
 }

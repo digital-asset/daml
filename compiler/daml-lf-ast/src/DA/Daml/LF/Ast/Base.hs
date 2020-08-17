@@ -244,6 +244,7 @@ data BuiltinExpr
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
+  | BEToTextContractId           -- :: forall t. ContractId t -> Option Text
 
   -- Decimal arithmetic
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow

@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.package_service.HashFunction.{
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
@@ -22,8 +23,8 @@ import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import scala.concurrent.Future
 
 private[apiserver] final class ApiPackageService private (backend: IndexPackagesService)(
-    implicit logCtx: LoggingContext)
-    extends PackageService
+    implicit loggingContext: LoggingContext,
+) extends PackageService
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -40,25 +41,25 @@ private[apiserver] final class ApiPackageService private (backend: IndexPackages
       .andThen(logger.logErrorsOnCall[ListPackagesResponse])(DEC)
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
-    withValidatedPackageId(
-      request.packageId,
-      pId =>
+    withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
+      withValidatedPackageId(request.packageId) { packageId =>
         backend
-          .getLfArchive(pId)
+          .getLfArchive(packageId)
           .flatMap(_.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
             archive => Future.successful(toGetPackageResponse(archive))))(DEC)
           .andThen(logger.logErrorsOnCall[GetPackageResponse])(DEC)
-    )
+      }
+    }
 
   override def getPackageStatus(
-      request: GetPackageStatusRequest): Future[GetPackageStatusResponse] =
-    withValidatedPackageId(
-      request.packageId,
-      pId =>
+      request: GetPackageStatusRequest,
+  ): Future[GetPackageStatusResponse] =
+    withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
+      withValidatedPackageId(request.packageId) { packageId =>
         backend
           .listLfPackages()
           .map { packages =>
-            val result = if (packages.contains(pId)) {
+            val result = if (packages.contains(packageId)) {
               PackageStatus.REGISTERED
             } else {
               PackageStatus.UNKNOWN
@@ -66,9 +67,10 @@ private[apiserver] final class ApiPackageService private (backend: IndexPackages
             GetPackageStatusResponse(result)
           }(DEC)
           .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])(DEC)
-    )
+      }
+    }
 
-  private def withValidatedPackageId[T](packageId: String, block: Ref.PackageId => Future[T]) =
+  private def withValidatedPackageId[T](packageId: String)(block: Ref.PackageId => Future[T]) =
     Ref.PackageId
       .fromString(packageId)
       .fold(
@@ -92,7 +94,8 @@ private[apiserver] final class ApiPackageService private (backend: IndexPackages
 
 private[platform] object ApiPackageService {
   def create(ledgerId: LedgerId, backend: IndexPackagesService)(
-      implicit logCtx: LoggingContext): PackageService with GrpcApiService =
+      implicit loggingContext: LoggingContext,
+  ): PackageService with GrpcApiService =
     new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, DEC)

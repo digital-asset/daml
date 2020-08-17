@@ -10,9 +10,14 @@ load(
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
+tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+    "NonUnitStatements",
+]]
+
 da_scala_library(
     name = "trigger-service",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = tsvc_main_scalacopts,
     # Uncomment this if/when the target is published to maven.
     # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -33,8 +38,10 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:com_chuusai_shapeless_2_12",
@@ -88,7 +95,6 @@ da_scala_test(
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
     data = [
         ":test-model.dar",
-        "//triggers/service:ref-ledger-authentication-binary",
     ] + (
         [
             "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
@@ -105,6 +111,7 @@ da_scala_test(
         "//daml-lf/data",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/participant-integration-api",
