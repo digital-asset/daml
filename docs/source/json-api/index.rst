@@ -133,7 +133,7 @@ token.  The default "header" is fine.  Under "Payload", fill in:
     {
       "https://daml.com/ledger-api": {
         "ledgerId": "MyLedger",
-        "applicationId": "HTTP-JSON-API-Gateway",
+        "applicationId": "foobar",
         "actAs": ["Alice"]
       }
     }
@@ -141,8 +141,7 @@ token.  The default "header" is fine.  Under "Payload", fill in:
 The value of the ``ledgerId`` field has to match the ``ledgerId` of your underlying DAML Ledger.
 For the ``daml sandbox`` this corresponds to the ``--ledgerid MyLedger`` flag.
 
-The value of the ``applicationId`` field must match that provided to the ``daml json-api`` command with the flag
-``--application-id`` (default is ``HTTP-JSON-API-Gateway``).
+.. note:: The value of ``applicationId`` can currently be anything and does not need to correspond to ``daml json-api --application-id <value>``.
 
 The value for ``actAs`` is specified as a list. You can replace ``Alice`` with whatever party you want to use,
 provided that it is a valid party on the ledger.
