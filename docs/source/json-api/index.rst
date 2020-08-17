@@ -40,12 +40,12 @@ We welcome feedback about the JSON API on `our issue tracker
 Running the JSON API
 ********************
 
-.. warning:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via nginx <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
+.. warning:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
 
 Start a DAML Ledger
 ===================
 
-You can run the JSON API alongside any Ledger API you want, if you don't have a Ledger API you want to run it with then start a sandbox ledger as so:
+You can run the JSON API alongside any ledger exposing the gRPC Ledger API you want. If you don't have an existing ledger, you can start an in-memory sandbox:
 
 .. code-block:: shell
 
@@ -68,7 +68,7 @@ The most basic way to start the JSON API is with the command:
 
     daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
 
-This will connect to your ledger that is running on ``localhost:6865`` and start your JSON API server which you'll be able to query on ``localhost:7575``
+This will start the JSON API on port 7575 and connect it to a ledger running on ``localhost:6865``.
 
 With Query Store
 ------------------
@@ -116,7 +116,7 @@ and starting ``daml json-api`` with the flag ``--access-token-file /path/to/your
 If the token cannot be read from the provided path or the Ledger API reports an authentication error
 (for example due to token expiration), the JSON API will report the error via logging. 
 
-.. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without interrupting your JSON API service.
+.. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without restarting your JSON API service.
 
 Authorization
 -------------
@@ -529,7 +529,7 @@ Where:
 Exercise by Contract Key
 ************************
 
-The JSON command below, demonstrates how to exercise ``Archive`` a choice on ``Account`` contract with a ``(Party, Text)`` :doc:`contract key </daml/reference/contract-keys>` defined like this:
+The JSON command below, demonstrates how to exercise the ``Archive`` choice on the ``Account`` contract with a ``(Party, Text)`` :doc:`contract key </daml/reference/contract-keys>` defined like this:
 
 .. code-block:: daml
 
@@ -833,7 +833,7 @@ HTTP Response
 
 The response is the same as for the POST method below.
 
-Query all Active Contracts
+Get all Active Contracts Matching a Given Query
 **************************
 
 List currently active contracts that match a given query.
