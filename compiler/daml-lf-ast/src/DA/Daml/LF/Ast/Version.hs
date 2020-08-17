@@ -119,6 +119,14 @@ featureUnstable = Feature
     , featureCppFlag = "DAML_UNSTABLE"
     }
 
+featureToTextContractId :: Feature
+featureToTextContractId = Feature
+    { featureName = "TO_TEXT_CONTRACT_ID primitive"
+    -- TODO Change as part of #7139
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_TO_TEXT_CONTRACT_ID"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
@@ -130,6 +138,7 @@ allFeatures =
     , featureGenMap
     , featurePackageMetadata
     , featureUnstable
+    , featureToTextContractId
     ]
 
 allFeaturesForVersion :: Version -> [Feature]
