@@ -1559,7 +1559,8 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         TO_TEXT_CONTRACT_ID,
         BToTextContractId,
-        minVersion = contractIdTextConversions),
+        minVersion = contractIdTextConversions,
+      ),
       BuiltinFunctionInfo(TO_QUOTED_TEXT_PARTY, BToQuotedTextParty),
       BuiltinFunctionInfo(TEXT_FROM_CODE_POINTS, BToTextCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(FROM_TEXT_PARTY, BFromTextParty, minVersion = partyTextConversions),

@@ -116,12 +116,15 @@ class DecodeV1Spec
 
   private val preContractIdTextConversionVersions = Table(
     "minVersion",
-    List(1, 4, 6, 7).map(i => LV.Minor.Stable(i.toString)): _*
+    List(1, 4, 6, 8).map(i => LV.Minor.Stable(i.toString)): _*
   )
 
   private val postContractIdTextConversionVersions = Table(
     "minVersion",
-    LV.Minor.Dev
+    // FIXME: https://github.com/digital-asset/daml/issues/7139
+    // uncomment the following line once LF 1.9 is released
+    // LV.Minor.Stable("9"),
+    LV.Minor.Dev,
   )
 
   "decodeKind" should {
