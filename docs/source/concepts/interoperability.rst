@@ -77,7 +77,7 @@ When a Participant Node hosts a party only on a subset of the interoperable DAML
 then the transaction and active contract services of the Participant Node are derived only from those ledgers.
 
 For example, in the :ref:`above topology <multiple-ledgers>`, when a transaction creates a contract with stakeholder Alice on Ledger 2,
-then `P1`\ 's transaction stream for Alice will emit this transaction and report the contract as active, but not `P2`.
+then `P1`\ 's transaction stream for Alice will emit this transaction and report the contract as active, but Alice's stream at `P2` will not.
 
 
 .. _enter-leave-event:
@@ -372,7 +372,7 @@ Definition »Y-labelled action«
 Definition »Ledger-aware projection for transactions«
   Let `Y` be a set of DAML ledgers and `tx` a transaction whose actions are annotated with incoming and outgoing ledgers.
   Let `Act` be the set of `Y`\ -labelled subactions of `tx` that the party `P` is an informee of.
-  The **ledger-aware projection** of `tx` for `P` (`P`-**projection on** `Y`) consists of all the maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
+  The **ledger-aware projection** of `tx` for `P` on `Y` (`P`-**projection on** `Y`) consists of all the maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
 
 .. note::
    Every action contains all its subactions.
@@ -430,7 +430,7 @@ The following points are worth highlighting:
   in the transaction stream of a Participant Node that hosts Alice on the green ledger but not on the yellow ledger.
   Similarly, the Painter merely witnesses the **Create** of his `Iou` in the Painter's projection on the green ledger.
 
-* In the Painter's projections, the `ShouIou` transaction `tx3` is unordered w.r.t. to the `CounterOffer` acceptance in `tx4`
+* In the Painter's projections, the `ShowIou` transaction `tx3` is unordered w.r.t. to the `CounterOffer` acceptance in `tx4`
   like in the :ref:`case of ordinary causality graphs <counteroffer-causality-projections>`.
   The edge `tx3` -> `tx4` is removed by the reduction step during projection.
 

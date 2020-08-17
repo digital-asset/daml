@@ -49,7 +49,7 @@ Signatories of a contract and stakeholder actors see usages after the creation a
 
 The `Fetch A (Iou Bank A)` action comes after the creation of the `Iou Bank A` and before its archival,
 for both Alice and the Bank,
-because the Bank is a signatory of the `Iou Bank A` contract and Alice is stakeholder of the `Iou Bank A` contract and an actor on the **Fetch** action.
+because the Bank is a signatory of the `Iou Bank A` contract and Alice is a stakeholder of the `Iou Bank A` contract and an actor on the **Fetch** action.
 
 .. _causality-example-commit-atomic:
 
@@ -128,7 +128,7 @@ In fact, the divulged `Iou` contract shows up neither in the painter's active co
 Such witnessed events are included in the transaction tree stream as a convenience:
 They relieve the painter from computing the consequences of the choice and enable him to check that the action conforms to the DAML model.
 
-By a similar argument, being an actor of an **Exercise** action induces order with respect to other uses of the contract only if the actor is a contract stakeholder.
+Similarly, being an actor of an **Exercise** action induces order with respect to other uses of the contract only if the actor is a contract stakeholder.
 This is because non-stakeholder actors of an **Exercise** action merely authorize the action, but they do not track whether the contract is active; this is what signatories and observers are for.
 
 .. _causality-example-depend-on-party:
