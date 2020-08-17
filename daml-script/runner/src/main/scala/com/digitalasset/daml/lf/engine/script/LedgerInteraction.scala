@@ -466,8 +466,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
               "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"))
         case SResultScenarioPassTime(relTime @ _, callback @ _) =>
           result = Failure(
-            new RuntimeException(
-              "FATAL: Encountered scenario instruction setTime in DAML Script"))
+            new RuntimeException("FATAL: Encountered scenario instruction setTime in DAML Script"))
         case SResultScenarioGetParty(partyText @ _, callback @ _) =>
           result = Failure(
             new RuntimeException("FATAL: Encountered scenario instruction getParty in DAML Script"))
