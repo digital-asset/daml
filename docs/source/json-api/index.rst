@@ -168,12 +168,6 @@ Alternatively, here are two tokens you can use for testing:
 
     eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJCb2IiXX19.0uPPZtM1AmKvnGixt_Qo53cMDcpnziCjKKiWLvMX2VM
 
-For production use, we have a tool in development for generating proper
-RSA-encrypted tokens locally, which will arrive when the service also
-supports such tokens.
-
-In the meantime you can also use whichever JWT libraries are available in the language of your choice.
-
 Party Auth via HTTP
 ^^^^^^^^^^^^^^^^^^^
 
