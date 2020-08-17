@@ -29,11 +29,9 @@ must be the same upon restart. This value is expected in many API endpoints, to
 ensure ledger clients are connecting to the correct ledger.
 
 Due to possible conflicts between the ``&`` character and various shells, we
-recommend quoting the JDBC URL in the terminal, as follows:
+recommend quoting the JDBC URL in the terminal, as follows::
 
-.. code-block::
-
-  $ java -jar daml-on-sql-<version>.jar --ledgerid=test --sql-backend-jdbcurl='jdbc:postgresql://localhost/test?user=fred&password=secret'
+    $ java -jar daml-on-sql-<version>.jar --ledgerid=test --sql-backend-jdbcurl='jdbc:postgresql://localhost/test?user=fred&password=secret'
 
 If you are not familiar with JDBC URLs, we recommend reading the `PostgreSQL JDBC documentation <https://jdbc.postgresql.org/documentation/head/connect.html>`__
 for more information.
@@ -88,22 +86,22 @@ kind of deployment you wish to make, this can be achieved with containerization,
 virtualization or simply using physically different machines. Still, the Ledger
 API communicates abundantly with the database server and many Ledger API
 requests need to go all the way to persist information on the database. To
-reduce the latency necessary to serve outstanding requests, **the *DAML on
-PostgreSQL* server and PostgreSQL server should be physically co-located**.
+reduce the latency necessary to serve outstanding requests, the *DAML on
+PostgreSQL* server and PostgreSQL server should be **physically co-located**.
 
 Core availability considerations
 ================================
 
-In order to address availability concerns, it's important to understand what
+In order to address availability concerns, it is important to understand what
 each of the core components do and how they interact with each other, in
 particular regarding state and consistency.
 
 Having two *DAML on PostgreSQL* servers running on top of a single PostgreSQL
 server can lead to undefined (and likely broken) behavior. For this reason,
-it's important to maintain a strict 1:1 relationship between a running *DAML
-on PostgreSQL* server and a running PostgreSQL server. Note that using
-PostgreSQL in a high-availability configuration does not allow you to run
-additional *DAML on PostgreSQL* servers.
+you must maintain a strict 1:1 relationship between a running *DAML on
+PostgreSQL* server and a running PostgreSQL server. Note that using PostgreSQL
+in a high-availability configuration does not allow you to run additional *DAML
+on PostgreSQL* servers.
 
 Downtime for the *DAML on PostgreSQL* server can be minimized using a watchdog
 or orchestration system taking care of evaluating its health of the core
@@ -151,7 +149,7 @@ tune for availability and performance.
   will receive a ``RESOURCE_EXHAUSTED`` error.
 
 - ``--max-lf-value-translation-cache-entries``.
-  In production, it's typical for many requests to be similar, resulting in
+  In production, it is typical for many requests to be similar, resulting in
   the transaction verification and translation layer repeating a lot of work.
   Specifying a value for the translation cache allows the results of some of
   this repetitive work to be cached. The value represents the number of cached
@@ -165,9 +163,10 @@ Security and privacy
 Trust assumptions
 =================
 
-In *DAML on PostgreSQL*, all data is kept centrally by the operator of the deployment.
-Thus, it's their responsibility to ensure that the data is treated with the
-appropriate care so to respect confidentiality and the applicable regulations.
+In *DAML on PostgreSQL*, all data is kept centrally by the operator of the
+deployment. Thus, it is their responsibility to ensure that the data is treated
+with the appropriate care so to respect confidentiality and the applicable
+regulations.
 
 The ledger operator is advised to use the tools available to them to not divulge
 private user data, including those documented by PostgreSQL, to protect data at
@@ -178,9 +177,9 @@ Ledger API over TLS
 ===================
 
 To protect data in transit and over untrusted networks, the Ledger API leverages
-gRPC's built-in TLS support to allow clients to verify the server's identity and
-encrypt the communication channel over which the Ledger API requests and
-responses are sent.
+TLS support built into gRPC to allow clients to verify the identity of the
+server and encrypt the communication channel over which the Ledger API requests
+and responses are sent.
 
 To enable TLS, you need to specify the private key for your server and the
 certificate chain via ``java -jar daml-on-sql-<version>.jar --pem server.pem --crt server.crt``.
@@ -223,14 +222,15 @@ The following command line options are available to enable authorization:
   The Ledger API will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
   with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
 
-.. warning::
+Testing-only authorization options
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  For testing purposes only, the following option may also be used.
-  This is not considered safe for production:
+For testing purposes only, the following option may also be used. This is not
+considered safe for production.
 
-  - ``--auth-jwt-hs256-unsafe=<secret>``.
-    The Ledger API will expect all tokens to be signed with HMAC256 with the
-    given plaintext secret.
+- ``--auth-jwt-hs256-unsafe=<secret>``.
+  The Ledger API will expect all tokens to be signed with HMAC256 with the given
+  plaintext secret.
 
 Token payload
 ^^^^^^^^^^^^^
@@ -239,17 +239,17 @@ The following is an example of a valid JWT payload:
 
 .. code-block:: json
 
-   {
-      "https://daml.com/ledger-api": {
-        "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-        "participantId": null,
-        "applicationId": null,
-        "admin": true,
-        "actAs": ["Alice"],
-        "readAs": ["Bob"]
-      },
-      "exp": 1300819380
-   }
+    {
+        "https://daml.com/ledger-api": {
+          "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          "participantId": null,
+          "applicationId": null,
+          "admin": true,
+          "actAs": ["Alice"],
+          "readAs": ["Bob"]
+        },
+        "exp": 1300819380
+    }
 
 where
 
@@ -267,11 +267,9 @@ To generate tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ we
 Generate RSA keys
 ^^^^^^^^^^^^^^^^^
 
-To generate RSA keys for testing purposes, use the following command
+To generate RSA keys for testing purposes, use the following command::
 
-.. code-block:: none
-
-  openssl req -nodes -new -x509 -keyout ledger.key -out ledger.crt
+    openssl req -nodes -new -x509 -keyout ledger.key -out ledger.crt
 
 which generates the following files:
 
@@ -281,22 +279,18 @@ which generates the following files:
 Generate EC keys
 ^^^^^^^^^^^^^^^^
 
-To generate keys to be used with ES256 for testing purposes, use the following command
+To generate keys to be used with ES256 for testing purposes, use the following command::
 
-.. code-block:: none
-
-  openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name prime256v1) -keyout ecdsa256.key -out ecdsa256.crt
+    openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name prime256v1) -keyout ecdsa256.key -out ecdsa256.crt
 
 which generates the following files:
 
 - ``ecdsa256.key``: the private key in PEM/DER/PKCS#1 format
 - ``ecdsa256.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
 
-Similarly, you can use the following command for ES512 keys:
+Similarly, you can use the following command for ES512 keys::
 
-.. code-block:: none
-
-  openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name secp521r1) -keyout ecdsa512.key -out ecdsa512.crt
+    openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name secp521r1) -keyout ecdsa512.key -out ecdsa512.crt
 
 Command-line reference
 **********************
@@ -481,7 +475,7 @@ by the interpreter and thus rejected (e.g. double spends)
 -----------------------------
 
 A timer. Time to fully process a submission (validation,
-deduplication and interpretation) before it's handed over
+deduplication and interpretation) before it is handed over
 to the ledger to be finalized (either committed or rejected).
 
 ``daml.commands.valid_submissions``
@@ -616,8 +610,7 @@ they are served via the party management service.
 ------------------------------
 
 A database metric. Time spent loading a package of compiled DAML code
-so that it's given to the DAML interpreter when
-needed.
+so that it is given to the DAML interpreter when needed.
 
 ``daml.index.db.load_configuration_entries``
 --------------------------------------------
@@ -662,7 +655,7 @@ transaction.
 ``daml.index.db.lookup_configuration``
 --------------------------------------
 
-A database metric. Time to fetch the configuration so that it's
+A database metric. Time to fetch the configuration so that it is
 served via the configuration management service.
 
 ``daml.index.db.lookup_contract_by_key``
