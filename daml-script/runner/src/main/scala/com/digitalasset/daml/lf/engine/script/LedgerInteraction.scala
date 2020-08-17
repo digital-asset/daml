@@ -335,6 +335,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   )
   (compiledPackages, SEValue(SUnit))
   val scenarioRunner = ScenarioRunner(machine)
+  private var allocatedParties: Map[String, PartyDetails] = Map()
 
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
@@ -469,16 +470,43 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       })
   }
 
+  // All parties known to the ledger. This may include parties that were not
+  // allocated explicitly, e.g. parties created by `partyFromText`.
+  private def getLedgerParties(): Iterable[Ref.Party] = {
+    scenarioRunner.ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
+  }
+
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    // TODO Figure out how we want to handle this in the script service.
-    Future.successful(SParty(Ref.Party.assertFromString(displayName)))
+    val usedNames = getLedgerParties.toSet ++ allocatedParties.keySet
+    Future.fromTry(for {
+      name <- if (partyIdHint != "") {
+        // Try to allocate the given hint as party name. Will fail if the name is already taken.
+        if (usedNames contains partyIdHint) {
+          Failure(new ScenarioErrorPartyAlreadyExists(partyIdHint))
+        } else {
+          Success(partyIdHint)
+        }
+      } else {
+        // Allocate a fresh name based on the display name.
+        val candidates = displayName #:: Stream.from(1).map(displayName + _.toString())
+        Success(candidates.find(s => !(usedNames contains s)).get)
+      }
+      // Create and store the new party.
+      partyDetails = PartyDetails(
+        party = Ref.Party.assertFromString(name),
+        displayName = Some(displayName),
+        isLocal = true)
+      _ = allocatedParties += (name -> partyDetails)
+    } yield SParty(partyDetails.party))
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    // TODO Implement
-    Future.failed(new RuntimeException("listKnownParties is not yet implemented"))
+    val ledgerParties = getLedgerParties
+      .map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true)))
+      .toMap
+    Future.successful((ledgerParties ++ allocatedParties).values.toList)
   }
 
   override def getStaticTime()(

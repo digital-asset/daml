@@ -508,6 +508,7 @@ enum BuiltinFunction {
   FROM_TEXT_INT64 = 103; // *Available in versions >= 1.5*
   FROM_TEXT_DECIMAL = 104; // *Available in versions 1.5 and 1.6
   FROM_TEXT_NUMERIC = 117;  // *Available in versions >= 1.7*
+  TO_TEXT_CONTRACT_ID = 136; // *Available in versions >= 1.dev*
   SHA256_TEXT = 93; // *Available in versions >= 1.2*
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
@@ -549,7 +550,7 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  // Next id is 136. 135 is GREATER.
+  // Next id is 137. 136 is TO_TEXT_CONTRACT_ID.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*

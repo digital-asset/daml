@@ -196,6 +196,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"TypeRep",
         E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
           T"TypeRep",
+        // TO_TEXT_CONTRACT_ID
+        E"""Λ (σ : ⋆). λ (c : (ContractId σ)) → TO_TEXT_CONTRACT_ID @σ c""" ->
+          T"∀ (σ : ⋆). ContractId σ → Option Text"
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
