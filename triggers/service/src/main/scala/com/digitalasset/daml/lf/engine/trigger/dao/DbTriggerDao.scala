@@ -12,6 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.{EncryptedToken, JdbcConfig, RunningTrigger, UserCredentials}
+import com.typesafe.scalalogging.StrictLogging
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
@@ -45,13 +46,15 @@ object Connection {
     c.setJdbcUrl(jdbcUrl)
     c.setUsername(username)
     c.setPassword(password)
-    c.setMaximumPoolSize(8)
+    c.setMaximumPoolSize(2)
+    c.setIdleTimeout(500)
     new HikariDataSource(c)
   }
 }
 
 final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Connection.T)
-    extends RunningTriggerDao {
+    extends RunningTriggerDao
+    with StrictLogging {
 
   private val logHandler: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
 
@@ -212,13 +215,19 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     )
   }
 
-  def initialize: Either[String, Unit] =
-    run(createTables(logHandler), "Failed to initialize database.")
+  import logger.info
 
-  private[trigger] def destroy(): Either[String, Unit] = {
-    import cats.instances.either._
-    (run(dropTables, "Failed to remove database objects.") *>
-      Try(dataSource.close()).toEither.left.map(t => s"Failed to close database.\n${t.getMessage}"))
+  def initialize: Either[String, Unit] = {
+    info(s"s11 init $this")
+    run(createTables(logHandler), "Failed to initialize database.")
+  }
+
+  private[trigger] def destroy(): Either[String, Unit] =
+    run(dropTables, "Failed to remove database objects.")
+
+  private[trigger] def destroyPermanently(): Either[String, Unit] = {
+    info(s"s11 close $this $dataSource")
+    Try(dataSource.close()).toEither.left.map(t => s"Failed to close database.\n${t.getMessage}")
   }
 }
 

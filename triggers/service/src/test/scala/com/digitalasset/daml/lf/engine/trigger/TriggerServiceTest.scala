@@ -496,18 +496,17 @@ class TriggerServiceTestWithDb
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    triggerDao.initialize match {
-      case Left(err) => fail(err)
-      case Right(()) =>
-    }
+    triggerDao.initialize fold (fail(_), identity)
   }
 
   override protected def afterEach(): Unit = {
-    triggerDao.destroy() match {
-      case Left(err) => fail(err)
-      case Right(()) =>
-    }
+    triggerDao.destroy() fold (fail(_), identity)
     super.afterEach()
+  }
+
+  override protected def afterAll(): Unit = {
+    triggerDao.destroyPermanently() fold (fail(_), identity)
+    super.afterAll()
   }
 
   behavior of "persistent backend"
