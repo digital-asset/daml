@@ -1,22 +1,22 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-*DAML on PostgreSQL*
-####################
+*DAML for PostgreSQL*
+#####################
 
-*DAML on PostgreSQL* is a PostgreSQL-based DAML ledger implementation.
+*DAML for PostgreSQL* is a PostgreSQL-based DAML ledger implementation.
 
 Setup PostgreSQL and run
 ************************
 
 Before starting, you need to perform the following steps:
 
-- create an initially empty PostgreSQL database that *DAML on PostgreSQL* can
+- create an initially empty PostgreSQL database that *DAML for PostgreSQL* can
   access
-- create a database user for *DAML on PostgreSQL* that has authority to execute
+- create a database user for *DAML for PostgreSQL* that has authority to execute
   DDL operations
 
-This is because *DAML on PostgreSQL* manages its own database schema, applying
+This is because *DAML for PostgreSQL* manages its own database schema, applying
 migrations if necessary when upgrading versions.
 
 To specify the PostgreSQL instance you wish to connect, use the
@@ -42,19 +42,19 @@ Architecture and availability
 Processes and components
 ========================
 
-The core processes necessary to run a *DAML on PostgreSQL* deployment are:
+The core processes necessary to run a *DAML for PostgreSQL* deployment are:
 
-- the *DAML on PostgreSQL* server, and
+- the *DAML for PostgreSQL* server, and
 - the PostgreSQL server used to persist the ledger data.
 
-*DAML on PostgreSQL* communicates with the external world via the gRPC Ledger
+*DAML for PostgreSQL* communicates with the external world via the gRPC Ledger
 API and communicates with PostgreSQL via JDBC to persist transactions, keep
 track of active contracts, store compiled DAML packages, and so on.
 
 Server hardware and software requirements
 =========================================
 
-*DAML on PostgreSQL* is provided as a self-contained JAR file, containing the
+*DAML for PostgreSQL* is provided as a self-contained JAR file, containing the
 application and all dependencies. The application is routinely tested with
 OpenJDK 8 on a 64-bit x86 architecture, with Ubuntu 16.04, macOS 10.15, and
 Windows Server 2016.
@@ -67,7 +67,7 @@ environment. Core requirements in such a situation include:
 - OpenSSL 1.1 or later, made available to the above JRE
 - glibc, made available to the above JRE
 
-As a Java-based application, *DAML on PostgreSQL* can work on other operating
+As a Java-based application, *DAML for PostgreSQL* can work on other operating
 systems and architectures supporting a Java Runtime Environment. However, such
 an environment will not have been tested and may cause issues.
 
@@ -76,7 +76,7 @@ Core architecture considerations
 
 The backing PostgreSQL server performs a lot of work which is both CPU- and
 IO-intensive: all (valid) Ledger API requests will eventually hit the database.
-At the same time, the *DAML on PostgreSQL* server has to have available
+At the same time, the *DAML for PostgreSQL* server has to have available
 resources to validate requests, evaluate commands and prepare responses. While
 the PostgreSQL schema is designed to be as efficient as possible, practical
 experience has shown that having **dedicated computation and memory resources
@@ -86,7 +86,7 @@ kind of deployment you wish to make, this can be achieved with containerization,
 virtualization or simply using physically different machines. Still, the Ledger
 API communicates abundantly with the database server and many Ledger API
 requests need to go all the way to persist information on the database. To
-reduce the latency necessary to serve outstanding requests, the *DAML on
+reduce the latency necessary to serve outstanding requests, the *DAML for
 PostgreSQL* server and PostgreSQL server should be **physically co-located**.
 
 Core availability considerations
@@ -96,14 +96,14 @@ In order to address availability concerns, it is important to understand what
 each of the core components do and how they interact with each other, in
 particular regarding state and consistency.
 
-Having two *DAML on PostgreSQL* servers running on top of a single PostgreSQL
+Having two *DAML for PostgreSQL* servers running on top of a single PostgreSQL
 server can lead to undefined (and likely broken) behavior. For this reason,
-you must maintain a strict 1:1 relationship between a running *DAML on
+you must maintain a strict 1:1 relationship between a running *DAML for
 PostgreSQL* server and a running PostgreSQL server. Note that using PostgreSQL
 in a high-availability configuration does not allow you to run additional *DAML
-on PostgreSQL* servers.
+for PostgreSQL* servers.
 
-Downtime for the *DAML on PostgreSQL* server can be minimized using a watchdog
+Downtime for the *DAML for PostgreSQL* server can be minimized using a watchdog
 or orchestration system taking care of evaluating its health of the core
 components and ensuring its availability. The Ledger API exposes the standard
 gRPC health checkpoint that can be used to evaluate the health status of the
@@ -163,14 +163,14 @@ Security and privacy
 Trust assumptions
 =================
 
-In *DAML on PostgreSQL*, all data is kept centrally by the operator of the
+In *DAML for PostgreSQL*, all data is kept centrally by the operator of the
 deployment. Thus, it is their responsibility to ensure that the data is treated
 with the appropriate care so to respect confidentiality and the applicable
 regulations.
 
 The ledger operator is advised to use the tools available to them to not divulge
 private user data, including those documented by PostgreSQL, to protect data at
-rest and using a secure communication channel between the *DAML on PostgreSQL*
+rest and using a secure communication channel between the *DAML for PostgreSQL*
 server and the PostgreSQL server.
 
 Ledger API over TLS
@@ -192,7 +192,7 @@ or specify the default explicitly via ``--client-auth require``.
 Ledger API Authorization
 ========================
 
-By default, *DAML on PostgreSQL* accepts all valid Ledger API requests.
+By default, *DAML for PostgreSQL* accepts all valid Ledger API requests.
 
 You can enable authorization, representing claims as defined by the
 `Ledger API authorization documentation <https://docs.daml.com/app-dev/authentication.html#authentication-claims>`__
@@ -305,8 +305,8 @@ Monitoring
 Configure logging
 =================
 
-*DAML on PostgreSQL* uses the industry-standard Logback for logging. You can
-read more on how to set it up in the *DAML on PostgreSQL* CLI reference and the
+*DAML for PostgreSQL* uses the industry-standard Logback for logging. You can
+read more on how to set it up in the *DAML for PostgreSQL* CLI reference and the
 `Logback documentation <http://logback.qos.ch/>`__.
 
 Structured logging
@@ -342,8 +342,8 @@ command-line interface options:
     all metrics to be reported with the specified prefix.
 
 - ``--metrics-reporting-interval``: metrics are pre-aggregated within the *DAML
-  on PostgreSQL* server and sent to the reporter, this option allows the user to
-  set the interval. The formats accepted are based on the ISO-8601 duration
+  for PostgreSQL* server and sent to the reporter, this option allows the user
+  to set the interval. The formats accepted are based on the ISO-8601 duration
   format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours. The
   default interval is 10 seconds.
 
@@ -761,14 +761,14 @@ current state of threads.
 DAML Ledger Model Compliance
 ****************************
 
-*DAML on PostgreSQL* is tested regularly against the DAML Ledger API Test Tool
+*DAML for PostgreSQL* is tested regularly against the DAML Ledger API Test Tool
 to verify that the ledger implements correctly the DAML semantics and to check
 its performance envelope.
 
 Semantics
 =========
 
-On top of bespoke unit and integration tests, *DAML on PostgreSQL* is thoroughly
+On top of bespoke unit and integration tests, *DAML for PostgreSQL* is thoroughly
 tested with the Ledger API Test Tool to ensure that the implementation correctly
 implements the DAML semantics.
 
@@ -783,7 +783,7 @@ Performance envelope
 Furthermore, this implementation is regularly tested to comply with the DAML
 Ledger Implementation Performance Envelope tests.
 
-In particular, the tests are run to ensure that *DAML on PostgreSQL* can:
+In particular, the tests are run to ensure that *DAML for PostgreSQL* can:
 
 - process transactions as large as 1 MB
 - have a tail latency no greater than 1 second when issuing 20 pings
@@ -802,7 +802,7 @@ The following setup has been used to run the performance envelope tests:
   MB/s of R/W disk throughput, 8 RIOPS and 15 WIOPS, no automatic failover or
   disk increase, default PostgreSQL 12 configuration.
 
-- *DAML on PostgreSQL* server: a GCP N1-Standard-1 instance, with 1 vCPU, 3.75
+- *DAML for PostgreSQL* server: a GCP N1-Standard-1 instance, with 1 vCPU, 3.75
   GB of RAM, Ubuntu 20.04 LTS (64 bit), 10 GB boot disk, OpenJDK 1.8.0_242
 
 - Ledger API test tool client: a GCP F1-Micro instance, with 1 shared vCPU, 614
