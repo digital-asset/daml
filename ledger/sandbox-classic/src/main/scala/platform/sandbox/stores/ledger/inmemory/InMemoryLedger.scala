@@ -77,7 +77,6 @@ import scala.util.Try
   */
 private[sandbox] final class InMemoryLedger(
     val ledgerId: LedgerId,
-    participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
     transactionCommitter: TransactionCommitter,
@@ -448,7 +447,6 @@ private[sandbox] final class InMemoryLedger(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationRejected(
               submissionId,
-              participantId,
               timeProvider.getCurrentTime,
               "Party already exists",
             )
@@ -460,7 +458,6 @@ private[sandbox] final class InMemoryLedger(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationAccepted(
               Some(submissionId),
-              participantId,
               timeProvider.getCurrentTime,
               PartyDetails(party, displayName, isLocal = true))))
       }
@@ -541,23 +538,22 @@ private[sandbox] final class InMemoryLedger(
               InMemoryConfigEntry(
                 ConfigurationEntry.Rejected(
                   submissionId,
-                  participantId,
                   s"Generation mismatch, expected ${currentConfig.generation + 1}, got ${config.generation}",
-                  config)))
+                  config,
+                )))
 
           case _ if recordTime.isAfter(mrt) =>
             entries.publish(
               InMemoryConfigEntry(
                 ConfigurationEntry.Rejected(
                   submissionId,
-                  participantId,
                   s"Configuration change timed out: $mrt > $recordTime",
-                  config)))
+                  config,
+                )))
             ledgerConfiguration = Some(config)
 
           case _ =>
-            entries.publish(
-              InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, participantId, config)))
+            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, config)))
             ledgerConfiguration = Some(config)
         }
         SubmissionResult.Acknowledged

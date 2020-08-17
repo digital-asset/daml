@@ -54,7 +54,6 @@ private[sandbox] object SqlLedger {
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
       initialLedgerId: LedgerIdMode,
-      participantId: ParticipantId,
       timeProvider: TimeProvider,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
@@ -239,7 +238,6 @@ private[sandbox] object SqlLedger {
         () =>
           new SqlLedger(
             ledgerId,
-            participantId,
             ledgerConfig,
             ledgerDao,
             dispatcher,
@@ -303,7 +301,6 @@ private[sandbox] object SqlLedger {
 
 private final class SqlLedger(
     ledgerId: LedgerId,
-    participantId: ParticipantId,
     configAtInitialization: Option[Configuration],
     ledgerDao: LedgerDao,
     dispatcher: Dispatcher[Offset],
@@ -408,9 +405,9 @@ private final class SqlLedger(
           offset,
           PartyLedgerEntry.AllocationAccepted(
             Some(submissionId),
-            participantId,
             timeProvider.getCurrentTime,
-            PartyDetails(party, displayName, isLocal = true))
+            PartyDetails(party, displayName, isLocal = true),
+          ),
         )
         .map(_ => ())(DEC)
         .recover {
@@ -463,7 +460,6 @@ private final class SqlLedger(
               offset,
               recordTime,
               submissionId,
-              participantId,
               config,
               Some(s"Configuration change timed out: $mrt > $recordTime"),
             )
@@ -476,15 +472,13 @@ private final class SqlLedger(
           // we look up the current configuration again to see if it was stored successfully.
           implicit val ec: ExecutionContext = DEC
           for {
-            response <- ledgerDao
-              .storeConfigurationEntry(
-                offset,
-                recordTime,
-                submissionId,
-                participantId,
-                config,
-                None
-              )
+            response <- ledgerDao.storeConfigurationEntry(
+              offset,
+              recordTime,
+              submissionId,
+              config,
+              None,
+            )
             newConfig <- ledgerDao.lookupLedgerConfiguration()
           } yield {
             currentConfiguration.set(newConfig.map(_._2))

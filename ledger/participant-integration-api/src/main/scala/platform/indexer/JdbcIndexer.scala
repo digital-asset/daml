@@ -237,7 +237,6 @@ private[indexer] class JdbcIndexer private[indexer] (
           ) =>
         val entry = PartyLedgerEntry.AllocationAccepted(
           submissionId,
-          hostingParticipantId,
           recordTime.toInstant,
           domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId)
         )
@@ -245,13 +244,12 @@ private[indexer] class JdbcIndexer private[indexer] (
 
       case PartyAllocationRejected(
           submissionId,
-          hostingParticipantId,
+          _,
           recordTime,
           rejectionReason,
           ) =>
         val entry = PartyLedgerEntry.AllocationRejected(
           submissionId,
-          hostingParticipantId,
           recordTime.toInstant,
           rejectionReason,
         )
@@ -303,7 +301,6 @@ private[indexer] class JdbcIndexer private[indexer] (
           offset,
           config.recordTime.toInstant,
           config.submissionId,
-          config.participantId,
           config.newConfiguration,
           None,
         )
@@ -313,7 +310,6 @@ private[indexer] class JdbcIndexer private[indexer] (
           offset,
           configRejection.recordTime.toInstant,
           configRejection.submissionId,
-          configRejection.participantId,
           configRejection.proposedConfiguration,
           Some(configRejection.rejectionReason),
         )

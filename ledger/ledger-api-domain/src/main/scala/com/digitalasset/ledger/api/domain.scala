@@ -6,12 +6,12 @@ package com.daml.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
+import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.value.{Value => Lf}
-import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
@@ -284,14 +284,12 @@ object domain {
   object PartyEntry {
     final case class AllocationAccepted(
         submissionId: Option[String],
-        participantId: ParticipantId,
-        partyDetails: PartyDetails
+        partyDetails: PartyDetails,
     ) extends PartyEntry
 
     final case class AllocationRejected(
         submissionId: String,
-        participantId: ParticipantId,
-        reason: String
+        reason: String,
     ) extends PartyEntry
   }
 
@@ -301,15 +299,13 @@ object domain {
 
     final case class Accepted(
         submissionId: String,
-        participantId: ParticipantId,
         configuration: Configuration,
     ) extends ConfigurationEntry
 
     final case class Rejected(
         submissionId: String,
-        participantId: ParticipantId,
         rejectionReason: String,
-        proposedConfiguration: Configuration
+        proposedConfiguration: Configuration,
     ) extends ConfigurationEntry
   }
 

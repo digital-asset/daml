@@ -83,8 +83,8 @@ private[apiserver] final class ApiPartyManagementService private (
     partyManagementService
       .partyEntries(offset)
       .collect {
-        case entry @ AllocationAccepted(Some(`submissionId`), _, _) => entry
-        case entry @ AllocationRejected(`submissionId`, _, _) => entry
+        case entry @ AllocationAccepted(Some(`submissionId`), _) => entry
+        case entry @ AllocationRejected(`submissionId`, _) => entry
       }
       .completionTimeout(30.seconds)
       .runWith(Sink.head)(materializer)
@@ -107,14 +107,16 @@ private[apiserver] final class ApiPartyManagementService private (
           .flatMap {
             case SubmissionResult.Acknowledged =>
               pollUntilPersisted(submissionId, ledgerEndBeforeRequest).flatMap {
-                case domain.PartyEntry.AllocationAccepted(_, _, partyDetails) =>
+                case domain.PartyEntry.AllocationAccepted(_, partyDetails) =>
                   Future.successful(
                     AllocatePartyResponse(
-                      Some(PartyDetails(
-                        partyDetails.party,
-                        partyDetails.displayName.getOrElse(""),
-                        partyDetails.isLocal))))
-                case domain.PartyEntry.AllocationRejected(_, _, reason) =>
+                      Some(
+                        PartyDetails(
+                          partyDetails.party,
+                          partyDetails.displayName.getOrElse(""),
+                          partyDetails.isLocal,
+                        ))))
+                case domain.PartyEntry.AllocationRejected(_, reason) =>
                   Future.failed(ErrorFactories.invalidArgument(reason))
               }(DE)
             case r @ SubmissionResult.Overloaded =>
