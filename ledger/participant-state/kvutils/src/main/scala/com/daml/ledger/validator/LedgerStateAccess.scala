@@ -23,9 +23,9 @@ trait LedgerStateAccess[LogResult] {
     * @param body operations to perform
     * @tparam T return type of the body
     */
-  def inTransaction[T](body: LedgerStateOperations[LogResult] => Future[T])(
-      implicit executionContext: ExecutionContext
-  ): Future[T]
+  def inTransaction[T](
+      body: LedgerStateOperations[LogResult] => Future[T],
+  )(implicit executionContext: ExecutionContext): Future[T]
 }
 
 /**
@@ -48,21 +48,24 @@ trait LedgerStateOperations[LogResult] {
     * @param keys list of keys to look up data for
     * @return values corresponding to the requested keys, in the same order as requested
     */
-  def readState(keys: Seq[Key])(
-      implicit executionContext: ExecutionContext
-  ): Future[Seq[Option[Value]]]
+  def readState(
+      keys: Seq[Key],
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]]
 
   /**
     * Writes a single key-value pair to the backing store.  In case the key already exists its value is overwritten.
     */
-  def writeState(key: Key, value: Value)(implicit executionContext: ExecutionContext): Future[Unit]
+  def writeState(
+      key: Key,
+      value: Value,
+  )(implicit executionContext: ExecutionContext): Future[Unit]
 
   /**
     * Writes a list of key-value pairs to the backing store.  In case a key already exists its value is overwritten.
     */
-  def writeState(keyValuePairs: Seq[(Key, Value)])(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit]
+  def writeState(
+      keyValuePairs: Seq[(Key, Value)],
+  )(implicit executionContext: ExecutionContext): Future[Unit]
 
   /**
     * Writes a single log entry to the backing store.  The implementation may return Future.failed in case the key
@@ -70,23 +73,25 @@ trait LedgerStateOperations[LogResult] {
     *
     * @return offset of the latest log entry
     */
-  def appendToLog(key: Key, value: Value)(
-      implicit executionContext: ExecutionContext
-  ): Future[LogResult]
+  def appendToLog(
+      key: Key,
+      value: Value,
+  )(implicit executionContext: ExecutionContext): Future[LogResult]
 }
 
 /**
   * Convenience class for implementing read and write operations on a backing store that supports batched operations.
   */
 abstract class BatchingLedgerStateOperations[LogResult] extends LedgerStateOperations[LogResult] {
-  override final def readState(key: Key)(
-      implicit executionContext: ExecutionContext
-  ): Future[Option[Value]] =
+  override final def readState(
+      key: Key,
+  )(implicit executionContext: ExecutionContext): Future[Option[Value]] =
     readState(Seq(key)).map(_.head)(DirectExecutionContext)
 
-  override final def writeState(key: Key, value: Value)(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit] =
+  override final def writeState(
+      key: Key,
+      value: Value,
+  )(implicit executionContext: ExecutionContext): Future[Unit] =
     writeState(Seq(key -> value))
 }
 
@@ -96,14 +101,14 @@ abstract class BatchingLedgerStateOperations[LogResult] extends LedgerStateOpera
   */
 abstract class NonBatchingLedgerStateOperations[LogResult]
     extends LedgerStateOperations[LogResult] {
-  override final def readState(keys: Seq[Key])(
-      implicit executionContext: ExecutionContext
-  ): Future[Seq[Option[Value]]] =
+  override final def readState(
+      keys: Seq[Key],
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
     Future.sequence(keys.map(readState))
 
-  override final def writeState(keyValuePairs: Seq[(Key, Value)])(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit] =
+  override final def writeState(
+      keyValuePairs: Seq[(Key, Value)],
+  )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future
       .sequence(keyValuePairs.map {
         case (key, value) => writeState(key, value)
@@ -116,29 +121,31 @@ final class TimedLedgerStateOperations[LogResult](
     metrics: Metrics,
 ) extends LedgerStateOperations[LogResult] {
 
-  override def readState(key: Key)(
-      implicit executionContext: ExecutionContext
-  ): Future[Option[Value]] =
+  override def readState(
+      key: Key,
+  )(implicit executionContext: ExecutionContext): Future[Option[Value]] =
     Timed.future(metrics.daml.ledger.state.read, delegate.readState(key))
 
-  override def readState(keys: Seq[Key])(
-      implicit executionContext: ExecutionContext
-  ): Future[Seq[Option[Value]]] =
+  override def readState(
+      keys: Seq[Key],
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
     Timed.future(metrics.daml.ledger.state.read, delegate.readState(keys))
 
-  override def writeState(key: Key, value: Value)(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit] =
+  override def writeState(
+      key: Key,
+      value: Value,
+  )(implicit executionContext: ExecutionContext): Future[Unit] =
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(key, value))
 
-  override def writeState(keyValuePairs: Seq[(Key, Value)])(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit] =
+  override def writeState(
+      keyValuePairs: Seq[(Key, Value)],
+  )(implicit executionContext: ExecutionContext): Future[Unit] =
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(keyValuePairs))
 
-  override def appendToLog(key: Key, value: Value)(
-      implicit executionContext: ExecutionContext
-  ): Future[LogResult] =
+  override def appendToLog(
+      key: Key,
+      value: Value,
+  )(implicit executionContext: ExecutionContext): Future[LogResult] =
     Timed.future(metrics.daml.ledger.log.append, delegate.appendToLog(key, value))
 }
 
