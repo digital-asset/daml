@@ -85,7 +85,6 @@ DAML SDK documentation
    concepts/identity-and-package-management
    concepts/time
    concepts/local-ledger
-   concepts/interoperability
 
 .. toctree::
    :titlesonly:
@@ -107,6 +106,7 @@ DAML SDK documentation
    triggers/index
    tools/visual
    tools/trigger-service
+   concepts/interoperability
 
 .. toctree::
    :titlesonly:

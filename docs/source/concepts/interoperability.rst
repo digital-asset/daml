@@ -178,6 +178,8 @@ Definition »Transfer action«
 
 In the following, the term *action* refers to transaction actions (**Create**, **Exercise**, **Fetch**, and **NoSuchKey**) as well as transfer actions.
 In particular, a transfer action on a contract `c` is an action on `c`.
+Transfer actions do not appear in transactions though.
+So a transaction action cannot have a transfer action as a consequence and transfer actions do not have consequences at all.
 
 Definition »Interoperable causality graph«
   An **interoperable causality graph** `G` for a set `Y` of DAML ledgers is a finite, transitively closed, directed acyclic graph.
@@ -204,8 +206,7 @@ Definition »Interoperable causality graph«
 
   For non-consuming **Exercise** and **Fetch** actions, the incoming ledger must be the same as the outgoing ledger.
   **Transfer** actions must have at least one of them.
-  If a **Transfer** action is annotated only with an incoming ledger, this constitutes a **Leave** action.
-  If it is annotated only with an outgoing ledger, this constitutes an **Enter** action.
+  A **transfer** action with both set represents a complete transfer. If only the incoming ledger is set, that represents the partial information of an **Enter** event, if only outgoing is set, that's the partial information of a **Leave** event.
 
 The :ref:`action order <def-action-order>` generalizes to interoperable causality graphs accordingly.
 
@@ -252,7 +253,7 @@ Definition »Ledger trace«
 
  
 Definition »Interoperable causal consistency for a contract«
-  Let `G` be an interoperable causality graph and `X` be a set of actions on a contract in `c` that belong to vertices in `G`.
+  Let `G` be an interoperable causality graph and `X` be a set of actions from `G` on a contract in `c`.
   The graph `G` is **interoperable consistent for the contract** `c` on `X` if all of the following hold:
 
   #. If `X` is not empty, then `X` contains a **Create** or **Enter** action.
@@ -263,7 +264,7 @@ Definition »Interoperable causal consistency for a contract«
 
   #. If `X` contains a consuming **Exercise** action `act`, then `act` follows all other actions in `X` in `G`\ 's action order.
 
-  #. For every transfer action `act` in `X`, every other action `act'` in `X` either precedes or follows `act` in `G`\ 's action order.
+  #. All **Transfer** actions in `X` are ordered with all other actions in `X`.
 
   #. For every maximal chain in `X` (i.e., maximal totally ordered subset of `X`), the sequence of `(`\ incoming ledger, outgoing ledger\ `)` pairs is a ledger trace, using `NONE` if the action does not have an incoming or outgoing ledger annotation.
 
@@ -295,7 +296,7 @@ Definition »Consistency for an interoperable causality graph«
   `G` is **interoperable consistent** if `G` is interoperable consistent on all the actions in `G`.
 
 .. note::
-   There is no interoperable consistency requirement for contract keys.
+   There is no interoperable consistency requirement for contract keys yet.
    So interoperability does not provide consistency guarantees beyond those that come from the contracts they reference.
    In particular, contract keys need not be unique and **NoSuchKey** actions do not check that the contract key is unassigned.
 
@@ -370,8 +371,8 @@ Definition »Y-labelled action«
 
 Definition »Ledger-aware projection for transactions«
   Let `Y` be a set of DAML ledgers and `tx` a transaction whose actions are annotated with incoming and outgoing ledgers.
-  Let `Act` be the set of `Y`-labelled subactions of `tx` that `A` is an informee of.
-  The **ledger-aware projection** of `tx` for a party `P` (`P`-**projection on** `Y`) consists of the maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
+  Let `Act` be the set of `Y`\ -labelled subactions of `tx` that the party `P` is an informee of.
+  The **ledger-aware projection** of `tx` for `P` (`P`-**projection on** `Y`) consists of all the maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
 
 The :ref:`cross-domain transaction in the paint counteroffer workflow <counteroffer-interoperable-causality-graph>`, for example, has the following projections for Alice and the painter on the `Iou` ledger (yellow) and the painting ledger (green).
 Here, the projections on the green ledger include the actions of the yellow ledger because a projection includes the subactions.
@@ -446,11 +447,13 @@ The Transaction Service and the Active Contract Service are derived from the loc
 Let `Y` be the set of ledgers on which the Participant Node hosts a party.
 The transaction tree stream outputs a topological sort of the party's local ledger on `Y`, with the following modifications:
 
-#. **Transfer** actions with both incoming and outgoing ledger annotations are omitted.
+#. **Transfer** actions with either an incoming or an outgoing ledger annotation are output as **Enter** and **Leave** events.
+   **Transfer** actions with both incoming and outgoing ledger annotations are omitted.
 
 #. The incoming and outgoing ledger annotations are not output.
-   Transaction actions with an incoming or outgoing ledger annotation that is not in `Y` are marked as merely being witnessed
-   if the party is an informee of the action.
+   Transaction actions with an incoming or outgoing ledger annotation
+   that is not in `Y` are marked as merely being witnessed if the
+   party is an informee of the action.
 
 #. **Fetch** nodes and **NoSuchKey** are omitted.
 
