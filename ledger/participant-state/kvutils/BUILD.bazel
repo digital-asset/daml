@@ -104,6 +104,9 @@ da_scala_test(
     data = [
         "//ledger/test-common:model-tests.dar",
     ],
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     resources = glob(["src/test/resources/*"]),
     deps = [
         ":daml_kvutils_java_proto",
@@ -129,6 +132,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "//libs-scala/contextualized-logging",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
