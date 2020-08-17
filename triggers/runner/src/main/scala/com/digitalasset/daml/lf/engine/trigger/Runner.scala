@@ -346,7 +346,8 @@ class Runner(
         getInitialState,
         Array(SParty(Party.assertFromString(party)), STimestamp(clientTime), createdValue))
     // Prepare a speedy machine for evaluting expressions.
-    val machine: Speedy.Machine = Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
+    val machine: Speedy.Machine =
+      Speedy.Machine.fromPureSExpr(compiledPackages, initialState, onLedger = false)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
     val value = Machine.stepToValue(machine)

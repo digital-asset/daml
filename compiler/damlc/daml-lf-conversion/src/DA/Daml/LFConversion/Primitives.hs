@@ -269,6 +269,12 @@ convertPrim _ "BETextReplicate" (TInt64 :-> TText :-> TText) = EBuiltin BETextRe
 convertPrim _ "BETextSplitOn" (TText :-> TText :-> TList TText) = EBuiltin BETextSplitOn
 convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = EBuiltin BETextIntercalate
 
+-- Conversion from ContractId to Text
+
+convertPrim _ "BEToTextContractId" (TContractId t :-> TOptional TText) =
+    ETyApp (EBuiltin BEToTextContractId) t
+
+
 -- Template Desugaring.
 
 convertPrim _ "UCreate" (TCon template :-> TUpdate (TContractId (TCon template')))
