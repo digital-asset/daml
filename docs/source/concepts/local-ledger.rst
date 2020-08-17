@@ -22,9 +22,11 @@ The presentation assumes that you are familiar with the following concepts:
 Causality examples
 ******************
 
-The following examples illustrate the ordering guarantees of the Ledger API.
-They use the paint counteroffer workflow from the DAML Ledger Model's :ref:`privacy section <da-model-privacy>`.
-Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as follows:
+A DAML Ledger need not totally order all transaction, unlike ledgers in the DAML Ledger Model.
+The following examples illustrate these ordering guarantees of the Ledger API.
+They are based the paint counteroffer workflow from the DAML Ledger Model's :ref:`privacy section <da-model-privacy>`,
+ignoring the total ordering coming from the DAML Ledger Model.
+Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as follows.
 
 .. https://www.lucidchart.com/documents/edit/c4df0455-13ab-415f-b457-f5654c2684be
 .. image:: ./ledger-model/images/divulgence-for-disclosure-counteroffer.svg
@@ -37,7 +39,7 @@ Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as 
 Stakeholders of a contract see creation and archival in the same order.
 =======================================================================
 
-The creation of the `CounterOffer A P Bank` is ordered before the painter exercising the consuming choice on the `CounterOffer`.
+Every DAML Ledger orders the creation of the `CounterOffer A P Bank` before the painter exercising the consuming choice on the `CounterOffer`.
 (If the **Create** was ordered after the **Exercise**, the resulting shared ledger would be inconsistent, which violates the validity guarantee of DAML ledgers.)
 Accordingly, Alice will see the creation before the archival on her transaction stream and so will the painter.
 This does not depend on whether they are hosted on the same Participant Node.
@@ -237,7 +239,7 @@ Definition »Minimal consistent causality graph«
   An `X`-consistent causality graph `G` is `X`\ -**minimal** if no strict subgraph of `G` (same vertices, fewer edges) is an `X`-consistent causality graph.
   If `X` is the set of all actions in `G`, then `X` is omitted.
 
-For example, the :ref:`above causality graph for the counteroffer workflow <causality-graph-couteroffer-split>` is consistent.
+For example, the :ref:`above causality graph for the split counteroffer workflow <causality-graph-couteroffer-split>` is consistent.
 This causality graph is minimal, as the following analysis shows:
 
 +----------------+--------------------------------------------------------------------------------------+
@@ -307,7 +309,7 @@ Definition »Reduction of a consistent causality graph«
   `reduce`:sub:`X`\ `(G)` is called the `X`\ -**reduction** of `G`.
   As before, `X` is omitted if it contains all actions in `G`.
 
-The causality graph for the `CounterOffer` workflow is minimal and therefore its own reduction.
+The causality graph for the split `CounterOffer` workflow is minimal and therefore its own reduction.
 It is also the reduction of the topological sort, i.e., the :ref:`ledger <split-counteroffer-ledger>` in the :ref:`out-of-band causality example <causality-example-out-of-band>`.
 
 .. note::
@@ -320,7 +322,7 @@ It is also the reduction of the topological sort, i.e., the :ref:`ledger <split-
    #. `reduce`:sub:`X`\ `(G)` is the transitive closure of `G'`.
 
 Topological sort and reduction link causality graphs `G` to the ledgers `L` from the DAML Ledger Model.
-Topological sort transforms a causality graph `G` into a sequence of transactions `topo(G)`; extending them with the requesters gives a sequence of commits, i.e., a ledger in the DAML Ledger Model.
+Topological sort transforms a causality graph `G` into a sequence of transactions; extending them with the requesters gives a sequence of commits, i.e., a ledger in the DAML Ledger Model.
 Conversely, a sequence of commits `L` yields a causality graph `G`:sub:`L` by taking the transactions as vertices and adding an edge from `tx1` to `tx2` whenever `tx1`\ 's commit precedes `tx2`\ 's commit in the sequence.
 
 There are now two consistency definitions:
@@ -330,7 +332,7 @@ There are now two consistency definitions:
 * :ref:`Consistency of causality graph <def-consistency-causality-graph>`
 
 Fortunately, the two definitions are equivalent:
-If `G` is a consistent causality graph, then `topo(G)` is ledger consistent.
+If `G` is a consistent causality graph, then the topological sort is ledger consistent.
 Conversely, if the sequence of commits `L` is ledger consistent, `G`:sub:`L` is a consistent causality graph, and so is the reduction `reduce(G`:sub:`L`\ `)`.
 
 .. _local-ledger-structure:
@@ -346,8 +348,8 @@ Definition »Causal consistency for a party«
 
 The notions of `X`\ -minimality and `X`\ -reduction extend to parties accordingly.
 
-For example, the :ref:`counteroffer causality graph without the edge tx2 -> tx4 <causality-counteroffer-Iou-minimal>` is consistent for the Bank because the Bank is an informee of exactly the highlighted actions.
-It is also minimal Bank-consistent and the Bank-reduction of the :ref:`original counteroffer causality graph <causality-graph-couteroffer-split>`.
+For example, the :ref:`split counteroffer causality graph without the edge tx2 -> tx4 <causality-counteroffer-Iou-minimal>` is consistent for the Bank because the Bank is an informee of exactly the highlighted actions.
+It is also minimal Bank-consistent and the Bank-reduction of the :ref:`original split counteroffer causality graph <causality-graph-couteroffer-split>`.
   
 Definition »Projection of a consistent causality graph«
   The **projection** `proj`:sub:`P`\ `(G)` of a consistent causality graph `G` to a party `P` is the `P`\ -reduction of the following causality graph `G'`:
@@ -356,7 +358,7 @@ Definition »Projection of a consistent causality graph«
 
   * There is an edge between two vertices `v`:sub:`1` and `v`:sub:`2` in `G'` if there is an edge from the `G`\ -vertex corresponding to `v`:sub:`1` to the `G`\ -vertex corresponding to `v`:sub:`2`.
 
-For the :ref:`Counteroffer causality graph <causality-graph-couteroffer-split>`, the projections to Alice, the Bank, and the painter are as follows.
+For the :ref:`split counteroffer causality graph <causality-graph-couteroffer-split>`, the projections to Alice, the Bank, and the painter are as follows.
 
 .. https://app.lucidchart.com/documents/edit/65a83eba-9b09-4003-b824-8e7bec50ce10
 
@@ -366,7 +368,7 @@ For the :ref:`Counteroffer causality graph <causality-graph-couteroffer-split>`,
    :align: center
    :width: 100%
 
-   Projections of the :ref:`Counteroffer causality graph <causality-graph-couteroffer-split>`.
+   Projections of the :ref:`split counteroffer causality graph <causality-graph-couteroffer-split>`.
 
 Alice's projection is the same as the original minimal causality graph.
 The Bank sees only actions on `Iou` contracts, so the causality graph projection does not contain `tx2` any more.
