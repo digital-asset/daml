@@ -87,25 +87,24 @@ In this case you can use the ``--query-store-jdbc-config`` flag, an example of w
 
 .. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
 
-Authentication and Authorization
-================================
-
-The Ledger API and JSON API use the terms Authentication and Authorization to describe different aspects of their operation.
-While these terms may sound similar they mean different things.
+Access Tokens
+=============
 
 The JSON API essentially performs two separate tasks:
 
-1. It talks to the Ledger API to get data it needs to operate, for this it needs to may need to provide an *authentication token* to the Ledger API if the Ledger API requires *authentication*.
-2. It handles the requests coming from one or more Parties, for this each party needs to provide an *authorization token* with each request it sends to the JSON API.
+1. It talks to the IAM of the Ledger API to get data it needs to operate, for this it may need to *provide an access token to an IAM* that requires authentication.
+2. It handles requests coming from one or more Parties, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
-Authentication
---------------
+.. note:: By default sandboxes do not have an IAM and do not need the access token mentioned in point 1
 
-The authentication token is used exclusively for maintaining the internal list of known packages and templates.
+Ledger API Auth with IAM
+------------------------
 
-.. note:: At no point should an authentication token be provided to an end user, these are for internal use only.
+The IAM access token is used exclusively for maintaining the internal list of known packages and templates.
 
-Every authentication token is different and will depend on what your specific ledger or ledger operator requires.
+.. note:: At no point should this access token be provided to an end user, these are for internal use only.
+
+Every IAM access token is different and will depend on what your specific ledger operator's IAM requires.
 The JSON API server requires no access to party-specific data, only access to the ledger identity and package services.
 A token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that.
 Please refer to your ledger operator's documentation to find out how.
@@ -118,16 +117,15 @@ If the token cannot be read from the provided path or the Ledger API reports an 
 
 .. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without restarting your JSON API service.
 
-Authorization
--------------
+Party Auth
+----------
 
 Every request from a client to the JSON API requires you to specify a party and some other settings,
-with a JWT token.  Normal HTTP requests pass the token in an ``Authorization`` header, 
-while WebSocket requests pass the token in a subprotocol.
+with a JWT token.  HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
 
-.. note:: While the JSON API receives the token it doesn't handle it itself. Upon receiving a token it will pass it on to the underlying Ledger's AuthService which will then determine if the token is valid and authorized. As such each token format is ledger/implementation-specific and the below example reflects only the format that is used for the DAML Sandbox.
+.. note:: While the JSON API receives the token it doesn't handle it itself. Upon receiving a token it will pass it on to the Ledger API's AuthService which will then determine if the token is valid and authorized. As such each token format is ledger/implementation-specific and the below example reflects only the format that is used for the DAML Sandbox.
 
-In the DAML Sandbox testing environment, you can use https://jwt.io to generate your
+In the DAML Sandbox testing environment, you can use https://jwt.io (or the JWT library of your choice) to generate your
 token.  The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
@@ -177,8 +175,8 @@ supports such tokens.
 
 In the meantime you can also use whichever JWT libraries are available in the language of your choice.
 
-Authorization with HTTP
-^^^^^^^^^^^^^^^^^^^^^^^
+Party Auth via HTTP
+^^^^^^^^^^^^^^^^^^^
 
 Set HTTP header ``Authorization: Bearer paste-jwt-here``
 
@@ -188,8 +186,8 @@ Example:
 
     Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
 
-Authorization with WebSockets
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Party Auth via WebSockets
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 WebSocket clients support a "subprotocols" argument (sometimes simply
 called "protocols"); this is usually in a list form but occasionally in
