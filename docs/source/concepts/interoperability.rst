@@ -374,6 +374,13 @@ Definition »Ledger-aware projection for transactions«
   Let `Act` be the set of `Y`\ -labelled subactions of `tx` that the party `P` is an informee of.
   The **ledger-aware projection** of `tx` for `P` (`P`-**projection on** `Y`) consists of all the maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
 
+.. note::
+   Every action contains all its subactions.
+   So if `act` is included in the `P`\ -projection on `Y` of `tx`,
+   then all subactions of `act` are also part of the projection.
+   Such a subaction `act'` may not be `Y`\ -labelled itself though, i.e., belong to a different ledger.
+   If `P` is an informee of `act'`, the Participant Node will mark `act'` as merely being witnessed on `P`\ 's transaction stream, as explained below.
+
 The :ref:`cross-domain transaction in the paint counteroffer workflow <counteroffer-interoperable-causality-graph>`, for example, has the following projections for Alice and the painter on the `Iou` ledger (yellow) and the painting ledger (green).
 Here, the projections on the green ledger include the actions of the yellow ledger because a projection includes the subactions.
 
