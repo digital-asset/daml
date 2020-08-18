@@ -12,15 +12,15 @@ import com.google.protobuf.ByteString
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
-class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySerializationStrategy)(
-    implicit executionContext: ExecutionContext)
+class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySerializationStrategy)
     extends PreExecutingCommitStrategy[RawKeyValuePairsWithLogEntry] {
 
   override def generateWriteSets(
       participantId: ParticipantId,
       entryId: DamlLogEntryId,
       inputState: Map[DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue]],
-      preExecutionResult: KeyValueCommitting.PreExecutionResult)
+      preExecutionResult: KeyValueCommitting.PreExecutionResult,
+  )(implicit executionContext: ExecutionContext)
     : Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] =
     for {
       serializedSuccessKeyValuePairs <- Future {
@@ -55,7 +55,8 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
 
   private def logEntryToKeyValuePairs(
       logEntryId: ByteString,
-      logEntry: DamlLogEntry): Future[(Bytes, Bytes)] = Future {
+      logEntry: DamlLogEntry,
+  )(implicit executionContext: ExecutionContext): Future[(Bytes, Bytes)] = Future {
     logEntryId -> Envelope.enclose(logEntry)
   }
 }

@@ -5,14 +5,15 @@ package com.daml.ledger.validator
 
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait LedgerStateReader {
 
   /**
     * Reads values of a set of keys from the backing store.
-    * @param keys  list of keys to look up data for
-    * @return  values corresponding to the requested keys, in the same order as requested
+    *
+    * @param keys list of keys to look up data for
+    * @return values corresponding to the requested keys, in the same order as requested
     */
-  def read(keys: Seq[Key]): Future[Seq[Option[Value]]]
+  def read(keys: Seq[Key])(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]]
 }

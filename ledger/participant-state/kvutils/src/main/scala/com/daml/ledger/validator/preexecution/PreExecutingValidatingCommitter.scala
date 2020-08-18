@@ -25,15 +25,14 @@ import scala.util.{Failure, Success}
   * A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide fingerprints
   * alongside values), parametric in the logic that produces a fingerprint given a value.
   *
-  * @param now The record time provider.
+  * @param now                      The record time provider.
   * @param keySerializationStrategy The key serializer used for state keys.
-  * @param validator The pre-execution validator.
-  * @param valueToFingerprint The logic that produces a fingerprint given a value.
-  * @param postExecutionFinalizer The post-execution finalizer that will also perform conflicts detection and
-  *                               time bounds checks.
-  * @param stateValueCache The cache instance for state values.
-  * @param cacheUpdatePolicy The caching policy for values.
-  * @param materializer The Akka materializer.
+  * @param validator                The pre-execution validator.
+  * @param valueToFingerprint       The logic that produces a fingerprint given a value.
+  * @param postExecutionFinalizer   The post-execution finalizer that will also perform conflicts detection and
+  *                                 time bounds checks.
+  * @param stateValueCache          The cache instance for state values.
+  * @param cacheUpdatePolicy         The caching policy for values.
   * @tparam LogResult type of the offset used for a log entry.
   */
 class PreExecutingValidatingCommitter[LogResult](
@@ -43,7 +42,8 @@ class PreExecutingValidatingCommitter[LogResult](
     valueToFingerprint: Option[Value] => Fingerprint,
     postExecutionFinalizer: PostExecutionFinalizer[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
-    cacheUpdatePolicy: CacheUpdatePolicy) {
+    cacheUpdatePolicy: CacheUpdatePolicy,
+) {
 
   /**
     * Pre-executes and then commits a submission.
@@ -52,8 +52,8 @@ class PreExecutingValidatingCommitter[LogResult](
       correlationId: String,
       submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,
-      ledgerStateAccess: LedgerStateAccess[LogResult])(
-      implicit executionContext: ExecutionContext): Future[SubmissionResult] =
+      ledgerStateAccess: LedgerStateAccess[LogResult],
+  )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
     ledgerStateAccess.inTransaction { ledgerStateOperations =>
       for {

@@ -26,8 +26,8 @@ final class InterpretationCostBasedLedgerWriterChooser(
     incrementCheapCounter: () => Unit = () => (),
     incrementExpensiveCounter: () => Unit = () => (),
     addInterpretationCostBelowThreshold: Long => Unit = _ => (),
-    addInterpretationCostAboveThreshold: Long => Unit = _ => ())
-    extends LedgerWriter {
+    addInterpretationCostAboveThreshold: Long => Unit = _ => (),
+) extends LedgerWriter {
   assert(cheapTransactionsDelegate.participantId == expensiveTransactionsDelegate.participantId)
 
   override def participantId: ParticipantId = cheapTransactionsDelegate.participantId
