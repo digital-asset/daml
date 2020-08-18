@@ -103,15 +103,6 @@ private[sandbox] final class InMemoryLedger(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  def ledgerEntries(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
-    entries
-      .getSource(startExclusive, endInclusive)
-      .collect {
-        case (offset, InMemoryLedgerEntry(entry)) => offset -> entry
-      }
-
   override def flatTransactions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
@@ -568,11 +559,11 @@ private[sandbox] final class InMemoryLedger(
       ledgerConfiguration.map(config => end -> config)
     })
 
-  override def configurationEntries(startExclusive: Option[Offset])(
+  override def configurationEntries(startExclusive: Offset)(
       implicit loggingContext: LoggingContext,
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(startExclusive, None)
+      .getSource(Some(startExclusive), None)
       .collect {
         case (offset, InMemoryConfigEntry(entry)) => offset -> entry
       }

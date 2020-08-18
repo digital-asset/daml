@@ -154,7 +154,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     Timed.future(metrics.daml.index.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
-      startExclusive: Option[Offset],
+      startExclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledger.configurationEntries(startExclusive)
 

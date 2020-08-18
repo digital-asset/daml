@@ -88,7 +88,7 @@ private[apiserver] final class ApiPartyManagementService private (
         case SubmissionResult.Acknowledged =>
           SynchronousResponse.pollUntilPersisted(
             partyManagementService
-              .partyEntries(ledgerEndBeforeRequest)
+              .partyEntries(Some(ledgerEndBeforeRequest))
               .collect {
                 case entry @ AllocationAccepted(Some(`submissionId`), _) => entry
                 case entry @ AllocationRejected(`submissionId`, _) => entry

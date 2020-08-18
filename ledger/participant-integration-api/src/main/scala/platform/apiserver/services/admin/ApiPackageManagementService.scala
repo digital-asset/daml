@@ -128,7 +128,7 @@ private[apiserver] object ApiPackageManagementService {
       packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
 
     override def entries(offset: LedgerOffset.Absolute): Source[PackageEntry, _] =
-      packagesIndex.packageEntries(offset)
+      packagesIndex.packageEntries(Some(offset))
 
     override def accept(
         submissionId: SubmissionId,
