@@ -47,7 +47,6 @@ final case class SandboxConfig(
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
     stackTraces: Boolean,
-    devMode: Boolean,
 )
 
 object SandboxConfig {
@@ -92,7 +91,6 @@ object SandboxConfig {
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
       stackTraces = true,
-      devMode = false,
     )
 
 }
