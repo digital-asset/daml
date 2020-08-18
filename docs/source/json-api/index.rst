@@ -73,8 +73,7 @@ This will start the JSON API on port 7575 and connect it to a ledger running on 
 With Query Store
 ------------------
 
-Often when running the JSON API you'll want to cache queries, especially large queries, to decrease the workload of your underlying ledger.
-The JSON API provides a way to do this by allowing you to specify a database to cache queries (currently PostgreSQL only).
+To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is save to reinitialize the database at any time.
 
 In this case you can use the ``--query-store-jdbc-config`` flag, an example of which is below. 
 
@@ -95,7 +94,7 @@ The JSON API essentially performs two separate tasks:
 1. It talks to the IAM of the Ledger API to get data it needs to operate, for this it may need to *provide an access token to an IAM* that requires authentication.
 2. It handles requests coming from one or more Parties, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
-.. note:: By default sandboxes do not have an IAM and do not need the access token mentioned in point 1
+.. note:: By default, the DAML Sandbox does not enable authorization and does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
 
 Ledger API Auth with IAM
 ------------------------
@@ -106,7 +105,7 @@ The IAM access token is used exclusively for maintaining the internal list of kn
 
 Every IAM access token is different and will depend on what your specific ledger operator's IAM requires.
 The JSON API server requires no access to party-specific data, only access to the ledger identity and package services.
-A token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that.
+These services are public meaning that you need a valid token to access them but no party-specific claims or an admin claim.
 Please refer to your ledger operator's documentation to find out how.
 
 Once you have retrieved your access token, you can provide it to the JSON API by storing it in a file
@@ -120,10 +119,9 @@ If the token cannot be read from the provided path or the Ledger API reports an 
 Party Auth
 ----------
 
-Every request from a client to the JSON API requires you to specify a party and some other settings,
-with a JWT token.  HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
+Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the JWT imposed on the format described in <insert link here>: The set of parties listed in `actAs` and `readAs` must contain exactly one party. In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
 
-.. note:: While the JSON API receives the token it doesn't handle it itself. Upon receiving a token it will pass it on to the Ledger API's AuthService which will then determine if the token is valid and authorized. As such each token format is ledger/implementation-specific and the below example reflects only the format that is used for the DAML Sandbox.
+.. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract ledger id, application id and party so it requires that you use the JWT format documented here <insert link>.
 
 In the DAML Sandbox testing environment, you can use https://jwt.io (or the JWT library of your choice) to generate your
 token.  The default "header" is fine.  Under "Payload", fill in:
@@ -141,7 +139,7 @@ token.  The default "header" is fine.  Under "Payload", fill in:
 The value of the ``ledgerId`` field has to match the ``ledgerId` of your underlying DAML Ledger.
 For the ``daml sandbox`` this corresponds to the ``--ledgerid MyLedger`` flag.
 
-.. note:: The value of ``applicationId`` can currently be anything and does not need to correspond to ``daml json-api --application-id <value>``.
+.. note:: The value of ``applicationId`` will be used for commands submitted using that token.
 
 The value for ``actAs`` is specified as a list. You can replace ``Alice`` with whatever party you want to use,
 provided that it is a valid party on the ledger.
@@ -402,7 +400,7 @@ Where:
 Creating a Contract with a Command ID
 *************************************
 
-When creating a new contract you may specify an optional ``meta`` field.
+When creating a new contract you may specify an optional ``meta`` field. This allows you to control the `commandId` used when submitting a commend to the ledger.
 
 .. note:: You cannot currently use ``commandIds`` anywhere else in the JSON API, but you can use it for observing the results of its commands outside the JSON API in logs or via the Ledger API's :doc:`Command Services </app-dev/services>`
 
