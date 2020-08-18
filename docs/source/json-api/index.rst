@@ -91,7 +91,7 @@ Access Tokens
 
 The JSON API essentially performs two separate tasks:
 
-1. It talks to the IAM of the Ledger API to get data it needs to operate, for this it may need to *provide an access token to an IAM* that requires authentication.
+1. It talks to the Ledger API to get data it needs to operate, for this it may need to *provide an access token* if your Ledger requires authentication. Learn more in the :doc:`/app-dev/authorization` docs.
 2. It handles requests coming from one or more Parties, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
 .. note:: By default, the DAML Sandbox does not enable authorization and does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
