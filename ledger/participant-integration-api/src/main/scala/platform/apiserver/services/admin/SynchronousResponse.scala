@@ -5,24 +5,23 @@ package com.daml.platform.apiserver.services.admin
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.dec.DirectExecutionContext
 import com.daml.platform.server.api.validation.ErrorFactories
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Future, TimeoutException}
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
 object SynchronousResponse {
 
   def pollUntilPersisted[T](
       source: Source[T, _],
       timeToLive: FiniteDuration,
-  )(implicit materializer: Materializer): Future[T] =
+  )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[T] =
     source
       .completionTimeout(timeToLive)
       .runWith(Sink.head)
       .recoverWith {
         case _: TimeoutException =>
           Future.failed(ErrorFactories.aborted("Request timed out"))
-      }(DirectExecutionContext)
+      }
 
 }

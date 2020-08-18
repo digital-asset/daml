@@ -94,7 +94,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 case entry @ AllocationRejected(`submissionId`, _) => entry
               },
             30.seconds,
-          )(materializer)
+          )(executionContext, materializer)
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>

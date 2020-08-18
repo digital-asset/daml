@@ -97,7 +97,7 @@ private[apiserver] final class ApiPackageManagementService private (
                 case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
               },
             timeToLive,
-          )(materializer)
+          )(executionContext, materializer)
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>

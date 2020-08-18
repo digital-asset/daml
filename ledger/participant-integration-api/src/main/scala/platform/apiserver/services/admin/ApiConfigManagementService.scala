@@ -118,7 +118,7 @@ private[apiserver] final class ApiConfigManagementService private (
                   entry
               },
             params.timeToLive,
-          )(materializer)
+          )(executionContext, materializer)
         case SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted("Resource exhausted"))
         case SubmissionResult.InternalError(reason) =>
