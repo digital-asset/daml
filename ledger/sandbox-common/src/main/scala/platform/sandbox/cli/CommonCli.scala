@@ -296,11 +296,6 @@ class CommonCli(name: LedgerName) {
         .text(
           s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}.")
 
-      opt[Unit]("dev-mode")
-        .optional()
-        .action((_, config) => config.copy(devMode = true))
-        .text("Allows development versions of DAML-LF language and transaction format.")
-
       help("help").text("Print the usage text")
 
       checkConfig(c => {

@@ -33,15 +33,35 @@ final case class EngineConfig(
 
 object EngineConfig {
 
-  private[this] def toDev(config: EngineConfig): EngineConfig =
-    config.copy(
-      allowedLanguageVersions =
-        config.allowedLanguageVersions.copy(max = LV(LV.Major.V1, LV.Minor.Dev)),
-      allowedInputTransactionVersions = config.allowedInputTransactionVersions.copy(
-        max = TransactionVersions.acceptedVersions.last),
-      allowedOutputTransactionVersions = config.allowedOutputTransactionVersions.copy(
-        max = TransactionVersions.acceptedVersions.last),
+  // Development configuration, should not be used in PROD.
+  val Dev: EngineConfig = new EngineConfig(
+    allowedLanguageVersions = VersionRange(
+      LV(LV.Major.V1, LV.Minor.Stable("6")),
+      LV(LV.Major.V1, LV.Minor.Dev),
+    ),
+    allowedInputTransactionVersions = VersionRange(
+      TV("10"),
+      TransactionVersions.acceptedVersions.last
+    ),
+    allowedOutputTransactionVersions = TransactionVersions.DevOutputVersions
+  )
+
+  // Legacy configuration, to be used by sandbox classic only
+  @deprecated("Sandbox_Classic is to be used by sandbox classic only", since = "1.4.0")
+  val Sandbox_Classic: EngineConfig = new EngineConfig(
+    allowedLanguageVersions = VersionRange(
+      LV(LV.Major.V1, LV.Minor.Stable("0")),
+      LV(LV.Major.V1, LV.Minor.Dev),
+    ),
+    allowedInputTransactionVersions = VersionRange(
+      TransactionVersions.acceptedVersions.head,
+      TransactionVersions.acceptedVersions.last
+    ),
+    allowedOutputTransactionVersions = VersionRange(
+      TV("10"),
+      TransactionVersions.acceptedVersions.last
     )
+  )
 
   // recommended configuration
   val Stable: EngineConfig = new EngineConfig(
@@ -52,23 +72,5 @@ object EngineConfig {
     allowedInputTransactionVersions = VersionRange(TV("10"), TV("10")),
     allowedOutputTransactionVersions = VersionRange(TV("10"), TV("10"))
   )
-
-  // development configuration, should not be used in PROD.
-  // accept all language and transaction versions supported by SDK_1_x plus development versions.
-  val Dev: EngineConfig = toDev(Stable)
-
-  // Legacy configuration, to be used by sandbox classic only
-  @deprecated("Sandbox_Classic_Stable is to be used by sandbox classic only", since = "1.5.0")
-  val Sandbox_Classic_Stable: EngineConfig =
-    Stable.copy(
-      allowedLanguageVersions =
-        Stable.allowedLanguageVersions.copy(min = LV(LV.Major.V1, LV.Minor.Stable("0"))),
-      allowedInputTransactionVersions = Stable.allowedInputTransactionVersions.copy(
-        min = TransactionVersions.acceptedVersions.head),
-    )
-
-  // Legacy configuration, to be used by sandbox classic only
-  @deprecated("Sandbox_Classic_Dev is to be used by sandbox classic only", since = "1.5.0")
-  val Sandbox_Classic_Dev = toDev(Sandbox_Classic_Stable)
 
 }
