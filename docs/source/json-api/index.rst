@@ -154,8 +154,9 @@ This is known as "explicit party allocation" and is common on all non-Sandbox le
 
 .. note:: To explicitly allocate parties you can use :doc:`DAML Script </daml-script/index>` or ``daml ledger allocate-parties``
 
-Under "Verify Signature", put ``secret`` as the secret (*not* base64
-encoded); that is the hardcoded secret for testing.
+Under "Verify Signature", put ``secret`` (or any other text) as the secret (*not* base64 encoded).
+
+.. note:: At the moment ``secret`` is not validated
 
 Then the "Encoded" box should have your **token**, ready for passing to
 the service as described in the following sections.
