@@ -8,6 +8,7 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.testtool.infrastructure.{
+  Dars,
   LedgerSessionConfiguration,
   LedgerTestCase,
   LedgerTestCasesRunner,
@@ -60,7 +61,7 @@ object LedgerApiTestTool {
     printListOfTests(Tests.all.flatMap(_.tests))(_.name)
   }
 
-  private def extractResources(resources: String*): Unit = {
+  private def extractResources(resources: Seq[String]): Unit = {
     val pwd = Paths.get(".").toAbsolutePath
     println(s"Extracting all DAML resources necessary to run the tests into $pwd.")
     for (resource <- resources) {
@@ -93,12 +94,7 @@ object LedgerApiTestTool {
     }
 
     if (config.extract) {
-      // This must be kept aligned manually with artifacts declared in /ledger/test-common/BUILD.bazel.
-      extractResources(
-        "/ledger/test-common/model-tests.dar",
-        "/ledger/test-common/performance-tests.dar",
-        "/ledger/test-common/semantic-tests.dar",
-      )
+      extractResources(Dars.resources)
       sys.exit(0)
     }
 

@@ -34,6 +34,12 @@ private[participant] final class ParticipantSession(
       services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
     }
 
+  private[testtool] def createInitContext(
+      applicationId: String,
+      identifierSuffix: String,
+  ): Future[ParticipantTestContext] =
+    createTestContext("init", applicationId, identifierSuffix)
+
   private[testtool] def createTestContext(
       endpointId: String,
       applicationId: String,

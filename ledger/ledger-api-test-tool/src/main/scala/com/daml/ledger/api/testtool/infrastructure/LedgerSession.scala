@@ -3,10 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.daml.ledger.api.testtool.infrastructure.participant.{
-  ParticipantSessionConfiguration,
-  ParticipantSessionManager
-}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,17 +17,8 @@ private[testtool] final class LedgerSession(
 
   private[this] val participantSessions =
     Future
-      .sequence(config.participants.map {
-        case (host, port) =>
-          participantSessionManager.getOrCreate(
-            ParticipantSessionConfiguration(
-              host,
-              port,
-              config.ssl,
-              config.partyAllocation,
-            ),
-          )
-      })
+      .sequence(config.participants.map(hostAndPort =>
+        participantSessionManager.getOrCreate(config.forParticipant(hostAndPort))))
       .map(_.map(endpointIdProvider() -> _))
 
   private[testtool] def createTestContext(
