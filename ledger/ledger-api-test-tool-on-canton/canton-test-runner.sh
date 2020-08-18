@@ -106,19 +106,6 @@ trap stop EXIT INT TERM
 
 wait_until curl -fsS "http://${PARTICIPANT_1_HOST}:${PARTICIPANT_1_MONITORING_PORT}/health"
 
-for participant in "${PARTICIPANTS[@]}"; do
-  for dar in "${dars[@]}"; do
-    base64 "$dar" |
-      jq -R --slurp '{"darFile": .}' |
-      grpcurl \
-        -plaintext \
-        -d @ \
-        "$participant" \
-        com.daml.ledger.api.v1.admin.PackageManagementService.UploadDarFile \
-        >/dev/null
-  done
-done
-
 # This should write two ports, but the runner doesn't support that.
 echo "$PARTICIPANT_1_LEDGER_API_PORT" >"$port_file"
 

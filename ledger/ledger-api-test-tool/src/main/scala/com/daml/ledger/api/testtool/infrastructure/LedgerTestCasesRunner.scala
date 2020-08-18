@@ -121,20 +121,23 @@ final class LedgerTestCasesRunner(
     val participantSessionManager = new ParticipantSessionManager
     val ledgerSession = new LedgerSession(config, participantSessionManager)
 
-    def uploadDars(): Future[Unit] = {
-      val firstParticipant = config.forParticipant(config.participants.head)
-      for {
-        session <- participantSessionManager.getOrCreate(firstParticipant)
-        context <- session.createInitContext("upload-dars", identifierSuffix)
-        _ <- Future.sequence(Dars.resources.map { name =>
-          logger.info("Uploading DAR \"{}\"...", name)
-          context.uploadDarFile(Dars.read(name)).andThen {
-            case _ =>
-              logger.info("Uploaded DAR \"{}\".", name)
-          }
+    def uploadDars(): Future[Unit] =
+      Future
+        .sequence(config.participants.map { hostAndPort =>
+          val participant = config.forParticipant(hostAndPort)
+          for {
+            session <- participantSessionManager.getOrCreate(participant)
+            context <- session.createInitContext("upload-dars", identifierSuffix)
+            _ <- Future.sequence(Dars.resources.map { name =>
+              logger.info("Uploading DAR \"{}\"...", name)
+              context.uploadDarFile(Dars.read(name)).andThen {
+                case _ =>
+                  logger.info("Uploaded DAR \"{}\".", name)
+              }
+            })
+          } yield ()
         })
-      } yield ()
-    }
+        .map(_ => ())
 
     def runTestCases(
         testCases: Vector[LedgerTestCase],
