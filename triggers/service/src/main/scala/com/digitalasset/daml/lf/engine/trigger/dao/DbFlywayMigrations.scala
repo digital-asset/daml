@@ -4,19 +4,14 @@
 package com.daml.lf.engine.trigger
 package dao
 
-/*
-import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.HikariConnection
-import com.daml.resources.ResourceOwner
- */
 import com.typesafe.scalalogging.StrictLogging
+import doobie.free.connection.ConnectionIO
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
 import javax.sql.DataSource
 
-// import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 private[trigger] class DbFlywayMigrations(private val ds: DataSource) extends StrictLogging {
@@ -32,20 +27,16 @@ private[trigger] class DbFlywayMigrations(private val ds: DataSource) extends St
       }
     }
 
-  def migrate(allowExistingSchema: Boolean = false)(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit] =
-    dataSource.use { ds =>
-      Future {
-        val flyway = configurationBase()
-          .dataSource(ds)
-          .baselineOnMigrate(allowExistingSchema)
-          .baselineVersion(MigrationVersion.fromVersion("0"))
-          .load()
-        logger.info("Running Flyway migration...")
-        val stepsTaken = flyway.migrate()
-        logger.info(s"Flyway schema migration finished successfully, applying $stepsTaken steps.")
-      }
+  def migrate(allowExistingSchema: Boolean = false): ConnectionIO[Unit] =
+    doobie.free.connection.delay {
+      val flyway = configurationBase()
+        .dataSource(ds)
+        .baselineOnMigrate(allowExistingSchema)
+        .baselineVersion(MigrationVersion.fromVersion("0"))
+        .load()
+      logger.info("Running Flyway migration...")
+      val stepsTaken = flyway.migrate()
+      logger.info(s"Flyway schema migration finished successfully, applying $stepsTaken steps.")
     }
 
   def reset()(implicit executionContext: ExecutionContext): Future[Unit] =
