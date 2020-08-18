@@ -153,6 +153,8 @@ in rec {
     unflatten = graphviz;
     circo     = graphviz;
 
+    pandoc = pkgs.pandoc;
+
     # Build tools
 
     # wrap the .bazelrc to automate the configuration of
