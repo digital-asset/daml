@@ -7,9 +7,14 @@ load(
     "da_scala_library",
 )
 
+script_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+    "NonUnitStatements",
+]]
+
 da_scala_library(
     name = "script-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -53,6 +58,7 @@ da_scala_binary(
     name = "script-runner",
     main_class = "com.daml.lf.engine.script.RunnerMain",
     resources = glob(["src/main/resources/**/*"]),
+    scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [":script-runner-lib"],
 )
@@ -60,6 +66,7 @@ da_scala_binary(
 da_scala_binary(
     name = "test-runner",
     main_class = "com.daml.lf.engine.script.TestMain",
+    scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [":script-runner-lib"],
 )

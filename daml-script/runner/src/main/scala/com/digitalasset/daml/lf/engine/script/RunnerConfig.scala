@@ -36,6 +36,7 @@ object RunnerConfig {
   val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
   val DefaultMaxInboundMessageSize: Int = 4194304
 
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[RunnerConfig]("script-runner") {
     head("script-runner")
 

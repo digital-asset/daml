@@ -333,7 +333,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     inputValueVersions = value.ValueVersions.DevOutputVersions,
     outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
   )
-  (compiledPackages, SEValue(SUnit))
   val scenarioRunner = ScenarioRunner(machine)
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
