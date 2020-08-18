@@ -92,14 +92,14 @@ Access Tokens
 The JSON API essentially performs two separate tasks:
 
 1. It talks to the Ledger API to get data it needs to operate, for this it may need to *provide an access token* if your Ledger requires authentication. Learn more in the :doc:`/app-dev/authorization` docs.
-2. It handles requests coming from one or more Parties, for this each party needs to provide an *access token with each request* it sends to the JSON API.
+2. It passes requests coming from one or more Parties to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
-.. note:: By default, the DAML Sandbox does not enable authorization and does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
+.. note:: By default, the DAML Sandbox does not does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
 
-Ledger API Auth
----------------
+Internal Access Token
+---------------------
 
-This access token is used exclusively for maintaining the internal list of known packages and templates.
+This access token is used exclusively by the JSON API service for maintaining the internal list of known packages and templates that it gets from the Ledger API.
 
 .. note:: At no point should this access token be provided to an end user, these are for internal use only.
 
@@ -116,12 +116,12 @@ If the token cannot be read from the provided path or the Ledger API reports an 
 
 .. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without restarting your JSON API service.
 
-Party Auth
-----------
+Party-specific Access Tokens
+----------------------------
 
 Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the JWT imposed on the format described in <insert link here>: The set of parties listed in `actAs` and `readAs` must contain exactly one party. In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
 
-.. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract ledger id, application id and party so it requires that you use the JWT format documented here <insert link>.
+.. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
 
 In the DAML Sandbox testing environment, you can use https://jwt.io (or the JWT library of your choice) to generate your
 token.  The default "header" is fine.  Under "Payload", fill in:
