@@ -40,8 +40,6 @@ We welcome feedback about the JSON API on `our issue tracker
 Running the JSON API
 ********************
 
-.. warning:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
-
 Start a DAML Ledger
 ===================
 
@@ -70,6 +68,8 @@ The most basic way to start the JSON API is with the command:
 
 This will start the JSON API on port 7575 and connect it to a ledger running on ``localhost:6865``.
 
+.. note:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
+
 With Query Store
 ------------------
 
@@ -95,16 +95,16 @@ The JSON API essentially performs two separate tasks:
 1. It talks to the IAM of the Ledger API to get data it needs to operate, for this it may need to *provide an access token to an IAM* that requires authentication.
 2. It handles requests coming from one or more Parties, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
-.. note:: By default sandboxes do not have an IAM and do not need the access token mentioned in point 1
+.. note:: By default sandboxes do not need the access token mentioned in point 1
 
-Ledger API Auth with IAM
-------------------------
+Ledger API Auth
+---------------
 
-The IAM access token is used exclusively for maintaining the internal list of known packages and templates.
+This access token is used exclusively for maintaining the internal list of known packages and templates.
 
 .. note:: At no point should this access token be provided to an end user, these are for internal use only.
 
-Every IAM access token is different and will depend on what your specific ledger operator's IAM requires.
+Every access token is different and will depend on your specific ledger operator's requirements.
 The JSON API server requires no access to party-specific data, only access to the ledger identity and package services.
 A token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that.
 Please refer to your ledger operator's documentation to find out how.
