@@ -17,6 +17,7 @@ import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.daml.scalautil.Statement.discard
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
@@ -50,6 +51,7 @@ object ReplServiceMain extends App {
       }
       config.copy(timeMode = Some(timeMode))
     }
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
     private val parser = new scopt.OptionParser[Config]("repl-service") {
       opt[String]("port-file")
         .required()
@@ -155,8 +157,8 @@ object ReplServiceMain extends App {
       .addService(new ReplService(clients, timeMode, ec, sequencer, materializer))
       .maxInboundMessageSize(maxMessageSize)
       .build
-  server.start()
-  Files.write(config.portFile, Seq(server.getPort.toString).asJava)
+      .start
+  discard[Path](Files.write(config.portFile, Seq(server.getPort.toString).asJava))
 
   // Bump up the log level
   Logger.getLogger("io.grpc").setLevel(Level.ALL)
