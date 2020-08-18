@@ -833,7 +833,7 @@ HTTP Response
 The response is the same as for the POST method below.
 
 Get all Active Contracts Matching a Given Query
-**************************
+***********************************************
 
 List currently active contracts that match a given query.
 
