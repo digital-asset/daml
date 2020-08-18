@@ -20,7 +20,7 @@ Ledger Model </concepts/ledger-model/index>`.
 Downloading the tool
 ====================
 
-Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+Download the Ledger API Test Tool from `Maven <api-test-tool_>`_
 and save it as ``ledger-api-test-tool.jar`` in your current directory.
 
 Running the tool against a custom Ledger API endpoint

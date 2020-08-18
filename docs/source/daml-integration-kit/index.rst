@@ -372,7 +372,7 @@ there are consistency or conformance problem with your implementation.
 
 Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you can use the tool in the following manner:
 
-#. Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+#. Download the Ledger API Test Tool from `Maven <api-test-tool_>`_
    and save it as ``ledger-api-test-tool.jar`` in your current directory.
 
 #. Obtain the DAML archives required to run the tests:
