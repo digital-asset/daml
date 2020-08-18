@@ -176,8 +176,8 @@ Alternatively, here are two tokens you can use for testing:
 
     eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJCb2IiXX19.0uPPZtM1AmKvnGixt_Qo53cMDcpnziCjKKiWLvMX2VM
 
-Party Auth via HTTP
-^^^^^^^^^^^^^^^^^^^
+Auth via HTTP
+^^^^^^^^^^^^^
 
 Set HTTP header ``Authorization: Bearer paste-jwt-here``
 
@@ -187,8 +187,8 @@ Example:
 
     Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
 
-Party Auth via WebSockets
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Auth via WebSockets
+^^^^^^^^^^^^^^^^^^^
 
 WebSocket clients support a "subprotocols" argument (sometimes simply
 called "protocols"); this is usually in a list form but occasionally in
