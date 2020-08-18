@@ -11,7 +11,10 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.Result.Retired
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
+import com.daml.ledger.api.testtool.infrastructure.participant.{
+  ParticipantSessionConfiguration,
+  ParticipantSessionManager
+}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{Duration, DurationInt}
@@ -121,6 +124,27 @@ final class LedgerTestCasesRunner(
     val participantSessionManager = new ParticipantSessionManager
     val ledgerSession = new LedgerSession(config, participantSessionManager)
 
+    def uploadDars(): Future[Unit] = {
+      val (host, port) = config.participants.head
+      val firstParticipant = ParticipantSessionConfiguration(
+        host,
+        port,
+        config.ssl,
+        config.partyAllocation,
+      )
+      for {
+        session <- participantSessionManager.getOrCreate(firstParticipant)
+        context <- session.createInitContext("upload-dars", identifierSuffix)
+        _ <- Future.sequence(Dars.resources.map { name =>
+          logger.info("Uploading DAR \"{}\"...", name)
+          context.uploadDarFile(Dars.read(name)).andThen {
+            case _ =>
+              logger.info("Uploaded DAR \"{}\".", name)
+          }
+        })
+      } yield ()
+    }
+
     def runTestCases(
         testCases: Vector[LedgerTestCase],
         concurrency: Int,
@@ -140,6 +164,7 @@ final class LedgerTestCasesRunner(
 
     val testResults =
       for {
+        _ <- uploadDars()
         concurrentTestsResults <- runTestCases(concurrentTestCases, concurrentTestRuns)
         sequentialTestsResults <- runTestCases(sequentialTestCases, concurrency = 1)
       } yield concurrentTestsResults ++ sequentialTestsResults

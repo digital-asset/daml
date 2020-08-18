@@ -29,9 +29,6 @@ def conformance_test(
         ],
         server = server,
         server_args = server_args,
-        server_files = [
-            "$(rootpaths //ledger/test-common:dar-files)",
-        ],
         tags = [
             "dont-run-on-darwin",
             "exclusive",
