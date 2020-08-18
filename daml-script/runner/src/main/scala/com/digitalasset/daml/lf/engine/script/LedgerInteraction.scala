@@ -430,12 +430,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                   result = Failure(ScenarioErrorCommitError(fas))
                 case Right(commitResult) =>
                   scenarioRunner.ledger = commitResult.newLedger
-                  // Clear the ledger
-                  machine.returnValue = null
-                  machine.clearCommit
-                  // Taken from SBSBeginCommit which is used for scenarios.
-                  machine.localContracts = Map.empty
-                  machine.globalDiscriminators = Set.empty
                   // Capture the result and exit.
                   result = Success(Right(results.toSeq))
               }
@@ -471,6 +465,11 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
             new RuntimeException("FATAL: Encountered scenario instruction getParty in DAML Script"))
       }
     }
+    // Reset the machine
+    machine.returnValue = null
+    machine.clearCommit
+    machine.localContracts = Map.empty
+    machine.globalDiscriminators = Set.empty
     Future.fromTry(result)
   }
 
