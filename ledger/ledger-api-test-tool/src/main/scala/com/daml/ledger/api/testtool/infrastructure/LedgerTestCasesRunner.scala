@@ -11,10 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.Result.Retired
-import com.daml.ledger.api.testtool.infrastructure.participant.{
-  ParticipantSessionConfiguration,
-  ParticipantSessionManager
-}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{Duration, DurationInt}
@@ -125,13 +122,7 @@ final class LedgerTestCasesRunner(
     val ledgerSession = new LedgerSession(config, participantSessionManager)
 
     def uploadDars(): Future[Unit] = {
-      val (host, port) = config.participants.head
-      val firstParticipant = ParticipantSessionConfiguration(
-        host,
-        port,
-        config.ssl,
-        config.partyAllocation,
-      )
+      val firstParticipant = config.forParticipant(config.participants.head)
       for {
         session <- participantSessionManager.getOrCreate(firstParticipant)
         context <- session.createInitContext("upload-dars", identifierSuffix)
