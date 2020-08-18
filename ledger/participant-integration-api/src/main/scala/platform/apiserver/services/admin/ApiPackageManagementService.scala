@@ -90,15 +90,25 @@ private[apiserver] final class ApiPackageManagementService private (
       )
       response <- submissionResult match {
         case SubmissionResult.Acknowledged =>
-          pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
-            case _: PackageEntry.PackageUploadAccepted =>
-              for (archive <- dar.all) {
-                logger.info(s"Package ${archive.getHash} successfully uploaded")
-              }
-              Future.successful(UploadDarFileResponse())
-            case PackageEntry.PackageUploadRejected(_, _, reason) =>
-              Future.failed(ErrorFactories.invalidArgument(reason))
-          }
+          SynchronousResponse
+            .pollUntilPersisted(
+              packagesIndex
+                .packageEntries(ledgerEndBeforeRequest)
+                .collect {
+                  case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
+                  case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
+                },
+              timeToLive,
+            )(materializer)
+            .flatMap {
+              case _: PackageEntry.PackageUploadAccepted =>
+                for (archive <- dar.all) {
+                  logger.info(s"Package ${archive.getHash} successfully uploaded")
+                }
+                Future.successful(UploadDarFileResponse())
+              case PackageEntry.PackageUploadRejected(_, _, reason) =>
+                Future.failed(ErrorFactories.invalidArgument(reason))
+            }
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>
@@ -110,22 +120,10 @@ private[apiserver] final class ApiPackageManagementService private (
     uploadDarFileResponse.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
   }
 
-  private def pollUntilPersisted(
-      submissionId: SubmissionId,
-      timeToLive: FiniteDuration,
-      offset: LedgerOffset.Absolute): Future[PackageEntry] = {
-    packagesIndex
-      .packageEntries(offset)
-      .collect {
-        case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
-        case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
-      }
-      .completionTimeout(timeToLive)
-      .runWith(Sink.head)(materializer)
-  }
 }
 
 private[apiserver] object ApiPackageManagementService {
+
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
@@ -133,4 +131,5 @@ private[apiserver] object ApiPackageManagementService {
   )(implicit mat: Materializer, loggingContext: LoggingContext)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
     new ApiPackageManagementService(readBackend, transactionsService, writeBackend, mat)
+
 }

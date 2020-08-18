@@ -4,7 +4,11 @@
 package com.daml.platform.apiserver.services.admin
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
+import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
+import com.daml.dec.{DirectExecutionContext => DE}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
+import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{
@@ -13,13 +17,7 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   WriteConfigService
 }
-import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
 import com.daml.lf.data.Time
-import com.daml.dec.{DirectExecutionContext => DE}
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.LedgerOffset
-import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
-import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.configuration.LedgerConfiguration
@@ -29,7 +27,7 @@ import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 private[apiserver] final class ApiConfigManagementService private (
@@ -112,14 +110,27 @@ private[apiserver] final class ApiConfigManagementService private (
           ))
 
       result <- submissionResult match {
+        // Ledger acknowledged. Start polling to wait for the result to land in the index.
         case SubmissionResult.Acknowledged =>
-          // Ledger acknowledged. Start polling to wait for the result to land in the index.
-          pollUntilPersisted(request.submissionId, pollOffset, params.timeToLive).flatMap {
-            case accept: domain.ConfigurationEntry.Accepted =>
-              Future.successful(SetTimeModelResponse(accept.configuration.generation))
-            case rejected: domain.ConfigurationEntry.Rejected =>
-              Future.failed(ErrorFactories.aborted(rejected.rejectionReason))
-          }
+          val submissionId = request.submissionId
+          SynchronousResponse
+            .pollUntilPersisted(
+              index
+                .configurationEntries(pollOffset)
+                .collect {
+                  case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _)) =>
+                    entry
+                  case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _)) =>
+                    entry
+                },
+              timeToLive = params.timeToLive,
+            )(materializer)
+            .flatMap {
+              case accept: domain.ConfigurationEntry.Accepted =>
+                Future.successful(SetTimeModelResponse(accept.configuration.generation))
+              case rejected: domain.ConfigurationEntry.Rejected =>
+                Future.failed(ErrorFactories.aborted(rejected.rejectionReason))
+            }
         case SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted("Resource exhausted"))
         case SubmissionResult.InternalError(reason) =>
@@ -169,24 +180,6 @@ private[apiserver] final class ApiConfigManagementService private (
         .fromInstant(mrtInstant)
         .fold(err => Left(ErrorFactories.invalidArgument(err)), Right(_))
     } yield SetTimeModelParameters(newTimeModel, maximumRecordTime, timeToLive)
-  }
-
-  private def pollUntilPersisted(
-      submissionId: String,
-      offset: Option[LedgerOffset.Absolute],
-      timeToLive: FiniteDuration): Future[domain.ConfigurationEntry] = {
-    index
-      .configurationEntries(offset)
-      .collect {
-        case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _)) => entry
-        case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _)) => entry
-      }
-      .completionTimeout(timeToLive)
-      .runWith(Sink.head)(materializer)
-      .recoverWith {
-        case _: TimeoutException =>
-          Future.failed(ErrorFactories.aborted("Request timed out"))
-      }(DE)
   }
 
 }
