@@ -44,7 +44,7 @@ package object filter {
       parameter match {
         case tc: DamlLfTypeCon =>
           val nextOrResult =
-            (ps(tc.name.identifier).map(damlLfInstantiate(tc, _)), cursor.next) match {
+            (ps(tc.name.identifier).map(tc.instantiate(_)), cursor.next) match {
               case (Some(DamlLfRecord(fields)), Some(nextCursor)) =>
                 fields
                   .collectFirst {

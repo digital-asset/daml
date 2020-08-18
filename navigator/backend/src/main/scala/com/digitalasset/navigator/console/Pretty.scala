@@ -136,8 +136,7 @@ object Pretty {
       } else {
         // Once a type is instantiated, do not instantiate it in any child node.
         // Required to prevent infinite expansion of recursive types.
-        // val dt = typeCon.instantiate(typeDefs(id).get)
-        val dt = model.damlLfInstantiate(typeCon, typeDefs(id).get)
+        val dt = typeCon.instantiate(typeDefs(id).get)
         (
           Some(typeCon.name.identifier.qualifiedName.name.toString),
           damlLfDataType(dt, typeDefs, doNotExpand + id))
