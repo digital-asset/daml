@@ -26,7 +26,7 @@ import com.daml.platform.server.api.validation
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.compat.java8.FutureConverters
+import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -102,9 +102,9 @@ private[apiserver] final class ApiConfigManagementService private (
 
       // Submit configuration to the ledger, and start polling for the result.
       submissionId = SubmissionId.assertFromString(request.submissionId)
-      submissionResult <- FutureConverters.toScala(
-        writeService.submitConfiguration(params.maximumRecordTime, submissionId, newConfig))
-
+      submissionResult <- writeService
+        .submitConfiguration(params.maximumRecordTime, submissionId, newConfig)
+        .toScala
       entry <- submissionResult match {
         // Ledger acknowledged. Start polling to wait for the result to land in the index.
         case SubmissionResult.Acknowledged =>

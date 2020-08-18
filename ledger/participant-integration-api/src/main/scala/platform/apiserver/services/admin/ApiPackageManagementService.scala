@@ -22,7 +22,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.ServerServiceDefinition
 
-import scala.compat.java8.FutureConverters
+import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -86,9 +86,7 @@ private[apiserver] final class ApiPackageManagementService private (
           Future.successful
         )
       ledgerEndBeforeRequest <- transactionsService.currentLedgerEnd()
-      submissionResult <- FutureConverters.toScala(
-        packagesWrite.uploadPackages(submissionId, dar.all, None)
-      )
+      submissionResult <- packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
       entry <- submissionResult match {
         case SubmissionResult.Acknowledged =>
           waitForEntry(submissionId, ledgerEndBeforeRequest, timeToLive)

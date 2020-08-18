@@ -24,7 +24,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 
-import scala.compat.java8.FutureConverters
+import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -84,8 +84,7 @@ private[apiserver] final class ApiPartyManagementService private (
 
     val response = for {
       ledgerEndBeforeRequest <- transactionService.currentLedgerEnd()
-      submissionResult <- FutureConverters.toScala(
-        writeService.allocateParty(party, displayName, submissionId))
+      submissionResult <- writeService.allocateParty(party, displayName, submissionId).toScala
       entry <- submissionResult match {
         case SubmissionResult.Acknowledged =>
           waitForEntry(submissionId, ledgerEndBeforeRequest, timeToLive = 30.seconds)
