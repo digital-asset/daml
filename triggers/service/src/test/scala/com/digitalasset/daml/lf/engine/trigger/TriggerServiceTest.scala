@@ -492,7 +492,8 @@ class TriggerServiceTestWithDb
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
-  private lazy val triggerDao = DbTriggerDao(jdbcConfig_)
+  private lazy val triggerDao =
+    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.IntegrationTest)
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()

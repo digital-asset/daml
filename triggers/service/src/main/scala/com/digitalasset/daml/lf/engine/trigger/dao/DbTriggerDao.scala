@@ -20,7 +20,7 @@ import doobie.postgres.implicits._
 import doobie.util.log
 import doobie.{LogHandler, Transactor, _}
 
-import java.io.Closeable
+import java.io.{Closeable, IOException}
 import javax.sql.DataSource
 
 import scala.concurrent.ExecutionContext
@@ -31,23 +31,31 @@ object Connection {
 
   private[dao] type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
-  private[dao] def connect(jdbcUrl: String, username: String, password: String)(
+  private[dao] def connect(c: JdbcConfig, poolSize: PoolSize)(
       implicit ec: ExecutionContext,
       cs: ContextShift[IO]): (DataSource with Closeable, T) = {
-    val ds = dataSource(jdbcUrl, username, password)
+    val ds = dataSource(c, poolSize)
     (
       ds,
       Transactor
         .fromDataSource[IO](ds, connectEC = ec, transactEC = ec)(IO.ioConcurrentEffect(cs), cs))
   }
 
-  private[this] def dataSource(jdbcUrl: String, username: String, password: String) = {
+  type PoolSize = Int
+  object PoolSize {
+    val IntegrationTest = 2
+    val Production = 8
+  }
+
+  private[this] def dataSource(jc: JdbcConfig, poolSize: PoolSize) = {
+    com.daml.scalautil.Statement.discard(poolSize) // TODO
+    import jc._
     val c = new HikariConfig
-    c.setJdbcUrl(jdbcUrl)
-    c.setUsername(username)
+    c.setJdbcUrl(url)
+    c.setUsername(user)
     c.setPassword(password)
-    c.setMaximumPoolSize(2)
-    c.setIdleTimeout(500)
+    c.setMaximumPoolSize(PoolSize.IntegrationTest)
+    c.setIdleTimeout(500 /*ms*/ )
     new HikariDataSource(c)
   }
 }
@@ -216,26 +224,34 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   }
 
   import logger.info
+  info(s"s11 init $this")
 
-  def initialize: Either[String, Unit] = {
-    info(s"s11 init $this")
+  def initialize: Either[String, Unit] =
     run(createTables(logHandler), "Failed to initialize database.")
-  }
 
   private[trigger] def destroy(): Either[String, Unit] =
     run(dropTables, "Failed to remove database objects.")
 
-  private[trigger] def destroyPermanently(): Either[String, Unit] = {
+  private[trigger] def destroyPermanently(): Try[Unit] = {
     info(s"s11 close $this $dataSource")
-    Try(dataSource.close()).toEither.left.map(t => s"Failed to close database.\n${t.getMessage}")
+    Try(dataSource.close())
   }
+
+  @throws[IOException]
+  override def close() =
+    destroyPermanently() fold ({
+      case e: IOException => throw e
+      case e => throw new IOException(e)
+    }, identity)
 }
 
 object DbTriggerDao {
+  import Connection.PoolSize, PoolSize.Production
 
-  def apply(c: JdbcConfig)(implicit ec: ExecutionContext): DbTriggerDao = {
+  def apply(c: JdbcConfig, poolSize: PoolSize = Production)(
+      implicit ec: ExecutionContext): DbTriggerDao = {
     implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-    val (ds, conn) = Connection.connect(c.url, c.user, c.password)
+    val (ds, conn) = Connection.connect(c, poolSize)
     new DbTriggerDao(ds, conn)
   }
 }
