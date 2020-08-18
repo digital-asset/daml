@@ -145,7 +145,7 @@ private[apiserver] final class ApiConfigManagementService private (
   )
 
   private def validateParameters(
-      request: SetTimeModelRequest
+      request: SetTimeModelRequest,
   ): Either[StatusRuntimeException, SetTimeModelParameters] = {
     import validation.FieldValidations._
     for {
