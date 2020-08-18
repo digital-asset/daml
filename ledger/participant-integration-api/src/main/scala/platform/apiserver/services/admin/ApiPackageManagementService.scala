@@ -73,16 +73,8 @@ private[apiserver] final class ApiPackageManagementService private (
       else
         SubmissionId.assertFromString(request.submissionId)
 
-    // Amount of time we wait for the ledger to commit the request before we
-    // give up on polling for the result.
-    // TODO(JM): This constant should be replaced by user-provided maximum record time
-    // which should be wired through the stack and verified during validation, just like
-    // with transactions. I'm leaving this for another PR.
-    val timeToLive = 30.seconds
-
     // Execute subsequent transforms in the thread of the previous operation.
     implicit val executionContext: ExecutionContext = DE
-    implicit val mat: Materializer = materializer
 
     val response = for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
@@ -94,10 +86,10 @@ private[apiserver] final class ApiPackageManagementService private (
           Future.successful
         )
       synchronousResponse = new SynchronousResponse(
-        timeToLive,
         new SynchronousResponseStrategy(transactionsService, packagesIndex, packagesWrite, dar),
+        timeToLive = 30.seconds,
       )
-      _ <- synchronousResponse.submitAndWait(submissionId)
+      _ <- synchronousResponse.submitAndWait(submissionId)(executionContext, materializer)
     } yield {
       for (archive <- dar.all) {
         logger.info(s"Package ${archive.getHash} successfully uploaded")

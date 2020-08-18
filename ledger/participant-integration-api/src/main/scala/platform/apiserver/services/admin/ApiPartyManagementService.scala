@@ -6,22 +6,24 @@ package com.daml.platform.apiserver.services.admin
 import java.util.UUID
 
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import com.daml.dec.{DirectExecutionContext => DE}
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.PartyEntry.{AllocationAccepted, AllocationRejected}
+import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
-  IndexTransactionsService
+  IndexTransactionsService,
+  LedgerEndService
 }
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.server.api.validation.ErrorFactories
-import io.grpc.ServerServiceDefinition
+import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.DurationInt
@@ -81,48 +83,35 @@ private[apiserver] final class ApiPartyManagementService private (
     // Execute subsequent transforms in the thread of the previous operation.
     implicit val executionContext: ExecutionContext = DE
 
-    val response = for {
-      ledgerEndBeforeRequest <- transactionService.currentLedgerEnd()
-      submissionResult <- writeService.allocateParty(party, displayName, submissionId).toScala
-      entry <- submissionResult match {
-        case SubmissionResult.Acknowledged =>
-          SynchronousResponse.pollUntilPersisted(
-            partyManagementService
-              .partyEntries(Some(ledgerEndBeforeRequest))
-              .collect {
-                case entry @ AllocationAccepted(Some(`submissionId`), _) => entry
-                case entry @ AllocationRejected(`submissionId`, _) => entry
-              },
-            30.seconds,
-          )(executionContext, materializer)
-        case r @ SubmissionResult.Overloaded =>
-          Future.failed(ErrorFactories.resourceExhausted(r.description))
-        case r @ SubmissionResult.InternalError(_) =>
-          Future.failed(ErrorFactories.internal(r.reason))
-        case r @ SubmissionResult.NotSupported =>
-          Future.failed(ErrorFactories.unimplemented(r.description))
+    val synchronousResponse = new SynchronousResponse(
+      new SynchronousResponseStrategy(
+        transactionService,
+        writeService,
+        partyManagementService,
+        party,
+        displayName,
+      ),
+      timeToLive = 30.seconds,
+    )
+    synchronousResponse
+      .submitAndWait(submissionId)(executionContext, materializer)
+      .map {
+        case PartyEntry.AllocationAccepted(_, partyDetails) =>
+          AllocatePartyResponse(
+            Some(
+              PartyDetails(
+                partyDetails.party,
+                partyDetails.displayName.getOrElse(""),
+                partyDetails.isLocal,
+              )))
       }
-      response <- entry match {
-        case domain.PartyEntry.AllocationAccepted(_, partyDetails) =>
-          Future.successful(
-            AllocatePartyResponse(
-              Some(
-                PartyDetails(
-                  partyDetails.party,
-                  partyDetails.displayName.getOrElse(""),
-                  partyDetails.isLocal,
-                ))))
-        case domain.PartyEntry.AllocationRejected(_, reason) =>
-          Future.failed(ErrorFactories.invalidArgument(reason))
-      }
-    } yield response
-
-    response.andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+      .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
 
 }
 
 private[apiserver] object ApiPartyManagementService {
+
   def createApiService(
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
@@ -134,5 +123,37 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService,
       writeBackend,
       mat)
+
+  private final class SynchronousResponseStrategy(
+      ledgerEndService: LedgerEndService,
+      writeService: WritePartyService,
+      partyManagementService: IndexPartyManagementService,
+      party: Option[Ref.Party],
+      displayName: Option[String],
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+      extends SynchronousResponse.Strategy[PartyEntry, PartyEntry.AllocationAccepted] {
+
+    override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
+      ledgerEndService.currentLedgerEnd().map(Some(_))
+
+    override def submit(submissionId: SubmissionId): Future[SubmissionResult] =
+      writeService.allocateParty(party, displayName, submissionId).toScala
+
+    override def entries(offset: Option[LedgerOffset.Absolute]): Source[PartyEntry, _] =
+      partyManagementService.partyEntries(offset)
+
+    override def accept(
+        submissionId: SubmissionId,
+    ): PartialFunction[PartyEntry, PartyEntry.AllocationAccepted] = {
+      case entry @ PartyEntry.AllocationAccepted(Some(`submissionId`), _) => entry
+    }
+
+    override def reject(
+        submissionId: SubmissionId,
+    ): PartialFunction[PartyEntry, StatusRuntimeException] = {
+      case PartyEntry.AllocationRejected(`submissionId`, reason) =>
+        ErrorFactories.invalidArgument(reason)
+    }
+  }
 
 }

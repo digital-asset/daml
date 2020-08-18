@@ -15,8 +15,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
 class SynchronousResponse[Entry, AcceptedEntry](
-    timeToLive: FiniteDuration,
     strategy: SynchronousResponse.Strategy[Entry, AcceptedEntry],
+    timeToLive: FiniteDuration,
 ) {
 
   def submitAndWait(submissionId: SubmissionId)(
@@ -56,18 +56,6 @@ class SynchronousResponse[Entry, AcceptedEntry](
 }
 
 object SynchronousResponse {
-
-  def pollUntilPersisted[T](
-      source: Source[T, _],
-      timeToLive: FiniteDuration,
-  )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[T] =
-    source
-      .completionTimeout(timeToLive)
-      .runWith(Sink.head)
-      .recoverWith {
-        case _: TimeoutException =>
-          Future.failed(ErrorFactories.aborted("Request timed out"))
-      }
 
   trait Strategy[Entry, AcceptedEntry] {
 

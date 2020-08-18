@@ -4,10 +4,11 @@
 package com.daml.platform.apiserver.services.admin
 
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.ConfigurationEntry
+import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
@@ -21,6 +22,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.lf.data.Time
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.server.api.validation
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -102,38 +104,18 @@ private[apiserver] final class ApiConfigManagementService private (
 
       // Submit configuration to the ledger, and start polling for the result.
       submissionId = SubmissionId.assertFromString(request.submissionId)
-      submissionResult <- writeService
-        .submitConfiguration(params.maximumRecordTime, submissionId, newConfig)
-        .toScala
-      entry <- submissionResult match {
-        // Ledger acknowledged. Start polling to wait for the result to land in the index.
-        case SubmissionResult.Acknowledged =>
-          SynchronousResponse.pollUntilPersisted(
-            index
-              .configurationEntries(ledgerEndBeforeRequest)
-              .collect {
-                case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _)) =>
-                  entry
-                case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _)) =>
-                  entry
-              },
-            params.timeToLive,
-          )(executionContext, materializer)
-        case SubmissionResult.Overloaded =>
-          Future.failed(ErrorFactories.resourceExhausted("Resource exhausted"))
-        case SubmissionResult.InternalError(reason) =>
-          Future.failed(ErrorFactories.internal(reason))
-        case SubmissionResult.NotSupported =>
-          Future.failed(
-            ErrorFactories.unimplemented("Setting of time model not supported by this ledger"))
-      }
-      response <- entry match {
-        case accept: ConfigurationEntry.Accepted =>
-          Future.successful(SetTimeModelResponse(accept.configuration.generation))
-        case rejected: ConfigurationEntry.Rejected =>
-          Future.failed(ErrorFactories.aborted(rejected.rejectionReason))
-      }
-    } yield response
+      synchronousResponse = new SynchronousResponse(
+        new SynchronousResponseStrategy(
+          writeService,
+          index,
+          ledgerEndBeforeRequest,
+          params.maximumRecordTime,
+          newConfig,
+        ),
+        timeToLive = params.timeToLive,
+      )
+      entry <- synchronousResponse.submitAndWait(submissionId)(executionContext, materializer)
+    } yield SetTimeModelResponse(entry.configuration.generation)
 
     response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
   }
@@ -180,6 +162,7 @@ private[apiserver] final class ApiConfigManagementService private (
 }
 
 private[apiserver] object ApiConfigManagementService {
+
   def createApiService(
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,
@@ -194,5 +177,40 @@ private[apiserver] object ApiConfigManagementService {
       timeProvider,
       ledgerConfiguration,
       mat)
+
+  private final class SynchronousResponseStrategy(
+      writeConfigService: WriteConfigService,
+      configManagementService: IndexConfigManagementService,
+      ledgerEnd: Option[LedgerOffset.Absolute],
+      maximumRecordTime: Time.Timestamp,
+      newConfiguration: Configuration,
+  )(implicit loggingContext: LoggingContext)
+      extends SynchronousResponse.Strategy[ConfigurationEntry, ConfigurationEntry.Accepted] {
+
+    override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
+      Future.successful(ledgerEnd)
+
+    override def submit(submissionId: SubmissionId): Future[SubmissionResult] =
+      writeConfigService
+        .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)
+        .toScala
+
+    override def entries(offset: Option[LedgerOffset.Absolute]): Source[ConfigurationEntry, _] =
+      configManagementService.configurationEntries(offset).map(_._2)
+
+    override def accept(
+        submissionId: SubmissionId,
+    ): PartialFunction[ConfigurationEntry, ConfigurationEntry.Accepted] = {
+      case entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _) =>
+        entry
+    }
+
+    override def reject(
+        submissionId: SubmissionId,
+    ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
+      case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
+        ErrorFactories.aborted(reason)
+    }
+  }
 
 }
