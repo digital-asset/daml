@@ -139,13 +139,20 @@ token.  The default "header" is fine.  Under "Payload", fill in:
     }
 
 The value of the ``ledgerId`` field has to match the ``ledgerId` of your underlying DAML Ledger.
-For the ``daml sandbox`` this corresponds to the ``--ledgerid MyLedger`` flag.
+For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 .. note:: The value of ``applicationId`` can currently be anything and does not need to correspond to ``daml json-api --application-id <value>``.
 
-The value for ``actAs`` is specified as a list. You can replace ``Alice`` with whatever party you want to use,
-provided that it is a valid party on the ledger.
-For the ``daml sandbox`` any string will create a party with that name.
+The value for ``actAs`` is specified as a list and you provide it with one party that you want to use.
+Such as the example which uses ``Alice`` for a party.
+
+For the Sandbox any string will create use a party with that name if it exists, 
+or create it if it does not. This is known as "implicit party allocation" and is unique to the Sandbox.
+
+For non-Sandbox ledgers the party must already exist on the ledger in order to be used.
+This is known as "explicit party allocation" and is common on all non-Sandbox ledgers.
+
+.. note:: To explicitly allocate parties you can use :doc:`DAML Script </daml-script/index>` or ``daml ledger allocate-parties``
 
 Under "Verify Signature", put ``secret`` as the secret (*not* base64
 encoded); that is the hardcoded secret for testing.
