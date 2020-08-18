@@ -201,26 +201,30 @@ using the `JWT <https://jwt.io/>`__ format.
 The following command line options are available to enable authorization:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
-  The Ledger API will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
-  with the public key loaded from the given X.509 certificate file.
-  Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
-  and DER-encoded certificates (binary files) are supported.
+  The Ledger API will expect all tokens to be signed with RS256 (RSA Signature
+  with SHA-256) with the public key loaded from the given X.509 certificate
+  file. Both PEM-encoded certificates (text files starting with
+  ``-----BEGIN CERTIFICATE-----``) and DER-encoded certificates (binary files)
+  are supported.
 
 - ``--auth-jwt-es256-crt=<filename>``.
-  The Ledger API will expect all tokens to be signed with ES256 (ECDSA using P-256 and SHA-256)
-  with the public key loaded from the given X.509 certificate file.
-  Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
-  and DER-encoded certicates (binary files) are supported.
+  The Ledger API will expect all tokens to be signed with ES256 (ECDSA using
+  P-256 and SHA-256) with the public key loaded from the given X.509 certificate
+  file. Both PEM-encoded certificates (text files starting with
+  ``-----BEGIN CERTIFICATE-----``) and DER-encoded certicates (binary files) are
+  supported.
 
 - ``--auth-jwt-es512-crt=<filename>``.
-  The Ledger API will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512)
-  with the public key loaded from the given X.509 certificate file.
-  Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
-  and DER-encoded certificates (binary files) are supported.
+  The Ledger API will expect all tokens to be signed with ES512 (ECDSA using
+  P-521 and SHA-512) with the public key loaded from the given X.509 certificate
+  file. Both PEM-encoded certificates (text files starting with
+  ``-----BEGIN CERTIFICATE-----``) and DER-encoded certificates (binary files)
+  are supported.
 
 - ``--auth-jwt-rs256-jwks=<url>``.
-  The Ledger API will expect all tokens to be signed with RS256 (RSA Signature with SHA-256)
-  with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
+  The Ledger API will expect all tokens to be signed with RS256 (RSA Signature
+  with SHA-256) with the public key loaded from the given
+  `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
 
 Testing-only authorization options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -241,28 +245,32 @@ The following is an example of a valid JWT payload:
 
     {
         "https://daml.com/ledger-api": {
-          "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-          "participantId": null,
-          "applicationId": null,
-          "admin": true,
-          "actAs": ["Alice"],
-          "readAs": ["Bob"]
+            "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "participantId": null,
+            "applicationId": null,
+            "admin": true,
+            "actAs": ["Alice"],
+            "readAs": ["Bob"]
         },
         "exp": 1300819380
     }
 
-where
+where:
 
-- ``ledgerId``, ``participantId``, ``applicationId`` restrict the validity of the token to the given ledger, participant, or application
-- ``exp`` is the standard JWT expiration date (in seconds since Epoch)
-- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the Ledger API authorization documentation
+- ``ledgerId``, ``participantId``, ``applicationId`` restrict the validity of
+  the token to the given ledger, participant, or application,
+- ``exp`` is the standard JWT expiration date (in seconds since Epoch), and
+- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the Ledger API
+  authorization documentation.
 
-The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
+The ``public`` claim is implicitly held by anyone bearing a valid JWT (even
+without being an admin or being able to act or read on behalf of any party).
 
 Generate JSON Web Tokens (JWT)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To generate tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ web site.
+To generate tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__
+web site.
 
 Generate RSA keys
 ^^^^^^^^^^^^^^^^^
@@ -273,20 +281,23 @@ To generate RSA keys for testing purposes, use the following command::
 
 which generates the following files:
 
-- ``ledger.key``: the private key in PEM/DER/PKCS#1 format
-- ``ledger.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
+- ``ledger.key``: the private key in PEM/DER/PKCS#1 format, and
+- ``ledger.crt``: a self-signed certificate containing the public key, in
+  PEM/DER/X.509 Certificate format.
 
 Generate EC keys
 ^^^^^^^^^^^^^^^^
 
-To generate keys to be used with ES256 for testing purposes, use the following command::
+To generate keys to be used with ES256 for testing purposes, use the following
+command::
 
     openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name prime256v1) -keyout ecdsa256.key -out ecdsa256.crt
 
 which generates the following files:
 
-- ``ecdsa256.key``: the private key in PEM/DER/PKCS#1 format
-- ``ecdsa256.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
+- ``ecdsa256.key``: the private key in PEM/DER/PKCS#1 format, and
+- ``ecdsa256.crt``: a self-signed certificate containing the public key, in
+  PEM/DER/X.509 Certificate format.
 
 Similarly, you can use the following command for ES512 keys::
 
@@ -295,9 +306,10 @@ Similarly, you can use the following command for ES512 keys::
 Command-line reference
 **********************
 
-To start the ledger, run: ``java -jar daml-on-sql-<version>.jar [options] ``.
+To start the ledger, run: ``java -jar daml-on-sql-<version>.jar [options]``.
 
-To see all the available options, run ``java -jar daml-on-sql-<version>.jar --help``.
+To see all the available options, run:
+``java -jar daml-on-sql-<version>.jar --help``.
 
 Monitoring
 **********
@@ -402,7 +414,8 @@ use exponentially decaying reservoirs (i.e. the data is roughly relevant for
 the last five minutes of recording) to ensure that recent and possibly
 operationally relevant changes are visible through the metrics reporter.
 
-Note that ``min`` and ``max`` values are not affected by the reservoir sampling policy.
+Note that ``min`` and ``max`` values are not affected by the reservoir sampling
+policy.
 
 You can read more about reservoir sampling and possible associated policies
 in the `Dropwizard Metrics library documentation <https://metrics.dropwizard.io/4.1.2/manual/core.html#man-core-histograms/>`__.
@@ -450,8 +463,8 @@ These metrics are:
 List of metrics
 ===============
 
-The following is a non-exhaustive list of selected metrics
-that can be particularly important to track.
+The following is a non-exhaustive list of selected metrics that can be
+particularly important to track.
 
 ``daml.commands.deduplicated_commands``
 ---------------------------------------
@@ -461,41 +474,40 @@ A meter. Number of deduplicated commands.
 ``daml.commands.delayed_submissions``
 -------------------------------------
 
-A meter. Number of delayed submissions (submission who have been
-evaluated to transaction with a ledger time farther in
-the future than the expected latency).
+A meter. Number of delayed submissions (submission who have been evaluated to
+transaction with a ledger time farther in the future than the expected latency).
 
 ``daml.commands.failed_command_interpretation``
 -----------------------------------------------
 
-A meter. Number of commands that have been deemed unacceptable
-by the interpreter and thus rejected (e.g. double spends)
+A meter. Number of commands that have been deemed unacceptable by the
+interpreter and thus rejected (e.g. double spends)
 
 ``daml.commands.submissions``
 -----------------------------
 
-A timer. Time to fully process a submission (validation,
-deduplication and interpretation) before it is handed over
-to the ledger to be finalized (either committed or rejected).
+A timer. Time to fully process a submission (validation, deduplication and
+interpretation) before it is handed over to the ledger to be finalized (either
+committed or rejected).
 
 ``daml.commands.valid_submissions``
 -----------------------------------
 
-A meter. Number of submission that pass validation and are
-further sent to deduplication and interpretation.
+A meter. Number of submission that pass validation and are further sent to
+deduplication and interpretation.
 
 ``daml.commands.validation``
 ----------------------------
 
-A timer. Time to validate submitted commands before they are
-fed to the DAML interpreter.
+A timer. Time to validate submitted commands before they are fed to the DAML
+interpreter.
 
 
 ``daml.execution.get_lf_package``
 ---------------------------------
 
-A timer. Time spent by the engine fetching the packages of compiled
-DAML code necessary for interpretation.
+A timer. Time spent by the engine fetching the packages of compiled DAML code
+necessary for interpretation.
 
 ``daml.execution.lookup_active_contract_count_per_execution``
 -------------------------------------------------------------
@@ -505,7 +517,8 @@ A histogram. Number of active contracts fetched for each processed transaction.
 ``daml.execution.lookup_active_contract_per_execution``
 -------------------------------------------------------
 
-A timer. Time to fetch all active contracts necessary to process each transaction.
+A timer. Time to fetch all active contracts necessary to process each
+transaction.
 
 ``daml.execution.lookup_active_contract``
 -----------------------------------------
@@ -530,21 +543,20 @@ A timer. Time to lookup each individual contract key during interpretation.
 ``daml.execution.retry``
 ------------------------
 
-A meter. Overall number of interpretation retries attempted due to
-mismatching ledger effective time.
+A meter. Overall number of interpretation retries attempted due to mismatching
+ledger effective time.
 
 ``daml.execution.total``
 ------------------------
 
-A timer. Time spent interpreting a valid command into a transaction
-ready to be submitted to the ledger for finalization.
+A timer. Time spent interpreting a valid command into a transaction ready to be
+submitted to the ledger for finalization.
 
 ``daml.index.db.connection.sandbox.pool``
 -----------------------------------------
 
-This namespace holds a number of interesting metrics about the
-connection pool used to communicate with the persistent store
-that underlies the index.
+This namespace holds a number of interesting metrics about the connection pool
+used to communicate with the persistent store that underlies the index.
 
 These metrics include:
 
@@ -558,35 +570,36 @@ These metrics include:
 ``daml.index.db.deduplicate_command``
 -------------------------------------
 
-A timer. Time spent persisting deduplication information to ensure the
-continued working of the deduplication mechanism across restarts.
+A timer. Time spent persisting deduplication information to ensure the continued
+working of the deduplication mechanism across restarts.
 
 ``daml.index.db.get_active_contracts``
 --------------------------------------
 
-A database metric. Time spent retrieving a page of active contracts to be
-served from the active contract service. The page size is
-configurable, please look at the CLI reference.
+A database metric. Time spent retrieving a page of active contracts to be served
+from the active contract service. The page size is configurable, please look at
+the CLI reference.
 
 ``daml.index.db.get_completions``
 ---------------------------------
 
 A database metric. Time spent retrieving a page of command completions to be
-served from the command completion service. The page size is
-configurable, please look at the CLI reference.
+served from the command completion service. The page size is configurable,
+please look at the CLI reference.
 
 ``daml.index.db.get_flat_transactions``
 ---------------------------------------
 
 A database metric. Time spent retrieving a page of flat transactions to be
-streamed from the transaction service. The page size is
-configurable, please look at the CLI reference.
+streamed from the transaction service. The page size is configurable, please
+look at the CLI reference.
 
 ``daml.index.db.get_ledger_end``
 --------------------------------
 
-A database metric. Time spent retrieving the current ledger end. The count for this metric is expected to
-be very high and always increasing as the indexed is queried for the latest updates.
+A database metric. Time spent retrieving the current ledger end. The count for
+this metric is expected to be very high and always increasing as the indexed is
+queried for the latest updates.
 
 ``daml.index.db.get_ledger_id``
 -------------------------------
@@ -597,106 +610,101 @@ A database metric. Time spent retrieving the ledger identifier.
 ---------------------------------------
 
 A database metric. Time spent retrieving a page of flat transactions to be
-streamed from the transaction service. The page size is
-configurable, please look at the CLI reference.
+streamed from the transaction service. The page size is configurable, please
+look at the CLI reference.
 
 ``daml.index.db.load_all_parties``
 ----------------------------------
 
-A database metric. Load the currently allocated parties so that
-they are served via the party management service.
+A database metric. Load the currently allocated parties so that they are served
+via the party management service.
 
 ``daml.index.db.load_archive``
 ------------------------------
 
-A database metric. Time spent loading a package of compiled DAML code
-so that it is given to the DAML interpreter when needed.
+A database metric. Time spent loading a package of compiled DAML code so that it
+is given to the DAML interpreter when needed.
 
 ``daml.index.db.load_configuration_entries``
 --------------------------------------------
 
-A database metric. Time to load the current entries in the log of
-configuration entries. Used to verify whether a configuration
-has been ultimately set.
+A database metric. Time to load the current entries in the log of configuration
+entries. Used to verify whether a configuration has been ultimately set.
 
 ``daml.index.db.load_package_entries``
 --------------------------------------
 
-A database metric. Time to load the current entries in the log of
-package uploads. Used to verify whether a package
-has been ultimately uploaded.
+A database metric. Time to load the current entries in the log of package
+uploads. Used to verify whether a package has been ultimately uploaded.
 
 ``daml.index.db.load_packages``
 -------------------------------
 
-A database metric. Load the currently uploaded packages so that
-they are served via the package management service.
+A database metric. Load the currently uploaded packages so that they are served
+via the package management service.
 
 ``daml.index.db.load_parties``
 ------------------------------
 
-A database metric. Load the currently allocated parties so that
-they are served via the party service.
+A database metric. Load the currently allocated parties so that they are served
+via the party service.
 
 ``daml.index.db.load_party_entries``
 ------------------------------------
 
-A database metric. Time to load the current entries in the log of
-party allocations. Used to verify whether a party
-has been ultimately allocated.
+A database metric. Time to load the current entries in the log of party
+allocations. Used to verify whether a party has been ultimately allocated.
 
 ``daml.index.db.lookup_active_contract``
 ----------------------------------------
 
-A database metric. Time to fetch one contract on the index to be used by
-the DAML interpreter to evaluate a command into a
-transaction.
+A database metric. Time to fetch one contract on the index to be used by the
+DAML interpreter to evaluate a command into a transaction.
 
 ``daml.index.db.lookup_configuration``
 --------------------------------------
 
-A database metric. Time to fetch the configuration so that it is
-served via the configuration management service.
+A database metric. Time to fetch the configuration so that it is served via the
+configuration management service.
 
 ``daml.index.db.lookup_contract_by_key``
 ----------------------------------------
 
 A database metric. Time to lookup one contract key on the index to be used by
-the DAML interpreter to evaluate a command into a
-transaction.
+the DAML interpreter to evaluate a command into a transaction.
 
 ``daml.index.db.lookup_flat_transaction_by_id``
 -----------------------------------------------
 
-A database metric. Time to lookup a single flat transaction by identifier
-to be served by the transaction service.
+A database metric. Time to lookup a single flat transaction by identifier to be
+served by the transaction service.
 
 ``daml.index.db.lookup_maximum_ledger_time``
 --------------------------------------------
 
 A database metric. Time spent looking up the ledger effective time of a
-transaction as the maximum ledger time of all active
-contracts involved to ensure causal monotonicity.
+transaction as the maximum ledger time of all active contracts involved to
+ensure causal monotonicity.
 
 ``daml.index.db.lookup_transaction_tree_by_id``
 -----------------------------------------------
 
-A database metric. Time to lookup a single transaction tree by identifier
-to be served by the transaction service.
+A database metric. Time to lookup a single transaction tree by identifier to be
+served by the transaction service.
 
 ``daml.index.db.remove_expired_deduplication_data``
 ---------------------------------------------------
 
-A database metric. Time spent removing deduplication information after the expiration
-of the deduplication window. Deduplication information is persisted to
-ensure the continued working of the deduplication mechanism across restarts.
+A database metric. Time spent removing deduplication information after the
+expiration of the deduplication window. Deduplication information is persisted
+to ensure the continued working of the deduplication mechanism across restarts.
 
 ``daml.index.db.stop_deduplicating_command``
 --------------------------------------------
 
-A database metric. Time spent removing deduplication information after the failure of a
-command. Deduplication information is persisted to ensure the continued
-working of the deduplication mechanism across restarts.
+A database metric. Time spent removing deduplication information after the
+failure of a command. Deduplication information is persisted to ensure the
+continued working of the deduplication mechanism across restarts.
 
 ``daml.index.db.store_configuration_entry``
 -------------------------------------------
@@ -713,21 +721,20 @@ successfully interpreted and is final.
 ``daml.index.db.store_package_entry``
 -------------------------------------
 
-A database metric. Time spent storing a DAML package uploaded through
-the package management service.
+A database metric. Time spent storing a DAML package uploaded through the
+package management service.
 
 ``daml.index.db.store_party_entry``
 -----------------------------------
 
-A database metric. Time spent storing party information as part of the
-party allocation endpoint provided by the party
-management service.
+A database metric. Time spent storing party information as part of the party
+allocation endpoint provided by the party management service.
 
 ``daml.index.db.store_rejection``
 ---------------------------------
 
-A database metric. Time spent persisting the information that a given
-command has been rejected.
+A database metric. Time spent persisting the information that a given command
+has been rejected.
 
 ``daml.index.db.translation.cache``
 -----------------------------------
@@ -738,8 +745,8 @@ cache.
 ``daml.lapi``
 -------------
 
-Every metrics under this namespace is a timer, one for each
-service exposed by the Ledger API, in the format:
+Every metrics under this namespace is a timer, one for each service exposed by
+the Ledger API, in the format:
 
 ``daml.lapi.service_name.service_endpoint``
 
@@ -747,16 +754,15 @@ As in the following example:
 
 ``daml.lapi.command_service.submit_and_wait``
 
-Single call services return the time to serve the request,
-streaming services measure the time to return the first response.
+Single call services return the time to serve the request, streaming services
+measure the time to return the first response.
 
 ``jvm``
 -------
 
-Under the ``jvm`` namespace there is a collection of metrics that
-tracks important measurements about the JVM that the server is
-running on, including CPU usage, memory consumption and the
-current state of threads.
+Under the ``jvm`` namespace there is a collection of metrics that tracks
+important measurements about the JVM that the server is running on, including
+CPU usage, memory consumption and the current state of threads.
 
 DAML Ledger Model Compliance
 ****************************
@@ -768,9 +774,9 @@ its performance envelope.
 Semantics
 =========
 
-On top of bespoke unit and integration tests, *DAML for PostgreSQL* is thoroughly
-tested with the Ledger API Test Tool to ensure that the implementation correctly
-implements the DAML semantics.
+On top of bespoke unit and integration tests, *DAML for PostgreSQL* is
+thoroughly tested with the Ledger API Test Tool to ensure that the
+implementation correctly implements the DAML semantics.
 
 These tests check that all the services which are part of the Ledger API behave
 as expected, with a particular attention to ensure that issuing commands and
