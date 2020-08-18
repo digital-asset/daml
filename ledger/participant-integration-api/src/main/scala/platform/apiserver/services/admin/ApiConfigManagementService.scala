@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
@@ -70,9 +71,8 @@ private[apiserver] final class ApiConfigManagementService private (
   }
 
   override def setTimeModel(request: SetTimeModelRequest): Future[SetTimeModelResponse] = {
-    // Execute subsequent transforms in the thread of the previous
-    // operation.
-    implicit val ec: ExecutionContext = DE
+    // Execute subsequent transforms in the thread of the previous operation.
+    implicit val executionContext: ExecutionContext = DE
 
     val response = for {
       // Validate and convert the request parameters
@@ -80,7 +80,7 @@ private[apiserver] final class ApiConfigManagementService private (
 
       // Lookup latest configuration to check generation and to extend it with the new time model.
       optConfigAndOffset <- index.lookupConfiguration()
-      pollOffset = optConfigAndOffset.map(_._1)
+      ledgerEndBeforeRequest = optConfigAndOffset.map(_._1)
       currentConfig = optConfigAndOffset.map(_._2)
 
       // Verify that we're modifying the current configuration.
@@ -101,36 +101,14 @@ private[apiserver] final class ApiConfigManagementService private (
         .copy(timeModel = params.newTimeModel)
 
       // Submit configuration to the ledger, and start polling for the result.
-      submissionResult <- FutureConverters
-        .toScala(
-          writeService.submitConfiguration(
-            params.maximumRecordTime,
-            SubmissionId.assertFromString(request.submissionId),
-            newConfig
-          ))
+      submissionId = SubmissionId.assertFromString(request.submissionId)
+      submissionResult <- FutureConverters.toScala(
+        writeService.submitConfiguration(params.maximumRecordTime, submissionId, newConfig))
 
-      result <- submissionResult match {
+      entry <- submissionResult match {
         // Ledger acknowledged. Start polling to wait for the result to land in the index.
         case SubmissionResult.Acknowledged =>
-          val submissionId = request.submissionId
-          SynchronousResponse
-            .pollUntilPersisted(
-              index
-                .configurationEntries(pollOffset)
-                .collect {
-                  case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _)) =>
-                    entry
-                  case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _)) =>
-                    entry
-                },
-              timeToLive = params.timeToLive,
-            )(materializer)
-            .flatMap {
-              case accept: domain.ConfigurationEntry.Accepted =>
-                Future.successful(SetTimeModelResponse(accept.configuration.generation))
-              case rejected: domain.ConfigurationEntry.Rejected =>
-                Future.failed(ErrorFactories.aborted(rejected.rejectionReason))
-            }
+          waitForEntry(submissionId, ledgerEndBeforeRequest, params.timeToLive)
         case SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted("Resource exhausted"))
         case SubmissionResult.InternalError(reason) =>
@@ -139,10 +117,33 @@ private[apiserver] final class ApiConfigManagementService private (
           Future.failed(
             ErrorFactories.unimplemented("Setting of time model not supported by this ledger"))
       }
-    } yield result
+      response <- entry match {
+        case accept: ConfigurationEntry.Accepted =>
+          Future.successful(SetTimeModelResponse(accept.configuration.generation))
+        case rejected: ConfigurationEntry.Rejected =>
+          Future.failed(ErrorFactories.aborted(rejected.rejectionReason))
+      }
+    } yield response
 
     response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
   }
+
+  private def waitForEntry(
+      submissionId: SubmissionId,
+      offset: Option[LedgerOffset.Absolute],
+      timeToLive: FiniteDuration,
+  ): Future[ConfigurationEntry] =
+    SynchronousResponse.pollUntilPersisted(
+      index
+        .configurationEntries(offset)
+        .collect {
+          case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _)) =>
+            entry
+          case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _)) =>
+            entry
+        },
+      timeToLive,
+    )(materializer)
 
   private case class SetTimeModelParameters(
       newTimeModel: v1.TimeModel,
@@ -151,7 +152,8 @@ private[apiserver] final class ApiConfigManagementService private (
   )
 
   private def validateParameters(
-      request: SetTimeModelRequest): Either[StatusRuntimeException, SetTimeModelParameters] = {
+      request: SetTimeModelRequest
+  ): Either[StatusRuntimeException, SetTimeModelParameters] = {
     import validation.FieldValidations._
     for {
       pTimeModel <- requirePresence(request.newTimeModel, "new_time_model")

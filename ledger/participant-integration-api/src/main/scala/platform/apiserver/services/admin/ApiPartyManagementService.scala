@@ -8,6 +8,7 @@ import java.util.UUID
 import akka.stream.Materializer
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.domain.PartyEntry.{AllocationAccepted, AllocationRejected}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
@@ -16,7 +17,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexTransactionsService
 }
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -24,8 +25,8 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
@@ -78,46 +79,55 @@ private[apiserver] final class ApiPartyManagementService private (
       else Some(Ref.Party.assertFromString(request.partyIdHint))
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
-    transactionService
-      .currentLedgerEnd()
-      .flatMap { ledgerEndBeforeRequest =>
-        FutureConverters
-          .toScala(writeService
-            .allocateParty(party, displayName, submissionId))
-          .flatMap {
-            case SubmissionResult.Acknowledged =>
-              SynchronousResponse
-                .pollUntilPersisted(
-                  partyManagementService
-                    .partyEntries(ledgerEndBeforeRequest)
-                    .collect {
-                      case entry @ AllocationAccepted(Some(`submissionId`), _) => entry
-                      case entry @ AllocationRejected(`submissionId`, _) => entry
-                    },
-                  timeToLive = 30.seconds,
-                )(materializer)
-                .flatMap {
-                  case domain.PartyEntry.AllocationAccepted(_, partyDetails) =>
-                    Future.successful(
-                      AllocatePartyResponse(
-                        Some(PartyDetails(
-                          partyDetails.party,
-                          partyDetails.displayName.getOrElse(""),
-                          partyDetails.isLocal,
-                        ))))
-                  case domain.PartyEntry.AllocationRejected(_, reason) =>
-                    Future.failed(ErrorFactories.invalidArgument(reason))
-                }(DE)
-            case r @ SubmissionResult.Overloaded =>
-              Future.failed(ErrorFactories.resourceExhausted(r.description))
-            case r @ SubmissionResult.InternalError(_) =>
-              Future.failed(ErrorFactories.internal(r.reason))
-            case r @ SubmissionResult.NotSupported =>
-              Future.failed(ErrorFactories.unimplemented(r.description))
-          }(DE)
-      }(DE)
-      .andThen(logger.logErrorsOnCall[AllocatePartyResponse])(DE)
+    // Execute subsequent transforms in the thread of the previous operation.
+    implicit val executionContext: ExecutionContext = DE
+
+    val response = for {
+      ledgerEndBeforeRequest <- transactionService.currentLedgerEnd()
+      submissionResult <- FutureConverters.toScala(
+        writeService.allocateParty(party, displayName, submissionId))
+      entry <- submissionResult match {
+        case SubmissionResult.Acknowledged =>
+          waitForEntry(submissionId, ledgerEndBeforeRequest, timeToLive = 30.seconds)
+        case r @ SubmissionResult.Overloaded =>
+          Future.failed(ErrorFactories.resourceExhausted(r.description))
+        case r @ SubmissionResult.InternalError(_) =>
+          Future.failed(ErrorFactories.internal(r.reason))
+        case r @ SubmissionResult.NotSupported =>
+          Future.failed(ErrorFactories.unimplemented(r.description))
+      }
+      response <- entry match {
+        case domain.PartyEntry.AllocationAccepted(_, partyDetails) =>
+          Future.successful(
+            AllocatePartyResponse(
+              Some(
+                PartyDetails(
+                  partyDetails.party,
+                  partyDetails.displayName.getOrElse(""),
+                  partyDetails.isLocal,
+                ))))
+        case domain.PartyEntry.AllocationRejected(_, reason) =>
+          Future.failed(ErrorFactories.invalidArgument(reason))
+      }
+    } yield response
+
+    response.andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
+
+  private def waitForEntry(
+      submissionId: SubmissionId,
+      ledgerEndBeforeRequest: LedgerOffset.Absolute,
+      timeToLive: FiniteDuration,
+  ): Future[domain.PartyEntry] =
+    SynchronousResponse.pollUntilPersisted(
+      partyManagementService
+        .partyEntries(ledgerEndBeforeRequest)
+        .collect {
+          case entry @ AllocationAccepted(Some(`submissionId`), _) => entry
+          case entry @ AllocationRejected(`submissionId`, _) => entry
+        },
+      timeToLive,
+    )(materializer)
 }
 
 private[apiserver] object ApiPartyManagementService {

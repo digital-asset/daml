@@ -8,15 +8,14 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.lf.archive.DarReader
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
+import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
+import com.daml.lf.archive.DarReader
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -74,8 +73,10 @@ private[apiserver] final class ApiPackageManagementService private (
     // with transactions. I'm leaving this for another PR.
     val timeToLive = 30.seconds
 
-    implicit val ec: ExecutionContext = DE
-    val uploadDarFileResponse = for {
+    // Execute subsequent transforms in the thread of the previous operation.
+    implicit val executionContext: ExecutionContext = DE
+
+    val response = for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchive(
           "package-upload",
@@ -88,27 +89,9 @@ private[apiserver] final class ApiPackageManagementService private (
       submissionResult <- FutureConverters.toScala(
         packagesWrite.uploadPackages(submissionId, dar.all, None)
       )
-      response <- submissionResult match {
+      entry <- submissionResult match {
         case SubmissionResult.Acknowledged =>
-          SynchronousResponse
-            .pollUntilPersisted(
-              packagesIndex
-                .packageEntries(ledgerEndBeforeRequest)
-                .collect {
-                  case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
-                  case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
-                },
-              timeToLive,
-            )(materializer)
-            .flatMap {
-              case _: PackageEntry.PackageUploadAccepted =>
-                for (archive <- dar.all) {
-                  logger.info(s"Package ${archive.getHash} successfully uploaded")
-                }
-                Future.successful(UploadDarFileResponse())
-              case PackageEntry.PackageUploadRejected(_, _, reason) =>
-                Future.failed(ErrorFactories.invalidArgument(reason))
-            }
+          waitForEntry(submissionId, ledgerEndBeforeRequest, timeToLive)
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>
@@ -116,10 +99,34 @@ private[apiserver] final class ApiPackageManagementService private (
         case r @ SubmissionResult.NotSupported =>
           Future.failed(ErrorFactories.unimplemented(r.description))
       }
+      response <- entry match {
+        case _: PackageEntry.PackageUploadAccepted =>
+          for (archive <- dar.all) {
+            logger.info(s"Package ${archive.getHash} successfully uploaded")
+          }
+          Future.successful(UploadDarFileResponse())
+        case PackageEntry.PackageUploadRejected(_, _, reason) =>
+          Future.failed(ErrorFactories.invalidArgument(reason))
+      }
     } yield response
-    uploadDarFileResponse.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
+
+    response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
   }
 
+  private def waitForEntry(
+      submissionId: SubmissionId,
+      ledgerEndBeforeRequest: LedgerOffset.Absolute,
+      timeToLive: FiniteDuration,
+  ): Future[PackageEntry] =
+    SynchronousResponse.pollUntilPersisted(
+      packagesIndex
+        .packageEntries(ledgerEndBeforeRequest)
+        .collect {
+          case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
+          case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
+        },
+      timeToLive,
+    )(materializer)
 }
 
 private[apiserver] object ApiPackageManagementService {
