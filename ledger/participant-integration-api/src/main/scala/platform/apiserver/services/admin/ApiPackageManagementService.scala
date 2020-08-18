@@ -14,7 +14,11 @@ import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
-import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
+import com.daml.ledger.participant.state.index.v2.{
+  IndexPackagesService,
+  IndexTransactionsService,
+  LedgerEndService
+}
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -90,9 +94,8 @@ private[apiserver] final class ApiPackageManagementService private (
           Future.successful
         )
       synchronousResponse = new SynchronousResponse(
-        transactionsService,
         timeToLive,
-        new SynchronousResponseStrategy(packagesIndex, packagesWrite, dar),
+        new SynchronousResponseStrategy(transactionsService, packagesIndex, packagesWrite, dar),
       )
       _ <- synchronousResponse.submitAndWait(submissionId)
     } yield {
@@ -118,17 +121,21 @@ private[apiserver] object ApiPackageManagementService {
     new ApiPackageManagementService(readBackend, transactionsService, writeBackend, mat)
 
   private final class SynchronousResponseStrategy(
+      ledgerEndService: LedgerEndService,
       packagesIndex: IndexPackagesService,
       packagesWrite: WritePackagesService,
       dar: Dar[Archive],
-  )(implicit loggingContext: LoggingContext)
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[PackageEntry, PackageEntry.PackageUploadAccepted] {
+
+    override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
+      ledgerEndService.currentLedgerEnd().map(Some(_))
 
     override def submit(submissionId: SubmissionId): Future[SubmissionResult] =
       packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
 
-    override def entries(offset: LedgerOffset.Absolute): Source[PackageEntry, _] =
-      packagesIndex.packageEntries(Some(offset))
+    override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =
+      packagesIndex.packageEntries(offset)
 
     override def accept(
         submissionId: SubmissionId,
@@ -142,7 +149,6 @@ private[apiserver] object ApiPackageManagementService {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
         ErrorFactories.invalidArgument(reason)
     }
-
   }
 
 }

@@ -6,9 +6,7 @@ package com.daml.platform.apiserver.services.admin
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.domain.LedgerOffset
-import com.daml.ledger.participant.state.index.v2.LedgerEndService
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult}
-import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.StatusRuntimeException
@@ -17,7 +15,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
 class SynchronousResponse[Entry, AcceptedEntry](
-    ledgerEndService: LedgerEndService,
     timeToLive: FiniteDuration,
     strategy: SynchronousResponse.Strategy[Entry, AcceptedEntry],
 ) {
@@ -25,10 +22,9 @@ class SynchronousResponse[Entry, AcceptedEntry](
   def submitAndWait(submissionId: SubmissionId)(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
-      loggingContext: LoggingContext,
   ): Future[AcceptedEntry] = {
     for {
-      ledgerEndBeforeRequest <- ledgerEndService.currentLedgerEnd()
+      ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
       submissionResult <- strategy.submit(submissionId)
       entry <- submissionResult match {
         case SubmissionResult.Acknowledged =>
@@ -75,9 +71,11 @@ object SynchronousResponse {
 
   trait Strategy[Entry, AcceptedEntry] {
 
+    def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]]
+
     def submit(submissionId: SubmissionId): Future[SubmissionResult]
 
-    def entries(offset: LedgerOffset.Absolute): Source[Entry, _]
+    def entries(offset: Option[LedgerOffset.Absolute]): Source[Entry, _]
 
     def accept(submissionId: SubmissionId): PartialFunction[Entry, AcceptedEntry]
 
