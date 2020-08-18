@@ -384,6 +384,7 @@ object Ast {
   final case object BToTextTimestamp extends BuiltinFunction(1) // : Timestamp → Text
   final case object BToTextParty extends BuiltinFunction(1) // : Party → Text
   final case object BToTextDate extends BuiltinFunction(1) // : Date -> Text
+  final case object BToTextContractId extends BuiltinFunction(1) // : forall t. ContractId t -> Optional Text
   final case object BToQuotedTextParty extends BuiltinFunction(1) // : Party -> Text
   final case object BToTextCodePoints extends BuiltinFunction(1) // : [Int64] -> Text
   final case object BFromTextParty extends BuiltinFunction(1) // : Text -> Optional Party

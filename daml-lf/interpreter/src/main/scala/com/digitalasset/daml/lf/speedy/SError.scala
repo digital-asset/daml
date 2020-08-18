@@ -125,4 +125,7 @@ object SError {
 
   /** Invalid party name supplied to 'getParty'. */
   final case class ScenarioErrorInvalidPartyName(name: String, msg: String) extends SErrorScenario
+
+  /** Tried to allocate a party that already exists. */
+  final case class ScenarioErrorPartyAlreadyExists(name: String) extends SErrorScenario
 }

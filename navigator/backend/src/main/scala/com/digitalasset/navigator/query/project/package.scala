@@ -61,8 +61,7 @@ object project {
             ddt <- ps(tc.name.identifier)
               .toRight(UnknownType(tc.name.identifier.toString, cursor, value))
             nextCursor <- cursor.next.toRight(MustNotBeLastPart("DataType", cursor, value))
-            //nextField   <- tc.instantiate(ddt) match {
-            nextField <- damlLfInstantiate(tc, ddt) match {
+            nextField <- tc.instantiate(ddt) match {
               case DamlLfRecord(fields) =>
                 fields
                   .find(f => f._1 == nextCursor.current)

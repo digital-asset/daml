@@ -11,8 +11,10 @@ import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SErrorCrash}
 import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
+import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.value.Value
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
@@ -1280,6 +1282,23 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         }
       }
 
+      "TO_TEXT_CONTRACT_ID" - {
+        "returns None on-ledger" in {
+          val f = """(\(c:(ContractId Mod:T)) -> TO_TEXT_CONTRACT_ID @Mod:T c)"""
+          evalApp(
+            e"$f",
+            Array(SContractId(Value.ContractId.assertFromString("#abc"))),
+            onLedger = true) shouldEqual Right(SOptional(None))
+        }
+        "returns Some(abc) off-ledger" in {
+          val f = """(\(c:(ContractId Mod:T)) -> TO_TEXT_CONTRACT_ID @Mod:T c)"""
+          evalApp(
+            e"$f",
+            Array(SContractId(Value.ContractId.assertFromString("#abc"))),
+            onLedger = false) shouldEqual Right(SOptional(Some(SText("#abc"))))
+        }
+      }
+
       "handle ridiculously huge strings" in {
 
         val testCases = Table(
@@ -1451,8 +1470,16 @@ object SBuiltinTest {
   val compiledPackages =
     PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).right.get
 
-  private def eval(e: Expr): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromPureExpr(compiledPackages, e)
+  private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
+    evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
+  }
+
+  private def evalApp(e: Expr, args: Array[SValue], onLedger: Boolean): Either[SError, SValue] = {
+    evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args.map(SEValue(_))), onLedger)
+  }
+
+  private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
+    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, e, onLedger)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       val value = machine.run() match {

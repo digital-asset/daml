@@ -13,6 +13,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
@@ -23,7 +24,6 @@ import com.daml.ledger.participant.state.index.v2.{
   PackageDetails
 }
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.WorkflowId
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
@@ -36,7 +36,12 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
+import com.daml.platform.store.dao.CommandCompletionsTable.{
+  prepareCompletionInsert,
+  prepareRejectionInsert
+}
 import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.dao.events.{
   ContractsReader,
   LfValueTranslation,
@@ -44,11 +49,6 @@ import com.daml.platform.store.dao.events.{
   TransactionsReader,
   TransactionsWriter
 }
-import com.daml.platform.store.dao.CommandCompletionsTable.{
-  prepareCompletionInsert,
-  prepareRejectionInsert
-}
-import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -197,33 +197,24 @@ private class JdbcLedgerDao(
     (offset("ledger_offset") ~
       str("typ") ~
       str("submission_id") ~
-      str("participant_id") ~
       str("rejection_reason").map(s => if (s.isEmpty) null else s).? ~
       byteArray("configuration"))
       .map(flatten)
       .map {
-        case (offset, typ, submissionId, participantIdRaw, rejectionReason, configBytes) =>
+        case (offset, typ, submissionId, rejectionReason, configBytes) =>
           val config = Configuration
             .decode(configBytes)
             .fold(err => sys.error(s"Failed to decode configuration: $err"), identity)
-          val participantId = ParticipantId
-            .fromString(participantIdRaw)
-            .fold(
-              err => sys.error(s"Failed to decode participant id in configuration entry: $err"),
-              identity)
-
           offset ->
             (typ match {
               case `acceptType` =>
                 ConfigurationEntry.Accepted(
                   submissionId = submissionId,
-                  participantId = participantId,
                   configuration = config
                 )
               case `rejectType` =>
                 ConfigurationEntry.Rejected(
                   submissionId = submissionId,
-                  participantId = participantId,
                   rejectionReason = rejectionReason.getOrElse("<missing reason>"),
                   proposedConfiguration = config
                 )
@@ -254,15 +245,14 @@ private class JdbcLedgerDao(
 
   private val SQL_INSERT_CONFIGURATION_ENTRY =
     SQL(
-      """insert into configuration_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason, configuration)
-        |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason}, {configuration})
+      """insert into configuration_entries(ledger_offset, recorded_at, submission_id, typ, rejection_reason, configuration)
+        |values({ledger_offset}, {recorded_at}, {submission_id}, {typ}, {rejection_reason}, {configuration})
         |""".stripMargin)
 
   override def storeConfigurationEntry(
       offset: Offset,
       recordedAt: Instant,
       submissionId: String,
-      participantId: ParticipantId,
       configuration: Configuration,
       rejectionReason: Option[String]
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -302,7 +292,6 @@ private class JdbcLedgerDao(
             "ledger_offset" -> offset,
             "recorded_at" -> recordedAt,
             "submission_id" -> submissionId,
-            "participant_id" -> participantId,
             "typ" -> typ,
             "rejection_reason" -> finalRejectionReason.orNull,
             "configuration" -> configurationBytes
@@ -316,8 +305,7 @@ private class JdbcLedgerDao(
         PersistenceResponse.Ok
       }).recover {
         case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-          logger.warn(
-            s"Ignoring duplicate configuration submission, submissionId=$submissionId, participantId=$participantId")
+          logger.warn(s"Ignoring duplicate configuration submission, submissionId=$submissionId")
           conn.rollback()
           PersistenceResponse.Duplicate
       }.get
@@ -326,14 +314,14 @@ private class JdbcLedgerDao(
 
   private val SQL_INSERT_PARTY_ENTRY_ACCEPT =
     SQL(
-      """insert into party_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, party, display_name, is_local)
-        |values ({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, 'accept', {party}, {display_name}, {is_local})
+      """insert into party_entries(ledger_offset, recorded_at, submission_id, typ, party, display_name, is_local)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept', {party}, {display_name}, {is_local})
         |""".stripMargin)
 
   private val SQL_INSERT_PARTY_ENTRY_REJECT =
     SQL(
-      """insert into party_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
-        |values ({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, 'reject', {rejection_reason})
+      """insert into party_entries(ledger_offset, recorded_at, submission_id, typ, rejection_reason)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, 'reject', {rejection_reason})
         |""".stripMargin)
 
   override def storePartyEntry(
@@ -344,18 +332,13 @@ private class JdbcLedgerDao(
       updateLedgerEnd(offset)
 
       partyEntry match {
-        case PartyLedgerEntry.AllocationAccepted(
-            submissionIdOpt,
-            participantId,
-            recordTime,
-            partyDetails) =>
+        case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
           Try({
             SQL_INSERT_PARTY_ENTRY_ACCEPT
               .on(
                 "ledger_offset" -> offset,
                 "recorded_at" -> recordTime,
                 "submission_id" -> submissionIdOpt,
-                "participant_id" -> participantId,
                 "party" -> partyDetails.party,
                 "display_name" -> partyDetails.displayName,
                 "is_local" -> partyDetails.isLocal,
@@ -373,17 +356,16 @@ private class JdbcLedgerDao(
           }).recover {
             case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
               logger.warn(
-                s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt, participantId $participantId")
+                s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt")
               conn.rollback()
               PersistenceResponse.Duplicate
           }.get
-        case PartyLedgerEntry.AllocationRejected(submissionId, participantId, recordTime, reason) =>
+        case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
           SQL_INSERT_PARTY_ENTRY_REJECT
             .on(
               "ledger_offset" -> offset,
               "recorded_at" -> recordTime,
               "submission_id" -> submissionId,
-              "participant_id" -> participantId,
               "rejection_reason" -> reason
             )
             .execute()
@@ -400,7 +382,6 @@ private class JdbcLedgerDao(
     (offset("ledger_offset") ~
       date("recorded_at") ~
       ledgerString("submission_id").? ~
-      participantId("participant_id").? ~
       party("party").? ~
       str("display_name").? ~
       str("typ") ~
@@ -412,7 +393,6 @@ private class JdbcLedgerDao(
             offset,
             recordTime,
             submissionIdOpt,
-            Some(participantId),
             Some(party),
             displayNameOpt,
             `acceptType`,
@@ -421,14 +401,13 @@ private class JdbcLedgerDao(
           offset ->
             PartyLedgerEntry.AllocationAccepted(
               submissionIdOpt,
-              participantId,
               recordTime.toInstant,
-              PartyDetails(party, displayNameOpt, isLocal))
+              PartyDetails(party, displayNameOpt, isLocal),
+            )
         case (
             offset,
             recordTime,
             Some(submissionId),
-            Some(participantId),
             None,
             None,
             `rejectType`,
@@ -436,9 +415,9 @@ private class JdbcLedgerDao(
             None) =>
           offset -> PartyLedgerEntry.AllocationRejected(
             submissionId,
-            participantId,
             recordTime.toInstant,
-            reason)
+            reason,
+          )
         case invalidRow =>
           sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
       }

@@ -20,24 +20,8 @@ Ledger Model </concepts/ledger-model/index>`.
 Downloading the tool
 ====================
 
-Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+Download the Ledger API Test Tool from `Maven <api-test-tool_>`_
 and save it as ``ledger-api-test-tool.jar`` in your current directory.
-
-Extracting ``.dar`` files required to run the tests
-======================================================
-
-Before you can run the Ledger API test tool on your ledger, you need to load a
-specific set of DAML templates onto your ledger.
-
-#. To obtain the corresponding ``.dar`` files, run:
-
-   .. code-block:: console
-
-     $ java -jar ledger-api-test-tool.jar --extract
-
-   This writes all ``.dar`` files required for the tests into the current directory.
-
-#. Load all ``.dar`` files into your Ledger.
 
 Running the tool against a custom Ledger API endpoint
 =====================================================
@@ -49,11 +33,13 @@ at a port ``<port>``:
 
    $ java -jar ledger-api-test-tool.jar <host>:<port>
 
-For example
+For example:
 
 .. code-block:: console
 
    $ java -jar ledger-api-test-tool.jar localhost:6865
+
+The tool will upload the required DARs to the ledger, and then run all tests.
 
 If any test embedded in the tool fails, it will print out details of the failure
 for further debugging.

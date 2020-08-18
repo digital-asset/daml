@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionConfiguration
 import com.daml.ledger.api.tls.TlsConfiguration
 
 private[testtool] final case class LedgerSessionConfiguration(
@@ -10,4 +11,9 @@ private[testtool] final case class LedgerSessionConfiguration(
     shuffleParticipants: Boolean,
     ssl: Option[TlsConfiguration],
     partyAllocation: PartyAllocationConfiguration,
-)
+) {
+  def forParticipant(hostAndPort: (String, Int)): ParticipantSessionConfiguration = {
+    val (host, port) = hostAndPort
+    ParticipantSessionConfiguration(host, port, ssl, partyAllocation)
+  }
+}

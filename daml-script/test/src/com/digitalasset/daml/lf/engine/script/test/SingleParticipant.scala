@@ -29,6 +29,8 @@ import com.daml.lf.engine.script.{Party => ScriptParty, _}
 case class Config(
     ledgerPort: Int,
     darPath: File,
+    // 1.dev DAR
+    devDarPath: File,
     wallclockTime: Boolean,
     auth: Boolean,
     // We use the presence of a root CA as a proxy for whether to enable TLS or not.
@@ -384,6 +386,28 @@ case class TestAuth(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestContractId(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("TestContractId:testContractId"))
+  def runTests(): Unit = {
+    runner.genericTest(
+      "testContractId",
+      scriptId,
+      None, {
+        case SRecord(_, _, vals) if vals.size == 2 => {
+          (vals.get(0), vals.get(1)) match {
+            case (SContractId(cid), SText(t)) =>
+              TestRunner.assertEqual(t, cid.coid, "contract ids")
+            case (a, b) =>
+              Left(s"Expected SContractId, SText but got $a, $b")
+          }
+        }
+        case v => Left(s"Expected Tuple2 but got $v")
+      }
+    )
+  }
+}
+
 object SingleParticipant {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
@@ -396,6 +420,10 @@ object SingleParticipant {
     arg[File]("<dar>")
       .required()
       .action((d, c) => c.copy(darPath = d))
+
+    arg[File]("dev-dar")
+      .required()
+      .action((d, c) => c.copy(devDarPath = d))
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
@@ -432,13 +460,20 @@ object SingleParticipant {
   }
 
   def main(args: Array[String]): Unit = {
-    configParser.parse(args, Config(0, null, false, false, None)) match {
+    configParser.parse(args, Config(0, null, null, false, false, None)) match {
       case None =>
         sys.exit(1)
       case Some(config) =>
         val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
           DarReader().readArchiveFromFile(config.darPath).get
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
+          case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        }
+
+        println(config.devDarPath)
+        val encodedDevDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+          DarReader().readArchiveFromFile(config.devDarPath).get
+        val devDar: Dar[(PackageId, Package)] = encodedDevDar.map {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
@@ -474,6 +509,8 @@ object SingleParticipant {
 
         val runner =
           new TestRunner(participantParams, dar, config.wallclockTime, config.rootCa)
+        val devRunner =
+          new TestRunner(participantParams, devDar, config.wallclockTime, config.rootCa)
         if (!config.auth) {
           TraceOrder(dar, runner).runTests()
           Test0(dar, runner).runTests()
@@ -490,6 +527,7 @@ object SingleParticipant {
           TestStack(dar, runner).runTests()
           TestMaxInboundMessageSize(dar, runner).runTests()
           ScriptExample(dar, runner).runTests()
+          TestContractId(devDar, devRunner).runTests()
           // Keep this at the end since it changes the time and we cannot go backwards.
           if (!config.wallclockTime) {
             SetTime(dar, runner).runTests()

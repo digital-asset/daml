@@ -143,14 +143,12 @@ final class SandboxServer(
 ) extends AutoCloseable {
 
   private[this] val engine = {
-    @silent("Sandbox_Classic_Dev in object EngineConfig is deprecated")
-    @silent("Sandbox_Classic_Stable in object EngineConfig is deprecated")
-    val engineConfig = (
-      if (config.devMode) EngineConfig.Sandbox_Classic_Stable else EngineConfig.Sandbox_Classic_Dev
-    ).copy(
-      profileDir = config.profileDir,
-      stackTraceMode = config.stackTraces,
-    )
+    @silent("Sandbox_Classic in object EngineConfig is deprecated")
+    val engineConfig =
+      EngineConfig.Sandbox_Classic.copy(
+        profileDir = config.profileDir,
+        stackTraceMode = config.stackTraces,
+      )
     getEngine(engineConfig)
   }
 

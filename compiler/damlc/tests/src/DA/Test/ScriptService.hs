@@ -277,76 +277,6 @@ main =
                   expectScriptSuccess rs (vr "testQueryVisibility") $ \r ->
                     matchRegex r "Active contracts:  #0:0, #1:0, #2:0, #3:0\n\n"
                   pure (),
-              testCase
-                "failing transactions"
-                $ do
-                  rs <-
-                    runScripts
-                      scriptService
-                      [ "module Test where",
-                        "import Daml.Script",
-                        "template MultiSignatory",
-                        "  with",
-                        "    p1 : Party",
-                        "    p2 : Party",
-                        "  where",
-                        "    signatory p1, p2",
-                        "template TKey",
-                        "  with",
-                        "    p : Party",
-                        "  where",
-                        "    signatory p",
-                        "    key p : Party",
-                        "    maintainer key",
-                        "template Helper",
-                        "  with",
-                        "    p : Party",
-                        "  where",
-                        "    signatory p",
-                        "    choice Fetch : TKey",
-                        "      with cid : ContractId TKey",
-                        "      controller p",
-                        "      do fetch cid",
-                        "    choice Error : ()",
-                        "      controller p",
-                        "      do error \"errorCrash\"",
-                        "    choice Abort : ()",
-                        "      controller p",
-                        "      do abort \"abortCrash\"",
-                        "testMissingAuthorization = do",
-                        "  p1 <- allocateParty \"p1\"",
-                        "  p2 <- allocateParty \"p2\"",
-                        "  submit p1 (createCmd (MultiSignatory p1 p2))",
-                        "testDuplicateKey = do",
-                        "  p <- allocateParty \"p\"",
-                        "  submit p (createCmd (TKey p))",
-                        "  submit p (createCmd (TKey p))",
-                        "testNotVisible = do",
-                        "  p1 <- allocateParty \"p1\"",
-                        "  p2 <- allocateParty \"p2\"",
-                        "  cid <- submit p1 (createCmd (TKey p1))",
-                        "  helperCid <- submit p2 (createCmd (Helper p2))",
-                        "  submit p2 (exerciseCmd helperCid (Fetch cid))",
-                        "testError = do",
-                        "  p <- allocateParty \"p\"",
-                        "  cid <- submit p (createCmd (Helper p))",
-                        "  submit p (exerciseCmd cid Error)",
-                        "testAbort = do",
-                        "  p <- allocateParty \"p\"",
-                        "  cid <- submit p (createCmd (Helper p))",
-                        "  submit p (exerciseCmd cid Abort)"
-                      ]
-                  expectScriptFailure rs (vr "testMissingAuthorization") $ \r ->
-                    matchRegex r "failed due to a missing authorization from 'p2'"
-                  expectScriptFailure rs (vr "testDuplicateKey") $ \r ->
-                    matchRegex r "due to unique key violation for key"
-                  expectScriptFailure rs (vr "testNotVisible") $ \r ->
-                    matchRegex r "Attempt to fetch or exercise a contract not visible to the committer"
-                  expectScriptFailure rs (vr "testError") $ \r ->
-                    matchRegex r "Aborted:  errorCrash"
-                  expectScriptFailure rs (vr "testAbort") $ \r ->
-                    matchRegex r "Aborted:  abortCrash"
-                  pure (),
               testCase "submitMustFail" $ do
                   rs <-
                     runScripts
@@ -410,10 +340,25 @@ main =
                       "import Daml.Script",
                       "import DA.Date",
                       "import DA.Time",
+                      "template T",
+                      "  with",
+                      "    p : Party",
+                      "  where",
+                      "    signatory p",
+                      "    nonconsuming choice GetTime : Time",
+                      "      controller p",
+                      "      do getTime",
                       "testTime = do",
                       "  t0 <- getTime",
                       "  setTime (time (date 2000 Feb 2) 0 1 2)",
                       "  t1 <- getTime",
+                      "  pure (t0, t1)",
+                      "testChoiceTime = do",
+                      "  p <- allocateParty \"p\"",
+                      "  cid <- submit p $ createCmd T with p",
+                      "  t0 <- submit p $ exerciseCmd cid GetTime",
+                      "  setTime (time (date 2000 Feb 2) 0 1 2)",
+                      "  t1 <- submit p $ exerciseCmd cid GetTime",
                       "  pure (t0, t1)"
                     ]
                 expectScriptSuccess rs (vr "testTime") $ \r ->
@@ -424,6 +369,61 @@ main =
                           "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z",
                           ""
                         ]
+                expectScriptSuccess rs (vr "testChoiceTime") $ \r ->
+                    matchRegex r $
+                      T.unlines
+                        [ "Return value:",
+                          "  DA\\.Types:Tuple2@[a-z0-9]+ with",
+                          "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z",
+                          ""
+                        ],
+              testCase "partyManagement" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where",
+                      "import DA.Assert",
+                      "import DA.Optional",
+                      "import Daml.Script",
+                      "template T",
+                      "  with",
+                      "    owner : Party",
+                      "    observer : Party",
+                      "  where",
+                      "    signatory owner",
+                      "    observer observer",
+                      "    choice InventObserver : ContractId T with name : Text",
+                      "      controller owner",
+                      "        do create this { observer = fromSome $ partyFromText name }",
+                      "partyManagement = do",
+                      "  alice <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
+                      "  alice1 <- allocateParty \"alice\"",
+                      "  t1 <- submit alice $ createCmd T { owner = alice, observer = alice1 }",
+                      "  t2 <- submit alice $ exerciseCmd t1 (InventObserver \"bob\")",
+                      "  bob1 <- allocateParty \"bob\"",
+                      "  details <- listKnownParties",
+                      "  assertEq (length details) 4",
+                      "  let [aliceDetails, alice1Details, bobDetails, bob1Details] = details",
+                      "  assertEq aliceDetails (PartyDetails alice (Some \"alice\") True)",
+                      "  assertEq alice1Details (PartyDetails alice1 (Some \"alice\") True)",
+                      "  assertEq bobDetails (PartyDetails (fromSome $ partyFromText \"bob\") None True)",
+                      "  assertEq bob1Details (PartyDetails bob1 (Some \"bob\") True)",
+                      "duplicateAllocateWithHint = do",
+                      "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
+                      "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
+                      "  pure ()",
+                      "duplicatePartyFromText = do",
+                      "  alice <- allocateParty \"alice\"",
+                      "  _ <- submit alice $ createAndExerciseCmd (T alice alice) (InventObserver \"bob\")",
+                      "  _ <- allocatePartyWithHint \"bob\" (PartyIdHint \"bob\")",
+                      "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "partyManagement") $ \r ->
+                  matchRegex r "Active contracts:  #1:1\n\nReturn value: {}\n\n$"
+                expectScriptFailure rs (vr "duplicateAllocateWithHint") $ \r ->
+                  matchRegex r "Tried to allocate a party that already exists:  alice"
+                expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
+                  matchRegex r "Tried to allocate a party that already exists:  bob"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

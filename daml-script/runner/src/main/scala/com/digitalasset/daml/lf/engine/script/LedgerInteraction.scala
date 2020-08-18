@@ -333,8 +333,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     inputValueVersions = value.ValueVersions.DevOutputVersions,
     outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
   )
-  (compiledPackages, SEValue(SUnit))
   val scenarioRunner = ScenarioRunner(machine)
+  private var allocatedParties: Map[String, PartyDetails] = Map()
 
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
@@ -440,16 +440,35 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                   result = Success(Right(results.toSeq))
               }
           }
+        case SResultFinalValue(v) =>
+          // The final result should always be unit.
+          result = Failure(new RuntimeException(s"FATAL: Unexpected non-unit final result: $v"))
         case SResultScenarioCommit(_, _, _, _) =>
           result = Failure(
             new RuntimeException("FATAL: Encountered scenario commit in DAML Script"))
         case SResultError(err) =>
           // Capture the error and exit.
           result = Failure(err)
-        case err =>
-          // TODO: Figure out when we hit this
-          // Capture the error (but not as SError) and exit.
-          result = Failure(new RuntimeException(s"FAILED: $err"))
+        case SResultNeedTime(callback) =>
+          callback(scenarioRunner.ledger.currentTime)
+        case SResultNeedPackage(pkg, callback @ _) =>
+          result = Failure(
+            new RuntimeException(
+              s"FATAL: Missing package $pkg should have been reported at Script compilation"))
+        case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
+          result = Failure(
+            new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML script"))
+        case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
+          result = Failure(
+            new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"))
+        case SResultScenarioPassTime(relTime @ _, callback @ _) =>
+          result = Failure(
+            new RuntimeException("FATAL: Encountered scenario instruction setTime in DAML Script"))
+        case SResultScenarioGetParty(partyText @ _, callback @ _) =>
+          result = Failure(
+            new RuntimeException("FATAL: Encountered scenario instruction getParty in DAML Script"))
       }
     }
     Future.fromTry(result)
@@ -469,16 +488,43 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       })
   }
 
+  // All parties known to the ledger. This may include parties that were not
+  // allocated explicitly, e.g. parties created by `partyFromText`.
+  private def getLedgerParties(): Iterable[Ref.Party] = {
+    scenarioRunner.ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
+  }
+
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    // TODO Figure out how we want to handle this in the script service.
-    Future.successful(SParty(Ref.Party.assertFromString(displayName)))
+    val usedNames = getLedgerParties.toSet ++ allocatedParties.keySet
+    Future.fromTry(for {
+      name <- if (partyIdHint != "") {
+        // Try to allocate the given hint as party name. Will fail if the name is already taken.
+        if (usedNames contains partyIdHint) {
+          Failure(new ScenarioErrorPartyAlreadyExists(partyIdHint))
+        } else {
+          Success(partyIdHint)
+        }
+      } else {
+        // Allocate a fresh name based on the display name.
+        val candidates = displayName #:: Stream.from(1).map(displayName + _.toString())
+        Success(candidates.find(s => !(usedNames contains s)).get)
+      }
+      // Create and store the new party.
+      partyDetails = PartyDetails(
+        party = Ref.Party.assertFromString(name),
+        displayName = Some(displayName),
+        isLocal = true)
+      _ = allocatedParties += (name -> partyDetails)
+    } yield SParty(partyDetails.party))
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    // TODO Implement
-    Future.failed(new RuntimeException("listKnownParties is not yet implemented"))
+    val ledgerParties = getLedgerParties
+      .map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true)))
+      .toMap
+    Future.successful((ledgerParties ++ allocatedParties).values.toList)
   }
 
   override def getStaticTime()(

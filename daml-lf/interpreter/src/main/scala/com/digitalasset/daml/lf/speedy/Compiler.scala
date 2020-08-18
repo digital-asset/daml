@@ -330,6 +330,7 @@ private[lf] final case class Compiler(
               case BToTextTimestamp => SBToText
               case BToTextParty => SBToText
               case BToTextDate => SBToText
+              case BToTextContractId => SBToTextContractId
               case BToQuotedTextParty => SBToQuotedTextParty
               case BToTextCodePoints => SBToTextCodePoints
               case BFromTextParty => SBFromTextParty

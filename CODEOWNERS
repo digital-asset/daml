@@ -17,7 +17,7 @@ azure-cron.yml      @garyverhaegen-da
 # Language
 /compiler/          @hurryabit @cocreature
 /libs-haskell/      @hurryabit @cocreature
-/daml-assistant/    @associahedron @hurryabit @cocreature
+/daml-assistant/    @sofiafaro-da @hurryabit @cocreature
 /daml-script/       @cocreature @hurryabit @aherrmann-da
 /triggers/          @cocreature @hurryabit @aherrmann-da
 /ghc-lib/           @cocreature

@@ -64,7 +64,6 @@ private[sandbox] object SandboxIndexAndWriteService {
       serverRole = ServerRole.Sandbox,
       jdbcUrl = jdbcUrl,
       initialLedgerId = initialLedgerId,
-      participantId = participantId,
       timeProvider = timeProvider,
       packages = templateStore,
       initialLedgerEntries = ledgerEntries,
@@ -93,7 +92,6 @@ private[sandbox] object SandboxIndexAndWriteService {
     val ledger =
       new InMemoryLedger(
         initialLedgerId.or(new LedgerIdGenerator(name).generateRandomId()),
-        participantId,
         timeProvider,
         acs,
         transactionCommitter,
