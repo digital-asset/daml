@@ -7,7 +7,7 @@ import akka.stream.Materializer
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
+import com.daml.ledger.api.domain.ConfigurationEntry
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
@@ -108,7 +108,17 @@ private[apiserver] final class ApiConfigManagementService private (
       entry <- submissionResult match {
         // Ledger acknowledged. Start polling to wait for the result to land in the index.
         case SubmissionResult.Acknowledged =>
-          waitForEntry(submissionId, ledgerEndBeforeRequest, params.timeToLive)
+          SynchronousResponse.pollUntilPersisted(
+            index
+              .configurationEntries(ledgerEndBeforeRequest)
+              .collect {
+                case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _)) =>
+                  entry
+                case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _)) =>
+                  entry
+              },
+            params.timeToLive,
+          )(materializer)
         case SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted("Resource exhausted"))
         case SubmissionResult.InternalError(reason) =>
@@ -127,23 +137,6 @@ private[apiserver] final class ApiConfigManagementService private (
 
     response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
   }
-
-  private def waitForEntry(
-      submissionId: SubmissionId,
-      offset: Option[LedgerOffset.Absolute],
-      timeToLive: FiniteDuration,
-  ): Future[ConfigurationEntry] =
-    SynchronousResponse.pollUntilPersisted(
-      index
-        .configurationEntries(offset)
-        .collect {
-          case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _)) =>
-            entry
-          case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _)) =>
-            entry
-        },
-      timeToLive,
-    )(materializer)
 
   private case class SetTimeModelParameters(
       newTimeModel: v1.TimeModel,

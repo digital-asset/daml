@@ -10,7 +10,7 @@ import java.util.zip.ZipInputStream
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DE}
-import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
+import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
@@ -23,7 +23,7 @@ import com.google.protobuf.timestamp.Timestamp
 import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -89,7 +89,15 @@ private[apiserver] final class ApiPackageManagementService private (
       submissionResult <- packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
       entry <- submissionResult match {
         case SubmissionResult.Acknowledged =>
-          waitForEntry(submissionId, ledgerEndBeforeRequest, timeToLive)
+          SynchronousResponse.pollUntilPersisted(
+            packagesIndex
+              .packageEntries(ledgerEndBeforeRequest)
+              .collect {
+                case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
+                case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
+              },
+            timeToLive,
+          )(materializer)
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>
@@ -111,20 +119,6 @@ private[apiserver] final class ApiPackageManagementService private (
     response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
   }
 
-  private def waitForEntry(
-      submissionId: SubmissionId,
-      ledgerEndBeforeRequest: LedgerOffset.Absolute,
-      timeToLive: FiniteDuration,
-  ): Future[PackageEntry] =
-    SynchronousResponse.pollUntilPersisted(
-      packagesIndex
-        .packageEntries(ledgerEndBeforeRequest)
-        .collect {
-          case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
-          case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
-        },
-      timeToLive,
-    )(materializer)
 }
 
 private[apiserver] object ApiPackageManagementService {
