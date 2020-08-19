@@ -22,6 +22,7 @@ import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.{
   ConcurrentCompiledPackages,
+  EngineConfig,
   MutableCompiledPackages,
   Result,
   ResultDone,
@@ -58,7 +59,8 @@ class Server(
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
   // When running with a persistent store we also write the encoded packages so we can recover
   // our state after the service shuts down or crashes.
-  val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+  val compiledPackages: MutableCompiledPackages =
+    ConcurrentCompiledPackages(EngineConfig.Dev.allowedLanguageVersions)
 
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory

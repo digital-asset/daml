@@ -787,26 +787,34 @@ jobs:
       name: 'linux-pool'
       demands: assignment -equals default
     variables:
-      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       status: $[ dependencies.collect_build_data.result ]
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
+      - checkout: self
+        persistCredentials: true
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
       - bash: |
           set -euo pipefail
 
-          tell_daml() {
-              local message pr_handler
-              message=$1
-              pr_handler=$(head -1 release/rotation | awk '{print $1}')
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@${pr_handler}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/$(pr.num)|#$(pr.num)> has completed with status ${message}.\"}" \
-                   $(Slack.team-daml)
-          }
+          source $(bash-lib)
 
-          tell_daml "$(status)"
+          AUTH="$(get-gh-auth-header)"
+          PR=$(curl -H "$AUTH" \
+                    -H "Accept: application/vnd.github.groot-preview+json" \
+                    -s -f \
+                    "https://api.github.com/repos/digital-asset/daml/commits/$(git rev-parse HEAD)/pulls" \
+               | jq '.[0].number' \
+               || echo "")
+          # Note: if we somehow fail to resolve the PR number from the GitHub
+          # API, there is still value in getting the notification on Slack, as
+          # we do have the build number and from there we can click through to
+          # the PR. Hence the `|| echo ""`.
+          PR_HANDLER=$(head -1 release/rotation | awk '{print $1}')
+
+          tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> has completed with status $(status)."
 
   - job: notify_user
     condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))

@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Compiler
 
 import scala.collection.JavaConverters._
@@ -18,9 +19,10 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
   * packages.
   */
 private[lf] final class ConcurrentCompiledPackages(
+    allowedLanguageVersions: VersionRange[LanguageVersion],
     stackTraceMode: speedy.Compiler.StackTraceMode,
     profilingMode: Compiler.ProfilingMode,
-) extends MutableCompiledPackages(stackTraceMode, profilingMode) {
+) extends MutableCompiledPackages(allowedLanguageVersions, stackTraceMode, profilingMode) {
   private[this] val _packages: ConcurrentMap[PackageId, Package] =
     new ConcurrentHashMap().asScala
   private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
@@ -37,7 +39,7 @@ private[lf] final class ConcurrentCompiledPackages(
     * Note that when resuming from a [[Result]] the continuation will modify the
     * [[ConcurrentCompiledPackages]] that originated it.
     */
-  def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
+  override protected def addPackageInternal(pkgId: PackageId, pkg: Package): Result[Unit] =
     addPackageInternal(
       AddPackageState(
         packages = Map(pkgId -> pkg),
@@ -125,10 +127,11 @@ private[lf] final class ConcurrentCompiledPackages(
 
 object ConcurrentCompiledPackages {
   def apply(
+      allowedLanguageVersions: VersionRange[LanguageVersion],
       stackTraceMode: speedy.Compiler.StackTraceMode = Compiler.NoStackTrace,
       profilingMode: Compiler.ProfilingMode = Compiler.NoProfile,
   ): ConcurrentCompiledPackages =
-    new ConcurrentCompiledPackages(stackTraceMode, profilingMode)
+    new ConcurrentCompiledPackages(allowedLanguageVersions, stackTraceMode, profilingMode)
 
   private case class AddPackageState(
       packages: Map[PackageId, Package], // the packages we're currently compiling

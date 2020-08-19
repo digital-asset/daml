@@ -54,9 +54,10 @@ private[indexer] final class RecoveringIndexer(
         delayUntil: Instant = clock.instant().plusMillis(restartDelay.toMillis)
     ): Future[Boolean] = {
       val now = clock.instant()
-      val delayIncrement =
-        Duration.fromNanos(
-          math.max(0, math.min(1.second.toNanos, ChronoUnit.NANOS.between(now, delayUntil))))
+      val delay = Duration.fromNanos(ChronoUnit.NANOS.between(now, delayUntil))
+      // If `after` is passed a duration of zero, it executes the block synchronously,
+      // which can lead to stack overflows.
+      val delayIncrement = delay.min(1.second).max(1.nanosecond)
       after(delayIncrement, scheduler) {
         if (subscription.get() == null) {
           logger.info("Indexer Server was stopped; cancelling the restart")

@@ -109,14 +109,10 @@ private[platform] final class LedgerBackedIndexService(
   private def convertOffset(
       implicit loggingContext: LoggingContext,
   ): LedgerOffset => Source[Offset, NotUsed] = {
-    lazy val currentEnd: Offset = ledger.ledgerEnd()
-    domainOffset: LedgerOffset =>
-      domainOffset match {
-        case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
-        case LedgerOffset.LedgerEnd => Source.single(currentEnd)
-        case LedgerOffset.Absolute(offset) =>
-          ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
-      }
+    case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
+    case LedgerOffset.LedgerEnd => Source.single(ledger.ledgerEnd())
+    case LedgerOffset.Absolute(offset) =>
+      ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](
@@ -232,11 +228,11 @@ private[platform] final class LedgerBackedIndexService(
   ): Future[List[PartyDetails]] =
     ledger.listKnownParties()
 
-  override def partyEntries(startExclusive: LedgerOffset.Absolute)(
-      implicit loggingContext: LoggingContext,
-  ): Source[PartyEntry, NotUsed] = {
+  override def partyEntries(
+      startExclusive: Option[LedgerOffset.Absolute],
+  )(implicit loggingContext: LoggingContext): Source[PartyEntry, NotUsed] = {
     Source
-      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
+      .future(concreteOffset(startExclusive))
       .flatMapConcat(ledger.partyEntries)
       .map {
         case (_, PartyLedgerEntry.AllocationRejected(subId, _, reason)) =>
@@ -247,10 +243,10 @@ private[platform] final class LedgerBackedIndexService(
   }
 
   override def packageEntries(
-      startExclusive: LedgerOffset.Absolute,
+      startExclusive: Option[LedgerOffset.Absolute],
   )(implicit loggingContext: LoggingContext): Source[PackageEntry, NotUsed] =
     Source
-      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
+      .future(concreteOffset(startExclusive))
       .flatMapConcat(ledger.packageEntries)
       .map(_._2.toDomain)
 
@@ -292,10 +288,7 @@ private[platform] final class LedgerBackedIndexService(
       implicit loggingContext: LoggingContext,
   ): Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
     Source
-      .future(
-        startExclusive
-          .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
-          .getOrElse(Future.successful(None)))
+      .future(concreteOffset(startExclusive))
       .flatMapConcat(ledger.configurationEntries(_).map {
         case (offset, config) => toAbsolute(offset) -> config.toDomain
       })
@@ -314,4 +307,10 @@ private[platform] final class LedgerBackedIndexService(
       submitter: Ref.Party,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     ledger.stopDeduplicatingCommand(commandId, submitter)
+
+  private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
+    startExclusive
+      .map(off => Future.fromTry(ApiOffset.fromString(off.value)))
+      .getOrElse(Future.successful(Offset.beforeBegin))
+
 }

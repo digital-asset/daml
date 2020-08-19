@@ -172,12 +172,10 @@ private[platform] abstract class BaseLedger(
   ): Future[Option[(Offset, Configuration)]] =
     ledgerDao.lookupLedgerConfiguration()
 
-  override def configurationEntries(startExclusive: Option[Offset])(
+  override def configurationEntries(startExclusive: Offset)(
       implicit loggingContext: LoggingContext,
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
-    dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.beforeBegin),
-      RangeSource(ledgerDao.getConfigurationEntries))
+    dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getConfigurationEntries))
 
   override def deduplicateCommand(
       commandId: CommandId,

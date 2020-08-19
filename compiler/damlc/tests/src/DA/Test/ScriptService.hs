@@ -294,10 +294,13 @@ main =
                         "testAssertFail = do",
                         "  p <- allocateParty \"p\"",
                         "  cid <- submit p (createCmd (T p))",
-                        "  submitMustFail p (exerciseCmd cid AssertFail)"
+                        "  submitMustFail p (exerciseCmd cid AssertFail)",
+                        -- Make sure that the script service still works afterwards.
+                        "  cid <- submit p (createCmd (T p))",
+                        "  pure ()"
                       ]
                   expectScriptSuccess rs (vr "testAssertFail") $ \r ->
-                    matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
+                    matchRegex r "Active contracts:  #0:0, #1:0\n\nReturn value: {}\n\n$"
                   pure (),
               testCase "contract keys" $ do
                 rs <-
