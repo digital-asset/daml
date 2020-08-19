@@ -64,7 +64,7 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     extends RunningTriggerDao
     with StrictLogging {
 
-  private val logHandler: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
+  private implicit val logHandler: log.LogHandler = log.LogHandler.jdkLogHandler
 
   val flywayMigrations = new DbFlywayMigrations(dataSource) // TODO SC make private
 
