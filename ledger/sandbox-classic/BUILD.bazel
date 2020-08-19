@@ -247,6 +247,8 @@ da_scala_test_suite(
         exclude = ["src/test/suite/**/ResetService*IT.scala"],
     ),
     data = [
+        "//daml-lf/encoder:testing-dar-dev",
+        "//daml-lf/encoder:testing-dar-latest",
         "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
     ],

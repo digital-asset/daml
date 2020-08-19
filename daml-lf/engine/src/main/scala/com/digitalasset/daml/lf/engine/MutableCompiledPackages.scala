@@ -28,7 +28,7 @@ abstract class MutableCompiledPackages(
       ResultError(
         Error(
           s"Disallowed language version in package $pkgId: " +
-            s"Expected version between ${allowedLanguageVersions.min} and ${allowedLanguageVersions.max} but got ${pkg.languageVersion}"
+            s"Expected version between ${allowedLanguageVersions.min.pretty} and ${allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
         )
       )
 

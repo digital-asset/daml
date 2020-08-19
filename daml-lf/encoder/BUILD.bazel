@@ -139,6 +139,7 @@ da_scala_binary(
             "//daml-lf:__subpackages__",
             "//extractor:__subpackages__",
             "//language-support:__subpackages__",
+            "//ledger:__subpackages__",
         ],
     )
     for (alias, version) in [

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine
+
 import com.github.ghik.silencer.silent
 import org.scalatest.{Matchers, WordSpec}
 
@@ -9,9 +10,9 @@ class EngineInfoTest extends WordSpec with Matchers {
 
   "EngineInfo" should {
 
-    @silent("Sandbox_Classic in object EngineConfig is deprecated")
+    @silent("SandboxClassicDev in object EngineConfig is deprecated")
     def infos =
-      Seq(EngineConfig.Stable, EngineConfig.Dev, EngineConfig.Sandbox_Classic)
+      Seq(EngineConfig.Stable, EngineConfig.Dev, EngineConfig.SandboxClassicDev)
         .map(new EngineInfo(_))
 
     val Seq(engineInfoStable, engineInfoDev, engineInfoLegacy) = infos
