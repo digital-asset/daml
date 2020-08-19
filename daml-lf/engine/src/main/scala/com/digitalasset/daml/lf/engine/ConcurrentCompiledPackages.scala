@@ -39,7 +39,7 @@ private[lf] final class ConcurrentCompiledPackages(
     * Note that when resuming from a [[Result]] the continuation will modify the
     * [[ConcurrentCompiledPackages]] that originated it.
     */
-  protected def addPackageInternal(pkgId: PackageId, pkg: Package): Result[Unit] =
+  override protected def addPackageInternal(pkgId: PackageId, pkg: Package): Result[Unit] =
     addPackageInternal(
       AddPackageState(
         packages = Map(pkgId -> pkg),
