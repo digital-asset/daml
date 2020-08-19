@@ -48,13 +48,12 @@ object Connection {
   }
 
   private[this] def dataSource(jc: JdbcConfig, poolSize: PoolSize) = {
-    com.daml.scalautil.Statement.discard(poolSize) // TODO
     import jc._
     val c = new HikariConfig
     c.setJdbcUrl(url)
     c.setUsername(user)
     c.setPassword(password)
-    c.setMaximumPoolSize(PoolSize.IntegrationTest)
+    c.setMaximumPoolSize(poolSize)
     c.setIdleTimeout(10000) // ms, minimum according to log, defaults to 600s
     new HikariDataSource(c)
   }
