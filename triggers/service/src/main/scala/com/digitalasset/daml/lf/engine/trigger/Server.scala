@@ -322,20 +322,20 @@ object Server {
           }
       }
 
-    if (initDb) jdbcConfig match {
+    if (initDb) sys.exit(jdbcConfig match {
       case None =>
         ctx.log.error("No JDBC configuration for database initialization.")
-        sys.exit(1)
+        1
       case Some(c) =>
         DbTriggerDao(c).initialize match {
           case Left(err) =>
             ctx.log.error(err)
-            sys.exit(1)
+            1
           case Right(()) =>
             ctx.log.info("Successfully initialized database.")
-            sys.exit(0)
+            0
         }
-    }
+    })
 
     val (dao, server): (RunningTriggerDao, Server) = jdbcConfig match {
       case None =>
