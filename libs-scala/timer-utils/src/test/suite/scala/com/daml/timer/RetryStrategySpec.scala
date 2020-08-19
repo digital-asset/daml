@@ -31,13 +31,25 @@ class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMatchers 
     "fail if the number of attempts is exceeded" in {
       val retry = RetryStrategy.constant(attempts = 10, waitTime = 10.milliseconds)
       for {
-        (retryCount, result, duration) <- succeedAfter(tries = 12, retry)
+        (retryCount, result, duration) <- succeedAfter(tries = 11, retry)
       } yield {
         inside(result) {
           case Failure(_: FailureDuringRetry) =>
         }
-        retryCount should be(11)
+        retryCount should be(10)
         duration should beAround(100.milliseconds)
+      }
+    }
+
+    "fail immediately if zero attempts should be made" in {
+      val retry = RetryStrategy.constant(attempts = 0, waitTime = 10.milliseconds)
+      for {
+        (retryCount, result, _) <- succeedAfter(tries = 1, retry)
+      } yield {
+        inside(result) {
+          case Failure(_: RetryStrategy.ZeroAttemptsException) =>
+        }
+        retryCount should be(0)
       }
     }
   }
@@ -57,13 +69,13 @@ class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMatchers 
     "fail if the number of attempts is exceeded" in {
       val retry = RetryStrategy.exponentialBackoff(attempts = 5, firstWaitTime = 10.milliseconds)
       for {
-        (retryCount, result, duration) <- succeedAfter(tries = 7, retry)
+        (retryCount, result, duration) <- succeedAfter(tries = 6, retry)
       } yield {
         inside(result) {
           case Failure(_: FailureDuringRetry) =>
         }
-        retryCount should be(6)
-        duration should beAround(310.milliseconds)
+        retryCount should be(5)
+        duration should beAround(150.milliseconds)
       }
     }
   }
