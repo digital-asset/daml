@@ -9,6 +9,7 @@ module DA.Daml.LF.ReplClient
   , MaxInboundMessageSize(..)
   , ReplTimeMode(..)
   , Handle
+  , ReplResponseType(..)
   , withReplClient
   , loadPackage
   , runScript
@@ -41,6 +42,8 @@ newtype MaxInboundMessageSize = MaxInboundMessageSize Int
   deriving newtype Read
 
 data ReplTimeMode = ReplWallClock | ReplStatic
+
+data ReplResponseType = ReplText | ReplJson
 
 newtype ApplicationId = ApplicationId String
 
@@ -124,16 +127,20 @@ loadPackage Handle{..} package = do
         (Grpc.LoadPackageRequest package)
     pure (() <$ r)
 
-runScript :: Handle -> LF.Version -> LF.Module -> IO (Either BackendError (Maybe T.Text))
-runScript Handle{..} version m = do
+runScript :: Handle -> LF.Version -> LF.Module -> ReplResponseType -> IO (Either BackendError (Maybe T.Text))
+runScript Handle{..} version m rspType = do
     r <- performRequest
         (Grpc.replServiceRunScript hClient)
-        (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)))
+        (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)) grpcRspType)
     pure $ fmap handleResult r
-    where bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
-          handleResult r =
-              let t = TL.toStrict (Grpc.runScriptResponseResult r)
-              in if T.null t then Nothing else Just t
+  where
+    bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+    handleResult r =
+        let t = TL.toStrict (Grpc.runScriptResponseResult r)
+        in if T.null t then Nothing else Just t
+    grpcRspType = case rspType of
+        ReplText -> Proto.Enumerated (Right Grpc.RunScriptRequest_FormatTEXT_ONLY)
+        ReplJson -> Proto.Enumerated (Right Grpc.RunScriptRequest_FormatJSON)
 
 
 clearResults :: Handle -> IO (Either BackendError ())
