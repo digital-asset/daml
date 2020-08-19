@@ -7,13 +7,14 @@ import java.time
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.timer.RetryStrategySpec._
+import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.{AsyncWordSpec, Inside, Matchers}
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class RetryStrategySpec extends AsyncWordSpec with Matchers with Inside {
+class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMatchers with Inside {
 
   "RetryStrategy.constant" should {
     "try a number of times, with a constant delay" in {
@@ -23,7 +24,7 @@ class RetryStrategySpec extends AsyncWordSpec with Matchers with Inside {
       } yield {
         result should be(Success("Success!"))
         retryCount should be(5)
-        duration.toMillis should (be >= 50L and be <= 250L)
+        duration should beAround(50.milliseconds)
       }
     }
 
@@ -36,7 +37,7 @@ class RetryStrategySpec extends AsyncWordSpec with Matchers with Inside {
           case Failure(_: FailureDuringRetry) =>
         }
         retryCount should be(11)
-        duration.toMillis should (be >= 100L and be <= 500L)
+        duration should beAround(100.milliseconds)
       }
     }
   }
@@ -45,11 +46,11 @@ class RetryStrategySpec extends AsyncWordSpec with Matchers with Inside {
     "try a number of times, with an exponentially-increasing delay" in {
       val retry = RetryStrategy.exponentialBackoff(attempts = 10, firstWaitTime = 10.milliseconds)
       for {
-        (retryCount, result, duration) <- succeedAfter(tries = 5, retry)
+        (retryCount, result, duration) <- succeedAfter(tries = 4, retry)
       } yield {
         result should be(Success("Success!"))
-        retryCount should be(5)
-        duration.toMillis should (be >= 150L and be <= 250L)
+        retryCount should be(4)
+        duration should beAround(70.milliseconds)
       }
     }
 
@@ -62,7 +63,7 @@ class RetryStrategySpec extends AsyncWordSpec with Matchers with Inside {
           case Failure(_: FailureDuringRetry) =>
         }
         retryCount should be(6)
-        duration.toMillis should (be >= 310L and be <= 500L)
+        duration should beAround(310.milliseconds)
       }
     }
   }
@@ -90,5 +91,25 @@ object RetryStrategySpec {
   }
 
   private final class FailureDuringRetry extends RuntimeException
+
+  private[RetryStrategySpec] trait CustomMatchers {
+
+    final class AroundDurationMatcher(expectedDuration: Duration) extends Matcher[time.Duration] {
+      def apply(left: time.Duration): MatchResult = {
+        val actual = left.toMillis
+        val lowerBound = expectedDuration.toMillis - 5 // Delays can sometimes be too fast.
+        val upperBound = expectedDuration.toMillis * 10 // Tests can run slowly in parallel.
+        val result = actual >= lowerBound && actual < upperBound
+        MatchResult(
+          result,
+          s"$actual milliseconds was not around $expectedDuration [$lowerBound, $upperBound)",
+          s"$actual milliseconds was around $expectedDuration [$lowerBound, $upperBound)",
+        )
+      }
+    }
+
+    def beAround(expectedDuration: Duration) = new AroundDurationMatcher(expectedDuration)
+
+  }
 
 }
