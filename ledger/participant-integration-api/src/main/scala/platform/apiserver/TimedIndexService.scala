@@ -57,7 +57,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     Timed.future(metrics.daml.services.index.getLfPackage, delegate.getLfPackage(packageId))
 
   override def packageEntries(
-      startExclusive: LedgerOffset.Absolute
+      startExclusive: Option[LedgerOffset.Absolute],
   )(implicit loggingContext: LoggingContext): Source[domain.PackageEntry, NotUsed] =
     Timed.source(
       metrics.daml.services.index.packageEntries,
@@ -169,7 +169,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     Timed.future(metrics.daml.services.index.listKnownParties, delegate.listKnownParties())
 
   override def partyEntries(
-      startExclusive: LedgerOffset.Absolute
+      startExclusive: Option[LedgerOffset.Absolute],
   )(implicit loggingContext: LoggingContext): Source[domain.PartyEntry, NotUsed] =
     Timed.source(metrics.daml.services.index.partyEntries, delegate.partyEntries(startExclusive))
 
