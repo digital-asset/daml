@@ -32,14 +32,7 @@ Please make sure that you have the DAML SDK, Java 8 or higher, and Visual Studio
 You will also need some common software tools to build and interact with the template project.
 
 - `Git <https://git-scm.com/downloads>`_ version control system
-- `Yarn <https://classic.yarnpkg.com/en/docs/install/>`_ package manager for JavaScript. You have to have yarn version 1.10.0 or higher.
-
-  Note: Ubuntu 17.04 and higher come with ``cmdtest`` package installed by default. If you are getting errors when installing yarn, you may want to run ``sudo apt remove cmdtest`` first and then install yarn. More information can be found `here <https://github.com/yarnpkg/yarn/issues/2821>`_ as well as in the official `yarn installation docs for Debian / Ubuntu <https://classic.yarnpkg.com/en/docs/install/#debian-stable>`_
-- `NodeJS <https://nodejs.org/en/download/>`_ in version 8.16 or higher. This will usually be
-  installed automatically as part of installing Yarn.
-
-  Note: On Ubuntu 18.04, NodeJS 8.10 will be installed as part of installing Yarn which is too old.
-  You can find instructions for installing newer versions at `NodeSource <https://github.com/nodesource/distributions/blob/master/README.md#installation-instructions>`_.
+- `Node <https://docs.npmjs.com/downloading-and-installing-node-js-and-npm>`_ package manager for JavaScript.
 - A terminal application for command line interaction
 
 
@@ -71,10 +64,10 @@ In order to connect the UI code to this DAML, we need to run a code generation s
 
     daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
-Now, changing to the ``ui`` folder, use Yarn to install the project dependencies::
+Now, changing to the ``ui`` folder, use ``npm`` to install the project dependencies::
 
     cd ui
-    yarn install --force --frozen-lockfile
+    npm install --force --frozen-lockfile
 
 This step may take a couple of moments (it's worth it!).
 You should see ``success Saved lockfile.`` in the output if everything worked as expected.
@@ -98,7 +91,7 @@ We'll leave these processes running to serve requests from our UI.
 In a second terminal, navigate to the ``create-daml-app/ui`` folder and run the application::
 
     cd ui
-    yarn start
+    npm start
 
 This starts the web UI connected to the running Sandbox and JSON API server.
 The command should automatically open a window in your default browser at http://localhost:3000.

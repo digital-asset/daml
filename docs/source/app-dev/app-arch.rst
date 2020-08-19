@@ -72,8 +72,8 @@ We provide two libraries to build your React frontend for a DAML application.
 | `@daml/ledger <https://www.npmjs.com/package/@daml/ledger>`_ | DAML ledger object to connect and directly submit commands to the ledger |
 +--------------------------------------------------------------+--------------------------------------------------------------------------+
 
-You can install any of these libraries by running ``yarn add <library>`` in the ``ui`` directory of
-your project, e.g. ``yarn add @daml/react``. Please explore the ``create-daml-app`` example project
+You can install any of these libraries by running ``npm install <library>`` in the ``ui`` directory of
+your project, e.g. ``npm install @daml/react``. Please explore the ``create-daml-app`` example project
 to see the usage of these libraries.
 
 To make your life easy when interacting with the ledger, the DAML assistant can generate JavaScript
@@ -111,7 +111,7 @@ Developer workflow
 The DAML SDK enables a local development environment with fast iteration cycles. If you run
 ``daml-reload-on-change.sh`` of the ``create-daml-app``, a local DAML sandbox ledger is started that
 is updated with your most recent DAML code on any change. Next, you can start your frontend in
-development mode by changing to your ``ui`` directory and run ``yarn start``. This will reload your
+development mode by changing to your ``ui`` directory and run ``npm start``. This will reload your
 frontend whenever you make changes to it. You can add unit tests for your DAML models by writing
 :ref:`DAML scenarios <testing-using-scenarios>`. These will also be reevaluated on change.  A
 typical DAML developer workflow is to

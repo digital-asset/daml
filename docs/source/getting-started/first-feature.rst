@@ -81,7 +81,7 @@ The result is an up-to-date TypeScript interface to our DAML model, in particula
 To make sure that Yarn picks up the newly generated JavaScript code,
 we have to run the following command in the ``ui`` directory::
 
-  yarn install --force --frozen-lockfile
+  npm install --force --frozen-lockfile
 
 Once that command finishes, you have to close Visual Studio Code
 and restart it by running ``daml studio`` from the root directory of
@@ -197,7 +197,7 @@ Then in the root ``create-daml-app`` folder run ``daml start``.
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost.
 
-If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yarn start`` command, which will start the UI.
+If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``npm start`` command, which will start the UI.
 Once you've done all these changes you should see the same login page as before at http://localhost:3000.
 
    .. figure:: images/create-daml-app-login-screen.png
