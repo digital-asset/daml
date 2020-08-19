@@ -13,12 +13,13 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
+  Node,
   NodeId,
   SubmittedTransaction,
+  TransactionVersion,
   GenTransaction => GenTx,
   Transaction => Tx,
   TransactionVersions => TxVersions
@@ -1644,8 +1645,11 @@ class EngineTest
       cidV7 -> ContractInst(templateId, VersionedValue(ValueVersion("7"), contract), ""),
     )
 
-    def run(cid: ContractId) = {
-      val engine = new Engine(EngineConfig.Stable)
+    def run(
+        cid: ContractId,
+        engineConfig: EngineConfig = EngineConfig.Stable
+    ) = {
+      val engine = new Engine(engineConfig)
       val cmds = Commands(
         submitter = party,
         commands = ImmArray(
@@ -1658,14 +1662,22 @@ class EngineTest
         .consume(contracts.get, lookupPackage, lookupKey)
     }
 
-    "succeed if fed with allowed value version" in {
+    "fail nicely if fed with disallowed value version" in {
       run(cidV6) shouldBe 'right
-    }
-
-    "fail if fed with disallowed value version" in {
       val result = run(cidV7)
       result shouldBe 'left
       result.left.get.msg should include("Update failed due to disallowed value version")
+    }
+
+    "fail nicely if it can serialize the transaction" in {
+      run(cidV6) shouldBe 'right
+      val result = run(
+        cidV6,
+        EngineConfig.Stable.copy(
+          allowedOutputTransactionVersions =
+            VersionRange(TransactionVersion("9"), TransactionVersion("9"))))
+      result shouldBe 'left
+      result.left.get.msg should include("inferred transaction version 10 is not allowed")
     }
 
   }

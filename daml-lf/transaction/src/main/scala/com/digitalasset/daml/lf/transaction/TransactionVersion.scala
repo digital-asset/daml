@@ -153,7 +153,7 @@ private[lf] object TransactionVersions
     Either.cond(
       !(supportedTxVersions.max precedes transactionVersion),
       transactionVersion,
-      s"inferred version $transactionVersion is not supported"
+      s"inferred transaction version ${transactionVersion.protoValue} is not allowed"
     )
   }
 
