@@ -415,17 +415,18 @@ object Server {
               binding.localAddress.getHostString,
               binding.localAddress.getPort,
             )
-            Behaviors.stopped // Automatically stops all actors.
-        }
-        .receiveSignal {
-          case (_, PostStop) =>
-            ctx.log.info(s"s11 PostStop closing running $dao")
-            discard[Try[Unit]](Try(dao.close()))
             // TODO SC until this future returns, connections may still be accepted. Consider
             // coordinating this future with the actor in some way, or use addToCoordinatedShutdown
             // (though I have a feeling it will not work out so neatly)
             discard[Future[akka.Done]](binding.unbind())
-            sys.exit(42) //Behaviors.same
+            discard[Try[Unit]](Try(dao.close()))
+            Behaviors.stopped // Automatically stops all actors.
+        }
+        .receiveSignal {
+          case (_, PostStop) =>
+            // s11 maybe we should just stop believing side-effects ever work
+            ctx.log.info(s"s11 PostStop actually worked, who would have thought")
+            sys.exit(42)
         }
 
     // The server starting state.
@@ -467,9 +468,9 @@ object Server {
         }
         .receiveSignal {
           case (_, PostStop) =>
-            ctx.log.info(s"s11 PostStop closing starting $dao")
-            discard[Try[Unit]](Try(dao.close()))
-            sys.exit(42) //Behaviors.same
+            // s11 maybe we should just stop believing side-effects ever work
+            ctx.log.info(s"s11 PostStop actually worked, who would have thought")
+            sys.exit(42)
         }
 
     // The server binding is a future that on completion will be piped
