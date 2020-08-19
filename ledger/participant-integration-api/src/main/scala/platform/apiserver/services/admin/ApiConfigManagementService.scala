@@ -109,12 +109,12 @@ private[apiserver] final class ApiConfigManagementService private (
           writeService,
           index,
           ledgerEndBeforeRequest,
-          params.maximumRecordTime,
-          newConfig,
         ),
         timeToLive = params.timeToLive,
       )
-      entry <- synchronousResponse.submitAndWait(submissionId)(executionContext, materializer)
+      entry <- synchronousResponse.submitAndWait(
+        submissionId,
+        (params.maximumRecordTime, newConfig))(executionContext, materializer)
     } yield SetTimeModelResponse(entry.configuration.generation)
 
     response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
@@ -182,18 +182,25 @@ private[apiserver] object ApiConfigManagementService {
       writeConfigService: WriteConfigService,
       configManagementService: IndexConfigManagementService,
       ledgerEnd: Option[LedgerOffset.Absolute],
-      maximumRecordTime: Time.Timestamp,
-      newConfiguration: Configuration,
   )(implicit loggingContext: LoggingContext)
-      extends SynchronousResponse.Strategy[ConfigurationEntry, ConfigurationEntry.Accepted] {
+      extends SynchronousResponse.Strategy[
+        (Time.Timestamp, Configuration),
+        ConfigurationEntry,
+        ConfigurationEntry.Accepted,
+      ] {
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       Future.successful(ledgerEnd)
 
-    override def submit(submissionId: SubmissionId): Future[SubmissionResult] =
+    override def submit(
+        submissionId: SubmissionId,
+        input: (Time.Timestamp, Configuration),
+    ): Future[SubmissionResult] = {
+      val (maximumRecordTime, newConfiguration) = input
       writeConfigService
         .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)
         .toScala
+    }
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[ConfigurationEntry, _] =
       configManagementService.configurationEntries(offset).map(_._2)

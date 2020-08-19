@@ -14,18 +14,18 @@ import io.grpc.StatusRuntimeException
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
-class SynchronousResponse[Entry, AcceptedEntry](
-    strategy: SynchronousResponse.Strategy[Entry, AcceptedEntry],
+class SynchronousResponse[Input, Entry, AcceptedEntry](
+    strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
     timeToLive: FiniteDuration,
 ) {
 
-  def submitAndWait(submissionId: SubmissionId)(
+  def submitAndWait(submissionId: SubmissionId, input: Input)(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
   ): Future[AcceptedEntry] = {
     for {
       ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
-      submissionResult <- strategy.submit(submissionId)
+      submissionResult <- strategy.submit(submissionId, input)
       entry <- submissionResult match {
         case SubmissionResult.Acknowledged =>
           val isAccepted = new Accepted(strategy.accept(submissionId))
@@ -57,11 +57,11 @@ class SynchronousResponse[Entry, AcceptedEntry](
 
 object SynchronousResponse {
 
-  trait Strategy[Entry, AcceptedEntry] {
+  trait Strategy[Input, Entry, AcceptedEntry] {
 
     def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]]
 
-    def submit(submissionId: SubmissionId): Future[SubmissionResult]
+    def submit(submissionId: SubmissionId, input: Input): Future[SubmissionResult]
 
     def entries(offset: Option[LedgerOffset.Absolute]): Source[Entry, _]
 

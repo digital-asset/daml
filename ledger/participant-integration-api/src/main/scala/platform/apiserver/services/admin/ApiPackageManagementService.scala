@@ -10,7 +10,7 @@ import java.util.zip.ZipInputStream
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.dec.{DirectExecutionContext => DE}
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
@@ -44,13 +44,26 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  // Execute subsequent transforms in the thread of the previous operation.
+  private implicit val executionContext: ExecutionContext = DirectExecutionContext
+
+  private val synchronousResponse = new SynchronousResponse(
+    new SynchronousResponseStrategy(
+      transactionsService,
+      packagesIndex,
+      packagesWrite,
+    ),
+    timeToLive = 30.seconds,
+  )
+
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    PackageManagementServiceGrpc.bindService(this, DE)
+    PackageManagementServiceGrpc.bindService(this, DirectExecutionContext)
 
   override def listKnownPackages(
-      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] = {
+      request: ListKnownPackagesRequest
+  ): Future[ListKnownPackagesResponse] = {
     packagesIndex
       .listLfPackages()
       .map { pkgs =>
@@ -62,8 +75,8 @@ private[apiserver] final class ApiPackageManagementService private (
               Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
               details.sourceDescription.getOrElse(""))
         })
-      }(DE)
-      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])(DE)
+      }
+      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
@@ -72,9 +85,6 @@ private[apiserver] final class ApiPackageManagementService private (
         SubmissionId.assertFromString(UUID.randomUUID().toString)
       else
         SubmissionId.assertFromString(request.submissionId)
-
-    // Execute subsequent transforms in the thread of the previous operation.
-    implicit val executionContext: ExecutionContext = DE
 
     val response = for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
@@ -85,11 +95,7 @@ private[apiserver] final class ApiPackageManagementService private (
           err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
           Future.successful
         )
-      synchronousResponse = new SynchronousResponse(
-        new SynchronousResponseStrategy(transactionsService, packagesIndex, packagesWrite, dar),
-        timeToLive = 30.seconds,
-      )
-      _ <- synchronousResponse.submitAndWait(submissionId)(executionContext, materializer)
+      _ <- synchronousResponse.submitAndWait(submissionId, dar)(executionContext, materializer)
     } yield {
       for (archive <- dar.all) {
         logger.info(s"Package ${archive.getHash} successfully uploaded")
@@ -116,14 +122,17 @@ private[apiserver] object ApiPackageManagementService {
       ledgerEndService: LedgerEndService,
       packagesIndex: IndexPackagesService,
       packagesWrite: WritePackagesService,
-      dar: Dar[Archive],
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-      extends SynchronousResponse.Strategy[PackageEntry, PackageEntry.PackageUploadAccepted] {
+      extends SynchronousResponse.Strategy[
+        Dar[Archive],
+        PackageEntry,
+        PackageEntry.PackageUploadAccepted,
+      ] {
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       ledgerEndService.currentLedgerEnd().map(Some(_))
 
-    override def submit(submissionId: SubmissionId): Future[SubmissionResult] =
+    override def submit(submissionId: SubmissionId, dar: Dar[Archive]): Future[SubmissionResult] =
       packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =
