@@ -12,20 +12,8 @@ import org.flywaydb.core.api.configuration.FluentConfiguration
 
 import javax.sql.DataSource
 
-import scala.concurrent.{ExecutionContext, Future}
-
 private[trigger] class DbFlywayMigrations(private val ds: DataSource) extends StrictLogging {
   import DbFlywayMigrations._
-
-  def validate()(implicit executionContext: ExecutionContext): Future[Unit] =
-    dataSource.use { ds =>
-      Future {
-        val flyway = configurationBase().dataSource(ds).load()
-        logger.info("Running Flyway validation...")
-        flyway.validate()
-        logger.info("Flyway schema validation finished successfully.")
-      }
-    }
 
   def migrate(allowExistingSchema: Boolean = false): ConnectionIO[Unit] =
     doobie.free.connection.delay {
@@ -38,21 +26,6 @@ private[trigger] class DbFlywayMigrations(private val ds: DataSource) extends St
       val stepsTaken = flyway.migrate()
       logger.info(s"Flyway schema migration finished successfully, applying $stepsTaken steps.")
     }
-
-  def reset()(implicit executionContext: ExecutionContext): Future[Unit] =
-    dataSource.use { ds =>
-      Future {
-        val flyway = configurationBase().dataSource(ds).load()
-        logger.info("Running Flyway clean...")
-        flyway.clean()
-        logger.info("Flyway schema clean finished successfully.")
-      }
-    }
-
-  private object dataSource {
-    def use[T](f: ds.type => Future[T]): Future[T] =
-      f(ds)
-  }
 }
 
 private[trigger] object DbFlywayMigrations {
