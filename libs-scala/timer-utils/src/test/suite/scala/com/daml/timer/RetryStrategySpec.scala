@@ -28,6 +28,18 @@ class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMatchers 
       }
     }
 
+    "try forever, with no delay, to ensure we don't overflow the stack" in {
+      val retry = RetryStrategy.constant(attempts = None, waitTime = Duration.Zero) {
+        case _ => true
+      }
+      for {
+        (retryCount, result, _) <- succeedAfter(tries = 10000, retry)
+      } yield {
+        result should be(Success("Success!"))
+        retryCount should be(10000)
+      }
+    }
+
     "fail if the number of attempts is exceeded" in {
       val retry = RetryStrategy.constant(attempts = 10, waitTime = 10.milliseconds)
       for {
@@ -91,12 +103,10 @@ object RetryStrategySpec {
     val retryCount = new AtomicInteger()
     val start = time.Instant.now()
     retry { (_, _) =>
-      Future {
-        if (retryCount.incrementAndGet() >= tries) {
-          "Success!"
-        } else {
-          throw new FailureDuringRetry
-        }
+      if (retryCount.incrementAndGet() >= tries) {
+        Future.successful("Success!")
+      } else {
+        Future.failed(new FailureDuringRetry)
       }
     }.transform(Success(_))
       .map((retryCount.get(), _, time.Duration.between(start, time.Instant.now())))
