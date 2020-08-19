@@ -542,6 +542,7 @@ class TriggerServiceTestWithDb
       } yield succeed
     }
     // Once service is shutdown, start a new one and check the previously running trigger is restarted.
+    // also tests vacuous DB migration, incidentally
     _ <- withTriggerService(None) { (uri: Uri, _, _) =>
       for {
         // Get the previous trigger instance using a list request

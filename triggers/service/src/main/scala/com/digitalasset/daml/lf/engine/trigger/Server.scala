@@ -346,6 +346,7 @@ object Server {
         val dao = DbTriggerDao(c)
         val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
         val recovery: Either[String, Unit] = for {
+          _ <- dao.initialize
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers
