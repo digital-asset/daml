@@ -24,7 +24,7 @@ replaceable.
 ## Getting started
 
 Before you can run the application, you need to install the
-[yarn](https://yarnpkg.com/en/docs/install) package manager for JavaScript.
+[Node](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) package manager for JavaScript.
 
 There are two steps to build the project.
 First, we need to generate TypeScript code bindings for the compiled DAML model.
@@ -38,8 +38,8 @@ The latter command generates TypeScript packages in the `daml.js` directory.
 Next, navigate to the `ui` directory and install the dependencies and build the app by running
 ```
 cd ui
-yarn install
-yarn build
+npm install
+npm run-script build
 ```
 The last step is not absolutely necessary but useful to check that the app compiles.
 
@@ -52,7 +52,7 @@ This must continue running to serve ledger requests.
 
 Then in a second terminal window in the `ui` directory, start the UI server via
 ```
-yarn start
+npm start
 ```
 This should open a browser window with a login screen.
 If it doesn't, you can manually point your browser to http://localhost:3000.
@@ -88,7 +88,7 @@ To upload the UI, create a ZIP file containing all your UI assets by executing
 ```
 daml build
 daml codegen js .daml/dist/__PROJECT_NAME__-0.1.0.dar -o daml.js
-(cd ui && yarn build && zip -r ../__PROJECT_NAME__-ui.zip build)
+(cd ui && npm run-script build && zip -r ../__PROJECT_NAME__-ui.zip build)
 ```
 at the root of the repository. Afterwards, select the "UI Assets" tab of your
 chosen ledger on the DABL website, upload the ZIP file
