@@ -1674,7 +1674,7 @@ class EngineTest
 
   }
 
-  "Engine.addPackage" should {
+  "Engine.preloadPackage" should {
 
     import com.daml.lf.language.{LanguageVersion => LV}
 
