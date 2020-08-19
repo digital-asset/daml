@@ -1,52 +1,60 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ApplicativeDo #-}
 
 module Tests.Trade where
 
 import DA.Assert
+import Daml.Script
 
 import Iou
 import IouTrade
 
-trade_test = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  usBank <- getParty "USD_Bank"
-  eurBank <- getParty "EUR_Bank"
+import Tests.QueryIou
+
+trade_test = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  usBank <- allocateParty "USD_Bank"
+  eurBank <- allocateParty "EUR_Bank"
 
   -- Banks issue IOU transfers.
   iouTransferAliceCid <- submit eurBank do
-    iouCid <- create Iou with
-      issuer = eurBank
-      owner = eurBank
-      currency = "EUR"
-      amount = 100.0
-      observers = []
-    exercise iouCid Iou_Transfer with newOwner = alice
+    createAndExerciseCmd
+      Iou with
+        issuer = eurBank
+        owner = eurBank
+        currency = "EUR"
+        amount = 100.0
+        observers = []
+      Iou_Transfer with
+        newOwner = alice
 
   iouTransferBobCid <- submit usBank do
-    iouCid <- create Iou with
-      issuer = usBank
-      owner = usBank
-      currency = "USD"
-      amount = 110.0
-      observers = []
-    exercise iouCid Iou_Transfer with newOwner = bob
+    createAndExerciseCmd
+      Iou with
+        issuer = usBank
+        owner = usBank
+        currency = "USD"
+        amount = 110.0
+        observers = []
+      Iou_Transfer with
+        newOwner = bob
 
   -- Bob and Alice accept.
   iouAliceCid <- submit alice do
-    exercise iouTransferAliceCid IouTransfer_Accept
+    exerciseCmd iouTransferAliceCid IouTransfer_Accept
   iouBobCid <- submit bob do
-    exercise iouTransferBobCid IouTransfer_Accept
+    exerciseCmd iouTransferBobCid IouTransfer_Accept
 
   -- Alice makes her EUR IOU visible to Bob.
   iouAliceCid <- submit alice do
-    exercise iouAliceCid Iou_AddObserver with newObserver = bob
+    exerciseCmd iouAliceCid Iou_AddObserver with newObserver = bob
 
   -- Alice makes a trade proposal to swap her EUR for Bob's USD.
   tradePropCid <- submit alice do
-    create IouTrade with
+    createCmd IouTrade with
       buyer = alice
       seller = bob
       baseIouCid = iouAliceCid
@@ -59,17 +67,17 @@ trade_test = scenario do
 
   -- Bob accepts.
   newIous <- submit bob do
-    exercise tradePropCid IouTrade_Accept with quoteIouCid = iouBobCid
+    exerciseCmd tradePropCid IouTrade_Accept with quoteIouCid = iouBobCid
 
-  submit alice do
-    iou <- fetch (fst newIous)
+  do
+    Some iou <- queryIou alice (fst newIous)
     alice === iou.owner
     usBank === iou.issuer
     "USD" === iou.currency
     110.0 === iou.amount
 
-  submit bob do
-    iou <- fetch (snd newIous)
+  do
+    Some iou <- queryIou bob (snd newIous)
     bob === iou.owner
     eurBank === iou.issuer
     "EUR" === iou.currency

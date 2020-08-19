@@ -1,0 +1,15 @@
+{-# LANGUAGE ApplicativeDo #-}
+
+module Tests.QueryIou where
+
+import Daml.Script
+
+import Iou
+
+queryIou : Party -> ContractId Iou -> Script (Optional Iou)
+queryIou party cid = do
+  ious <- query @Iou party
+  case [iou | (cid', iou) <- ious, cid' == cid] of
+    [] -> pure None
+    [iou] -> pure (Some iou)
+    _ -> abort "query returned more than one contract with the same id."

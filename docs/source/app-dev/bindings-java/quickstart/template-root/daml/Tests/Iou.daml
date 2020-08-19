@@ -1,63 +1,71 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ApplicativeDo #-}
 
 module Tests.Iou where
 
+import Daml.Script
+
 import Iou
 
-iou_test = scenario do
-  bank <- getParty "Acme Bank"
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  charlie <- getParty "Charlie"
+import Tests.QueryIou
+
+iou_test = do
+  bank <- allocateParty "Acme Bank"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
 
   let
     issuer = bank
     currency = "USD"
 
   -- Bank creates IOU transfers for Alice and Bob.
-  iouTransferAliceCid <- submit bank do
-    iouCid <- create Iou with
-      issuer
-      owner = issuer
-      currency
-      amount = 100.0
-      observers = []
-
-    exercise iouCid Iou_Transfer with newOwner = alice
+  iouTransferAliceCid <- submit bank $
+    createAndExerciseCmd
+      Iou with
+        issuer
+        owner = issuer
+        currency
+        amount = 100.0
+        observers = []
+      Iou_Transfer with
+        newOwner = alice
 
   iouTransferBobCid <- submit bank do
-    iouCid <- create Iou with
-      issuer
-      owner = issuer
-      currency
-      amount = 30.0
-      observers = []
-    exercise iouCid Iou_Transfer with newOwner = bob
+    createAndExerciseCmd
+      Iou with
+        issuer
+        owner = issuer
+        currency
+        amount = 30.0
+        observers = []
+      Iou_Transfer with
+        newOwner = bob
 
   iouAliceCid <- submit alice do
-    exercise iouTransferAliceCid IouTransfer_Accept
+    exerciseCmd iouTransferAliceCid IouTransfer_Accept
 
   iouBobCid <- submit bob do
-    exercise iouTransferBobCid IouTransfer_Accept
+    exerciseCmd iouTransferBobCid IouTransfer_Accept
 
   -- Alice splits the IOU and transfers part of it to Bob.
   split <- submit alice do
-    exercise iouAliceCid Iou_Split with splitAmount = 40.0
+    exerciseCmd iouAliceCid Iou_Split with splitAmount = 40.0
   iouTransferCid <- submit alice do
-    exercise (fst split) Iou_Transfer with newOwner = bob
+    exerciseCmd (fst split) Iou_Transfer with newOwner = bob
 
   -- Bob accepts and merges it with the one he already has.
   iouOtherCid <- submit bob do
-    exercise iouTransferCid IouTransfer_Accept
+    exerciseCmd iouTransferCid IouTransfer_Accept
 
   iouTotalCid <- submit bob do
-    exercise iouBobCid Iou_Merge with otherCid = iouOtherCid
+    exerciseCmd iouBobCid Iou_Merge with otherCid = iouOtherCid
 
   -- Assert things are as they should be.
-  submit alice do
-    aliceIou <- fetch (snd split)
+  do
+    Some aliceIou <- queryIou alice (snd split)
     assert $ aliceIou == Iou with
       issuer = bank
       owner = alice
@@ -65,8 +73,8 @@ iou_test = scenario do
       amount = 60.0
       observers = []
 
-  submit bob do
-    bobIou <- fetch iouTotalCid
+  do
+    Some bobIou <- queryIou bob iouTotalCid
     assert $ bobIou == Iou with
       issuer = bank
       owner = bob
@@ -76,19 +84,19 @@ iou_test = scenario do
 
   -- Issuers can archive IOUs they own.
   iouBankCid <- submit bank do
-    create Iou with
+    createCmd Iou with
       issuer = bank
       owner = bank
       currency = "USD"
       amount = 100.0
       observers = []
 
-  submit bank do exercise iouBankCid Archive
-  submitMustFail bank do fetch iouBankCid
+  submit bank do exerciseCmd iouBankCid Archive
+  None <- queryIou bank iouBankCid
 
   -- Alice can't create IOUs that are backed by Acme Bank.
   submitMustFail alice do
-    create Iou with
+    createCmd Iou with
       issuer = bank
       owner = alice
       currency = "USD"
@@ -97,7 +105,7 @@ iou_test = scenario do
 
   -- Acme Bank can't create IOUs with a negative amount.
   submitMustFail bank do
-    create Iou with
+    createCmd Iou with
       issuer = bank
       owner = alice
       currency = "USD"
@@ -105,7 +113,7 @@ iou_test = scenario do
       observers = []
 
   submitMustFail bank do
-    create Iou with
+    createCmd Iou with
       issuer = bank
       owner = alice
       currency = "USD"
@@ -113,36 +121,39 @@ iou_test = scenario do
       observers = []
 
   -- SplitAmount needs to be between 0 and amount.
-  submitMustFail alice do exercise (snd split) Iou_Split with splitAmount = 80.0
+  submitMustFail alice do exerciseCmd (snd split) Iou_Split with splitAmount = 80.0
 
   -- Double spend gets prevented by archiving the contract.
-  submitMustFail alice do exercise (fst split) Iou_Transfer with newOwner = charlie
+  submitMustFail alice do exerciseCmd (fst split) Iou_Transfer with newOwner = charlie
 
   -- Similarly, a merged contract gets archived as well.
-  submitMustFail bank do exercise iouOtherCid Iou_Transfer with newOwner = charlie
+  submitMustFail bank do exerciseCmd iouOtherCid Iou_Transfer with newOwner = charlie
 
   -- Only the owner can exercise the transfer choice.
-  submitMustFail bank do exercise (snd split) Iou_Transfer with newOwner = charlie
+  submitMustFail bank do exerciseCmd (snd split) Iou_Transfer with newOwner = charlie
 
   -- Issuer can't archive something Bob owns.
-  submitMustFail bank do exercise (fst split) Archive
+  submitMustFail bank do exerciseCmd (fst split) Archive
 
   -- Issuer can't archive something Alice owns.
-  submitMustFail bank do exercise (snd split) Archive
+  submitMustFail bank do exerciseCmd (snd split) Archive
 
   -- Alice didn't disclose her remaining IOUs to Bob.
-  submitMustFail bob do fetch (snd split)
+  None <- queryIou bob (snd split)
 
   -- Only matching IOUs can be merged.
   iouTransferEURCid <- submit bank do
-    iouCid <- create Iou with
-      issuer = bank
-      owner = bank
-      currency = "EUR"
-      amount = 60.0
-      observers = []
-    exercise iouCid Iou_Transfer with newOwner = alice
+    createAndExerciseCmd
+      Iou with
+        issuer = bank
+        owner = bank
+        currency = "EUR"
+        amount = 60.0
+        observers = []
+      Iou_Transfer with
+        newOwner = alice
 
+  iouEURCid <- submit alice do
+    exerciseCmd iouTransferEURCid IouTransfer_Accept
   submitMustFail alice do
-    iouEURCid <- exercise iouTransferEURCid IouTransfer_Accept
-    exercise (snd split) Iou_Merge with otherCid = iouEURCid
+    exerciseCmd (snd split) Iou_Merge with otherCid = iouEURCid
