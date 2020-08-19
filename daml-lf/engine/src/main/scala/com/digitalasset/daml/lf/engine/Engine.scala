@@ -55,7 +55,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       if (config.stackTraceMode) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
     val profileMode =
       if (config.profileDir.isDefined) speedy.Compiler.FullProfile else speedy.Compiler.NoProfile
-    ConcurrentCompiledPackages(stacktraceMode, profileMode)
+    ConcurrentCompiledPackages(config.allowedLanguageVersions, stacktraceMode, profileMode)
   }
 
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
@@ -251,7 +251,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       case pkgId :: rest =>
         ResultNeedPackage(pkgId, {
           case Some(pkg) =>
-            addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
+            compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
           case None =>
             ResultError(Error(s"package $pkgId not found"))
         })
@@ -332,7 +332,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
           return Result.needPackage(
             pkgId,
             pkg => {
-              addPackage(pkgId, pkg).flatMap { _ =>
+              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                 callback(compiledPackages)
                 interpretLoop(machine, time)
               }
@@ -417,18 +417,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * be loaded.
     */
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
-    addPackage(pkgId, pkg)
-
-  private[engine] def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
-    if (config.allowedLanguageVersions.contains(pkg.languageVersion))
-      compiledPackages.addPackage(pkgId, pkg)
-    else
-      ResultError(
-        Error(
-          s"Disallowed language version in package $pkgId: " +
-            s"Expected version between ${config.allowedLanguageVersions.min} and ${config.allowedLanguageVersions.max} but got ${pkg.languageVersion}"
-        )
-      )
+    compiledPackages.addPackage(pkgId, pkg)
 
 }
 
