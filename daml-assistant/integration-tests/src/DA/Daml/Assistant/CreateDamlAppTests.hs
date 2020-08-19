@@ -3,6 +3,7 @@
 module DA.Daml.Assistant.CreateDamlAppTests (main) where
 
 import Control.Exception.Extra
+import Control.Concurrent (forkIO)
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.Extra.Merge
@@ -35,19 +36,27 @@ instance IsOption ProjectName where
     optionName = Tagged "project-name"
     optionHelp = Tagged "name of the project"
 
+npmCmd :: String -> String
+npmCmd args = "npm-cli.js " <> args <> " --registry http://localhost:4873"
+
 main :: IO ()
-main = withTempDir $ \yarnCache -> do
-    setEnv "YARN_CACHE_FOLDER" yarnCache True
+main = withTempDir $ \tmpDir -> do
     limitJvmMemory defaultJvmMemoryLimits
-    yarn : args <- getArgs
+    npm: verdaccio : args <- getArgs
     javaPath <- locateRunfiles "local_jdk/bin"
     oldPath <- getSearchPath
-    yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
+    npmPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> npm)
+    verdaccioPath <- locateRunfiles(mainWorkspace </> verdaccio)
+    verdaccioConfigPath <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "verdaccio-config.yaml")
+    verdaccioConfig <- readFile verdaccioConfigPath
+    writeFile (tmpDir </> "verdaccio-config.yaml") $ "storage: " <> (tmpDir </> "storage\n") <> verdaccioConfig
+    _pid <- forkIO $ callCommandSilent $ (init verdaccioPath) <> " --config " <> tmpDir </> "verdaccio-config.yaml"
     let ingredients = defaultIngredients ++ [includingOptions [Option @ProjectName Proxy]]
     withArgs args (withEnv
-        [ ("PATH", Just $ intercalate [searchPathSeparator] (javaPath : yarnPath : oldPath))
+        [ ("PATH", Just $ intercalate [searchPathSeparator] (javaPath : npmPath : oldPath))
         , ("TASTY_NUM_THREADS", Just "1")
         ] $ defaultMainWithIngredients ingredients tests)
+    -- killThread pid
 
 tests :: TestTree
 tests =
@@ -57,32 +66,33 @@ tests =
   where
     gettingStartedGuideTest projectName = testCaseSteps "Getting Started Guide" $ \step ->
       withTempDir $ \tmpDir -> do
+        step "Publish TypeScript libraries to local registry"
+        tsLibsRoot <- locateRunfiles $ mainWorkspace </> "language-support" </> "ts"
+        withCurrentDirectory tmpDir $ do
+          forM_ [DamlTypes, DamlLedger, DamlReact] $ \tsLib -> do
+            let tsLibName = tsLibraryName tsLib
+            let tsLibPath = tsLibsRoot </> tsLibName </> "npm_package"
+            callCommandSilent $ npmCmd $ "publish " <> tsLibPath
+
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
           callCommandSilent $ "daml new " <> projectName <> " --template create-daml-app"
         let cdaDir = tmpDir </> projectName
         -- First test the base application (without the user-added feature).
+        -- tsLibsRoot <- locateRunfiles $ mainWorkspace </> "language-support" </> "ts"
         withCurrentDirectory cdaDir $ do
           step "Build DAML model for base application"
           callCommandSilent "daml build"
-          step "Set up TypeScript libraries and Yarn workspaces for codegen"
-          setupYarnEnv tmpDir (Workspaces [projectName <> "/daml.js"]) [DamlTypes, DamlLedger]
           step "Run JavaScript codegen"
           callCommandSilent $ "daml codegen js -o daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
         assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
         withCurrentDirectory (cdaDir </> "ui") $ do
-          -- NOTE(MH): We set up the yarn env again to avoid having all the
-          -- dependencies of the UI already in scope when `daml2js` runs
-          -- `yarn install`. Some of the UI dependencies are a bit flaky to
-          -- install and might need some retries.
-          step "Set up libraries and workspaces again for UI build"
-          setupYarnEnv tmpDir (Workspaces [projectName <> "/ui"]) allTsLibraries
           step "Install dependencies for UI"
-          retry 3 (callCommandSilent "yarn install")
+          retry 3 (callCommandSilent $ npmCmd "install")
           step "Run linter"
-          callCommandSilent "yarn lint --max-warnings 0"
+          callCommandSilent $ npmCmd "lint --max-warnings 0"
           step "Build the application UI"
-          callCommandSilent "yarn build"
+          callCommandSilent $ npmCmd "run-script build"
         assertFileExists (cdaDir </> "ui" </> "build" </> "index.html")
 
         -- Now test that the messaging feature works by applying the necessary
@@ -99,32 +109,32 @@ tests =
           step "Build the new DAML model"
           callCommandSilent "daml build"
           step "Set up TypeScript libraries and Yarn workspaces for codegen again"
-          setupYarnEnv tmpDir (Workspaces [projectName <> "/daml.js"]) [DamlTypes, DamlLedger]
+          -- setupNpmEnv tmpDir (Workspaces [projectName <> "/daml.js"]) [DamlTypes, DamlLedger]
           step "Run JavaScript codegen for new DAML model"
           callCommandSilent $ "daml codegen js -o daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
         withCurrentDirectory (cdaDir </> "ui") $ do
           step "Set up libraries and workspaces again for UI build"
-          setupYarnEnv tmpDir (Workspaces [projectName <> "/ui"]) allTsLibraries
+          -- setupNpmEnv tmpDir (Workspaces [projectName <> "/ui"]) allTsLibraries
           step "Install UI dependencies again, forcing rebuild of generated code"
-          callCommandSilent "yarn install --force --frozen-lockfile"
+          callCommandSilent $ npmCmd "install --force --frozen-lockfile"
           step "Run linter again"
-          callCommandSilent "yarn lint --max-warnings 0"
+          callCommandSilent $ npmCmd "lint --max-warnings 0"
           step "Build the new UI"
-          callCommandSilent "yarn build"
+          callCommandSilent $ npmCmd " run-script build"
 
         -- Run end to end testing for the app.
         withCurrentDirectory (cdaDir </> "ui") $ do
           step "Install Jest, Puppeteer and other dependencies"
           extraDepsFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "testDeps.json")
           addTestDependencies (cdaDir </> "ui" </> "package.json") extraDepsFile
-          retry 3 (callCommandSilent "yarn install")
+          retry 3 (callCommandSilent $ npmCmd "install")
           step "Run Puppeteer end-to-end tests"
           testFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "index.test.ts")
           testFileContent <- T.readFileUtf8 testFile
           T.writeFileUtf8
               (cdaDir </> "ui" </> "src" </> "index.test.ts")
               (T.replace "create-daml-app" (T.pack projectName) testFileContent)
-          callCommandSilent "CI=yes yarn run test --ci --all"
+          callCommandSilent $ "CI=yes " <> npmCmd "run test --ci --all"
 
 addTestDependencies :: FilePath -> FilePath -> IO ()
 addTestDependencies packageJsonFile extraDepsFile = do
@@ -140,3 +150,4 @@ addTestDependencies packageJsonFile extraDepsFile = do
         case decode content of
             Nothing -> error ("Could not decode JSON object from " <> path)
             Just val -> return val
+

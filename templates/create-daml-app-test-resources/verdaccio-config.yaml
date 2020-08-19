@@ -1,0 +1,15 @@
+auth:
+  htpasswd:
+    file: ./htpasswd
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+packages:
+  '@daml/*':
+    access: $anonymous
+    publish: $anonymous
+  '**':
+    access: $all
+    proxy: npmjs
+logs:
+  - {type: stdout, format: pretty, level: http}

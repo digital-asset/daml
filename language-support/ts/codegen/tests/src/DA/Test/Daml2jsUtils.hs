@@ -4,6 +4,7 @@ module DA.Test.Daml2jsUtils (
     TsLibrary (..),
     Workspaces (..),
     allTsLibraries,
+    tsLibraryName,
     setupYarnEnv,
     ) where
 
@@ -16,9 +17,9 @@ import Data.Aeson
 import System.FilePath
 
 data TsLibrary
-    = DamlLedger
+    = DamlTypes
+    | DamlLedger
     | DamlReact
-    | DamlTypes
     deriving (Bounded, Enum)
 
 newtype Workspaces = Workspaces [FilePath]

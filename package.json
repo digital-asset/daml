@@ -4,7 +4,7 @@
   "description": "package for bazel-managed nodejs dependencies",
   "private": true,
   "version": "0.0.0",
-  "resolutions" : {
+  "resolutions": {
     "**/elliptic": "^6.5.3"
   },
   "dependencies": {
@@ -31,7 +31,8 @@
     "node-cache": "^4.2.0",
     "setprototypeof": "^1.2.0",
     "typescript": "3.7.4",
-    "url": "^0.11.0"
+    "url": "^0.11.0",
+    "verdaccio": "^4.8.1"
   },
   "devDependencies": {
     "@bazel/hide-bazel-files": "1.7.0",

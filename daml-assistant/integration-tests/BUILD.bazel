@@ -80,6 +80,7 @@ create_daml_app_resources = [
     "//templates:create-daml-app-test-resources/messaging.patch",
     "//templates:create-daml-app-test-resources/testDeps.json",
     "//templates:create-daml-app-test-resources/index.test.ts",
+    "//templates:create-daml-app-test-resources/verdaccio-config.yaml",
 ]
 
 da_haskell_library(
@@ -111,13 +112,13 @@ da_haskell_test(
         "src/DA/Daml/Assistant/IntegrationTests.hs",
     ],
     args = [
-        "$(location //:yarn)",
+        "$(location @nodejs//:npm_bin)",
     ],
     data = [
         ":integration-tests-mvn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
-        "//:yarn",
+        "@nodejs//:npm_bin",
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
@@ -165,7 +166,7 @@ da_haskell_library(
     data = [
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
-        "//:yarn",
+        "@nodejs//:npm_bin",
         "@patch_dev_env//:patch",
     ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
     hackage_deps = [
@@ -179,6 +180,7 @@ da_haskell_library(
         "tagged",
         "tasty",
         "tasty-hunit",
+        "unordered-containers"
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -194,8 +196,8 @@ da_haskell_test(
     name = "create-daml-app-tests",
     timeout = "long",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
-    args = ["$(location //:yarn)"],
-    data = ["//:yarn"],
+    args = ["$(location @nodejs//:npm_bin)", "$(location @npm//verdaccio/bin:verdaccio))"],
+    data = ["@nodejs//:npm_bin", "@npm//verdaccio/bin:verdaccio"],
     hackage_deps = ["base"],
     main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
     # Exclusive until we stop hardcoding port numbers in index.test.ts
@@ -208,11 +210,11 @@ da_haskell_test(
     timeout = "long",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
     args = [
-        "$(location //:yarn)",
+        "$(location //:npm)",
         "--project-name",
         "not-create-daml-app",
     ],
-    data = ["//:yarn"],
+    data = ["//:npm"],
     hackage_deps = ["base"],
     main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
     # Exclusive until we stop hardcoding port numbers in index.test.ts
