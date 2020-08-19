@@ -64,6 +64,18 @@ class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMatchers 
         retryCount should be(0)
       }
     }
+
+    "fail immediately if a negative number of attempts should be made" in {
+      val retry = RetryStrategy.constant(attempts = -7, waitTime = 10.milliseconds)
+      for {
+        (retryCount, result, _) <- succeedAfter(tries = 1, retry)
+      } yield {
+        inside(result) {
+          case Failure(_: RetryStrategy.ZeroAttemptsException) =>
+        }
+        retryCount should be(0)
+      }
+    }
   }
 
   "RetryStrategy.exponentialBackoff" should {

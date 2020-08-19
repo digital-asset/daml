@@ -40,7 +40,7 @@ object RetryStrategy {
     new RetryStrategy(attempts, waitTime, waitTime, identity, predicate)
 
   final class ZeroAttemptsException
-      extends RuntimeException("Cannot retry an operation with zero attempts.")
+      extends RuntimeException("Cannot retry an operation with zero or negative attempts.")
 
 }
 
@@ -55,7 +55,7 @@ final class RetryStrategy private (
   private def clip(t: Duration): Duration = t.min(waitTimeCap).max(0.millis)
 
   def apply[A](run: (Int, Duration) => Future[A])(implicit ec: ExecutionContext): Future[A] =
-    if (attempts.contains(0)) {
+    if (attempts.exists(_ <= 0)) {
       Future.failed(new ZeroAttemptsException)
     } else {
       def go(attempt: Int, wait: Duration): Future[A] = {
