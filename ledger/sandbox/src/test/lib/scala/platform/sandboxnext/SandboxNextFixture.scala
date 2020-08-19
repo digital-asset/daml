@@ -29,7 +29,7 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
         // share an index. As you can imagine, this causes all manner of issues, the most important
         // of which is that the ledger and index databases will be out of sync.
         jdbcUrl <- database
-          .getOrElse(SandboxBackend.H2Database.Owner)
+          .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => Some(info.jdbcUrl))
         port <- new Runner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(port)
