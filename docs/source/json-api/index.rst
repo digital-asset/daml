@@ -92,7 +92,7 @@ Access Tokens
 The JSON API essentially performs two separate tasks:
 
 1. It talks to the Ledger API to get data it needs to operate, for this it may need to *provide an access token* if your Ledger requires authentication. Learn more in the :doc:`/app-dev/authorization` docs.
-2. It passes requests coming from one or more Parties to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
+2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
 .. note:: By default, the DAML Sandbox does not does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
 
@@ -141,8 +141,9 @@ For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
 
-The value for ``actAs`` is specified as a list and you provide it with one party that you want to use.
-Such as the example which uses ``Alice`` for a party.
+The value for ``actAs`` is specified as a list and you provide it with the party that you want to use.
+Such as the example which uses ``Alice`` for a party. Each request can only be for one party.
+For example you couldn't have ``actAs`` defined as ``["Alice", "Bob"]``.
 
 For the Sandbox any string will create use a party with that name if it exists, 
 or create it if it does not. This is known as "implicit party allocation" and is unique to the Sandbox.
