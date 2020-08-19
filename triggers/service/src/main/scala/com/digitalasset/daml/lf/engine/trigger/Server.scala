@@ -419,12 +419,13 @@ object Server {
         }
         .receiveSignal {
           case (_, PostStop) =>
+            ctx.log.info(s"s11 PostStop closing running $dao")
             discard[Try[Unit]](Try(dao.close()))
             // TODO SC until this future returns, connections may still be accepted. Consider
             // coordinating this future with the actor in some way, or use addToCoordinatedShutdown
             // (though I have a feeling it will not work out so neatly)
             discard[Future[akka.Done]](binding.unbind())
-            Behaviors.same
+            sys.exit(42) //Behaviors.same
         }
 
     // The server starting state.
@@ -466,8 +467,9 @@ object Server {
         }
         .receiveSignal {
           case (_, PostStop) =>
+            ctx.log.info(s"s11 PostStop closing starting $dao")
             discard[Try[Unit]](Try(dao.close()))
-            Behaviors.same
+            sys.exit(42) //Behaviors.same
         }
 
     // The server binding is a future that on completion will be piped
