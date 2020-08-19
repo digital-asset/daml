@@ -12,5 +12,11 @@ create table running_triggers(
   full_trigger_name text not null
 );
 
+-- Dalf table with binary package data.
+create table dalfs(
+  package_id text primary key,
+  package bytea not null
+);
+
 -- Index for efficiently listing running triggers for a particular party.
 create index triggers_by_party on running_triggers(party_token);

@@ -18,7 +18,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.postgres.implicits._
 import doobie.util.log
-import doobie.{LogHandler, Transactor, _}
+import doobie.{Fragment, Transactor}
 
 import java.io.{Closeable, IOException}
 import javax.sql.DataSource
@@ -66,21 +66,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   private implicit val logHandler: log.LogHandler = log.LogHandler.jdkLogHandler
 
-  val flywayMigrations = new DbFlywayMigrations(dataSource) // TODO SC make private
+  private[this] val flywayMigrations = new DbFlywayMigrations(dataSource)
 
-  private def createTables(implicit logHandler: LogHandler): ConnectionIO[Unit] = {
-
-    // Dalf table with binary package data.
-    val createDalfTable: Fragment = sql"""
-        create table dalfs(
-          package_id text primary key,
-          package bytea not null
-        )
-      """
-
-    (flywayMigrations.migrate()
-      *> createDalfTable.update.run).void
-  }
+  private def createTables: ConnectionIO[Unit] =
+    flywayMigrations.migrate()
 
   // NOTE(RJR) Interpolation in `sql` literals:
   // Doobie provides a `Put` typeclass that allows us to interpolate values of various types in our
@@ -211,7 +200,7 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   info(s"s11 init $this")
 
   def initialize: Either[String, Unit] =
-    run(createTables(logHandler), "Failed to initialize database.")
+    run(createTables, "Failed to initialize database.")
 
   private[trigger] def destroy(): Either[String, Unit] =
     run(dropTables, "Failed to remove database objects.")
