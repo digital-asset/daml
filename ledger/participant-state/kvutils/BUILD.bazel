@@ -194,6 +194,7 @@ da_java_proto_library(
         # Test for checking the integrity of the ledger export produced above.
         integrity_test(
             name = "%s-integrity-test" % name,
+            size = "small",
             checker = checker,
             dump = ":%s" % name,
         ) if not is_windows else None,
