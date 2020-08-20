@@ -11,7 +11,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
-import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
+import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.domain
@@ -95,100 +95,40 @@ private class JdbcLedgerDao(
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
-
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.getLedgerId) { implicit conn =>
-        SQL_SELECT_LEDGER_ID
-          .as(ledgerString("ledger_id").map(id => LedgerId(id.toString)).singleOpt)
-      }
-
-  private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
+    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerId)(ParametersTable.getLedgerId)
 
   /**
     * Defaults to Offset.begin if ledger_end is unset
     */
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd) { implicit conn =>
-      SQL_SELECT_LEDGER_END
-        .as(offset("ledger_end").?.map(_.getOrElse(Offset.beforeBegin)).single)
-    }
-
-  private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select ledger_end from parameters")
+    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(ParametersTable.getLedgerEnd)
 
   override def lookupInitialLedgerEnd()(
       implicit loggingContext: LoggingContext,
   ): Future[Option[Offset]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getInitialLedgerEnd) { implicit conn =>
-      SQL_SELECT_INITIAL_LEDGER_END
-        .as(offset("ledger_end").?.single)
-    }
-
-  private val SQL_INITIALIZE = SQL("insert into parameters(ledger_id) VALUES({LedgerId})")
+    dbDispatcher.executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
+      ParametersTable.getInitialLedgerEnd
+    )
 
   override def initializeLedger(ledgerId: LedgerId)(
       implicit loggingContext: LoggingContext,
   ): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) { implicit conn =>
-      val _ = SQL_INITIALIZE
-        .on("LedgerId" -> ledgerId.unwrap)
-        .execute()
-      ()
-    }
-
-  // Note that the ledger entries grow monotonically, however we store many ledger entries in parallel,
-  // and thus we need to make sure to only update the ledger end when the ledger entry we're committing
-  // is advancing it.
-  private val SQL_UPDATE_LEDGER_END = SQL(
-    "update parameters set ledger_end = {LedgerEnd} where (ledger_end is null or ledger_end < {LedgerEnd})")
-
-  private def updateLedgerEnd(ledgerEnd: Offset)(implicit conn: Connection): Unit = {
-    SQL_UPDATE_LEDGER_END
-      .on("LedgerEnd" -> ledgerEnd)
-      .execute()
-    ()
-  }
-
-  private val SQL_UPDATE_CURRENT_CONFIGURATION = SQL(
-    "update parameters set configuration={configuration}"
-  )
-  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL(
-    "select ledger_end, configuration from parameters")
+    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters)(
+      ParametersTable.setLedgerId(ledgerId.unwrap)
+    )
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
     "select * from configuration_entries where ledger_offset > {startExclusive} and ledger_offset <= {endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
-  private def updateCurrentConfiguration(configBytes: Array[Byte])(
-      implicit conn: Connection): Unit = {
-    SQL_UPDATE_CURRENT_CONFIGURATION
-      .on("configuration" -> configBytes)
-      .execute()
-    ()
-  }
-
-  private val currentConfigurationParser: ResultSetParser[Option[(Offset, Configuration)]] =
-    (offset("ledger_end").? ~
-      byteArray("configuration").? map flatten).single
-      .map {
-        case (Some(offset), Some(configBytes)) =>
-          Configuration
-            .decode(configBytes)
-            .toOption
-            .map(config => offset -> config)
-        case _ => None
-      }
-
-  private def selectLedgerConfiguration(implicit conn: Connection) =
-    SQL_SELECT_CURRENT_CONFIGURATION.as(currentConfigurationParser)
-
   override def lookupLedgerConfiguration()(
       implicit loggingContext: LoggingContext,
   ): Future[Option[(Offset, Configuration)]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(implicit conn =>
-      selectLedgerConfiguration)
+    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
+      ParametersTable.getLedgerEndAndConfiguration
+    )
 
   private val acceptType = "accept"
   private val rejectType = "reject"
@@ -259,7 +199,7 @@ private class JdbcLedgerDao(
     dbDispatcher.executeSql(
       metrics.daml.index.db.storeConfigurationEntryDbMetrics,
     ) { implicit conn =>
-      val optCurrentConfig = selectLedgerConfiguration
+      val optCurrentConfig = ParametersTable.getLedgerEndAndConfiguration(conn)
       val optExpectedGeneration: Option[Long] =
         optCurrentConfig.map { case (_, c) => c.generation + 1 }
       val finalRejectionReason: Option[String] =
@@ -278,7 +218,7 @@ private class JdbcLedgerDao(
             rejectionReason
         }
 
-      updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offset)
       val configurationBytes = Configuration.encode(configuration).toByteArray
       val typ = if (finalRejectionReason.isEmpty) {
         acceptType
@@ -299,7 +239,7 @@ private class JdbcLedgerDao(
           .execute()
 
         if (typ == acceptType) {
-          updateCurrentConfiguration(configurationBytes)
+          ParametersTable.updateConfiguration(configurationBytes)
         }
 
         PersistenceResponse.Ok
@@ -329,7 +269,7 @@ private class JdbcLedgerDao(
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offset)
 
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
@@ -496,7 +436,7 @@ private class JdbcLedgerDao(
         }
         Timed.value(
           metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-          updateLedgerEnd(offset)
+          ParametersTable.updateLedgerEnd(offset)
         )
         Ok
       }
@@ -513,7 +453,7 @@ private class JdbcLedgerDao(
         stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
         prepareRejectionInsert(info, offset, recordTime, reason).execute()
       }
-      updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offset)
       Ok
     }
 
@@ -554,7 +494,7 @@ private class JdbcLedgerDao(
                 ).execute()
             }
         }
-        updateLedgerEnd(newLedgerEnd)
+        ParametersTable.updateLedgerEnd(newLedgerEnd)
     }
 
   private def toParticipantRejection(reason: domain.RejectionReason): RejectionReason =
@@ -700,7 +640,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
-        updateLedgerEnd(offset)
+        ParametersTable.updateLedgerEnd(offset)
 
         if (packages.nonEmpty) {
           val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
