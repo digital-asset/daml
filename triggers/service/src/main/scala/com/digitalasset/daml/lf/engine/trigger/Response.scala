@@ -40,14 +40,15 @@ object Response {
 
   // Trigger status messages have timestamps for which this is the
   // formatter.
-  object LocalDateTimeJsonFormat extends RootJsonFormat[LocalDateTime] {
-    override def write(dt: LocalDateTime) =
-      JsString(dt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+  implicit val LocalDateTimeJsonFormat: RootJsonFormat[LocalDateTime] =
+    new RootJsonFormat[LocalDateTime] {
+      override def write(dt: LocalDateTime) =
+        JsString(dt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
 
-    override def read(json: JsValue): LocalDateTime = json match {
-      case JsString(s) => LocalDateTime.parse(s, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-      case _ => throw new DeserializationException("Decode local datetime failed")
+      override def read(json: JsValue): LocalDateTime = json match {
+        case JsString(s) => LocalDateTime.parse(s, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        case _ => throw new DeserializationException("Decode local datetime failed")
+      }
     }
-  }
 
 }

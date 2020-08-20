@@ -5,7 +5,7 @@ package com.daml.lf.engine.trigger
 
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import spray.json.DefaultJsonProtocol._
-import spray.json.{JsString, JsValue, JsonFormat, deserializationError}
+import spray.json.{JsString, JsValue, JsonFormat, RootJsonFormat, deserializationError}
 
 object Request {
   implicit object IdentifierFormat extends JsonFormat[Identifier] {
@@ -30,6 +30,8 @@ object Request {
     def write(id: Identifier): JsValue = JsString(id.toString)
   }
 
-  case class StartParams(triggerName: Identifier)
-  implicit val startParamsFormat = jsonFormat1(StartParams)
+  final case class StartParams(triggerName: Identifier)
+  object StartParams extends (Identifier => StartParams) {
+    implicit val startParamsFormat: RootJsonFormat[StartParams] = jsonFormat1(StartParams)
+  }
 }

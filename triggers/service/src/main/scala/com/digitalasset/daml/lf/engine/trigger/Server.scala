@@ -254,7 +254,6 @@ class Server(
         },
         // Produce logs for the given trigger.
         pathPrefix("v1" / "status" / JavaUUID) { uuid =>
-          implicit val dateTimeFormat: RootJsonFormat[LocalDateTime] = LocalDateTimeJsonFormat
           complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
         }
       )
