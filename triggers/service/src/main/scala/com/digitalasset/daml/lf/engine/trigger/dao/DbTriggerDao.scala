@@ -60,8 +60,7 @@ object Connection {
 }
 
 final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Connection.T)
-    extends RunningTriggerDao
-    with StrictLogging {
+    extends RunningTriggerDao {
 
   private implicit val logHandler: log.LogHandler = log.LogHandler.jdkLogHandler
 
@@ -195,19 +194,14 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     )
   }
 
-  import logger.info
-  info(s"s11 init $this")
-
   def initialize: Either[String, Unit] =
     run(createTables, "Failed to initialize database.")
 
   private[trigger] def destroy(): Either[String, Unit] =
     run(dropTables, "Failed to remove database objects.")
 
-  private[trigger] def destroyPermanently(): Try[Unit] = {
-    info(s"s11 close $this $dataSource")
+  private[trigger] def destroyPermanently(): Try[Unit] =
     Try(dataSource.close())
-  }
 
   @throws[IOException]
   override def close() =
