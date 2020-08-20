@@ -31,7 +31,7 @@ class DevModeIT
   private[this] implicit val esf: ExecutionSequencerFactory =
     new SingleThreadExecutionSequencerPool("testSequencerPool")
 
-  val List(stableDar, devDar) =
+  private[this] val List(stableDar, devDar) =
     List("1.8", "1.dev").map { s =>
       Paths.get(rlocation(s"daml-lf/encoder/test-$s.dar"))
     }
@@ -54,7 +54,7 @@ class DevModeIT
         devMode = devMode,
       ))
 
-  def buildRequest(pkgId: String, ledgerId: LedgerId) = {
+  private[this] def buildRequest(pkgId: String, ledgerId: LedgerId) = {
     import scalaz.syntax.tag._
     val party = "Alice"
     val tmplId = Some(Identifier(pkgId, "UnitMod", "Box"))
@@ -81,40 +81,41 @@ class DevModeIT
         )))
   }
 
-  private[this] def test(darPath: Path, server: SandboxServer) =
+  private[this] def run(darPath: Path, server: SandboxServer) =
     (
       for {
         channel <- GrpcClientResource.owner(server.port).acquire().asFuture
         client <- ledger.client.LedgerClient.apply(channel, ledgerClientConfiguration)
         darContent = protobuf.ByteString.copyFrom(Files.readAllBytes(darPath))
+        pkgsBefore <- client.packageManagementClient.listKnownPackages()
+        _ = pkgsBefore shouldBe 'empty
         _ <- client.packageManagementClient.uploadDarFile(darContent)
-        pkgs <- client.packageManagementClient.listKnownPackages()
-        request = buildRequest(pkgs.head.packageId, client.ledgerId)
+        pkgsAfter <- client.packageManagementClient.listKnownPackages()
+        _ = pkgsAfter.size shouldBe 1
+        // Uploading the package is not enough.
+        // We have to submit a request that forces the engine to load the package.
+        request = buildRequest(pkgsAfter.head.packageId, client.ledgerId)
         resp <- client.commandServiceClient.submitAndWaitForTransactionId(request)
       } yield Success(resp.transactionId)
     ).recover { case x => Failure(x) }
 
   "SandboxServer" should {
 
-    "accept stable DAML LF when devMode is disable" in {
-      buildServer(devMode = false).use(test(stableDar, _)).map(_ shouldBe a[Success[_]])
-    }
+    "accept stable DAML LF when devMode is disable" in
+      buildServer(devMode = false).use(run(devDar, _)).map(_ shouldBe a[Success[_]])
 
-    "accept stable DAML LF when devMode is enable" in {
-      buildServer(devMode = true).use(test(stableDar, _)).map(_ shouldBe a[Success[_]])
-    }
+    "accept stable DAML LF when devMode is enable" in
+      buildServer(devMode = true).use(run(stableDar, _)).map(_ shouldBe a[Success[_]])
 
-    "reject dev DAML LF when devMode is disable" in {
-      buildServer(devMode = false).use(test(devDar, _)).map { res =>
+    "reject dev DAML LF when devMode is disable" in
+      buildServer(devMode = false).use(run(devDar, _)).map { res =>
         res shouldBe a[Failure[_]]
         res.asInstanceOf[Failure[Nothing]].exception.getMessage should include(
           "Disallowed language version")
       }
-    }
 
-    "accept dev DAML LF when devMode is enable" in {
-      buildServer(devMode = true).use(test(devDar, _)).map(_ shouldBe a[Success[_]])
-    }
+    "accept dev DAML LF when devMode is enable" in
+      buildServer(devMode = true).use(run(devDar, _)).map(_ shouldBe a[Success[_]])
 
   }
 
