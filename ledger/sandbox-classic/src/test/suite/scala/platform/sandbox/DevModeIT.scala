@@ -21,7 +21,7 @@ import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.ports.Port
 import com.google.protobuf
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 class DevModeIT
     extends org.scalatest.AsyncWordSpec
@@ -91,7 +91,7 @@ class DevModeIT
         pkgs <- client.packageManagementClient.listKnownPackages()
         request = buildRequest(pkgs.head.packageId, client.ledgerId)
         resp <- client.commandServiceClient.submitAndWaitForTransactionId(request)
-      } yield Try(resp.transactionId)
+      } yield Success(resp.transactionId)
     ).recover { case x => Failure(x) }
 
   "SandboxServer" should {
