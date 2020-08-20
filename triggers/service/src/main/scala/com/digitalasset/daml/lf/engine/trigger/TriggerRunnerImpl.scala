@@ -28,7 +28,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import java.util.UUID
 
 object TriggerRunnerImpl {
-  case class Config(
+  final case class Config(
       server: ActorRef[Message],
       triggerInstance: UUID,
       credentials: UserCredentials,
