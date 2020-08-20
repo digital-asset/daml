@@ -9,7 +9,7 @@ def _integrity_test_impl(ctx):
 set -eux
 {checker} $(rlocation "$TEST_WORKSPACE/{dump}")
 """.format(
-            checker = ctx.executable._checker.short_path,
+            checker = ctx.executable.checker.short_path,
             dump = ctx.file.dump.short_path,
         ),
         is_executable = True,
@@ -17,7 +17,7 @@ set -eux
     runfiles = ctx.runfiles(
         files = [wrapper, ctx.file.dump],
     )
-    runfiles = runfiles.merge(ctx.attr._checker[DefaultInfo].default_runfiles)
+    runfiles = runfiles.merge(ctx.attr.checker[DefaultInfo].default_runfiles)
     return DefaultInfo(
         executable = wrapper,
         files = depset([wrapper]),
@@ -29,11 +29,7 @@ integrity_test = rule(
     test = True,
     executable = True,
     attrs = {
-        "_checker": attr.label(
-            cfg = "host",
-            executable = True,
-            default = Label("@//ledger/participant-state/kvutils/tools:integrity-check"),
-        ),
+        "checker": attr.label(cfg = "host", executable = True),
         "dump": attr.label(allow_single_file = True),
     },
 )
