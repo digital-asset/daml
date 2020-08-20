@@ -4,7 +4,6 @@
 package com.daml.lf.engine.trigger
 
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
