@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.SynchronousCommandClient
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.lf.data.Ref.Party
-import com.daml.platform.sandbox.SandboxRequiringAuthentication
+import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.timer.Delayed
 import org.scalatest.{AsyncFlatSpec, Matchers}
@@ -36,7 +36,7 @@ import scala.util.{Failure, Success}
 final class AuthSpec
     extends AsyncFlatSpec
     with SandboxFixture
-    with SandboxRequiringAuthentication
+    with SandboxRequiringAuthorization
     with SuiteResourceManagementAroundAll
     with Matchers
     with TestCommands {

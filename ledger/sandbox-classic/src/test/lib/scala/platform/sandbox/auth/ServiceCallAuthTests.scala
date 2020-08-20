@@ -11,7 +11,7 @@ import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.platform.sandbox.SandboxRequiringAuthentication
+import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.services.SandboxFixture
 import io.grpc.Status
 import io.grpc.stub.AbstractStub
@@ -23,7 +23,7 @@ import scala.util.control.NonFatal
 trait ServiceCallAuthTests
     extends AsyncFlatSpec
     with SandboxFixture
-    with SandboxRequiringAuthentication
+    with SandboxRequiringAuthorization
     with SuiteResourceManagementAroundAll
     with Matchers {
 

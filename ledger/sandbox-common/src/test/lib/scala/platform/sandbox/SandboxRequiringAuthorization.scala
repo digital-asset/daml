@@ -18,7 +18,7 @@ import com.daml.ledger.api.domain.LedgerId
 import org.scalatest.Suite
 import scalaz.syntax.tag.ToTagOps
 
-trait SandboxRequiringAuthentication {
+trait SandboxRequiringAuthorization {
   self: Suite with AbstractSandboxFixture =>
 
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""

@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerMsg
-import com.daml.platform.sandbox.SandboxRequiringAuthentication
+import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.services.SandboxFixture
 import org.scalatest._
 
@@ -19,7 +19,7 @@ class Jwt
     extends AsyncWordSpec
     with AbstractTriggerTest
     with SandboxFixture
-    with SandboxRequiringAuthentication
+    with SandboxRequiringAuthorization
     with Matchers
     with SuiteResourceManagementAroundAll
     with TryValues {
