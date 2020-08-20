@@ -1,0 +1,18 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Tests.Helper where
+
+import Iou
+
+template Helper
+  with
+    party : Party
+  where
+    signatory party
+    controller party can
+      FetchIou : Iou
+        with
+          cid : IouCid
+        do
+          fetch cid

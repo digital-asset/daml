@@ -9,7 +9,7 @@ import Daml.Script
 
 import Iou
 
-import Tests.QueryIou
+import Tests.Helper
 
 iou_test = do
   bank <- allocateParty "Acme Bank"
@@ -65,7 +65,8 @@ iou_test = do
 
   -- Assert things are as they should be.
   do
-    Some aliceIou <- queryIou alice (snd split)
+    aliceIou <- submit alice do
+      createAndExerciseCmd (Helper alice) (FetchIou (snd split))
     assert $ aliceIou == Iou with
       issuer = bank
       owner = alice
@@ -74,7 +75,8 @@ iou_test = do
       observers = []
 
   do
-    Some bobIou <- queryIou bob iouTotalCid
+    bobIou <- submit bob do
+      createAndExerciseCmd (Helper bob) (FetchIou iouTotalCid)
     assert $ bobIou == Iou with
       issuer = bank
       owner = bob
@@ -92,7 +94,8 @@ iou_test = do
       observers = []
 
   submit bank do exerciseCmd iouBankCid Archive
-  None <- queryIou bank iouBankCid
+  submitMustFail bank do
+    createAndExerciseCmd (Helper bank) (FetchIou iouBankCid)
 
   -- Alice can't create IOUs that are backed by Acme Bank.
   submitMustFail alice do
@@ -139,7 +142,8 @@ iou_test = do
   submitMustFail bank do exerciseCmd (snd split) Archive
 
   -- Alice didn't disclose her remaining IOUs to Bob.
-  None <- queryIou bob (snd split)
+  submitMustFail bob do
+    createAndExerciseCmd (Helper bob) (FetchIou (snd split))
 
   -- Only matching IOUs can be merged.
   iouTransferEURCid <- submit bank do
