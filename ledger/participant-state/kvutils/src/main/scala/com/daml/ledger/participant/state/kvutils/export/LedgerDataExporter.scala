@@ -20,7 +20,8 @@ trait LedgerDataExporter {
       submissionEnvelope: ByteString,
       correlationId: String,
       recordTimeInstant: Instant,
-      participantId: ParticipantId): Unit
+      participantId: ParticipantId,
+  ): Unit
 
   /**
     * Establishes parent-child relation between two correlation IDs.

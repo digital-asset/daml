@@ -28,11 +28,12 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
   private[export] val bufferedKeyValueDataPerCorrelationId =
     mutable.Map.empty[String, mutable.ListBuffer[(Key, Value)]]
 
-  def addSubmission(
+  override def addSubmission(
       submissionEnvelope: ByteString,
       correlationId: String,
       recordTimeInstant: Instant,
-      participantId: ParticipantId): Unit =
+      participantId: ParticipantId,
+  ): Unit =
     this.synchronized {
       inProgressSubmissions.put(
         correlationId,
@@ -40,13 +41,13 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
       ()
     }
 
-  def addParentChild(parentCorrelationId: String, childCorrelationId: String): Unit =
+  override def addParentChild(parentCorrelationId: String, childCorrelationId: String): Unit =
     this.synchronized {
       correlationIdMapping.put(childCorrelationId, parentCorrelationId)
       ()
     }
 
-  def addToWriteSet(correlationId: String, data: Iterable[(Key, Value)]): Unit =
+  override def addToWriteSet(correlationId: String, data: Iterable[(Key, Value)]): Unit =
     this.synchronized {
       correlationIdMapping
         .get(correlationId)
@@ -58,7 +59,7 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
         }
     }
 
-  def finishedProcessing(correlationId: String): Unit = {
+  override def finishedProcessing(correlationId: String): Unit = {
     val (submissionInfo, bufferedData) = this.synchronized {
       (
         inProgressSubmissions.get(correlationId),
