@@ -4,7 +4,6 @@
 package com.daml.lf.engine.trigger
 
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
@@ -36,7 +35,7 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
@@ -322,22 +321,22 @@ object Server {
           }
       }
 
-    if (initDb) jdbcConfig match {
+    if (initDb) sys.exit(jdbcConfig match {
       case None =>
         ctx.log.error("No JDBC configuration for database initialization.")
-        sys.exit(1)
+        1
       case Some(c) =>
         DbTriggerDao(c).initialize match {
           case Left(err) =>
             ctx.log.error(err)
-            sys.exit(1)
+            1
           case Right(()) =>
             ctx.log.info("Successfully initialized database.")
-            sys.exit(0)
+            0
         }
-    }
+    })
 
-    val (_, server): (RunningTriggerDao, Server) = jdbcConfig match {
+    val (dao, server): (RunningTriggerDao, Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
         val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
@@ -346,6 +345,7 @@ object Server {
         val dao = DbTriggerDao(c)
         val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
         val recovery: Either[String, Unit] = for {
+          _ <- dao.initialize
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers
@@ -417,16 +417,13 @@ object Server {
               binding.localAddress.getHostString,
               binding.localAddress.getPort,
             )
-            Behaviors.stopped // Automatically stops all actors.
-        }
-        .receiveSignal {
-          case (_, PostStop) =>
             // TODO SC until this future returns, connections may still be accepted. Consider
             // coordinating this future with the actor in some way, or use addToCoordinatedShutdown
             // (though I have a feeling it will not work out so neatly)
             discard[Future[akka.Done]](binding.unbind())
-            Behaviors.same
-        }
+            discard[Try[Unit]](Try(dao.close()))
+            Behaviors.stopped // Automatically stops all actors.
+        } // receiveSignal PostStop does not work, see #7092 20c1f241d5
 
     // The server starting state.
     def starting(

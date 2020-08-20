@@ -10,7 +10,7 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.{RunningTrigger, UserCredentials}
 
-class InMemoryTriggerDao extends RunningTriggerDao {
+final class InMemoryTriggerDao extends RunningTriggerDao {
   private var triggers: Map[UUID, RunningTrigger] = Map.empty
   private var triggersByParty: Map[UserCredentials, Set[UUID]] = Map.empty
 
@@ -37,6 +37,8 @@ class InMemoryTriggerDao extends RunningTriggerDao {
   // This is only possible when running with persistence. For in-memory mode we do nothing.
   override def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] =
     Right(())
+
+  override def close() = ()
 }
 
 object InMemoryTriggerDao {
