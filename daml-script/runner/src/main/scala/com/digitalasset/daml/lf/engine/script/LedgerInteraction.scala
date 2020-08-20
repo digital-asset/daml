@@ -403,8 +403,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
             machine.ptx.finish(
               machine.outputTransactionVersions,
               machine.compiledPackages.packageLanguageVersion) match {
-              case Left(x) => result = Failure(new RuntimeException(s"Unexpected abort: $x"))
-              case Right(tx) =>
+              case Right(Right(tx)) =>
                 val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
                   tx.nodes(n) match {
                     case create: NodeCreate.WithTxValue[ContractId] =>
@@ -434,6 +433,10 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                     // Capture the result and exit.
                     result = Success(Right(results.toSeq))
                 }
+              case Right(Left(x)) =>
+                result = Failure(new RuntimeException(s"Unexpected abort: $x"))
+              case Left(msg) =>
+                result = Failure(new RuntimeException(msg))
             }
           case SResultFinalValue(v) =>
             // The final result should always be unit.
