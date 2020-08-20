@@ -92,6 +92,16 @@ steps:
       bazel build //ledger-service/http-json:http-json-binary_deploy.jar
       cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $(Build.StagingDirectory)/$JSON_API
       echo "##vso[task.setvariable variable=json-api;isOutput=true]$JSON_API"
+
+      TRIGGER=daml-trigger-runner-${{parameters.release_tag}}.jar
+      bazel build //triggers/runner:trigger-runner_deploy.jar
+      cp bazel-bin/triggers/runner/trigger-runner_deploy.jar $(Build.StagingDirectory)/$TRIGGER
+      echo "##vso[task.setvariable variable=trigger-runner;isOutput=true]$TRIGGER"
+
+      SCRIPT=daml-script-${{parameters.release_tag}}.jar
+      bazel build //daml-script/runner:script-runner_deploy.jar
+      cp bazel-bin/daml-script/runner/script-runner_deploy.jar $(Build.StagingDirectory)/$SCRIPT
+      echo "##vso[task.setvariable variable=script-runner;isOutput=true]$SCRIPT"
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
@@ -125,6 +135,22 @@ steps:
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.json-api)
       artifactName: $(publish.json-api)
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'),
+                   eq('${{parameters.name}}', 'linux'))
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.trigger-runner)
+      artifactName: $(publish.trigger-runner)
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'),
+                   eq('${{parameters.name}}', 'linux'))
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.script-runner)
+      artifactName: $(publish.script-runner)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'),
