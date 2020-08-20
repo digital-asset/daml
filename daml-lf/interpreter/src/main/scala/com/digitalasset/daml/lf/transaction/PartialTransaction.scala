@@ -129,7 +129,9 @@ private[lf] object PartialTransaction {
   sealed abstract class Result extends Product with Serializable
   final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
-  final case class SerializationError(msg: String) extends Result
+  final case class SerializationError(msg: String) extends Result {
+    def prettyMessage: String = s"Cannot serialize the transaction: $msg"
+  }
 
 }
 

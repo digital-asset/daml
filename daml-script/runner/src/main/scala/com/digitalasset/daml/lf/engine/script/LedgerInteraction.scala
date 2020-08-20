@@ -430,8 +430,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                 }
               case PartialTransaction.IncompleteTransaction(ptx) =>
                 throw new RuntimeException(s"Unexpected abort: $ptx")
-              case PartialTransaction.SerializationError(msg) =>
-                throw new RuntimeException(msg)
+              case err: PartialTransaction.SerializationError =>
+                throw new RuntimeException(err.prettyMessage)
             }
           case SResultFinalValue(v) =>
             // The final result should always be unit.
