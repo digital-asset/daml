@@ -379,9 +379,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       machine.outputTransactionVersions,
       compiledPackages.packageLanguageVersion,
     ) match {
-      case Left(p) =>
-        ResultError(Error(s"Interpretation error: ended with partial result: $p"))
-      case Right(tx) =>
+      case Right(Right(tx)) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
           submissionTime = machine.ptx.submissionTime,
@@ -398,6 +396,10 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
           machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
+      case Right(Left(p)) =>
+        ResultError(Error(s"Interpretation error: ended with partial result: $p"))
+      case Left(s) =>
+        ResultError(Error(s))
     }
   }
 

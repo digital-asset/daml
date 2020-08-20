@@ -18,7 +18,7 @@ import io.grpc.{Status, StatusRuntimeException}
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 import scalaz.{-\/, \/-}
 import scalaz.std.either._
 import scalaz.std.list._
@@ -380,31 +380,24 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer)
-    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
+    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
     try {
       machine.returnValue = null
       val translated = translateCommands(commands)
       machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
       machine.committers = Set(party.value)
-      var result: Try[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = null
+      var result: Seq[ScriptLedgerClient.CommandResult] = null
       while (result == null) {
         machine.run() match {
           case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-            scenarioRunner.lookupContract(coid, committers, cbMissing, cbPresent).left.foreach {
-              err =>
-                result = Failure(err)
-            }
+            scenarioRunner.lookupContract(coid, committers, cbMissing, cbPresent).toTry.get
           case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-            scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).left.foreach {
-              err =>
-                result = Failure(err)
-            }
+            scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).toTry.get
           case SResultFinalValue(SUnit) =>
             machine.ptx.finish(
               machine.outputTransactionVersions,
               machine.compiledPackages.packageLanguageVersion) match {
-              case Left(x) => result = Failure(new RuntimeException(s"Unexpected abort: $x"))
-              case Right(tx) =>
+              case Right(Right(tx)) =>
                 val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
                   tx.nodes(n) match {
                     case create: NodeCreate.WithTxValue[ContractId] =>
@@ -428,47 +421,45 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                 ) match {
                   case Left(fas) =>
                     // Capture the error and exit.
-                    result = Failure(ScenarioErrorCommitError(fas))
+                    throw ScenarioErrorCommitError(fas)
                   case Right(commitResult) =>
                     scenarioRunner.ledger = commitResult.newLedger
                     // Capture the result and exit.
-                    result = Success(Right(results.toSeq))
+                    result = results.toSeq
                 }
+              case Right(Left(x)) =>
+                throw new RuntimeException(s"Unexpected abort: $x")
+              case Left(msg) =>
+                throw new RuntimeException(msg)
             }
           case SResultFinalValue(v) =>
             // The final result should always be unit.
-            result = Failure(new RuntimeException(s"FATAL: Unexpected non-unit final result: $v"))
+            throw new RuntimeException(s"FATAL: Unexpected non-unit final result: $v")
           case SResultScenarioCommit(_, _, _, _) =>
-            result = Failure(
-              new RuntimeException("FATAL: Encountered scenario commit in DAML Script"))
+            throw new RuntimeException("FATAL: Encountered scenario commit in DAML Script")
           case SResultError(err) =>
             // Capture the error and exit.
-            result = Failure(err)
+            throw err
           case SResultNeedTime(callback) =>
             callback(scenarioRunner.ledger.currentTime)
           case SResultNeedPackage(pkg, callback @ _) =>
-            result = Failure(
-              new RuntimeException(
-                s"FATAL: Missing package $pkg should have been reported at Script compilation"))
+            throw new RuntimeException(
+              s"FATAL: Missing package $pkg should have been reported at Script compilation")
           case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
-            result = Failure(
-              new RuntimeException(
-                "FATAL: Encountered scenario instruction for submitMustFail in DAML script"))
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML script")
           case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
-            result = Failure(
-              new RuntimeException(
-                "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"))
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML Script")
           case SResultScenarioPassTime(relTime @ _, callback @ _) =>
-            result = Failure(
-              new RuntimeException(
-                "FATAL: Encountered scenario instruction setTime in DAML Script"))
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction setTime in DAML Script")
           case SResultScenarioGetParty(partyText @ _, callback @ _) =>
-            result = Failure(
-              new RuntimeException(
-                "FATAL: Encountered scenario instruction getParty in DAML Script"))
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction getParty in DAML Script")
         }
       }
-      Future.fromTry(result)
+      Right(result)
     } finally {
       // Reset the machine
       machine.returnValue = null

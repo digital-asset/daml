@@ -223,23 +223,21 @@ private[lf] case class PartialTransaction(
   def finish(
       outputTransactionVersions: VersionRange[TransactionVersion],
       packageLanguageVersion: Ref.PackageId => LanguageVersion,
-  ): Either[PartialTransaction, SubmittedTransaction] = {
-
-    Either.cond(
-      context.exeContext.isEmpty && aborted.isEmpty,
-      SubmittedTransaction(
-        TransactionVersions
-          .asVersionedTransaction(
-            outputTransactionVersions,
-            packageLanguageVersion,
-            context.children.toImmArray,
-            nodes
-          )
-          .fold(SError.crash, identity)
-      ),
-      this
-    )
-  }
+  ): Either[String, Either[PartialTransaction, SubmittedTransaction]] =
+    if (context.exeContext.isEmpty && aborted.isEmpty)
+      TransactionVersions
+        .asVersionedTransaction(
+          outputTransactionVersions,
+          packageLanguageVersion,
+          context.children.toImmArray,
+          nodes
+        )
+        .fold(
+          s => Left(s"Cannot serialized the transaction: $s"),
+          tx => Right(Right(SubmittedTransaction(tx)))
+        )
+    else
+      Right(Left(this))
 
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.

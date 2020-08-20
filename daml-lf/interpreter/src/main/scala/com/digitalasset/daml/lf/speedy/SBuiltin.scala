@@ -1290,49 +1290,48 @@ private[lf] object SBuiltin {
             machine.outputTransactionVersions,
             machine.compiledPackages.packageLanguageVersion,
           ) match {
-            case Left(_) =>
-              machine.clearCommit
-              machine.returnValue = SV.Unit
-            case Right(tx) =>
+            case Right(Right(tx)) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
               // do that.
               machine.returnValue = SV.Unit
               throw SpeedyHungry(
                 SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit))
+            case Right(Left(_)) =>
+              machine.clearCommit
+              machine.returnValue = SV.Unit
+            case Left(msg) =>
+              crash(msg)
           }
         case v =>
           crash(s"endCommit: expected bool, got: $v")
       }
     }
 
-    private[this] final def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val tx =
-        machine.ptx
-          .finish(
-            machine.outputTransactionVersions,
-            machine.compiledPackages.packageLanguageVersion,
+    private[this] def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit =
+      machine.ptx
+        .finish(
+          machine.outputTransactionVersions,
+          machine.compiledPackages.packageLanguageVersion,
+        ) match {
+        case Right(Right(tx)) =>
+          throw SpeedyHungry(
+            SResultScenarioCommit(
+              value = args.get(0),
+              tx = tx,
+              committers = machine.committers,
+              callback = newValue => {
+                machine.clearCommit
+                machine.returnValue = newValue
+              }
+            )
           )
-          .fold(
-            ptx => {
-              checkAborted(ptx)
-              crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
-            },
-            identity,
-          )
-
-      throw SpeedyHungry(
-        SResultScenarioCommit(
-          value = args.get(0),
-          tx = tx,
-          committers = machine.committers,
-          callback = newValue => {
-            machine.clearCommit
-            machine.returnValue = newValue
-          },
-        ),
-      )
-    }
+        case Right(Left(ptx)) =>
+          checkAborted(ptx)
+          crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
+        case Left(msg) =>
+          crash(msg)
+      }
   }
 
   /** $pass :: Int64 -> Token -> Timestamp */

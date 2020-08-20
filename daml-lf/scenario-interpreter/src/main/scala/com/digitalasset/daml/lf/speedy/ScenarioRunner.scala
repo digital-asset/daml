@@ -66,7 +66,7 @@ final case class ScenarioRunner(
           crash(s"package $pkgId not found")
 
         case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          lookupContract(coid, committers, cbMissing, cbPresent)
+          lookupContractUnsafe(coid, committers, cbMissing, cbPresent)
 
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)

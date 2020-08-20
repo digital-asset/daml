@@ -15,6 +15,7 @@ package object sql {
   private[sql] val DefaultConfig = SandboxConfig.defaultConfig.copy(
     participantId = v1.ParticipantId.assertFromString(Name.unwrap.toLowerCase()),
     ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    devMode = false,
   )
 
 }

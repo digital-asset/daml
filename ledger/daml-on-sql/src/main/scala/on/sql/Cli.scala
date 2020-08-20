@@ -17,6 +17,14 @@ private[sql] final class Cli(override val defaultConfig: SandboxConfig = Default
       new CommonCli(Name)
         .withContractIdSeeding(defaultConfig, Some(Seeding.Strong), Some(Seeding.Weak))
         .parser
+
+    parser
+      .opt[Unit]("dev-mode-unsafe")
+      .optional()
+      .action((_, config) => config.copy(devMode = true))
+      .text("Allows development versions of DAML-LF language and transaction format.")
+      .hidden()
+
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
     // Even when the value is provided, it still reports that it's missing. Instead, we check the
     // configuration afterwards.

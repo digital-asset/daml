@@ -5,9 +5,8 @@ package com.daml.platform.sandboxnext
 
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.AbstractSandboxFixture
+import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
 import com.daml.ports.Port
-import com.daml.resources.ResourceOwner
 import io.grpc.Channel
 import org.scalatest.Suite
 
@@ -25,9 +24,13 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
     implicit val ec: ExecutionContext = system.dispatcher
     new OwnedResource[(Port, Channel)](
       for {
+        // We must provide a random database if none is provided.
+        // The default is to always use the same index database URL, which means that tests can
+        // share an index. As you can imagine, this causes all manner of issues, the most important
+        // of which is that the ledger and index databases will be out of sync.
         jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
-            Some(info.jdbcUrl)))
+          .getOrElse(SandboxBackend.H2Database.owner)
+          .map(info => Some(info.jdbcUrl))
         port <- new Runner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),

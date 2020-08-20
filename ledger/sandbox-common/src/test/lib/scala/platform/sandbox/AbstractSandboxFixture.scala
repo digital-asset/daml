@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
@@ -65,9 +66,12 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       scenario = scenario,
       ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
       seeding = Some(Seeding.Weak),
+      authService = authService,
     )
 
   protected def packageFiles: List[File] = List(darFile)
+
+  protected def authService: Option[AuthService] = None
 
   protected def scenario: Option[String] = None
 

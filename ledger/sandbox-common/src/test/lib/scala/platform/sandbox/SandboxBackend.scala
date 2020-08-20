@@ -9,20 +9,37 @@ import com.daml.platform.store.DbType
 import com.daml.resources.ResourceOwner
 import com.daml.testing.postgresql.PostgresResource
 
-import scala.util.Success
-
 object SandboxBackend {
 
-  trait Postgresql { this: AbstractSandboxFixture =>
+  trait Postgresql {
+    this: AbstractSandboxFixture =>
+
     override protected final def database: Option[ResourceOwner[DbInfo]] =
-      Some(PostgresResource.owner().map(database => DbInfo(database.url, DbType.Postgres)))
+      Some(Postgresql.owner)
   }
 
-  trait H2Database { this: AbstractSandboxFixture =>
-    private def randomDatabaseName = UUID.randomUUID().toString
-    private[this] def jdbcUrl = s"jdbc:h2:mem:$randomDatabaseName;db_close_delay=-1"
+  object Postgresql {
+
+    def owner: ResourceOwner[DbInfo] =
+      PostgresResource.owner().map(database => DbInfo(database.url, DbType.Postgres))
+
+  }
+
+  trait H2Database {
+    this: AbstractSandboxFixture =>
+
     override protected final def database: Option[ResourceOwner[DbInfo]] =
-      Some(ResourceOwner.forTry(() => Success(DbInfo(jdbcUrl, DbType.H2Database))))
+      Some(H2Database.owner)
+  }
+
+  object H2Database {
+
+    def owner: ResourceOwner[DbInfo] =
+      ResourceOwner.forValue { () =>
+        val jdbcUrl = s"jdbc:h2:mem:${UUID.randomUUID().toString};db_close_delay=-1"
+        DbInfo(jdbcUrl, DbType.H2Database)
+      }
+
   }
 
 }

@@ -63,14 +63,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       None
   }
 
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // should not use EngineConfig.Dev
   private[this] val engine = {
     val engineConfig =
-      EngineConfig.Dev.copy(
-        profileDir = config.profileDir,
-        stackTraceMode = config.stackTraces,
-      )
+      (if (config.devMode) EngineConfig.Dev else EngineConfig.Stable)
+        .copy(
+          profileDir = config.profileDir,
+          stackTraceMode = config.stackTraces,
+        )
     new Engine(engineConfig)
   }
 
