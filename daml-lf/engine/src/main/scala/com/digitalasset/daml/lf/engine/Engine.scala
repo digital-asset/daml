@@ -398,8 +398,8 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         ResultDone((tx, meta))
       case PartialTransaction.IncompleteTransaction(ptx) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $ptx"))
-      case PartialTransaction.SerializationError(s) =>
-        ResultError(Error(s))
+      case PartialTransaction.SerializationError(msg) =>
+        ResultError(Error(s"Cannot serialize the transaction: $msg"))
     }
   }
 

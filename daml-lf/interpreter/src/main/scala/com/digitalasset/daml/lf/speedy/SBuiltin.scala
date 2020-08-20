@@ -1301,7 +1301,7 @@ private[lf] object SBuiltin {
               machine.clearCommit
               machine.returnValue = SV.Unit
             case PartialTransaction.SerializationError(msg) =>
-              crash(msg)
+              crash(s"Cannot serialize the transaction: $msg")
           }
         case v =>
           crash(s"endCommit: expected bool, got: $v")
@@ -1330,7 +1330,7 @@ private[lf] object SBuiltin {
           checkAborted(ptx)
           crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
         case PartialTransaction.SerializationError(msg) =>
-          crash(msg)
+          crash(s"Cannot serialize the transaction: $msg")
       }
   }
 

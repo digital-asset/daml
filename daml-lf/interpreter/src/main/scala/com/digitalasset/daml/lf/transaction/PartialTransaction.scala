@@ -241,7 +241,7 @@ private[lf] case class PartialTransaction(
           nodes
         )
         .fold(
-          s => SerializationError(s"Cannot serialized the transaction: $s"),
+          SerializationError,
           tx => CompleteTransaction(SubmittedTransaction(tx))
         )
     else
