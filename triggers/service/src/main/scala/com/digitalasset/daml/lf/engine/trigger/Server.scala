@@ -424,57 +424,46 @@ object Server {
             discard[Future[akka.Done]](binding.unbind())
             discard[Try[Unit]](Try(dao.close()))
             Behaviors.stopped // Automatically stops all actors.
-        }
-        .receiveSignal {
-          case (_, PostStop) =>
-            // s11 maybe we should just stop believing side-effects ever work
-            ctx.log.info(s"s11 PostStop actually worked, who would have thought")
-            sys.exit(42)
-        }
+        } // receiveSignal PostStop does not work, see #7092 20c1f241d5
 
     // The server starting state.
-    def starting(wasStopped: Boolean, req: Option[ActorRef[ServerBinding]]): Behavior[Message] =
-      Behaviors
-        .receiveMessage[Message] {
-          case StartFailed(cause) =>
-            if (wasStopped) {
-              Behaviors.stopped
-            } else {
-              throw new RuntimeException("Server failed to start", cause)
-            }
-          case Started(binding) =>
-            ctx.log.info(
-              "Server online at http://{}:{}/",
-              binding.localAddress.getHostString,
-              binding.localAddress.getPort,
-            )
-            req.foreach(ref => ref ! binding)
-            if (wasStopped) ctx.self ! Stop
-            running(binding)
-          case GetServerBinding(replyTo) =>
-            starting(wasStopped, Some(replyTo))
-          case Stop =>
-            // We got a stop message but haven't completed starting
-            // yet. We cannot stop until starting has completed.
-            starting(wasStopped = true, req = None)
+    def starting(
+        wasStopped: Boolean,
+        req: Option[ActorRef[ServerBinding]]): Behaviors.Receive[Message] =
+      Behaviors.receiveMessage[Message] {
+        case StartFailed(cause) =>
+          if (wasStopped) {
+            Behaviors.stopped
+          } else {
+            throw new RuntimeException("Server failed to start", cause)
+          }
+        case Started(binding) =>
+          ctx.log.info(
+            "Server online at http://{}:{}/",
+            binding.localAddress.getHostString,
+            binding.localAddress.getPort,
+          )
+          req.foreach(ref => ref ! binding)
+          if (wasStopped) ctx.self ! Stop
+          running(binding)
+        case GetServerBinding(replyTo) =>
+          starting(wasStopped, Some(replyTo))
+        case Stop =>
+          // We got a stop message but haven't completed starting
+          // yet. We cannot stop until starting has completed.
+          starting(wasStopped = true, req = None)
 
-          case m: TriggerStarting =>
-            logTriggerStarting(m)
-            Behaviors.same
+        case m: TriggerStarting =>
+          logTriggerStarting(m)
+          Behaviors.same
 
-          case m: TriggerStarted =>
-            logTriggerStarted(m)
-            Behaviors.same
+        case m: TriggerStarted =>
+          logTriggerStarted(m)
+          Behaviors.same
 
-          case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
-            Behaviors.unhandled
-        }
-        .receiveSignal {
-          case (_, PostStop) =>
-            // s11 maybe we should just stop believing side-effects ever work
-            ctx.log.info(s"s11 PostStop actually worked, who would have thought")
-            sys.exit(42)
-        }
+        case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
+          Behaviors.unhandled
+      }
 
     // The server binding is a future that on completion will be piped
     // to a message to this actor.
