@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.platform.store.Conversions.{ledgerString, offset, OffsetToStatement}
 import com.daml.scalautil.Statement.discard
 
-object ParametersTable {
+private[dao] object ParametersTable {
 
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
