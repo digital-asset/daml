@@ -17,6 +17,7 @@ import akka.util.ByteString
 import io.grpc.{Status, StatusRuntimeException}
 import java.time.Instant
 import java.util.UUID
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scalaz.{-\/, \/-}
@@ -38,7 +39,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SExpr, SValue}
+import com.daml.lf.speedy.{PartialTransaction, SExpr, SValue}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -397,7 +398,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
             machine.ptx.finish(
               machine.outputTransactionVersions,
               machine.compiledPackages.packageLanguageVersion) match {
-              case Right(Right(tx)) =>
+              case PartialTransaction.CompleteTransaction(tx) =>
                 val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
                   tx.nodes(n) match {
                     case create: NodeCreate.WithTxValue[ContractId] =>
@@ -427,9 +428,9 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                     // Capture the result and exit.
                     result = results.toSeq
                 }
-              case Right(Left(x)) =>
-                throw new RuntimeException(s"Unexpected abort: $x")
-              case Left(msg) =>
+              case PartialTransaction.IncompleteTransaction(ptx) =>
+                throw new RuntimeException(s"Unexpected abort: $ptx")
+              case PartialTransaction.SerializationError(msg) =>
                 throw new RuntimeException(msg)
             }
           case SResultFinalValue(v) =>

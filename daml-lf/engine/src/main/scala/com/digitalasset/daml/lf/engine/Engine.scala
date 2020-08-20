@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
@@ -379,7 +379,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       machine.outputTransactionVersions,
       compiledPackages.packageLanguageVersion,
     ) match {
-      case Right(Right(tx)) =>
+      case PartialTransaction.CompleteTransaction(tx) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
           submissionTime = machine.ptx.submissionTime,
@@ -396,9 +396,9 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
           machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
-      case Right(Left(p)) =>
-        ResultError(Error(s"Interpretation error: ended with partial result: $p"))
-      case Left(s) =>
+      case PartialTransaction.IncompleteTransaction(ptx) =>
+        ResultError(Error(s"Interpretation error: ended with partial result: $ptx"))
+      case PartialTransaction.SerializationError(s) =>
         ResultError(Error(s))
     }
   }

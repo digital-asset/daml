@@ -126,6 +126,11 @@ private[lf] object PartialTransaction {
     keys = Map.empty,
   )
 
+  sealed abstract class Result extends Product with Serializable
+  final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
+  final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
+  final case class SerializationError(msg: String) extends Result
+
 }
 
 /** A transaction under construction
@@ -216,14 +221,17 @@ private[lf] case class PartialTransaction(
     }
 
   /** Finish building a transaction; i.e., try to extract a complete
-    *  transaction from the given 'PartialTransaction'. This fails if
-    *  the 'PartialTransaction' is not yet complete or has been
-    *  aborted.
+    *  transaction from the given 'PartialTransaction'. This returns:
+    * - a SubmittedTransaction in case of success ;
+    * - the 'PartialTransaction' itself if it is not yet complete or
+    *   has been aborted ;
+    * - an error in case the transaction cannot be serialized using
+    *   the `outputTransactionVersions`.
     */
   def finish(
       outputTransactionVersions: VersionRange[TransactionVersion],
       packageLanguageVersion: Ref.PackageId => LanguageVersion,
-  ): Either[String, Either[PartialTransaction, SubmittedTransaction]] =
+  ): PartialTransaction.Result =
     if (context.exeContext.isEmpty && aborted.isEmpty)
       TransactionVersions
         .asVersionedTransaction(
@@ -233,11 +241,11 @@ private[lf] case class PartialTransaction(
           nodes
         )
         .fold(
-          s => Left(s"Cannot serialized the transaction: $s"),
-          tx => Right(Right(SubmittedTransaction(tx)))
+          s => SerializationError(s"Cannot serialized the transaction: $s"),
+          tx => CompleteTransaction(SubmittedTransaction(tx))
         )
     else
-      Right(Left(this))
+      IncompleteTransaction(this)
 
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
