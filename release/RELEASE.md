@@ -19,7 +19,7 @@ patches we backport to the 1.0 release branch).
 
 1. **[SNAPSHOT]** For most snapshot releases, the PR is created automatically.
    Double-check the snapshot version: it may need incrementing. Ask on Slack
-   (#team-daml) if you're not sure.
+   (`#team-daml`) if you're not sure.
 
    If you are manually creating the PR for an out-of-schedule snapshot, start
    from latest master and run
@@ -35,15 +35,16 @@ patches we backport to the 1.0 release branch).
    label.
 
 1. Once the PR has built, check that it was considered a release build by our
-   CI. You can do that by looking at the output of the `check_for_release`
-   build step.
+   CI. If you are working from an automated PR, check that it sent a message to
+   `#team-daml` to say it has finished building. If the PR was manually created,
+   you can look at the output of the `check_for_release` build step.
 
 1. **[STABLE]** The PR **must** be approved by a team lead before merging. As
    of this writing (2020-08-13), @bame-da, @gerolf-da, @cocreature or
    @hurryabit.
 
 1. Merge the PR and wait for the corresponding `master` build to finish. You
-   will be notified on #team-daml.
+   will be notified on `#team-daml`.
 
 1. On Windows, install the new SDK using the installer on
    https://github.com/digital-asset/daml/releases.
@@ -54,6 +55,40 @@ patches we backport to the 1.0 release branch).
    ```
    where `$VERSION` is the full version tag of the new release you are making,
    i.e. the second column of the `LATEST` file.
+
+   > ## Tips for Windows testing in an ad-hoc machine
+   >
+   > If you are part of the release rotation, you can create Windows VMs
+   > through the [ad-hoc] project. The created machine is a bit raw, though, so
+   > here are a few tips to help you along.
+   >
+   > [ad-hoc]: https://github.com/DACH-NY/daml-language-ad-hoc
+   >
+   > If you're on a Mac, you can use Microsoft Remote Desktop to connect; on
+   > Linux, you can use Remmina.
+   >
+   > The first thing you should do is install Firefox, because Internet
+   > Explorer is a pain. Open IE, go to Internet Options (gear icon in the top
+   > right), switch to the Security tab, click Trusted Sites, click Sites, and
+   > add `*.mozilla.net`. Then navigate to [getfirefox.com] and download the
+   > "64-bit MSI" version.
+   >
+   > [getfirefox.com]: https://getfirefox.com
+   >
+   > Install Java from [adoptopenjdk]. The installer has an option, unticked by
+   > default, to set the `JAVA_HOME` variable. Tick it.
+   >
+   > [adoptopenjdk]: https://adoptopenjdk.net
+   >
+   > [node], [yarn] and [VS Code] installers all add to PATH by default so
+   > those are just download > next > next installations.
+   >
+   > [node]: https://nodejs.org/en/
+   > [yarn]: https://classic.yarnpkg.com/en/docs/install/
+   > [VS Code]: https://code.visualstudio.com
+   >
+   > All of the commands mentioned in this document can be run from a simple
+   > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
 
 1. Prerequisites for running the tests:
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
@@ -76,8 +111,6 @@ patches we backport to the 1.0 release branch).
        https://docs.daml.com/$VERSION/getting-started/index.html.
        Otherwise, check out the commit that you are referencing in the `LATEST` file
        and build documentation locally via `./docs/scripts/preview.sh`.
-
-    1. To open a new terminal on Windows: Start menu -> type "cmd" -> click cmd.exe.
 
     1. `daml new create-daml-app --template create-daml-app`
 
@@ -123,7 +156,7 @@ patches we backport to the 1.0 release branch).
 
     1. Close VSCode.
 
-    1. Run `daml build && daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js`.
+    1. Run `daml build` then `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js` from the project root.
 
     1. From the `ui` directory run `yarn install --force --frozen-lockfile`.
 
@@ -265,8 +298,8 @@ patches we backport to the 1.0 release branch).
 1. If the release is bad, delete the release from [the releases page]. Mention
    why it is bad as a comment on your PR, and **stop the process here**.
 
-1. Announce the release on the relevant internal Slack channels (#product-daml,
-   \#team-daml). For a stable release, direct people to the release blog post;
+1. Announce the release on the relevant internal Slack channels (`#product-daml`,
+   `#team-daml`). For a stable release, direct people to the release blog post;
    for a prerelease, you can include the raw output of the `unreleased.sh`
    script.
 
