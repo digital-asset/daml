@@ -102,7 +102,7 @@ class DevModeIT
   "SandboxServer" should {
 
     "accept stable DAML LF when devMode is disable" in
-      buildServer(devMode = false).use(run(devDar, _)).map(_ shouldBe a[Success[_]])
+      buildServer(devMode = false).use(run(stableDar, _)).map(_ shouldBe a[Success[_]])
 
     "accept stable DAML LF when devMode is enable" in
       buildServer(devMode = true).use(run(stableDar, _)).map(_ shouldBe a[Success[_]])
