@@ -3,22 +3,23 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.{Flow}
-import com.daml.lf.data.Ref._
-import com.daml.platform.sandbox.services.SandboxFixtureWithAuth
+import akka.stream.scaladsl.Flow
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
-import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
-import org.scalatest._
-
+import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.platform.sandbox.SandboxRequiringAuthentication
+import com.daml.platform.sandbox.services.SandboxFixture
+import org.scalatest._
 
 class Jwt
     extends AsyncWordSpec
     with AbstractTriggerTest
-    with SandboxFixtureWithAuth
+    with SandboxFixture
+    with SandboxRequiringAuthentication
     with Matchers
     with SuiteResourceManagementAroundAll
     with TryValues {
@@ -27,9 +28,10 @@ class Jwt
   // Override to make sure we set it correctly.
   override protected val applicationId: ApplicationId = ApplicationId("custom app id")
 
-  override protected def ledgerClientConfiguration = super.ledgerClientConfiguration.copy(
-    token = Some(toHeader(forApplicationId("custom app id", readWriteToken(party))))
-  )
+  override protected def ledgerClientConfiguration: LedgerClientConfiguration =
+    super.ledgerClientConfiguration.copy(
+      token = Some(toHeader(forApplicationId("custom app id", readWriteToken(party)))),
+    )
 
   private val party = "AliceAuth"
 
@@ -37,6 +39,7 @@ class Jwt
     // We just need something simple to test the connection.
     val assetId = LedgerApi.Identifier(packageId, "ACS", "Asset")
     val assetMirrorId = LedgerApi.Identifier(packageId, "ACS", "AssetMirror")
+
     def asset(party: String): CreateCommand =
       CreateCommand(
         templateId = Some(assetId),

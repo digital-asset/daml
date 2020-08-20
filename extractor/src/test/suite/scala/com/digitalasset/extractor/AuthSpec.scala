@@ -7,7 +7,6 @@ import java.nio.file.Files
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
-import com.daml.lf.data.Ref.Party
 import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.daml.extractor.ledger.types.TransactionTree
 import com.daml.extractor.targets.TextPrintTarget
@@ -20,7 +19,9 @@ import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWait
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.SynchronousCommandClient
 import com.daml.ledger.service.LedgerReader.PackageStore
-import com.daml.platform.sandbox.services.{SandboxFixtureWithAuth, TestCommands}
+import com.daml.lf.data.Ref.Party
+import com.daml.platform.sandbox.SandboxRequiringAuthentication
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.timer.Delayed
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.slf4j.LoggerFactory
@@ -34,7 +35,8 @@ import scala.util.{Failure, Success}
 
 final class AuthSpec
     extends AsyncFlatSpec
-    with SandboxFixtureWithAuth
+    with SandboxFixture
+    with SandboxRequiringAuthentication
     with SuiteResourceManagementAroundAll
     with Matchers
     with TestCommands {
