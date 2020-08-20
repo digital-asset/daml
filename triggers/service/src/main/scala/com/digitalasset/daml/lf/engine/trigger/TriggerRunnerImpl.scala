@@ -23,6 +23,8 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+
 import java.util.UUID
 
 object TriggerRunnerImpl {
@@ -36,7 +38,12 @@ object TriggerRunnerImpl {
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
       party: Party,
-  )
+  ) {
+    def loggingExtension: Map[String, String] =
+      Map(
+        "triggerId" -> triggerInstance.toString,
+      )
+  }
 
   import TriggerRunner.{Message, Stop}
   final private case class Failed(error: Throwable) extends Message
@@ -46,7 +53,8 @@ object TriggerRunnerImpl {
 
   def apply(config: Config)(
       implicit esf: ExecutionSequencerFactory,
-      mat: Materializer): Behavior[Message] =
+      mat: Materializer,
+      loggingContext: LoggingContext): Behavior[Message] =
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
       implicit val ec: ExecutionContext = ctx.executionContext
@@ -54,6 +62,7 @@ object TriggerRunnerImpl {
       // Report to the server that this trigger is starting.
       config.server ! TriggerStarting(triggerInstance)
       ctx.log.info(s"Trigger $name is starting")
+      ContextualizedLogger get getClass info s"Trigger $name is starting" // TODO SC undup
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,

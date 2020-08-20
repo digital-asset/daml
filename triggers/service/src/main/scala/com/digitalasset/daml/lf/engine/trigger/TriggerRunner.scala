@@ -11,6 +11,8 @@ import akka.actor.typed.scaladsl.ActorContext
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.logging.LoggingContext
+import LoggingContext.newLoggingContext
 import com.daml.scalautil.Statement.discard
 
 class InitializationHalted(s: String) extends Exception(s) {}
@@ -25,13 +27,18 @@ object TriggerRunner {
   def apply(config: Config, name: String)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): Behavior[TriggerRunner.Message] =
-    Behaviors.setup(ctx => new TriggerRunner(ctx, config, name))
+    newLoggingContext(config.loggingExtension) { implicit loggingContext =>
+      Behaviors.setup(ctx => new TriggerRunner(ctx, config, name))
+    }
 }
 
-class TriggerRunner(
+final class TriggerRunner private (
     ctx: ActorContext[TriggerRunner.Message],
     config: TriggerRunner.Config,
-    name: String)(implicit esf: ExecutionSequencerFactory, mat: Materializer)
+    name: String)(
+    implicit esf: ExecutionSequencerFactory,
+    mat: Materializer,
+    loggingContext: LoggingContext)
     extends AbstractBehavior[TriggerRunner.Message](ctx)
     with StrictLogging {
 
