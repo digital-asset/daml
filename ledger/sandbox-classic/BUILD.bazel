@@ -252,7 +252,7 @@ da_scala_test_suite(
         "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
     ],
-    resources = glob(["src/test/resources/**/*"]),
+    resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     deps = test_deps,
 )
 
