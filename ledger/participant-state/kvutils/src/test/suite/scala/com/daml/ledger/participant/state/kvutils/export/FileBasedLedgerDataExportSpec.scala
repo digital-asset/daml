@@ -22,6 +22,12 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
   "addParentChild" should {
     "add entry to correlation ID mapping" in {
       val instance = new FileBasedLedgerDataExporter(mock[DataOutputStream])
+      instance.addSubmission(
+        ByteString.copyFromUtf8("an envelope"),
+        "parent",
+        Instant.now(),
+        v1.ParticipantId.assertFromString("id"),
+      )
       instance.addParentChild("parent", "child")
 
       instance.correlationIdMapping should contain("child" -> "parent")
@@ -31,6 +37,12 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
   "addToWriteSet" should {
     "append to existing data" in {
       val instance = new FileBasedLedgerDataExporter(mock[DataOutputStream])
+      instance.addSubmission(
+        ByteString.copyFromUtf8("an envelope"),
+        "parent",
+        Instant.now(),
+        v1.ParticipantId.assertFromString("id"),
+      )
       instance.addParentChild("parent", "child")
       instance.addToWriteSet("child", Seq(keyValuePairOf("a", "b")))
       instance.addToWriteSet("child", Seq(keyValuePairOf("c", "d")))
@@ -49,7 +61,8 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
         ByteString.copyFromUtf8("an envelope"),
         "parent",
         Instant.now(),
-        v1.ParticipantId.assertFromString("id"))
+        v1.ParticipantId.assertFromString("id"),
+      )
       instance.addParentChild("parent", "parent")
       instance.addToWriteSet("parent", Seq(keyValuePairOf("a", "b")))
 

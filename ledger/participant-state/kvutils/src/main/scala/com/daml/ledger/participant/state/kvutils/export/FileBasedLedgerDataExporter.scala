@@ -19,6 +19,7 @@ import scala.collection.mutable.ListBuffer
   * This class is thread-safe.
   */
 class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataExporter {
+
   import FileBasedLedgerDataExporter._
 
   private val outputLock = new StampedLock
@@ -28,6 +29,8 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
   private[export] val bufferedKeyValueDataPerCorrelationId =
     mutable.Map.empty[String, mutable.ListBuffer[(Key, Value)]]
 
+  private var submissionCorrelationId: Option[String] = None
+
   override def addSubmission(
       submissionEnvelope: ByteString,
       correlationId: String,
@@ -35,6 +38,10 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
       participantId: ParticipantId,
   ): Unit =
     this.synchronized {
+      if (submissionCorrelationId.isDefined) {
+        throw new RuntimeException("Cannot add a submission without finishing the previous one.")
+      }
+      submissionCorrelationId = Some(correlationId)
       inProgressSubmissions.put(
         correlationId,
         SubmissionInfo(submissionEnvelope, correlationId, recordTimeInstant, participantId))
@@ -43,39 +50,56 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
 
   override def addParentChild(parentCorrelationId: String, childCorrelationId: String): Unit =
     this.synchronized {
+      if (submissionCorrelationId.isEmpty) {
+        throw new RuntimeException(
+          s"Cannot add a parent/child when the submission correlation ID is empty.")
+      }
+      if (!submissionCorrelationId.contains(parentCorrelationId)) {
+        throw new RuntimeException(
+          s"Invalid parent correlation ID: $parentCorrelationId; expected $submissionCorrelationId")
+      }
       correlationIdMapping.put(childCorrelationId, parentCorrelationId)
       ()
     }
 
   override def addToWriteSet(correlationId: String, data: Iterable[(Key, Value)]): Unit =
     this.synchronized {
-      correlationIdMapping
-        .get(correlationId)
-        .foreach { parentCorrelationId =>
-          val keyValuePairs = bufferedKeyValueDataPerCorrelationId
-            .getOrElseUpdate(parentCorrelationId, ListBuffer.empty)
-          keyValuePairs.appendAll(data)
-          bufferedKeyValueDataPerCorrelationId.put(parentCorrelationId, keyValuePairs)
-        }
+      val parentCorrelationId = correlationIdMapping.getOrElse(
+        correlationId,
+        throw new RuntimeException(
+          s"Missing correlation ID during ledger data export (addToWriteSet): $correlationId"))
+      val keyValuePairs = bufferedKeyValueDataPerCorrelationId
+        .getOrElseUpdate(parentCorrelationId, ListBuffer.empty)
+      keyValuePairs.appendAll(data)
+      bufferedKeyValueDataPerCorrelationId.put(parentCorrelationId, keyValuePairs)
+      ()
     }
 
   override def finishedProcessing(correlationId: String): Unit = {
-    val (submissionInfo, bufferedData) = this.synchronized {
-      (
-        inProgressSubmissions.get(correlationId),
-        bufferedKeyValueDataPerCorrelationId.get(correlationId))
-    }
-    submissionInfo.foreach { submission =>
-      bufferedData.foreach(writeSubmissionData(submission, _))
-      this.synchronized {
-        inProgressSubmissions.remove(correlationId)
-        bufferedKeyValueDataPerCorrelationId.remove(correlationId)
-        correlationIdMapping
-          .collect {
-            case (key, value) if value == correlationId => key
-          }
-          .foreach(correlationIdMapping.remove)
+    this.synchronized {
+      if (!submissionCorrelationId.contains(correlationId)) {
+        throw new RuntimeException(
+          s"Attempted to finish processing, but couldn't. Expected: $submissionCorrelationId, actual: $correlationId.")
       }
+      val submissionInfo = inProgressSubmissions.getOrElse(
+        correlationId,
+        throw new RuntimeException(
+          s"Missing correlation ID during ledger data export (submissionInfo): $correlationId"),
+      )
+      val bufferedData = bufferedKeyValueDataPerCorrelationId.getOrElse(
+        correlationId,
+        throw new RuntimeException(
+          s"Missing correlation ID during ledger data export (bufferedData): $correlationId"),
+      )
+      writeSubmissionData(submissionInfo, bufferedData)
+      submissionCorrelationId = None
+      inProgressSubmissions.remove(correlationId)
+      bufferedKeyValueDataPerCorrelationId.remove(correlationId)
+      correlationIdMapping
+        .collect {
+          case (key, value) if value == correlationId => key
+        }
+        .foreach(correlationIdMapping.remove)
     }
   }
 
