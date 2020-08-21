@@ -9,7 +9,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.platform.sandbox.config.LedgerName
 import scalaz.syntax.tag._
 
-private[sandbox] final class LedgerIdGenerator(name: LedgerName) {
-  def generateRandomId(): LedgerId =
-    LedgerId(s"${name.unwrap.toLowerCase()}-${UUID.randomUUID().toString}")
+private[sandbox] object LedgerIdGenerator {
+  def generateRandomId(prefix: LedgerName): LedgerId =
+    LedgerId(s"${prefix.unwrap.toLowerCase}-${UUID.randomUUID}")
 }

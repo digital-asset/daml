@@ -180,7 +180,7 @@ class SqlLedgerSpec
         name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
-        initialLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
+        providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
         timeProvider = TimeProvider.UTC,
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)

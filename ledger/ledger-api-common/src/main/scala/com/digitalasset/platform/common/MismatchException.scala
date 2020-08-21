@@ -1,0 +1,20 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.platform.common
+
+import com.daml.ledger.api.domain
+
+sealed abstract class MismatchException[A](
+    description: String,
+    val existing: A,
+    val provided: A,
+) extends RuntimeException(
+      s"""The provided $description does not match the existing one. Existing: "$existing", Provided: "$provided".""")
+
+object MismatchException {
+
+  final class LedgerId(existing: domain.LedgerId, provided: domain.LedgerId)
+      extends MismatchException[domain.LedgerId]("ledger id", existing, provided)
+
+}
