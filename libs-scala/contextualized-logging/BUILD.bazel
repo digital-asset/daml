@@ -9,6 +9,7 @@ load(
 
 da_scala_library(
     name = "contextualized-logging",
+    scalacopts = ["-Xsource:2.13"],
     srcs = glob(["src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
     visibility = [
