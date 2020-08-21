@@ -40,7 +40,7 @@ trait PrinterFunctionWriter { self: Writer =>
   def handleTransaction(transaction: TransactionTree): Future[RefreshPackages \/ Unit] = {
     printer(s"Handling transaction #${transaction.transactionId}...")
     printer(s"Events:")
-    transaction.events.values.foreach(printEvent)
+    transaction.events.map(_._2).foreach(printEvent)
 
     Future.successful(().right)
   }
