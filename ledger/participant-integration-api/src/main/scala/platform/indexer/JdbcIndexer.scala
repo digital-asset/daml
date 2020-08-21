@@ -18,7 +18,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
@@ -104,7 +104,7 @@ object JdbcIndexer {
         logger.info(s"Found existing ledger with ID: $existingLedgerId")
         Future.unit
       } else {
-        Future.failed(new LedgerIdMismatchException(existingLedgerId, providedLedgerId))
+        Future.failed(new MismatchException.LedgerId(existingLedgerId, providedLedgerId))
       }
 
     private def initializeLedgerData(

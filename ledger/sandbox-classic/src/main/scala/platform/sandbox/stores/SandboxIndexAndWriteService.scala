@@ -43,7 +43,7 @@ private[sandbox] object SandboxIndexAndWriteService {
 
   def postgres(
       name: LedgerName,
-      initialLedgerId: LedgerIdMode,
+      providedLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
       timeProvider: TimeProvider,
@@ -63,7 +63,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       name = name,
       serverRole = ServerRole.Sandbox,
       jdbcUrl = jdbcUrl,
-      initialLedgerId = initialLedgerId,
+      providedLedgerId = providedLedgerId,
       timeProvider = timeProvider,
       packages = templateStore,
       initialLedgerEntries = ledgerEntries,
@@ -77,7 +77,7 @@ private[sandbox] object SandboxIndexAndWriteService {
 
   def inMemory(
       name: LedgerName,
-      initialLedgerId: LedgerIdMode,
+      providedLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
@@ -91,7 +91,7 @@ private[sandbox] object SandboxIndexAndWriteService {
   ): ResourceOwner[IndexAndWriteService] = {
     val ledger =
       new InMemoryLedger(
-        initialLedgerId.or(new LedgerIdGenerator(name).generateRandomId()),
+        providedLedgerId.or(LedgerIdGenerator.generateRandomId(name)),
         timeProvider,
         acs,
         transactionCommitter,

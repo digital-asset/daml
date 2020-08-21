@@ -65,7 +65,7 @@ private[sandbox] object LedgerResource {
           name = LedgerName(testClass.getSimpleName),
           serverRole = ServerRole.Testing(testClass),
           jdbcUrl = database.url,
-          initialLedgerId = LedgerIdMode.Static(ledgerId),
+          providedLedgerId = LedgerIdMode.Static(ledgerId),
           timeProvider = timeProvider,
           packages = packages,
           initialLedgerEntries = ImmArray.empty,

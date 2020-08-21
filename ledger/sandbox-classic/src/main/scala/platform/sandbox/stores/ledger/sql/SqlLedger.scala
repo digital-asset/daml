@@ -24,7 +24,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
+import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
@@ -48,12 +48,22 @@ private[sandbox] object SqlLedger {
 
   private type PersistenceQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
+  object Owner {
+
+    private val nonEmptyLedgerEntriesWarningMessage =
+      "Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used."
+
+    private val nonEmptyPackagesWarningMessage =
+      "Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used."
+
+  }
+
   final class Owner(
       name: LedgerName,
       serverRole: ServerRole,
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
-      initialLedgerId: LedgerIdMode,
+      providedLedgerId: LedgerIdMode,
       timeProvider: TimeProvider,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
@@ -71,16 +81,17 @@ private[sandbox] object SqlLedger {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
-        ledgerDao <- ledgerDaoOwner().acquire()
+        dao <- ledgerDaoOwner().acquire()
         _ <- startMode match {
           case SqlStartMode.AlwaysReset =>
-            Resource.fromFuture(ledgerDao.reset())
+            Resource.fromFuture(dao.reset())
           case SqlStartMode.ContinueIfExists =>
             Resource.unit
         }
-        ledgerId <- Resource.fromFuture(initialize(ledgerDao))
-        ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
-        ledgerConfig <- Resource.fromFuture(ledgerDao.lookupLedgerConfiguration())
+        retrievedLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
+        ledgerId <- Resource.fromFuture(retrievedLedgerId.fold(initialize(dao))(resume))
+        ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
+        ledgerConfig <- Resource.fromFuture(dao.lookupLedgerConfiguration())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
         persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
         // Close the dispatcher before the persistence queue.
@@ -88,72 +99,45 @@ private[sandbox] object SqlLedger {
         ledger <- sqlLedgerOwner(
           ledgerId,
           ledgerConfig.map(_._2),
-          ledgerDao,
+          dao,
           dispatcher,
-          persistenceQueue).acquire()
+          persistenceQueue,
+        ).acquire()
       } yield ledger
 
-    private def initialize(
-        ledgerDao: LedgerDao,
-    )(implicit executionContext: ExecutionContext): Future[LedgerId] = {
-      // Note that here we only store the ledger entry and we do not update anything else, such as the
-      // headRef. This is OK since this initialization
-      // step happens before we start up the sql ledger at all, so it's running in isolation.
+    // Store only the ledger entries (no headref, etc.). This is OK since this initialization
+    // step happens before we start up the sql ledger at all, so it's running in isolation.
+    private def initialize(dao: LedgerDao)(implicit ec: ExecutionContext): Future[LedgerId] = {
+      val ledgerId = providedLedgerId.or(LedgerIdGenerator.generateRandomId(name))
+      logger.info(s"Initializing node with ledger id '$ledgerId'")
       for {
-        currentLedgerId <- ledgerDao.lookupLedgerId()
-        initializationRequired = currentLedgerId.isEmpty
-        ledgerId <- (currentLedgerId, initialLedgerId) match {
-          case (Some(foundLedgerId), LedgerIdMode.Static(initialId))
-              if foundLedgerId == initialId =>
-            ledgerFound(foundLedgerId, initialLedgerEntries, packages)
-
-          case (Some(foundLedgerId), LedgerIdMode.Static(initialId)) =>
-            Future.failed(
-              new LedgerIdMismatchException(foundLedgerId, initialId) with StartupException)
-
-          case (Some(foundLedgerId), LedgerIdMode.Dynamic) =>
-            ledgerFound(foundLedgerId, initialLedgerEntries, packages)
-
-          case (None, LedgerIdMode.Static(initialId)) =>
-            Future.successful(initialId)
-
-          case (None, LedgerIdMode.Dynamic) =>
-            val randomLedgerId = new LedgerIdGenerator(name).generateRandomId()
-            Future.successful(randomLedgerId)
-        }
-        _ <- if (initializationRequired) {
-          logger.info(s"Initializing ledger with ID: $ledgerId")
-          for {
-            _ <- ledgerDao.initializeLedger(ledgerId)
-            _ <- initializeLedgerEntries(
-              initialLedgerEntries,
-              timeProvider,
-              packages,
-              ledgerDao,
-            )
-          } yield ()
-        } else {
-          Future.unit
-        }
+        _ <- dao.initializeLedger(ledgerId)
+        _ <- initializeLedgerEntries(
+          initialLedgerEntries,
+          timeProvider,
+          packages,
+          dao,
+        )
       } yield ledgerId
     }
 
-    private def ledgerFound(
-        foundLedgerId: LedgerId,
-        initialLedgerEntries: ImmArray[LedgerEntryOrBump],
-        packages: InMemoryPackageStore,
-    ): Future[LedgerId] = {
-      logger.info(s"Found existing ledger with ID: $foundLedgerId")
-      if (initialLedgerEntries.nonEmpty) {
-        logger.warn(
-          s"Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used.")
+    private def resume(retrievedLedgerId: LedgerId): Future[LedgerId] =
+      providedLedgerId match {
+        case LedgerIdMode.Static(`retrievedLedgerId`) | LedgerIdMode.Dynamic =>
+          logger.info(s"Found existing ledger id '$retrievedLedgerId'")
+          if (initialLedgerEntries.nonEmpty) {
+            logger.warn(Owner.nonEmptyLedgerEntriesWarningMessage)
+          }
+          if (packages.listLfPackagesSync().nonEmpty) {
+            logger.warn(Owner.nonEmptyPackagesWarningMessage)
+          }
+          Future.successful(retrievedLedgerId)
+        case LedgerIdMode.Static(mismatchingProvidedLedgerId) =>
+          Future.failed(
+            new MismatchException.LedgerId(retrievedLedgerId, mismatchingProvidedLedgerId)
+            with StartupException
+          )
       }
-      if (packages.listLfPackagesSync().nonEmpty) {
-        logger.warn(
-          s"Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used.")
-      }
-      Future.successful(foundLedgerId)
-    }
 
     private def initializeLedgerEntries(
         initialLedgerEntries: ImmArray[LedgerEntryOrBump],

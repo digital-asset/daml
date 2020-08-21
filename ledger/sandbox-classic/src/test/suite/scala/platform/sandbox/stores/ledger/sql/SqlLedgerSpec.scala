@@ -100,7 +100,7 @@ class SqlLedgerSpec
         throwable <- createSqlLedger(ledgerId = "AnotherLedger").failed
       } yield {
         throwable.getMessage should be(
-          "The provided ledger ID does not match the existing ID. Existing: \"TheLedger\", Provided: \"AnotherLedger\".")
+          "The provided ledger id does not match the existing one. Existing: \"TheLedger\", Provided: \"AnotherLedger\".")
       }
     }
 
@@ -180,7 +180,7 @@ class SqlLedgerSpec
         name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
-        initialLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
+        providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
         timeProvider = TimeProvider.UTC,
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)

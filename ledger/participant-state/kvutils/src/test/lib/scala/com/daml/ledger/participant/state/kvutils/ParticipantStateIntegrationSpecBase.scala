@@ -24,7 +24,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.common.MismatchException
 import com.daml.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
@@ -619,10 +619,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             Future.unit
           }.failed
         } yield {
-          exception should be(a[LedgerIdMismatchException])
-          val mismatchException = exception.asInstanceOf[LedgerIdMismatchException]
-          mismatchException.existingLedgerId should be(ledgerId)
-          mismatchException.providedLedgerId should be(attemptedLedgerId)
+          exception should be(a[MismatchException.LedgerId])
+          val mismatchException = exception.asInstanceOf[MismatchException.LedgerId]
+          mismatchException.existing should be(ledgerId)
+          mismatchException.provided should be(attemptedLedgerId)
         }
       }
 
