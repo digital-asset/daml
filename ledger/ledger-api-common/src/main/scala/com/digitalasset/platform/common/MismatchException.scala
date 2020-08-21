@@ -5,7 +5,7 @@ package com.daml.platform.common
 
 import com.daml.ledger.api.domain
 
-sealed abstract class MismatchException[A](
+abstract class MismatchException[A](
     description: String,
     val existing: A,
     val provided: A,
@@ -14,7 +14,7 @@ sealed abstract class MismatchException[A](
 
 object MismatchException {
 
-  final class LedgerId(existing: domain.LedgerId, provided: domain.LedgerId)
+  class LedgerId(existing: domain.LedgerId, provided: domain.LedgerId)
       extends MismatchException[domain.LedgerId]("ledger id", existing, provided)
 
 }

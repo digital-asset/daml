@@ -118,8 +118,8 @@ private[sandbox] object SqlLedger {
       "Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used."
 
     private def resume(retrievedLedgerId: LedgerId): Future[LedgerId] =
-      retrievedLedgerId match {
-        case LedgerIdMode.Static(`providedLedgerId`) | LedgerIdMode.Dynamic =>
+      providedLedgerId match {
+        case LedgerIdMode.Static(`retrievedLedgerId`) | LedgerIdMode.Dynamic =>
           logger.info(s"Found existing ledger id '$retrievedLedgerId'")
           if (initialLedgerEntries.nonEmpty) {
             logger.warn(nonEmptyLedgerEntriesWarningMessage)
