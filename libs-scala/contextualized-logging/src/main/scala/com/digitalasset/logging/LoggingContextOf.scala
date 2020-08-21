@@ -15,6 +15,20 @@ import scala.language.{higherKinds, implicitConversions}
   * context.  The use of `+` means the tag language in `LoggingContextOf[Tag]`
   * reflects the subtyping relation built into Scala, and `Any` and `with` form
   * the zero and append of a commutative monoid of tags.
+  *
+  * A few, but not all, type-level implications of this:
+  *
+  *  - `LoggingContextOf[Foo with Bar]` is-a `LoggingContextOf[Foo]`
+  *  - `LoggingContextOf[Foo with Bar]` is-a `LoggingContextOf[Bar]`
+  *  - `LoggingContextOf[Elephant]` is-a `LoggingContextOf[Animal]`
+  *  - `LoggingContext` is-a `LoggingContextOf[Any]`
+  *
+  * A context with a more specific scope will always be preferred in implicit
+  * resolution.  So if you call a function demanding a `LoggingContextOf[Foo]`
+  * and you have two implicits in scope, a `LoggingContextOf[Foo]` and a
+  * `LoggingContextOf[Foo with Bar]` then the latter will be chosen, in
+  * accordance with SLS §7.2, §6.26.3.  This fits well the "more context =
+  * better than" overall philosophy of the contextualized-logging library.
   */
 object LoggingContextOf {
 
