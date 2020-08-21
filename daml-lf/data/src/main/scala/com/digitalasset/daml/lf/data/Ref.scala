@@ -146,9 +146,18 @@ object Ref {
     }
   }
 
-  final case class QualifiedName private (module: ModuleName, name: DottedName) {
+  final case class QualifiedName private (module: ModuleName, name: DottedName)
+      extends Ordered[QualifiedName] {
     override def toString: String = module.toString + ":" + name.toString
     def qualifiedName: String = toString
+
+    override def compare(that: QualifiedName): Int = {
+      val diffModule = this.module compare that.module
+      if (diffModule != 0)
+        diffModule
+      else
+        this.name compare that.name
+    }
   }
   object QualifiedName {
     def fromString(s: String): Either[String, QualifiedName] = {
@@ -170,9 +179,19 @@ object Ref {
 
   /* A fully-qualified identifier pointing to a definition in the
    * specified package. */
-  final case class Identifier(packageId: PackageId, qualifiedName: QualifiedName) {
+  final case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
+      extends Ordered[Identifier] {
     override def toString: String = packageId.toString + ":" + qualifiedName.toString
+
+    override def compare(that: Identifier): Int = {
+      val diffPkgId = this.packageId compare that.packageId
+      if (diffPkgId != 0)
+        diffPkgId
+      else
+        this.qualifiedName compare that.qualifiedName
+    }
   }
+
   object Identifier {
     def fromString(s: String): Either[String, Identifier] = {
       splitInTwo(s, ':').fold[Either[String, Identifier]](
@@ -188,6 +207,7 @@ object Ref {
     @throws[IllegalArgumentException]
     def assertFromString(s: String): Identifier =
       assertRight(fromString(s))
+
   }
 
   /* Choice name in a template. */

@@ -7,7 +7,8 @@ import com.daml.lf.data.Ref.{DottedName, Identifier, LedgerString, PackageId, Pa
 import org.scalatest.{EitherValues, FreeSpec, Matchers}
 
 class RefTest extends FreeSpec with Matchers with EitherValues {
-  "DottedName" - {
+
+  "DottedName.string" - {
     "rejects bad segments" - {
       "digit at the start" in {
         DottedName.fromString("9test") shouldBe 'left
@@ -56,7 +57,17 @@ class RefTest extends FreeSpec with Matchers with EitherValues {
     }
   }
 
-  "QualifiedName" - {
+  private[this] val dottedNamesInOrder = List(
+    DottedName.assertFromString("a"),
+    DottedName.assertFromString("a.a"),
+    DottedName.assertFromString("aa"),
+    DottedName.assertFromString("b"),
+    DottedName.assertFromString("b.a"),
+  )
+
+  testOrdered("DottedName", dottedNamesInOrder)
+
+  "QualifiedName.fromString" - {
     "rejects no colon" in {
       QualifiedName.fromString("foo") shouldBe 'left
     }
@@ -90,7 +101,15 @@ class RefTest extends FreeSpec with Matchers with EitherValues {
     }
   }
 
-  "Identifier" - {
+  private[this] val qualifiedNamesInOrder =
+    for {
+      modNane <- dottedNamesInOrder
+      name <- dottedNamesInOrder
+    } yield QualifiedName(modNane, name)
+
+  testOrdered("QualifiedName", qualifiedNamesInOrder)
+
+  "Identifier.fromString" - {
 
     val errorMessageBeginning =
       "Separator ':' between package identifier and qualified name not found in "
@@ -113,6 +132,20 @@ class RefTest extends FreeSpec with Matchers with EitherValues {
       )
     }
   }
+
+  private[this] val pkgIdsInOrder = List(
+    Ref.PackageId.assertFromString("a"),
+    Ref.PackageId.assertFromString("aa"),
+    Ref.PackageId.assertFromString("b"),
+  )
+
+  private[this] val identifiersInOrder =
+    for {
+      pkgId <- pkgIdsInOrder
+      qualifiedName <- qualifiedNamesInOrder
+    } yield Ref.Identifier(pkgId, qualifiedName)
+
+  testOrdered("Indenfitiers", identifiersInOrder)
 
   "Party and PackageId" - {
 
@@ -177,5 +210,38 @@ class RefTest extends FreeSpec with Matchers with EitherValues {
       LedgerString.fromString(positiveTestCase2) shouldBe 'left
     }
   }
+
+  private def testOrdered[X <: Ordered[X]](name: String, elems: Iterable[X]) =
+    s"$name#compare" - {
+      "agrees with equality" in {
+        for {
+          x <- elems
+          y <- elems
+        } ((x compare y) == 0) shouldBe (x == y)
+      }
+
+      "is reflexive" - {
+        for {
+          x <- elems
+        } (x compare x) shouldBe 0
+      }
+
+      "is symmetric" - {
+        for {
+          x <- elems
+          y <- elems
+        } (x compare y) shouldBe -(y compare x)
+      }
+
+      "is transitive on comparable values" - {
+        for {
+          x <- elems
+          y <- elems
+          if (x compare y) <= 0
+          z <- elems
+          if (y compare z) <= 0
+        } (x compare z) shouldBe <=(0)
+      }
+    }
 
 }
