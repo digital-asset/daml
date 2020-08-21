@@ -172,3 +172,16 @@ Connection to a Ledger with Authorization
 
 If your ledger requires an authorization token you can pass it via
 ``--access-token-file``.
+
+Using DAML REPL to convert to JSON
+==================================
+
+Using the ``:json`` command you can encode serializable DAML expressions as
+JSON. For example using the definitions and imports from above:
+
+.. code-block:: none
+
+    daml> :json days 1
+    {"microseconds":86400000000}
+    daml> :json map snd coins
+    [{"issuer":"alice","owner":"bob"}]
