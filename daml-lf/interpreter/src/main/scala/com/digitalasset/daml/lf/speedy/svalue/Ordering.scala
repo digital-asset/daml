@@ -5,11 +5,10 @@ package com.daml.lf
 package speedy
 package svalue
 
-import com.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
+import com.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Utf8}
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError.SErrorCrash
-import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 
@@ -24,19 +23,6 @@ object Ordering extends scala.math.Ordering[SValue] {
       stack: FrontStack[(X, Y)],
   ): FrontStack[(X, Y)] =
     (xs zip ys).to[ImmArray] ++: stack
-
-  private def compareIdentifier(name1: Ref.TypeConName, name2: Ref.TypeConName): Int = {
-    val compare1 = name1.packageId compareTo name2.packageId
-    if (compare1 != 0) {
-      compare1
-    } else {
-      val compare2 = name1.qualifiedName.module compareTo name2.qualifiedName.module
-      if (compare2 != 0)
-        compare2
-      else
-        name1.qualifiedName.name compareTo name2.qualifiedName.name
-    }
-  }
 
   val builtinTypeIdx =
     List(
@@ -84,7 +70,7 @@ object Ordering extends scala.math.Ordering[SValue] {
             case (Ast.TBuiltin(b1), Ast.TBuiltin(b2)) =>
               compareType(builtinTypeIdx(b1) compareTo builtinTypeIdx(b2), stack)
             case (Ast.TTyCon(con1), Ast.TTyCon(con2)) =>
-              compareType(compareIdentifier(con1, con2), stack)
+              compareType(con1 compare con2, stack)
             case (Ast.TNat(n1), Ast.TNat(n2)) =>
               compareType(n1 compareTo n2, stack)
             case (Ast.TStruct(fields1), Ast.TStruct(fields2)) =>
