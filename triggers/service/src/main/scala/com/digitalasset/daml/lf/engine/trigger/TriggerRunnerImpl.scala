@@ -51,6 +51,8 @@ object TriggerRunnerImpl {
   final private case class QueriedACS(runner: Runner, acs: Seq[CreatedEvent], offset: LedgerOffset)
       extends Message
 
+  private[this] val logger = ContextualizedLogger get getClass
+
   def apply(config: Config)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer,
@@ -61,8 +63,7 @@ object TriggerRunnerImpl {
       val triggerInstance = config.triggerInstance
       // Report to the server that this trigger is starting.
       config.server ! TriggerStarting(triggerInstance)
-      ctx.log.info(s"Trigger $name is starting")
-      ContextualizedLogger get getClass info s"Trigger $name is starting" // TODO SC undup
+      logger.info(s"Trigger $name is starting")
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,
