@@ -48,6 +48,16 @@ private[sandbox] object SqlLedger {
 
   private type PersistenceQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
+  object Owner {
+
+    private val nonEmptyLedgerEntriesWarningMessage =
+      "Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used."
+
+    private val nonEmptyPackagesWarningMessage =
+      "Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used."
+
+  }
+
   final class Owner(
       name: LedgerName,
       serverRole: ServerRole,
@@ -111,21 +121,15 @@ private[sandbox] object SqlLedger {
       } yield ledgerId
     }
 
-    private val nonEmptyLedgerEntriesWarningMessage =
-      "Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used."
-
-    private val nonEmptyPackagesWarningMessage =
-      "Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used."
-
     private def resume(retrievedLedgerId: LedgerId): Future[LedgerId] =
       providedLedgerId match {
         case LedgerIdMode.Static(`retrievedLedgerId`) | LedgerIdMode.Dynamic =>
           logger.info(s"Found existing ledger id '$retrievedLedgerId'")
           if (initialLedgerEntries.nonEmpty) {
-            logger.warn(nonEmptyLedgerEntriesWarningMessage)
+            logger.warn(Owner.nonEmptyLedgerEntriesWarningMessage)
           }
           if (packages.listLfPackagesSync().nonEmpty) {
-            logger.warn(nonEmptyPackagesWarningMessage)
+            logger.warn(Owner.nonEmptyPackagesWarningMessage)
           }
           Future.successful(retrievedLedgerId)
         case LedgerIdMode.Static(mismatchingProvidedLedgerId) =>
