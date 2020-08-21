@@ -1290,18 +1290,18 @@ private[lf] object SBuiltin {
             machine.outputTransactionVersions,
             machine.compiledPackages.packageLanguageVersion,
           ) match {
-            case Right(Right(tx)) =>
+            case PartialTransaction.CompleteTransaction(tx) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
               // do that.
               machine.returnValue = SV.Unit
               throw SpeedyHungry(
                 SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit))
-            case Right(Left(_)) =>
+            case PartialTransaction.IncompleteTransaction(_) =>
               machine.clearCommit
               machine.returnValue = SV.Unit
-            case Left(msg) =>
-              crash(msg)
+            case PartialTransaction.SerializationError(msg) =>
+              throw ScenarioErrorSerializationError(msg)
           }
         case v =>
           crash(s"endCommit: expected bool, got: $v")
@@ -1314,7 +1314,7 @@ private[lf] object SBuiltin {
           machine.outputTransactionVersions,
           machine.compiledPackages.packageLanguageVersion,
         ) match {
-        case Right(Right(tx)) =>
+        case PartialTransaction.CompleteTransaction(tx) =>
           throw SpeedyHungry(
             SResultScenarioCommit(
               value = args.get(0),
@@ -1326,11 +1326,11 @@ private[lf] object SBuiltin {
               }
             )
           )
-        case Right(Left(ptx)) =>
+        case PartialTransaction.IncompleteTransaction(ptx) =>
           checkAborted(ptx)
           crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
-        case Left(msg) =>
-          crash(msg)
+        case PartialTransaction.SerializationError(msg) =>
+          throw ScenarioErrorSerializationError(msg)
       }
   }
 

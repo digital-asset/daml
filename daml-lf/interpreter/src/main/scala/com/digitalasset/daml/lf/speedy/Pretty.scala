@@ -148,6 +148,9 @@ private[lf] object Pretty {
 
       case ScenarioErrorPartyAlreadyExists(party) =>
         text(s"Tried to allocate a party that already exists: $party")
+
+      case ScenarioErrorSerializationError(msg) =>
+        text(s"Cannot serialize the transaction: $msg")
     })
 
   def prettyFailedAuthorizations(fas: FailedAuthorizations): Doc =
