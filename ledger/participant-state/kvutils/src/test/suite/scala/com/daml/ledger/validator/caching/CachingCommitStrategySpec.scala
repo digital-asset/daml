@@ -10,8 +10,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.`export`.SubmissionAggregator
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
+import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.CommitStrategy
 import com.daml.ledger.validator.TestHelper._
@@ -66,7 +66,7 @@ class CachingCommitStrategySpec extends AsyncWordSpec with Matchers with Mockito
         any[DamlLogEntry](),
         any[Map[DamlStateKey, Option[DamlStateValue]]](),
         any[Map[DamlStateKey, DamlStateValue]](),
-        any[Option[SubmissionAggregator.WriteSet]],
+        any[Option[SubmissionAggregator.WriteSetBuilder]],
       ))
       .thenReturn(Future.unit)
     new CachingCommitStrategy[Unit](cache, _ => shouldCache, mockCommitStrategy)

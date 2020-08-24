@@ -10,7 +10,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Envelope
-import com.daml.ledger.participant.state.kvutils.`export`.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, ValidationFailed}
@@ -21,8 +21,8 @@ import com.google.protobuf.ByteString
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, argThat}
 import org.mockito.Mockito._
-import org.scalatest.{Assertion, AsyncWordSpec, Inside, Matchers}
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{Assertion, AsyncWordSpec, Inside, Matchers}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
@@ -126,7 +126,7 @@ class BatchedSubmissionValidatorSpec
           logEntryCaptor.capture(),
           any[Map[DamlStateKey, Option[DamlStateValue]]],
           outputStateCaptor.capture(),
-          any[Option[SubmissionAggregator.WriteSet]],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
       val validator = BatchedSubmissionValidator[Unit](
@@ -183,7 +183,7 @@ class BatchedSubmissionValidatorSpec
           logEntryCaptor.capture(),
           any[Map[DamlStateKey, Option[DamlStateValue]]],
           any[Map[DamlStateKey, DamlStateValue]],
-          any[Option[SubmissionAggregator.WriteSet]],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
       val validatorConfig =
@@ -207,7 +207,7 @@ class BatchedSubmissionValidatorSpec
             any[DamlLogEntry],
             any[DamlInputState],
             any[DamlOutputState],
-            any[Option[SubmissionAggregator.WriteSet]],
+            any[Option[SubmissionAggregator.WriteSetBuilder]],
           )
           // Verify that the log entries have been committed in the right order.
           val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
@@ -240,7 +240,7 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntry],
           any[Map[DamlStateKey, Option[DamlStateValue]]],
           any[Map[DamlStateKey, DamlStateValue]],
-          any[Option[SubmissionAggregator.WriteSet]],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
       val validator = BatchedSubmissionValidator[Unit](
@@ -266,7 +266,7 @@ class BatchedSubmissionValidatorSpec
             any[DamlLogEntry],
             any[DamlInputState],
             any[DamlOutputState],
-            any[Option[SubmissionAggregator.WriteSet]],
+            any[Option[SubmissionAggregator.WriteSetBuilder]],
           )
           succeed
         }
@@ -289,7 +289,7 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntry],
           any[Map[DamlStateKey, Option[DamlStateValue]]],
           any[Map[DamlStateKey, DamlStateValue]],
-          any[Option[SubmissionAggregator.WriteSet]],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
       val validator =
@@ -346,7 +346,7 @@ class BatchedSubmissionValidatorSpec
         logEntryCaptor.capture(),
         any[Map[DamlStateKey, Option[DamlStateValue]]],
         outputStateCaptor.capture(),
-        any[Option[SubmissionAggregator.WriteSet]],
+        any[Option[SubmissionAggregator.WriteSetBuilder]],
       ))
       .thenReturn(Future.unit)
     val validatorConfig =
@@ -373,7 +373,7 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntry],
           any[DamlInputState],
           any[DamlOutputState],
-          any[Option[SubmissionAggregator.WriteSet]],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
         )
         // Verify we have all the expected log entries.
         val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])

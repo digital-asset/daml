@@ -24,7 +24,7 @@ class CachingCommitStrategy[Result](
       entry: DamlKvutils.DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
-      exporterWriteSet: Option[SubmissionAggregator.WriteSet],
+      exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder],
   ): Future[Result] =
     for {
       _ <- Future {

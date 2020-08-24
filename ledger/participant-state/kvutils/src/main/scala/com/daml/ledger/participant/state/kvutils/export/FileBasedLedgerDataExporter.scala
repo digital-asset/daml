@@ -44,7 +44,3 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
   }
 
 }
-
-object FileBasedLedgerDataExporter {
-  type WriteSet = Seq[(Key, Value)]
-}

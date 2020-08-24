@@ -7,7 +7,6 @@ import java.io.{DataInputStream, DataOutputStream}
 import java.time.Instant
 
 import com.daml.ledger.participant.state
-import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.WriteSet
 import com.google.protobuf.ByteString
 
 object Serialization {

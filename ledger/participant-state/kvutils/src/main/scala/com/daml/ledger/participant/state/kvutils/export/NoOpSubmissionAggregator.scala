@@ -3,16 +3,17 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator.{Data, WriteSet}
+import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator.WriteSetBuilder
 
 object NoOpSubmissionAggregator extends SubmissionAggregator {
-  override def addChild(): WriteSet = NoOpWriteSet
+  override def addChild(): WriteSetBuilder = NoOpWriteSetBuilder
 
   override def finish(): Unit = ()
 
-  object NoOpWriteSet extends WriteSet {
-    override def +=(data: Data): Unit = ()
+  object NoOpWriteSetBuilder extends WriteSetBuilder {
+    override def +=(data: WriteItem): Unit = ()
 
-    override def ++=(data: Iterable[Data]): Unit = ()
+    override def ++=(data: Iterable[WriteItem]): Unit = ()
   }
+
 }

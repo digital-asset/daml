@@ -25,6 +25,6 @@ trait CommitStrategy[Result] {
       entry: DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
-      exporterWriteSet: Option[SubmissionAggregator.WriteSet] = None,
+      exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder] = None,
   ): Future[Result]
 }

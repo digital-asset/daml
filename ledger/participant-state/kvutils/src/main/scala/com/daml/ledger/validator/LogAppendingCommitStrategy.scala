@@ -28,7 +28,7 @@ class LogAppendingCommitStrategy[Index](
       entry: DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
-      exporterWriteSet: Option[SubmissionAggregator.WriteSet] = None,
+      exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder] = None,
   ): Future[Index] =
     for {
       serializedKeyValuePairs <- Future.successful(outputState.map {

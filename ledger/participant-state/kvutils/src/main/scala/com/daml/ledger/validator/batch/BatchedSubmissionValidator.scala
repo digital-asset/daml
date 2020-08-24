@@ -11,7 +11,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator.WriteSet
 import com.daml.ledger.participant.state.kvutils.export.{LedgerDataExporter, SubmissionAggregator}
 import com.daml.ledger.participant.state.kvutils.{CorrelationId, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -233,7 +232,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState,
       logEntryAndState: LogEntryAndState,
-      exporterWriteSet: WriteSet,
+      exporterWriteSet: SubmissionAggregator.WriteSetBuilder,
   )
 
   private type Outputs2 = Indexed[ValidatedSubmission]
@@ -356,7 +355,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       recordTime: Timestamp,
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState,
-      exporterWriteSet: WriteSet,
+      exporterWriteSet: SubmissionAggregator.WriteSetBuilder,
   )(implicit executionContext: ExecutionContext): Future[ValidatedSubmission] =
     withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed.timedAndTrackedFuture(
@@ -381,7 +380,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       inputState: DamlInputState,
       logEntryAndState: LogEntryAndState,
       invalidatedKeys: mutable.Set[DamlStateKey],
-      exporterWriteSet: WriteSet,
+      exporterWriteSet: SubmissionAggregator.WriteSetBuilder,
   ): scala.collection.immutable.Iterable[ValidatedSubmission] = {
     val (logEntry, outputState) = logEntryAndState
     withSubmissionLoggingContext(correlatedSubmission) { implicit loggingContext =>
@@ -420,7 +419,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       inputState: DamlInputState,
       logEntryAndState: LogEntryAndState,
       commitStrategy: CommitStrategy[CommitResult],
-      exporterWriteSet: WriteSet,
+      exporterWriteSet: SubmissionAggregator.WriteSetBuilder,
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     val (logEntry, outputState) = logEntryAndState
     withSubmissionLoggingContext(correlatedSubmission) { _ =>

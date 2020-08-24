@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator.{Data, WriteSet}
+import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator.WriteSetBuilder
 
 import scala.collection.mutable
 
@@ -12,22 +12,22 @@ final class InMemorySubmissionAggregator(submissionInfo: SubmissionInfo, writer:
 
   import InMemorySubmissionAggregator._
 
-  private val buffer = mutable.ListBuffer.empty[Data]
+  private val buffer = mutable.ListBuffer.empty[WriteItem]
 
-  override def addChild(): WriteSet = new InMemoryWriteSet(buffer)
+  override def addChild(): WriteSetBuilder = new InMemoryWriteSetBuilder(buffer)
 
   override def finish(): Unit = writer.write(submissionInfo, buffer)
 }
 
 object InMemorySubmissionAggregator {
 
-  final class InMemoryWriteSet(buffer: mutable.Buffer[Data]) extends WriteSet {
-    override def +=(data: Data): Unit = buffer.synchronized {
+  final class InMemoryWriteSetBuilder(buffer: mutable.Buffer[WriteItem]) extends WriteSetBuilder {
+    override def +=(data: WriteItem): Unit = buffer.synchronized {
       buffer += data
       ()
     }
 
-    override def ++=(data: Iterable[Data]): Unit = buffer.synchronized {
+    override def ++=(data: Iterable[WriteItem]): Unit = buffer.synchronized {
       buffer ++= data
       ()
     }
