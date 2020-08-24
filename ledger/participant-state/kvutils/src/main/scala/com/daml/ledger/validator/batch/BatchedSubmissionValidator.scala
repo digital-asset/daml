@@ -12,7 +12,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{CorrelationId, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator
 import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
@@ -55,8 +55,6 @@ object BatchedSubmissionValidator {
       new KeyValueCommitting(engine, metrics),
       new ConflictDetection(metrics),
       metrics)
-
-  private type CorrelationId = String
 
   /** A [[DamlSubmission]] with an associated correlation id and a log entry id computed
     * from the envelope. */

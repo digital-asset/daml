@@ -7,6 +7,7 @@ import java.io.DataOutputStream
 import java.time.Instant
 import java.util.concurrent.locks.StampedLock
 
+import com.daml.ledger.participant.state.kvutils.CorrelationId
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.google.protobuf.ByteString
@@ -24,16 +25,16 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
 
   private val outputLock = new StampedLock
 
-  private[export] val correlationIdMapping = mutable.Map.empty[String, String]
-  private[export] val inProgressSubmissions = mutable.Map.empty[String, SubmissionInfo]
+  private[export] val correlationIdMapping = mutable.Map.empty[CorrelationId, CorrelationId]
+  private[export] val inProgressSubmissions = mutable.Map.empty[CorrelationId, SubmissionInfo]
   private[export] val bufferedKeyValueDataPerCorrelationId =
-    mutable.Map.empty[String, mutable.ListBuffer[(Key, Value)]]
+    mutable.Map.empty[CorrelationId, mutable.ListBuffer[(Key, Value)]]
 
-  private var submissionCorrelationId: Option[String] = None
+  private var submissionCorrelationId: Option[CorrelationId] = None
 
   override def addSubmission(
       submissionEnvelope: ByteString,
-      correlationId: String,
+      correlationId: CorrelationId,
       recordTimeInstant: Instant,
       participantId: ParticipantId,
   ): Unit =
@@ -48,7 +49,10 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
       ()
     }
 
-  override def addParentChild(parentCorrelationId: String, childCorrelationId: String): Unit =
+  override def addParentChild(
+      parentCorrelationId: CorrelationId,
+      childCorrelationId: CorrelationId,
+  ): Unit =
     this.synchronized {
       if (submissionCorrelationId.isEmpty) {
         throw new RuntimeException(
@@ -62,7 +66,7 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
       ()
     }
 
-  override def addToWriteSet(correlationId: String, data: Iterable[(Key, Value)]): Unit =
+  override def addToWriteSet(correlationId: CorrelationId, data: Iterable[(Key, Value)]): Unit =
     this.synchronized {
       val parentCorrelationId = correlationIdMapping.getOrElse(
         correlationId,
@@ -75,7 +79,7 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
       ()
     }
 
-  override def finishedProcessing(correlationId: String): Unit = {
+  override def finishedProcessing(correlationId: CorrelationId): Unit = {
     this.synchronized {
       if (!submissionCorrelationId.contains(correlationId)) {
         throw new RuntimeException(
@@ -119,9 +123,10 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
 object FileBasedLedgerDataExporter {
   case class SubmissionInfo(
       submissionEnvelope: ByteString,
-      correlationId: String,
+      correlationId: CorrelationId,
       recordTimeInstant: Instant,
-      participantId: ParticipantId)
+      participantId: ParticipantId,
+  )
 
   type WriteSet = Seq[(Key, Value)]
 }

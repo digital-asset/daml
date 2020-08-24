@@ -3,13 +3,12 @@
 
 package com.daml.ledger
 
-import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.{Bytes, CorrelationId}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 
 import scala.concurrent.Future
 
 package object validator {
-  type CorrelationId = String
   type SubmissionEnvelope = Bytes
   type SubmittingParticipantId = ParticipantId
 
