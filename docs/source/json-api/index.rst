@@ -105,8 +105,8 @@ This access token is used exclusively by the JSON API service for maintaining th
 
 Every access token is different and will depend on your specific ledger operator's requirements.
 The JSON API server requires no access to party-specific data, only access to the ledger identity and package services.
-These services are public meaning that you need a valid token to access them but no party-specific claims or an admin claim.
-Please refer to your ledger operator's documentation to find out how.
+These services are public meaning that you need a valid token to access them but no party-specific claims nor an admin claim.
+Please refer to your ledger operator's documentation to find out how to get these tokens from your ledger operator.
 
 Once you have retrieved your access token, you can provide it to the JSON API by storing it in a file
 and starting ``daml json-api`` with the flag ``--access-token-file /path/to/your/token.file``.
