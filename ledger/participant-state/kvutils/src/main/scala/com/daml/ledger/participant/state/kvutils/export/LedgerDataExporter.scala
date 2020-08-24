@@ -8,7 +8,6 @@ import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.CorrelationId
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
@@ -22,17 +21,7 @@ trait LedgerDataExporter {
       correlationId: CorrelationId,
       recordTimeInstant: Instant,
       participantId: ParticipantId,
-  ): Unit
-
-  /**
-    * Establishes parent-child relation between two correlation IDs.
-    */
-  def addParentChild(parentCorrelationId: CorrelationId, childCorrelationId: CorrelationId): Unit
-
-  /**
-    * Adds given key-value pairs to the write-set belonging to the given correlation ID.
-    */
-  def addToWriteSet(correlationId: CorrelationId, data: Iterable[(Key, Value)]): Unit
+  ): SubmissionAggregator
 
   /**
     * Signals that entries for the given top-level (parent) correlation ID may be persisted.
@@ -55,7 +44,7 @@ object LedgerDataExporter {
 
   private lazy val instance = outputStreamMaybe
     .map(new FileBasedLedgerDataExporter(_))
-    .getOrElse(NoopLedgerDataExporter)
+    .getOrElse(NoOpLedgerDataExporter)
 
   def apply(): LedgerDataExporter = instance
 }

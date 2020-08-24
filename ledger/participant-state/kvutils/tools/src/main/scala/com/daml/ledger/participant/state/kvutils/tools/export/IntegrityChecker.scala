@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExpor
   SubmissionInfo,
   WriteSet
 }
-import com.daml.ledger.participant.state.kvutils.export.{NoopLedgerDataExporter, Serialization}
+import com.daml.ledger.participant.state.kvutils.export.{NoOpLedgerDataExporter, Serialization}
 import com.daml.ledger.participant.state.kvutils.tools._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
@@ -47,7 +47,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       new KeyValueCommitting(engine, metrics),
       new ConflictDetection(metrics),
       metrics,
-      NoopLedgerDataExporter,
+      NoOpLedgerDataExporter,
     )
     val ComponentsForReplay(reader, commitStrategy, queryableWriteSet) =
       commitStrategySupport.createComponentsForReplay()

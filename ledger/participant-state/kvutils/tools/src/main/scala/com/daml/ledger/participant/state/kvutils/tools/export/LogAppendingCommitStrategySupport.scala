@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.tools.export
 
 import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
 import com.daml.ledger.participant.state.kvutils
-import com.daml.ledger.participant.state.kvutils.export.NoopLedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.tools.export.IntegrityChecker.bytesAsHexString
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.StateKeySerializationStrategy
@@ -26,7 +25,7 @@ object LogAppendingCommitStrategySupport extends CommitStrategySupport[Index] {
       BatchedSubmissionValidatorFactory.readerAndCommitStrategyFrom(
         writeRecordingLedgerStateOperations,
         stateKeySerializationStrategy,
-        NoopLedgerDataExporter)
+      )
     ComponentsForReplay(reader, commitStrategy, writeRecordingLedgerStateOperations)
   }
 

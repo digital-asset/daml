@@ -10,6 +10,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.`export`.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, ValidationFailed}
@@ -124,7 +125,9 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           logEntryCaptor.capture(),
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          outputStateCaptor.capture()))
+          outputStateCaptor.capture(),
+          any[Option[SubmissionAggregator.WriteSet]],
+        ))
         .thenReturn(Future.unit)
       val validator = BatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
@@ -179,7 +182,8 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           logEntryCaptor.capture(),
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          any[Map[DamlStateKey, DamlStateValue]]
+          any[Map[DamlStateKey, DamlStateValue]],
+          any[Option[SubmissionAggregator.WriteSet]],
         ))
         .thenReturn(Future.unit)
       val validatorConfig =
@@ -202,7 +206,9 @@ class BatchedSubmissionValidatorSpec
             any[DamlLogEntryId],
             any[DamlLogEntry],
             any[DamlInputState],
-            any[DamlOutputState])
+            any[DamlOutputState],
+            any[Option[SubmissionAggregator.WriteSet]],
+          )
           // Verify that the log entries have been committed in the right order.
           val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
           logEntries.map(_.getPartyAllocationEntry) should be(
@@ -233,7 +239,8 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           any[DamlLogEntry],
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          any[Map[DamlStateKey, DamlStateValue]]
+          any[Map[DamlStateKey, DamlStateValue]],
+          any[Option[SubmissionAggregator.WriteSet]],
         ))
         .thenReturn(Future.unit)
       val validator = BatchedSubmissionValidator[Unit](
@@ -258,7 +265,9 @@ class BatchedSubmissionValidatorSpec
             any[DamlLogEntryId],
             any[DamlLogEntry],
             any[DamlInputState],
-            any[DamlOutputState])
+            any[DamlOutputState],
+            any[Option[SubmissionAggregator.WriteSet]],
+          )
           succeed
         }
     }
@@ -279,7 +288,8 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           any[DamlLogEntry],
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          any[Map[DamlStateKey, DamlStateValue]]
+          any[Map[DamlStateKey, DamlStateValue]],
+          any[Option[SubmissionAggregator.WriteSet]],
         ))
         .thenReturn(Future.unit)
       val validator =
@@ -335,7 +345,9 @@ class BatchedSubmissionValidatorSpec
         any[DamlLogEntryId],
         logEntryCaptor.capture(),
         any[Map[DamlStateKey, Option[DamlStateValue]]],
-        outputStateCaptor.capture()))
+        outputStateCaptor.capture(),
+        any[Option[SubmissionAggregator.WriteSet]],
+      ))
       .thenReturn(Future.unit)
     val validatorConfig =
       BatchedSubmissionValidatorParameters.reasonableDefault.copy(
@@ -360,7 +372,9 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           any[DamlLogEntry],
           any[DamlInputState],
-          any[DamlOutputState])
+          any[DamlOutputState],
+          any[Option[SubmissionAggregator.WriteSet]],
+        )
         // Verify we have all the expected log entries.
         val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
         logEntries.map(_.getPartyAllocationEntry) should contain allElementsOf

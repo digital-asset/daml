@@ -12,44 +12,18 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
 class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoSugar {
-  // XXX SC remove in Scala 2.13; see notes in ConfSpec
-  import scala.collection.GenTraversable, org.scalatest.enablers.Containing
-  private[this] implicit def `fixed sig containingNatureOfGenTraversable`[
-      E: org.scalactic.Equality,
-      TRAV]: Containing[TRAV with GenTraversable[E]] =
-    Containing.containingNatureOfGenTraversable[E, GenTraversable]
-
-  "addParentChild" should {
-    "add entry to correlation ID mapping" in {
+  "writing" should {
+    "mark the submission as in progress" in {
       val instance = new FileBasedLedgerDataExporter(mock[DataOutputStream])
-      instance.addSubmission(
+
+      val _ = instance.addSubmission(
         ByteString.copyFromUtf8("an envelope"),
         "parent",
         Instant.now(),
         v1.ParticipantId.assertFromString("id"),
       )
-      instance.addParentChild("parent", "child")
 
-      instance.correlationIdMapping should contain("child" -> "parent")
-    }
-  }
-
-  "addToWriteSet" should {
-    "append to existing data" in {
-      val instance = new FileBasedLedgerDataExporter(mock[DataOutputStream])
-      instance.addSubmission(
-        ByteString.copyFromUtf8("an envelope"),
-        "parent",
-        Instant.now(),
-        v1.ParticipantId.assertFromString("id"),
-      )
-      instance.addParentChild("parent", "child")
-      instance.addToWriteSet("child", Seq(keyValuePairOf("a", "b")))
-      instance.addToWriteSet("child", Seq(keyValuePairOf("c", "d")))
-
-      instance.bufferedKeyValueDataPerCorrelationId should contain(
-        "parent" ->
-          Seq(keyValuePairOf("a", "b"), keyValuePairOf("c", "d")))
+      instance.inProgressSubmissions.keys should contain("parent")
     }
   }
 
@@ -57,20 +31,19 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
     "remove all data such as submission info, write-set and child correlation IDs" in {
       val dataOutputStream = new DataOutputStream(new ByteArrayOutputStream())
       val instance = new FileBasedLedgerDataExporter(dataOutputStream)
-      instance.addSubmission(
-        ByteString.copyFromUtf8("an envelope"),
-        "parent",
+
+      val submission = instance.addSubmission(
+        ByteString.copyFromUtf8("another envelope"),
+        "some other parent",
         Instant.now(),
         v1.ParticipantId.assertFromString("id"),
       )
-      instance.addParentChild("parent", "parent")
-      instance.addToWriteSet("parent", Seq(keyValuePairOf("a", "b")))
+      val writeSet = submission.addChild()
+      writeSet += keyValuePairOf("a", "b")
 
-      instance.finishedProcessing("parent")
+      instance.finishedProcessing("some other parent")
 
       instance.inProgressSubmissions shouldBe empty
-      instance.bufferedKeyValueDataPerCorrelationId shouldBe empty
-      instance.correlationIdMapping shouldBe empty
     }
   }
 
@@ -81,13 +54,17 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
       val instance = new FileBasedLedgerDataExporter(dataOutputStream)
       val expectedRecordTimeInstant = Instant.ofEpochSecond(123456, 123456789)
       val expectedParticipantId = v1.ParticipantId.assertFromString("id")
-      instance.addSubmission(
+
+      val submission = instance.addSubmission(
         ByteString.copyFromUtf8("an envelope"),
         "parent",
         expectedRecordTimeInstant,
-        v1.ParticipantId.assertFromString("id"))
-      instance.addParentChild("parent", "parent")
-      instance.addToWriteSet("parent", Seq(keyValuePairOf("a", "b")))
+        v1.ParticipantId.assertFromString("id"),
+      )
+      val writeSetA1 = submission.addChild()
+      writeSetA1 ++= Seq(keyValuePairOf("a", "b"), keyValuePairOf("c", "d"))
+      val writeSetA2 = submission.addChild()
+      writeSetA2 ++= Seq(keyValuePairOf("e", "f"), keyValuePairOf("g", "h"))
 
       instance.finishedProcessing("parent")
 
@@ -97,7 +74,13 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
       actualSubmissionInfo.correlationId should be("parent")
       actualSubmissionInfo.recordTimeInstant should be(expectedRecordTimeInstant)
       actualSubmissionInfo.participantId should be(expectedParticipantId)
-      actualWriteSet should be(Seq(keyValuePairOf("a", "b")))
+      actualWriteSet should be(
+        Seq(
+          keyValuePairOf("a", "b"),
+          keyValuePairOf("c", "d"),
+          keyValuePairOf("e", "f"),
+          keyValuePairOf("g", "h"),
+        ))
     }
   }
 
