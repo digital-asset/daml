@@ -66,7 +66,7 @@ final case class ScenarioRunner(
           crash(s"package $pkgId not found")
 
         case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          lookupContract(coid, committers, cbMissing, cbPresent)
+          lookupContractUnsafe(coid, committers, cbMissing, cbPresent)
 
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
@@ -277,7 +277,8 @@ object ScenarioRunner {
       engine.compiledPackages(),
       transactionSeed,
       scenarioExpr,
-      engine.config.outputTransactionVersions,
+      engine.config.allowedInputValueVersions,
+      engine.config.allowedOutputTransactionVersions,
     )
     ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>

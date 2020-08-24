@@ -17,6 +17,8 @@ import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.daml.scalautil.Statement.discard
+import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
@@ -50,6 +52,7 @@ object ReplServiceMain extends App {
       }
       config.copy(timeMode = Some(timeMode))
     }
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
     private val parser = new scopt.OptionParser[Config]("repl-service") {
       opt[String]("port-file")
         .required()
@@ -155,8 +158,8 @@ object ReplServiceMain extends App {
       .addService(new ReplService(clients, timeMode, ec, sequencer, materializer))
       .maxInboundMessageSize(maxMessageSize)
       .build
-  server.start()
-  Files.write(config.portFile, Seq(server.getPort.toString).asJava)
+      .start
+  discard[Path](Files.write(config.portFile, Seq(server.getPort.toString).asJava))
 
   // Bump up the log level
   Logger.getLogger("io.grpc").setLevel(Level.ALL)
@@ -170,7 +173,8 @@ class ReplService(
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer)
-    extends ReplServiceGrpc.ReplServiceImplBase {
+    extends ReplServiceGrpc.ReplServiceImplBase
+    with StrictLogging {
   var packages: Map[PackageId, Package] = Map.empty
   var compiledDefinitions: Map[SDefinitionRef, SExpr] = Map.empty
   var results: Seq[SValue] = Seq()
@@ -234,23 +238,41 @@ class ReplService(
         Compiler.NoProfile)
     val runner =
       new Runner(compiledPackages, Script.Action(scriptExpr, ScriptIds(scriptPackageId)), timeMode)
-    runner.runWithClients(clients).onComplete {
-      case Failure(e: SError.SError) =>
-        // The error here is already printed by the logger in stepToValue.
-        // No need to print anything here.
-        respObs.onError(e)
-      case Failure(e) =>
-        println(s"$e")
-        respObs.onError(e)
-      case Success(v) =>
-        results = results ++ Seq(v)
-        val result = v match {
-          case SValue.SText(t) => t
-          case _ => ""
-        }
-        respObs.onNext(RunScriptResponse.newBuilder.setResult(result).build)
-        respObs.onCompleted
-    }
+    runner
+      .runWithClients(clients)
+      .map { v =>
+        (v, req.getFormat match {
+          case RunScriptRequest.Format.TEXT_ONLY =>
+            v match {
+              case SValue.SText(t) => t
+              case _ => ""
+            }
+          case RunScriptRequest.Format.JSON =>
+            try {
+              LfValueCodec.apiValueToJsValue(v.toValue).compactPrint
+            } catch {
+              case e @ SError.SErrorCrash(_) => {
+                logger.error(s"Cannot convert non-serializable value to JSON")
+                throw e
+              }
+            }
+          case RunScriptRequest.Format.UNRECOGNIZED =>
+            throw new RuntimeException("Unrecognized response format")
+        })
+      }
+      .onComplete {
+        case Failure(e: SError.SError) =>
+          // The error here is already printed by the logger in stepToValue.
+          // No need to print anything here.
+          respObs.onError(e)
+        case Failure(e) =>
+          println(s"$e")
+          respObs.onError(e)
+        case Success((v, result)) =>
+          results = results ++ Seq(v)
+          respObs.onNext(RunScriptResponse.newBuilder.setResult(result).build)
+          respObs.onCompleted
+      }
   }
 
   override def clearResults(

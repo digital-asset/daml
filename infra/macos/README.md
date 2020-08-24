@@ -9,28 +9,32 @@ macOS host) that can be added to our Azure pool.
 There are a few pieces to this puzzle:
 
 1. [Instructions to create a base Vagrant box](1-create-box/README.md). This only
-   needs to be done once per Apple-supplied macOS installer version; the
-   resulting base box can be shared to new machines by simply copying a folder.
-1. [Vagrantfile and init script](2-vagrant-files/README.md); this is the piece
-   that will, from the box defined above, start up a brand new macOS VM,
-   install everything we need, run a complete build of the project, and then
-   connect to Azure and wait for CI build requests.
+   needs to be done once per Apple-supplied macOS installer version; this is as
+   close as we can get to an unmodified, vanilla, out-of-the-box macOS
+   installation. (We do add the `synthetic.conf` file though.)
+2. [Common tools Vagrant box](2-common-box/README.md). This is a Vagrant box
+   created on top of the previous step that does all the initialization except
+   for the installation of the Azure agent. This allows us to only do the common
+   steps once. This may be rebuilt on a slower frequency, say once a week.
+1. [Azure runner](2-running-box/README.md) starts from the previous one and
+   downloads and runs the Azure agent. This is the one that should run on each
+   machine and be reset every day.
 3. Additional considerations, discussed below.
 
 # Security considerations
 
 The guest machine is created with a user, `vagrant`, that has passwordless
 `sudo` access and can be accessed with the default, well-known Vagrant SSH
-"private" key and a well known default password. While this is useful for debugging, 
-it is crucial that the SSH port of the guest machine MUST NOT be accessible from 
-outside the host machine, and that access to the host machine itself be appropriately 
+"private" key and a well known default password. While this is useful for debugging,
+it is crucial that the SSH port of the guest machine MUST NOT be accessible from
+outside the host machine, and that access to the host machine itself be appropriately
 restricted.
 
 My personal recommendation would be for the host machines to not be accessible
 from any network, and to instead be managed by physical access, if possible.
 
 The `init.sh` script creates a `vsts` user with more restricted access to run
-the CI builds. NOTE: the VSTS agent islocked down so upgrade from the Azure console 
+the CI builds. NOTE: the VSTS agent islocked down so upgrade from the Azure console
 will fail. Expectation is that the nodes are cycled daily and will pick up latest
 Azure VSTS agent on rebuild.
 

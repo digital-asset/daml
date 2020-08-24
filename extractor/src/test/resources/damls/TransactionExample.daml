@@ -63,6 +63,16 @@ example = scenario do
   submit bob do
     exercise offer Accept
 
+  -- create a transient RightOfUseOffer and archive it immediately.
+  submit bob do
+    createAndExercise
+      RightOfUseOffer with
+        landlord = bob
+        tenant = alice
+        address = "fobar"
+        expirationDate = date 2020 Jan 1
+      Archive
+
 templateFilterTest = scenario do
   bob <- getParty "Bob"
   alice <- getParty "Alice"

@@ -24,3 +24,8 @@ template TProposal
       controller accepter
       do  myCreate (T proposer accepter)
 
+data D = D
+  with
+    x : Int
+    y : Int
+  deriving Show

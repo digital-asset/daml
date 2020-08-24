@@ -17,6 +17,7 @@ case class TestConfig(
 )
 
 object TestConfig {
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[TestConfig]("test-script") {
     head("test-script")
 

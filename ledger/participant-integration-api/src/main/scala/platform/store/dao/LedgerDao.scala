@@ -7,13 +7,16 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.WorkflowId
+import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
   Configuration,
   DivulgedContract,
   Offset,
-  ParticipantId,
   RejectionReason,
   SubmitterInfo,
   TransactionId
@@ -23,10 +26,6 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.WorkflowId
-import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
-import com.daml.ledger.api.health.ReportsHealth
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.dao.events.TransactionsReader
 import com.daml.platform.store.entries.{
@@ -224,7 +223,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offset: Offset,
       recordedAt: Instant,
       submissionId: String,
-      participantId: ParticipantId,
       configuration: Configuration,
       rejectionReason: Option[String]
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]

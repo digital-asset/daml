@@ -18,6 +18,12 @@ import org.scalatest.Suite
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
+object JdbcLedgerDaoBackend {
+
+  private val TestLedgerId: LedgerId = LedgerId("test-ledger")
+
+}
+
 private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Suite =>
 
   protected def dbType: DbType
@@ -47,7 +53,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- daoOwner(100).acquire()
-        _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger")))
+        _ <- Resource.fromFuture(dao.initializeLedger(JdbcLedgerDaoBackend.TestLedgerId))
       } yield dao
     }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)

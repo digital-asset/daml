@@ -13,7 +13,7 @@ If you're not familiar with gRPC and protobuf, we strongly recommend following t
 Getting started
 ***************
 
-You can get the protobufs from a :github-asset:`GitHub release<protobufs>`, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
+You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
 
 Protobuf reference documentation
 ********************************
@@ -26,7 +26,7 @@ Example project
 We have an example project demonstrating the use of the Ledger API with gRPC. To get the example project, ``PingPongGrpc``:
 
 #. Configure your machine to use the example by following the instructions at :ref:`bindings-java-setup-maven`.
-#. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__. 
+#. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__.
 #. Follow the `setup instructions in the README <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__. Use ``examples.pingpong.grpc.PingPongGrpcMain`` as the main class.
 
 About the example project

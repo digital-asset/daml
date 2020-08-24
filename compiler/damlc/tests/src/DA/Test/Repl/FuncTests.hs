@@ -312,6 +312,21 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "f 42"
           , matchOutput "43"
           ]
+    , testInteraction' ":json"
+          [ input ":json [1, 2, 3]"
+          , matchOutput "\\[1,2,3\\]"
+          , input ":json D with x = 1, y = 2"
+          , matchOutput "{\"x\":1,\"y\":2}"
+          , input ":json \\x -> x"
+          , matchServiceOutput "^Cannot convert non-serializable value to JSON$"
+          , input ":json let x = 1"
+          , matchOutput "^Expected an expression but got: let x = 1$"
+          , input ":json x <- pure 1"
+          , matchOutput "^Expected an expression but got: x <- pure 1$"
+          , input "let x = 1"
+          , input ":json x"
+          , matchOutput "1"
+          ]
     ]
   where
     testInteraction' testName steps =

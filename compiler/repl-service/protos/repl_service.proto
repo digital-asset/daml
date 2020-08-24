@@ -25,6 +25,11 @@ message LoadPackageResponse {
 message RunScriptRequest {
   bytes daml_lf_1 = 1;
   string minor = 2;
+  enum Format {
+    TEXT_ONLY = 0;
+    JSON = 1;
+  }
+  Format format = 3;
 }
 
 message RunScriptResponse {

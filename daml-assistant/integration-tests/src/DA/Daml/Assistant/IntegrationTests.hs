@@ -361,6 +361,62 @@ packagingTests = testGroup "packaging"
               manager <- newManager defaultManagerSettings
               queryResponse <- httpLbs queryRequest manager
               responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
+     , testCase "daml start with relative DAML_PROJECT path" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "project"
+        createDirectoryIfMissing True (projDir </> "daml")
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: sandbox-options"
+          , "version: \"1.0\""
+          , "source: daml"
+          , "sandbox-options:"
+          , "  - --wall-clock-time"
+          , "  - --ledgerid=MyLedger"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          ]
+        writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
+          [ "daml 1.2"
+          , "module Main where"
+          , "template T with p : Party where signatory p"
+          ]
+        sandboxPort :: Int <- fromIntegral <$> getFreePort
+        jsonApiPort :: Int <- fromIntegral <$> getFreePort
+        let startProc = shell $ unwords
+              [ "daml"
+              , "start"
+              , "--start-navigator=no"
+              , "--sandbox-port=" <> show sandboxPort
+              , "--json-api-port=" <> show jsonApiPort
+              ]
+        withCurrentDirectory tmpDir $ withEnv [("DAML_PROJECT", Just "project")] $
+          withCreateProcess startProc $ \_ _ _ startPh ->
+            race_ (waitForProcess' startProc startPh) $ do
+              let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                    { JWT.unregisteredClaims = JWT.ClaimsMap $
+                          Map.fromList [("https://daml.com/ledger-api", Aeson.Object $ HashMap.fromList [("actAs", Aeson.toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                    }
+              let headers =
+                    [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
+                    ] :: RequestHeaders
+              waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+
+              manager <- newManager defaultManagerSettings
+              initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/create"
+              let createRequest = initialRequest
+                    { method = "POST"
+                    , requestHeaders = headers
+                    , requestBody = RequestBodyLBS $ Aeson.encode $ Aeson.object
+                        ["templateId" Aeson..= Aeson.String "Main:T"
+                        ,"payload" Aeson..= [Aeson.String "Alice"]
+                        ]
+                    }
+              createResponse <- httpLbs createRequest manager
+              -- If the ledger id or wall clock time is not picked up this would fail.
+              statusCode (responseStatus createResponse) @?= 200
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess startPh
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree

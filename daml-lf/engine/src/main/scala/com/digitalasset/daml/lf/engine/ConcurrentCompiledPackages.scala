@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Compiler
 
 import scala.collection.JavaConverters._
@@ -17,38 +18,28 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
   * packages.
   */
-final class ConcurrentCompiledPackages extends MutableCompiledPackages {
+private[lf] final class ConcurrentCompiledPackages(
+    allowedLanguageVersions: VersionRange[LanguageVersion],
+    stackTraceMode: speedy.Compiler.StackTraceMode,
+    profilingMode: Compiler.ProfilingMode,
+) extends MutableCompiledPackages(allowedLanguageVersions, stackTraceMode, profilingMode) {
   private[this] val _packages: ConcurrentMap[PackageId, Package] =
     new ConcurrentHashMap().asScala
   private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
     new ConcurrentHashMap()
   private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
-  private[this] var _profilingMode: speedy.Compiler.ProfilingMode = speedy.Compiler.NoProfile
-  private[this] var _stackTraceMode: speedy.Compiler.StackTraceMode = speedy.Compiler.FullStackTrace
 
   override def getPackage(pId: PackageId): Option[Package] = _packages.get(pId)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
     Option(_defns.get(dref))
-
-  override def profilingMode: Compiler.ProfilingMode = _profilingMode
-
-  def profilingMode_=(profilingMode: speedy.Compiler.ProfilingMode) = {
-    _profilingMode = profilingMode
-  }
-
-  override def stackTraceMode = _stackTraceMode
-
-  def stackTraceMode_=(stackTraceMode: speedy.Compiler.StackTraceMode) = {
-    _stackTraceMode = stackTraceMode
-  }
 
   /** Might ask for a package if the package you're trying to add references it.
     *
     * Note that when resuming from a [[Result]] the continuation will modify the
     * [[ConcurrentCompiledPackages]] that originated it.
     */
-  def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
+  override protected def addPackageInternal(pkgId: PackageId, pkg: Package): Result[Unit] =
     addPackageInternal(
       AddPackageState(
         packages = Map(pkgId -> pkg),
@@ -135,7 +126,12 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
 }
 
 object ConcurrentCompiledPackages {
-  def apply(): ConcurrentCompiledPackages = new ConcurrentCompiledPackages()
+  def apply(
+      allowedLanguageVersions: VersionRange[LanguageVersion],
+      stackTraceMode: speedy.Compiler.StackTraceMode = Compiler.NoStackTrace,
+      profilingMode: Compiler.ProfilingMode = Compiler.NoProfile,
+  ): ConcurrentCompiledPackages =
+    new ConcurrentCompiledPackages(allowedLanguageVersions, stackTraceMode, profilingMode)
 
   private case class AddPackageState(
       packages: Map[PackageId, Package], // the packages we're currently compiling

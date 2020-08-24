@@ -8,25 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  CommandDeduplicationResult,
-  PackageDetails
-}
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId => _,
-  LedgerId => _,
-  TransactionId => _,
-  _
-}
 import com.daml.api.util.TimeProvider
-import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger
 import com.daml.ledger.api.domain.{
@@ -50,6 +32,24 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails
+}
+import com.daml.ledger.participant.state.v1.{
+  ApplicationId => _,
+  LedgerId => _,
+  TransactionId => _,
+  _
+}
+import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.packages.InMemoryPackageStore
@@ -57,6 +57,8 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
+import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -64,30 +66,17 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.{ApiOffset, index}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
 import scala.util.Try
 
-sealed trait InMemoryEntry extends Product with Serializable
-final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
-final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
-final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
-final case class InMemoryPackageEntry(entry: PackageLedgerEntry) extends InMemoryEntry
-
-final case class CommandDeduplicationEntry(
-    deduplicationKey: String,
-    deduplicateUntil: Instant,
-)
-
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
   */
-class InMemoryLedger(
+private[sandbox] final class InMemoryLedger(
     val ledgerId: LedgerId,
-    participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
     transactionCommitter: TransactionCommitter,
@@ -113,15 +102,6 @@ class InMemoryLedger(
   private val packageStoreRef = new AtomicReference[InMemoryPackageStore](packageStoreInit)
 
   override def currentHealth(): HealthStatus = Healthy
-
-  def ledgerEntries(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
-    entries
-      .getSource(startExclusive, endInclusive)
-      .collect {
-        case (offset, InMemoryLedgerEntry(entry)) => offset -> entry
-      }
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -458,7 +438,6 @@ class InMemoryLedger(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationRejected(
               submissionId,
-              participantId,
               timeProvider.getCurrentTime,
               "Party already exists",
             )
@@ -470,7 +449,6 @@ class InMemoryLedger(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationAccepted(
               Some(submissionId),
-              participantId,
               timeProvider.getCurrentTime,
               PartyDetails(party, displayName, isLocal = true))))
       }
@@ -551,23 +529,22 @@ class InMemoryLedger(
               InMemoryConfigEntry(
                 ConfigurationEntry.Rejected(
                   submissionId,
-                  participantId,
                   s"Generation mismatch, expected ${currentConfig.generation + 1}, got ${config.generation}",
-                  config)))
+                  config,
+                )))
 
           case _ if recordTime.isAfter(mrt) =>
             entries.publish(
               InMemoryConfigEntry(
                 ConfigurationEntry.Rejected(
                   submissionId,
-                  participantId,
                   s"Configuration change timed out: $mrt > $recordTime",
-                  config)))
+                  config,
+                )))
             ledgerConfiguration = Some(config)
 
           case _ =>
-            entries.publish(
-              InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, participantId, config)))
+            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, config)))
             ledgerConfiguration = Some(config)
         }
         SubmissionResult.Acknowledged
@@ -582,11 +559,11 @@ class InMemoryLedger(
       ledgerConfiguration.map(config => end -> config)
     })
 
-  override def configurationEntries(startExclusive: Option[Offset])(
+  override def configurationEntries(startExclusive: Offset)(
       implicit loggingContext: LoggingContext,
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(startExclusive, None)
+      .getSource(Some(startExclusive), None)
       .collect {
         case (offset, InMemoryConfigEntry(entry)) => offset -> entry
       }
@@ -644,4 +621,23 @@ class InMemoryLedger(
         ()
       }
     }
+}
+
+private[sandbox] object InMemoryLedger {
+
+  sealed trait InMemoryEntry extends Product with Serializable
+
+  final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
+
+  final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
+
+  final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
+
+  final case class InMemoryPackageEntry(entry: PackageLedgerEntry) extends InMemoryEntry
+
+  final case class CommandDeduplicationEntry(
+      deduplicationKey: String,
+      deduplicateUntil: Instant,
+  )
+
 }

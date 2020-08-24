@@ -330,6 +330,7 @@ private[lf] final case class Compiler(
               case BToTextTimestamp => SBToText
               case BToTextParty => SBToText
               case BToTextDate => SBToText
+              case BToTextContractId => SBToTextContractId
               case BToQuotedTextParty => SBToQuotedTextParty
               case BToTextCodePoints => SBToTextCodePoints
               case BFromTextParty => SBFromTextParty
@@ -1126,8 +1127,8 @@ private[lf] final case class Compiler(
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
 
-      case x: SEWronglyTypeContractId =>
-        throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+      case x: SEDamlException =>
+        throw CompilationError(s"unexpected SEDamlException: $x")
 
       case x: SEImportValue =>
         throw CompilationError(s"unexpected SEImportValue: $x")
@@ -1200,8 +1201,8 @@ private[lf] final case class Compiler(
           go(body, bound, go(handler, bound, go(fin, bound, free)))
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
-        case x: SEWronglyTypeContractId =>
-          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+        case x: SEDamlException =>
+          throw CompilationError(s"unexpected SEDamlException: $x")
         case x: SEImportValue =>
           throw CompilationError(s"unexpected SEImportValue: $x")
 
@@ -1302,8 +1303,8 @@ private[lf] final case class Compiler(
           go(body)
         case SELabelClosure(_, expr) =>
           go(expr)
-        case x: SEWronglyTypeContractId =>
-          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+        case x: SEDamlException =>
+          throw CompilationError(s"unexpected SEDamlException: $x")
         case x: SEImportValue =>
           throw CompilationError(s"unexpected SEImportValue: $x")
       }

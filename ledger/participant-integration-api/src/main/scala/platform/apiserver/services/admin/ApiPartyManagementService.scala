@@ -6,28 +6,28 @@ package com.daml.platform.apiserver.services.admin
 import java.util.UUID
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.Source
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
+import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
+import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
-  IndexTransactionsService
+  IndexTransactionsService,
+  LedgerEndService
 }
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
-import com.daml.dec.{DirectExecutionContext => DE}
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.PartyEntry.{AllocationAccepted, AllocationRejected}
-import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
-import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
-import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.server.api.validation.ErrorFactories
-import io.grpc.ServerServiceDefinition
+import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.compat.java8.FutureConverters
+import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
@@ -40,17 +40,26 @@ private[apiserver] final class ApiPartyManagementService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  // Execute subsequent transforms in the thread of the previous operation.
+  private implicit val executionContext: ExecutionContext = DirectExecutionContext
+
+  private val synchronousResponse = new SynchronousResponse(
+    new SynchronousResponseStrategy(transactionService, writeService, partyManagementService),
+    timeToLive = 30.seconds,
+  )
+
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    PartyManagementServiceGrpc.bindService(this, DE)
+    PartyManagementServiceGrpc.bindService(this, DirectExecutionContext)
 
   override def getParticipantId(
-      request: GetParticipantIdRequest): Future[GetParticipantIdResponse] = {
+      request: GetParticipantIdRequest
+  ): Future[GetParticipantIdResponse] = {
     partyManagementService
       .getParticipantId()
-      .map(pid => GetParticipantIdResponse(pid.toString))(DE)
-      .andThen(logger.logErrorsOnCall[GetParticipantIdResponse])(DE)
+      .map(pid => GetParticipantIdResponse(pid.toString))
+      .andThen(logger.logErrorsOnCall[GetParticipantIdResponse])
   }
 
   private[this] def mapPartyDetails(
@@ -61,34 +70,16 @@ private[apiserver] final class ApiPartyManagementService private (
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
     partyManagementService
       .getParties(request.parties.map(Ref.Party.assertFromString))
-      .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))(DE)
-      .andThen(logger.logErrorsOnCall[GetPartiesResponse])(DE)
+      .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))
+      .andThen(logger.logErrorsOnCall[GetPartiesResponse])
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =
     partyManagementService
       .listKnownParties()
-      .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
-      .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])(DE)
-
-  /**
-    * Checks invariants and forwards the original result after the party is found to be persisted.
-    *
-    * @return The result of the party allocation received originally, wrapped in a [[Future]]
-    */
-  private def pollUntilPersisted(
-      submissionId: SubmissionId,
-      offset: LedgerOffset.Absolute): Future[PartyEntry] = {
-    partyManagementService
-      .partyEntries(offset)
-      .collect {
-        case entry @ AllocationAccepted(Some(`submissionId`), _, _) => entry
-        case entry @ AllocationRejected(`submissionId`, _, _) => entry
-      }
-      .completionTimeout(30.seconds)
-      .runWith(Sink.head)(materializer)
-  }
+      .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))
+      .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     // TODO: This should do proper validation.
@@ -98,38 +89,25 @@ private[apiserver] final class ApiPartyManagementService private (
       else Some(Ref.Party.assertFromString(request.partyIdHint))
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
-    transactionService
-      .currentLedgerEnd()
-      .flatMap { ledgerEndBeforeRequest =>
-        FutureConverters
-          .toScala(writeService
-            .allocateParty(party, displayName, submissionId))
-          .flatMap {
-            case SubmissionResult.Acknowledged =>
-              pollUntilPersisted(submissionId, ledgerEndBeforeRequest).flatMap {
-                case domain.PartyEntry.AllocationAccepted(_, _, partyDetails) =>
-                  Future.successful(
-                    AllocatePartyResponse(
-                      Some(PartyDetails(
-                        partyDetails.party,
-                        partyDetails.displayName.getOrElse(""),
-                        partyDetails.isLocal))))
-                case domain.PartyEntry.AllocationRejected(_, _, reason) =>
-                  Future.failed(ErrorFactories.invalidArgument(reason))
-              }(DE)
-            case r @ SubmissionResult.Overloaded =>
-              Future.failed(ErrorFactories.resourceExhausted(r.description))
-            case r @ SubmissionResult.InternalError(_) =>
-              Future.failed(ErrorFactories.internal(r.reason))
-            case r @ SubmissionResult.NotSupported =>
-              Future.failed(ErrorFactories.unimplemented(r.description))
-          }(DE)
-      }(DE)
-      .andThen(logger.logErrorsOnCall[AllocatePartyResponse])(DE)
+    synchronousResponse
+      .submitAndWait(submissionId, (party, displayName))(executionContext, materializer)
+      .map {
+        case PartyEntry.AllocationAccepted(_, partyDetails) =>
+          AllocatePartyResponse(
+            Some(
+              PartyDetails(
+                partyDetails.party,
+                partyDetails.displayName.getOrElse(""),
+                partyDetails.isLocal,
+              )))
+      }
+      .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
+
 }
 
 private[apiserver] object ApiPartyManagementService {
+
   def createApiService(
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
@@ -141,5 +119,44 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService,
       writeBackend,
       mat)
+
+  private final class SynchronousResponseStrategy(
+      ledgerEndService: LedgerEndService,
+      writeService: WritePartyService,
+      partyManagementService: IndexPartyManagementService,
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+      extends SynchronousResponse.Strategy[
+        (Option[Ref.Party], Option[String]),
+        PartyEntry,
+        PartyEntry.AllocationAccepted,
+      ] {
+
+    override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
+      ledgerEndService.currentLedgerEnd().map(Some(_))
+
+    override def submit(
+        submissionId: SubmissionId,
+        input: (Option[Ref.Party], Option[String]),
+    ): Future[SubmissionResult] = {
+      val (party, displayName) = input
+      writeService.allocateParty(party, displayName, submissionId).toScala
+    }
+
+    override def entries(offset: Option[LedgerOffset.Absolute]): Source[PartyEntry, _] =
+      partyManagementService.partyEntries(offset)
+
+    override def accept(
+        submissionId: SubmissionId,
+    ): PartialFunction[PartyEntry, PartyEntry.AllocationAccepted] = {
+      case entry @ PartyEntry.AllocationAccepted(Some(`submissionId`), _) => entry
+    }
+
+    override def reject(
+        submissionId: SubmissionId,
+    ): PartialFunction[PartyEntry, StatusRuntimeException] = {
+      case PartyEntry.AllocationRejected(`submissionId`, reason) =>
+        ErrorFactories.invalidArgument(reason)
+    }
+  }
 
 }

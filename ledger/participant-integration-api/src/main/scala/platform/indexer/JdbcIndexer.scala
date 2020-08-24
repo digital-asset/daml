@@ -18,7 +18,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
@@ -104,7 +104,7 @@ object JdbcIndexer {
         logger.info(s"Found existing ledger with ID: $existingLedgerId")
         Future.unit
       } else {
-        Future.failed(new LedgerIdMismatchException(existingLedgerId, providedLedgerId))
+        Future.failed(new MismatchException.LedgerId(existingLedgerId, providedLedgerId))
       }
 
     private def initializeLedgerData(
@@ -237,7 +237,6 @@ private[indexer] class JdbcIndexer private[indexer] (
           ) =>
         val entry = PartyLedgerEntry.AllocationAccepted(
           submissionId,
-          hostingParticipantId,
           recordTime.toInstant,
           domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId)
         )
@@ -245,13 +244,12 @@ private[indexer] class JdbcIndexer private[indexer] (
 
       case PartyAllocationRejected(
           submissionId,
-          hostingParticipantId,
+          _,
           recordTime,
           rejectionReason,
           ) =>
         val entry = PartyLedgerEntry.AllocationRejected(
           submissionId,
-          hostingParticipantId,
           recordTime.toInstant,
           rejectionReason,
         )
@@ -303,7 +301,6 @@ private[indexer] class JdbcIndexer private[indexer] (
           offset,
           config.recordTime.toInstant,
           config.submissionId,
-          config.participantId,
           config.newConfiguration,
           None,
         )
@@ -313,7 +310,6 @@ private[indexer] class JdbcIndexer private[indexer] (
           offset,
           configRejection.recordTime.toInstant,
           configRejection.submissionId,
-          configRejection.participantId,
           configRejection.proposedConfiguration,
           Some(configRejection.rejectionReason),
         )

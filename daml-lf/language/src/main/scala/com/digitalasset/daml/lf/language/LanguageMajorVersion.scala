@@ -34,15 +34,12 @@ sealed abstract class LanguageMajorVersion(
 
 object LanguageMajorVersion {
 
-  // Note that DAML-LF v0 never had and never will have minor versions.
-  case object V0 extends LanguageMajorVersion(pretty = "0", stableAscending = NonEmptyList(""))
-
   case object V1
       extends LanguageMajorVersion(
         pretty = "1",
         stableAscending = NonEmptyList("0", "1", "2", "3", "4", "5", "6", "7", "8"))
 
-  val All: List[LanguageMajorVersion] = List(V0, V1)
+  val All: List[LanguageMajorVersion] = List(V1)
 
   @deprecated("use All instead", since = "100.12.12")
   val supported: List[LanguageMajorVersion] = All

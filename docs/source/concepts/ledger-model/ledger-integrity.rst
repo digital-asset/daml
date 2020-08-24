@@ -194,6 +194,7 @@ It grants `P` the choice to perform such an assertion, which is needed for :ref:
 
 Key consistency extends to actions, transactions and lists of transactions just like the other consistency notions.
 
+.. _da-model-ledger-consistency:
 
 Ledger consistency
 ``````````````````
@@ -267,7 +268,7 @@ Definition »input key«
 In the :ref:`blacklisting example <paint-offer-blacklist>`, `P`\ 's transaction has two input keys: `(U, A)` due to the **NoSuchKey** action and `(P, P123)` as it creates a `PaintOffer` contract.
 
 
-.. _`da-model-conformance`:
+.. _da-model-conformance:
 
 Conformance
 +++++++++++

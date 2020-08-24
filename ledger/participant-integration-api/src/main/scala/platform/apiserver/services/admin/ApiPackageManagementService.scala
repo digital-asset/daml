@@ -8,23 +8,28 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.lf.archive.DarReader
+import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.dec.{DirectExecutionContext => DE}
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
+import com.daml.ledger.participant.state.index.v2.{
+  IndexPackagesService,
+  IndexTransactionsService,
+  LedgerEndService
+}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
+import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
-import io.grpc.ServerServiceDefinition
+import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.compat.java8.FutureConverters
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.compat.java8.FutureConverters._
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -32,19 +37,33 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: WritePackagesService,
-    materializer: Materializer)(implicit loggingContext: LoggingContext)
+    materializer: Materializer,
+)(implicit loggingContext: LoggingContext)
     extends PackageManagementService
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  // Execute subsequent transforms in the thread of the previous operation.
+  private implicit val executionContext: ExecutionContext = DirectExecutionContext
+
+  private val synchronousResponse = new SynchronousResponse(
+    new SynchronousResponseStrategy(
+      transactionsService,
+      packagesIndex,
+      packagesWrite,
+    ),
+    timeToLive = 30.seconds,
+  )
+
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    PackageManagementServiceGrpc.bindService(this, DE)
+    PackageManagementServiceGrpc.bindService(this, DirectExecutionContext)
 
   override def listKnownPackages(
-      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] = {
+      request: ListKnownPackagesRequest
+  ): Future[ListKnownPackagesResponse] = {
     packagesIndex
       .listLfPackages()
       .map { pkgs =>
@@ -56,8 +75,8 @@ private[apiserver] final class ApiPackageManagementService private (
               Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
               details.sourceDescription.getOrElse(""))
         })
-      }(DE)
-      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])(DE)
+      }
+      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
@@ -67,15 +86,7 @@ private[apiserver] final class ApiPackageManagementService private (
       else
         SubmissionId.assertFromString(request.submissionId)
 
-    // Amount of time we wait for the ledger to commit the request before we
-    // give up on polling for the result.
-    // TODO(JM): This constant should be replaced by user-provided maximum record time
-    // which should be wired through the stack and verified during validation, just like
-    // with transactions. I'm leaving this for another PR.
-    val timeToLive = 30.seconds
-
-    implicit val ec: ExecutionContext = DE
-    val uploadDarFileResponse = for {
+    val response = for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchive(
           "package-upload",
@@ -84,48 +95,21 @@ private[apiserver] final class ApiPackageManagementService private (
           err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
           Future.successful
         )
-      ledgerEndBeforeRequest <- transactionsService.currentLedgerEnd()
-      submissionResult <- FutureConverters.toScala(
-        packagesWrite.uploadPackages(submissionId, dar.all, None)
-      )
-      response <- submissionResult match {
-        case SubmissionResult.Acknowledged =>
-          pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
-            case _: PackageEntry.PackageUploadAccepted =>
-              for (archive <- dar.all) {
-                logger.info(s"Package ${archive.getHash} successfully uploaded")
-              }
-              Future.successful(UploadDarFileResponse())
-            case PackageEntry.PackageUploadRejected(_, _, reason) =>
-              Future.failed(ErrorFactories.invalidArgument(reason))
-          }
-        case r @ SubmissionResult.Overloaded =>
-          Future.failed(ErrorFactories.resourceExhausted(r.description))
-        case r @ SubmissionResult.InternalError(_) =>
-          Future.failed(ErrorFactories.internal(r.reason))
-        case r @ SubmissionResult.NotSupported =>
-          Future.failed(ErrorFactories.unimplemented(r.description))
+      _ <- synchronousResponse.submitAndWait(submissionId, dar)(executionContext, materializer)
+    } yield {
+      for (archive <- dar.all) {
+        logger.info(s"Package ${archive.getHash} successfully uploaded")
       }
-    } yield response
-    uploadDarFileResponse.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
+      UploadDarFileResponse()
+    }
+
+    response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
   }
 
-  private def pollUntilPersisted(
-      submissionId: SubmissionId,
-      timeToLive: FiniteDuration,
-      offset: LedgerOffset.Absolute): Future[PackageEntry] = {
-    packagesIndex
-      .packageEntries(offset)
-      .collect {
-        case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
-        case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
-      }
-      .completionTimeout(timeToLive)
-      .runWith(Sink.head)(materializer)
-  }
 }
 
 private[apiserver] object ApiPackageManagementService {
+
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
@@ -133,4 +117,39 @@ private[apiserver] object ApiPackageManagementService {
   )(implicit mat: Materializer, loggingContext: LoggingContext)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
     new ApiPackageManagementService(readBackend, transactionsService, writeBackend, mat)
+
+  private final class SynchronousResponseStrategy(
+      ledgerEndService: LedgerEndService,
+      packagesIndex: IndexPackagesService,
+      packagesWrite: WritePackagesService,
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+      extends SynchronousResponse.Strategy[
+        Dar[Archive],
+        PackageEntry,
+        PackageEntry.PackageUploadAccepted,
+      ] {
+
+    override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
+      ledgerEndService.currentLedgerEnd().map(Some(_))
+
+    override def submit(submissionId: SubmissionId, dar: Dar[Archive]): Future[SubmissionResult] =
+      packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
+
+    override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =
+      packagesIndex.packageEntries(offset)
+
+    override def accept(
+        submissionId: SubmissionId,
+    ): PartialFunction[PackageEntry, PackageEntry.PackageUploadAccepted] = {
+      case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
+    }
+
+    override def reject(
+        submissionId: SubmissionId,
+    ): PartialFunction[PackageEntry, StatusRuntimeException] = {
+      case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
+        ErrorFactories.invalidArgument(reason)
+    }
+  }
+
 }

@@ -305,6 +305,22 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case object SBToTextContractId extends SBuiltin(1) {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
+      args.get(0) match {
+        case SContractId(cid) =>
+          if (machine.onLedger) {
+            machine.returnValue = SValue.SValue.None
+          } else {
+            machine.returnValue = SOptional(Some(SText(cid.coid)))
+          }
+        case _ => crash(s"type mismatch toTextContractId: $args")
+      }
+    }
+  }
+
   final case object SBToTextNumeric extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val x = args.get(1).asInstanceOf[SNumeric].value
@@ -470,7 +486,7 @@ private[lf] object SBuiltin {
                 machine.frame,
                 machine.actuals,
                 machine.env.size))
-            enterApplication(machine, func, Array(SEValue(head)))
+            machine.enterApplication(func, Array(SEValue(head)))
         }
       }
     }
@@ -1019,14 +1035,20 @@ private[lf] object SBuiltin {
               templateId,
               machine.committers,
               cbMissing = _ => machine.tryHandleException(),
-              cbPresent = { coinst =>
-                // Note that we cannot throw in this continuation -- instead
-                // set the control appropriately which will crash the machine
-                // correctly later.
-                if (coinst.template != templateId)
-                  machine.ctrl = SEWronglyTypeContractId(coid, templateId, coinst.template)
-                else
-                  machine.ctrl = SEImportValue(coinst.arg.value)
+              cbPresent = {
+                case V.ContractInst(actualTmplId, V.VersionedValue(version, arg), _) =>
+                  // Note that we cannot throw in this continuation -- instead
+                  // set the control appropriately which will crash the machine
+                  // correctly later.
+                  machine.ctrl =
+                    if (actualTmplId != templateId)
+                      SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
+                    else if (!machine.inputValueVersions.contains(version))
+                      SEDamlException(
+                        DamlEDisallowedInputValueVersion(machine.inputValueVersions, version),
+                      )
+                    else
+                      SEImportValue(arg)
               },
             ),
           )
@@ -1268,49 +1290,48 @@ private[lf] object SBuiltin {
             machine.outputTransactionVersions,
             machine.compiledPackages.packageLanguageVersion,
           ) match {
-            case Left(_) =>
-              machine.clearCommit
-              machine.returnValue = SV.Unit
-            case Right(tx) =>
+            case PartialTransaction.CompleteTransaction(tx) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
               // do that.
               machine.returnValue = SV.Unit
               throw SpeedyHungry(
                 SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit))
+            case PartialTransaction.IncompleteTransaction(_) =>
+              machine.clearCommit
+              machine.returnValue = SV.Unit
+            case PartialTransaction.SerializationError(msg) =>
+              throw ScenarioErrorSerializationError(msg)
           }
         case v =>
           crash(s"endCommit: expected bool, got: $v")
       }
     }
 
-    private[this] final def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val tx =
-        machine.ptx
-          .finish(
-            machine.outputTransactionVersions,
-            machine.compiledPackages.packageLanguageVersion,
+    private[this] def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit =
+      machine.ptx
+        .finish(
+          machine.outputTransactionVersions,
+          machine.compiledPackages.packageLanguageVersion,
+        ) match {
+        case PartialTransaction.CompleteTransaction(tx) =>
+          throw SpeedyHungry(
+            SResultScenarioCommit(
+              value = args.get(0),
+              tx = tx,
+              committers = machine.committers,
+              callback = newValue => {
+                machine.clearCommit
+                machine.returnValue = newValue
+              }
+            )
           )
-          .fold(
-            ptx => {
-              checkAborted(ptx)
-              crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
-            },
-            identity,
-          )
-
-      throw SpeedyHungry(
-        SResultScenarioCommit(
-          value = args.get(0),
-          tx = tx,
-          committers = machine.committers,
-          callback = newValue => {
-            machine.clearCommit
-            machine.returnValue = newValue
-          },
-        ),
-      )
-    }
+        case PartialTransaction.IncompleteTransaction(ptx) =>
+          checkAborted(ptx)
+          crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
+        case PartialTransaction.SerializationError(msg) =>
+          throw ScenarioErrorSerializationError(msg)
+      }
   }
 
   /** $pass :: Int64 -> Token -> Timestamp */

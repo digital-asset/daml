@@ -4,26 +4,15 @@
 package com.daml.platform.sandbox.stores
 
 import java.time.Instant
-import java.util.concurrent.CompletionStage
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId => _,
-  LedgerId => _,
-  TransactionId => _,
-  _
-}
-import com.daml.ledger.participant.state.{v1 => ParticipantState}
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.v1.{ParticipantId, WriteService}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
@@ -32,30 +21,29 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.platform.sandbox.stores.ledger.{Ledger, MeteredLedger}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
-import scala.compat.java8.FutureConverters
-import scala.concurrent.duration._
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
-trait IndexAndWriteService {
+private[sandbox] trait IndexAndWriteService {
   def indexService: IndexService
 
   def writeService: WriteService
 }
 
-object SandboxIndexAndWriteService {
+private[sandbox] object SandboxIndexAndWriteService {
   //TODO: internalise the template store as well
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
   def postgres(
       name: LedgerName,
-      initialLedgerId: LedgerIdMode,
+      providedLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
       timeProvider: TimeProvider,
@@ -75,8 +63,7 @@ object SandboxIndexAndWriteService {
       name = name,
       serverRole = ServerRole.Sandbox,
       jdbcUrl = jdbcUrl,
-      initialLedgerId = initialLedgerId,
-      participantId = participantId,
+      providedLedgerId = providedLedgerId,
       timeProvider = timeProvider,
       packages = templateStore,
       initialLedgerEntries = ledgerEntries,
@@ -90,7 +77,7 @@ object SandboxIndexAndWriteService {
 
   def inMemory(
       name: LedgerName,
-      initialLedgerId: LedgerIdMode,
+      providedLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
@@ -104,8 +91,7 @@ object SandboxIndexAndWriteService {
   ): ResourceOwner[IndexAndWriteService] = {
     val ledger =
       new InMemoryLedger(
-        initialLedgerId.or(new LedgerIdGenerator(name).generateRandomId()),
-        participantId,
+        providedLedgerId.or(LedgerIdGenerator.generateRandomId(name)),
         timeProvider,
         acs,
         transactionCommitter,
@@ -171,73 +157,4 @@ object SandboxIndexAndWriteService {
           Resource.unit
       }
   }
-}
-
-final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
-    implicit loggingContext: LoggingContext,
-) extends WriteService {
-
-  override def currentHealth(): HealthStatus = ledger.currentHealth()
-
-  override def submitTransaction(
-      submitterInfo: ParticipantState.SubmitterInfo,
-      transactionMeta: ParticipantState.TransactionMeta,
-      transaction: SubmittedTransaction,
-  ): CompletionStage[ParticipantState.SubmissionResult] =
-    withEnrichedLoggingContext(
-      "submitter" -> submitterInfo.submitter,
-      "applicationId" -> submitterInfo.applicationId,
-      "commandId" -> submitterInfo.commandId,
-      "deduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
-      "submissionTime" -> transactionMeta.submissionTime.toInstant.toString,
-      "workflowId" -> transactionMeta.workflowId.getOrElse(""),
-      "ledgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
-    ) { implicit loggingContext =>
-      FutureConverters.toJava(
-        ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
-      )
-    }
-
-  override def allocateParty(
-      hint: Option[Party],
-      displayName: Option[String],
-      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
-    val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
-    withEnrichedLoggingContext(
-      "party" -> party,
-      "submissionId" -> submissionId,
-    ) { implicit loggingContext =>
-      FutureConverters.toJava(ledger.publishPartyAllocation(submissionId, party, displayName))
-    }
-  }
-
-  // WritePackagesService
-  override def uploadPackages(
-      submissionId: SubmissionId,
-      payload: List[Archive],
-      sourceDescription: Option[String]
-  ): CompletionStage[SubmissionResult] =
-    withEnrichedLoggingContext(
-      "submissionId" -> submissionId,
-      "description" -> sourceDescription.getOrElse(""),
-      "packageHashes" -> payload.iterator.map(_.getHash).mkString(","),
-    ) { implicit loggingContext =>
-      FutureConverters.toJava(
-        ledger
-          .uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload))
-    }
-
-  // WriteConfigService
-  override def submitConfiguration(
-      maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
-      config: Configuration): CompletionStage[SubmissionResult] =
-    withEnrichedLoggingContext(
-      "maxRecordTime" -> maxRecordTime.toInstant.toString,
-      "submissionId" -> submissionId,
-      "configGeneration" -> config.generation.toString,
-      "configMaxDeduplicationTime" -> config.maxDeduplicationTime.toString,
-    ) { implicit loggingContext =>
-      FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
-    }
 }

@@ -73,8 +73,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       if (input.available() == 0) {
         Future.successful(0)
       } else {
-        val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
         for {
+          (submissionInfo, expectedWriteSet) <- Future(readSubmissionAndOutputs(input))
           _ <- submissionValidator.validateAndCommit(
             submissionInfo.submissionEnvelope,
             submissionInfo.correlationId,

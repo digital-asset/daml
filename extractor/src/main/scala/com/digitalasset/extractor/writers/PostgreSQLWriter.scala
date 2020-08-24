@@ -170,47 +170,28 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
 
     val insertIO = insertTransaction(transaction).update.run.void
 
-    val createdEvents: List[CreatedEvent] = transaction.events.values.collect {
-      case e @ CreatedEvent(_, _, _, _, _) => e
-    }(scala.collection.breakOut)
+    val events = transaction.events.map(_._2)
 
-    val exercisedEvents: List[ExercisedEvent] = transaction.events.values.collect {
-      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _) => e
-    }(scala.collection.breakOut)
-
-    logger.trace(s"Create events: ${com.daml.extractor.pformat(createdEvents)}")
-    logger.trace(s"Exercise events: ${com.daml.extractor.pformat(exercisedEvents)}")
+    logger.trace(s"Events events: ${com.daml.extractor.pformat(events)}")
 
     (for {
-      archiveIOsMulti <- if (useMultiTableFormat)
-        exercisedEvents.traverse(
-          multiTableFormat.handleExercisedEvent(multiTableState, transaction, _)
-        )
-      else
-        List.empty[ConnectionIO[Unit]].right
-      createIOsMulti <- if (useMultiTableFormat)
-        createdEvents.traverse(
-          multiTableFormat.handleCreatedEvent(multiTableState, transaction, _)
-        )
-      else
-        List.empty[ConnectionIO[Unit]].right
-      archiveIOsSingle <- if (useSingleTableFormat)
-        exercisedEvents.traverse(
-          singleTableFormat.handleExercisedEvent(SingleTableState, transaction, _)
-        )
-      else
-        List.empty[ConnectionIO[Unit]].right
-      createIOsSingle <- if (useSingleTableFormat)
-        createdEvents.traverse(
-          singleTableFormat.handleCreatedEvent(SingleTableState, transaction, _)
-        )
-      else
-        List.empty[ConnectionIO[Unit]].right
+      statements <- events.traverse {
+        case e: CreatedEvent =>
+          if (useMultiTableFormat) {
+            multiTableFormat.handleCreatedEvent(multiTableState, transaction, e)
+          } else {
+            singleTableFormat.handleCreatedEvent(SingleTableState, transaction, e)
+          }
+        case e: ExercisedEvent =>
+          if (useMultiTableFormat) {
+            multiTableFormat.handleExercisedEvent(multiTableState, transaction, e)
+          } else {
+            singleTableFormat.handleExercisedEvent(SingleTableState, transaction, e)
+          }
+      }
     } yield {
       val sqlTransaction =
-        (archiveIOsMulti ++ createIOsMulti ++ archiveIOsSingle ++ createIOsSingle)
-          .foldLeft(insertIO)(_ *> _)
-
+        statements.foldLeft(insertIO)(_ *> _)
       sqlTransaction.transact(xa).unsafeToFuture()
     }).sequence
   }

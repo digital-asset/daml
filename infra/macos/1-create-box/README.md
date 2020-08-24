@@ -53,7 +53,7 @@ This will open a graphical dialog to install the XCode Command-Line Tools.
 
 ## Vagrant
 
-To easily manage the guest VM from scripts, we will be using [Vagrant](https://releases.hashicorp.com/vagrant/2.2.7/vagrant_2.2.7_x86_64.dmg).
+To easily manage the guest VM from scripts, we will be using [Vagrant](https://releases.hashicorp.com/vagrant/2.2.7/vagrant_2.2.9_x86_64.dmg).
 
 Alternatively, installing with Homebrew:
 
@@ -65,20 +65,20 @@ These instructions have been tested with 2.2.9.
 
 ## Hypervisor Selection
 
-We provide two options for the hypervisor: VirtualBox (open-source) and VMWare Fusion (commercial license). This 
+We provide two options for the hypervisor: VirtualBox (open-source) and VMWare Fusion (commercial license). This
 resulted from our testing on large Mac Mini nodes (6 Core, 64Gb, 500Gb drives) where we found VirtualBox to be
-less stable when attempting to use > 6 virtual cores or 32Gb or more of memory. The Guest OS would hang on boot, or 
-experience slow processing or network to the extent that it became unusable. 
+less stable when attempting to use > 6 virtual cores or 32Gb or more of memory. The Guest OS would hang on boot, or
+experience slow processing or network to the extent that it became unusable.
 
 ## VMWare Fusion
 
-Purchase a license for 
+Purchase a license for
 
 * [VMware Fusion Pro 11.5.3](http://www.vmware.com/products/fusion.html)
 * [Vagrant VMware Desktop Provider 2.0.3](https://www.vagrantup.com/vmware/)
 
 Download the installer packages for this software. Install VMWare Fusion per vendor instructions and accept
-the security settings in Catalina. 
+the security settings in Catalina.
 
 In a Terminal, ensure you have vagrant 2.2.9 and upgrade if necessary or you will receive error from vagrant plugin
 on VM creation.
@@ -104,10 +104,9 @@ vagrant plugin list
 ## VirtualBox
 
 Download and install
-[https://download.virtualbox.org/virtualbox/6.1.6/VirtualBox-6.1.6-137129-OSX.dmg](VirtualBox),
-including the
-[https://download.virtualbox.org/virtualbox/6.1.6/Oracle_VM_VirtualBox_Extension_Pack-6.1.6.vbox-extpack](extension
-pack).
+[VirtualBox](https://download.virtualbox.org/virtualbox/6.1.6/VirtualBox-6.1.6-137129-OSX.dmg),
+including the [extension
+pack](https://download.virtualbox.org/virtualbox/6.1.6/Oracle_VM_VirtualBox_Extension_Pack-6.1.6.vbox-extpack).
 
 Alternatively, it can be installed from Homebrew using:
 
@@ -121,10 +120,14 @@ The extension pack has to be manually added after the installation of
 VirtualBox; this can be done through the UI, or running:
 
 ```bash
-sudo VBoxManage extpack install /path/to/download/Oracle_VM_VirtualBox_Extension_Pack-6.1.6.vbox-extpack
+V=$(VBoxManage --version | sed 's/r.*//')
+sudo VBoxManage extpack install /path/to/download/Oracle_VM_VirtualBox_Extension_Pack-$V.vbox-extpack
 ```
 
-These instructions have been tested against 6.1.6.
+These instructions have been tested against 6.1.4 and 6.1.6. The extension
+version must match the version of VirtualBox itself. As explained above,
+VirtualBox does not seem to fully support our production configuration, though
+it may still be useful for local testing.
 
 ## rbenv
 
@@ -205,7 +208,7 @@ sudo macinbox --box-format vmware_desktop --disk 250 --memory 57344 --cpu 10 --u
 NOTE: Limited use of hardware due to possible bugs in VirtualBox.
 
 ```bash
-sudo macinbox --box-format virtualbox --disk 250 --memory 32000 --cpu 5 --user-script user-script.sh
+sudo macinbox --box-format virtualbox --disk 50 --memory 4096 --cpu 1 --user-script user-script.sh
 ```
 
 The disk size given here (in GB) will be the disk size used by the individual
@@ -219,7 +222,7 @@ progressively incrementing the size each time we had a "disk is full" error.
 build against various virtual instance types on Linux and Windows (see
 [#4520](https://github.com/digital-asset/daml/pull/4520)).
 
-250Gb disk, 56Gb memory and 10 virtual cores was arrived at from testing on Mac Mini 2018 nodes with 6 core 
+250Gb disk, 56Gb memory and 10 virtual cores was arrived at from testing on Mac Mini 2018 nodes with 6 core
 processors.
 
 The provided "user script", which can be inspected in the current directory,

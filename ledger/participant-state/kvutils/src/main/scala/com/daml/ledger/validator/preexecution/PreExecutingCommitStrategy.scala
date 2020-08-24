@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecution
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.LedgerStateOperations.Key
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 sealed case class PreExecutionCommitResult[WriteSet](
     successWriteSet: WriteSet,
@@ -30,5 +30,6 @@ trait PreExecutingCommitStrategy[WriteSet] {
       participantId: ParticipantId,
       logEntryId: DamlLogEntryId,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
-      preExecutionResult: PreExecutionResult): Future[PreExecutionCommitResult[WriteSet]]
+      preExecutionResult: PreExecutionResult,
+  )(implicit executionContext: ExecutionContext): Future[PreExecutionCommitResult[WriteSet]]
 }

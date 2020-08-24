@@ -10,7 +10,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
 
   private val ok = io.grpc.Status.Code.OK.value()
 
-  behavior of "JdbcLedgerDao (TransationsWriter)"
+  behavior of "JdbcLedgerDao (TransactionsWriter)"
 
   it should "serialize a valid positive lookupByKey" in {
     val keyValue = s"positive-lookup-by-key"

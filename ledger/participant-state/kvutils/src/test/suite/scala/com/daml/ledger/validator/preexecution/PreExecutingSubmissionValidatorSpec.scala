@@ -9,10 +9,19 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.{Envelope, _}
+import com.daml.ledger.participant.state.kvutils.{
+  Bytes,
+  DamlStateMap,
+  Envelope,
+  Fingerprint,
+  FingerprintPlaceholder,
+  KeyValueCommitting,
+  TestHelpers
+}
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.ledger.validator.TestHelper.{aLogEntry, anInvalidEnvelope}
 import com.daml.ledger.validator.ValidationFailed.ValidationError
+import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpec._
 import com.daml.ledger.validator.{StateKeySerializationStrategy, TestHelper}
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
@@ -24,7 +33,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSugar {
   "validate" should {
@@ -156,6 +165,11 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       )
     }
   }
+}
+
+object PreExecutingSubmissionValidatorSpec {
+
+  import MockitoSugar._
 
   private val recordTime = Timestamp.now()
 
@@ -182,15 +196,16 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       expectedMaxRecordTime: Option[Instant] = None,
       expectedSuccessWriteSet: Bytes = ByteString.EMPTY,
       expectedOutOfTimeBoundsWriteSet: Bytes = ByteString.EMPTY,
-      expectedInvolvedParticipants: Set[ParticipantId] = Set.empty)
-    : PreExecutingSubmissionValidator[Bytes] = {
+      expectedInvolvedParticipants: Set[ParticipantId] = Set.empty,
+  ): PreExecutingSubmissionValidator[Bytes] = {
     val mockCommitter = mock[KeyValueCommitting]
     when(
       mockCommitter.preExecuteSubmission(
         any[Configuration],
         any[DamlSubmission],
         any[ParticipantId],
-        any[DamlStateMap]))
+        any[DamlStateMap],
+      ))
       .thenReturn(
         PreExecutionResult(
           expectedReadSet.keySet,
@@ -206,7 +221,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         any[ParticipantId],
         any[DamlLogEntryId],
         any[DamlStateMap],
-        any[PreExecutionResult]))
+        any[PreExecutionResult],
+      )(any[ExecutionContext]))
       .thenReturn(
         Future.successful(
           PreExecutionCommitResult[Bytes](
@@ -221,7 +237,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
   }
 
   private def createLedgerStateReader(
-      expectedReadSet: Map[DamlStateKey, Fingerprint]): DamlLedgerStateReaderWithFingerprints =
+      expectedReadSet: Map[DamlStateKey, Fingerprint],
+  ): DamlLedgerStateReaderWithFingerprints =
     (keys: Seq[DamlStateKey]) =>
       Future.successful {
         keys.map {

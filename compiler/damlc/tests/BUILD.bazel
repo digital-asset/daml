@@ -484,6 +484,8 @@ da_haskell_test(
     ],
     main_function = "DA.Test.Repl.main",
     src_strip_prefix = "src",
+    # Spinning up Sandbox is expensive, so require 2 CPUs.
+    tags = ["cpu:2"],
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",

@@ -28,6 +28,7 @@ private[http] final case class Config(
     portFile: Option[Path] = None,
     applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
     packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
+    packageMaxInboundMessageSize: Option[Int] = None,
     maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
     tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,

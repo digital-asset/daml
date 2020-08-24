@@ -492,22 +492,22 @@ class TriggerServiceTestWithDb
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
-  private lazy val triggerDao = DbTriggerDao(jdbcConfig_)
+  private lazy val triggerDao =
+    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.IntegrationTest)
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    triggerDao.initialize match {
-      case Left(err) => fail(err)
-      case Right(()) =>
-    }
+    triggerDao.initialize fold (fail(_), identity)
   }
 
   override protected def afterEach(): Unit = {
-    triggerDao.destroy match {
-      case Left(err) => fail(err)
-      case Right(()) =>
-    }
+    triggerDao.destroy() fold (fail(_), identity)
     super.afterEach()
+  }
+
+  override protected def afterAll(): Unit = {
+    triggerDao.destroyPermanently() fold (fail(_), identity)
+    super.afterAll()
   }
 
   behavior of "persistent backend"
@@ -542,6 +542,7 @@ class TriggerServiceTestWithDb
       } yield succeed
     }
     // Once service is shutdown, start a new one and check the previously running trigger is restarted.
+    // also tests vacuous DB migration, incidentally
     _ <- withTriggerService(None) { (uri: Uri, _, _) =>
       for {
         // Get the previous trigger instance using a list request

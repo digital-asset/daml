@@ -1,7 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.daml.lf
+package engine
+package script
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -15,8 +17,9 @@ import akka.util.ByteString
 import io.grpc.{Status, StatusRuntimeException}
 import java.time.Instant
 import java.util.UUID
+
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 import scalaz.{-\/, \/-}
 import scalaz.std.either._
 import scalaz.std.list._
@@ -27,20 +30,16 @@ import spray.json._
 import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
-import com.daml.lf.CompiledPackages
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.data.{Time}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SExpr, SValue}
+import com.daml.lf.speedy.{PartialTransaction, SExpr, SValue}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -321,12 +320,23 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
 
 // Client for the script service.
 class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClient {
+  private val txSeeding =
+    speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"script-service"))
+
   // Machine for scenario expressions.
-  val machine = Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
+  val machine = Machine(
+    compiledPackages,
+    submissionTime = Time.Timestamp.Epoch,
+    initialSeeding = txSeeding,
+    expr = null,
+    globalCids = Set.empty,
+    committers = Set.empty,
+    inputValueVersions = value.ValueVersions.DevOutputVersions,
+    outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
+  )
   val scenarioRunner = ScenarioRunner(machine)
-  private val txSeeding = crypto.Hash.hashPrivateKey(s"script-service")
-  machine.ptx =
-    PartialTransaction.initial(Time.Timestamp.MinValue, InitialSeeding.TransactionSeed(txSeeding))
+  private var allocatedParties: Map[String, PartyDetails] = Map()
+
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
@@ -371,79 +381,93 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
       mat: Materializer)
-    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
-    machine.returnValue = null
-    val translated = translateCommands(commands)
-    machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
-    machine.committers = Set(party.value)
-    var result: Try[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = null
-    while (result == null) {
-      machine.run() match {
-        case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          scenarioRunner.lookupContract(coid, committers, cbMissing, cbPresent).left.foreach {
-            err =>
-              result = Failure(err)
-          }
-        case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).left.foreach {
-            err =>
-              result = Failure(err)
-          }
-        case SResultFinalValue(SUnit) =>
-          machine.ptx.finish(
-            machine.outputTransactionVersions,
-            machine.compiledPackages.packageLanguageVersion) match {
-            case Left(x) => result = Failure(new RuntimeException(s"Unexpected abort: $x"))
-            case Right(tx) =>
-              val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
-                tx.nodes(n) match {
-                  case create: NodeCreate.WithTxValue[ContractId] =>
-                    ScriptLedgerClient.CreateResult(create.coid)
-                  case exercise: NodeExercises.WithTxValue[_, ContractId] =>
-                    ScriptLedgerClient.ExerciseResult(
-                      exercise.templateId,
-                      exercise.choiceId,
-                      exercise.exerciseResult.get.value)
-                  case n =>
-                    // Root nodes can only be creates and exercises.
-                    throw new RuntimeException(s"Unexpected node: $n")
+    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
+    try {
+      machine.returnValue = null
+      val translated = translateCommands(commands)
+      machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
+      machine.committers = Set(party.value)
+      var result: Seq[ScriptLedgerClient.CommandResult] = null
+      while (result == null) {
+        machine.run() match {
+          case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
+            scenarioRunner.lookupContract(coid, committers, cbMissing, cbPresent).toTry.get
+          case SResultNeedKey(keyWithMaintainers, committers, cb) =>
+            scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).toTry.get
+          case SResultFinalValue(SUnit) =>
+            machine.ptx.finish(
+              machine.outputTransactionVersions,
+              machine.compiledPackages.packageLanguageVersion) match {
+              case PartialTransaction.CompleteTransaction(tx) =>
+                val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
+                  tx.nodes(n) match {
+                    case create: NodeCreate.WithTxValue[ContractId] =>
+                      ScriptLedgerClient.CreateResult(create.coid)
+                    case exercise: NodeExercises.WithTxValue[_, ContractId] =>
+                      ScriptLedgerClient.ExerciseResult(
+                        exercise.templateId,
+                        exercise.choiceId,
+                        exercise.exerciseResult.get.value)
+                    case n =>
+                      // Root nodes can only be creates and exercises.
+                      throw new RuntimeException(s"Unexpected node: $n")
+                  }
                 }
-              }
-              ScenarioLedger.commitTransaction(
-                committer = party.value,
-                effectiveAt = scenarioRunner.ledger.currentTime,
-                optLocation = machine.commitLocation,
-                tx = tx,
-                l = scenarioRunner.ledger
-              ) match {
-                case Left(fas) =>
-                  // Capture the error and exit.
-                  result = Failure(ScenarioErrorCommitError(fas))
-                case Right(commitResult) =>
-                  scenarioRunner.ledger = commitResult.newLedger
-                  // Clear the ledger
-                  machine.returnValue = null
-                  machine.clearCommit
-                  // Taken from SBSBeginCommit which is used for scenarios.
-                  machine.localContracts = Map.empty
-                  machine.globalDiscriminators = Set.empty
-                  // Capture the result and exit.
-                  result = Success(Right(results.toSeq))
-              }
-          }
-        case SResultScenarioCommit(_, _, _, _) =>
-          result = Failure(
-            new RuntimeException("FATAL: Encountered scenario commit in DAML Script"))
-        case SResultError(err) =>
-          // Capture the error and exit.
-          result = Failure(err)
-        case err =>
-          // TODO: Figure out when we hit this
-          // Capture the error (but not as SError) and exit.
-          result = Failure(new RuntimeException(s"FAILED: $err"))
+                ScenarioLedger.commitTransaction(
+                  committer = party.value,
+                  effectiveAt = scenarioRunner.ledger.currentTime,
+                  optLocation = machine.commitLocation,
+                  tx = tx,
+                  l = scenarioRunner.ledger
+                ) match {
+                  case Left(fas) =>
+                    // Capture the error and exit.
+                    throw ScenarioErrorCommitError(fas)
+                  case Right(commitResult) =>
+                    scenarioRunner.ledger = commitResult.newLedger
+                    // Capture the result and exit.
+                    result = results.toSeq
+                }
+              case PartialTransaction.IncompleteTransaction(ptx) =>
+                throw new RuntimeException(s"Unexpected abort: $ptx")
+              case err: PartialTransaction.SerializationError =>
+                throw new RuntimeException(err.prettyMessage)
+            }
+          case SResultFinalValue(v) =>
+            // The final result should always be unit.
+            throw new RuntimeException(s"FATAL: Unexpected non-unit final result: $v")
+          case SResultScenarioCommit(_, _, _, _) =>
+            throw new RuntimeException("FATAL: Encountered scenario commit in DAML Script")
+          case SResultError(err) =>
+            // Capture the error and exit.
+            throw err
+          case SResultNeedTime(callback) =>
+            callback(scenarioRunner.ledger.currentTime)
+          case SResultNeedPackage(pkg, callback @ _) =>
+            throw new RuntimeException(
+              s"FATAL: Missing package $pkg should have been reported at Script compilation")
+          case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML script")
+          case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction for submitMustFail in DAML Script")
+          case SResultScenarioPassTime(relTime @ _, callback @ _) =>
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction setTime in DAML Script")
+          case SResultScenarioGetParty(partyText @ _, callback @ _) =>
+            throw new RuntimeException(
+              "FATAL: Encountered scenario instruction getParty in DAML Script")
+        }
       }
+      Right(result)
+    } finally {
+      // Reset the machine
+      machine.returnValue = null
+      machine.clearCommit
+      machine.localContracts = Map.empty
+      machine.globalDiscriminators = Set.empty
     }
-    Future.fromTry(result)
   }
 
   override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
@@ -460,16 +484,43 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       })
   }
 
+  // All parties known to the ledger. This may include parties that were not
+  // allocated explicitly, e.g. parties created by `partyFromText`.
+  private def getLedgerParties(): Iterable[Ref.Party] = {
+    scenarioRunner.ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
+  }
+
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    // TODO Figure out how we want to handle this in the script service.
-    Future.successful(SParty(Ref.Party.assertFromString(displayName)))
+    val usedNames = getLedgerParties.toSet ++ allocatedParties.keySet
+    Future.fromTry(for {
+      name <- if (partyIdHint != "") {
+        // Try to allocate the given hint as party name. Will fail if the name is already taken.
+        if (usedNames contains partyIdHint) {
+          Failure(new ScenarioErrorPartyAlreadyExists(partyIdHint))
+        } else {
+          Success(partyIdHint)
+        }
+      } else {
+        // Allocate a fresh name based on the display name.
+        val candidates = displayName #:: Stream.from(1).map(displayName + _.toString())
+        Success(candidates.find(s => !(usedNames contains s)).get)
+      }
+      // Create and store the new party.
+      partyDetails = PartyDetails(
+        party = Ref.Party.assertFromString(name),
+        displayName = Some(displayName),
+        isLocal = true)
+      _ = allocatedParties += (name -> partyDetails)
+    } yield SParty(partyDetails.party))
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    // TODO Implement
-    Future.failed(new RuntimeException("listKnownParties is not yet implemented"))
+    val ledgerParties = getLedgerParties
+      .map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true)))
+      .toMap
+    Future.successful((ledgerParties ++ allocatedParties).values.toList)
   }
 
   override def getStaticTime()(

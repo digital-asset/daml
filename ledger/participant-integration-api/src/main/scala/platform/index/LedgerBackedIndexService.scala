@@ -7,14 +7,6 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
@@ -39,12 +31,20 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.entries.PartyLedgerEntry
-import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.ReadOnlyLedger
+import com.daml.platform.store.entries.PartyLedgerEntry
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
@@ -109,14 +109,10 @@ private[platform] final class LedgerBackedIndexService(
   private def convertOffset(
       implicit loggingContext: LoggingContext,
   ): LedgerOffset => Source[Offset, NotUsed] = {
-    lazy val currentEnd: Offset = ledger.ledgerEnd()
-    domainOffset: LedgerOffset =>
-      domainOffset match {
-        case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
-        case LedgerOffset.LedgerEnd => Source.single(currentEnd)
-        case LedgerOffset.Absolute(offset) =>
-          ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
-      }
+    case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
+    case LedgerOffset.LedgerEnd => Source.single(ledger.ledgerEnd())
+    case LedgerOffset.Absolute(offset) =>
+      ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](
@@ -232,25 +228,25 @@ private[platform] final class LedgerBackedIndexService(
   ): Future[List[PartyDetails]] =
     ledger.listKnownParties()
 
-  override def partyEntries(startExclusive: LedgerOffset.Absolute)(
-      implicit loggingContext: LoggingContext,
-  ): Source[PartyEntry, NotUsed] = {
+  override def partyEntries(
+      startExclusive: Option[LedgerOffset.Absolute],
+  )(implicit loggingContext: LoggingContext): Source[PartyEntry, NotUsed] = {
     Source
-      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
+      .future(concreteOffset(startExclusive))
       .flatMapConcat(ledger.partyEntries)
       .map {
-        case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
-          PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
-        case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
-          PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
+        case (_, PartyLedgerEntry.AllocationRejected(subId, _, reason)) =>
+          PartyEntry.AllocationRejected(subId, reason)
+        case (_, PartyLedgerEntry.AllocationAccepted(subId, _, details)) =>
+          PartyEntry.AllocationAccepted(subId, details)
       }
   }
 
   override def packageEntries(
-      startExclusive: LedgerOffset.Absolute,
+      startExclusive: Option[LedgerOffset.Absolute],
   )(implicit loggingContext: LoggingContext): Source[PackageEntry, NotUsed] =
     Source
-      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
+      .future(concreteOffset(startExclusive))
       .flatMapConcat(ledger.packageEntries)
       .map(_._2.toDomain)
 
@@ -279,7 +275,7 @@ private[platform] final class LedgerBackedIndexService(
 
         val initialConfig = Source(foundConfig.toList)
         val configStream = configurationEntries(offset).collect {
-          case (_, Accepted(_, _, configuration)) => configuration
+          case (_, Accepted(_, configuration)) => configuration
         }
         initialConfig
           .concat(configStream)
@@ -292,10 +288,7 @@ private[platform] final class LedgerBackedIndexService(
       implicit loggingContext: LoggingContext,
   ): Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
     Source
-      .future(
-        startExclusive
-          .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
-          .getOrElse(Future.successful(None)))
+      .future(concreteOffset(startExclusive))
       .flatMapConcat(ledger.configurationEntries(_).map {
         case (offset, config) => toAbsolute(offset) -> config.toDomain
       })
@@ -314,4 +307,10 @@ private[platform] final class LedgerBackedIndexService(
       submitter: Ref.Party,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     ledger.stopDeduplicatingCommand(commandId, submitter)
+
+  private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
+    startExclusive
+      .map(off => Future.fromTry(ApiOffset.fromString(off.value)))
+      .getOrElse(Future.successful(Offset.beforeBegin))
+
 }

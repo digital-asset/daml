@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.daml.lf.data.Ref
 
-object PartyIdGenerator {
+private[stores] object PartyIdGenerator {
   def generateRandomId(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 }

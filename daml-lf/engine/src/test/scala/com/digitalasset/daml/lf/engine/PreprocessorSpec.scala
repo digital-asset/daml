@@ -75,7 +75,7 @@ class PreprocessorSpec extends WordSpec with Matchers with TableDrivenPropertyCh
         ValueEnum(None, "value1"),
     )
 
-    val compiledPackage = ConcurrentCompiledPackages()
+    val compiledPackage = ConcurrentCompiledPackages(EngineConfig.Dev.allowedLanguageVersions)
     assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone.Unit)
     val preprocessor = new Preprocessor(compiledPackage)
     import preprocessor.translateValue

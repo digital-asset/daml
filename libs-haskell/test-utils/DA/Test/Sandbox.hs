@@ -16,7 +16,6 @@ module DA.Test.Sandbox
 import Control.Exception
 import DA.Bazel.Runfiles
 import DA.PortFile
-import DA.Test.Util
 import System.FilePath
 import System.IO.Extra
 import System.Process
@@ -91,12 +90,10 @@ createSandbox portFile sandboxOutput conf = do
 
 withSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
 withSandbox conf f =
-    withResource (openBinaryFile nullDevice ReadWriteMode) hClose $ \getDevNull ->
     withResource newTempFile snd $ \getPortFile ->
         let createSandbox' = do
                 (portFile, _) <- getPortFile
-                devNull <- getDevNull
-                createSandbox portFile devNull conf
+                createSandbox portFile stdout conf
         in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
 
 

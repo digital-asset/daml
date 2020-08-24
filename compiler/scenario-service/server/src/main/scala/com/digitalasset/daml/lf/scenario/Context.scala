@@ -20,7 +20,6 @@ import com.daml.lf.speedy.Speedy
 import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
-import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 
@@ -164,7 +163,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         compiledPackages,
         txSeeding,
         defn,
-        TransactionVersions.SupportedDevOutputVersions,
+        value.ValueVersions.DevOutputVersions,
+        transaction.TransactionVersions.DevOutputVersions,
       )
   }
 

@@ -32,12 +32,12 @@ class InMemoryLedgerReaderWriterSpec
         .thenReturn(
           Future.successful(SubmissionResult.InternalError("Validation failed with an exception")))
       val instance = new InMemoryLedgerReaderWriter(
-        Ref.ParticipantId.assertFromString("participant ID"),
         "ledger ID",
+        Ref.ParticipantId.assertFromString("participant ID"),
         mockDispatcher,
         InMemoryState.empty,
         mockCommitter,
-        new Metrics(new MetricRegistry)
+        new Metrics(new MetricRegistry),
       )
 
       instance

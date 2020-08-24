@@ -33,6 +33,7 @@ compile_deps = [
     "//libs-scala/direct-execution-context",
     "//libs-scala/ports",
     "//libs-scala/resources",
+    "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
     "@maven//:com_github_scopt_scopt_2_12",
     "@maven//:com_google_guava_guava",
