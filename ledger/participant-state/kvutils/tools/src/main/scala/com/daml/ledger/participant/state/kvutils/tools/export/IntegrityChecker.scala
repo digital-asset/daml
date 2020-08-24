@@ -12,8 +12,8 @@ import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
 import com.daml.ledger.participant.state.kvutils.export.{
+  Deserialization,
   NoOpLedgerDataExporter,
-  Serialization,
   SubmissionInfo,
   WriteSet
 }
@@ -166,7 +166,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       .orElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
 
   private def readSubmissionAndOutputs(input: DataInputStream): (SubmissionInfo, WriteSet) = {
-    val (submissionInfo, writeSet) = Serialization.readEntry(input)
+    val (submissionInfo, writeSet) = Deserialization.deserializeEntry(input)
     println(
       s"Read submission correlationId=${submissionInfo.correlationId} submissionEnvelopeSize=${submissionInfo.submissionEnvelope
         .size()} writeSetSize=${writeSet.size}")

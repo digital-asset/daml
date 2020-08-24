@@ -3,11 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.{DataInputStream, DataOutputStream}
-import java.time.Instant
-
-import com.daml.ledger.participant.state
-import com.google.protobuf.ByteString
+import java.io.DataOutputStream
 
 object Serialization {
   def serializeEntry(
@@ -17,12 +13,6 @@ object Serialization {
   ): Unit = {
     serializeSubmissionInfo(submissionInfo, out)
     serializeWriteSet(writeSet, out)
-  }
-
-  def readEntry(input: DataInputStream): (SubmissionInfo, WriteSet) = {
-    val submissionInfo = readSubmissionInfo(input)
-    val writeSet = readWriteSet(input)
-    (submissionInfo, writeSet)
   }
 
   private def serializeSubmissionInfo(
@@ -37,22 +27,6 @@ object Serialization {
     out.writeUTF(submissionInfo.participantId)
   }
 
-  private def readSubmissionInfo(input: DataInputStream): SubmissionInfo = {
-    val correlationId = input.readUTF()
-    val submissionEnvelopeSize = input.readInt()
-    val submissionEnvelope = new Array[Byte](submissionEnvelopeSize)
-    input.readFully(submissionEnvelope)
-    val recordTimeEpochSeconds = input.readLong()
-    val recordTimeEpochNanos = input.readInt()
-    val participantId = input.readUTF()
-    SubmissionInfo(
-      state.v1.ParticipantId.assertFromString(participantId),
-      correlationId,
-      ByteString.copyFrom(submissionEnvelope),
-      Instant.ofEpochSecond(recordTimeEpochSeconds, recordTimeEpochNanos.toLong),
-    )
-  }
-
   private def serializeWriteSet(writeSet: WriteSet, out: DataOutputStream): Unit = {
     out.writeInt(writeSet.size)
     for ((key, value) <- writeSet.sortBy(_._1.asReadOnlyByteBuffer())) {
@@ -60,19 +34,6 @@ object Serialization {
       key.writeTo(out)
       out.writeInt(value.size())
       value.writeTo(out)
-    }
-  }
-
-  private def readWriteSet(input: DataInputStream): WriteSet = {
-    val numKeyValuePairs = input.readInt()
-    (1 to numKeyValuePairs).map { _ =>
-      val keySize = input.readInt()
-      val keyBytes = new Array[Byte](keySize)
-      input.readFully(keyBytes)
-      val valueSize = input.readInt()
-      val valueBytes = new Array[Byte](valueSize)
-      input.readFully(valueBytes)
-      (ByteString.copyFrom(keyBytes), ByteString.copyFrom(valueBytes))
     }
   }
 }

@@ -9,7 +9,7 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.export.{Serialization, SubmissionInfo}
+import com.daml.ledger.participant.state.kvutils.export.{Deserialization, SubmissionInfo}
 import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
@@ -164,7 +164,7 @@ object Replay {
 
     def go: Stream[SubmissionInfo] =
       if (ledgerExportStream.available() > 0)
-        Serialization.readEntry(ledgerExportStream)._1 #:: go
+        Deserialization.deserializeEntry(ledgerExportStream)._1 #:: go
       else {
         ledgerExportStream.close()
         Stream.empty

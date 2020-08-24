@@ -34,7 +34,7 @@ final class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with Mo
       submission.finish()
 
       val dataInputStream = new DataInputStream(new ByteArrayInputStream(baos.toByteArray))
-      val (actualSubmissionInfo, actualWriteSet) = Serialization.readEntry(dataInputStream)
+      val (actualSubmissionInfo, actualWriteSet) = Deserialization.deserializeEntry(dataInputStream)
       actualSubmissionInfo.submissionEnvelope should be(ByteString.copyFromUtf8("an envelope"))
       actualSubmissionInfo.correlationId should be("parent")
       actualSubmissionInfo.recordTimeInstant should be(expectedRecordTimeInstant)
