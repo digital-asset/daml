@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
@@ -74,7 +74,13 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/encoder",
+        "//daml-lf/engine",
+        "//daml-lf/language",
+        "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_java_proto",
+        "//daml-lf/transaction:value_java_proto",
         "//daml-lf/transaction-test-lib",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -89,6 +95,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_mockito_mockito_core",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
@@ -97,10 +104,10 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "kvutils-tests",
     size = "small",
-    srcs = glob(["src/test/suite/**/*.scala"]),
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
         "//ledger/test-common:model-tests.dar",
     ],
@@ -111,14 +118,13 @@ da_scala_test(
     deps = [
         ":daml_kvutils_java_proto",
         ":kvutils",
+        ":kvutils-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
-        "//daml-lf/encoder",
         "//daml-lf/engine",
         "//daml-lf/language",
-        "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_java_proto",
         "//daml-lf/transaction:value_java_proto",
