@@ -7,17 +7,15 @@ import java.io.{DataInputStream, DataOutputStream}
 import java.time.Instant
 
 import com.daml.ledger.participant.state
-import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.{
-  SubmissionInfo,
-  WriteSet
-}
+import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.WriteSet
 import com.google.protobuf.ByteString
 
 object Serialization {
   def serializeEntry(
       submissionInfo: SubmissionInfo,
       writeSet: WriteSet,
-      out: DataOutputStream): Unit = {
+      out: DataOutputStream,
+  ): Unit = {
     serializeSubmissionInfo(submissionInfo, out)
     serializeWriteSet(writeSet, out)
   }
@@ -30,7 +28,8 @@ object Serialization {
 
   private def serializeSubmissionInfo(
       submissionInfo: SubmissionInfo,
-      out: DataOutputStream): Unit = {
+      out: DataOutputStream,
+  ): Unit = {
     out.writeUTF(submissionInfo.correlationId)
     out.writeInt(submissionInfo.submissionEnvelope.size())
     submissionInfo.submissionEnvelope.writeTo(out)
@@ -48,10 +47,10 @@ object Serialization {
     val recordTimeEpochNanos = input.readInt()
     val participantId = input.readUTF()
     SubmissionInfo(
-      ByteString.copyFrom(submissionEnvelope),
+      state.v1.ParticipantId.assertFromString(participantId),
       correlationId,
+      ByteString.copyFrom(submissionEnvelope),
       Instant.ofEpochSecond(recordTimeEpochSeconds, recordTimeEpochNanos.toLong),
-      state.v1.ParticipantId.assertFromString(participantId)
     )
   }
 

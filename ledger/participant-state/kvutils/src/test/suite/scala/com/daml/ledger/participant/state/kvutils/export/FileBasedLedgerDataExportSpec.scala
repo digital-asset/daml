@@ -11,42 +11,7 @@ import com.google.protobuf.ByteString
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
-class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoSugar {
-  "writing" should {
-    "mark the submission as in progress" in {
-      val instance = new FileBasedLedgerDataExporter(mock[DataOutputStream])
-
-      val _ = instance.addSubmission(
-        ByteString.copyFromUtf8("an envelope"),
-        "parent",
-        Instant.now(),
-        v1.ParticipantId.assertFromString("id"),
-      )
-
-      instance.inProgressSubmissions.keys should contain("parent")
-    }
-  }
-
-  "finishedProcessing" should {
-    "remove all data such as submission info, write-set and child correlation IDs" in {
-      val dataOutputStream = new DataOutputStream(new ByteArrayOutputStream())
-      val instance = new FileBasedLedgerDataExporter(dataOutputStream)
-
-      val submission = instance.addSubmission(
-        ByteString.copyFromUtf8("another envelope"),
-        "some other parent",
-        Instant.now(),
-        v1.ParticipantId.assertFromString("id"),
-      )
-      val writeSet = submission.addChild()
-      writeSet += keyValuePairOf("a", "b")
-
-      instance.finishedProcessing("some other parent")
-
-      instance.inProgressSubmissions shouldBe empty
-    }
-  }
-
+final class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoSugar {
   "serialized submission" should {
     "be readable back" in {
       val baos = new ByteArrayOutputStream()
@@ -56,17 +21,17 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
       val expectedParticipantId = v1.ParticipantId.assertFromString("id")
 
       val submission = instance.addSubmission(
-        ByteString.copyFromUtf8("an envelope"),
-        "parent",
-        expectedRecordTimeInstant,
         v1.ParticipantId.assertFromString("id"),
+        "parent",
+        ByteString.copyFromUtf8("an envelope"),
+        expectedRecordTimeInstant,
       )
       val writeSetA1 = submission.addChild()
       writeSetA1 ++= Seq(keyValuePairOf("a", "b"), keyValuePairOf("c", "d"))
       val writeSetA2 = submission.addChild()
       writeSetA2 ++= Seq(keyValuePairOf("e", "f"), keyValuePairOf("g", "h"))
 
-      instance.finishedProcessing("parent")
+      submission.finish()
 
       val dataInputStream = new DataInputStream(new ByteArrayInputStream(baos.toByteArray))
       val (actualSubmissionInfo, actualWriteSet) = Serialization.readEntry(dataInputStream)

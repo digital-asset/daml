@@ -9,8 +9,7 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.SubmissionInfo
-import com.daml.ledger.participant.state.kvutils.export.Serialization
+import com.daml.ledger.participant.state.kvutils.export.{Serialization, SubmissionInfo}
 import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
@@ -18,8 +17,9 @@ import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
   Transaction => Tx,

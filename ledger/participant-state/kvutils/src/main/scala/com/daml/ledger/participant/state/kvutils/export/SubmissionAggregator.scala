@@ -9,7 +9,7 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 trait SubmissionAggregator {
   def addChild(): WriteSet
 
-  def finish(): Seq[Data]
+  def finish(): Unit
 }
 
 object SubmissionAggregator {

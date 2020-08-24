@@ -7,7 +7,8 @@ import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator.{Da
 
 import scala.collection.mutable
 
-final class InMemorySubmissionAggregator extends SubmissionAggregator {
+final class InMemorySubmissionAggregator(submissionInfo: SubmissionInfo, writer: LedgerDataWriter)
+    extends SubmissionAggregator {
 
   import InMemorySubmissionAggregator._
 
@@ -15,7 +16,7 @@ final class InMemorySubmissionAggregator extends SubmissionAggregator {
 
   override def addChild(): WriteSet = new InMemoryWriteSet(buffer)
 
-  override def finish(): Seq[Data] = buffer
+  override def finish(): Unit = writer.write(submissionInfo, buffer)
 }
 
 object InMemorySubmissionAggregator {

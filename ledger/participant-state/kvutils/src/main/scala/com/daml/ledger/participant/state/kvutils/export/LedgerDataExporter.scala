@@ -12,21 +12,12 @@ import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
 trait LedgerDataExporter {
-
-  /**
-    * Adds given submission and its parameters to the list of in-progress submissions.
-    */
   def addSubmission(
-      submissionEnvelope: ByteString,
-      correlationId: CorrelationId,
-      recordTimeInstant: Instant,
       participantId: ParticipantId,
+      correlationId: CorrelationId,
+      submissionEnvelope: ByteString,
+      recordTimeInstant: Instant,
   ): SubmissionAggregator
-
-  /**
-    * Signals that entries for the given top-level (parent) correlation ID may be persisted.
-    */
-  def finishedProcessing(correlationId: CorrelationId): Unit
 }
 
 object LedgerDataExporter {
