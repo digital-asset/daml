@@ -4,24 +4,14 @@
 package com.daml.extractor.helpers
 
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.value.Identifier
 
 object TransactionTreeTrimmer {
-  def trim(
-      parties: Set[String],
-      templateIds: Set[Identifier]): TransactionTree => TransactionTree = {
-    val shouldKeep: TreeEvent.Kind => Boolean = event =>
-      (templateIds.isEmpty || containsTemplateId(templateIds.map(asTuple))(event)) &&
-        exerciseEventOrStakeholder(parties)(event)
-    transactionTree: TransactionTree =>
-      {
-        val eventsById = transactionTree.eventsById.filter(kv => shouldKeep(kv._2.kind))
-        val eventIds = eventsById.keySet
-        val rootEventIds = transactionTree.rootEventIds.filter(eventIds)
-        transactionTree.copy(eventsById = eventsById, rootEventIds = rootEventIds)
-      }
-  }
+  def shouldKeep(parties: Set[String], templateIds: Set[Identifier])(
+      event: TreeEvent.Kind): Boolean =
+    (templateIds.isEmpty || containsTemplateId(templateIds.map(asTuple))(event)) &&
+      exerciseEventOrStakeholder(parties)(event)
 
   private def containsTemplateId(
       templateIds: Set[(String, String, String)]): TreeEvent.Kind => Boolean = {
