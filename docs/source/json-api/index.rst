@@ -75,7 +75,7 @@ With Query Store
 
 To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is save to reinitialize the database at any time.
 
-In this case you can use the ``--query-store-jdbc-config`` flag, an example of which is below. 
+To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below. 
 
 .. note:: When you use the Query Store you'll want your first run to specify ``createSchema=true`` so that all the necessary tables are created. After the first run make sure ``createSchema=false`` so that it doesn't attempt to create the tables again.
 
@@ -91,7 +91,7 @@ Access Tokens
 
 The JSON API essentially performs two separate tasks:
 
-1. It talks to the Ledger API to get data it needs to operate, for this it may need to *provide an access token* if your Ledger requires authentication. Learn more in the :doc:`/app-dev/authorization` docs.
+1. It talks to the Ledger API to get data it needs to operate, for this you need to *provide an access token* if your Ledger requires authorization. Learn more in the :doc:`/app-dev/authorization` docs.
 2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
 .. note:: By default, the DAML Sandbox does not does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
@@ -123,8 +123,8 @@ Party-specific requests, i.e., command submissions and queries, require a JWT wi
 
 .. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
 
-In the DAML Sandbox testing environment, you can use https://jwt.io (or the JWT library of your choice) to generate your
-token.  The default "header" is fine.  Under "Payload", fill in:
+For a ledger without authorization, e.g., the default configuration of DAML Sandbox, you can use https://jwt.io (or the JWT library of your choice) to generate your
+token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
 
@@ -145,17 +145,10 @@ The value for ``actAs`` is specified as a list and you provide it with the party
 Such as the example which uses ``Alice`` for a party. Each request can only be for one party.
 For example you couldn't have ``actAs`` defined as ``["Alice", "Bob"]``.
 
-For the Sandbox any string will create use a party with that name if it exists, 
-or create it if it does not. This is known as "implicit party allocation" and is unique to the Sandbox.
+The party should reference an already allocated party.
 
-For non-Sandbox ledgers the party must already exist on the ledger in order to be used.
-This is known as "explicit party allocation" and is common on all non-Sandbox ledgers.
 
-.. note:: To explicitly allocate parties you can use :doc:`DAML Script </daml-script/index>` or ``daml ledger allocate-parties``
-
-Under "Verify Signature", put ``secret`` (or any other text) as the secret (*not* base64 encoded).
-
-.. note:: At the moment ``secret`` is not validated
+.. note:: As mentioned above the JSON API does not validate tokens so if your ledger runs without authorization you can use an arbitrary secret.
 
 Then the "Encoded" box should have your **token**, ready for passing to
 the service as described in the following sections.
