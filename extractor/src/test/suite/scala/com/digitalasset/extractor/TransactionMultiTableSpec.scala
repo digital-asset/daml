@@ -80,8 +80,8 @@ class TransactionMultiTableSpec
     val List(transaction1, transaction2, transaction3) = getTransactions.sortBy(_.seq)
     val List(exercise1, exercise2) = getExercises
     val List(
-      (archived_by_event_id1, transaction_id1, archived_by_transaction_id1),
-      (archived_by_event_id2, transaction_id2, archived_by_transaction_id2)) =
+      (archived_by_event_id_offer1, transaction_id_offer1, archived_by_transaction_id_offer1),
+      (archived_by_event_id_offer2, transaction_id_offer2, archived_by_transaction_id_offer2)) =
       getResultList[(Option[String], String, Option[String])](
         sql"SELECT _archived_by_event_id, _transaction_id, _archived_by_transaction_id FROM template.transactionexample_rightofuseoffer")
     val List(
@@ -93,32 +93,32 @@ class TransactionMultiTableSpec
       getResultList[(String, Option[String], String, Option[String])](
         sql"SELECT _event_id, _archived_by_event_id, _transaction_id, _archived_by_transaction_id FROM template.transactionexample_rightofuseagreement")
 
-    // `transaction1` created `contract1`, then
-    transaction_id1 shouldEqual transaction1.transaction_id
+    // `transaction1` created `contract1` (first offer), then
+    transaction_id_offer1 shouldEqual transaction1.transaction_id
 
     // `transaction2` created `exercise1`
     exercise1.transaction_id shouldEqual transaction2.transaction_id
 
-    // `exercise1` archived `contract1`
-    archived_by_transaction_id1 shouldEqual Some(transaction2.transaction_id)
-    archived_by_event_id1 shouldEqual Some(exercise1.event_id)
+    // `exercise1` archived `contract1` (first offer)
+    archived_by_transaction_id_offer1 shouldEqual Some(transaction2.transaction_id)
+    archived_by_event_id_offer1 shouldEqual Some(exercise1.event_id)
 
-    // ... while it resulted in `contract2`
+    // ... while it resulted in `contract2` (first accept)
     exercise1.child_event_ids.asArray.toList.toVector.flatten should contain(event_id_accept.asJson)
     transaction_id_accept shouldEqual transaction2.transaction_id
     // which is not archived
     archived_by_transaction_id_accept shouldEqual None
     archived_by_event_id_accept shouldEqual None
 
-    // `transaction3` created `contract3`; then
-    transaction_id2 shouldEqual transaction3.transaction_id
+    // `transaction3` (second containing an offer) created `contract3` (second offer); then
+    transaction_id_offer2 shouldEqual transaction3.transaction_id
 
     // `transaction3` created `exercise2`
     exercise2.transaction_id shouldEqual transaction3.transaction_id
 
-    // `exercise2` archived `contract3`
-    archived_by_transaction_id2 shouldEqual Some(transaction3.transaction_id)
-    archived_by_event_id2 shouldEqual Some(exercise2.event_id)
+    // `exercise2` archived `contract3` (second offer)
+    archived_by_transaction_id_offer2 shouldEqual Some(transaction3.transaction_id)
+    archived_by_event_id_offer2 shouldEqual Some(exercise2.event_id)
   }
 
 }
