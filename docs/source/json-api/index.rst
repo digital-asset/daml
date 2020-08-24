@@ -93,8 +93,10 @@ From a DAML project directory:
             TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set
       --package-reload-interval <value>
             Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
+      --package-max-inbound-message-size <value>
+            Optional max inbound message size in bytes used for uploading and downloading package updates. Defaults to the `max-inbound-message-size` setting.
       --max-inbound-message-size <value>
-            Optional max inbound message size in bytes. Defaults to 4194304
+            Optional max inbound message size in bytes. Defaults to 4194304.
       --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
             Optional query store JDBC configuration string. Query store is a search index, use it if you need to query large active contract sets. Contains comma-separated key-value pairs. Where:
             driver -- JDBC driver class name, only org.postgresql.Driver supported right now,
