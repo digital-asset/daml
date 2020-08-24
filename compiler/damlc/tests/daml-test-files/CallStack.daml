@@ -1,0 +1,19 @@
+-- @ERROR Aborted: CallStack (from HasCallStack):
+module CallStack where
+
+-- Main test case is in the Shake test suite. This just makes sure
+-- that core linting and dlint which do not run there work.
+
+import DA.Stack
+
+a : HasCallStack => () -> ()
+a () = b ()
+
+b : HasCallStack => () -> ()
+b () = c ()
+
+c : HasCallStack => () -> ()
+c () = error (prettyCallStack callStack)
+
+f = scenario do
+  pure $ a ()
