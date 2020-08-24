@@ -48,14 +48,14 @@ object Main extends StrictLogging {
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
         s", portFile=${config.portFile: Option[Path]}" +
         s", applicationId=${config.applicationId.unwrap: String}" +
-        s", packageReloadInterval=${config.packageReloadInterval.toString}" +
-        s", packageMaxInboundMessageSize=${config.packageMaxInboundMessageSize.toString}" +
+        s", packageReloadInterval=${config.packageReloadInterval: FiniteDuration}" +
+        s", packageMaxInboundMessageSize=${config.packageMaxInboundMessageSize: Option[Int]}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
         s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
         s", allowNonHttps=${config.allowNonHttps.shows}" +
-        s", accessTokenFile=${config.accessTokenFile.toString}" +
+        s", accessTokenFile=${config.accessTokenFile: Option[Path]}" +
         s", wsConfig=${config.wsConfig.shows}" +
         ")")
 
@@ -167,7 +167,7 @@ object Main extends StrictLogging {
         .optional()
         .text(
           s"Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. " +
-            s"Defaults to ${Config.Empty.packageReloadInterval.toString}")
+            s"Defaults to ${Config.Empty.packageReloadInterval: FiniteDuration}")
 
       opt[Int]("package-max-inbound-message-size")
         .action((x, c) => c.copy(packageMaxInboundMessageSize = Some(x)))
