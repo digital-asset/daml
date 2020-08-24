@@ -27,7 +27,7 @@ final case class TransactionTree(
     workflowId: String,
     effectiveAt: Instant,
     offset: String,
-    // Ordered in pre-order (the order the events happen on the ledger).
+    // Ordered in pre-order (the order in which the events happen on the ledger).
     events: List[(String, Event)],
     rootEventIds: Seq[String],
 )
