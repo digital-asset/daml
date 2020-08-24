@@ -4,6 +4,9 @@
 package com.daml.ledger.participant.state.kvutils.export
 
 import java.io.DataOutputStream
+import java.time.Instant
+
+import com.google.protobuf.ByteString
 
 object Serialization {
   def serializeEntry(
@@ -20,20 +23,26 @@ object Serialization {
       out: DataOutputStream,
   ): Unit = {
     out.writeUTF(submissionInfo.correlationId)
-    out.writeInt(submissionInfo.submissionEnvelope.size())
-    submissionInfo.submissionEnvelope.writeTo(out)
-    out.writeLong(submissionInfo.recordTimeInstant.getEpochSecond)
-    out.writeInt(submissionInfo.recordTimeInstant.getNano)
+    writeBytes(submissionInfo.submissionEnvelope, out)
+    writeInstant(submissionInfo.recordTimeInstant, out)
     out.writeUTF(submissionInfo.participantId)
   }
 
   private def serializeWriteSet(writeSet: WriteSet, out: DataOutputStream): Unit = {
     out.writeInt(writeSet.size)
     for ((key, value) <- writeSet.sortBy(_._1.asReadOnlyByteBuffer())) {
-      out.writeInt(key.size())
-      key.writeTo(out)
-      out.writeInt(value.size())
-      value.writeTo(out)
+      writeBytes(key, out)
+      writeBytes(value, out)
     }
+  }
+
+  private def writeBytes(bytes: ByteString, out: DataOutputStream): Unit = {
+    out.writeInt(bytes.size())
+    bytes.writeTo(out)
+  }
+
+  private def writeInstant(instant: Instant, out: DataOutputStream): Unit = {
+    out.writeLong(instant.getEpochSecond)
+    out.writeInt(instant.getNano)
   }
 }

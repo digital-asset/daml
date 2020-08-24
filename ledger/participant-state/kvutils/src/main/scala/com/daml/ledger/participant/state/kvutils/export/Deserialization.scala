@@ -18,30 +18,36 @@ object Deserialization {
 
   private def deserializeSubmissionInfo(input: DataInputStream): SubmissionInfo = {
     val correlationId = input.readUTF()
-    val submissionEnvelopeSize = input.readInt()
-    val submissionEnvelope = new Array[Byte](submissionEnvelopeSize)
-    input.readFully(submissionEnvelope)
-    val recordTimeEpochSeconds = input.readLong()
-    val recordTimeEpochNanos = input.readInt()
+    val submissionEnvelope = readBytes(input)
+    val recordTimeInstant: Instant = readInstant(input)
     val participantId = input.readUTF()
     SubmissionInfo(
       state.v1.ParticipantId.assertFromString(participantId),
       correlationId,
-      ByteString.copyFrom(submissionEnvelope),
-      Instant.ofEpochSecond(recordTimeEpochSeconds, recordTimeEpochNanos.toLong),
+      submissionEnvelope,
+      recordTimeInstant,
     )
   }
 
   private def deserializeWriteSet(input: DataInputStream): WriteSet = {
     val numKeyValuePairs = input.readInt()
     (1 to numKeyValuePairs).map { _ =>
-      val keySize = input.readInt()
-      val keyBytes = new Array[Byte](keySize)
-      input.readFully(keyBytes)
-      val valueSize = input.readInt()
-      val valueBytes = new Array[Byte](valueSize)
-      input.readFully(valueBytes)
-      (ByteString.copyFrom(keyBytes), ByteString.copyFrom(valueBytes))
+      val key = readBytes(input)
+      val value = readBytes(input)
+      key -> value
     }
+  }
+
+  private def readBytes(input: DataInputStream): ByteString = {
+    val size = input.readInt()
+    val byteArray = new Array[Byte](size)
+    input.readFully(byteArray)
+    ByteString.copyFrom(byteArray)
+  }
+
+  private def readInstant(input: DataInputStream) = {
+    val epochSecond = input.readLong()
+    val nano = input.readInt()
+    Instant.ofEpochSecond(epochSecond, nano.toLong)
   }
 }
