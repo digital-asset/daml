@@ -84,37 +84,34 @@ object InMemoryLedgerReaderWriter {
       extends ResourceOwner[KeyValueLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] = {
-      val keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
-
-      val committer = createBatchedCommitter(
-        keyValueCommitting,
-        batchingLedgerWriterConfig,
-        state,
-        metrics,
-        timeProvider,
-        stateValueCache,
-        LedgerDataExporter.retrieve(),
-      )
-
-      val readerWriter = new InMemoryLedgerReaderWriter(
-        ledgerId,
-        participantId,
-        dispatcher,
-        state,
-        committer,
-        metrics,
-      )
-
-      // We need to generate batched submissions for the validator in order to improve throughput.
-      // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
-      // in-memory committer.
-      val ledgerWriter = newLoggingContext { implicit loggingContext =>
-        BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
-      }
-
-      Resource.successful(createKeyValueLedger(readerWriter, ledgerWriter))
-    }
+    ): Resource[KeyValueLedger] =
+      for {
+        ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
+        keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
+        committer = createBatchedCommitter(
+          keyValueCommitting,
+          batchingLedgerWriterConfig,
+          state,
+          metrics,
+          timeProvider,
+          stateValueCache,
+          ledgerDataExporter,
+        )
+        readerWriter = new InMemoryLedgerReaderWriter(
+          ledgerId,
+          participantId,
+          dispatcher,
+          state,
+          committer,
+          metrics,
+        )
+        // We need to generate batched submissions for the validator in order to improve throughput.
+        // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
+        // in-memory committer.
+        ledgerWriter = newLoggingContext { implicit loggingContext =>
+          BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
+        }
+      } yield createKeyValueLedger(readerWriter, ledgerWriter)
   }
 
   final class SingleParticipantBatchingOwner(
