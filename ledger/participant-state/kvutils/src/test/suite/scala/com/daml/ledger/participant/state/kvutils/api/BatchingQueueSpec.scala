@@ -46,7 +46,9 @@ class BatchingQueueSpec
         res <- queue.offer(correlatedSubmission)
       } yield {
         res should be(SubmissionResult.Acknowledged)
-        queue.alive should be(false)
+        eventually {
+          queue.alive should be(false)
+        }
       }
     }
 
