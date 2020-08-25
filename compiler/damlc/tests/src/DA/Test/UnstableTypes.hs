@@ -39,7 +39,7 @@ main = do
                       , LF.getIsSerializable (LF.dataSerializable ty)
                       ]
               if | "daml-prim" == takeBaseName dalf ->
-                   serializableTypes @?= []
+                   serializableTypes @?= sort (damlPrimTypes (LF.packageLfVersion pkg))
                  | "daml-stdlib" `isPrefixOf` takeBaseName dalf ->
                    serializableTypes @?= sort (damlStdlibTypes (LF.packageLfVersion pkg))
                  | otherwise ->
@@ -47,6 +47,12 @@ main = do
               pure ()
         | dalf <- dalfs
         ]
+
+damlPrimTypes :: LF.Version -> [(LF.ModuleName, LF.TypeConName)]
+damlPrimTypes _ver = map (bimap LF.ModuleName LF.TypeConName)
+    [ (["GHC", "Stack", "Types"], ["CallStack"])
+    , (["GHC", "Stack", "Types"], ["SrcLoc"])
+    ]
 
 damlStdlibTypes :: LF.Version -> [(LF.ModuleName, LF.TypeConName)]
 damlStdlibTypes ver
@@ -72,5 +78,6 @@ damlStdlibTypes ver
         , (["DA", "Generics"], ["K1"])
         , (["DA", "Generics"], ["Par1"])
         , (["DA", "Generics"], ["U1"])
+        , (["DA", "Stack"], ["SrcLoc"])
         ]
 

@@ -1,0 +1,47 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+module GHC.Stack.Types where
+
+import GHC.CString
+import GHC.Err
+import GHC.Tuple ()
+import GHC.Types
+
+-- NOTE (MK): Note that everything in this module
+-- needs to use `TextLit`. Otherwise, you will get core linting errors
+-- due to mismatch between TextLit and Text.
+
+-- | Type of `CallStack`s constructed automatically from `HasCallStack` constraints.
+--
+-- Use `getCallStack` to deconstruct the `CallStack`.
+data CallStack
+  = EmptyCallStack
+  | PushCallStack (TextLit, SrcLoc, CallStack)
+  | FreezeCallStack CallStack
+
+emptyCallStack : CallStack
+emptyCallStack = EmptyCallStack
+
+pushCallStack : (TextLit, SrcLoc) -> CallStack -> CallStack
+pushCallStack (fn, loc) stk = case stk of
+  FreezeCallStack _ -> stk
+  _                 -> PushCallStack (fn, loc, stk)
+
+popCallStack : CallStack -> CallStack
+popCallStack stk = case stk of
+  EmptyCallStack         -> error "popCallStack: empty stack"
+  PushCallStack (_, _, stk') -> stk'
+  FreezeCallStack _      -> stk
+
+data SrcLoc = SrcLoc
+  { srcLocPackage   : TextLit
+  , srcLocModule    : TextLit
+  , srcLocFile      : TextLit
+  , srcLocStartLine : Int
+  , srcLocStartCol  : Int
+  , srcLocEndLine   : Int
+  , srcLocEndCol    : Int
+  }
+

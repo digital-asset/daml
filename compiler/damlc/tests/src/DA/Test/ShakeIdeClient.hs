@@ -1147,6 +1147,28 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:3:1.*- test.*Foo:5:1"
+    , testCase' "HasCallStack constraint" $ do
+          let fooContent = T.unlines
+                [ "module Foo where"
+                , "import DA.Stack"
+                , "a : HasCallStack => () -> ()"
+                , "a () = b ()"
+                , "b : HasCallStack => () -> ()"
+                , "b () = c ()"
+                , "c : HasCallStack => () -> ()"
+                , "c () = error (prettyCallStack callStack)"
+                , "f = scenario do"
+                , "  pure $ a ()"
+                ]
+          foo <- makeFile "Foo.daml" fooContent
+          let vr = VRScenario foo "f"
+          setFilesOfInterest [foo]
+          setOpenVirtualResources [vr]
+          expectVirtualResourceRegex vr $ T.concat
+            [ "  c, called at .*Foo.daml:6:8 in main:Foo<br>"
+            , "  b, called at .*Foo.daml:4:8 in main:Foo<br>"
+            , "  a, called at .*Foo.daml:10:10 in main:Foo<br>"
+            ]
     , testCase' "debug is lazy" $ do
         let goodScenario =
                 [ "daml 1.2"
