@@ -217,7 +217,7 @@ object Converter {
       Array(),
       2,
       SEApp(
-        SEBuiltin(SBStructCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
+        SEBuiltin(SBStructCon(ImmArray(Name.assertFromString("a"), Name.assertFromString("b")))),
         Array(SELocA(0), SELocA(1))),
     )
     val machine =

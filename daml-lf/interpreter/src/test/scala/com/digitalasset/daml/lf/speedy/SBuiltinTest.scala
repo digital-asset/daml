@@ -1496,8 +1496,8 @@ object SBuiltinTest {
     if (xs.isEmpty) "(Nil @Int64)"
     else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
 
-  private val entryFields: Array[Ref.Name] =
-    Ref.Name.Array(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("value"))
+  private val entryFields: ImmArray[Ref.Name] =
+    ImmArray(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("value"))
 
   private def mapEntry(k: String, v: SValue) = {
     val args = new util.ArrayList[SValue](2)

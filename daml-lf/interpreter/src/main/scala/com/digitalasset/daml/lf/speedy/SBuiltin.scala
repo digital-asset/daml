@@ -816,7 +816,7 @@ private[lf] object SBuiltin {
   }
 
   /** $tcon[fields] :: a -> b -> ... -> Struct */
-  final case class SBStructCon(fields: Array[Name])
+  final case class SBStructCon(fields: ImmArray[Name])
       extends SBuiltinPure(fields.length)
       with SomeArrayEquals {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
@@ -829,7 +829,7 @@ private[lf] object SBuiltin {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
         case SStruct(fields, values) =>
-          values.get(fields.indexOf(field))
+          values.get(fields.indexWhere(_ == field))
         case v =>
           crash(s"StructProj on non-struct: $v")
       }
@@ -842,7 +842,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SStruct(fields, values) =>
           val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
-          values2.set(fields.indexOf(field), args.get(1))
+          values2.set(fields.indexWhere(_ == field), args.get(1))
           SStruct(fields, values2)
         case v =>
           crash(s"StructUpd on non-struct: $v")

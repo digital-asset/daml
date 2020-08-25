@@ -65,7 +65,7 @@ class OrderingSpec
   private val VariantCon2: Ref.Name = "Middle"
   private val VariantCon3: Ref.Name = "Right"
 
-  private val struct2Fields = Ref.Name.Array("fst", "snd")
+  private val struct2Fields = ImmArray[Ref.Name]("fst", "snd")
 
   private val units =
     List(SValue.SValue.Unit)
@@ -99,7 +99,7 @@ class OrderingSpec
       case (con, rank) => SEnum(EnumTypeCon, con, rank)
     }
 
-  private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
+  private val struct0 = List(SStruct(ImmArray.empty, ArrayList()))
 
   private val records0 = List(SRecord(Record0TypeCon, ImmArray.empty, ArrayList()))
 
