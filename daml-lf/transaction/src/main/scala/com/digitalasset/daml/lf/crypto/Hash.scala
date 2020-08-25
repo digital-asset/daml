@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import scalaz.Order
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -235,6 +236,7 @@ object Hash {
     val ContractKey = Purpose(2)
     val MaintainerContractKeyUUID = Purpose(4)
     val PrivateKey = Purpose(3)
+    val CommittedContract = Purpose(5)
   }
 
   // package private for testing purpose.
@@ -318,6 +320,29 @@ object Hash {
       key: Value[Value.ContractId],
   ): Either[String, Hash] =
     handleError(assertHashContractKey(templateId, key))
+
+  private[this] def committedCidToBytes(coid: ContractId): Bytes =
+    coid match {
+      case coid: ContractId.V1 => coid.toBytes
+      case _: ContractId.V0 => error("hashing of Contract ID V0 not supported")
+    }
+
+  // It throws an exception if it encounters V0 Contract ID.
+  @throws[HashingError]
+  def assertHashCommittedContract(
+      templateId: Ref.Identifier,
+      arg: Value[Value.ContractId],
+  ): Hash =
+    builder(Purpose.CommittedContract, committedCidToBytes)
+      .addIdentifier(templateId)
+      .addTypedValue(arg)
+      .build
+
+  @throws[HashingError]
+  def assertHashCommittedContract(
+      contract: Value.ContractInst[Value.VersionedValue[Value.ContractId]]
+  ): Hash =
+    assertHashCommittedContract(contract.template, contract.arg.value)
 
   def deriveSubmissionSeed(
       nonce: Hash,
