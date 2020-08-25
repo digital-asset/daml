@@ -62,7 +62,7 @@ private[platform] final class HikariConnection(
       ) { (i, _) =>
         Future {
           logger.info(
-            s"Attempting to connect to Postgres (attempt ${i + 1}/${maxInitialConnectRetryAttempts})")
+            s"Attempting to connect to $jdbcUrl (attempt $i/$maxInitialConnectRetryAttempts)")
           new HikariDataSource(config)
         }
       }
