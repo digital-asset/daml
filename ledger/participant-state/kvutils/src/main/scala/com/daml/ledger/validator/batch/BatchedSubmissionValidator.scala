@@ -19,7 +19,6 @@ import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
 import com.daml.ledger.validator._
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
@@ -42,20 +41,6 @@ object BatchedSubmissionValidator {
       params,
       committer,
       conflictDetection,
-      metrics,
-      ledgerDataExporter,
-    )
-
-  private[validator] def apply[CommitResult](
-      params: BatchedSubmissionValidatorParameters,
-      engine: Engine,
-      metrics: Metrics,
-      ledgerDataExporter: LedgerDataExporter,
-  ): BatchedSubmissionValidator[CommitResult] =
-    new BatchedSubmissionValidator[CommitResult](
-      params,
-      new KeyValueCommitting(engine, metrics),
-      new ConflictDetection(metrics),
       metrics,
       ledgerDataExporter,
     )
