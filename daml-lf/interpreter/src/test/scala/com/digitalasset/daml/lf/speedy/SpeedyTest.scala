@@ -8,13 +8,13 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
@@ -117,7 +117,7 @@ class SpeedyTest extends WordSpec with Matchers {
         SOptional(
           Some(
             SStruct(
-              Ref.Name.Array(n"x1", n"x2"),
+              ImmArray(n"x1", n"x2"),
               ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
             ),
           ),

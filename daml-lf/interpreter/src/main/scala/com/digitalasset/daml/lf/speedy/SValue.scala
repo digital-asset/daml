@@ -145,7 +145,7 @@ object SValue {
       extends SValue
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class SStruct(fields: Array[Name], values: util.ArrayList[SValue]) extends SValue
+  final case class SStruct(fields: ImmArray[Name], values: util.ArrayList[SValue]) extends SValue
 
   final case class SVariant(
       id: Identifier,
@@ -236,7 +236,7 @@ object SValue {
     def bool(b: Boolean) = if (b) True else False
   }
 
-  private val entryFields = Name.Array(Ast.keyFieldName, Ast.valueFieldName)
+  private val entryFields = ImmArray(Ast.keyFieldName, Ast.valueFieldName)
 
   private def entry(key: SValue, value: SValue) = {
     val args = new util.ArrayList[SValue](2)

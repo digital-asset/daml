@@ -445,9 +445,10 @@ private[lf] final case class Compiler(
       }
 
       case EStructCon(fields) =>
-        SEApp(SEBuiltin(SBStructCon(Name.Array(fields.map(_._1).toSeq: _*))), fields.iterator.map {
-          case (_, e) => translate(e)
-        }.toArray)
+        SEApp(
+          SEBuiltin(SBStructCon(fields.map(_._1))),
+          fields.iterator.map { case (_, e) => translate(e) }.toArray
+        )
 
       case EStructProj(field, struct) =>
         SBStructProj(field)(translate(struct))
@@ -646,7 +647,7 @@ private[lf] final case class Compiler(
                         SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
                         SEVar(3) // token
                       ),
-                    ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
+                    ) in SBStructCon(ImmArray(contractIdFieldName, contractFieldName))(
                       SEVar(3), // contract id
                       SEVar(2) // contract
                     )
@@ -859,7 +860,7 @@ private[lf] final case class Compiler(
 
   private def encodeKeyWithMaintainers(key: SExpr, tmplKey: TemplateKey): SExpr =
     SELet(key) in
-      SBStructCon(Name.Array(keyFieldName, maintainersFieldName))(
+      SBStructCon(ImmArray(keyFieldName, maintainersFieldName))(
         SEVar(1), // key
         SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ )),
       )
