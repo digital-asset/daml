@@ -12,7 +12,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
 final class InMemorySubmissionAggregatorSpec extends WordSpec with Matchers with MockitoSugar {
-  "InMemorySubmissionAggregatorSpec" should {
+  "InMemorySubmissionAggregator" should {
     "aggregate data" in {
       val submissionInfo = SubmissionInfo(
         ParticipantId.assertFromString("participant-id"),
