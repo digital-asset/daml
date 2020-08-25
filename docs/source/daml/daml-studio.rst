@@ -105,8 +105,8 @@ Scenario and DAML Script results
 Top-level declarations of type ``Scenario`` or ``Script`` are decorated with
 a ``Scenario results`` or a ``Script results`` code lens.
 You can click on the code lens to inspect the
-execution transaction graph and the active contracts. The functionality here
-is identical for inspecting the results is identical for DAML Scripts
+execution transaction graph and the active contracts. The functionality
+for inspecting the results is identical for DAML Scripts
 and scenarios.
 
 For the scenario from the :download:`Iou<daml-studio/daml/Iou.daml>`
