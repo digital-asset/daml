@@ -18,13 +18,22 @@ import com.daml.metrics.{JvmMetricSet, Metrics}
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-object Helpers {
-  def time[T](act: () => T): (Long, T) = {
-    val t0 = System.nanoTime()
-    val result = act()
-    val t1 = System.nanoTime()
-    (t1 - t0) -> result
+final class Timer {
+  private var last = 0L
+  private var total = 0L
+
+  def time[T](act: => T): T = {
+    val start = System.nanoTime()
+    val result: T = act // force the thunk
+    val end = System.nanoTime()
+    last = end - start
+    total += last
+    result
   }
+
+  def lastMs: Long = TimeUnit.NANOSECONDS.toMillis(last)
+
+  def totalMs: Long = TimeUnit.NANOSECONDS.toMillis(total)
 }
 
 object IntegrityCheck extends App {
@@ -41,8 +50,7 @@ object IntegrityCheck extends App {
   val metricRegistry = new MetricRegistry
   metricRegistry.registerAll(new JvmMetricSet)
 
-  val ledgerDumpStream: DataInputStream =
-    new DataInputStream(new FileInputStream(filename))
+  val ledgerDumpStream = new DataInputStream(new FileInputStream(filename))
 
   private val engine = new Engine(EngineConfig.Stable)
 
@@ -54,8 +62,8 @@ object IntegrityCheck extends App {
   val keyValueCommitting = new KeyValueCommitting(engine, new Metrics(metricRegistry))
   var state = Map.empty[Proto.DamlStateKey, Proto.DamlStateValue]
 
-  var total_t_commit = 0L
-  var total_t_update = 0L
+  var commitTimer = new Timer
+  var updateTimer = new Timer
   var size = Try(ledgerDumpStream.readInt()).getOrElse(-1)
   var count = 0
   while (size > 0) {
@@ -78,17 +86,16 @@ object IntegrityCheck extends App {
         .toMap
 
     print(s"verifying ${Pretty.prettyEntryId(entry.getEntryId)}: commit... ")
-    val (t_commit, (logEntry2, outputState)) = Helpers.time(
-      () =>
-        keyValueCommitting.processSubmission(
-          entry.getEntryId,
-          Conversions.parseTimestamp(logEntry.getRecordTime),
-          defaultConfig,
-          submission,
-          Ref.ParticipantId.assertFromString(entry.getParticipantId),
-          inputState
-      ))
-    total_t_commit += t_commit
+    val (logEntry2, outputState) = commitTimer.time {
+      keyValueCommitting.processSubmission(
+        entry.getEntryId,
+        Conversions.parseTimestamp(logEntry.getRecordTime),
+        defaultConfig,
+        submission,
+        Ref.ParticipantId.assertFromString(entry.getParticipantId),
+        inputState
+      )
+    }
 
     // We assert that the resulting log entry is structurally equal to the original.
     // This assumes some degree of forward compatibility. We may need to weaken
@@ -102,9 +109,9 @@ object IntegrityCheck extends App {
     // We verify that we can produce participant state updates, but only partially
     // verify the contents.
     print("update...")
-    val (t_update, updates) =
-      Helpers.time(() => KeyValueConsumption.logEntryToUpdate(entry.getEntryId, logEntry))
-    total_t_update += t_update
+    val updates = updateTimer.time {
+      KeyValueConsumption.logEntryToUpdate(entry.getEntryId, logEntry)
+    }
 
     logEntry.getPayloadCase match {
       case Proto.DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
@@ -125,9 +132,8 @@ object IntegrityCheck extends App {
         ()
     }
 
-    val t_total_ms =
-      TimeUnit.NANOSECONDS.toMillis(t_commit) + TimeUnit.NANOSECONDS.toMillis(t_update)
-    println(s" ok. (${t_total_ms}ms)")
+    val totalMs = commitTimer.lastMs + updateTimer.lastMs
+    println(s" ok. (${totalMs}ms)")
 
     state = state ++ expectedOutputState
     size = Try(ledgerDumpStream.readInt()).getOrElse(-1)
@@ -142,7 +148,6 @@ object IntegrityCheck extends App {
   reporter.report()
 
   println(s"Verified $count messages.")
-  println(s"processSubmission: ${TimeUnit.NANOSECONDS.toMillis(total_t_commit)}ms total.")
-  println(s"logEntryToUpdate: ${TimeUnit.NANOSECONDS.toMillis(total_t_update)}ms total.")
-
+  println(s"processSubmission: ${commitTimer.totalMs}ms total.")
+  println(s"logEntryToUpdate: ${updateTimer.totalMs}ms total.")
 }
