@@ -847,7 +847,7 @@ Type normalization
 
 First, we define the type normalization relation ``↠`` over types,
 which inlines type synonym definitions, and normalizes struct types
-to remove order dependence ::
+to remove dependence on the order of fields ::
 
   ——————————————————————————————————————————————— RewriteVar
    α  ↠  α
