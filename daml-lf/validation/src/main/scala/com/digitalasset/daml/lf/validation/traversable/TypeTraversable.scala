@@ -26,10 +26,7 @@ private[validation] object TypeTraversable {
         f(body)
         ()
       case TStruct(fields) =>
-        fields.values.foreach { x =>
-          f(x)
-          ()
-        }
+        fields.values.foreach(f)
     }
 
   private[validation] def foreach[U](expr0: Expr, f: Type => U): Unit = {
