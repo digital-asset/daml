@@ -1215,8 +1215,8 @@ Streaming API reports only one type of warnings -- unknown template IDs, which i
 
     {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
 
-Error and Warning Examples:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Error and Warning Examples
+--------------------------
 
 .. code-block:: none
 
