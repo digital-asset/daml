@@ -15,13 +15,14 @@ in a special process and do not interact with an actual ledger. This
 means that you cannot use scenarios to test other ledger clients,
 e.g., your UI or :doc:`DAML triggers </triggers/index>`.
 
-DAML script addresses this problem by providing you with an API with
+DAML Script addresses this problem by providing you with an API with
 the simplicity of DAML scenarios and all the benefits such as being
-able to reuse your DAML types and logic while running against an
-actual ledger. This means that you can use it to test automation
-logic, your UI but also for
-:ref:`ledger initialization <script-ledger-initialization>` where scenarios
-cannot be used (with the exception of :doc:`/tools/sandbox`).
+able to reuse your DAML types and logic while running against an actual
+ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-results>`.
+This means that you can use it to test automation logic, your
+UI but also for :ref:`ledger initialization
+<script-ledger-initialization>` where scenarios cannot be used (with
+the exception of :doc:`/tools/sandbox`).
 
 You can also use DAML Script interactively using :doc:`/daml-repl/index`.
 

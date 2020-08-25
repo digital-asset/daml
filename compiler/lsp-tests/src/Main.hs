@@ -542,7 +542,7 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
             , "- daml-script.dar"
             ]
         withCurrentDirectory dir $
-            runSessionWithConfig conf (damlcPath <> " ide --daml-script=yes") fullCaps' dir s
+            runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
 
 executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
 executeCommandTests run _ = testGroup "execute command"
