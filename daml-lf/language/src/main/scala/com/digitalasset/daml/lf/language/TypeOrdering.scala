@@ -4,6 +4,7 @@
 package com.daml.lf.language
 
 import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
+import com.daml.lf.language.Ast.FieldName
 
 import scala.annotation.tailrec
 
@@ -49,6 +50,12 @@ object TypeOrdering extends Ordering[Ast.Type] {
         throw new IllegalArgumentException(s"cannot compare types $typ")
     }
 
+  private[this] def compareNames(xs: Iterator[FieldName], ys: Iterator[FieldName]) = {
+    var diff = 0
+    while (diff == 0 && xs.hasNext && ys.hasNext) diff = xs.next() compare ys.next()
+    if (diff != 0) diff else xs.hasNext compare ys.hasNext
+  }
+
   @tailrec
   // Any two ground types (types without variable nor quantifiers) can be compared.
   private[this] def compareType(x: Int, stack0: FrontStack[(Ast.Type, Ast.Type)]): Int =
@@ -67,9 +74,7 @@ object TypeOrdering extends Ordering[Ast.Type] {
               compareType(n1 compareTo n2, stack)
             case (Ast.TStruct(fields1), Ast.TStruct(fields2)) =>
               compareType(
-                math.Ordering
-                  .Iterable[String]
-                  .compare(fields1.toSeq.map(_._1), fields2.toSeq.map(_._1)),
+                compareNames(fields1.names, fields2.names),
                 zipAndPush(fields1.iterator.map(_._2), fields2.iterator.map(_._2), stack)
               )
             case (Ast.TApp(t11, t12), Ast.TApp(t21, t22)) =>

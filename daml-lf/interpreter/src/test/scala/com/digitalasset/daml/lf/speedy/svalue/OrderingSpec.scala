@@ -6,7 +6,7 @@ package svalue
 
 import java.util
 
-import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -168,23 +168,23 @@ class OrderingSpec
   }
 
   private val typeStructReps = List(
-    ImmArray.empty,
-    ImmArray(Ref.Name.assertFromString("field0") -> AstUtil.TUnit),
-    ImmArray(Ref.Name.assertFromString("field0") -> AstUtil.TInt64),
-    ImmArray(Ref.Name.assertFromString("field1") -> AstUtil.TUnit),
-    ImmArray(
+    Struct.empty,
+    Struct(Ref.Name.assertFromString("field0") -> AstUtil.TUnit),
+    Struct(Ref.Name.assertFromString("field0") -> AstUtil.TInt64),
+    Struct(Ref.Name.assertFromString("field1") -> AstUtil.TUnit),
+    Struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field2") -> AstUtil.TUnit,
     ),
-    ImmArray(
+    Struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field2") -> AstUtil.TInt64,
     ),
-    ImmArray(
+    Struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TInt64,
       Ref.Name.assertFromString("field2") -> AstUtil.TUnit,
     ),
-    ImmArray(
+    Struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field3") -> AstUtil.TUnit,
     ),
@@ -206,8 +206,8 @@ class OrderingSpec
       Ast.TTyCon(VariantTypeCon),
       Ast.TNat(Numeric.Scale.MinValue),
       Ast.TNat(Numeric.Scale.MaxValue),
-      Ast.TStruct(ImmArray.empty),
-      Ast.TStruct(ImmArray(Ref.Name.assertFromString("field") -> AstUtil.TUnit)),
+      Ast.TStruct(Struct.empty),
+      Ast.TStruct(Struct(Ref.Name.assertFromString("field") -> AstUtil.TUnit)),
       Ast.TApp(Ast.TBuiltin(Ast.BTArrow), Ast.TBuiltin(Ast.BTUnit)),
       Ast.TApp(
         Ast.TApp(Ast.TBuiltin(Ast.BTArrow), Ast.TBuiltin(Ast.BTUnit)),

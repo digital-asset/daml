@@ -262,7 +262,8 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
             PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body))
         case TStruct(fields) =>
           expect(args.isEmpty)
-          builder.setStruct(PLF.Type.Struct.newBuilder().accumulateLeft(fields)(_ addFields _))
+          builder.setStruct(
+            PLF.Type.Struct.newBuilder().accumulateLeft(fields.toImmArray)(_ addFields _))
         case TSynApp(name, args) =>
           val b = PLF.Type.Syn.newBuilder()
           b.setTysyn(name)
