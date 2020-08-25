@@ -75,7 +75,7 @@ With Query Store
 
 To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is save to reinitialize the database at any time.
 
-To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below. 
+To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
 
 .. note:: When you use the Query Store you'll want your first run to specify ``createSchema=true`` so that all the necessary tables are created. After the first run make sure ``createSchema=false`` so that it doesn't attempt to create the tables again.
 
@@ -112,7 +112,7 @@ Once you have retrieved your access token, you can provide it to the JSON API by
 and starting ``daml json-api`` with the flag ``--access-token-file /path/to/your/token.file``.
 
 If the token cannot be read from the provided path or the Ledger API reports an authentication error
-(for example due to token expiration), the JSON API will report the error via logging. 
+(for example due to token expiration), the JSON API will report the error via logging.
 
 .. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without restarting your JSON API service.
 
@@ -173,9 +173,9 @@ Auth via HTTP
 
 Set HTTP header ``Authorization: Bearer paste-jwt-here``
 
-Example: 
+Example:
 
-.. code-block:: none 
+.. code-block:: none
 
     Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
 
@@ -192,7 +192,7 @@ For HTTP JSON requests, you must pass two subprotocols:
 - ``daml.ws.auth``
 - ``jwt.token.paste-jwt-here``
 
-Example: 
+Example:
 
 .. code-block:: none
 

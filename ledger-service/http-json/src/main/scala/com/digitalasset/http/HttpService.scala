@@ -52,6 +52,8 @@ object HttpService extends StrictLogging {
   val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
   val DefaultMaxInboundMessageSize: Int = 4194304
 
+  private val DummyApplicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway")
+
   private type ET[A] = EitherT[Future, Error, A]
 
   final case class Error(message: String)
@@ -62,7 +64,6 @@ object HttpService extends StrictLogging {
   trait StartSettings {
     val ledgerHost: String
     val ledgerPort: Int
-    val applicationId: ApplicationId
     val address: String
     val httpPort: Int
     val portFile: Option[Path]
@@ -100,7 +101,7 @@ object HttpService extends StrictLogging {
     val tokenHolder = accessTokenFile.map(new TokenHolder(_))
 
     val clientConfig = LedgerClientConfiguration(
-      applicationId = ApplicationId.unwrap(applicationId),
+      applicationId = ApplicationId.unwrap(DummyApplicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = tlsConfig.client,
