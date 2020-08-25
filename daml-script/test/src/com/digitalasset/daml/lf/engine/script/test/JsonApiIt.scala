@@ -134,7 +134,6 @@ trait JsonApiFixture
               val config = new HttpService.DefaultStartSettings {
                 override val ledgerHost = "localhost"
                 override val ledgerPort = server.port.value
-                override val applicationId = Runner.DEFAULT_APPLICATION_ID
                 override val address = "localhost"
                 override val httpPort = 0
                 override val portFile = None
