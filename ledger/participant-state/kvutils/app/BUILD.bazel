@@ -5,7 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
@@ -58,14 +58,20 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "app-tests",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
     deps = [
         ":app",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
