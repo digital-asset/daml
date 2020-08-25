@@ -67,14 +67,11 @@ object BatchedSubmissionValidatorFactory {
       keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy,
   )(implicit executionContext: ExecutionContext)
     : (DamlLedgerStateReader with QueryableReadSet, CommitStrategy[LogResult]) = {
-    val ledgerStateReader = new CachingDamlLedgerStateReader(
+    val ledgerStateReader = CachingDamlLedgerStateReader(
       stateCache,
-      cacheUpdatePolicy.shouldCacheOnRead,
+      cacheUpdatePolicy,
+      new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
       keySerializationStrategy,
-      DamlLedgerStateReader.from(
-        new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
-        keySerializationStrategy,
-      ),
     )
     val commitStrategy = new CachingCommitStrategy(
       stateCache,
