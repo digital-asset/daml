@@ -60,10 +60,9 @@ final class Runner[T <: ReadWriteService, Extra](
         IndexMetadata.read(jdbcUrl).onComplete {
           case Failure(exception) =>
             logger.error("Error while retrieving the index metadata", exception)
-          case Success(None) =>
-            logger.warn("The ledger is not initialized, no metadata to read")
-          case Success(Some(metadata)) =>
+          case Success(metadata) =>
             logger.warn(s"ledger_id: ${metadata.ledgerId}")
+            logger.warn(s"participant_id: ${metadata.participantId}")
             logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
             logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
         }

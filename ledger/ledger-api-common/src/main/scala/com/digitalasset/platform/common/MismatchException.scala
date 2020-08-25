@@ -17,4 +17,7 @@ object MismatchException {
   class LedgerId(existing: domain.LedgerId, provided: domain.LedgerId)
       extends MismatchException[domain.LedgerId]("ledger id", existing, provided)
 
+  class ParticipantId(existing: domain.ParticipantId, provided: domain.ParticipantId)
+      extends MismatchException[domain.ParticipantId]("participant id", existing, provided)
+
 }

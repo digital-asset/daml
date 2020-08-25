@@ -9,6 +9,7 @@ import java.time.Instant
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -170,6 +171,9 @@ class SqlLedgerSpec
   private def createSqlLedger(ledgerId: LedgerId, packages: List[DamlLf.Archive]): Future[Ledger] =
     createSqlLedger(Some(ledgerId), packages)
 
+  private val TestParticipantId =
+    domain.ParticipantId(Ref.ParticipantId.assertFromString("test-participant-id"))
+
   private def createSqlLedger(
       ledgerId: Option[LedgerId],
       packages: List[DamlLf.Archive],
@@ -181,6 +185,7 @@ class SqlLedgerSpec
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
         providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
+        participantId = TestParticipantId,
         timeProvider = TimeProvider.UTC,
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)

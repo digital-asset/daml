@@ -13,12 +13,13 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
-import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -38,6 +39,7 @@ import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLe
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.resources.{Resource, ResourceOwner}
+import scalaz.Tag
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
@@ -64,6 +66,7 @@ private[sandbox] object SqlLedger {
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
       providedLedgerId: LedgerIdMode,
+      participantId: domain.ParticipantId,
       timeProvider: TimeProvider,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
@@ -90,6 +93,7 @@ private[sandbox] object SqlLedger {
         }
         retrievedLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
         ledgerId <- Resource.fromFuture(retrievedLedgerId.fold(initialize(dao))(resume))
+        _ <- Resource.fromFuture(initOrCheckParticipantId(dao, Tag.unwrap(participantId)))
         ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
         ledgerConfig <- Resource.fromFuture(dao.lookupLedgerConfiguration())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
@@ -138,6 +142,23 @@ private[sandbox] object SqlLedger {
             with StartupException
           )
       }
+
+    private def initOrCheckParticipantId(dao: LedgerDao, participantId: String)(
+        implicit executionContext: ExecutionContext,
+    ): Future[Unit] = {
+      val providedLedgerId = ParticipantId(Ref.ParticipantId.assertFromString(participantId))
+      dao
+        .lookupParticipantId()
+        .flatMap(
+          _.fold(dao.initializeParticipantId(providedLedgerId)) {
+            case `providedLedgerId` =>
+              Future.successful(logger.info(s"Found existing participant id '$providedLedgerId'"))
+            case retrievedLedgerId =>
+              Future.failed(
+                new MismatchException.ParticipantId(retrievedLedgerId, providedLedgerId))
+          }
+        )
+    }
 
     private def initializeLedgerEntries(
         initialLedgerEntries: ImmArray[LedgerEntryOrBump],
