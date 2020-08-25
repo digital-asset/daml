@@ -3,7 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.driver
 
-import java.io.{DataInputStream, FileInputStream}
+import java.io.DataInputStream
+import java.nio.file.{Files, Paths}
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -44,13 +45,13 @@ object IntegrityCheck extends App {
     sys.exit(1)
   }
 
-  val filename = args(0)
-  println(s"Verifying integrity of $filename...")
+  val path = Paths.get(args(0))
+  println(s"Verifying integrity of $path...")
 
   val metricRegistry = new MetricRegistry
   metricRegistry.registerAll(new JvmMetricSet)
 
-  val ledgerDumpStream = new DataInputStream(new FileInputStream(filename))
+  val ledgerDumpStream = new DataInputStream(Files.newInputStream(path))
 
   private val engine = new Engine(EngineConfig.Stable)
 
