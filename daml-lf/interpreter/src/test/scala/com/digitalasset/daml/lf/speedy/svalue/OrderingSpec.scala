@@ -58,12 +58,14 @@ class OrderingSpec
 
   private val Record0TypeCon: Ref.TypeConName = "Unit"
   private val Record2TypeCon: Ref.TypeConName = "Tuple"
-  private val record2Fields = Ref.Name.Array("fst", "snd")
+  private val record2Fields = ImmArray[Ref.Name]("fst", "snd")
 
   private val VariantTypeCon: Ref.TypeConName = "Either"
   private val VariantCon1: Ref.Name = "Left"
   private val VariantCon2: Ref.Name = "Middle"
   private val VariantCon3: Ref.Name = "Right"
+
+  private val struct2Fields = Ref.Name.Array("fst", "snd")
 
   private val units =
     List(SValue.SValue.Unit)
@@ -99,7 +101,7 @@ class OrderingSpec
 
   private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
 
-  private val records0 = List(SRecord(Record0TypeCon, Ref.Name.Array.empty, ArrayList()))
+  private val records0 = List(SRecord(Record0TypeCon, ImmArray.empty, ArrayList()))
 
   private val builtinTypeReps = List(
     Ast.BTUnit,
@@ -227,7 +229,7 @@ class OrderingSpec
     for {
       x <- fst
       y <- snd
-    } yield SStruct(record2Fields, ArrayList(x, y))
+    } yield SStruct(struct2Fields, ArrayList(x, y))
 
   @tailrec
   private def mkList(

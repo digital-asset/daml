@@ -416,10 +416,10 @@ private[lf] final case class Compiler(
 
       case ERecCon(tApp, fields) =>
         if (fields.isEmpty)
-          SEBuiltin(SBRecCon(tApp.tycon, Name.Array.empty))
+          SEBuiltin(SBRecCon(tApp.tycon, ImmArray.empty))
         else {
           SEApp(
-            SEBuiltin(SBRecCon(tApp.tycon, Name.Array(fields.map(_._1).toSeq: _*))),
+            SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),
             fields.iterator.map(f => translate(f._2)).toArray,
           )
         }

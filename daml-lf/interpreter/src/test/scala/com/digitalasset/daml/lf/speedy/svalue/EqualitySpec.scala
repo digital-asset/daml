@@ -5,7 +5,7 @@ package com.daml.lf.speedy.svalue
 
 import java.util
 
-import com.daml.lf.data.{FrontStack, Numeric, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.Profile.LabelUnset
 import com.daml.lf.speedy.SValue._
@@ -38,11 +38,13 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   private val Record0TypeCon: Ref.TypeConName = "Unit"
   private val Record2TypeCon: Ref.TypeConName = "Tuple"
-  private val record2Fields = Ref.Name.Array("fst", "snd")
+  private val record2Fields = ImmArray[Ref.Name]("fst", "snd")
 
   private val VariantTypeCon: Ref.TypeConName = "Either"
   private val VariantCon1: Ref.Name = "Left"
   private val VariantCon2: Ref.Name = "Right"
+
+  private val struct2Fields = Ref.Name.Array("fst", "snd")
 
   private val unit = SValue.SValue.Unit
 
@@ -76,7 +78,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
 
-  private val records0 = List(SRecord(Record0TypeCon, Ref.Name.Array.empty, ArrayList()))
+  private val records0 = List(SRecord(Record0TypeCon, ImmArray.empty, ArrayList()))
 
   private val typeReps = List(
     AstUtil.TUnit,
@@ -98,7 +100,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     for {
       x <- fst
       y <- snd
-    } yield SStruct(record2Fields, ArrayList(x, y))
+    } yield SStruct(struct2Fields, ArrayList(x, y))
 
   private def lists(atLeast3Values: List[SValue]) = {
     val s = atLeast3Values.take(3)
@@ -430,7 +432,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
     "shortcut failure in struct" in {
       def struct(x: SValue, y: SValue) =
-        SStruct(record2Fields, ArrayList(x, y))
+        SStruct(struct2Fields, ArrayList(x, y))
 
       val negativeTestCases = Table(
         "first arg" -> "second arg",

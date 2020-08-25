@@ -576,19 +576,14 @@ private[lf] object Speedy {
           case V.ValueDate(x) => SDate(x)
           case V.ValueUnit => SUnit
           case V.ValueRecord(Some(id), fs) =>
-            val fields = Name.Array.ofDim(fs.length)
-            val values = new util.ArrayList[SValue](fields.length)
-            fs.foreach {
-              case (optk, v) =>
-                optk match {
-                  case None =>
-                    crash("SValue.fromValue: record missing field name")
-                  case Some(k) =>
-                    fields(values.size) = k
-                    val _ = values.add(go(v))
-                }
+            val values = new util.ArrayList[SValue](fs.length)
+            val names = fs.map {
+              case (Some(f), v) =>
+                values.add(go(v))
+                f
+              case (None, _) => crash("SValue.fromValue: record missing field name")
             }
-            SRecord(id, fields, values)
+            SRecord(id, names, values)
           case V.ValueRecord(None, _) =>
             crash("SValue.fromValue: record missing identifier")
           case V.ValueStruct(fs) =>

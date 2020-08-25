@@ -408,12 +408,12 @@ class EngineTest
       translator
         .translateValue(typ, someValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
-        Right(SRecord(id, Name.Array("recField"), ArrayList(SOptional(Some(SText("foo"))))))
+        Right(SRecord(id, ImmArray("recField"), ArrayList(SOptional(Some(SText("foo"))))))
 
       translator
         .translateValue(typ, noneValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
-        Right(SRecord(id, Name.Array("recField"), ArrayList(SOptional(None))))
+        Right(SRecord(id, ImmArray("recField"), ArrayList(SOptional(None))))
 
     }
 
