@@ -9,7 +9,6 @@ import org.mockito.MockitoSugar._
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 import scala.concurrent.Future
-import scala.util.control.NonFatal
 
 final class RunnerSpec
     extends AsyncFlatSpec
@@ -28,14 +27,14 @@ final class RunnerSpec
   it should "fail if a participant is not provided in run mode" in {
 
     val runner = new Runner("Test", MockedLedgerFactory).owner(Seq.empty)
-    runner.use(_ => Future.unit).map(_ => fail).recover { case NonFatal(_) => succeed }
+    runner.use(_ => Future.unit).failed.map(_ => succeed)
 
   }
 
   it should "fail if a participant is not provided when dumping the index metadata" in {
 
     val runner = new Runner("Test", MockedLedgerFactory).owner(Seq(DumpIndexMetadataCommand))
-    runner.use(_ => Future.unit).map(_ => fail).recover { case NonFatal(_) => succeed }
+    runner.use(_ => Future.unit).failed.map(_ => succeed)
 
   }
 
