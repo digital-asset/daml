@@ -8,11 +8,12 @@ import com.daml.ledger.participant.state.kvutils.Envelope
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[validator] class RawToDamlLedgerStateReaderAdapter(
+final class RawToDamlLedgerStateReaderAdapter(
     ledgerStateReader: LedgerStateReader,
-    keySerializationStrategy: StateKeySerializationStrategy)(
-    implicit executionContext: ExecutionContext)
+    keySerializationStrategy: StateKeySerializationStrategy,
+)(implicit executionContext: ExecutionContext)
     extends DamlLedgerStateReader {
+
   import RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
 
   override def readState(keys: Seq[DamlStateKey]): Future[Seq[Option[DamlStateValue]]] =
@@ -21,8 +22,8 @@ private[validator] class RawToDamlLedgerStateReaderAdapter(
       .map(_.map(_.map(deserializeDamlStateValue)))
 }
 
-private[validator] object RawToDamlLedgerStateReaderAdapter {
-  val deserializeDamlStateValue: LedgerStateOperations.Value => DamlStateValue =
+object RawToDamlLedgerStateReaderAdapter {
+  private[validator] val deserializeDamlStateValue: LedgerStateOperations.Value => DamlStateValue =
     Envelope
       .openStateValue(_)
       .getOrElse(sys.error("Opening enveloped DamlStateValue failed"))
