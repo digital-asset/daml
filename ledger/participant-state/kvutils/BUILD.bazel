@@ -48,6 +48,7 @@ da_scala_library(
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "//libs-scala/contextualized-logging",
         "//libs-scala/direct-execution-context",
+        "//libs-scala/resources",
         "//libs-scala/timer-utils",
         "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_guava_guava",
@@ -173,35 +174,40 @@ da_java_proto_library(
     deps = [":daml_kvutils_proto"],
 )
 
-# Builds a ledger dump from running the test tool against a kvutils-based
-# in-memory ledger.
-client_server_build(
-    name = "reference-ledger-dump",
-    testonly = True,  # only test targets can depend on this.
-    client = "//ledger/ledger-api-test-tool",
-    client_args = [
-        "--concurrent-test-runs=4",
-        "--timeout-scale-factor=20",
-        "localhost:6865",
-    ],
-    data = [
-        "//ledger/test-common:dar-files",
-    ],
-    output_env = "KVUTILS_LEDGER_DUMP",
-    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
-    runner_args = ["6865"],
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=ledger-dump,port=6865",
-    ],
-    server_files = [
-        "//ledger/test-common:dar-files",
-    ],
-) if not is_windows else None
-
-# Test for checking the integrity of the ledger dump produced above.
-integrity_test(
-    name = "reference-ledger-dump-integrity-test",
-    dump = ":reference-ledger-dump",
-) if not is_windows else None
+[
+    (
+        # Generates a ledger export by running the test tool against a kvutils-based ledger.
+        client_server_build(
+            name = name,
+            testonly = True,  # only test targets can depend on this.
+            client = "//ledger/ledger-api-test-tool",
+            client_args = [
+                "--concurrent-test-runs=4",
+                "--timeout-scale-factor=20",
+                "localhost:%d" % port,
+            ],
+            data = [
+                "//ledger/test-common:dar-files",
+            ],
+            output_env = environment_variable,
+            runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+            runner_args = [str(port)],
+            server = "//ledger/ledger-on-memory:app",
+            server_args = [
+                "--contract-id-seeding=testing-weak",
+                "--participant participant-id=%s,port=%d" % (name, port),
+            ],
+        ) if not is_windows else None,
+        # Test for checking the integrity of the ledger export produced above.
+        integrity_test(
+            name = "%s-integrity-test" % name,
+            size = "small",
+            checker = checker,
+            dump = ":%s" % name,
+        ) if not is_windows else None,
+    )
+    for (name, port, environment_variable, checker) in [
+        ("reference-ledger-dump", 65101, "KVUTILS_LEDGER_DUMP", "//ledger/participant-state/kvutils/tools:integrity-check"),
+        ("reference-ledger-export", 65102, "KVUTILS_LEDGER_EXPORT", "//ledger/participant-state/kvutils/tools:integrity-check-v2"),
+    ]
+]

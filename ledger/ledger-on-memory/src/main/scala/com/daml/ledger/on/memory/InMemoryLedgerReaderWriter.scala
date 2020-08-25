@@ -12,6 +12,7 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api._
+import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.{
   Bytes,
   Fingerprint,
@@ -83,36 +84,34 @@ object InMemoryLedgerReaderWriter {
       extends ResourceOwner[KeyValueLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] = {
-      val keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
-
-      val committer = createBatchedCommitter(
-        keyValueCommitting,
-        batchingLedgerWriterConfig,
-        state,
-        metrics,
-        timeProvider,
-        stateValueCache,
-      )
-
-      val readerWriter = new InMemoryLedgerReaderWriter(
-        ledgerId,
-        participantId,
-        dispatcher,
-        state,
-        committer,
-        metrics,
-      )
-
-      // We need to generate batched submissions for the validator in order to improve throughput.
-      // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
-      // in-memory committer.
-      val ledgerWriter = newLoggingContext { implicit loggingContext =>
-        BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
-      }
-
-      Resource.successful(createKeyValueLedger(readerWriter, ledgerWriter))
-    }
+    ): Resource[KeyValueLedger] =
+      for {
+        ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
+        keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
+        committer = createBatchedCommitter(
+          keyValueCommitting,
+          batchingLedgerWriterConfig,
+          state,
+          metrics,
+          timeProvider,
+          stateValueCache,
+          ledgerDataExporter,
+        )
+        readerWriter = new InMemoryLedgerReaderWriter(
+          ledgerId,
+          participantId,
+          dispatcher,
+          state,
+          committer,
+          metrics,
+        )
+        // We need to generate batched submissions for the validator in order to improve throughput.
+        // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
+        // in-memory committer.
+        ledgerWriter = newLoggingContext { implicit loggingContext =>
+          BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
+        }
+      } yield createKeyValueLedger(readerWriter, ledgerWriter)
   }
 
   final class SingleParticipantBatchingOwner(
@@ -195,13 +194,15 @@ object InMemoryLedgerReaderWriter {
       metrics: Metrics,
       timeProvider: TimeProvider,
       stateValueCache: Cache[DamlStateKey, DamlStateValue],
+      ledgerDataExporter: LedgerDataExporter,
   )(implicit materializer: Materializer): ValidateAndCommit = {
     val validator = BatchedSubmissionValidator[Index](
       BatchedSubmissionValidatorFactory.defaultParametersFor(
         batchingLedgerWriterConfig.enableBatching),
       keyValueCommitting,
       new ConflictDetection(metrics),
-      metrics
+      metrics,
+      ledgerDataExporter,
     )
     val committer = BatchedValidatingCommitter[Index](
       () => timeProvider.getCurrentTime,

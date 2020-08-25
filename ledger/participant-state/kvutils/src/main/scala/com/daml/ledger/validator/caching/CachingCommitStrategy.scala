@@ -6,6 +6,7 @@ package com.daml.ledger.validator.caching
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.CommitStrategy
 
@@ -22,7 +23,9 @@ class CachingCommitStrategy[Result](
       entryId: DamlKvutils.DamlLogEntryId,
       entry: DamlKvutils.DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
-      outputState: Map[DamlStateKey, DamlStateValue]): Future[Result] =
+      outputState: Map[DamlStateKey, DamlStateValue],
+      exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder],
+  ): Future[Result] =
     for {
       _ <- Future {
         outputState.view.filter { case (key, _) => shouldCache(key) }.foreach {
@@ -35,6 +38,8 @@ class CachingCommitStrategy[Result](
         entryId,
         entry,
         inputState,
-        outputState)
+        outputState,
+        exporterWriteSet,
+      )
     } yield result
 }
