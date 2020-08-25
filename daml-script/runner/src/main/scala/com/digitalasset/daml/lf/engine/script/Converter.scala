@@ -383,6 +383,58 @@ object Converter {
       case _ => Left(s"Expected STimestamp but got $v")
     }
 
+  def toText(v: SValue): Either[String, String] = v match {
+    case SText(s) => Right(s)
+    case v => Left(s"Expected SText but got $v")
+  }
+
+  def toInt(v: SValue): Either[String, Int] = v match {
+    case SInt64(n) => Right(n.toInt)
+    case v => Left(s"Expected SInt64 but got $v")
+  }
+
+  def toOptionLocation(
+      knownPackages: Map[String, PackageId],
+      v: SValue): Either[String, Option[Location]] =
+    v match {
+      case SOptional(None) => Right(None)
+      case SOptional(Some(pair)) =>
+        pair match {
+          case SRecord(_, _, vals) if vals.size == 2 =>
+            for {
+              // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
+              //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
+              definition <- toText(vals.get(0))
+              loc <- vals.get(1) match {
+                case SRecord(_, _, vals) if vals.size == 7 =>
+                  for {
+                    packageId <- toText(vals.get(0)).flatMap {
+                      // GHC uses unit-id "main" for the current package,
+                      // but the scenario context expects "-homePackageId-".
+                      case "main" => PackageId.fromString("-homePackageId-")
+                      case id => knownPackages.get(id).toRight(s"Unknown package $id")
+                    }
+                    module <- toText(vals.get(1)).flatMap(ModuleName.fromString(_))
+                    // Lines and columns are 1-based in the call stack.
+                    startLine <- toInt(vals.get(3))
+                    startCol <- toInt(vals.get(4))
+                    endLine <- toInt(vals.get(5))
+                    endCol <- toInt(vals.get(6))
+                  } yield
+                    Location(
+                      packageId,
+                      module,
+                      definition,
+                      (startLine - 1, startCol - 1),
+                      (endLine - 1, endCol - 1))
+                case _ => Left("Expected SRecord of Daml.Script.SrcLoc")
+              }
+            } yield Some(loc)
+          case _ => Left("Expected SRecord of a pair")
+        }
+      case _ => Left(s"Expected SOptional but got $v")
+    }
+
   // Helper to construct a record
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
     val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to[ImmArray]

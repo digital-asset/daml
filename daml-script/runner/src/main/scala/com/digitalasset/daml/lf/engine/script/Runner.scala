@@ -333,6 +333,12 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
   }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
 
+  // Maps GHC unit ids to LF package ids. Used for location conversion.
+  private val knownPackages: Map[String, PackageId] = (for {
+    pkgId <- compiledPackages.packageIds
+    md <- compiledPackages.getPackage(pkgId).flatMap(_.metadata).toList
+  } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
+
   def runWithClients(initialClients: Participants[ScriptLedgerClient])(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -361,7 +367,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
             v match {
               case SVariant(_, "Submit", _, v) => {
                 v match {
-                  case SRecord(_, _, vals) if vals.size == 3 => {
+                  case SRecord(_, _, vals) if vals.size == 3 || vals.size == 4 => {
                     for {
                       freeAp <- vals.get(1) match {
                         // Unwrap Commands newtype
@@ -380,7 +386,12 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       client <- Converter.toFuture(
                         clients
                           .getPartyParticipant(Party(party.value)))
-                      submitRes <- client.submit(party, commands)
+                      commitLocation <- if (vals.size == 3) {
+                        Future(None)
+                      } else {
+                        Converter.toFuture(Converter.toOptionLocation(knownPackages, vals.get(3)))
+                      }
+                      submitRes <- client.submit(party, commands, commitLocation)
                       v <- submitRes match {
                         case Right(results) => {
                           for {
@@ -422,7 +433,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
               }
               case SVariant(_, "SubmitMustFail", _, v) => {
                 v match {
-                  case SRecord(_, _, vals) if vals.size == 3 => {
+                  case SRecord(_, _, vals) if vals.size == 3 || vals.size == 4 => {
                     for {
                       freeAp <- vals.get(1) match {
                         // Unwrap Commands newtype
@@ -441,7 +452,12 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       client <- Converter.toFuture(
                         clients
                           .getPartyParticipant(Party(party.value)))
-                      submitRes <- client.submitMustFail(party, commands)
+                      commitLocation <- if (vals.size == 3) {
+                        Future(None)
+                      } else {
+                        Converter.toFuture(Converter.toOptionLocation(knownPackages, vals.get(3)))
+                      }
+                      submitRes <- client.submitMustFail(party, commands, commitLocation)
                       v <- submitRes match {
                         case Right(()) =>
                           run(SEApp(SEValue(vals.get(2)), Array(SEValue(SUnit))))

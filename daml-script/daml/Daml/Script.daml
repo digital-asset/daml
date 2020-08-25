@@ -27,7 +27,9 @@ module Daml.Script
   ) where
 
 import DA.Functor
+import DA.List.Total (head)
 import DA.Optional
+import DA.Stack
 import DA.Time
 
 -- | A free monad
@@ -234,11 +236,11 @@ data SubmitFailure = SubmitFailure
 -- The @handleFailure@ field is kept on @submit@ for backwards compatibility.
 -- Older versions of the DAML SDK didn't distinguish @Submit@ and
 -- @SubmitMustFail@ in the script runner.
-data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a }
+data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a, optLocation : Optional (Text, SrcLoc) }
   deriving Functor
 
 -- | Details of the @submitMustFail@ command.
-data SubmitMustFailCmd a = SubmitMustFailCmd { party : Party, commands : Commands a, continue : () -> a }
+data SubmitMustFailCmd a = SubmitMustFailCmd { party : Party, commands : Commands a, continue : () -> a, optLocation : Optional (Text, SrcLoc) }
   deriving Functor
 
 -- | Submit the commands as a single transaction.
@@ -246,10 +248,10 @@ data SubmitMustFailCmd a = SubmitMustFailCmd { party : Party, commands : Command
 -- This will error if the submission fails.
 
 instance HasSubmit Script Commands where
-  submit p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
+  submit p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail (head $ getCallStack callStack))
     where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
 
-  submitMustFail p cmds = lift $ Free (fmap pure $ SubmitMustFail $ SubmitMustFailCmd p (void cmds) (const ()))
+  submitMustFail p cmds = lift $ Free (fmap pure $ SubmitMustFail $ SubmitMustFailCmd p (void cmds) (const ()) (head $ getCallStack callStack))
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
