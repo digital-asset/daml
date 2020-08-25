@@ -10,6 +10,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.`export`.NoOpLedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
@@ -43,7 +44,9 @@ class BatchedSubmissionValidatorSpec
       val validator = BatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
-        metrics)
+        metrics,
+        NoOpLedgerDataExporter,
+      )
 
       validator
         .validateAndCommit(
@@ -64,7 +67,9 @@ class BatchedSubmissionValidatorSpec
       val validator = BatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
-        metrics)
+        metrics,
+        NoOpLedgerDataExporter,
+      )
       val notASubmission = Envelope.enclose(DamlStateValue.getDefaultInstance)
 
       validator
@@ -86,7 +91,9 @@ class BatchedSubmissionValidatorSpec
       val validator = BatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
-        metrics)
+        metrics,
+        NoOpLedgerDataExporter,
+      )
       val batchSubmission = DamlSubmissionBatch.newBuilder
         .addSubmissions(
           CorrelatedSubmission.newBuilder
@@ -132,7 +139,9 @@ class BatchedSubmissionValidatorSpec
       val validator = BatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
-        metrics)
+        metrics,
+        NoOpLedgerDataExporter,
+      )
 
       validator
         .validateAndCommit(
@@ -188,7 +197,8 @@ class BatchedSubmissionValidatorSpec
         .thenReturn(Future.unit)
       val validatorConfig =
         BatchedSubmissionValidatorParameters.reasonableDefault.copy(commitParallelism = 1)
-      val validator = BatchedSubmissionValidator[Unit](validatorConfig, engine, metrics)
+      val validator =
+        BatchedSubmissionValidator[Unit](validatorConfig, engine, metrics, NoOpLedgerDataExporter)
 
       validator
         .validateAndCommit(
@@ -246,7 +256,9 @@ class BatchedSubmissionValidatorSpec
       val validator = BatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
-        metrics)
+        metrics,
+        NoOpLedgerDataExporter,
+      )
 
       validator
         .validateAndCommit(
@@ -292,11 +304,12 @@ class BatchedSubmissionValidatorSpec
           any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
-      val validator =
-        BatchedSubmissionValidator[Unit](
-          BatchedSubmissionValidatorParameters.reasonableDefault,
-          engine,
-          metrics)
+      val validator = BatchedSubmissionValidator[Unit](
+        BatchedSubmissionValidatorParameters.reasonableDefault,
+        engine,
+        metrics,
+        NoOpLedgerDataExporter,
+      )
 
       validator
         .validateAndCommit(
@@ -352,7 +365,8 @@ class BatchedSubmissionValidatorSpec
     val validatorConfig =
       BatchedSubmissionValidatorParameters.reasonableDefault.copy(
         commitParallelism = commitParallelism)
-    val validator = BatchedSubmissionValidator[Unit](validatorConfig, engine, metrics)
+    val validator =
+      BatchedSubmissionValidator[Unit](validatorConfig, engine, metrics, NoOpLedgerDataExporter)
 
     validator
       .validateAndCommit(

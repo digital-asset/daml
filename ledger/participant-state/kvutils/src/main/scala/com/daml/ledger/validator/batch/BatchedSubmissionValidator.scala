@@ -36,25 +36,29 @@ object BatchedSubmissionValidator {
       committer: KeyValueCommitting,
       conflictDetection: ConflictDetection,
       metrics: Metrics,
-      ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())
-    : BatchedSubmissionValidator[CommitResult] =
+      ledgerDataExporter: LedgerDataExporter,
+  ): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       committer,
       conflictDetection,
       metrics,
-      ledgerDataExporter
+      ledgerDataExporter,
     )
 
   private[validator] def apply[CommitResult](
       params: BatchedSubmissionValidatorParameters,
       engine: Engine,
-      metrics: Metrics): BatchedSubmissionValidator[CommitResult] =
+      metrics: Metrics,
+      ledgerDataExporter: LedgerDataExporter,
+  ): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       new KeyValueCommitting(engine, metrics),
       new ConflictDetection(metrics),
-      metrics)
+      metrics,
+      ledgerDataExporter,
+    )
 
   /** A [[DamlSubmission]] with an associated correlation id and a log entry id computed
     * from the envelope. */
@@ -102,7 +106,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     committer: KeyValueCommitting,
     conflictDetection: ConflictDetection,
     damlMetrics: Metrics,
-    ledgerDataExporter: LedgerDataExporter = LedgerDataExporter()) {
+    ledgerDataExporter: LedgerDataExporter,
+) {
 
   import BatchedSubmissionValidator._
 

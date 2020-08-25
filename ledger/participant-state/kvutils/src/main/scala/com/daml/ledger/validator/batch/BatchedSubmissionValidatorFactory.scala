@@ -21,8 +21,6 @@ import com.daml.ledger.validator.{
   LogAppendingCommitStrategy,
   StateKeySerializationStrategy
 }
-import com.daml.lf.engine.Engine
-import com.daml.metrics.Metrics
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -87,28 +85,5 @@ object BatchedSubmissionValidatorFactory {
       )
     )
     (ledgerStateReader, commitStrategy)
-  }
-
-  case class CachingEnabledComponents[LogResult](
-      ledgerStateReader: DamlLedgerStateReader with QueryableReadSet,
-      commitStrategy: CommitStrategy[LogResult],
-      batchValidator: BatchedSubmissionValidator[LogResult])
-
-  def componentsEnabledForCaching[LogResult](
-      params: BatchedSubmissionValidatorParameters,
-      ledgerStateOperations: LedgerStateOperations[LogResult],
-      stateCache: Cache[DamlStateKey, DamlStateValue],
-      cacheUpdatePolicy: CacheUpdatePolicy,
-      metrics: Metrics,
-      engine: Engine
-  )(implicit executionContext: ExecutionContext): CachingEnabledComponents[LogResult] = {
-    val (ledgerStateReader, commitStrategy) =
-      cachingReaderAndCommitStrategyFrom(ledgerStateOperations, stateCache, cacheUpdatePolicy)
-    val batchValidator = BatchedSubmissionValidator[LogResult](
-      params,
-      engine,
-      metrics
-    )
-    CachingEnabledComponents(ledgerStateReader, commitStrategy, batchValidator)
   }
 }

@@ -25,17 +25,11 @@ object LedgerDataExporter {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private lazy val outputStreamMaybe: Option[DataOutputStream] = {
+  def retrieve(): LedgerDataExporter =
     Option(System.getenv(EnvironmentVariableName))
       .map { filename =>
-        logger.info(s"Enabled writing ledger entries to $filename")
-        new DataOutputStream(new FileOutputStream(filename))
+        logger.info(s"Enabled writing ledger entries to $filename.")
+        new FileBasedLedgerDataExporter(new DataOutputStream(new FileOutputStream(filename)))
       }
-  }
-
-  private lazy val instance = outputStreamMaybe
-    .map(new FileBasedLedgerDataExporter(_))
-    .getOrElse(NoOpLedgerDataExporter)
-
-  def apply(): LedgerDataExporter = instance
+      .getOrElse(NoOpLedgerDataExporter)
 }
