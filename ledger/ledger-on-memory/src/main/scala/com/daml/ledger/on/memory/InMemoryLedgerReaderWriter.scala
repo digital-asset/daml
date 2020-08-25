@@ -11,8 +11,8 @@ import com.daml.caching.Cache
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.`export`.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.api._
+import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.{
   Bytes,
   Fingerprint,

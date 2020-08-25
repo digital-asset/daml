@@ -10,8 +10,10 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Envelope
-import com.daml.ledger.participant.state.kvutils.`export`.NoOpLedgerDataExporter
-import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.export.{
+  NoOpLedgerDataExporter,
+  SubmissionAggregator
+}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, ValidationFailed}
