@@ -152,7 +152,7 @@ class BatchingQueueSpec
       val correlatedSubmission2 = createCorrelatedSubmission("2")
       val batches = mutable.ListBuffer.empty[Seq[CorrelatedSubmission]]
 
-      val maxWaitDuration = 50.millis
+      val maxWaitDuration = 500.millis
 
       // Queue that can fit a single submission plus tiny bit more
       val queue =
