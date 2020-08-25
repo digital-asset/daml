@@ -31,7 +31,6 @@ object ServiceMain {
       restartConfig: TriggerRestartConfig,
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
-      noSecretKey: Boolean,
   ): Future[(ServerBinding, ActorSystem[Message])] = {
 
     val system: ActorSystem[Message] =
@@ -43,8 +42,7 @@ object ServiceMain {
           restartConfig,
           encodedDar,
           jdbcConfig,
-          initDb = false, // for tests we initialize the database in beforeEach clause
-          noSecretKey,
+          initDb = false // for tests we initialize the database in beforeEach clause
         ),
         "TriggerService"
       )
@@ -90,7 +88,6 @@ object ServiceMain {
               encodedDar,
               config.jdbcConfig,
               config.init,
-              config.noSecretKey
             ),
             "TriggerService"
           )
