@@ -5,7 +5,7 @@ package com.daml.platform.store
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -22,12 +22,13 @@ object IndexMetadata {
   def read(jdbcUrl: String)(
       implicit executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[Option[IndexMetadata]] =
+  ): Future[IndexMetadata] =
     ownDao(jdbcUrl).use { dao =>
       for {
         ledgerId <- dao.lookupLedgerId()
+        participantId <- dao.lookupParticipantId()
         ledgerEnd <- dao.lookupInitialLedgerEnd()
-      } yield metadata(ledgerId, ledgerEnd)
+      } yield metadata(ledgerId, participantId, ledgerEnd)
     }
 
   private def ownDao(jdbcUrl: String)(implicit loggingContext: LoggingContext) =
@@ -39,19 +40,25 @@ object IndexMetadata {
       lfValueTranslationCache = LfValueTranslation.Cache.none,
     )
 
+  private val Empty = "<empty>"
+
   private def metadata(
       ledgerId: Option[LedgerId],
+      participantId: Option[ParticipantId],
       ledgerEnd: Option[Offset],
-  ): Option[IndexMetadata] =
-    for {
-      id <- ledgerId
-      end <- ledgerEnd
-    } yield IndexMetadata(Tag.unwrap(id), ApiOffset.toApiString(end), BuildInfo.Version)
+  ): IndexMetadata =
+    IndexMetadata(
+      ledgerId = ledgerId.fold(Empty)(Tag.unwrap),
+      participantId = participantId.fold(Empty)(Tag.unwrap),
+      ledgerEnd = ledgerEnd.fold(Empty)(ApiOffset.toApiString),
+      participantIntegrationApiVersion = BuildInfo.Version,
+    )
 
 }
 
 final case class IndexMetadata private (
     ledgerId: String,
+    participantId: String,
     ledgerEnd: String,
     participantIntegrationApiVersion: String,
 )

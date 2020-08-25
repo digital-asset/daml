@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, WriteService}
 import com.daml.lf.data.ImmArray
@@ -64,6 +65,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       serverRole = ServerRole.Sandbox,
       jdbcUrl = jdbcUrl,
       providedLedgerId = providedLedgerId,
+      participantId = domain.ParticipantId(participantId),
       timeProvider = timeProvider,
       packages = templateStore,
       initialLedgerEntries = ledgerEntries,

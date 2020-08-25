@@ -6,9 +6,10 @@ package com.daml.platform.sandbox
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -47,6 +48,9 @@ private[sandbox] object LedgerResource {
           ledgerEntries = entries,
       )))
 
+  private val TestParticipantId =
+    domain.ParticipantId(Ref.ParticipantId.assertFromString("test-participant-id"))
+
   def postgres(
       testClass: Class[_],
       ledgerId: LedgerId,
@@ -66,6 +70,7 @@ private[sandbox] object LedgerResource {
           serverRole = ServerRole.Testing(testClass),
           jdbcUrl = database.url,
           providedLedgerId = LedgerIdMode.Static(ledgerId),
+          participantId = TestParticipantId,
           timeProvider = timeProvider,
           packages = packages,
           initialLedgerEntries = ImmArray.empty,
