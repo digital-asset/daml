@@ -756,7 +756,7 @@ private[lf] object SBuiltin {
   }
 
   /** $rcon[R, fields] :: a -> b -> ... -> R */
-  final case class SBRecCon(id: Identifier, fields: Array[Name])
+  final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
       extends SBuiltinPure(fields.length)
       with SomeArrayEquals {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {

@@ -141,7 +141,7 @@ object SValue {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class SRecord(id: Identifier, fields: Array[Name], values: util.ArrayList[SValue])
+  final case class SRecord(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue])
       extends SValue
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
