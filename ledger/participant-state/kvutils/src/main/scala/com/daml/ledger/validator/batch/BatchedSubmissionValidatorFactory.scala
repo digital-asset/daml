@@ -73,13 +73,11 @@ object BatchedSubmissionValidatorFactory {
       new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
       keySerializationStrategy,
     )
-    val commitStrategy = new CachingCommitStrategy(
+    val commitStrategy = CachingCommitStrategy(
       stateCache,
-      cacheUpdatePolicy.shouldCacheOnWrite,
-      new LogAppendingCommitStrategy[LogResult](
-        ledgerStateOperations,
-        keySerializationStrategy,
-      )
+      cacheUpdatePolicy,
+      ledgerStateOperations,
+      keySerializationStrategy,
     )
     (ledgerStateReader, commitStrategy)
   }
