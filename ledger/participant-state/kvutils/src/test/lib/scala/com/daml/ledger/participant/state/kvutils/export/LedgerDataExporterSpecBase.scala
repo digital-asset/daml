@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, DataOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, OutputStream}
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1
@@ -11,12 +11,18 @@ import com.google.protobuf.ByteString
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
-final class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoSugar {
-  "serialized submission" should {
-    "be readable back" in {
+import scala.reflect.ClassTag
+
+abstract class LedgerDataExporterSpecBase[T <: LedgerDataExporter: ClassTag]
+    extends WordSpec
+    with Matchers
+    with MockitoSugar {
+  protected def implementation(outputStream: OutputStream): LedgerDataExporter
+
+  implicitly[ClassTag[T]].runtimeClass.getSimpleName should {
+    "serialize a submission to something deserializable" in {
       val baos = new ByteArrayOutputStream()
-      val dataOutputStream = new DataOutputStream(baos)
-      val instance = new FileBasedLedgerDataExporter(dataOutputStream)
+      val instance = implementation(baos)
       val expectedRecordTimeInstant = Instant.ofEpochSecond(123456, 123456789)
       val expectedParticipantId = v1.ParticipantId.assertFromString("id")
 
