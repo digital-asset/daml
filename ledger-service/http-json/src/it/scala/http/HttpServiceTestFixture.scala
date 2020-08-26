@@ -73,7 +73,6 @@ object HttpServiceTestFixture {
       config = Config(
         ledgerHost = "localhost",
         ledgerPort = ledgerPort.value,
-        applicationId = applicationId,
         address = "localhost",
         httpPort = 0,
         portFile = None,

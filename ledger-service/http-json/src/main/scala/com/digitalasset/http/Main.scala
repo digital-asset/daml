@@ -12,13 +12,11 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
 import com.daml.ledger.api.tls.TlsConfigurationCli
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
-import scalaz.syntax.tag._
 import scopt.RenderingMode
 
 import scala.concurrent.duration._
@@ -47,7 +45,6 @@ object Main extends StrictLogging {
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
         s", portFile=${config.portFile: Option[Path]}" +
-        s", applicationId=${config.applicationId.unwrap: String}" +
         s", packageReloadInterval=${config.packageReloadInterval: FiniteDuration}" +
         s", packageMaxInboundMessageSize=${config.packageMaxInboundMessageSize: Option[Int]}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
@@ -154,10 +151,12 @@ object Main extends StrictLogging {
       )
 
       opt[String]("application-id")
-        .action((x, c) => c.copy(applicationId = ApplicationId(x)))
+        .foreach(x =>
+          logger.warn(
+            s"Command-line option '--application-id' is deprecated. Please do NOT specify it. " +
+              s"Application ID: '$x' provided in the command-line is NOT used, using Application ID from JWT."))
         .optional()
-        .text(
-          s"Optional application ID to use for ledger registration. Defaults to ${Config.Empty.applicationId.unwrap: String}")
+        .hidden()
 
       TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
         c copy (tlsConfig = f(c.tlsConfig)))
