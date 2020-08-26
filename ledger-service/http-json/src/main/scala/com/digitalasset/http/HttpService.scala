@@ -52,6 +52,7 @@ object HttpService extends StrictLogging {
   val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
   val DefaultMaxInboundMessageSize: Int = 4194304
 
+  // used only to populate a required field in LedgerClientConfiguration
   private val DummyApplicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway")
 
   private type ET[A] = EitherT[Future, Error, A]
