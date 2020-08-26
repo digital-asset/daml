@@ -219,7 +219,7 @@ object Ast {
         case TForall((v, _), body) =>
           maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
         case TStruct(fields) =>
-          "(" + fields
+          "(" + fields.iterator
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
             .mkString(", ") + ")"
@@ -264,13 +264,7 @@ object Ast {
   final case class TForall(binder: (TypeVarName, Kind), body: Type) extends Type
 
   /** Structs */
-  final case class TStruct private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
-
-  object TStruct extends (ImmArray[(FieldName, Type)] => TStruct) {
-    // should be dropped once the compiler sort fields.
-    def apply(fields: ImmArray[(FieldName, Type)]): TStruct =
-      new TStruct(ImmArray(fields.toSeq.sortBy(_._1: String)))
-  }
+  final case class TStruct(fields: Struct[Type]) extends Type
 
   sealed abstract class BuiltinType extends Product with Serializable
 

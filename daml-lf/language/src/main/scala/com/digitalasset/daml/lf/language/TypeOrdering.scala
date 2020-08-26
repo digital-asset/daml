@@ -67,9 +67,7 @@ object TypeOrdering extends Ordering[Ast.Type] {
               compareType(n1 compareTo n2, stack)
             case (Ast.TStruct(fields1), Ast.TStruct(fields2)) =>
               compareType(
-                math.Ordering
-                  .Iterable[String]
-                  .compare(fields1.toSeq.map(_._1), fields2.toSeq.map(_._1)),
+                Ordering.Iterable[String].compare(fields1.names.toSeq, fields2.names.toSeq),
                 zipAndPush(fields1.iterator.map(_._2), fields2.iterator.map(_._2), stack)
               )
             case (Ast.TApp(t11, t12), Ast.TApp(t21, t22)) =>

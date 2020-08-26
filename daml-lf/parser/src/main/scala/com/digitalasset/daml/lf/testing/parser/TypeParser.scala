@@ -4,7 +4,7 @@
 package com.daml.lf.testing.parser
 
 import com.daml.lf.data
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Parsers._
@@ -57,7 +57,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     id ~ `:` ~ typ ^^ { case name ~ _ ~ t => name -> t }
 
   private lazy val tStruct: Parser[Type] =
-    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(ImmArray(fs)))
+    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(Struct(fs: _*)))
 
   private lazy val tTypeSynApp: Parser[Type] =
     `|` ~> fullIdentifier ~ rep(typ0) <~ `|` ^^ { case id ~ tys => TSynApp(id, ImmArray(tys)) }

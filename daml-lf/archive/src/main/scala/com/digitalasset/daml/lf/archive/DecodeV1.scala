@@ -8,7 +8,7 @@ import java.util
 
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
+import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
 import ImmArray.ImmArraySeq
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
@@ -639,8 +639,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val struct = lfType.getStruct
           val fields = struct.getFieldsList.asScala
           assertNonEmpty(fields, "fields")
-          TStruct(fields.map(decodeFieldWithType)(breakOut))
-
+          TStruct(Struct(fields.map(decodeFieldWithType): _*))
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
       }
