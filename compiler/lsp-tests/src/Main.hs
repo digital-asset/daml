@@ -529,7 +529,8 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
           closeDoc main'
     ]
   where
-    run s = withTempDir $ \dir -> do
+    run s | isWindows = pure ()
+          | otherwise = withTempDir $ \dir -> do
         copyFile scriptDarPath (dir </> "daml-script.dar")
         writeFileUTF8 (dir </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
