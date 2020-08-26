@@ -450,6 +450,83 @@ class WebsocketServiceIntegrationTest
       } yield resumes.foldLeft(1 shouldBe 1)((_, a) => a)
   }
 
+  "fetch multiple keys should work" in withHttpService { (uri, encoder, _) =>
+    def matches(expected: Seq[JsValue], actual: Seq[JsValue]): Boolean =
+      expected.length == actual.length && (expected, actual).zipped.forall {
+        case (exp, act) => matchesJs(exp, act)
+      }
+    // matches if all the values specified in expected appear with the same
+    // value in actual; actual is allowed to have extra fields. Arrays must
+    // have the same length.
+    def matchesJs(expected: spray.json.JsValue, actual: spray.json.JsValue): Boolean = {
+      import spray.json._
+      (expected, actual) match {
+        case (JsArray(expected), JsArray(actual)) =>
+          expected.length == actual.length && matches(expected, actual)
+        case (JsObject(expected), JsObject(actual)) =>
+          expected.keys.forall(k => matchesJs(expected(k), actual(k)))
+        case (JsString(expected), JsString(actual)) => expected == actual
+        case (JsNumber(expected), JsNumber(actual)) => expected == actual
+        case (JsBoolean(expected), JsBoolean(actual)) => expected == actual
+        case (JsNull, JsNull) => true
+        case _ => false
+      }
+    }
+    def waitFor[A](f: Future[A]): A = {
+      import scala.language.postfixOps
+      Await.result(f, 10 seconds)
+    }
+    def create(account: String): domain.ContractId = {
+      val r = waitFor(
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), account), encoder, uri))
+      assert(r._1.isSuccess)
+      getContractId(getResult(r._2))
+    }
+    def archive(id: domain.ContractId): Unit = {
+      val r =
+        waitFor(postArchiveCommand(domain.TemplateId(None, "Account", "Account"), id, encoder, uri))
+      val _ = assert(r._1.isSuccess)
+    }
+    val req =
+      """
+          |[{"templateId": "Account:Account", "key": ["Alice", "abc123"]},
+          | {"templateId": "Account:Account", "key": ["Alice", "def456"]}]
+          |""".stripMargin
+    val futureResults =
+      singleClientFetchStream(jwt, uri, req).via(parseResp).runWith(Sink.seq[JsValue])
+
+    val cid1 = create("abc123")
+    create("abc124")
+    create("abc125")
+    val cid2 = create("def456")
+    archive(cid2)
+    archive(cid1)
+
+    val results = waitFor(futureResults)
+    val expected: Seq[JsValue] = {
+      import spray.json._
+      Seq(
+        """
+            |{"events": []}
+            |""".stripMargin.parseJson,
+        """
+            |{"events":[{"created":{"payload":{"number":"abc123"}}}]}
+            |""".stripMargin.parseJson,
+        """
+            |{"events":[{"created":{"payload":{"number":"def456"}}}]}
+            |""".stripMargin.parseJson,
+        """
+            |{"events":[{"archived":{}}]}
+            |""".stripMargin.parseJson,
+        """
+            |{"events":[{"archived":{}}]}
+            |""".stripMargin.parseJson
+      )
+    }
+    assert(matches(expected, results))
+    Future(1 shouldBe 1)
+  }
+
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
     (uri, _, _) =>
       singleClientFetchStream(jwt, uri, "[]")
