@@ -841,7 +841,7 @@ jobs:
 
           source $(bash-lib)
 
-          AUTH="$(get-gh-auth-header)"
+          AUTH="$(get_gh_auth_header)"
           PR=$(curl -H "$AUTH" \
                     -H "Accept: application/vnd.github.groot-preview+json" \
                     -s -f \
