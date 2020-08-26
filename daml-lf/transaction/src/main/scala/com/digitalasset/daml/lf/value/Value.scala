@@ -157,9 +157,7 @@ object Value extends CidContainer1[Value] {
             case (lbl, value) => (lbl, go(value))
           }))
         case ValueStruct(fs) =>
-          ValueStruct(fs.map[(Name, Value[Cid2])] {
-            case (lbl, value) => (lbl, go(value))
-          })
+          ValueStruct(fs.mapValues(go))
         case ValueVariant(id, variant, value) =>
           ValueVariant(id, variant, go(value))
         case x: ValueCidlessLeaf => x
@@ -183,7 +181,7 @@ object Value extends CidContainer1[Value] {
         case ValueRecord(id @ _, fs) =>
           fs.foreach { case (_, value) => go(value) }
         case ValueStruct(fs) =>
-          fs.foreach { case (_, value) => go(value) }
+          fs.values.foreach(go)
         case ValueVariant(id @ _, variant @ _, value) =>
           go(value)
         case _: ValueCidlessLeaf =>
@@ -285,7 +283,7 @@ object Value extends CidContainer1[Value] {
   // this is present here just because we need it in some internal code --
   // specifically the scenario interpreter converts committed values to values and
   // currently those can be structs, although we should probably ban that.
-  final case class ValueStruct[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
+  final case class ValueStruct[+Cid](fields: Struct[Value[Cid]]) extends Value[Cid]
 
   /** The data constructors of a variant or enum, if defined. */
   type LookupVariantEnum = Identifier => Option[ImmArray[Name]]

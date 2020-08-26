@@ -35,10 +35,8 @@ sealed trait SValue {
       case SDate(x) => V.ValueDate(x)
       case SStruct(fields, svalues) =>
         V.ValueStruct(
-          ImmArray(
-            fields.toSeq
-              .zip(svalues.asScala)
-              .map { case (fld, sv) => (fld, sv.toValue) },
+          Struct.assertFromSeq(
+            (fields.iterator zip svalues.iterator().asScala.map(_.toValue)).toSeq
           ),
         )
       case SRecord(id, fields, svalues) =>
