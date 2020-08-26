@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, OutputStream}
+import java.io.{DataInputStream, OutputStream, PipedInputStream, PipedOutputStream}
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1
@@ -21,8 +21,9 @@ abstract class LedgerDataExporterSpecBase[T <: LedgerDataExporter: ClassTag]
 
   implicitly[ClassTag[T]].runtimeClass.getSimpleName should {
     "serialize a submission to something deserializable" in {
-      val baos = new ByteArrayOutputStream()
-      val instance = implementation(baos)
+      val inputStream = new PipedInputStream()
+      val outputStream = new PipedOutputStream(inputStream)
+      val instance = implementation(outputStream)
       val expectedRecordTimeInstant = Instant.ofEpochSecond(123456, 123456789)
       val expectedParticipantId = v1.ParticipantId.assertFromString("id")
 
@@ -39,8 +40,8 @@ abstract class LedgerDataExporterSpecBase[T <: LedgerDataExporter: ClassTag]
 
       submission.finish()
 
-      val dataInputStream = new DataInputStream(new ByteArrayInputStream(baos.toByteArray))
-      val (actualSubmissionInfo, actualWriteSet) = Deserialization.deserializeEntry(dataInputStream)
+      val (actualSubmissionInfo, actualWriteSet) =
+        Deserialization.deserializeEntry(new DataInputStream(inputStream))
       actualSubmissionInfo.submissionEnvelope should be(ByteString.copyFromUtf8("an envelope"))
       actualSubmissionInfo.correlationId should be("parent")
       actualSubmissionInfo.recordTimeInstant should be(expectedRecordTimeInstant)
