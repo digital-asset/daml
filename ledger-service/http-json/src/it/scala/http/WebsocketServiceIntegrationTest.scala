@@ -472,21 +472,19 @@ class WebsocketServiceIntegrationTest
         case _ => false
       }
     }
-    def waitFor[A](f: Future[A]): A = {
-      import scala.language.postfixOps
-      Await.result(f, 10 seconds)
-    }
-    def create(account: String): domain.ContractId = {
-      val r = waitFor(
-        postCreateCommand(accountCreateCommand(domain.Party("Alice"), account), encoder, uri))
-      assert(r._1.isSuccess)
-      getContractId(getResult(r._2))
-    }
-    def archive(id: domain.ContractId): Unit = {
-      val r =
-        waitFor(postArchiveCommand(domain.TemplateId(None, "Account", "Account"), id, encoder, uri))
-      val _ = assert(r._1.isSuccess)
-    }
+    def create(account: String): Future[domain.ContractId] =
+      for {
+        r <- postCreateCommand(accountCreateCommand(domain.Party("Alice"), account), encoder, uri)
+      } yield {
+        assert(r._1.isSuccess)
+        getContractId(getResult(r._2))
+      }
+    def archive(id: domain.ContractId): Future[Assertion] =
+      for {
+        r <- postArchiveCommand(domain.TemplateId(None, "Account", "Account"), id, encoder, uri)
+      } yield {
+        assert(r._1.isSuccess)
+      }
     val req =
       """
           |[{"templateId": "Account:Account", "key": ["Alice", "abc123"]},
@@ -495,36 +493,38 @@ class WebsocketServiceIntegrationTest
     val futureResults =
       singleClientFetchStream(jwt, uri, req).via(parseResp).runWith(Sink.seq[JsValue])
 
-    val cid1 = create("abc123")
-    create("abc124")
-    create("abc125")
-    val cid2 = create("def456")
-    archive(cid2)
-    archive(cid1)
-
-    val results = waitFor(futureResults)
-    val expected: Seq[JsValue] = {
-      import spray.json._
-      Seq(
-        """
+    for {
+      cid1 <- create("abc123")
+      _ <- create("abc124")
+      _ <- create("abc125")
+      cid2 <- create("def456")
+      _ <- archive(cid2)
+      _ <- archive(cid1)
+      results <- futureResults
+    } yield {
+      val expected: Seq[JsValue] = {
+        import spray.json._
+        Seq(
+          """
             |{"events": []}
             |""".stripMargin.parseJson,
-        """
+          """
             |{"events":[{"created":{"payload":{"number":"abc123"}}}]}
             |""".stripMargin.parseJson,
-        """
+          """
             |{"events":[{"created":{"payload":{"number":"def456"}}}]}
             |""".stripMargin.parseJson,
-        """
+          """
             |{"events":[{"archived":{}}]}
             |""".stripMargin.parseJson,
-        """
+          """
             |{"events":[{"archived":{}}]}
             |""".stripMargin.parseJson
-      )
+        )
+      }
+      assert(matches(expected, results))
+
     }
-    assert(matches(expected, results))
-    Future(1 shouldBe 1)
   }
 
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
