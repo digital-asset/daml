@@ -259,11 +259,12 @@ object WebSocketService {
         }
 
       val q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
-        resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])((acc, el) =>
-          acc.get(el._1) match {
-            case Some(v) => acc.updated(el._1, v += el._2)
-            case None => acc.updated(el._1, HashSet(el._2))
-        })
+        resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
+          (acc, el) =>
+            acc.get(el._1) match {
+              case Some(v) => acc.updated(el._1, v += el._2)
+              case None => acc.updated(el._1, HashSet(el._2))
+          })
       val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
         a.key match {
           case None => None
