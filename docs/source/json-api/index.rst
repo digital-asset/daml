@@ -32,130 +32,99 @@ We welcome feedback about the JSON API on `our issue tracker
 
 .. toctree::
    :hidden:
+   :maxdepth: 3
 
    lf-value-specification
    search-query-language
 
-How to start
-************
+Running the JSON API
+********************
 
-Start sandbox
-=============
+Start a DAML Ledger
+===================
 
-From a DAML project directory:
+You can run the JSON API alongside any ledger exposing the gRPC Ledger API you want. If you don't have an existing ledger, you can start an in-memory sandbox:
 
 .. code-block:: shell
 
-    $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+    daml new my_project --template quickstart-java
+    cd my_project
+    daml build
+    daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
 .. _start-http-service:
 
-Start HTTP service
-==================
+Start the HTTP JSON API Service
+===============================
 
-From a DAML project directory:
+Basic
+-----
 
-.. code-block:: shell
-
-    $ daml json-api --ledger-host localhost --ledger-port 6865 \
-        --http-port 7575 --max-inbound-message-size 4194304 --package-reload-interval 5s \
-        --application-id HTTP-JSON-API-Gateway --static-content "prefix=static,directory=./static-content" \
-        --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
-
-.. code-block:: none
-
-    $ daml json-api --help
-    HTTP JSON API daemon
-    Usage: http-json-binary [options]
-
-      --help
-            Print this usage text
-      --ledger-host <value>
-            Ledger host name or IP address
-      --ledger-port <value>
-            Ledger port number
-      --address <value>
-            IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
-      --http-port <value>
-            HTTP JSON API service port number. A port number of 0 will let the system pick an ephemeral port. Consider specifying `--port-file` option with port number 0.
-      --port-file <value>
-            Optional unique file name where to write the allocated HTTP port number. If process terminates gracefully, this file will be deleted automatically. Used to inform clients in CI about which port HTTP JSON API listens on. Defaults to none, that is, no file gets created.
-      --application-id <value>
-            Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
-      --pem <value>
-            TLS: The pem file to be used as the private key.
-      --crt <value>
-            TLS: The crt file to be used as the cert chain.
-            Required for client authentication.
-      --cacrt <value>
-            TLS: The crt file to be used as the trusted root CA.
-      --tls
-            TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set
-      --package-reload-interval <value>
-            Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
-      --package-max-inbound-message-size <value>
-            Optional max inbound message size in bytes used for uploading and downloading package updates. Defaults to the `max-inbound-message-size` setting.
-      --max-inbound-message-size <value>
-            Optional max inbound message size in bytes. Defaults to 4194304.
-      --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
-            Optional query store JDBC configuration string. Query store is a search index, use it if you need to query large active contract sets. Contains comma-separated key-value pairs. Where:
-            driver -- JDBC driver class name, only org.postgresql.Driver supported right now,
-            url -- JDBC connection URL, only jdbc:postgresql supported right now,
-            user -- database user name,
-            password -- database user password,
-            createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
-            Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
-      --static-content "prefix=<URL prefix>,directory=<directory>"
-            DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
-            prefix -- URL prefix,
-            directory -- local directory that will be mapped to the URL prefix.
-            Example: "prefix=static,directory=./static-content"
-      --allow-insecure-tokens
-            DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.
-      --access-token-file <value>
-            provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
-      --websocket-config "maxDuration=<Maximum websocket session duration in minutes>,heartBeatPer=Server-side heartBeat interval in seconds"
-            Optional websocket configuration string. Contains comma-separated key-value pairs. Where:
-            maxDuration -- Maximum websocket session duration in minutes
-            heartBeatPer -- Server-side heartBeat interval in seconds
-            Example: "maxDuration=120,heartBeatPer=5"
-
-With Authentication
-===================
-
-Apart from interacting with the Ledger API on behalf of the user, the HTTP JSON API server must also interact with the Ledger API to maintain some relevant internal state.
-
-For this reason, you must provide an access token when you start the HTTP JSON API if you're running it against a Ledger API server that requires authentication.
-
-Note that this token is used exclusively for maintaining the internal list of known packages and templates, and that it will not be use to authenticate client calls to the HTTP JSON API: the user is expected to provide a valid authentication token with each call.
-
-The HTTP JSON API server requires no access to party-specific data, only access to the ledger identity and package services. A token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that. Please refer to your ledger operator's documentation to find out how.
-
-Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file. Give the path to it with the ``--access-token-file`` command line option.
-
-If the token cannot be read from the provided path or the Ledger API reports an authentication error (for example due to token expiration), the HTTP JSON API will report the error via logging. The token file can be updated with a valid token, and it will be picked up at the next attempt to send a request.
-
-Example session
-***************
+The most basic way to start the JSON API is with the command:
 
 .. code-block:: shell
 
-    $ daml new iou-quickstart-java --template quickstart-java
-    $ cd iou-quickstart-java/
-    $ daml build
-    $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
-    $ daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
 
-Choosing a party
-****************
+This will start the JSON API on port 7575 and connect it to a ledger running on ``localhost:6865``.
 
-Every request requires you to specify a party and some other settings,
-with a JWT token.  Normal HTTP requests pass the token in an
-``Authentication`` header, while WebSocket requests pass the token in a
-subprotocol.
+.. note:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
 
-In testing environments, you can use https://jwt.io to generate your
-token.  The default "header" is fine.  Under "Payload", fill in:
+With Query Store
+------------------
+
+To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is save to reinitialize the database at any time.
+
+To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below. 
+
+.. note:: When you use the Query Store you'll want your first run to specify ``createSchema=true`` so that all the necessary tables are created. After the first run make sure ``createSchema=false`` so that it doesn't attempt to create the tables again.
+
+.. code-block:: shell
+
+    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
+    --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+
+.. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
+
+Access Tokens
+=============
+
+The JSON API essentially performs two separate tasks:
+
+1. It talks to the Ledger API to get data it needs to operate, for this you need to *provide an access token* if your Ledger requires authorization. Learn more in the :doc:`/app-dev/authorization` docs.
+2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
+
+.. note:: By default, the DAML Sandbox does not does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
+
+Internal Access Token
+---------------------
+
+This access token is used exclusively by the JSON API service for maintaining the internal list of known packages and templates that it gets from the Ledger API.
+
+.. note:: At no point should this access token be provided to an end user, these are for internal use only.
+
+Every access token is different and will depend on your specific ledger operator's requirements.
+The JSON API server requires no access to party-specific data, only access to the ledger identity and package services.
+These services are public meaning that you need a valid token to access them but no party-specific claims nor an admin claim.
+Please refer to your ledger operator's documentation to find out how to get these tokens from your ledger operator.
+
+Once you have retrieved your access token, you can provide it to the JSON API by storing it in a file
+and starting ``daml json-api`` with the flag ``--access-token-file /path/to/your/token.file``.
+
+If the token cannot be read from the provided path or the Ledger API reports an authentication error
+(for example due to token expiration), the JSON API will report the error via logging. 
+
+.. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without restarting your JSON API service.
+
+Party-specific Access Tokens
+----------------------------
+
+Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the the format :doc:`described in the Token Payload section here </tools/sandbox>`. The set of parties listed in `actAs` and `readAs` must contain exactly one party. In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
+
+.. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
+
+For a ledger without authorization, e.g., the default configuration of DAML Sandbox, you can use https://jwt.io (or the JWT library of your choice) to generate your
+token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
 
@@ -167,34 +136,51 @@ token.  The default "header" is fine.  Under "Payload", fill in:
       }
     }
 
-Keep in mind that the value of the ``ledgerId`` payload field has to match the one passed to the sandbox with the ``--ledgerid`` argument. You can replace ``Alice`` with whatever party you want to use.
+The value of the ``ledgerId`` field has to match the ``ledgerId` of your underlying DAML Ledger.
+For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
-Under "Verify Signature", put ``secret`` as the secret (*not* base64
-encoded); that is the hardcoded secret for testing.
+.. note:: The value of ``applicationId`` will be used for commands submitted using that token.
+
+The value for ``actAs`` is specified as a list and you provide it with the party that you want to use.
+Such as the example which uses ``Alice`` for a party. Each request can only be for one party.
+For example you couldn't have ``actAs`` defined as ``["Alice", "Bob"]``.
+
+The party should reference an already allocated party.
+
+
+.. note:: As mentioned above the JSON API does not validate tokens so if your ledger runs without authorization you can use an arbitrary secret.
 
 Then the "Encoded" box should have your **token**, ready for passing to
 the service as described in the following sections.
 
 Alternatively, here are two tokens you can use for testing:
 
-- ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Alice"]}}``
-  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU``
+``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Alice"]}}``:
 
-- ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Bob"]}}``
-  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJCb2IiXX19.zU-iMSFG90na8IHacrS25xho3u6AKnSlTKbvpkaSyYw``
+.. code-block:: none
 
-For production use, we have a tool in development for generating proper
-RSA-encrypted tokens locally, which will arrive when the service also
-supports such tokens.
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
 
-Passing token with HTTP
-=======================
 
-Set HTTP header ``Authorization: Bearer copy-paste-token-here`` for
-normal requests.
+``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Bob"]}}``:
 
-Passing token with WebSockets
-=============================
+.. code-block:: none
+
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJCb2IiXX19.0uPPZtM1AmKvnGixt_Qo53cMDcpnziCjKKiWLvMX2VM
+
+Auth via HTTP
+^^^^^^^^^^^^^
+
+Set HTTP header ``Authorization: Bearer paste-jwt-here``
+
+Example: 
+
+.. code-block:: none 
+
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
+
+Auth via WebSockets
+^^^^^^^^^^^^^^^^^^^
 
 WebSocket clients support a "subprotocols" argument (sometimes simply
 called "protocols"); this is usually in a list form but occasionally in
@@ -204,12 +190,16 @@ choice for details.
 For HTTP JSON requests, you must pass two subprotocols:
 
 - ``daml.ws.auth``
-- ``jwt.token.paste-token-here``
+- ``jwt.token.paste-jwt-here``
 
-where ``paste-token-here`` is the encoded JWT token described above.
+Example: 
 
-Error Reporting
-***************
+.. code-block:: none
+
+    jwt.token.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk``
+
+HTTP Status Codes
+*****************
 
 The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes into 3 groups indicating:
 
@@ -409,10 +399,12 @@ Where:
 
 .. _create-request-with-meta:
 
-Create a new Contract with an optional meta field
-*************************************************
+Creating a Contract with a Command ID
+*************************************
 
-When creating a new contract, client may specify an optional ``meta`` field:
+When creating a new contract you may specify an optional ``meta`` field. This allows you to control the `commandId` used when submitting a commend to the ledger.
+
+.. note:: You cannot currently use ``commandIds`` anywhere else in the JSON API, but you can use it for observing the results of its commands outside the JSON API in logs or via the Ledger API's :doc:`Command Services </app-dev/services>`
 
 .. code-block:: json
 
@@ -528,7 +520,7 @@ Where:
 Exercise by Contract Key
 ************************
 
-The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Account`` contract with a ``(Party, Text)`` key defined like this:
+The JSON command below, demonstrates how to exercise the ``Archive`` choice on the ``Account`` contract with a ``(Party, Text)`` :doc:`contract key </daml/reference/contract-keys>` defined like this:
 
 .. code-block:: daml
 
@@ -811,12 +803,14 @@ Contract Found HTTP Response
     }
 
 
-Contract Search, All Templates
-******************************
+Get all Active Contracts
+************************
 
 List all currently active contracts for all known templates.
 
-Note that the retrieved contracts do not get persisted into a query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with a query store enabled.
+.. note:: Retrieved contracts do not get persisted into a query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with a query store enabled.
+
+.. note:: You can only query active contracts with the ``/v1/query`` endpoint. Archived contracts (those that were archived or consumed during an exercise operation) will not be shown in the results.
 
 HTTP Request
 ============
@@ -830,8 +824,8 @@ HTTP Response
 
 The response is the same as for the POST method below.
 
-Contract Search
-***************
+Get all Active Contracts Matching a Given Query
+***********************************************
 
 List currently active contracts that match a given query.
 
@@ -1193,7 +1187,7 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
     const wsProtocol = "daml.ws.auth";
     const tokenPrefix = "jwt.token.";
     const jwt =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU";
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdp";
     const subprotocols = [`${tokenPrefix}${jwt}`, wsProtocol];
 
     const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols);
@@ -1221,8 +1215,8 @@ Streaming API reports only one type of warnings -- unknown template IDs, which i
 
     {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
 
-Error and Warning Examples:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Error and Warning Examples
+--------------------------
 
 .. code-block:: none
 
@@ -1394,7 +1388,7 @@ Some notes on behavior:
    results.
 
 3. Within a given array, if an ``archived`` and ``created`` refer to
-   contracts with the same template ID and contract key, the
+   contracts with the same template ID and :doc:`contract key </daml/reference/contract-keys>`, the
    ``archived`` is guaranteed to occur before the ``created``.
 
 4. Except in cases of #3, within a single response array, the order of
