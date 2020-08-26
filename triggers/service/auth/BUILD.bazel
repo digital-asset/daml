@@ -1,0 +1,68 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+scalacopts = []
+
+da_scala_library(
+    name = "oauth-test-server",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = scalacopts,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ledger-service/jwt",
+        "//ledger/ledger-api-auth",
+        "//libs-scala/ports",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_http_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_binary(
+    name = "oauth-test-server-binary",
+    main_class = "com.daml.oauth.server.Main",
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":oauth-test-server",
+    ],
+)
+
+da_scala_test(
+    name = "tests",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    scalacopts = scalacopts,
+    deps = [
+        ":oauth-test-server",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/jwt",
+        "//ledger/ledger-api-auth",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_http_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
+        "@maven//:com_typesafe_akka_akka_parsing_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
