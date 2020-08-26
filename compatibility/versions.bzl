@@ -12,6 +12,7 @@ sdk_versions = [
     "1.5.0-snapshot.20200804.4902.0.de2fef6b",
     "1.5.0-snapshot.20200811.4959.0.bbc2fe56",
     "1.5.0-snapshot.20200818.5027.0.1b33d374",
+    "1.5.0-snapshot.20200825.5071.0.d33e130f",
     "0.0.0",
 ]
 platform_versions = [
@@ -24,6 +25,7 @@ platform_versions = [
     "1.5.0-snapshot.20200804.4902.0.de2fef6b",
     "1.5.0-snapshot.20200811.4959.0.bbc2fe56",
     "1.5.0-snapshot.20200818.5027.0.1b33d374",
+    "1.5.0-snapshot.20200825.5071.0.d33e130f",
     "0.0.0",
 ]
 stable_versions = [
@@ -123,6 +125,16 @@ version_sha256s = {
         "daml_types": "2ba36bc2762c0dbf20179fac24eaa1a013523b4552f534472d02d83ea4b9614a",
         "daml_ledger": "c6a261cc2f4c5b2b8c6b38466cb4cf5f0527e801e20b88b54c822f89c21ccc53",
         "daml_react": "800c538c9ec2fb886dfce5c4ba558877310813bdceb4baac9a07974c4d349212",
+        "create_daml_app_patch": "b187d446443209288c165cf34247307275b497e015a5d953805297c05279d856",
+    },
+    "1.5.0-snapshot.20200825.5071.0.d33e130f": {
+        "linux": "8aa3ee9ec26eb04fcdac8a9b3a02108f21d779da7d600650d3c41224cffc19fa",
+        "macos": "04b9359a8d79eba26182765bfb207474a15f0f9c4f4954d26f52c3e52f036e07",
+        "windows": "cbf8729ff4d583845f18457a21ee15fe15503e2a40fc7f078ef1766b61d9daad",
+        "test_tool": "a05b3ba0ba070cc6190eac922a5ea2f28c9eb1f6f1881af613eb25a258399357",
+        "daml_types": "9fbccd3e4cd71e316f7054185652929417ef9e9753ae3dfe67230f94f1237dc4",
+        "daml_ledger": "1852ec9c689344f74d00350cc69b15e8b10347b18a501a8a83f52f1a6b09c861",
+        "daml_react": "5e9d40fdb46e0420c34a31a8ec3217f13719530ee8fe53a58ebcd3366cfa5414",
         "create_daml_app_patch": "b187d446443209288c165cf34247307275b497e015a5d953805297c05279d856",
     },
 }
