@@ -13,21 +13,27 @@ fi
 TARGET_DIR=$PWD/$1
 cd "$(dirname ${BASH_SOURCE[0]})/.."
 
-pushd libs-haskell/da-hs-base
+package_from_dir() {
+    local dir=$1
+    if [ ! -d $dir ]; then
+        echo "Directory $dir does not exist!"
+        exit 1
+    fi
+    pushd $dir
+    cabal new-sdist
+    cp dist-newstyle/sdist/*.tar.gz "$TARGET_DIR"
+    rm -rf cabal.tix dist-newstyle/
+    popd
+}
+
+package_from_dir libs-haskell/da-hs-base
 # removed the GCP logger from the exposed modules to avoid SdkVersion.hs
-cabal new-sdist
-cp dist-newstyle/sdist/da-hs-base-0.1.0.tar.gz "$TARGET_DIR"
-popd
 
-pushd compiler/daml-lf-ast
-cabal new-sdist
-cp dist-newstyle/sdist/daml-lf-ast-0.1.0.tar.gz "$TARGET_DIR"
-popd
+package_from_dir compiler/daml-lf-ast
 
-pushd compiler/daml-lf-proto
-cabal new-sdist
-cp dist-newstyle/sdist/daml-lf-proto-0.1.0.tar.gz "$TARGET_DIR"
-popd
+package_from_dir compiler/daml-lf-proto
+
+package_from_dir compiler/daml-lf-reader
 
 DIR=$(mktemp -d)
 mkdir -p "$DIR/protobuf/com/daml"
@@ -137,10 +143,7 @@ library
     Com.Daml.DamlLfDev.DamlLf
     Com.Daml.DamlLfDev.DamlLf1
 EOF
-pushd "$DIR"
-cabal new-sdist
-cp dist-newstyle/sdist/daml-lf-proto-types-0.1.0.tar.gz "$TARGET_DIR"
-popd
+package_from_dir "$DIR"
 rm -rf "$DIR"
 
 if [ ! -f "$TARGET_DIR/cabal.project" ]; then
@@ -151,6 +154,7 @@ packages:
   ./daml-lf-ast-0.1.0.tar.gz
   ./daml-lf-proto-0.1.0.tar.gz
   ./daml-lf-proto-types-0.1.0.tar.gz
+  ./daml-lf-reader-0.1.4.0.tar.gz
 EOF
     echo "Wrote $TARGET_DIR/cabal.project"
 fi
