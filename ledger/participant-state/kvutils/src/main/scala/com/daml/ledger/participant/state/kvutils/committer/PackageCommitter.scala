@@ -46,7 +46,7 @@ private[kvutils] class PackageCommitter(
         s"participant id ${uploadEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
       rejectionTraceLog(msg, uploadEntry)
       reject(
-        ctx.getRecordTime,
+        ctx,
         uploadEntry.getSubmissionId,
         uploadEntry.getParticipantId,
         _.setParticipantNotAuthorized(
@@ -76,7 +76,7 @@ private[kvutils] class PackageCommitter(
       val msg = errors.mkString(", ")
       rejectionTraceLog(msg, uploadEntry)
       reject(
-        ctx.getRecordTime,
+        ctx,
         uploadEntry.getSubmissionId,
         uploadEntry.getParticipantId,
         _.setInvalidPackage(
@@ -95,7 +95,7 @@ private[kvutils] class PackageCommitter(
       val msg = s"duplicate submission='${uploadEntry.getSubmissionId}'"
       rejectionTraceLog(msg, uploadEntry)
       reject(
-        ctx.getRecordTime,
+        ctx,
         uploadEntry.getSubmissionId,
         uploadEntry.getParticipantId,
         _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
@@ -147,20 +147,17 @@ private[kvutils] class PackageCommitter(
     val successLogEntry =
       buildLogEntryWithOptionalRecordTime(ctx.getRecordTime, _.setPackageUploadEntry(uploadEntry))
     if (ctx.preExecute) {
-      setOutOfTimeBoundsLogEntry(uploadEntry, ctx)
+      setOutOfTimeBoundsLogEntry(uploadEntry.getSubmissionId, uploadEntry.getParticipantId, ctx)
     }
     StepStop(successLogEntry)
   }
 
   private def setOutOfTimeBoundsLogEntry(
-      uploadEntry: DamlPackageUploadEntry.Builder,
+      submissionId: String,
+      participantId: String,
       commitContext: CommitContext): Unit = {
     commitContext.outOfTimeBoundsLogEntry = Some(
-      buildRejectionLogEntry(
-        recordTime = None,
-        uploadEntry.getSubmissionId,
-        uploadEntry.getParticipantId,
-        identity)
+      buildRejectionLogEntry(recordTime = None, submissionId, participantId, identity)
     )
   }
 
@@ -180,13 +177,17 @@ private[kvutils] class PackageCommitter(
   )
 
   private def reject[PartialResult](
-      recordTime: Option[Timestamp],
+      ctx: CommitContext,
       submissionId: String,
       participantId: String,
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
   ): StepResult[PartialResult] = {
     metrics.daml.kvutils.committer.packageUpload.rejections.inc()
-    StepStop(buildRejectionLogEntry(recordTime, submissionId, participantId, addErrorDetails))
+    if (ctx.preExecute) {
+      setOutOfTimeBoundsLogEntry(submissionId, participantId, ctx)
+    }
+    StepStop(
+      buildRejectionLogEntry(ctx.getRecordTime, submissionId, participantId, addErrorDetails))
   }
 
   private[committer] def buildRejectionLogEntry(

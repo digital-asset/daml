@@ -83,6 +83,14 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
       }
     }
 
+    "reject invalid packages with pre-execution" in KVTest.runTest {
+      for {
+        preExecutionResult <- preExecuteArchives("bad-archive-submission", badArchive).map(_._2)
+      } yield {
+        preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
+      }
+    }
+
     "reject duplicate" in KVTest.runTest {
       for {
         logEntry0 <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
@@ -96,11 +104,41 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
       }
     }
 
+    "reject duplicate with pre-execution" in KVTest.runTest {
+      for {
+        preExecutionResult0 <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(
+          _._2)
+        preExecutionResult1 <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(
+          _._2)
+        actualLogEntry0 = preExecutionResult0.successfulLogEntry
+        actualLogEntry1 = preExecutionResult1.successfulLogEntry
+      } yield {
+        actualLogEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
+        actualLogEntry1.getPayloadCase shouldEqual
+          DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
+        actualLogEntry1.getPackageUploadRejectionEntry.getReasonCase shouldEqual
+          DamlPackageUploadRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
+      }
+    }
+
     "update metrics" in KVTest.runTestWithSimplePackage() {
       for {
         //Submit archive twice to force one acceptance and one rejection on duplicate
         _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
         _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+      } yield {
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        metrics.daml.kvutils.committer.packageUpload.accepts.getCount should be >= 1L
+        metrics.daml.kvutils.committer.packageUpload.rejections.getCount should be >= 1L
+        metrics.daml.kvutils.committer.runTimer("package_upload").getCount should be >= 1L
+      }
+    }
+
+    "update metrics with pre-execution" in KVTest.runTestWithSimplePackage() {
+      for {
+        //Submit archive twice to force one acceptance and one rejection on duplicate
+        _ <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        _ <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(_._2)
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.packageUpload.accepts.getCount should be >= 1L
