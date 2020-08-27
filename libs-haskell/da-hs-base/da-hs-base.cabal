@@ -28,7 +28,6 @@ library
       bytestring,
       conduit,
       containers,
-      daml-project-config,
       deepseq,
       directory,
       extra,

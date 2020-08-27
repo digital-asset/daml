@@ -13,11 +13,6 @@ fi
 TARGET_DIR=$PWD/$1
 cd "$(dirname ${BASH_SOURCE[0]})/.."
 
-pushd daml-assistant
-cabal new-sdist
-cp dist-newstyle/sdist/daml-project-config-0.1.0.tar.gz "$TARGET_DIR"
-popd
-
 pushd libs-haskell/da-hs-base
 # removed the GCP logger from the exposed modules to avoid SdkVersion.hs
 cabal new-sdist
@@ -152,7 +147,6 @@ if [ ! -f "$TARGET_DIR/cabal.project" ]; then
     cat <<EOF > "$TARGET_DIR/cabal.project"
 packages:
 --   ./. -- add this if the top project is cabalised
-  ./daml-project-config-0.1.0.tar.gz
   ./da-hs-base-0.1.0.tar.gz
   ./daml-lf-ast-0.1.0.tar.gz
   ./daml-lf-proto-0.1.0.tar.gz
