@@ -3,6 +3,8 @@
 
 package com.daml.metrics
 
+import java.time.Instant
+
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 
@@ -430,8 +432,11 @@ final class Metrics(val registry: MetricRegistry) {
       val lastReceivedOffset = new VarGauge[String]("<none>")
       registry.register(Prefix :+ "last_received_offset", lastReceivedOffset)
 
-      def currentRecordTimeLag(value: () => Long): Unit =
-        register(Prefix :+ "current_record_time_lag", () => () => value())
+      registerGauge(
+        Prefix :+ "current_record_time_lag",
+        () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
+        registry,
+      )
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
     }
