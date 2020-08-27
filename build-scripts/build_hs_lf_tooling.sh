@@ -114,7 +114,6 @@ version: 0.1.0
 
 extra-source-files:
   protobuf/com/daml/daml_lf_dev/daml_lf.proto
-  protobuf/com/daml/daml_lf_dev/daml_lf_0.proto
   protobuf/com/daml/daml_lf_dev/daml_lf_1.proto
 build-type: Custom
 custom-setup
@@ -138,11 +137,9 @@ library
     vector,
   exposed-modules:
     Com.Daml.DamlLfDev.DamlLf
-    Com.Daml.DamlLfDev.DamlLf0
     Com.Daml.DamlLfDev.DamlLf1
   autogen-modules:
     Com.Daml.DamlLfDev.DamlLf
-    Com.Daml.DamlLfDev.DamlLf0
     Com.Daml.DamlLfDev.DamlLf1
 EOF
 pushd "$DIR"
