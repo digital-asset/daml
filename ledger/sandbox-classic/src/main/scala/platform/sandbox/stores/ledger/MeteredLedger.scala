@@ -9,6 +9,7 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
+import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.MeteredReadOnlyLedger
 
@@ -21,7 +22,8 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): Future[SubmissionResult] =
+      transaction: SubmittedTransaction,
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.index.publishTransaction,
       ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
@@ -29,7 +31,8 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
   def publishPartyAllocation(
       submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[SubmissionResult] =
+      displayName: Option[String],
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.index.publishPartyAllocation,
       ledger.publishPartyAllocation(submissionId, party, displayName))
@@ -38,7 +41,8 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
       submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[SubmissionResult] =
+      payload: List[Archive],
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.index.uploadPackages,
       ledger.uploadPackages(submissionId, knownSince, sourceDescription, payload))
@@ -46,7 +50,8 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
-      config: Configuration): Future[SubmissionResult] =
+      config: Configuration,
+  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.index.publishConfiguration,
       ledger.publishConfiguration(maxRecordTime, submissionId, config))
@@ -57,6 +62,6 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
 
 }
 
-object MeteredLedger {
+private[sandbox] object MeteredLedger {
   def apply(ledger: Ledger, metrics: Metrics): Ledger = new MeteredLedger(ledger, metrics)
 }

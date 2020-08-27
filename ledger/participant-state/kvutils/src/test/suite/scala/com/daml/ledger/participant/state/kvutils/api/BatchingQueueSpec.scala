@@ -37,7 +37,7 @@ class BatchingQueueSpec
         maxBatchSizeBytes = correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
         maxWaitDuration = 1.millis,
         maxConcurrentCommits = 1
-      ).run { batch =>
+      ).run { _ =>
         throw new RuntimeException("kill the queue")
       }
 
@@ -46,7 +46,9 @@ class BatchingQueueSpec
         res <- queue.offer(correlatedSubmission)
       } yield {
         res should be(SubmissionResult.Acknowledged)
-        queue.alive should be(false)
+        eventually {
+          queue.alive should be(false)
+        }
       }
     }
 
@@ -150,7 +152,7 @@ class BatchingQueueSpec
       val correlatedSubmission2 = createCorrelatedSubmission("2")
       val batches = mutable.ListBuffer.empty[Seq[CorrelatedSubmission]]
 
-      val maxWaitDuration = 50.millis
+      val maxWaitDuration = 500.millis
 
       // Queue that can fit a single submission plus tiny bit more
       val queue =
@@ -162,7 +164,7 @@ class BatchingQueueSpec
         ).run { batch =>
           {
             batches += batch
-            Future.successful(())
+            Future.unit
           }
         }
 

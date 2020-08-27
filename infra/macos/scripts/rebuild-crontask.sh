@@ -21,8 +21,10 @@ do
       echo "Currently job running - $REQUEST_ID"
    else
       echo "No Job running - replacing agent"
-      cd /Users/builder/daml/infra/macos/2-vagrant-files
+      cd /Users/builder/daml/infra/macos/3-running-box
       vagrant destroy -f
+      vagrant box remove azure-ci-node
+
       /Users/builder/run-agent.sh
       exit 0
    fi

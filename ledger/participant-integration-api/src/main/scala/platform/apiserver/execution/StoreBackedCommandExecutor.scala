@@ -44,7 +44,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
     val submissionResult = engine.submit(commands.commands, participant, submissionSeed)
@@ -86,7 +86,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
     new ConcurrentHashMap()
 
   private def consume[A](submitter: Ref.Party, result: Result[A])(
-      implicit ec: ExecutionContext
+      implicit ec: ExecutionContext,
+      loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
 
     val lookupActiveContractTime = new AtomicLong(0L)

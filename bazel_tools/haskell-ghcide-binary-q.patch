@@ -1,0 +1,20 @@
+diff --git a/src/Development/IDE/Core/Shake.hs b/src/Development/IDE/Core/Shake.hs
+index a471070..a2b3183 100644
+--- a/src/Development/IDE/Core/Shake.hs
++++ b/src/Development/IDE/Core/Shake.hs
+@@ -503,7 +503,14 @@ isBadDependency x
+ newtype Q k = Q (k, NormalizedFilePath)
+     deriving (Eq,Hashable,NFData, Generic)
+ 
+-instance Binary k => Binary (Q k)
++instance Binary k => Binary (Q k) where
++    put (Q (k, fp)) = put (k, fp)
++    get = do
++        (k, fp) <- get
++        -- The `get` implementation of NormalizedFilePath
++        -- does not handle empty file paths so we
++        -- need to handle this ourselves here.
++        pure (Q (k, toNormalizedFilePath' fp))
+ 
+ instance Show k => Show (Q k) where
+     show (Q (k, file)) = show k ++ "; " ++ fromNormalizedFilePath file

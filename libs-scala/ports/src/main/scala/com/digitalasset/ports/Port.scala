@@ -3,10 +3,17 @@
 
 package com.daml.ports
 
+import java.net.{InetAddress, Socket}
+
 import scala.util.{Failure, Success, Try}
 
 final case class Port private (value: Int) extends AnyVal {
   override def toString: String = value.toString
+
+  def test(host: InetAddress): Unit = {
+    val socket = new Socket(host, value)
+    socket.close()
+  }
 }
 
 object Port {

@@ -28,7 +28,7 @@ private[inner] object TemplateClass extends StrictLogging {
     TrackLineage.of("template", typeWithContext.name) {
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       logger.info("Start")
-      val staticCreateMethod = generateStaticCreateMethod(fields, className, packagePrefixes)
+      val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
       val templateType = TypeSpec
         .classBuilder(className)
@@ -151,8 +151,6 @@ private[inner] object TemplateClass extends StrictLogging {
       .addMethod(
         generateFromCreatedEvent(
           contractClassName,
-          templateClassName,
-          contractIdClassName,
           key,
           packagePrefixes
         ))
@@ -244,8 +242,6 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private[inner] def generateFromCreatedEvent(
       className: ClassName,
-      templateClassName: ClassName,
-      idClassName: ClassName,
       maybeContractKeyType: Option[Type],
       packagePrefixes: Map[PackageId, String]) = {
 
@@ -274,10 +270,7 @@ private[inner] object TemplateClass extends StrictLogging {
         name)
       .build()
 
-  private def generateStaticCreateMethod(
-      fields: Fields,
-      name: ClassName,
-      packagePrefixes: Map[PackageId, String]): MethodSpec =
+  private def generateStaticCreateMethod(fields: Fields, name: ClassName): MethodSpec =
     fields
       .foldLeft(
         MethodSpec

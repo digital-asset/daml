@@ -9,17 +9,17 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.SubmissionInfo
-import com.daml.ledger.participant.state.kvutils.export.Serialization
+import com.daml.ledger.participant.state.kvutils.export.{Deserialization, SubmissionInfo}
 import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
-import com.daml.lf.language.{Ast, Util => AstUtil}
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
+import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
   Transaction => Tx,
@@ -107,7 +107,13 @@ class Replay {
     }
 
     benchmark =
-      if (adapt) Replay.adapt(loadedPackages, benchmarks(choiceName)) else benchmarks(choiceName)
+      if (adapt)
+        Replay.adapt(
+          loadedPackages,
+          engine.compiledPackages().packageLanguageVersion,
+          benchmarks(choiceName)
+        )
+      else benchmarks(choiceName)
 
     // before running the bench, we validate the transaction first to be sure everything is fine.
     val result = engine
@@ -158,7 +164,7 @@ object Replay {
 
     def go: Stream[SubmissionInfo] =
       if (ledgerExportStream.available() > 0)
-        Serialization.readEntry(ledgerExportStream)._1 #:: go
+        Deserialization.deserializeEntry(ledgerExportStream)._1 #:: go
       else {
         ledgerExportStream.close()
         Stream.empty
@@ -262,8 +268,12 @@ object Replay {
 
   }
 
-  def adapt(pkgs: Map[Ref.PackageId, Ast.Package], state: BenchmarkState): BenchmarkState = {
-    val adapter = new Adapter(pkgs)
+  def adapt(
+      pkgs: Map[Ref.PackageId, Ast.Package],
+      pkgLangVersion: Ref.PackageId => LanguageVersion,
+      state: BenchmarkState,
+  ): BenchmarkState = {
+    val adapter = new Adapter(pkgs, pkgLangVersion)
     state.copy(
       transaction = state.transaction.copy(tx = adapter.adapt(state.transaction.tx)),
       contracts = state.contracts.transform((_, v) => adapter.adapt(v)),

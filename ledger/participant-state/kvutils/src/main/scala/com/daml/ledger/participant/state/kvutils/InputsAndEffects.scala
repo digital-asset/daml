@@ -17,23 +17,27 @@ private[kvutils] object InputsAndEffects {
   /** The effects of the transaction, that is what contracts
     * were consumed and created, and what contract keys were updated.
     */
+  /**
+    *
+    * @param consumedContracts
+    *     The contracts consumed by this transaction.
+    *     When committing the transaction these contracts must be marked consumed.
+    *     A contract should be marked consumed when the transaction is committed,
+    *     regardless of the ledger effective time of the transaction (e.g. a transaction
+    *     with an earlier ledger effective time that gets committed later would find the
+    *     contract inactive).
+    * @param createdContracts
+    *     The contracts created by this transaction.
+    *     When the transaction is committed, keys marking the activeness of these
+    *     contracts should be created. The key should be a combination of the transaction
+    *     id and the relative contract id (that is, the node index).
+    * @param updatedContractKeys
+    *     The contract keys created or updated as part of the transaction.
+    */
   final case class Effects(
-      /** The contracts consumed by this transaction.
-        * When committing the transaction these contracts must be marked consumed.
-        * A contract should be marked consumed when the transaction is committed,
-        * regardless of the ledger effective time of the transaction (e.g. a transaction
-        * with an earlier ledger effective time that gets committed later would find the
-        * contract inactive).
-        */
       consumedContracts: List[DamlStateKey],
-      /** The contracts created by this transaction.
-        * When the transaction is committed, keys marking the activeness of these
-        * contracts should be created. The key should be a combination of the transaction
-        * id and the relative contract id (that is, the node index).
-        */
       createdContracts: List[
         (DamlStateKey, Node.NodeCreate[ContractId, VersionedValue[ContractId]])],
-      /** The contract keys created or updated as part of the transaction. */
       updatedContractKeys: Map[DamlStateKey, Option[ContractId]]
   )
   object Effects {
@@ -110,9 +114,9 @@ private[kvutils] object InputsAndEffects {
     // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
     // fold bottom up (with reversed roots!) and skip creates of archived contracts.
     tx.fold(Effects.empty) {
-      case (effects, (nodeId, node)) =>
+      case (effects, (nodeId @ _, node)) =>
         node match {
-          case fetch @ Node.NodeFetch(_, _, _, _, _, _, _) =>
+          case Node.NodeFetch(_, _, _, _, _, _, _) =>
             effects
           case create @ Node.NodeCreate(_, _, _, _, _, _) =>
             effects.copy(
@@ -153,7 +157,7 @@ private[kvutils] object InputsAndEffects {
             } else {
               effects
             }
-          case l @ Node.NodeLookupByKey(_, _, _, _) =>
+          case Node.NodeLookupByKey(_, _, _, _) =>
             effects
         }
     }

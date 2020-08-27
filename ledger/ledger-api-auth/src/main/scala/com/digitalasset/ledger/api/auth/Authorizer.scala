@@ -9,6 +9,7 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.platform.server.api.validation.ErrorFactories.permissionDenied
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
@@ -17,28 +18,55 @@ import scala.concurrent.Future
   */
 final class Authorizer(now: () => Instant, ledgerId: String, participantId: String) {
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID. */
-  private def valid(claims: Claims): Boolean =
-    claims.notExpired(now()) &&
-      claims.validForLedger(ledgerId) &&
-      claims.validForParticipant(participantId)
+  private def valid(claims: Claims): Either[AuthorizationError, Unit] =
+    for {
+      _ <- claims.notExpired(now())
+      _ <- claims.validForLedger(ledgerId)
+      _ <- claims.validForParticipant(participantId)
+    } yield {
+      ()
+    }
 
   def requirePublicClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
     authorize(call) { claims =>
-      valid(claims) && claims.isPublic
+      for {
+        _ <- valid(claims)
+        _ <- claims.isPublic
+      } yield {
+        ()
+      }
     }
 
   def requirePublicClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
     authorize(call) { claims =>
-      valid(claims) && claims.isPublic
+      for {
+        _ <- valid(claims)
+        _ <- claims.isPublic
+      } yield {
+        ()
+      }
     }
 
   def requireAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
     authorize(call) { claims =>
-      valid(claims) && claims.isAdmin
+      for {
+        _ <- valid(claims)
+        _ <- claims.isAdmin
+      } yield {
+        ()
+      }
     }
+
+  private[this] def requireForAll[T](
+      xs: TraversableOnce[T],
+      f: T => Either[AuthorizationError, Unit]): Either[AuthorizationError, Unit] = {
+    xs.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, x) => acc.flatMap(_ => f(x)))
+  }
 
   /** Wraps a streaming call to verify whether some Claims authorize to read as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -48,9 +76,13 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       applicationId: Option[String],
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
     authorize(call) { claims =>
-      valid(claims) &&
-      parties.forall(claims.canReadAs) &&
-      applicationId.forall(claims.validForApplication)
+      for {
+        _ <- valid(claims)
+        _ <- requireForAll(parties, party => claims.canReadAs(party))
+        _ <- applicationId.map(claims.validForApplication).getOrElse(Right(()))
+      } yield {
+        ()
+      }
     }
 
   /** Wraps a single call to verify whether some Claims authorize to read as all parties
@@ -60,8 +92,12 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       parties: Iterable[String],
       call: Req => Future[Res]): Req => Future[Res] =
     authorize(call) { claims =>
-      valid(claims) &&
-      parties.forall(claims.canReadAs)
+      for {
+        _ <- valid(claims)
+        _ <- requireForAll(parties, party => claims.canReadAs(party))
+      } yield {
+        ()
+      }
     }
 
   /** Checks whether the current Claims authorize to act as the given party, if any.
@@ -72,9 +108,13 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       applicationId: Option[String],
       call: Req => Future[Res]): Req => Future[Res] =
     authorize(call) { claims =>
-      valid(claims) &&
-      party.forall(claims.canActAs) &&
-      applicationId.forall(claims.validForApplication)
+      for {
+        _ <- valid(claims)
+        _ <- party.map(claims.canActAs).getOrElse(Right(()))
+        _ <- applicationId.map(claims.validForApplication).getOrElse(Right(()))
+      } yield {
+        ()
+      }
     }
 
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
@@ -96,10 +136,18 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     }
 
   private def ongoingAuthorization[Res](scso: ServerCallStreamObserver[Res], claims: Claims) =
-    new OngoingAuthorizationObserver[Res](scso, claims, _.notExpired(now()), permissionDenied())
+    new OngoingAuthorizationObserver[Res](
+      scso,
+      claims,
+      _.notExpired(now()),
+      authorizationError => {
+        logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
+        permissionDenied()
+      }
+    )
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
-      authorized: Claims => Boolean,
+      authorized: Claims => Either[AuthorizationError, Unit],
   ): (Req, StreamObserver[Res]) => Unit =
     (request, observer) => {
       val scso = assertServerCall(observer)
@@ -108,20 +156,24 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
         .fold(
           observer.onError(_),
           claims =>
-            if (authorized(claims))
-              call(
-                request,
-                if (claims.expiration.isDefined)
-                  ongoingAuthorization(scso, claims)
-                else
-                  scso
-              )
-            else observer.onError(permissionDenied())
+            authorized(claims) match {
+              case Right(_) =>
+                call(
+                  request,
+                  if (claims.expiration.isDefined)
+                    ongoingAuthorization(scso, claims)
+                  else
+                    scso
+                )
+              case Left(authorizationError) =>
+                logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
+                observer.onError(permissionDenied())
+          }
         )
     }
 
   private def authorize[Req, Res](call: Req => Future[Res])(
-      authorized: Claims => Boolean,
+      authorized: Claims => Either[AuthorizationError, Unit],
   ): Req => Future[Res] =
     request =>
       AuthorizationInterceptor
@@ -129,8 +181,12 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
         .fold(
           Future.failed,
           claims =>
-            if (authorized(claims)) call(request)
-            else Future.failed(permissionDenied())
+            authorized(claims) match {
+              case Right(_) => call(request)
+              case Left(authorizationError) =>
+                logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
+                Future.failed(permissionDenied())
+          }
       )
 
 }

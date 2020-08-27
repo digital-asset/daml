@@ -13,7 +13,6 @@ import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 
 decodePayload :: PackageRef -> ArchivePayload -> Either Error Package
 decodePayload selfPackageRef payload = case archivePayloadSum payload of
-    Just ArchivePayloadSumDamlLf0{} -> Left $ ParseError "Payload is DamlLf0"
     Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodePackage minor selfPackageRef package
     Nothing -> Left $ ParseError "Empty payload"
     where

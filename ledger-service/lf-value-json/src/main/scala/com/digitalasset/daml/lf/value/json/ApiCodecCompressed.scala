@@ -237,7 +237,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
         case JsArray(fValues) =>
           if (fValues.length != fields.length)
             deserializationError(
-              s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields")
+              s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields (expected ${fields.length}, found ${fValues.length}).")
           else
             V.ValueRecord(
               Some(id),
@@ -288,10 +288,8 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
         jsValueToApiPrimitive(value, prim, defs)
       case typeCon: Model.DamlLfTypeCon =>
         val id = typeCon.name.identifier
-        // val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
-        val dt = Model.damlLfInstantiate(
-          typeCon,
-          defs(id).getOrElse(deserializationError(s"Type $id not found")))
+        val dt =
+          typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
         jsValueToApiDataType(value, id, dt, defs)
       case Model.DamlLfTypeNumeric(scale) =>
         val numericOrError = value match {
@@ -314,10 +312,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup): V[Cid] = {
     val typeCon = Model.DamlLfTypeCon(Model.DamlLfTypeConName(id), ImmArraySeq())
-    // val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
-    val dt = Model.damlLfInstantiate(
-      typeCon,
-      defs(id).getOrElse(deserializationError(s"Type $id not found")))
+    val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
     jsValueToApiDataType(value, id, dt, defs)
   }
 

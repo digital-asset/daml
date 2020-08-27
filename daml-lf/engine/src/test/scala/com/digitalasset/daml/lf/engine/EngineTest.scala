@@ -13,23 +13,25 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
+  Node,
   NodeId,
   SubmittedTransaction,
+  TransactionVersion,
   GenTransaction => GenTx,
   Transaction => Tx,
   TransactionVersions => TxVersions
 }
-import com.daml.lf.value.Value
+import com.daml.lf.value.{Value, ValueVersion}
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{EitherValues, Matchers, WordSpec}
 import scalaz.std.either._
 import scalaz.syntax.apply._
@@ -43,9 +45,15 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Serializable",
     "org.wartremover.warts.Product"
   ))
-class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunfiles {
+class EngineTest
+    extends WordSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with EitherValues
+    with BazelRunfiles {
 
   import EngineTest._
+  import EngineConfig.Dev.allowedLanguageVersions
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
@@ -131,7 +139,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine.DevEngine()
-  val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+  val preprocessor =
+    new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
 
   "valid data variant identifier" should {
     "found and return the argument types" in {
@@ -384,7 +393,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val (optionalPkgId, _, allOptionalPackages) =
         loadPackage("daml-lf/tests/Optional.dar")
 
-      val translator = new preprocessing.Preprocessor(ConcurrentCompiledPackages.apply())
+      val translator =
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
 
       val id = Identifier(optionalPkgId, "Optional:Rec")
       val someValue =
@@ -398,17 +408,18 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       translator
         .translateValue(typ, someValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
-        Right(SRecord(id, Name.Array("recField"), ArrayList(SOptional(Some(SText("foo"))))))
+        Right(SRecord(id, ImmArray("recField"), ArrayList(SOptional(Some(SText("foo"))))))
 
       translator
         .translateValue(typ, noneValue)
         .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
-        Right(SRecord(id, Name.Array("recField"), ArrayList(SOptional(None))))
+        Right(SRecord(id, ImmArray("recField"), ArrayList(SOptional(None))))
 
     }
 
     "returns correct error when resuming" in {
-      val translator = new preprocessing.Preprocessor(ConcurrentCompiledPackages.apply())
+      val translator =
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord =
         ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
@@ -1621,6 +1632,107 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       err.msg should include("precondition violation")
     }
   }
+
+  "Engine#submit" should {
+    val cidV6 = toContractId("#cidV6")
+    val cidV7 = toContractId("#cidV7")
+    val contract = ValueRecord(
+      Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
+      ImmArray((Some[Name]("p"), ValueParty(party)))
+    )
+    val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
+    val templateId = TypeConName(basicTestsPkgId, "BasicTests:Simple")
+    val now = Time.Timestamp.now()
+    val submissionSeed = crypto.Hash.hashPrivateKey("engine check the version of input value")
+    def contracts = Map(
+      cidV6 -> ContractInst(templateId, VersionedValue(ValueVersion("6"), contract), ""),
+      cidV7 -> ContractInst(templateId, VersionedValue(ValueVersion("7"), contract), ""),
+    )
+
+    def run(
+        cid: ContractId,
+        engineConfig: EngineConfig = EngineConfig.Stable
+    ) = {
+      val engine = new Engine(engineConfig)
+      val cmds = Commands(
+        submitter = party,
+        commands = ImmArray(
+          ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.empty))),
+        ledgerEffectiveTime = now,
+        commandsReference = "",
+      )
+      engine
+        .submit(cmds, participant, submissionSeed)
+        .consume(contracts.get, lookupPackage, lookupKey)
+    }
+
+    "fail nicely if fed with disallowed value version" in {
+      run(cidV6) shouldBe 'right
+      val result = run(cidV7)
+      result shouldBe 'left
+      result.left.get.msg should include("Update failed due to disallowed value version")
+    }
+
+    "fail nicely if it can serialize the transaction" in {
+      run(cidV6) shouldBe 'right
+      val result = run(
+        cidV6,
+        EngineConfig.Stable.copy(
+          allowedOutputTransactionVersions =
+            VersionRange(TransactionVersion("9"), TransactionVersion("9"))))
+      result shouldBe 'left
+      result.left.get.msg should include("inferred transaction version 10 is not allowed")
+    }
+
+  }
+
+  "Engine.preloadPackage" should {
+
+    import com.daml.lf.language.{LanguageVersion => LV}
+
+    def engine(min: LV.Minor, max: LV.Minor) =
+      new Engine(
+        EngineConfig.Dev.copy(
+          allowedLanguageVersions = VersionRange(LV(LV.Major.V1, min), LV(LV.Major.V1, max))
+        )
+      )
+
+    val pkgId = Ref.PackageId.assertFromString("-pkg-")
+
+    def pkg(v: LV.Minor) =
+      language.Ast.Package(
+        Traversable.empty,
+        Traversable.empty,
+        LV(LV.Major.V1, v),
+        None
+      )
+
+    "reject disallow packages" in {
+      val negativeTestCases = Table(
+        ("pkg version", "minVersion", "maxVertion"),
+        (LV.Minor.Stable("6"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+        (LV.Minor.Stable("7"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+        (LV.Minor.Stable("8"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+        (LV.Minor.Dev, LV.Minor.Stable("6"), LV.Minor.Dev),
+      )
+      val positiveTestCases = Table(
+        ("pkg version", "minVersion", "maxVertion"),
+        (LV.Minor.Stable("6"), LV.Minor.Stable("7"), LV.Minor.Dev),
+        (LV.Minor.Stable("7"), LV.Minor.Stable("8"), LV.Minor.Stable("8")),
+        (LV.Minor.Stable("8"), LV.Minor.Stable("6"), LV.Minor.Stable("7")),
+        (LV.Minor.Dev, LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+      )
+
+      forEvery(negativeTestCases)((v, min, max) =>
+        engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultDone[_]])
+
+      forEvery(positiveTestCases)((v, min, max) =>
+        engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultError])
+
+    }
+
+  }
+
 }
 
 object EngineTest {

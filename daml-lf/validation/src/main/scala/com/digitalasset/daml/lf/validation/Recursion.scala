@@ -13,14 +13,14 @@ private[validation] object Recursion {
   /* Check there are no cycles in the module references */
 
   @throws[ValidationError]
-  def checkPackage(pkgId: PackageId, modules: Map[ModuleName, Module]): Unit = {
-    val g = modules.map {
+  def checkPackage(pkgId: PackageId, pkg: Package): Unit = {
+    val g = pkg.modules.map {
       case (name, mod) => name -> (mod.definitions.values.flatMap(modRefs(pkgId, _)).toSet - name)
     }
 
     Graphs.topoSort(g).left.foreach(cycle => throw EImportCycle(NoContext, cycle.vertices))
 
-    modules.foreach { case (modName, mod) => checkModule(pkgId, modName, mod) }
+    pkg.modules.foreach { case (modName, mod) => checkModule(pkgId, modName, mod) }
   }
 
   def modRefs(pkgId: PackageId, definition: Definition): Set[ModuleName] = {

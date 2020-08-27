@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, Update}
 import com.daml.lf.data.Time.Timestamp
+import com.google.protobuf.Empty
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
 import org.scalatest.prop.Tables.Table
@@ -54,6 +55,14 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
         logEntryToUpdate(aLogEntryId, aLogEntryWithRecordTime, recordTimeForUpdate = None)
 
       actual.recordTime shouldBe Timestamp.assertFromInstant(Instant.ofEpochSecond(100))
+    }
+
+    "not generate an update from a time update entry" in {
+      val timeUpdateEntry = DamlLogEntry.newBuilder
+        .setRecordTime(Conversions.buildTimestamp(aRecordTime))
+        .setTimeUpdateEntry(Empty.getDefaultInstance)
+        .build
+      logEntryToUpdate(aLogEntryId, timeUpdateEntry, recordTimeForUpdate = None) shouldBe Nil
     }
   }
 
@@ -297,6 +306,8 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
           DamlPartyAllocationRejectionEntry.getDefaultInstance)
       case OUT_OF_TIME_BOUNDS_ENTRY =>
         builder.setOutOfTimeBoundsEntry(DamlOutOfTimeBoundsEntry.getDefaultInstance)
+      case TIME_UPDATE_ENTRY =>
+        builder.setTimeUpdateEntry(Empty.getDefaultInstance)
       case PAYLOAD_NOT_SET =>
         ()
     }

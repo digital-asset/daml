@@ -245,7 +245,7 @@ final case class LFUtil(
     val actorParam = q"${TermName(actorParamName)}: $domainApiAlias.Primitive.Party"
     val exerciseOnParam = q"` exOn`: $domainApiAlias.encoding.ExerciseOn[$idType, $templateType]"
     val resultType = genTypeToScalaType(choiceInterface.returnType)
-    val body = q"` exercise`(id, $choiceId, $namedArguments)"
+    val body = q"` exercise`(${TermName(actorParamName)}, id, $choiceId, $namedArguments)"
 
     Seq(q"""def $choiceMethod($actorParam, ..${typedParam.toList})(implicit $exerciseOnParam)
                 : $domainApiAlias.Primitive.Update[$resultType] = $body""") ++

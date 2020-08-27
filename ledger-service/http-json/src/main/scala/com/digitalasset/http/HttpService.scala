@@ -12,7 +12,7 @@ import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.http.Statement.discard
+import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{
   ApiValueToJsValueConverter,
@@ -52,6 +52,9 @@ object HttpService extends StrictLogging {
   val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
   val DefaultMaxInboundMessageSize: Int = 4194304
 
+  // used only to populate a required field in LedgerClientConfiguration
+  private val DummyApplicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway")
+
   private type ET[A] = EitherT[Future, Error, A]
 
   final case class Error(message: String)
@@ -62,7 +65,6 @@ object HttpService extends StrictLogging {
   trait StartSettings {
     val ledgerHost: String
     val ledgerPort: Int
-    val applicationId: ApplicationId
     val address: String
     val httpPort: Int
     val portFile: Option[Path]
@@ -72,12 +74,14 @@ object HttpService extends StrictLogging {
     val allowNonHttps: Boolean
     val staticContentConfig: Option[StaticContentConfig]
     val packageReloadInterval: FiniteDuration
+    val packageMaxInboundMessageSize: Option[Int]
     val maxInboundMessageSize: Int
   }
 
   trait DefaultStartSettings extends StartSettings {
     override val staticContentConfig: Option[StaticContentConfig] = None
     override val packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval
+    override val packageMaxInboundMessageSize: Option[Int] = None
     override val maxInboundMessageSize: Int = DefaultMaxInboundMessageSize
   }
 
@@ -98,7 +102,7 @@ object HttpService extends StrictLogging {
     val tokenHolder = accessTokenFile.map(new TokenHolder(_))
 
     val clientConfig = LedgerClientConfiguration(
-      applicationId = ApplicationId.unwrap(applicationId),
+      applicationId = ApplicationId.unwrap(DummyApplicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = tlsConfig.client,
@@ -106,9 +110,17 @@ object HttpService extends StrictLogging {
     )
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
-      client <- eitherT(client(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)): ET[
-        LedgerClient,
-      ]
+      client <- eitherT(
+        ledgerClient(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)
+      ): ET[LedgerClient]
+
+      pkgManagementClient <- eitherT(
+        ledgerClient(
+          ledgerHost,
+          ledgerPort,
+          clientConfig,
+          packageMaxInboundMessageSize.getOrElse(maxInboundMessageSize))
+      ): ET[LedgerClient]
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
@@ -116,7 +128,7 @@ object HttpService extends StrictLogging {
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       packageService = new PackageService(
-        loadPackageStoreUpdates(client.packageClient, tokenHolder),
+        loadPackageStoreUpdates(pkgManagementClient.packageClient, tokenHolder),
       )
 
       // load all packages right away
@@ -147,10 +159,10 @@ object HttpService extends StrictLogging {
       )
 
       packageManagementService = new PackageManagementService(
-        LedgerClientJwt.listPackages(client),
-        LedgerClientJwt.getPackage(client),
+        LedgerClientJwt.listPackages(pkgManagementClient),
+        LedgerClientJwt.getPackage(pkgManagementClient),
         uploadDarAndReloadPackages(
-          LedgerClientJwt.uploadDar(client),
+          LedgerClientJwt.uploadDar(pkgManagementClient),
           () => packageService.reload(ec))
       )
 
@@ -288,7 +300,7 @@ object HttpService extends StrictLogging {
     })
   }
 
-  private def client(
+  private def ledgerClient(
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,

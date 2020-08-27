@@ -133,7 +133,14 @@ data Map a b =
 data ContractId a =
   ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
-instance Show (ContractId a) where show _ = "<contract-id>"
+instance Show (ContractId a) where
+#ifdef DAML_TO_TEXT_CONTRACT_ID
+  show cid = case primitive @"BEToTextContractId" cid of
+    None -> "<contract-id>"
+    Some t -> t
+#else
+  show _ = "<contract-id>"
+#endif
 
 -- | HIDE This is currently used in the internals of DAML script and DAML triggers
 -- but not really something that we want to expose to users.

@@ -10,6 +10,8 @@ import akka.stream.scaladsl.Source
   */
 package object events {
 
+  type SqlSequence[A] = SqlSequence.T[A]
+
   import com.daml.lf.value.{Value => lfval}
   private[events] type ContractId = lfval.ContractId
   private[events] val ContractId = com.daml.lf.value.Value.ContractId
@@ -37,7 +39,7 @@ package object events {
   private[events] type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
   private[events] type DisclosureRelation = WitnessRelation[NodeId]
   private[events] type DivulgenceRelation = WitnessRelation[ContractId]
-  private[events] type FilterRelation = lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
+  private[dao] type FilterRelation = lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
   private[events] val Relation = lfdata.Relation.Relation
 
   import com.daml.lf.crypto

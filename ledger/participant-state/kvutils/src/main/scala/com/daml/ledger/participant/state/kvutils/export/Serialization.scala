@@ -3,76 +3,46 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.{DataInputStream, DataOutputStream}
+import java.io.DataOutputStream
 import java.time.Instant
 
-import com.daml.ledger.participant.state
-import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.{
-  SubmissionInfo,
-  WriteSet
-}
 import com.google.protobuf.ByteString
 
 object Serialization {
   def serializeEntry(
       submissionInfo: SubmissionInfo,
       writeSet: WriteSet,
-      out: DataOutputStream): Unit = {
+      out: DataOutputStream,
+  ): Unit = {
     serializeSubmissionInfo(submissionInfo, out)
     serializeWriteSet(writeSet, out)
   }
 
-  def readEntry(input: DataInputStream): (SubmissionInfo, WriteSet) = {
-    val submissionInfo = readSubmissionInfo(input)
-    val writeSet = readWriteSet(input)
-    (submissionInfo, writeSet)
-  }
-
   private def serializeSubmissionInfo(
       submissionInfo: SubmissionInfo,
-      out: DataOutputStream): Unit = {
+      out: DataOutputStream,
+  ): Unit = {
     out.writeUTF(submissionInfo.correlationId)
-    out.writeInt(submissionInfo.submissionEnvelope.size())
-    submissionInfo.submissionEnvelope.writeTo(out)
-    out.writeLong(submissionInfo.recordTimeInstant.toEpochMilli)
+    writeBytes(submissionInfo.submissionEnvelope, out)
+    writeInstant(submissionInfo.recordTimeInstant, out)
     out.writeUTF(submissionInfo.participantId)
-  }
-
-  private def readSubmissionInfo(input: DataInputStream): SubmissionInfo = {
-    val correlationId = input.readUTF()
-    val submissionEnvelopeSize = input.readInt()
-    val submissionEnvelope = new Array[Byte](submissionEnvelopeSize)
-    input.readFully(submissionEnvelope)
-    val recordTimeEpochMillis = input.readLong()
-    val participantId = input.readUTF()
-    SubmissionInfo(
-      ByteString.copyFrom(submissionEnvelope),
-      correlationId,
-      Instant.ofEpochMilli(recordTimeEpochMillis),
-      state.v1.ParticipantId.assertFromString(participantId)
-    )
   }
 
   private def serializeWriteSet(writeSet: WriteSet, out: DataOutputStream): Unit = {
     out.writeInt(writeSet.size)
     for ((key, value) <- writeSet.sortBy(_._1.asReadOnlyByteBuffer())) {
-      out.writeInt(key.size())
-      key.writeTo(out)
-      out.writeInt(value.size())
-      value.writeTo(out)
+      writeBytes(key, out)
+      writeBytes(value, out)
     }
   }
 
-  private def readWriteSet(input: DataInputStream): WriteSet = {
-    val numKeyValuePairs = input.readInt()
-    (1 to numKeyValuePairs).map { _ =>
-      val keySize = input.readInt()
-      val keyBytes = new Array[Byte](keySize)
-      input.readFully(keyBytes)
-      val valueSize = input.readInt()
-      val valueBytes = new Array[Byte](valueSize)
-      input.readFully(valueBytes)
-      (ByteString.copyFrom(keyBytes), ByteString.copyFrom(valueBytes))
-    }
+  private def writeBytes(bytes: ByteString, out: DataOutputStream): Unit = {
+    out.writeInt(bytes.size())
+    bytes.writeTo(out)
+  }
+
+  private def writeInstant(instant: Instant, out: DataOutputStream): Unit = {
+    out.writeLong(instant.getEpochSecond)
+    out.writeInt(instant.getNano)
   }
 }

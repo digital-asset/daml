@@ -12,9 +12,7 @@ class ApiCodecVerboseSpec extends WordSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   /** Serializes the API value to JSON, then parses it back to an API value */
-  private def serializeAndParse(
-      value: model.ApiValue,
-      typ: model.DamlLfType): Try[model.ApiValue] = {
+  private def serializeAndParse(value: model.ApiValue): Try[model.ApiValue] = {
     import com.daml.navigator.json.ApiCodecVerbose.JsonImplicits._
     import spray.json._
 
@@ -30,50 +28,46 @@ class ApiCodecVerboseSpec extends WordSpec with Matchers {
     "serializing and parsing a value" should {
 
       "work for Text" in {
-        serializeAndParse(C.simpleTextV, C.simpleTextT) shouldBe Success(C.simpleTextV)
+        serializeAndParse(C.simpleTextV) shouldBe Success(C.simpleTextV)
       }
       "work for Int64" in {
-        serializeAndParse(C.simpleInt64V, C.simpleInt64T) shouldBe Success(C.simpleInt64V)
+        serializeAndParse(C.simpleInt64V) shouldBe Success(C.simpleInt64V)
       }
       "work for Decimal" in {
-        serializeAndParse(C.simpleDecimalV, C.simpleDecimalT) shouldBe Success(C.simpleDecimalV)
+        serializeAndParse(C.simpleDecimalV) shouldBe Success(C.simpleDecimalV)
       }
       "work for Unit" in {
-        serializeAndParse(C.simpleUnitV, C.simpleUnitT) shouldBe Success(C.simpleUnitV)
+        serializeAndParse(C.simpleUnitV) shouldBe Success(C.simpleUnitV)
       }
       "work for Date" in {
-        serializeAndParse(C.simpleDateV, C.simpleDateT) shouldBe Success(C.simpleDateV)
+        serializeAndParse(C.simpleDateV) shouldBe Success(C.simpleDateV)
       }
       "work for Timestamp" in {
-        serializeAndParse(C.simpleTimestampV, C.simpleTimestampT) shouldBe Success(
-          C.simpleTimestampV)
+        serializeAndParse(C.simpleTimestampV) shouldBe Success(C.simpleTimestampV)
       }
       "work for Optional" in {
-        serializeAndParse(C.simpleOptionalV, C.simpleOptionalT(C.simpleTextT)) shouldBe Success(
-          C.simpleOptionalV)
+        serializeAndParse(C.simpleOptionalV) shouldBe Success(C.simpleOptionalV)
       }
       "work for EmptyRecord" in {
-        serializeAndParse(C.emptyRecordV, C.emptyRecordTC) shouldBe Success(C.emptyRecordV)
+        serializeAndParse(C.emptyRecordV) shouldBe Success(C.emptyRecordV)
       }
       "work for SimpleRecord" in {
-        serializeAndParse(C.simpleRecordV, C.simpleRecordTC) shouldBe Success(C.simpleRecordV)
+        serializeAndParse(C.simpleRecordV) shouldBe Success(C.simpleRecordV)
       }
       "work for SimpleVariant" in {
-        serializeAndParse(C.simpleVariantV, C.simpleVariantTC) shouldBe Success(C.simpleVariantV)
+        serializeAndParse(C.simpleVariantV) shouldBe Success(C.simpleVariantV)
       }
       "work for ComplexRecord" in {
-        serializeAndParse(C.complexRecordV, C.complexRecordTC) shouldBe Success(C.complexRecordV)
+        serializeAndParse(C.complexRecordV) shouldBe Success(C.complexRecordV)
       }
       "work for Tree" in {
-        serializeAndParse(C.treeV, C.treeTC) shouldBe Success(C.treeV)
+        serializeAndParse(C.treeV) shouldBe Success(C.treeV)
       }
       "work for TextMap" in {
-        serializeAndParse(C.simpleTextMapV, C.simpleTextMapT(C.simpleTextT)) shouldBe Success(
-          C.simpleTextMapV)
+        serializeAndParse(C.simpleTextMapV) shouldBe Success(C.simpleTextMapV)
       }
       "work for GenMap" in {
-        serializeAndParse(C.complexGenMapV, C.complexGenMapT(C.treeNodeTC, C.simpleInt64T)) shouldBe Success(
-          C.complexGenMapV)
+        serializeAndParse(C.complexGenMapV) shouldBe Success(C.complexGenMapV)
       }
     }
   }

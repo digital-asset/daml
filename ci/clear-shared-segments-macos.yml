@@ -34,6 +34,8 @@ steps:
     # which is what ipcrm expects as its arguments. After the table, ipcs -m
     # adds an extra blank line, hence the extra sed at the end.
     for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do
-        ipcrm -m $shmid
+      # Some memory segments cannot be removed and fail with "invalid argument".
+      # We just ignore those for now instead of failing CI.
+      ipcrm -m $shmid || true
     done
   name: clear_shm

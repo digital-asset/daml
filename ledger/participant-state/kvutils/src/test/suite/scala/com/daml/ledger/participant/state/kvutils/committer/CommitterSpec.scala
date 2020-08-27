@@ -10,14 +10,18 @@ import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
-class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
+class CommitterSpec
+    extends WordSpec
+    with TableDrivenPropertyChecks
+    with Matchers
+    with MockitoSugar {
   "preExecute" should {
     "set pre-execution results from context" in {
       val mockContext = mock[CommitContext]
@@ -37,7 +41,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.getAccessedInputKeys).thenReturn(expectedReadSet)
       val instance = createCommitter()
 
-      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, mockContext)
 
       verify(mockContext, times(1)).getOutputs
       verify(mockContext, times(1)).getAccessedInputKeys
@@ -58,7 +62,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
       val instance = createCommitter()
 
-      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, mockContext)
 
       actual.minimumRecordTime should not be defined
       actual.maximumRecordTime should not be defined
@@ -76,7 +80,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
       when(mockContext.deduplicateUntil).thenReturn(Some(expectedDuplicateUntil))
       val instance = createCommitter()
-      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, mockContext)
 
       actual.outOfTimeBoundsLogEntry.hasOutOfTimeBoundsEntry shouldBe true
       val actualOutOfTimeBoundsLogEntry = actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry
@@ -88,7 +92,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       actualOutOfTimeBoundsLogEntry.getEntry shouldBe aRejectionLogEntry
     }
 
-    "throw in case no out-of-time-bounds log entry is set" in {
+    "do not throw in case neither out-of-time-bounds log entry nor min/max record time are set" in {
       val mockContext = mock[CommitContext]
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
       when(mockContext.getOutputs).thenReturn(Iterable.empty)
@@ -97,8 +101,31 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.maximumRecordTime).thenReturn(None)
       val instance = createCommitter()
 
-      assertThrows[IllegalArgumentException](
-        instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext))
+      instance.preExecute(aDamlSubmission, mockContext)
+      succeed
+    }
+
+    "throw in case out-of-time-bounds log entry is not set but min/max record time is" in {
+      val anInstant = Instant.ofEpochSecond(1234)
+      val combinations = Table(
+        "min/max record time",
+        Some(anInstant) -> Some(anInstant),
+        Some(anInstant) -> None,
+        None -> Some(anInstant)
+      )
+
+      forAll(combinations) {
+        case (minRecordTimeMaybe, maxRecordTimeMaybe) =>
+          val mockContext = mock[CommitContext]
+          when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
+          when(mockContext.getOutputs).thenReturn(Iterable.empty)
+          when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
+          when(mockContext.minimumRecordTime).thenReturn(minRecordTimeMaybe)
+          when(mockContext.maximumRecordTime).thenReturn(maxRecordTimeMaybe)
+          val instance = createCommitter()
+
+          assertThrows[IllegalArgumentException](instance.preExecute(aDamlSubmission, mockContext))
+      }
     }
   }
 
@@ -159,7 +186,6 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
 
   private val aRecordTime = Timestamp(100)
   private val aDamlSubmission = DamlSubmission.getDefaultInstance
-  private val aParticipantId = Ref.ParticipantId.assertFromString("a participant")
   private val aLogEntry = DamlLogEntry.newBuilder
     .setPartyAllocationEntry(
       DamlPartyAllocationEntry.newBuilder

@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
@@ -26,22 +27,22 @@ trait IndexTransactionsService extends LedgerEndService {
       endAt: Option[LedgerOffset],
       filter: TransactionFilter,
       verbose: Boolean,
-  ): Source[GetTransactionsResponse, NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed]
 
   def transactionTrees(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
       filter: TransactionFilter,
       verbose: Boolean,
-  ): Source[GetTransactionTreesResponse, NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed]
 
   def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
-  ): Future[Option[GetFlatTransactionResponse]]
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
 
   def getTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
-  ): Future[Option[GetTransactionResponse]]
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 }

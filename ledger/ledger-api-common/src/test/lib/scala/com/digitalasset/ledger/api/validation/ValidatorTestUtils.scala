@@ -23,6 +23,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected val includedModule = "includedModule"
   protected val includedTemplate = "includedTemplate"
   protected val expectedLedgerId = "expectedLedgerId"
+  protected val expectedApplicationId = "expectedApplicationId"
   protected val packageId = Ref.PackageId.assertFromString("packageId")
   protected val absoluteOffset = Ref.LedgerString.assertFromString("42")
   protected val party = Ref.Party.assertFromString("party")

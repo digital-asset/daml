@@ -3,9 +3,9 @@
 
 package com.daml.platform.sandbox.stores.ledger.sql
 
-sealed abstract class SqlStartMode extends Product with Serializable
+private[sandbox] sealed abstract class SqlStartMode extends Product with Serializable
 
-object SqlStartMode {
+private[sandbox] object SqlStartMode {
 
   /** Will continue using an initialised ledger, otherwise initialize a new one */
   final case object ContinueIfExists extends SqlStartMode

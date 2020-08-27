@@ -9,7 +9,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, QualifiedName}
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.Ast
 import org.scalatest.{Inside, Matchers, WordSpec}
 
 import scala.language.implicitConversions
@@ -151,8 +151,8 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       moduleName,
       Map(dataName -> dfn),
       Map.empty,
-      LanguageVersion.defaultV1,
-      Ast.FeatureFlags.default)
+      Ast.FeatureFlags.default,
+    )
 
   private def dottedName(segments: Iterable[String]): DottedName =
     DottedName.assertFromSegments(segments)

@@ -18,6 +18,7 @@ module DA.Daml.LF.ScenarioServiceClient
   , deleteCtx
   , gcCtxs
   , runScenario
+  , runScript
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
   , LowLevel.ScenarioResult(..)
@@ -57,8 +58,8 @@ data Options = Options
   , optLogError :: String -> IO ()
   }
 
-toLowLevelOpts :: Options -> LowLevel.Options
-toLowLevelOpts Options{..} =
+toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
+toLowLevelOpts optDamlLfVersion Options{..} =
     LowLevel.Options{..}
     where
         optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
@@ -82,10 +83,10 @@ data Handle = Handle
 withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
-withScenarioService :: Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
-withScenarioService loggerH scenarioConfig f = do
+withScenarioService :: LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
+withScenarioService ver loggerH scenarioConfig f = do
   hOptions <- getOptions
-  LowLevel.withScenarioService (toLowLevelOpts hOptions) $ \hLowLevelHandle ->
+  LowLevel.withScenarioService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
       bracket
          (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
          (LowLevel.deleteCtx hLowLevelHandle) $ \rootCtxId -> do
@@ -111,12 +112,13 @@ withScenarioService loggerH scenarioConfig f = do
 
 withScenarioService'
     :: EnableScenarioService
+    -> LF.Version
     -> Logger.Handle IO
     -> ScenarioServiceConfig
     -> (Maybe Handle -> IO a)
     -> IO a
-withScenarioService' (EnableScenarioService enable) loggerH conf f
-    | enable = withScenarioService loggerH conf (f . Just)
+withScenarioService' (EnableScenarioService enable) ver loggerH conf f
+    | enable = withScenarioService ver loggerH conf (f . Just)
     | otherwise = f Nothing
 
 data ScenarioServiceConfig = ScenarioServiceConfig
@@ -151,7 +153,6 @@ parseScenarioServiceConfig conf = do
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
-  , ctxDamlLfVersion :: LF.Version
   , ctxSkipValidation :: LowLevel.SkipValidation
   }
 
@@ -174,7 +175,6 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       (S.toList unloadModules)
       loadPackages
       (S.toList unloadPackages)
-      ctxDamlLfVersion
       ctxSkipValidation
   rootCtxId <- readIORef hContextId
   runExceptT $ do
@@ -206,15 +206,21 @@ encodeModule v m = (Hash $ hash m', m')
   where m' = LowLevel.encodeScenarioModule v m
 
 runScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runScenario Handle{..} ctxId name = do
+runScenario h ctxId name = run (\h -> LowLevel.runScenario h ctxId name) h
+
+runScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runScript h ctxId name = run (\h -> LowLevel.runScript h ctxId name) h
+
+run :: (LowLevel.Handle -> IO (Either LowLevel.Error r)) -> Handle -> IO (Either LowLevel.Error r)
+run f Handle{..} = do
   resVar <- newEmptyMVar
-  -- When a scenario execution is aborted, we would like to be able to return
-  -- immediately. However, we cannot cancel the actual execution of the scenario.
+  -- When a scenario/script execution is aborted, we would like to be able to return
+  -- immediately. However, we cannot cancel the actual execution of the scenario/script.
   -- Therefore, we launch run the synchronous execution request in a separate thread
   -- that takes care of managing the semaphore. This thread keeps running
   -- even if `runScenario` was aborted (we cannot abort the FFI calls anyway)
   -- and ensures that we track the actual number of running executions rather
-  -- than the number of calls to `runScenario` that have not been canceled.
+  -- than the number of calls to `run` that have not been canceled.
   _ <- mask $ \restore -> do
       -- Rather than using a bracket in the new thread
       -- we can be a bit more clever and don’t even
@@ -222,7 +228,7 @@ runScenario Handle{..} ctxId name = do
       -- semaphore.
       waitQSemN hConcurrencySem 1
       _ <- forkIO $ do
-        r <- try $ restore $ LowLevel.runScenario hLowLevelHandle ctxId name
+        r <- try $ restore $ f hLowLevelHandle
         case r of
             Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
             Right r -> putMVar resVar r

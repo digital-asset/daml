@@ -17,7 +17,7 @@ template. Take a look at the documentation for
 
 .. code-block:: sh
 
-   daml new script-example script-example # create a project called script-example based on the template
+   daml new script-example --template script-example # create a project called script-example based on the template
    cd script-example # switch to the new project
 
 Now, build the project and start :doc:`/tools/sandbox`, the in-memory
@@ -76,6 +76,9 @@ two forms:
    and ``y`` is a pure expression or ``let f x = y`` to define a function.
    The bound variables can be used on subsequent lines.
 
+5. Next to DAML code the REPL also understands REPL commands which are prefixed
+   by ``:``. Enter ``:help`` to see a list of supported REPL commands.
+
 First create two parties: A party with the display name ``"Alice"``
 and the party id ``"alice"`` and a party with the display name
 ``"Bob"`` and the party id ``"bob"``.
@@ -129,7 +132,10 @@ In the prompt, all modules from DALFs specified in ``--import`` are
 imported automatically. In addition to that, the ``DAML.Script``
 module is also imported and gives you access to the DAML Script API.
 
-You can use import declarations at the prompt to import additional modules.
+You can use the commands ``:module + ModA ModB …`` to import additional modules
+and ``:module - ModA ModB …`` to remove previously added imports. Modules can
+also be imported using regular import declarations instead of ``module +``.
+The command ``:show imports`` lists the currently active imports.
 
 .. code-block:: none
 
@@ -161,8 +167,21 @@ authentication by passing ``--pem client.key --crt client.crt``. If
 ``--cacrt`` or ``--pem`` and ``--crt`` are passed TLS is automatically
 enabled so ``--tls`` is redundant.
 
-Connection to a Ledger with Authentication
-==========================================
+Connection to a Ledger with Authorization
+=========================================
 
-If your ledger requires an authentication token you can pass it via
+If your ledger requires an authorization token you can pass it via
 ``--access-token-file``.
+
+Using DAML REPL to convert to JSON
+==================================
+
+Using the ``:json`` command you can encode serializable DAML expressions as
+JSON. For example using the definitions and imports from above:
+
+.. code-block:: none
+
+    daml> :json days 1
+    {"microseconds":86400000000}
+    daml> :json map snd coins
+    [{"issuer":"alice","owner":"bob"}]

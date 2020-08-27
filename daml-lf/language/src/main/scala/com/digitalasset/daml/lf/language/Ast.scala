@@ -219,7 +219,7 @@ object Ast {
         case TForall((v, _), body) =>
           maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
         case TStruct(fields) =>
-          "(" + fields
+          "(" + fields.iterator
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
             .mkString(", ") + ")"
@@ -264,13 +264,7 @@ object Ast {
   final case class TForall(binder: (TypeVarName, Kind), body: Type) extends Type
 
   /** Structs */
-  final case class TStruct private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
-
-  object TStruct extends (ImmArray[(FieldName, Type)] => TStruct) {
-    // should be dropped once the compiler sort fields.
-    def apply(fields: ImmArray[(FieldName, Type)]): TStruct =
-      new TStruct(ImmArray(fields.toSeq.sortBy(_._1: String)))
-  }
+  final case class TStruct(fields: Struct[Type]) extends Type
 
   sealed abstract class BuiltinType extends Product with Serializable
 
@@ -384,6 +378,7 @@ object Ast {
   final case object BToTextTimestamp extends BuiltinFunction(1) // : Timestamp → Text
   final case object BToTextParty extends BuiltinFunction(1) // : Party → Text
   final case object BToTextDate extends BuiltinFunction(1) // : Date -> Text
+  final case object BToTextContractId extends BuiltinFunction(1) // : forall t. ContractId t -> Optional Text
   final case object BToQuotedTextParty extends BuiltinFunction(1) // : Party -> Text
   final case object BToTextCodePoints extends BuiltinFunction(1) // : [Int64] -> Text
   final case object BFromTextParty extends BuiltinFunction(1) // : Text -> Optional Party
@@ -603,7 +598,6 @@ object Ast {
   case class Module private (
       name: ModuleName,
       definitions: Map[DottedName, Definition],
-      languageVersion: LanguageVersion,
       featureFlags: FeatureFlags
   )
 
@@ -615,16 +609,14 @@ object Ast {
     def apply(
         name: ModuleName,
         definitions: Traversable[(DottedName, Definition)],
-        languageVersion: LanguageVersion,
         featureFlags: FeatureFlags
     ): Module =
-      Module(name, definitions, List.empty, languageVersion, featureFlags)
+      Module(name, definitions, List.empty, featureFlags)
 
     def apply(
         name: ModuleName,
         definitions: Traversable[(DottedName, Definition)],
         templates: Traversable[(DottedName, Template)],
-        languageVersion: LanguageVersion,
         featureFlags: FeatureFlags
     ): Module = {
 
@@ -649,7 +641,7 @@ object Ast {
           }
       }
 
-      new Module(name, defsMap ++ updatedRecords, languageVersion, featureFlags)
+      new Module(name, defsMap ++ updatedRecords, featureFlags)
     }
   }
 
@@ -658,7 +650,8 @@ object Ast {
   case class Package(
       modules: Map[ModuleName, Module],
       directDeps: Set[PackageId],
-      metadata: Option[PackageMetadata]
+      languageVersion: LanguageVersion,
+      metadata: Option[PackageMetadata],
   ) {
     def lookupIdentifier(identifier: QualifiedName): Either[String, Definition] = {
       this.modules.get(identifier.module) match {
@@ -681,12 +674,14 @@ object Ast {
     def apply(
         modules: Traversable[Module],
         directDeps: Traversable[PackageId],
-        metadata: Option[PackageMetadata]): Package = {
+        languageVersion: LanguageVersion,
+        metadata: Option[PackageMetadata],
+    ): Package = {
       val modulesWithNames = modules.map(m => m.name -> m)
       findDuplicate(modulesWithNames).foreach { modName =>
         throw PackageError(s"Collision on module name ${modName.toString}")
       }
-      Package(modulesWithNames.toMap, directDeps.toSet, metadata)
+      Package(modulesWithNames.toMap, directDeps.toSet, languageVersion, metadata)
     }
   }
 

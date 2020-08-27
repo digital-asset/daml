@@ -21,6 +21,7 @@ import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -42,7 +43,7 @@ object TestUtil {
   def withClient(testCode: Channel => Assertion)(
       implicit executionContext: ExecutionContext
   ): Future[Assertion] = {
-    val config = SandboxServer.defaultConfig.copy(
+    val config = sandbox.DefaultConfig.copy(
       port = Port.Dynamic,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),

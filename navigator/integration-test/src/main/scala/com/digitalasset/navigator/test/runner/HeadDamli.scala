@@ -16,8 +16,6 @@ object HeadDamlc {
   private val packageName = "Test"
 
   def run(damlPath: String): (File, Unit => Unit) = {
-    val damlFile = new File(damlPath)
-
     val tempDirectory = Files.createTempDirectory("navigator-integration-test").toFile
     val darFile = new File(tempDirectory, s"$packageName.dar")
 

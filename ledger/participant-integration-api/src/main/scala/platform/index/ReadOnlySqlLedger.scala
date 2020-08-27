@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdNotFoundException}
+import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
@@ -39,7 +39,7 @@ private[platform] object ReadOnlySqlLedger {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext)
+  )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlyLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -57,16 +57,19 @@ private[platform] object ReadOnlySqlLedger {
     private def verifyLedgerId(
         ledgerDao: LedgerReadDao,
         initialLedgerId: LedgerId,
-    )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[LedgerId] = {
+    )(
+        implicit executionContext: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[LedgerId] = {
       val predicate: PartialFunction[Throwable, Boolean] = {
         case _: LedgerIdNotFoundException => true
-        case _: LedgerIdMismatchException => false
+        case _: MismatchException.LedgerId => false
         case _ => false
       }
       val retryDelay = 5.seconds
       val maxAttempts = 100
       RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) {
-        (attempt, _wait) =>
+        (attempt, _) =>
           ledgerDao
             .lookupLedgerId()
             .flatMap {
@@ -75,7 +78,7 @@ private[platform] object ReadOnlySqlLedger {
                 Future.successful(initialLedgerId)
               case Some(foundLedgerId) =>
                 Future.failed(
-                  new LedgerIdMismatchException(foundLedgerId, initialLedgerId)
+                  new MismatchException.LedgerId(foundLedgerId, initialLedgerId)
                   with StartupException)
               case None =>
                 logger.info(
@@ -109,7 +112,7 @@ private final class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],
-)(implicit mat: Materializer)
+)(implicit mat: Materializer, loggingContext: LoggingContext)
     extends BaseLedger(ledgerId, ledgerDao, dispatcher) {
 
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =

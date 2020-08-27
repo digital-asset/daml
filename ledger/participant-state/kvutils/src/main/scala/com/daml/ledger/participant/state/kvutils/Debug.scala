@@ -3,7 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.io.{DataOutputStream, FileOutputStream}
+import java.io.DataOutputStream
+import java.nio.file.{Files, Paths}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import org.slf4j.LoggerFactory
@@ -18,13 +19,14 @@ object Debug {
   /** The ledger dump stream is a gzip-compressed stream of `LedgerDumpEntry` messages prefixed
     * by their size.
     */
-  private lazy val optLedgerDumpStream: Option[DataOutputStream] = {
-    Option(System.getenv("KVUTILS_LEDGER_DUMP"))
-      .map { filename =>
-        logger.info(s"Enabled writing ledger entries to $filename")
-        new DataOutputStream(new FileOutputStream(filename))
+  private lazy val optLedgerDumpStream: Option[DataOutputStream] =
+    sys.env
+      .get("KVUTILS_LEDGER_DUMP")
+      .map { filePath =>
+        val path = Paths.get(filePath)
+        logger.info(s"Enabled writing ledger entries to $path.")
+        new DataOutputStream(Files.newOutputStream(path))
       }
-  }
 
   /** Dump ledger entry to disk if dumping is enabled.
     * Ledger dumps are mostly used to test for backwards compatibility of new releases.

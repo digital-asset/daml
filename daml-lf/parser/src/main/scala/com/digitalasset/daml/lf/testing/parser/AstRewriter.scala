@@ -18,31 +18,10 @@ private[daml] class AstRewriter(
   import AstRewriter._
 
   def apply(pkg: Package): Package =
-    Package(
-      ImmArray(pkg.modules)
-        .transform { (_, x) =>
-          apply(x)
-        }
-        .toSeq
-        .toMap,
-      Set.empty[PackageId],
-      pkg.metadata,
-    )
+    pkg.copy(modules = pkg.modules.transform((_, x) => apply(x)))
 
   def apply(module: Module): Module =
-    module match {
-      case Module(name, definitions, languageVersion, featureFlags) =>
-        Module(
-          name,
-          ImmArray(definitions)
-            .transform { (_, x) =>
-              apply(x)
-            }
-            .toSeq
-            .toMap,
-          languageVersion,
-          featureFlags)
-    }
+    module.copy(definitions = module.definitions.transform((_, x) => apply(x)))
 
   def apply(identifier: Identifier): Identifier =
     if (identifierRule.isDefinedAt(identifier))
@@ -63,7 +42,7 @@ private[daml] class AstRewriter(
         case TForall(binder, body) =>
           TForall(binder, apply(body))
         case TStruct(fields) =>
-          TStruct(fields.map(apply))
+          TStruct(fields.mapValue(apply))
       }
 
   def apply(nameWithType: (Name, Type)): (Name, Type) = nameWithType match {

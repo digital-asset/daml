@@ -1,6 +1,6 @@
 sdk-version: __VERSION__
 name: __PROJECT_NAME__
-source: daml/LibraryModules.daml
+source: daml
 version: 1.0.0
 dependencies:
   - daml-prim

@@ -8,7 +8,7 @@ import com.daml.lf.transaction.VersionTimeline
 final case class VersionRange[V](
     min: V,
     max: V,
-) {
+)(implicit ev: VersionTimeline.SubVersion[V]) {
   import VersionTimeline._
   import VersionTimeline.Implicits._
 
@@ -19,13 +19,10 @@ final case class VersionRange[V](
       max = minVersion(this.max, that.max)
     )
 
-  def nonEmpty(implicit ev: VersionTimeline.SubVersion[V]): Boolean =
+  def nonEmpty: Boolean =
     !(max precedes min)
 
-  def contains(v: V)(implicit ev: VersionTimeline.SubVersion[V]): Boolean =
+  def contains(v: V): Boolean =
     !((max precedes v) || (v precedes min))
-
-  def map[W](f: V => W): VersionRange[W] =
-    VersionRange(f(min), f(max))
 
 }

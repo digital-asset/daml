@@ -1,0 +1,26 @@
+-- @ERROR range= 21:0-21:19; Attempt to fetch or exercise a contract not visible to the committer.
+module FailedFetch where
+
+template T
+  with
+    p: Party
+  where
+    signatory p
+
+template Helper
+  with
+    p: Party
+  where
+    signatory p
+    choice Fetch : T
+      with
+        id : ContractId T
+      controller p
+      do fetch @T id
+
+fetchNonStakeholder = scenario do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  secret <- submit alice (create (T alice))
+  submit bob (createAndExercise (Helper bob) (Fetch secret))
+  return ()

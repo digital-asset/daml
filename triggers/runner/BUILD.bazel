@@ -7,9 +7,14 @@ load(
     "da_scala_library",
 )
 
+tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+    "NonUnitStatements",
+]]
+
 da_scala_library(
     name = "trigger-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = tsvc_main_scalacopts,
     tags = ["maven_coordinates=com.daml:trigger-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -23,6 +28,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
         "@maven//:com_github_scopt_scopt_2_12",

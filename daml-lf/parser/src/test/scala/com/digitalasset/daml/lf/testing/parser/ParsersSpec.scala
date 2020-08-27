@@ -6,7 +6,7 @@ package com.daml.lf.testing.parser
 import java.math.BigDecimal
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Time}
+import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Implicits._
@@ -97,8 +97,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "a -> b" -> TApp(TApp(TBuiltin(BTArrow), α), β),
         "a -> b -> a" -> TApp(TApp(TBuiltin(BTArrow), α), TApp(TApp(TBuiltin(BTArrow), β), α)),
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
-        "<f1: a, f2: Bool, f3:Mod:T>" -> TStruct(
-          ImmArray[(FieldName, Type)](n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))
+        "<f1: a, f2: Bool, f3:Mod:T>" ->
+          TStruct(Struct(n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))
       )
 
       forEvery(testCases)((stringToParse, expectedType) =>
@@ -414,7 +414,6 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
             DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef
           ),
           templates = List.empty,
-          languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -435,13 +434,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         DValue(t"Int64 -> Int64", true, e"""\(x: Int64) -> ERROR @INT64 "not implemented"""", false)
 
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("fact") -> valDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(DottedName.assertFromString("fact") -> valDef),
+            templates = List.empty,
+            featureFlags = FeatureFlags.default
+          )))
 
     }
 
@@ -503,13 +502,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"), Some(template))
       )
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("Person") -> recDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(DottedName.assertFromString("Person") -> recDef),
+            templates = List.empty,
+            featureFlags = FeatureFlags.default
+          )))
 
     }
 
@@ -548,15 +547,33 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         DataRecord(ImmArray.empty, Some(template))
       )
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("R") -> recDef),
-          templates = List.empty,
-          languageVersion = defaultLanguageVersion,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(DottedName.assertFromString("R") -> recDef),
+            templates = List.empty,
+            featureFlags = FeatureFlags.default
+          )))
 
     }
+  }
+
+  "parses location annotations" in {
+    e"loc(Mod, def, 0, 1, 2, 3) f" shouldEqual
+      ELocation(
+        Location(
+          defaultPackageId,
+          ModuleName.assertFromString("Mod"),
+          "def",
+          (0, 1),
+          (2, 3)
+        ),
+        EVar(n"f"),
+      )
+  }
+
+  "rejects bad location annotations" in {
+    a[ParsingError] should be thrownBy e"loc(Mod, def, 0, 1, 2, 3) f g"
   }
 
   private val keywords = Table(

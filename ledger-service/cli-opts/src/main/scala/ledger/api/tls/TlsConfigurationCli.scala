@@ -1,7 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.tls
+package com.daml
+package ledger.api.tls
+
+import cliopts.Setter
 
 import java.nio.file.Paths
 
@@ -9,7 +12,7 @@ import scala.util.Try
 
 object TlsConfigurationCli {
   def parse[C](parser: scopt.OptionParser[C], colSpacer: String)(
-      setter: (TlsConfiguration => TlsConfiguration, C) => C): Unit = {
+      setter: Setter[C, TlsConfiguration]): Unit = {
     def enableSet(tlsUp: TlsConfiguration => TlsConfiguration, c: C) =
       setter(tlsc => tlsUp(tlsc copy (enabled = true)), c)
 

@@ -22,7 +22,7 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
          }
        """
 
-    Recursion.checkPackage(defaultPackageId, p.modules)
+    Recursion.checkPackage(defaultPackageId, p)
 
   }
 
@@ -61,11 +61,9 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
         ${module("E", "E")}
        """
 
-    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
-    an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
-    an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
+    Recursion.checkPackage(defaultPackageId, negativeCase)
+    an[EImportCycle] should be thrownBy Recursion.checkPackage(defaultPackageId, positiveCase1)
+    an[EImportCycle] should be thrownBy Recursion.checkPackage(defaultPackageId, positiveCase2)
 
   }
 
@@ -98,11 +96,9 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
          }
        """
 
-    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
-    an[ETypeSynCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
-    an[ETypeSynCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
+    Recursion.checkPackage(defaultPackageId, negativeCase)
+    an[ETypeSynCycle] should be thrownBy Recursion.checkPackage(defaultPackageId, positiveCase1)
+    an[ETypeSynCycle] should be thrownBy Recursion.checkPackage(defaultPackageId, positiveCase2)
 
   }
 

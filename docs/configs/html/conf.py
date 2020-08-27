@@ -169,13 +169,11 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-extlinks = {
-    'github-asset': ('https://github.com/digital-asset/daml/releases/download/v{}/%s-{}.zip'.format(version, version), None),
-    # For some reason extlinks insists that you can use %s only once.
-    # We need it twice in the URL so we need one URL per Maven artifact.
-    # Using it zero times also doesn’t work so you still have to supply an argument.
-    'ledger-api-test-tool-maven': ('https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{}/%s-{}.jar'.format(version, version), None)
-}
+rst_prolog = """
+.. _installer: https://github.com/digital-asset/daml/releases/download/v{release}/daml-sdk-{release}-windows.exe
+.. _protobufs: https://github.com/digital-asset/daml/releases/download/v{release}/protobufs-{release}.zip
+.. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
+""".format(release = release)
 
 # Import the DAML lexer
 def setup(sphinx):

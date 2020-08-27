@@ -427,6 +427,7 @@ encodeBuiltinExpr = \case
       BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
       BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
       other -> error $ "BEToText unexpected type " <> show other
+    BEToTextContractId -> builtin P.BuiltinFunctionTO_TEXT_CONTRACT_ID
     BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
     BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY

@@ -3,7 +3,7 @@
 
 package com.daml.lf.testing.parser
 
-import com.daml.lf.data.Ref.Name
+import com.daml.lf.data.Ref.{Location, Name}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Parsers._
@@ -73,7 +73,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
           case (acc, EAppExprArg(e)) => EApp(acc, e)
           case (acc, EAppTypArg(t)) => ETyApp(acc, t)
         }
-    }
+    } |
+      eLoc
   }
 
   private lazy val fieldInit: Parser[(Name, Expr)] = id ~ (`=` ~> expr) ^^ {
@@ -254,6 +255,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "TO_TEXT_TIMESTAMP" -> BToTextTimestamp,
     "TO_TEXT_PARTY" -> BToTextParty,
     "TO_TEXT_DATE" -> BToTextDate,
+    "TO_TEXT_CONTRACT_ID" -> BToTextContractId,
     "TO_QUOTED_TEXT_PARTY" -> BToQuotedTextParty,
     "TEXT_FROM_CODE_POINTS" -> BToTextCodePoints,
     "FROM_TEXT_PARTY" -> BFromTextParty,
@@ -384,6 +386,22 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateGetTime |
       updateEmbedExpr
 
+  private lazy val int: Parser[Int] =
+    acceptMatch("Int", { case Number(l) => l.toInt })
+
+  private lazy val eLoc: Parser[Expr] =
+    `loc` ~>! (`(` ~> dottedName) ~ (`,` ~> id) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`)` ~> expr0) ^^ {
+      case m ~ d ~ ls ~ cs ~ le ~ ce ~ e =>
+        val location =
+          Location(
+            parserParameters.defaultPackageId,
+            m,
+            d.toString,
+            (ls, cs),
+            (le, ce),
+          )
+        ELocation(location, e)
+    }
 }
 
 object ExprParser {

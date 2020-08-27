@@ -80,7 +80,9 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
       (id, _.createArguments flatMap fromNamedArguments))
   }
 
+  @com.github.ghik.silencer.silent(" actor .* is never used") // part of generated code API
   protected final def ` exercise`[ExOn, Out](
+      actor: Primitive.Party,
       receiver: ExOn,
       choiceId: String,
       arguments: Option[rpcvalue.Value])(

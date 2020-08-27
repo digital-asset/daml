@@ -277,11 +277,12 @@ genrule(
             --output-hoogle=$(location :daml-base-hoogle.txt) \\
             --output-anchor=$(location :daml-base-anchors.json) \\
             $(location :daml-stdlib.json) $(location :daml-prim.json)
-        tar c daml-base-rst \\
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-            | gzip -n > $(location :daml-base-rst.tar.gz)
+        $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) daml-base-rst
     """,
-    tools = ["//compiler/damlc"],
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "//compiler/damlc",
+    ],
     visibility = ["//visibility:public"],
 )
 

@@ -101,7 +101,7 @@ Due to possible conflicts between the ``&`` character and various terminal shell
 
 If you're not familiar with JDBC URLs, see the JDBC docs for more information: https://jdbc.postgresql.org/documentation/head/connect.html
 
-.. _sandbox-authentication:
+.. _sandbox-authorization:
 
 Running with authentication
 ***************************
@@ -140,7 +140,7 @@ use one of the following command line options:
 Token payload
 =============
 
-JWTs express claims which are documented in the :ref:`authentication <authentication-claims>` documentation.
+JWTs express claims which are documented in the :ref:`authorization <authorization-claims>` documentation.
 
 The following is an example of a valid JWT payload:
 
@@ -162,7 +162,7 @@ where
 
 - ``ledgerId``, ``participantId``, ``applicationId`` restricts the validity of the token to the given ledger, participant, or application
 - ``exp`` is the standard JWT expiration date (in seconds since EPOCH)
-- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the :ref:`authentication <authentication-claims>` documentation
+- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the :ref:`authorization <authorization-claims>` documentation
 
 The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
 

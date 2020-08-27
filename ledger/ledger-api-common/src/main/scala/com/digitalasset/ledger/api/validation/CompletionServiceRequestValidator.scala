@@ -4,7 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.domain.{ApplicationId, LedgerId}
+import com.daml.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset}
 import com.daml.ledger.api.messages.command.completion
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -21,7 +21,10 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
 
   private val partyValidator = new PartyValidator(partyNameChecker)
 
-  def validateCompletionStreamRequest(request: GrpcCompletionStreamRequest)
+  def validateCompletionStreamRequest(
+      request: GrpcCompletionStreamRequest,
+      ledgerEnd: LedgerOffset.Absolute,
+      offsetOrdering: Ordering[LedgerOffset.Absolute])
     : Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -33,6 +36,11 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
       nonEmptyParties <- requireNonEmpty(request.parties, "parties")
       knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
       convertedOffset <- LedgerOffsetValidator.validateOptional(request.offset, "offset")
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+        "Begin",
+        convertedOffset,
+        ledgerEnd,
+        offsetOrdering)
     } yield
       CompletionStreamRequest(
         ledgerId,

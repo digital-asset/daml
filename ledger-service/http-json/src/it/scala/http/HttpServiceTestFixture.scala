@@ -25,6 +25,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -47,7 +48,8 @@ object HttpServiceTestFixture {
       jdbcConfig: Option[JdbcConfig],
       staticContentConfig: Option[StaticContentConfig],
       leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
-      useTls: UseTls = UseTls.NoTls
+      useTls: UseTls = UseTls.NoTls,
+      wsConfig: Option[WebsocketConfig] = None,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
@@ -71,12 +73,11 @@ object HttpServiceTestFixture {
       config = Config(
         ledgerHost = "localhost",
         ledgerPort = ledgerPort.value,
-        applicationId = applicationId,
         address = "localhost",
         httpPort = 0,
         portFile = None,
         tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
-        wsConfig = Some(Config.DefaultWsConfig),
+        wsConfig = wsConfig,
         accessTokenFile = None,
         allowNonHttps = leakPasswords,
         staticContentConfig = staticContentConfig,
@@ -117,7 +118,7 @@ object HttpServiceTestFixture {
           Seq(
             ledgerF.map(_._1.close()),
             httpServiceF.flatMap(_.unbind()),
-          ) map (_ fallbackTo Future.successful(())))
+          ) map (_ fallbackTo Future.unit))
         .transform(_ => ta)
     }
   }
@@ -167,7 +168,7 @@ object HttpServiceTestFixture {
       authService: Option[AuthService] = None,
       useTls: UseTls = UseTls.NoTls
   ): SandboxConfig =
-    SandboxServer.defaultConfig.copy(
+    sandbox.DefaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.WallClock),

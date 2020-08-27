@@ -13,7 +13,7 @@ import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time
+import com.daml.lf.data.{ImmArray, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -58,7 +58,7 @@ object ScriptIds {
 class ConverterException(message: String) extends RuntimeException(message)
 
 case class AnyTemplate(ty: Identifier, arg: SValue)
-case class AnyChoice(name: String, arg: SValue)
+case class AnyChoice(name: ChoiceName, arg: SValue)
 case class AnyContractKey(key: SValue)
 
 object Converter {
@@ -98,7 +98,10 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 2 => {
         vals.get(0) match {
           case SAny(_, choiceVal @ SRecord(_, _, _)) =>
-            Right(AnyChoice(choiceVal.id.qualifiedName.name.toString, choiceVal))
+            for { // This exploits the fact that in DAML, choice argument type names
+              // and choice names match up.
+              name <- ChoiceName.fromString(choiceVal.id.qualifiedName.name.toString)
+            } yield AnyChoice(name, choiceVal)
           case _ => Left(s"Expected SAny but got $v")
         }
       }
@@ -123,7 +126,7 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 1 => {
         vals.get(0) match {
           case STypeRep(TTyCon(ty)) => Right(ty)
-          case x => Left(s"Expected STypeRep but got $v")
+          case x => Left(s"Expected STypeRep but got $x")
         }
       }
       case _ => Left(s"Expected TemplateTypeRep but got $v")
@@ -139,7 +142,7 @@ object Converter {
         } yield
           ScriptLedgerClient.CreateCommand(
             templateId = anyTemplate.ty,
-            argument = anyTemplate.arg.toValue,
+            argument = anyTemplate.arg
           )
       }
       case _ => Left(s"Expected Create but got $v")
@@ -164,7 +167,7 @@ object Converter {
             templateId = tplId,
             contractId = cid,
             choice = anyChoice.name,
-            argument = anyChoice.arg.toValue,
+            argument = anyChoice.arg,
           )
       }
       case _ => Left(s"Expected Exercise but got $v")
@@ -181,9 +184,9 @@ object Converter {
         } yield
           ScriptLedgerClient.ExerciseByKeyCommand(
             templateId = tplId,
-            key = anyKey.key.toValue,
+            key = anyKey.key,
             choice = anyChoice.name,
-            argument = anyChoice.arg.toValue,
+            argument = anyChoice.arg,
           )
       }
       case _ => Left(s"Expected ExerciseByKey but got $v")
@@ -198,9 +201,9 @@ object Converter {
         } yield
           ScriptLedgerClient.CreateAndExerciseCommand(
             templateId = anyTemplate.ty,
-            template = anyTemplate.arg.toValue,
+            template = anyTemplate.arg,
             choice = anyChoice.name,
-            argument = anyChoice.arg.toValue,
+            argument = anyChoice.arg,
           )
       }
       case _ => Left(s"Expected CreateAndExercise but got $v")
@@ -214,7 +217,7 @@ object Converter {
       Array(),
       2,
       SEApp(
-        SEBuiltin(SBStructCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
+        SEBuiltin(SBStructCon(ImmArray(Name.assertFromString("a"), Name.assertFromString("b")))),
         Array(SELocA(0), SELocA(1))),
     )
     val machine =
@@ -382,9 +385,7 @@ object Converter {
 
   // Helper to construct a record
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-    val fieldNames = Name.Array(fields.map({
-      case (n, _) => Name.assertFromString(n)
-    }): _*)
+    val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to[ImmArray]
     val args =
       new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
     SRecord(ty, fieldNames, args)

@@ -10,6 +10,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
@@ -44,7 +45,7 @@ private[lf] object Compiler {
 
   private val SEGetTime = SEBuiltin(SBGetTime)
 
-  private def SBCompareNumeric(b: SBuiltin) =
+  private def SBCompareNumeric(b: SBuiltinPure) =
     SEAbs(3, SEApp(SEBuiltin(b), Array(SEVar(2), SEVar(1))))
   private val SBLessNumeric = SBCompareNumeric(SBLess)
   private val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
@@ -171,17 +172,29 @@ private[lf] final case class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): SExpr =
-    validate(closureConvert(Map.empty, translateCommands(cmds)))
+    validate(compilationPipeline(translateCommands(cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(expr: Expr): SExpr =
-    validate(closureConvert(Map.empty, translate(expr)))
+    validate(compilationPipeline(translate(expr)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeClosureConvert(sexpr: SExpr): SExpr =
-    validate(closureConvert(Map.empty, sexpr))
+    validate(compilationPipeline(sexpr))
+
+  // Run the compilation pipeline phases:
+  // (1) closure conversion
+  // (2) transform to ANF
+  private[this] def compilationPipeline(sexpr: SExpr): SExpr = {
+    val doANF = true
+    if (doANF) {
+      flattenToAnf(closureConvert(Map.empty, sexpr))
+    } else {
+      closureConvert(Map.empty, sexpr)
+    }
+  }
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -264,12 +277,6 @@ private[lf] final case class Compiler(
       case EVal(ref) => SEVal(LfDefRef(ref))
       case EBuiltin(bf) =>
         bf match {
-          case BFoldl =>
-            val ref = SEBuiltinRecursiveDefinition.FoldL
-            withLabel(ref.ref, ref)
-          case BFoldr =>
-            val ref = SEBuiltinRecursiveDefinition.FoldR
-            withLabel(ref.ref, ref)
           case BEqualList =>
             val ref = SEBuiltinRecursiveDefinition.EqualList
             withLabel(ref.ref, ref)
@@ -323,6 +330,7 @@ private[lf] final case class Compiler(
               case BToTextTimestamp => SBToText
               case BToTextParty => SBToText
               case BToTextDate => SBToText
+              case BToTextContractId => SBToTextContractId
               case BToQuotedTextParty => SBToQuotedTextParty
               case BToTextCodePoints => SBToTextCodePoints
               case BFromTextParty => SBFromTextParty
@@ -331,6 +339,10 @@ private[lf] final case class Compiler(
               case BFromTextCodePoints => SBFromTextCodePoints
 
               case BSHA256Text => SBSHA256Text
+
+              // List functions
+              case BFoldl => SBFoldl
+              case BFoldr => SBFoldr
 
               // Errors
               case BError => SBError
@@ -404,10 +416,10 @@ private[lf] final case class Compiler(
 
       case ERecCon(tApp, fields) =>
         if (fields.isEmpty)
-          SEBuiltin(SBRecCon(tApp.tycon, Name.Array.empty))
+          SEBuiltin(SBRecCon(tApp.tycon, ImmArray.empty))
         else {
           SEApp(
-            SEBuiltin(SBRecCon(tApp.tycon, Name.Array(fields.map(_._1).toSeq: _*))),
+            SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),
             fields.iterator.map(f => translate(f._2)).toArray,
           )
         }
@@ -417,16 +429,26 @@ private[lf] final case class Compiler(
           translate(record),
         )
 
-      case ERecUpd(tapp, field, record, update) =>
-        SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, field))(
-          translate(record),
-          translate(update),
-        )
+      case erecupd: ERecUpd => {
+        val tapp = erecupd.tycon
+        val (record, fields, updates) = collectRecUpds(erecupd)
+        if (fields.length == 1) {
+          SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, fields.head))(
+            translate(record),
+            translate(updates.head),
+          )
+        } else {
+          SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).toArray)(
+            (record :: updates).map(translate): _*,
+          )
+        }
+      }
 
       case EStructCon(fields) =>
-        SEApp(SEBuiltin(SBStructCon(Name.Array(fields.map(_._1).toSeq: _*))), fields.iterator.map {
-          case (_, e) => translate(e)
-        }.toArray)
+        SEApp(
+          SEBuiltin(SBStructCon(fields.map(_._1))),
+          fields.iterator.map { case (_, e) => translate(e) }.toArray
+        )
 
       case EStructProj(field, struct) =>
         SBStructProj(field)(translate(struct))
@@ -625,7 +647,7 @@ private[lf] final case class Compiler(
                         SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
                         SEVar(3) // token
                       ),
-                    ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
+                    ) in SBStructCon(ImmArray(contractIdFieldName, contractFieldName))(
                       SEVar(3), // contract id
                       SEVar(2) // contract
                     )
@@ -838,7 +860,7 @@ private[lf] final case class Compiler(
 
   private def encodeKeyWithMaintainers(key: SExpr, tmplKey: TemplateKey): SExpr =
     SELet(key) in
-      SBStructCon(Name.Array(keyFieldName, maintainersFieldName))(
+      SBStructCon(ImmArray(keyFieldName, maintainersFieldName))(
         SEVar(1), // key
         SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ )),
       )
@@ -927,6 +949,26 @@ private[lf] final case class Compiler(
         (binding :: bindings, body2)
       case e => (List.empty, e)
     }
+
+  @tailrec
+  private def stripLocs(expr: Expr): Expr =
+    expr match {
+      case ELocation(_, expr1) => stripLocs(expr1)
+      case _ => expr
+    }
+
+  // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
+  private def collectRecUpds(expr: Expr): (Expr, List[Name], List[Expr]) = {
+    @tailrec
+    def go(expr: Expr, fields: List[Name], updates: List[Expr]): (Expr, List[Name], List[Expr]) =
+      stripLocs(expr) match {
+        case ERecUpd(_, field, record, update) =>
+          go(record, field :: fields, update :: updates)
+        case _ =>
+          (expr, fields, updates)
+      }
+    go(expr, List.empty, List.empty)
+  }
 
   private def lookupPackage(pkgId: PackageId): Package =
     if (packages.isDefinedAt(pkgId)) packages(pkgId)
@@ -1057,10 +1099,6 @@ private[lf] final case class Compiler(
         val newArgs = args.map(closureConvert(remaps, _))
         SEApp(newFun, newArgs)
 
-      case SEAppSaturatedBuiltinFun(builtin, args) =>
-        val newArgs = args.map(closureConvert(remaps, _))
-        SEAppSaturatedBuiltinFun(builtin, newArgs)
-
       case SECase(scrut, alts) =>
         SECase(
           closureConvert(remaps, scrut),
@@ -1090,11 +1128,18 @@ private[lf] final case class Compiler(
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
 
-      case x: SEWronglyTypeContractId =>
-        throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+      case x: SEDamlException =>
+        throw CompilationError(s"unexpected SEDamlException: $x")
 
       case x: SEImportValue =>
         throw CompilationError(s"unexpected SEImportValue: $x")
+
+      case x: SEAppAtomicGeneral => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SEAppAtomicSaturatedBuiltin =>
+        throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SELet1General => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SELet1Builtin => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SECaseAtomic => throw CompilationError(s"closureConvert: unexpected: $x")
     }
   }
 
@@ -1139,8 +1184,6 @@ private[lf] final case class Compiler(
           args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAppAtomicFun(fun, args) =>
           args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
-        case SEAppSaturatedBuiltinFun(_, args) =>
-          args.foldLeft(free)((acc, arg) => go(arg, bound, acc))
         case SEAbs(n, body) =>
           go(body, bound + n, free)
         case x: SELoc =>
@@ -1159,10 +1202,16 @@ private[lf] final case class Compiler(
           go(body, bound, go(handler, bound, go(fin, bound, free)))
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
-        case x: SEWronglyTypeContractId =>
-          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+        case x: SEDamlException =>
+          throw CompilationError(s"unexpected SEDamlException: $x")
         case x: SEImportValue =>
           throw CompilationError(s"unexpected SEImportValue: $x")
+
+        case x: SEAppAtomicGeneral => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SELet1General => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
       }
     go(expr, initiallyBound, Set.empty)
   }
@@ -1213,13 +1262,16 @@ private[lf] final case class Compiler(
         case _: SEBuiltin => ()
         case _: SEBuiltinRecursiveDefinition => ()
         case SEValue(v) => goV(v)
+        case SEAppAtomicGeneral(fun, args) =>
+          go(fun)
+          args.foreach(go)
+        case SEAppAtomicSaturatedBuiltin(_, args) =>
+          args.foreach(go)
         case SEAppGeneral(fun, args) =>
           go(fun)
           args.foreach(go)
         case SEAppAtomicFun(fun, args) =>
           go(fun)
-          args.foreach(go)
-        case SEAppSaturatedBuiltinFun(_, args) =>
           args.foreach(go)
         case x: SEVar =>
           throw CompilationError(s"validate: SEVar encountered: $x")
@@ -1228,6 +1280,7 @@ private[lf] final case class Compiler(
         case SEMakeClo(fvs, n, body) =>
           fvs.foreach(goLoc)
           goBody(0, n, fvs.length)(body)
+        case SECaseAtomic(scrut, alts) => go(SECase(scrut, alts))
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
@@ -1241,6 +1294,8 @@ private[lf] final case class Compiler(
               goBody(maxS + i, maxA, maxF)(rhs)
           }
           goBody(maxS + bounds.length, maxA, maxF)(body)
+        case _: SELet1General => goLets(maxS)(expr)
+        case _: SELet1Builtin => goLets(maxS)(expr)
         case SECatch(body, handler, fin) =>
           go(body)
           go(handler)
@@ -1249,10 +1304,24 @@ private[lf] final case class Compiler(
           go(body)
         case SELabelClosure(_, expr) =>
           go(expr)
-        case x: SEWronglyTypeContractId =>
-          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+        case x: SEDamlException =>
+          throw CompilationError(s"unexpected SEDamlException: $x")
         case x: SEImportValue =>
           throw CompilationError(s"unexpected SEImportValue: $x")
+      }
+      @tailrec
+      def goLets(maxS: Int)(expr: SExpr): Unit = {
+        def go = goBody(maxS, maxA, maxF)
+        expr match {
+          case SELet1General(rhs, body) =>
+            go(rhs)
+            goLets(maxS + 1)(body)
+          case SELet1Builtin(_, args, body) =>
+            args.foreach(go)
+            goLets(maxS + 1)(body)
+          case expr =>
+            go(expr)
+        }
       }
       go
     }

@@ -5,9 +5,11 @@
 {-# LANGUAGE GADTs #-}
 module DA.Daml.LF.ReplClient
   ( Options(..)
+  , ApplicationId(..)
   , MaxInboundMessageSize(..)
   , ReplTimeMode(..)
   , Handle
+  , ReplResponseType(..)
   , withReplClient
   , loadPackage
   , runScript
@@ -41,10 +43,15 @@ newtype MaxInboundMessageSize = MaxInboundMessageSize Int
 
 data ReplTimeMode = ReplWallClock | ReplStatic
 
+data ReplResponseType = ReplText | ReplJson
+
+newtype ApplicationId = ApplicationId String
+
 data Options = Options
   { optServerJar :: FilePath
   , optLedgerConfig :: Maybe (String, String)
   , optMbAuthTokenFile :: Maybe FilePath
+  , optMbApplicationId :: Maybe ApplicationId
   , optMbSslConfig :: Maybe ClientSSLConfig
   , optMaxInboundMessageSize :: Maybe MaxInboundMessageSize
   , optTimeMode :: ReplTimeMode
@@ -87,6 +94,7 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
           | Just (host, port) <- [optLedgerConfig]
           ]
         , [ "--access-token-file=" <> tokenFile | Just tokenFile <- [optMbAuthTokenFile] ]
+        , [ "--application-id=" <> appId | Just (ApplicationId appId)  <- [ optMbApplicationId] ]
         , do Just tlsConf <- [ optMbSslConfig ]
              "--tls" :
                  concat
@@ -119,16 +127,20 @@ loadPackage Handle{..} package = do
         (Grpc.LoadPackageRequest package)
     pure (() <$ r)
 
-runScript :: Handle -> LF.Version -> LF.Module -> IO (Either BackendError (Maybe T.Text))
-runScript Handle{..} version m = do
+runScript :: Handle -> LF.Version -> LF.Module -> ReplResponseType -> IO (Either BackendError (Maybe T.Text))
+runScript Handle{..} version m rspType = do
     r <- performRequest
         (Grpc.replServiceRunScript hClient)
-        (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)))
+        (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)) grpcRspType)
     pure $ fmap handleResult r
-    where bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
-          handleResult r =
-              let t = TL.toStrict (Grpc.runScriptResponseResult r)
-              in if T.null t then Nothing else Just t
+  where
+    bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+    handleResult r =
+        let t = TL.toStrict (Grpc.runScriptResponseResult r)
+        in if T.null t then Nothing else Just t
+    grpcRspType = case rspType of
+        ReplText -> Proto.Enumerated (Right Grpc.RunScriptRequest_FormatTEXT_ONLY)
+        ReplJson -> Proto.Enumerated (Right Grpc.RunScriptRequest_FormatJSON)
 
 
 clearResults :: Handle -> IO (Either BackendError ())

@@ -34,7 +34,7 @@ import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.Graph
 import Data.IORef
-import Data.List (intercalate)
+import Data.List (foldl', intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -74,6 +74,8 @@ import Type (splitTyConApp)
 data Error
     = ParseError MsgDoc
     | UnsupportedStatement String -- ^ E.g., pattern on the LHS
+    | ExpectedExpression String
+    | NotImportedModules [ModuleName]
     | TypeError -- ^ The actual error will be in the diagnostics
     | ScriptError ReplClient.BackendError
 
@@ -83,6 +85,10 @@ renderError dflags err = case err of
         putStrLn (showSDoc dflags err)
     (UnsupportedStatement str) ->
         putStrLn ("Unsupported statement: " <> str)
+    (ExpectedExpression str) ->
+        putStrLn ("Expected an expression but got: " <> str)
+    (NotImportedModules names) ->
+        putStrLn ("Not imported, cannot remove: " <> intercalate ", " (map moduleNameString names))
     TypeError ->
         -- The error will be displayed via diagnostics.
         pure ()
@@ -219,8 +225,60 @@ topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
       ]
     toPkg = (\(pkg, _, _) -> pkg) . fromVertex
 
+-- | Mapping from module name to all imports for that module.
+--
+-- Invariant: Imports for a module should be associated to its module name and
+-- multiple imports of a module should never subsume each other, see
+-- 'importInsert'.
+--
+-- This avoids redundant import lines and eases removing of module imports.
+newtype Imports = Imports (Map.Map ModuleName [ImportDecl GhcPs])
+
+-- | Add an import declaration.
+--
+-- If the new import declaration subsumes a previous import declaration, then
+-- new one will replace the old one. If the new import declaration is subsumed
+-- by an already existing import declaration, then it will not be added.
+--
+-- Subsumption of import declarations is based on the implementation of
+-- 'GHCi.UI.iiSubsumes'. Note, that this is not fully precise. For example,
+-- @import DA.Time (days, hours)@ should subsume @import DA.Time (hours)@, but
+-- does not because of different source locations on the imported symbols.
+importInsert :: ImportDecl GhcPs -> Imports -> Imports
+importInsert i (Imports m) = Imports $ Map.alter insert name m
+  where
+    name = unLoc . ideclName $ i
+    -- Based on 'GHCi.UI.addNotSubsumed'.
+    insert Nothing = Just [i]
+    insert (Just is)
+      | any (`subsumes` i) is = Just is
+      | otherwise = Just $! i : filter (not . (i `subsumes`)) is
+    -- Based on 'GHCi.UI.iiSubsumes'.
+    --
+    -- Returns True if the left import subsumes the right one.
+    d1 `subsumes` d2
+      = unLoc (ideclName d1) == unLoc (ideclName d2)
+        && ideclAs d1 == ideclAs d2
+        && (not (ideclQualified d1) || ideclQualified d2)
+        && (ideclHiding d1 `hidingSubsumes` ideclHiding d2)
+    _                    `hidingSubsumes` Just (False, L _ []) = True
+    Just (False, L _ xs) `hidingSubsumes` Just (False, L _ ys) = all (`elem` xs) ys
+    h1                   `hidingSubsumes` h2                   = h1 == h2
+
+importDelete :: ModuleName -> Imports -> Imports
+importDelete name (Imports m) = Imports $ Map.delete name m
+
+importMember :: ModuleName -> Imports -> Bool
+importMember name (Imports m) = Map.member name m
+
+importFromList :: [ImportDecl GhcPs] -> Imports
+importFromList = foldl' (flip importInsert) (Imports Map.empty)
+
+importToList :: Imports -> [ImportDecl GhcPs]
+importToList (Imports imports) = concat $ Map.elems imports
+
 data ReplState = ReplState
-  { imports :: ![ImportDecl GhcPs]
+  { imports :: !Imports
   , bindings :: ![(LPat GhcPs, Type)]
   , lineNumber :: !Int
   }
@@ -253,7 +311,7 @@ loadPackages :: [(LF.PackageName, Maybe LF.PackageVersion)] -> ReplClient.Handle
 loadPackages importPkgs replClient ideState = do
     -- Load packages
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
-    Just stablePkgs <- runAction ideState (use GenerateStablePackages "Dummy.daml")
+    Just stablePkgs <- runAction ideState (useNoFile GenerateStablePackages)
     for_ (topologicalSort (toList pkgs <> toList stablePkgs)) $ \pkg -> do
         r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)
         case r of
@@ -316,7 +374,7 @@ runRepl
 runRepl importPkgs opts replClient logger ideState = do
     imports <- loadPackages importPkgs replClient ideState
     let initReplState = ReplState
-          { imports = imports
+          { imports = importFromList imports
           , bindings = []
           , lineNumber = 0
           }
@@ -325,8 +383,8 @@ runRepl importPkgs opts replClient logger ideState = do
           where
             banner = pure "daml> "
             command = replLine
-            options = []
-            prefix = Nothing
+            options = replOptions
+            prefix = Just ':'
             tabComplete = Repl.Cursor $ \_ _ -> pure []
             initialiser = pure ()
     State.evalStateT replM initReplState
@@ -335,27 +393,34 @@ runRepl importPkgs opts replClient logger ideState = do
         :: DynFlags
         -> String
         -> Stmt GhcPs (LHsExpr GhcPs)
+        -> ReplClient.ReplResponseType
         -> ExceptT Error ReplM ()
-    handleStmt dflags line stmt = do
+    handleStmt dflags line stmt rspType = do
         ReplState {imports, bindings, lineNumber} <- State.get
         supportedStmt <- maybe (throwError (UnsupportedStatement line)) pure (validateStmt stmt)
         let rendering = renderModule dflags imports lineNumber bindings supportedStmt
-        (lfMod, tmrModule -> tcMod) <- printDelayedDiagnostics $ case rendering of
-            BindingRendering t ->
+        (lfMod, tmrModule -> tcMod) <- printDelayedDiagnostics $ case (rspType, rendering) of
+            (ReplClient.ReplText, BindingRendering t) ->
                 tryTypecheck lineNumber (T.pack t)
-            BodyRenderings {..} ->
+            (ReplClient.ReplText, BodyRenderings {..}) ->
                 withExceptT getLast
                 $   withExceptT Last (tryTypecheck lineNumber (T.pack unitScript))
                 <!> withExceptT Last (tryTypecheck lineNumber (T.pack printableScript))
-                <!> withExceptT Last (tryTypecheck lineNumber (T.pack nonprintableScript))
+                <!> withExceptT Last (tryTypecheck lineNumber (T.pack arbitraryScript))
                 <!> withExceptT Last (tryTypecheck lineNumber (T.pack purePrintableExpr))
+            (ReplClient.ReplJson, BindingRendering _) ->
+                throwError (ExpectedExpression line, [])
+            (ReplClient.ReplJson, BodyRenderings {..}) ->
+                withExceptT getLast
+                $   withExceptT Last (tryTypecheck lineNumber (T.pack arbitraryScript))
+                <!> withExceptT Last (tryTypecheck lineNumber (T.pack pureArbitraryExpr))
         -- Type of the statement so we can give it a type annotation
         -- and avoid incurring a typeclass constraint.
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
         -- If we get an error we don’t increment lineNumber and we
         -- do not get a new binding
         mbResult <- withExceptT ScriptError $ ExceptT $ liftIO $
-            ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
+            ReplClient.runScript replClient (optDamlLfVersion opts) lfMod rspType
         liftIO $ whenJust mbResult T.putStrLn
         let boundVars = stmtBoundVars supportedStmt
             boundVars' = mkOccSet $ map occName boundVars
@@ -393,17 +458,7 @@ runRepl importPkgs opts replClient logger ideState = do
         :: DynFlags
         -> ImportDecl GhcPs
         -> ExceptT Error ReplM ()
-    handleImport dflags imp = do
-        ReplState {imports, lineNumber} <- State.get
-        -- TODO[AH] Deduplicate imports.
-        let newImports = imp : imports
-        -- TODO[AH] Factor out the module render and typecheck step.
-        liftIO $ setBufferModified ideState (lineFilePath lineNumber)
-            $ Just $ T.pack (unlines $ moduleHeader dflags newImports lineNumber)
-        _ <- maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
-                <*> useE TypeCheck (lineFilePath lineNumber))
-        State.modify $ \s -> s { imports = newImports }
+    handleImport dflags imp = addImports dflags [imp]
     replLine :: String -> ReplM ()
     replLine line = do
         ReplState {lineNumber} <- State.get
@@ -413,11 +468,75 @@ runRepl importPkgs opts replClient logger ideState = do
         r <- runExceptT $ do
             input <- ExceptT $ pure $ parseReplInput line dflags
             case input of
-                ReplStatement stmt -> handleStmt dflags line stmt
+                ReplStatement stmt -> handleStmt dflags line stmt ReplClient.ReplText
                 ReplImport imp -> handleImport dflags imp
         case r of
             Left err -> liftIO $ renderError dflags err
             Right () -> pure ()
+
+    mkReplOption
+        :: (DynFlags -> [String] -> ExceptT Error ReplM ())
+        -> [String] -> ReplM ()
+    mkReplOption option args = do
+        ReplState {lineNumber} <- State.get
+        dflags <- liftIO $
+            hsc_dflags . hscEnv <$>
+            runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
+        r <- runExceptT $ option dflags args
+        case r of
+            Left err -> liftIO $ renderError dflags err
+            Right () -> pure ()
+    replOptions :: [(String, [String] -> ReplM ())]
+    replOptions =
+      [ ("help", mkReplOption optHelp)
+      , ("json", mkReplOption optJson)
+      , ("module", mkReplOption optModule)
+      , ("show", mkReplOption optShow)
+      ]
+    optHelp _dflags _args = liftIO $ T.putStrLn $ T.unlines
+      [ " Commands available from the prompt:"
+      , ""
+      , "   <statement>                 evaluate/run <statement>"
+      , "   :json <expression>          evaluate/run <expression> and print the result in JSON format"
+      , "   :module [+/-] <mod> ...     add or remove the modules from the import list"
+      , "   :show imports               show the current module imports"
+      ]
+    optJson dflags (unwords -> line) = do
+        input <- ExceptT $ pure $ parseReplInput line dflags
+        case input of
+            ReplStatement stmt -> handleStmt dflags line stmt ReplClient.ReplJson
+            ReplImport _ -> throwError (ExpectedExpression line)
+    optModule _dflags ("-" : names) =
+        removeImports $ map mkModuleName names
+    optModule dflags ("+" : names) =
+        addImports dflags $ map (simpleImportDecl . mkModuleName) names
+    optModule dflags names =
+        addImports dflags $ map (simpleImportDecl . mkModuleName) names
+    optShow dflags ["imports"] = do
+        ReplState {imports} <- State.get
+        liftIO $ putStr $ unlines $ moduleImports dflags imports
+    optShow _dflags _ = liftIO $ putStrLn ":show [imports]"
+
+    addImports
+        :: DynFlags
+        -> [ImportDecl GhcPs]
+        -> ExceptT Error ReplM ()
+    addImports dflags additional = do
+        ReplState {imports, lineNumber} <- State.get
+        let newImports = foldl' (flip importInsert) imports additional
+        _ <- printDelayedDiagnostics $ tryTypecheck lineNumber $
+            T.pack (unlines $ moduleHeader dflags newImports lineNumber)
+        State.modify $ \s -> s { imports = newImports }
+    removeImports
+        :: [ModuleName]
+        -> ExceptT Error ReplM ()
+    removeImports modules = do
+        ReplState {imports} <- lift State.get
+        let unknown = [name | name <- modules, not $ name `importMember` imports]
+            newImports = foldl' (flip importDelete) imports modules
+        unless (null unknown) $
+            throwError $ NotImportedModules unknown
+        lift $ State.modify $ \s -> s { imports = newImports }
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
@@ -446,34 +565,41 @@ data ModuleRenderings
         , printableScript :: String
           -- ^ e :: Script a with for some a that is an instance of Show. Here
           -- we print the result.
-        , nonprintableScript :: String
-          -- ^ e :: Script a for some a that is not an instance of Show.
+        , arbitraryScript :: String
+          -- ^ e :: Script a for some a that may not be an instance of Show.
         , purePrintableExpr :: String
           -- ^ e :: a for some a that is an instance of Show. Here we
           -- print the result. Note that we do not support
           -- non-printable pure expressions since there is no
           -- reason to run them.
+        , pureArbitraryExpr :: String
+          -- ^ e :: a for some a that may not be an instance of Show.
         }
+
+moduleImports
+    :: DynFlags
+    -> Imports
+    -> [String]
+moduleImports dflags imports =
+    "import Daml.Script -- implicit"
+    : map renderImport (importToList imports)
+  where
+    renderImport imp = showSDoc dflags (ppr imp)
 
 moduleHeader
     :: DynFlags
-    -> [ImportDecl GhcPs]
+    -> Imports
     -> Int
     -> [String]
 moduleHeader dflags imports line =
     [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
     , "{-# LANGUAGE PartialTypeSignatures #-}"
     , "module " <> lineModuleName line <> " where"
-    ] <>
-    ( "import Daml.Script"
-    : map renderImport imports
-    )
-  where
-    renderImport imp = showSDoc dflags (ppr imp)
+    ] <> moduleImports dflags imports
 
 renderModule
     :: DynFlags
-    -> [ImportDecl GhcPs]
+    -> Imports
     -> Int
     -> [(LPat GhcPs, Type)]
     -> SupportedStatement
@@ -500,7 +626,7 @@ renderModule dflags imports line binds stmt = case stmt of
               , exprLhs
               , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
               ]
-          , nonprintableScript = unlines $
+          , arbitraryScript = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script _"
               , exprLhs
@@ -512,6 +638,13 @@ renderModule dflags imports line binds stmt = case stmt of
               , exprLhs
               , showSDoc dflags $ Outputable.nest 2 $ ppr $
                 returnShowAp expr
+              ]
+          , pureArbitraryExpr = unlines $
+              moduleHeader dflags imports line <>
+              [ exprTy "Script _"
+              , exprLhs
+              , showSDoc dflags $ Outputable.nest 2 $ ppr $
+                returnAp $ noLoc $ HsPar noExt expr
               ]
           }
     LetStatement binding ->

@@ -44,6 +44,7 @@ import DA.Optional
 import DA.Random
 import DA.Record
 import DA.Semigroup
+import DA.Stack
 import DA.Text
 import DA.TextMap
 import DA.Time

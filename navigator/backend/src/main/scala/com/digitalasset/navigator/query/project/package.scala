@@ -7,6 +7,7 @@ import com.daml.navigator.dotnot._
 import com.daml.navigator.model._
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.json.ApiValueImplicits._
+import com.github.ghik.silencer.silent
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -60,8 +61,7 @@ object project {
             ddt <- ps(tc.name.identifier)
               .toRight(UnknownType(tc.name.identifier.toString, cursor, value))
             nextCursor <- cursor.next.toRight(MustNotBeLastPart("DataType", cursor, value))
-            //nextField   <- tc.instantiate(ddt) match {
-            nextField <- damlLfInstantiate(tc, ddt) match {
+            nextField <- tc.instantiate(ddt) match {
               case DamlLfRecord(fields) =>
                 fields
                   .find(f => f._1 == nextCursor.current)
@@ -109,6 +109,7 @@ object project {
     rootArgument.fold[Either[DotNotFailure, ProjectValue]](Right(StringValue("")))(
       checkValue(_, cursor, expectedValue, ps))
 
+  @silent(" ps .* is never used") // conforms to `opaque`'s signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,

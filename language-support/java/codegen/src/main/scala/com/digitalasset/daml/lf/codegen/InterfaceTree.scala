@@ -26,7 +26,7 @@ private[codegen] final case class InterfaceTree(
     interface: Interface) {
 
   def process(f: NodeWithContext => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
-    bfs(Future.successful(())) {
+    bfs(Future.unit) {
       case (a, nodeWithContext) => a.zipWith(f(nodeWithContext))((_, _) => ())(ec)
     }
   }

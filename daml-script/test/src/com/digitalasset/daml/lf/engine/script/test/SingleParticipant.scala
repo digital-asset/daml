@@ -20,7 +20,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 
@@ -29,6 +29,8 @@ import com.daml.lf.engine.script.{Party => ScriptParty, _}
 case class Config(
     ledgerPort: Int,
     darPath: File,
+    // 1.dev DAR
+    devDarPath: File,
     wallclockTime: Boolean,
     auth: Boolean,
     // We use the presence of a root CA as a proxy for whether to enable TLS or not.
@@ -384,6 +386,28 @@ case class TestAuth(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestContractId(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("TestContractId:testContractId"))
+  def runTests(): Unit = {
+    runner.genericTest(
+      "testContractId",
+      scriptId,
+      None, {
+        case SRecord(_, _, vals) if vals.size == 2 => {
+          (vals.get(0), vals.get(1)) match {
+            case (SContractId(cid), SText(t)) =>
+              TestRunner.assertEqual(t, cid.coid, "contract ids")
+            case (a, b) =>
+              Left(s"Expected SContractId, SText but got $a, $b")
+          }
+        }
+        case v => Left(s"Expected Tuple2 but got $v")
+      }
+    )
+  }
+}
+
 object SingleParticipant {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
@@ -397,13 +421,17 @@ object SingleParticipant {
       .required()
       .action((d, c) => c.copy(darPath = d))
 
+    arg[File]("dev-dar")
+      .required()
+      .action((d, c) => c.copy(devDarPath = d))
+
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
+      .action { (_, c) =>
         c.copy(wallclockTime = true)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")
     opt[Unit]("auth")
-      .action { (f, c) =>
+      .action { (_, c) =>
         c.copy(auth = true)
       }
 
@@ -412,14 +440,13 @@ object SingleParticipant {
       .action((d, c) => c.copy(rootCa = Some(d)))
   }
 
-  private val applicationId = ApplicationId("DAML Script Tests")
-
   def getToken(parties: List[String], admin: Boolean): String = {
     val payload = AuthServiceJWTPayload(
       ledgerId = None,
       participantId = None,
       exp = None,
-      applicationId = None,
+      // Set the application id to make sure it is set correctly.
+      applicationId = Some("daml-script-test"),
       actAs = parties,
       admin = admin,
       readAs = List()
@@ -433,13 +460,20 @@ object SingleParticipant {
   }
 
   def main(args: Array[String]): Unit = {
-    configParser.parse(args, Config(0, null, false, false, None)) match {
+    configParser.parse(args, Config(0, null, null, false, false, None)) match {
       case None =>
         sys.exit(1)
       case Some(config) =>
         val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
           DarReader().readArchiveFromFile(config.darPath).get
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
+          case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        }
+
+        println(config.devDarPath)
+        val encodedDevDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+          DarReader().readArchiveFromFile(config.devDarPath).get
+        val devDar: Dar[(PackageId, Package)] = encodedDevDar.map {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
@@ -452,10 +486,15 @@ object SingleParticipant {
                 ApiParameters(
                   "localhost",
                   config.ledgerPort,
-                  Some(getToken(List("Alice"), false)))),
+                  Some(getToken(List("Alice"), false)),
+                  Some(ApplicationId("daml-script-test")))),
               (
                 Participant("bob"),
-                ApiParameters("localhost", config.ledgerPort, Some(getToken(List("Bob"), false))))
+                ApiParameters(
+                  "localhost",
+                  config.ledgerPort,
+                  Some(getToken(List("Bob"), false)),
+                  Some(ApplicationId("daml-script-test"))))
             ).toMap,
             List(
               (ScriptParty("Alice"), Participant("alice")),
@@ -463,13 +502,15 @@ object SingleParticipant {
           )
         } else {
           Participants(
-            Some(ApiParameters("localhost", config.ledgerPort, None)),
+            Some(ApiParameters("localhost", config.ledgerPort, None, None)),
             Map.empty,
             Map.empty)
         }
 
         val runner =
           new TestRunner(participantParams, dar, config.wallclockTime, config.rootCa)
+        val devRunner =
+          new TestRunner(participantParams, devDar, config.wallclockTime, config.rootCa)
         if (!config.auth) {
           TraceOrder(dar, runner).runTests()
           Test0(dar, runner).runTests()
@@ -486,6 +527,7 @@ object SingleParticipant {
           TestStack(dar, runner).runTests()
           TestMaxInboundMessageSize(dar, runner).runTests()
           ScriptExample(dar, runner).runTests()
+          TestContractId(devDar, devRunner).runTests()
           // Keep this at the end since it changes the time and we cannot go backwards.
           if (!config.wallclockTime) {
             SetTime(dar, runner).runTests()

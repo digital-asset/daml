@@ -18,15 +18,15 @@ import com.daml.lf.value.Value.ContractId
   * contract ids -- e.g. contract ids that were created
   * _outside_ this transaction.
   * See also https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
+  *
+  * @param disclosure Disclosure, specified in terms of local node IDs
+  * @param divulgence
+  *     Divulgence, specified in terms of contract IDs.
+  *     Note that if this info was produced by blinding a transaction
+  *     containing only contract ids, this map may also
+  *     contain contracts produced in the same transaction.
   */
 final case class BlindingInfo(
-    /** Disclosure, specified in terms of local node IDs */
     disclosure: Relation[NodeId, Party],
-    /**
-      * Divulgence, specified in terms of contract IDs.
-      * Note that if this info was produced by blinding a transaction
-      * containing only contract ids, this map may also
-      * contain contracts produced in the same transaction.
-      */
     divulgence: Relation[ContractId, Party],
 )

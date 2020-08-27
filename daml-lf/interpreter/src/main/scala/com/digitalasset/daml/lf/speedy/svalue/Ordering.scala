@@ -5,11 +5,10 @@ package com.daml.lf
 package speedy
 package svalue
 
-import com.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
+import com.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Utf8}
 import com.daml.lf.data.ScalazEqual._
-import com.daml.lf.language.Ast
+import com.daml.lf.language.TypeOrdering
 import com.daml.lf.speedy.SError.SErrorCrash
-import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 
@@ -17,96 +16,6 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 object Ordering extends scala.math.Ordering[SValue] {
-
-  private def zipAndPush[X, Y](
-      xs: Iterator[X],
-      ys: Iterator[Y],
-      stack: FrontStack[(X, Y)],
-  ): FrontStack[(X, Y)] =
-    (xs zip ys).to[ImmArray] ++: stack
-
-  private def compareIdentifier(name1: Ref.TypeConName, name2: Ref.TypeConName): Int = {
-    val compare1 = name1.packageId compareTo name2.packageId
-    if (compare1 != 0) {
-      compare1
-    } else {
-      val compare2 = name1.qualifiedName.module compareTo name2.qualifiedName.module
-      if (compare2 != 0)
-        compare2
-      else
-        name1.qualifiedName.name compareTo name2.qualifiedName.name
-    }
-  }
-
-  val builtinTypeIdx =
-    List(
-      Ast.BTUnit,
-      Ast.BTBool,
-      Ast.BTInt64,
-      Ast.BTText,
-      Ast.BTNumeric,
-      Ast.BTTimestamp,
-      Ast.BTDate,
-      Ast.BTParty,
-      Ast.BTContractId,
-      Ast.BTArrow,
-      Ast.BTOptional,
-      Ast.BTList,
-      Ast.BTTextMap,
-      Ast.BTGenMap,
-      Ast.BTAny,
-      Ast.BTTypeRep,
-      Ast.BTUpdate,
-      Ast.BTScenario
-    ).zipWithIndex.toMap
-
-  private def typeRank(typ: Ast.Type): Int =
-    typ match {
-      case Ast.TBuiltin(_) => 0
-      case Ast.TTyCon(_) => 1
-      case Ast.TNat(_) => 2
-      case Ast.TStruct(_) => 3
-      case Ast.TApp(_, _) => 4
-      case Ast.TVar(_) | Ast.TForall(_, _) | Ast.TSynApp(_, _) =>
-        throw SErrorCrash(s"cannot compare types $typ")
-    }
-
-  @tailrec
-  // Any two ground types (types without variable nor quantifiers) can be compared.
-  private[this] def compareType(x: Int, stack0: FrontStack[(Ast.Type, Ast.Type)]): Int =
-    stack0 match {
-      case FrontStack() =>
-        x
-      case FrontStackCons(tuple, stack) =>
-        if (x != 0) x
-        else
-          tuple match {
-            case (Ast.TBuiltin(b1), Ast.TBuiltin(b2)) =>
-              compareType(builtinTypeIdx(b1) compareTo builtinTypeIdx(b2), stack)
-            case (Ast.TTyCon(con1), Ast.TTyCon(con2)) =>
-              compareType(compareIdentifier(con1, con2), stack)
-            case (Ast.TNat(n1), Ast.TNat(n2)) =>
-              compareType(n1 compareTo n2, stack)
-            case (Ast.TStruct(fields1), Ast.TStruct(fields2)) =>
-              compareType(
-                math.Ordering
-                  .Iterable[String]
-                  .compare(fields1.toSeq.map(_._1), fields2.toSeq.map(_._1)),
-                zipAndPush(fields1.iterator.map(_._2), fields2.iterator.map(_._2), stack)
-              )
-            case (Ast.TApp(t11, t12), Ast.TApp(t21, t22)) =>
-              compareType(0, (t11, t21) +: (t12, t22) +: stack)
-            case (t1, t2) =>
-              // This case only occurs when t1 and t2 have different ranks.
-              val x = typeRank(t1) compareTo typeRank(t2)
-              assert(x != 0)
-              x
-          }
-    }
-
-  // undefined if `typ1` or `typ2` contains `TVar`, `TForAll`, or `TSynApp`.
-  private def compareType(typ1: Ast.Type, typ2: Ast.Type): Int =
-    compareType(0, FrontStack((typ1, typ2)))
 
   private def compareText(text1: String, text2: String): Int =
     Utf8.Ordering.compare(text1, text2)
@@ -175,7 +84,8 @@ object Ordering extends scala.math.Ordering[SValue] {
           }
           case STypeRep(t1) => {
             case STypeRep(t2) =>
-              compareType(t1, t2) -> ImmArray.empty
+              // the type-checker ensures t1 and t2 are comparable,
+              TypeOrdering.compare(t1, t2) -> ImmArray.empty
           }
           case SEnum(_, _, rank1) => {
             case SEnum(_, _, rank2) =>
@@ -217,7 +127,8 @@ object Ordering extends scala.math.Ordering[SValue] {
           }
           case SAny(t1, v1) => {
             case SAny(t2, v2) =>
-              compareType(t1, t2) -> ImmArray((v1, v2))
+              // the type-checker ensures t1 and t2 are comparable.
+              TypeOrdering.compare(t1, t2) -> ImmArray((v1, v2))
           }
           case SPAP(_, _, _) => {
             case SPAP(_, _, _) =>
@@ -230,7 +141,6 @@ object Ordering extends scala.math.Ordering[SValue] {
           compareValue(toPush ++: stack)
     }
 
-  @throws[SErrorCrash]
   def compare(v1: SValue, v2: SValue): Int =
     compareValue(FrontStack((v1, v2)))
 

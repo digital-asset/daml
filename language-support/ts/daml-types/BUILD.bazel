@@ -1,7 +1,7 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
 load("@language_support_ts_deps//eslint:index.bzl", "eslint_test")
 load("@os_info//:os_info.bzl", "is_windows")

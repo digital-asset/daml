@@ -76,13 +76,12 @@ object RunnerMain {
         // any time it would in principle also be fine to just have the auth failure due
         // to an expired token tear the trigger down and have some external monitoring process (e.g. systemd)
         // restart it.
-        val applicationId = ApplicationId("Trigger Runner")
         val clientConfig = LedgerClientConfiguration(
-          applicationId = ApplicationId.unwrap(applicationId),
+          applicationId = ApplicationId.unwrap(config.applicationId),
           ledgerIdRequirement = LedgerIdRequirement.none,
           commandClient =
             CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),
-          sslContext = config.tlsConfig.flatMap(_.client),
+          sslContext = config.tlsConfig.client,
           token = tokenHolder.flatMap(_.token)
         )
 
@@ -100,7 +99,7 @@ object RunnerMain {
             triggerId,
             client,
             config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType),
-            applicationId,
+            config.applicationId,
             config.ledgerParty)
         } yield ()
 

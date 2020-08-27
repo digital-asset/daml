@@ -4,29 +4,30 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Bytes, DamlKvutils, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.StateKeySerializationStrategy
-import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 import com.google.protobuf.ByteString
 
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
-class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySerializationStrategy)(
-    implicit executionContext: ExecutionContext)
-    extends PreExecutingCommitStrategy[RawKeyValuePairs] {
+class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySerializationStrategy)
+    extends PreExecutingCommitStrategy[RawKeyValuePairsWithLogEntry] {
+
   override def generateWriteSets(
       participantId: ParticipantId,
       entryId: DamlLogEntryId,
       inputState: Map[DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue]],
-      preExecutionResult: KeyValueCommitting.PreExecutionResult)
-    : Future[PreExecutionCommitResult[RawKeyValuePairs]] = {
+      preExecutionResult: KeyValueCommitting.PreExecutionResult,
+  )(implicit executionContext: ExecutionContext)
+    : Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] =
     for {
       serializedSuccessKeyValuePairs <- Future {
         preExecutionResult.stateUpdates.map {
           case (key, value) =>
-            keySerializationStrategy.serializeStateKey(key) -> Envelope.enclose(value)
+            keySerializationStrategy.serializeStateKey(key) -> Envelope
+              .enclose(value)
         }(breakOut)
       }
       serializedLogEntryId = entryId.toByteString
@@ -38,18 +39,24 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
         preExecutionResult.outOfTimeBoundsLogEntry)
     } yield
       PreExecutionCommitResult(
-        successWriteSet = serializedSuccessKeyValuePairs ++ serializedSuccessLogEntryPair,
-        outOfTimeBoundsWriteSet = serializedOutOfTimeBoundsLogEntryPair,
+        successWriteSet = RawKeyValuePairsWithLogEntry(
+          serializedSuccessKeyValuePairs,
+          serializedSuccessLogEntryPair._1,
+          serializedSuccessLogEntryPair._2,
+        ),
+        outOfTimeBoundsWriteSet = RawKeyValuePairsWithLogEntry(
+          Seq.empty,
+          serializedOutOfTimeBoundsLogEntryPair._1,
+          serializedOutOfTimeBoundsLogEntryPair._2),
         // We assume updates for a successful transaction must be visible to every participant for
         // public ledgers.
         involvedParticipants = Set.empty
       )
-  }
 
   private def logEntryToKeyValuePairs(
       logEntryId: ByteString,
-      logEntry: DamlLogEntry): Future[RawKeyValuePairs] = Future {
-    val envelopedLogEntry = Envelope.enclose(logEntry)
-    Seq(logEntryId -> envelopedLogEntry)
+      logEntry: DamlLogEntry,
+  )(implicit executionContext: ExecutionContext): Future[(Bytes, Bytes)] = Future {
+    logEntryId -> Envelope.enclose(logEntry)
   }
 }

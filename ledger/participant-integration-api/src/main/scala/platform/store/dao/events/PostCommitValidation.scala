@@ -179,8 +179,7 @@ private[dao] object PostCommitValidation {
       }
 
     // `causalMonotonicity` already reports unknown contracts, no need to check it here
-    def removeKeyIfDefined(maybeKey: Option[Key])(
-        implicit connection: Connection): Right[RejectionReason, State] =
+    def removeKeyIfDefined(maybeKey: Option[Key]): Right[RejectionReason, State] =
       Right(maybeKey.fold(this)(remove))
 
     def validateLookupByKey(key: Key, expectation: Option[ContractId])(

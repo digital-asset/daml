@@ -9,22 +9,22 @@ import java.time.Instant
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.LegacyTransactionCommitter
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.MetricsAround
-import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
+import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.Resource
 import com.daml.testing.postgresql.PostgresAroundEach
@@ -37,7 +37,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 import scala.util.{Success, Try}
 
-class SqlLedgerSpec
+final class SqlLedgerSpec
     extends AsyncWordSpec
     with Matchers
     with AsyncTimeLimitedTests
@@ -46,6 +46,8 @@ class SqlLedgerSpec
     with AkkaBeforeAndAfterAll
     with PostgresAroundEach
     with MetricsAround {
+
+  protected implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   override val timeLimit: Span = scaled(Span(1, Minute))
   implicit override val patienceConfig: PatienceConfig =
@@ -99,7 +101,45 @@ class SqlLedgerSpec
         throwable <- createSqlLedger(ledgerId = "AnotherLedger").failed
       } yield {
         throwable.getMessage should be(
-          "The provided ledger ID does not match the existing ID. Existing: \"TheLedger\", Provided: \"AnotherLedger\".")
+          "The provided ledger id does not match the existing one. Existing: \"TheLedger\", Provided: \"AnotherLedger\".")
+      }
+    }
+
+    "correctly initialized the participant ID" in {
+      val participantId = makeParticipantId("TheOnlyParticipant")
+      for {
+        _ <- createSqlLedgerWithParticipantId(participantId)
+        metadata <- IndexMetadata.read(postgresDatabase.url)
+      } yield {
+        metadata.participantId shouldEqual participantId
+      }
+    }
+
+    "allow to resume on an existing participant ID" in {
+      val participantId = makeParticipantId("TheParticipant")
+      for {
+        _ <- createSqlLedgerWithParticipantId(participantId)
+        _ <- createSqlLedgerWithParticipantId(participantId)
+        metadata <- IndexMetadata.read(postgresDatabase.url)
+      } yield {
+        metadata.participantId shouldEqual participantId
+      }
+    }
+
+    "refuse to create a new ledger when there is already one with a different participant ID" in {
+      val expectedExisting = makeParticipantId("TheParticipant")
+      val expectedProvided = makeParticipantId("AnotherParticipant")
+      for {
+        _ <- createSqlLedgerWithParticipantId(expectedExisting)
+        throwable <- createSqlLedgerWithParticipantId(expectedProvided).failed
+      } yield {
+        throwable match {
+          case mismatch: MismatchException.ParticipantId =>
+            mismatch.existing shouldEqual expectedExisting
+            mismatch.provided shouldEqual expectedProvided
+          case _ =>
+            fail("Did not get the expected exception type", throwable)
+        }
       }
     }
 
@@ -150,7 +190,7 @@ class SqlLedgerSpec
   }
 
   private def createSqlLedger(): Future[Ledger] =
-    createSqlLedger(None, List.empty)
+    createSqlLedger(None, None, List.empty)
 
   private def createSqlLedger(ledgerId: String): Future[Ledger] =
     createSqlLedger(ledgerId, List.empty)
@@ -159,7 +199,7 @@ class SqlLedgerSpec
     createSqlLedger(ledgerId, List.empty)
 
   private def createSqlLedger(packages: List[DamlLf.Archive]): Future[Ledger] =
-    createSqlLedger(None, packages)
+    createSqlLedger(None, None, packages)
 
   private def createSqlLedger(ledgerId: String, packages: List[DamlLf.Archive]): Future[Ledger] = {
     val assertedLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString(ledgerId))
@@ -167,21 +207,30 @@ class SqlLedgerSpec
   }
 
   private def createSqlLedger(ledgerId: LedgerId, packages: List[DamlLf.Archive]): Future[Ledger] =
-    createSqlLedger(Some(ledgerId), packages)
+    createSqlLedger(Some(ledgerId), None, packages)
+
+  private def createSqlLedgerWithParticipantId(participantId: ParticipantId): Future[Ledger] =
+    createSqlLedger(None, Some(participantId), List.empty)
+
+  private def makeParticipantId(id: String): ParticipantId =
+    ParticipantId(Ref.ParticipantId.assertFromString(id))
+
+  private val DefaultParticipantId = makeParticipantId("test-participant-id")
 
   private def createSqlLedger(
       ledgerId: Option[LedgerId],
+      participantId: Option[ParticipantId],
       packages: List[DamlLf.Archive],
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    val ledger = newLoggingContext { implicit logCtx =>
+    val ledger =
       new SqlLedger.Owner(
+        name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
-        initialLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
-        participantId = participantId,
+        providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
+        participantId = participantId.getOrElse(DefaultParticipantId),
         timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveLedgerState.empty,
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)
           .fold(sys.error, identity),
@@ -193,7 +242,6 @@ class SqlLedgerSpec
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
       ).acquire()(system.dispatcher)
-    }
     createdLedgers += ledger
     ledger.asFuture
   }
@@ -203,7 +251,6 @@ object SqlLedgerSpec {
   private val queueDepth = 128
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("TheParticipant")
 
   private val testArchivePath = rlocation(Paths.get("ledger/test-common/model-tests.dar"))
   private val darReader = DarReader { (_, stream) =>

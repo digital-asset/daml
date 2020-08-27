@@ -20,24 +20,8 @@ Ledger Model </concepts/ledger-model/index>`.
 Downloading the tool
 ====================
 
-Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+Download the Ledger API Test Tool from `Maven <api-test-tool_>`_
 and save it as ``ledger-api-test-tool.jar`` in your current directory.
-
-Extracting ``.dar`` files required to run the tests
-======================================================
-
-Before you can run the Ledger API test tool on your ledger, you need to load a
-specific set of DAML templates onto your ledger.
-
-#. To obtain the corresponding ``.dar`` files, run:
-
-   .. code-block:: console
-
-     $ java -jar ledger-api-test-tool.jar --extract
-
-   This writes all ``.dar`` files required for the tests into the current directory.
-
-#. Load all ``.dar`` files into your Ledger.
 
 Running the tool against a custom Ledger API endpoint
 =====================================================
@@ -49,11 +33,13 @@ at a port ``<port>``:
 
    $ java -jar ledger-api-test-tool.jar <host>:<port>
 
-For example
+For example:
 
 .. code-block:: console
 
    $ java -jar ledger-api-test-tool.jar localhost:6865
+
+The tool will upload the required DARs to the ledger, and then run all tests.
 
 If any test embedded in the tool fails, it will print out details of the failure
 for further debugging.
@@ -68,7 +54,7 @@ Run the tool with ``--help`` flag to obtain the list of options the tool provide
    $ java -jar ledger-api-test-tool.jar --help
 
 Selecting tests to run
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 Running the tool without any argument runs only the *default tests*.
 
@@ -128,6 +114,45 @@ Examples (hitting a single participant at ``localhost:6865``):
 
    $ java -jar ledger-api-test-tool.jar --exclude TestC
 
+Performance tests
+^^^^^^^^^^^^^^^^^
+
+The available performance tests allow to establish the "performance envelope"
+of the ledger under test (a term `borrowed from aeronautics <https://en.wikipedia.org/wiki/Flight_envelope>`__),
+which offers an indication of the amount of the parameters under which a
+ledger implementation is supposed to perform.
+
+Those tests include tail latency, throughput and maximum size of a single
+transaction. You can run the tool with the ``--list`` option to see a list
+of available test suites that includes individual performance envelope test
+cases. You can mix and match those tests to produce a test suite tailored
+to match the expected performance envelope of a given ledger implementation
+using a specific hardware setup.
+
+For example, the following will verify that the ledger under test can
+have a tail latency of one second when processing twenty pings, perform
+twenty pings per seconds and being able to process a transaction one
+megabyte in size:
+
+.. code-block:: console
+
+    $ java -jar ledger-api-test-tool.jar \
+      --perf-tests=PerformanceEnvelope.Latency.1000ms \
+      --perf-tests=PerformanceEnvelope.Throughput.TwentyOPS \
+      --perf-tests=PerformanceEnvelope.TransactionSize.1000KB \
+      localhost:6865
+
+.. note::
+
+  A "ping" is a collective name for two templates used to evaluate
+  the performance envelope. Each of the two templates, "Ping" and
+  "Pong", have a single choice allowing the controller to create
+  an instance of the complementary template, directed to the
+  original sender.
+
+The test run will also produce a short summary of statistics which is
+printed to standard output by default but that can be written to a
+specific file path using the ``--perf-tests-report`` command line option.
 
 Try out the Ledger API Test Tool against DAML Sandbox
 =====================================================

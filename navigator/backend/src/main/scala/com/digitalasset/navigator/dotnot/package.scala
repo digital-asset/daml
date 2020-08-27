@@ -219,7 +219,7 @@ package dotnot {
   final case class OnValue[T, R, C](onLeaf: OnLeafReady[T, R, C], valueMatcher: ValueMatcher) {
 
     def perform[K](f: (T, K) => R)(implicit readK: Read[K]): OnLeafReady[T, R, C] = {
-      val action: Action[T, R, C] = (t: T, cursor: PropertyCursor, value: String, context: C) => {
+      val action: Action[T, R, C] = (t: T, cursor: PropertyCursor, value: String, _: C) => {
         if (cursor.isLast) {
           Right(f(t, readK.from(value).right.get))
         } else {

@@ -63,7 +63,7 @@ main = do
     withTempFile $ \portFile ->
         withBinaryFile nullDevice WriteMode $ \devNull ->
         bracket (createSandbox portFile devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
-        ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle mbServiceOut processHandle ->
+        ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle mbServiceOut processHandle ->
         -- TODO We could share some of this setup with the actual repl code in damlc.
         withTempDir $ \dir ->
         withCurrentDirectory dir $ do
@@ -121,8 +121,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "debug props"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "forA props $ \\(prop, _) -> submit bob $ exerciseCmd prop Accept"
-          -- Allow for trailing \r because Windows
-          , matchOutput "^\\[<contract-id>\\].?$"
+          , matchOutput "^\\[<contract-id>\\]$"
           , input "debug =<< query @T bob"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "debug =<< query @TProposal bob"
@@ -214,6 +213,44 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "debug (days 1)"
           , matchServiceOutput "^.*: RelTime {microseconds = 86400000000}$"
           ]
+    , testInteraction' ":module"
+          [ input ":module + DA.Time DA.Assert"
+          , input "assertEq (days 1) (days 1)"
+          , input ":module - DA.Time"
+          , input "assertEq (days 1) (days 1)"
+          , matchOutput "^File:.*$"
+          , matchOutput "^Hidden:.*$"
+          , matchOutput "^Range:.*$"
+          , matchOutput "^Source:.*$"
+          , matchOutput "^Severity:.*$"
+          , matchOutput "^Message:.*error: Variable not in scope: days.*$"
+          ]
+    , testInteraction' ":show imports"
+          [ input ":module - ReplTest ReplTest2"
+          , input ":module + DA.Assert"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Assert$"
+          , input "import DA.Assert (assertEq)"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Assert \\( assertEq \\)$"
+          , matchOutput "^import DA.Assert$"
+          , input ":module - DA.Assert"
+          , input "import DA.Time (days)"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Time \\( days \\)$"
+          , input "import DA.Time (days, hours)"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Time \\( days, hours \\)$"
+          , input "import DA.Time (hours)"
+          , input ":show imports"
+          , matchOutput "^import Daml.Script -- implicit$"
+          , matchOutput "^import DA.Time \\( hours \\)$"
+          , matchOutput "^import DA.Time \\( days, hours \\)$"
+          ]
     , testInteraction' "error call"
           [ input "error \"foobar\""
           , matchServiceOutput "^Error: User abort: foobar$"
@@ -243,12 +280,10 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
     , testInteraction' "repl output"
           [ input "pure ()" -- no output
           , input "pure (1 + 1)"
-          -- Allow for trailing \r because Windows
-          , matchOutput "^2.?$"
+          , matchOutput "^2$"
           , input "pure (\\x -> x)" -- no output
           , input "1 + 2"
-          -- Allow for trailing \r because Windows
-          , matchOutput "^3.?$"
+          , matchOutput "^3$"
           , input "\\x -> x"
           , matchOutput "^File:.*$"
           , matchOutput "^Hidden:.*$"
@@ -277,6 +312,21 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "f 42"
           , matchOutput "43"
           ]
+    , testInteraction' ":json"
+          [ input ":json [1, 2, 3]"
+          , matchOutput "\\[1,2,3\\]"
+          , input ":json D with x = 1, y = 2"
+          , matchOutput "{\"x\":1,\"y\":2}"
+          , input ":json \\x -> x"
+          , matchServiceOutput "^Cannot convert non-serializable value to JSON$"
+          , input ":json let x = 1"
+          , matchOutput "^Expected an expression but got: let x = 1$"
+          , input ":json x <- pure 1"
+          , matchOutput "^Expected an expression but got: x <- pure 1$"
+          , input "let x = 1"
+          , input ":json x"
+          , matchOutput "1"
+          ]
     ]
   where
     testInteraction' testName steps =
@@ -297,7 +347,7 @@ testInteraction replClient replLogger serviceOut options ideState steps = do
     -- Therefore, we redirect to files, run the action and assert afterwards.
     out <- withTempFile $ \stdinFile -> do
         writeFileUTF8 stdinFile (unlines inLines)
-        withBinaryFile stdinFile ReadMode $ \readIn ->
+        withFile stdinFile ReadMode $ \readIn ->
             redirectingHandle stdin readIn $ do
             Right () <- ReplClient.clearResults replClient
             let imports = [(LF.PackageName name, Nothing) | name <- ["repl-test", "repl-test-two"]]
@@ -305,7 +355,7 @@ testInteraction replClient replLogger serviceOut options ideState steps = do
     -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out
-        withBinaryFile clientOutFile ReadMode $ \clientOut ->
+        withFile clientOutFile ReadMode $ \clientOut ->
             forM_ outAssertions $ \case
                 Prompt -> readPrompt clientOut
                 MatchRegex regex regexStr producer -> do

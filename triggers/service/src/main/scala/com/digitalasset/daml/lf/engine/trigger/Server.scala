@@ -4,7 +4,6 @@
 package com.daml.lf.engine.trigger
 
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
@@ -12,10 +11,8 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -24,6 +21,7 @@ import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.{
   ConcurrentCompiledPackages,
+  EngineConfig,
   MutableCompiledPackages,
   Result,
   ResultDone,
@@ -34,9 +32,10 @@ import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
@@ -51,12 +50,16 @@ class Server(
     materializer: Materializer,
     esf: ExecutionSequencerFactory) {
 
-  private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty
+  import java.util.{concurrent => jconc}
+
+  private val triggerLog: jconc.ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
+    new jconc.ConcurrentHashMap
 
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
   // When running with a persistent store we also write the encoded packages so we can recover
   // our state after the service shuts down or crashes.
-  val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+  val compiledPackages: MutableCompiledPackages =
+    ConcurrentCompiledPackages(EngineConfig.Dev.allowedLanguageVersions)
 
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory
@@ -134,9 +137,7 @@ class Server(
     } yield JsObject(("triggerId", triggerInstance.toString.toJson))
   }
 
-  private def stopTrigger(
-      uuid: UUID,
-      credentials: UserCredentials): Either[String, Option[JsValue]] = {
+  private def stopTrigger(uuid: UUID): Either[String, Option[JsValue]] = {
     //TODO(SF, 2020-05-20): At least check that the provided token
     //is the same as the one used to start the trigger and fail with
     //'Unauthorized' if not (expect we'll be able to do better than
@@ -162,12 +163,11 @@ class Server(
 
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
     val entry = (LocalDateTime.now, msg)
-    triggerLog += triggerInstance -> (getTriggerStatus(triggerInstance) :+ entry)
+    discard(triggerLog.merge(triggerInstance, Vector(entry), _ ++ _))
   }
 
-  private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] = {
-    triggerLog.getOrElse(uuid, Vector())
-  }
+  private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
+    triggerLog.getOrDefault(uuid, Vector.empty)
 
   private val route = concat(
     post {
@@ -199,7 +199,7 @@ class Server(
         // "dar".
         path("v1" / "upload_dar") {
           fileUpload("dar") {
-            case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
+            case (_, byteSource) =>
               val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
               onSuccess(byteStringF) {
                 byteString =>
@@ -269,8 +269,8 @@ class Server(
                 .findCredentials(secretKey, request)
                 .fold(
                   message => complete(errorResponse(StatusCodes.Unauthorized, message)),
-                  credentials =>
-                    stopTrigger(uuid, credentials) match {
+                  _ =>
+                    stopTrigger(uuid) match {
                       case Left(err) =>
                         complete(errorResponse(StatusCodes.InternalServerError, err))
                       case Right(None) =>
@@ -321,22 +321,22 @@ object Server {
           }
       }
 
-    if (initDb) jdbcConfig match {
+    if (initDb) sys.exit(jdbcConfig match {
       case None =>
         ctx.log.error("No JDBC configuration for database initialization.")
-        sys.exit(1)
+        1
       case Some(c) =>
         DbTriggerDao(c).initialize match {
           case Left(err) =>
             ctx.log.error(err)
-            sys.exit(1)
+            1
           case Right(()) =>
             ctx.log.info("Successfully initialized database.")
-            sys.exit(0)
+            0
         }
-    }
+    })
 
-    val (triggerDao: RunningTriggerDao, server: Server) = jdbcConfig match {
+    val (dao, server): (RunningTriggerDao, Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
         val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
@@ -345,6 +345,7 @@ object Server {
         val dao = DbTriggerDao(c)
         val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
         val recovery: Either[String, Unit] = for {
+          _ <- dao.initialize
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers
@@ -369,18 +370,23 @@ object Server {
       }
     }
 
+    def logTriggerStarting(m: TriggerStarting): Unit =
+      server.logTriggerStatus(m.triggerInstance, "starting")
+    def logTriggerStarted(m: TriggerStarted): Unit =
+      server.logTriggerStatus(m.triggerInstance, "running")
+
     // The server running state.
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case TriggerStarting(triggerInstance) =>
-            server.logTriggerStatus(triggerInstance, "starting")
+          case m: TriggerStarting =>
+            logTriggerStarting(m)
             Behaviors.same
 
           // Running triggers are added to the store optimistically when the user makes a start
           // request so we don't need to add an entry here.
-          case TriggerStarted(triggerInstance) =>
-            server.logTriggerStatus(triggerInstance, "running")
+          case m: TriggerStarted =>
+            logTriggerStarted(m)
             Behaviors.same
 
           // Trigger failures are handled by the TriggerRunner actor using a restart strategy with
@@ -388,13 +394,13 @@ object Server {
           // fail and restart indefinitely) so in particular we don't need to change the store of
           // running triggers. Entries are removed from there only when the user explicitly stops
           // the trigger with a request.
-          case TriggerInitializationFailure(triggerInstance, cause) =>
+          case TriggerInitializationFailure(triggerInstance, cause @ _) =>
             server
               .logTriggerStatus(triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
-          case TriggerRuntimeFailure(triggerInstance, cause) =>
+          case TriggerRuntimeFailure(triggerInstance, cause @ _) =>
             server.logTriggerStatus(triggerInstance, "stopped: runtime failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
@@ -411,13 +417,13 @@ object Server {
               binding.localAddress.getHostString,
               binding.localAddress.getPort,
             )
+            // TODO SC until this future returns, connections may still be accepted. Consider
+            // coordinating this future with the actor in some way, or use addToCoordinatedShutdown
+            // (though I have a feeling it will not work out so neatly)
+            discard[Future[akka.Done]](binding.unbind())
+            discard[Try[Unit]](Try(dao.close()))
             Behaviors.stopped // Automatically stops all actors.
-        }
-        .receiveSignal {
-          case (_, PostStop) =>
-            binding.unbind()
-            Behaviors.same
-        }
+        } // receiveSignal PostStop does not work, see #7092 20c1f241d5
 
     // The server starting state.
     def starting(
@@ -445,7 +451,16 @@ object Server {
           // We got a stop message but haven't completed starting
           // yet. We cannot stop until starting has completed.
           starting(wasStopped = true, req = None)
-        case _ =>
+
+        case m: TriggerStarting =>
+          logTriggerStarting(m)
+          Behaviors.same
+
+        case m: TriggerStarted =>
+          logTriggerStarted(m)
+          Behaviors.same
+
+        case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
           Behaviors.unhandled
       }
 

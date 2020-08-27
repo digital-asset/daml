@@ -8,11 +8,13 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data.{FrontStack, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SError.SError
-import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
@@ -23,6 +25,7 @@ class SpeedyTest extends WordSpec with Matchers {
 
   import SpeedyTest._
   import defaultParserParameters.{defaultPackageId => pkgId}
+  def qualify(name: String) = Identifier(pkgId, QualifiedName.assertFromString(name))
 
   val pkgs = typeAndCompile(p"")
 
@@ -114,7 +117,7 @@ class SpeedyTest extends WordSpec with Matchers {
         SOptional(
           Some(
             SStruct(
-              Ref.Name.Array(n"x1", n"x2"),
+              ImmArray(n"x1", n"x2"),
               ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
             ),
           ),
@@ -184,7 +187,7 @@ class SpeedyTest extends WordSpec with Matchers {
             Ast.TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
           ),
@@ -200,7 +203,7 @@ class SpeedyTest extends WordSpec with Matchers {
             ),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
           ),
@@ -214,7 +217,7 @@ class SpeedyTest extends WordSpec with Matchers {
             ),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
           ),
@@ -235,7 +238,7 @@ class SpeedyTest extends WordSpec with Matchers {
             Some(
               SRecord(
                 Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
-                Name.Array(Name.assertFromString("party")),
+                ImmArray(Name.assertFromString("party")),
                 ArrayList(SParty(Party.assertFromString("Alice"))),
               ),
             ),
@@ -257,7 +260,7 @@ class SpeedyTest extends WordSpec with Matchers {
           Some(
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
           ),
@@ -285,6 +288,112 @@ class SpeedyTest extends WordSpec with Matchers {
       )
     }
 
+  }
+
+  val recUpdPkgs = typeAndCompile(p"""
+    module M {
+      record Point = { x: Int64, y: Int64 } ;
+      val origin: M:Point = M:Point { x = 0, y = 0 } ;
+      val p_1_0: M:Point = M:Point { M:origin with x = 1 } ;
+      val p_1_2: M:Point = M:Point { M:Point { M:origin with x = 1 } with y = 2 } ;
+      val p_3_4_loc: M:Point = loc(M,p_3_4_loc,0,0,0,0) M:Point {
+        loc(M,p_3_4_loc,1,1,1,1) M:Point {
+          loc(M,p_3_4_loc,2,2,2,2) M:origin with x = 3
+        } with y = 4
+      } ;
+    }
+  """)
+  "record update" should {
+    "use SBRecUpd for single update" in {
+      val p_1_0 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_0")))
+      p_1_0 shouldEqual
+        Some(
+          SELet1General(
+            SEVal(LfDefRef(qualify("M:origin"))),
+            SEAppAtomicSaturatedBuiltin(
+              SBRecUpd(qualify("M:Point"), 0),
+              Array(SELocS(1), SEValue(SInt64(1))))))
+
+    }
+
+    "produce expected output for single update" in {
+      eval(e"M:p_1_0", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(1), SInt64(0))
+          )
+        )
+    }
+
+    "use SBRecUpdMulti for multi update" in {
+      val p_1_2 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_2")))
+      p_1_2 shouldEqual
+        Some(
+          SELet1General(
+            SEVal(LfDefRef(qualify("M:origin"))),
+            SEAppAtomicSaturatedBuiltin(
+              SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+              Array(
+                SELocS(1),
+                SEValue(SInt64(1)),
+                SEValue(SInt64(2)),
+              ),
+            )
+          )
+        )
+    }
+
+    "produce expected output for multi update" in {
+      eval(e"M:p_1_2", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(1), SInt64(2)),
+          )
+        )
+    }
+
+    "use SBRecUpdMulti for multi update with location annotations" in {
+      def mkLocation(n: Int) =
+        Location(
+          pkgId,
+          ModuleName.assertFromString("M"),
+          "p_3_4_loc",
+          (n, n),
+          (n, n),
+        )
+      val p_3_4 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_4_loc")))
+      p_3_4 shouldEqual
+        Some(
+          SELet1General(
+            SELocation(mkLocation(2), SEVal(LfDefRef(qualify("M:origin")))),
+            SELocation(
+              mkLocation(0),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                Array(
+                  SELocS(1),
+                  SEValue(SInt64(3)),
+                  SEValue(SInt64(4)),
+                ),
+              )),
+          )
+        )
+    }
+
+    "produce expected output for multi update with location annotations" in {
+      eval(e"M:p_3_4_loc", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(3), SInt64(4)),
+          )
+        )
+    }
   }
 
   "profiler" should {

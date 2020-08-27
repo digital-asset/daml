@@ -20,6 +20,9 @@ object PackagedDamlc extends LazyLogging {
   private val packageName = "Main"
 
   private def damlToDar(damlFile: File, darFile: File): Unit = {
+    identity(damlFile)
+    identity(darFile)
+    ()
     // NOTE (MK) The damlc JAR is gone, if we want to revive the navigator
     // integration tests, damlc should be located via Bazel runfiles.
 

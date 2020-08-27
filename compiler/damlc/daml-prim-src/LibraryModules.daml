@@ -22,5 +22,6 @@ import GHC.Natural
 import GHC.Num
 import GHC.Real
 import GHC.Show
+import GHC.Stack.Types
 import GHC.Tuple
 import GHC.Types

@@ -4,16 +4,16 @@
 package com.daml.http
 
 import akka.NotUsed
-import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
-import akka.stream.scaladsl.{Flow, Source, Sink}
+import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
-import util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
-import ContractStreamStep.{Acs, LiveBegin, Txn}
+import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep}
+import ContractStreamStep.LiveBegin
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
@@ -281,6 +281,10 @@ object WebSocketService {
       request traverse (_.contractIdAtOffset) map NelO.toSet
     }
   }
+
+  private abstract sealed class TickTriggerOrStep[+A] extends Product with Serializable
+  private final case object TickTrigger extends TickTriggerOrStep[Nothing]
+  private final case class Step[A](payload: StepAndErrors[A, JsValue]) extends TickTriggerOrStep[A]
 }
 
 class WebSocketService(
@@ -292,7 +296,7 @@ class WebSocketService(
     extends LazyLogging {
 
   import WebSocketService._
-  import Statement.discard
+  import com.daml.scalautil.Statement.discard
   import util.ErrorOps._
   import com.daml.http.json.JsonProtocol._
 
@@ -388,7 +392,7 @@ class WebSocketService(
       contractsService
         .insertDeleteStepSource(jwt, party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
-        .via(emitOffsetTicksAndFilterOutEmptySteps(offPrefix))
+        .via(emitOffsetTicksAndFilterOutEmptySteps)
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
@@ -400,41 +404,32 @@ class WebSocketService(
     }
   }
 
-  private def emitOffsetTicksAndFilterOutEmptySteps[Pos](startFrom: Option[domain.StartingOffset])
+  private def emitOffsetTicksAndFilterOutEmptySteps[Pos]
     : Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
 
-    type TickTriggerOrStep = Unit \/ StepAndErrors[Pos, JsValue]
+    val zero = (Option.empty[BeginBookmark[domain.Offset]], TickTrigger: TickTriggerOrStep[Pos])
 
-    val tickTrigger: TickTriggerOrStep = -\/(())
-    val zeroState: StepAndErrors[Pos, JsValue] = startFrom.cata(
-      x => StepAndErrors(Seq(), LiveBegin(AbsoluteBookmark(x.offset))),
-      StepAndErrors(Seq(), LiveBegin(LedgerBegin))
-    )
     Flow[StepAndErrors[Pos, JsValue]]
-      .map(a => \/-(a): TickTriggerOrStep)
-      .keepAlive(config.heartBeatPer, () => tickTrigger)
-      .scan((zeroState, tickTrigger)) {
-        case ((state, _), -\/(())) =>
-          // convert tick trigger into a tick message, get the last seen offset from the state
-          state.step match {
-            case Acs(_) => (ledgerBeginTick, \/-(ledgerBeginTick))
-            case LiveBegin(LedgerBegin) => (ledgerBeginTick, \/-(ledgerBeginTick))
-            case LiveBegin(AbsoluteBookmark(offset)) => (state, \/-(offsetTick(offset)))
-            case Txn(_, offset) => (state, \/-(offsetTick(offset)))
-          }
-        case ((_, _), x @ \/-(step)) =>
-          // filter out empty steps, capture the current step, so we keep the last seen offset for the next tick
-          val nonEmptyStep: TickTriggerOrStep = if (step.nonEmpty) x else tickTrigger
-          (step, nonEmptyStep)
+      .map(a => Step(a))
+      .keepAlive(config.heartBeatPer, () => TickTrigger)
+      .scan(zero) {
+        case ((None, _), TickTrigger) =>
+          // skip all ticks we don't have the offset yet
+          (None, TickTrigger)
+        case ((Some(offset), _), TickTrigger) =>
+          // emit an offset tick
+          (Some(offset), Step(offsetTick(offset)))
+        case ((_, _), msg @ Step(_)) =>
+          // capture the new offset and emit the current step
+          val newOffset = msg.payload.step.bookmark
+          (newOffset, msg)
       }
-      .collect { case (_, \/-(x)) => x }
+      // filter non-empty Steps, we don't want to spam client with empty events
+      .collect { case (_, Step(x)) if x.nonEmpty => x }
   }
 
-  private def ledgerBeginTick[Pos] =
-    StepAndErrors[Pos, JsValue](Seq(), LiveBegin(LedgerBegin))
-
-  private def offsetTick[Pos](offset: domain.Offset) =
-    StepAndErrors[Pos, JsValue](Seq(), Txn(InsertDeleteStep.Empty, offset))
+  private def offsetTick[Pos](offset: BeginBookmark[domain.Offset]) =
+    StepAndErrors[Pos, JsValue](Seq.empty, LiveBegin(offset))
 
   private def removePhantomArchives[A, B](remove: Option[Set[domain.ContractId]]) =
     remove cata (removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])

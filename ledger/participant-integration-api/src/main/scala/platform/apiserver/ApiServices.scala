@@ -84,7 +84,7 @@ private[daml] object ApiServices {
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ) extends ResourceOwner[ApiServices] {
     private val configurationService: IndexConfigurationService = indexService
     private val identityService: IdentityProvider = indexService
@@ -123,7 +123,7 @@ private[daml] object ApiServices {
     private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
         implicit executionContext: ExecutionContext): List[BindableService] = {
 
-      logger.info(engine.info.show)
+      engine.info.pretty.foreach(logger.info(_))
 
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService)
@@ -185,7 +185,8 @@ private[daml] object ApiServices {
         apiTransactionService: GrpcTransactionService)(
         implicit mat: Materializer,
         ec: ExecutionContext,
-        logCtx: LoggingContext): List[BindableService] = {
+        loggingContext: LoggingContext,
+    ): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>
         val commandExecutor = new TimedCommandExecutor(
           new LedgerTimeAwareCommandExecutor(
@@ -205,7 +206,6 @@ private[daml] object ApiServices {
 
         val apiSubmissionService = ApiSubmissionService.create(
           ledgerId,
-          contractStore,
           writeService,
           submissionService,
           partyManagementService,
@@ -248,7 +248,7 @@ private[daml] object ApiServices {
 
         val apiPackageManagementService =
           ApiPackageManagementService
-            .createApiService(indexService, transactionsService, writeService, timeProvider)
+            .createApiService(indexService, transactionsService, writeService)
 
         val apiConfigManagementService =
           ApiConfigManagementService

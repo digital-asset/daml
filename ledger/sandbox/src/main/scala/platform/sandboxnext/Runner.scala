@@ -25,12 +25,12 @@ import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
+import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -63,11 +63,15 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       None
   }
 
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // should not use DevEngine
-  private val engine = Engine.DevEngine()
-  engine.setProfileDir(config.profileDir)
-  engine.enableStackTraces(config.stackTraces)
+  private[this] val engine = {
+    val engineConfig =
+      (if (config.devMode) EngineConfig.Dev else EngineConfig.Stable)
+        .copy(
+          profileDir = config.profileDir,
+          stackTraceMode = config.stackTraces,
+        )
+    new Engine(engineConfig)
+  }
 
   private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
       String,
@@ -93,21 +97,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   private val timeProviderType =
     config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
 
-  private val seeding = config.seeding.getOrElse {
-    throw new InvalidConfigException(
-      "This version of Sandbox will not start without a seeding mode. Please specify an appropriate seeding mode.")
-  }
-
-  if (config.scenario.isDefined) {
-    throw new InvalidConfigException(
-      """|This version of Sandbox does not support initialization scenarios. Please use DAML Script instead.
-         |A migration guide for converting your scenarios to DAML Script is available at:
-         |https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization
-         |""".stripMargin.stripLineEnd)
-  }
-
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
 
@@ -147,7 +138,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   jdbcUrl = ledgerJdbcUrl,
                   resetOnStartup = isReset,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-                  seedService = SeedService(seeding),
+                  seedService = SeedService(config.seeding.get),
                   stateValueCache = caching.WeightedCache.from(
                     caching.WeightedCache.Configuration(
                       maximumWeight = MaximumStateValueCacheSize,
@@ -212,7 +203,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     maxInboundMessageSize = config.maxInboundMessageSize,
                     eventsPageSize = config.eventsPageSize,
                     portFile = config.portFile,
-                    seeding = seeding,
+                    seeding = config.seeding.get,
                   ),
                   engine = engine,
                   commandConfig = config.commandConfig,
@@ -240,7 +231,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   timeProviderType.description,
                   ledgerType,
                   authService.getClass.getSimpleName,
-                  seeding.toString.toLowerCase,
+                  config.seeding.get.name,
                   if (config.stackTraces) "" else ", stack traces = no",
                   config.profileDir match {
                     case None => ""

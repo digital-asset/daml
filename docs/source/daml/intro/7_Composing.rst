@@ -21,14 +21,14 @@ DAML is organized in packages and modules. A DAML project is specified using a s
 
 Each DAML project has a main source file, which is the entry point for the compiler. A common pattern is to have a main file called ``LibraryModules.daml``, which simply lists all the other modules to include.
 
-A minimal project would contain just two files: ``daml.yaml`` and ``daml/LibraryModules.daml``. Take a look at the ``daml.yaml`` for this project:
+A minimal project would contain just a ``daml.yaml`` file and an empty directory of source files. Take a look at the ``daml.yaml`` for this project:
 
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
 You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` lists package dependencies: you should always include ``daml-prim``, and ``daml-stdlib`` gives access to the DAML standard library.
 
-You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` package in ``dist/project_name.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the contract model.
+You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` package in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the contract model.
 
 Project structure
 -----------------
@@ -48,7 +48,6 @@ All but the last ``.``-separated segment in module names correspond to paths, an
   │   │   │   ├── Role.daml
   │   │   │   └── Trade.daml
   │   │   └── Asset.daml
-  │   ├── LibraryModules.daml
   │   └── Test
   │       └── Intro
   │           ├── Asset
@@ -66,15 +65,18 @@ Each file contains the DAML pragma and module header. For example, ``daml/Intro/
 
 You can import one module into another using the ``import`` keyword. The ``LibraryModules`` module imports all six modules:
 
-.. literalinclude:: daml/daml-intro-7/daml/LibraryModules.daml
+.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset/Role.daml
   :language: daml
-  :start-after: -- IMPORTS_BEGIN
+  :start-after: -- IMPORT_BEGIN
+  :end-before: -- IMPORT_END
 
-Imports always have to appear just below the module declaration. The ``()`` behind each ``import`` above is optional, and lets you only import selected names.
+Imports always have to appear just below the module declaration.
+You can optionally add a list of names after the import to
+import only the selected names:
 
-In this case, it suppresses an "unused import" warning. ``LibraryModules`` is not actually using any of the imports in ``LibraryModules``. The ``()`` tells the compiler that this is intentional.
+.. code-block:: daml
 
-A more typical import statement is ``import Intro.Asset`` as found in ``Test.Intro.Asset``.
+  import DA.List (sortOn, groupOn)
 
 Project overview
 ----------------

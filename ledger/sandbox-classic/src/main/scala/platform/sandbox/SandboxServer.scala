@@ -18,6 +18,7 @@ import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -30,11 +31,11 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -47,6 +48,7 @@ import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
 import com.github.ghik.silencer.silent
+import scalaz.syntax.tag._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
@@ -54,31 +56,42 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 object SandboxServer {
-  private val ActorSystemName = "sandbox"
+
+  private val DefaultName = LedgerName("Sandbox")
+
   private val AsyncTolerance = 30.seconds
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // This should be made configurable
-  @silent("Sandbox_Classic in object EngineConfig is deprecated")
-  private[sandbox] val engineConfig: EngineConfig = EngineConfig.Sandbox_Classic
-
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
-  private val engine = new Engine(engineConfig)
+  private[this] var engine: Option[Engine] = None
 
+  private def getEngine(config: EngineConfig): Engine = synchronized {
+    engine match {
+      case Some(eng) if eng.config == config => eng
+      case _ =>
+        val eng = new Engine(config)
+        engine = Some(eng)
+        eng
+    }
+  }
+
+  // Only used for testing.
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
+    owner(DefaultName, config)
+
+  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
     for {
       metrics <- new MetricsReporting(
         classOf[SandboxServer].getName,
         config.metricsReporter,
         config.metricsReportingInterval,
       )
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName))
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- ResourceOwner
-        .forTryCloseable(() => Try(new SandboxServer(config, materializer, metrics)))
+        .forTryCloseable(() => Try(new SandboxServer(name, config, materializer, metrics)))
       // Wait for the API server to start.
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
@@ -98,9 +111,7 @@ object SandboxServer {
     def port(implicit executionContext: ExecutionContext): Future[Port] =
       apiServer.map(_.port)
 
-    private[SandboxServer] def apiServer(
-        implicit executionContext: ExecutionContext
-    ): Future[ApiServer] =
+    private[SandboxServer] def apiServer: Future[ApiServer] =
       apiServerResource.asFuture
 
     private[SandboxServer] def reset(
@@ -118,30 +129,34 @@ object SandboxServer {
         _ <- replacementApiServer.asFuture
       } yield new SandboxState(materializer, metrics, packageStore, replacementApiServer)
 
-    def release()(implicit executionContext: ExecutionContext): Future[Unit] =
+    def release(): Future[Unit] =
       apiServerResource.release()
   }
 
-  lazy val defaultConfig: SandboxConfig =
-    SandboxConfig.defaultConfig.copy(
-      seeding = None,
-      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    )
 }
 
 final class SandboxServer(
+    name: LedgerName,
     config: SandboxConfig,
     materializer: Materializer,
     metrics: Metrics,
 ) extends AutoCloseable {
 
+  private[this] val engine = {
+    @silent("SandboxClassicStable in object EngineConfig is deprecated")
+    @silent("SandboxClassicDev in object EngineConfig is deprecated")
+    val engineConfig =
+      (if (config.devMode) EngineConfig.SandboxClassicDev else EngineConfig.SandboxClassicStable)
+        .copy(
+          profileDir = config.profileDir,
+          stackTraceMode = config.stackTraces,
+        )
+    getEngine(engineConfig)
+  }
+
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
-    this(config, materializer, new Metrics(new MetricRegistry))
-
-  // NOTE(MH): We must do this _before_ we load the first package.
-  engine.setProfileDir(config.profileDir)
-  engine.enableStackTraces(config.stackTraces)
+    this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
   private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
@@ -163,7 +178,7 @@ final class SandboxServer(
 
   def resetAndRestartServer()(
       implicit executionContext: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
@@ -210,7 +225,7 @@ final class SandboxServer(
         val (acs, records, ledgerTime) =
           ScenarioLoader.fromScenario(
             packageStore,
-            engine.compiledPackages(),
+            engine,
             scenario,
             seedingService.nextSeed(),
           )
@@ -224,12 +239,10 @@ final class SandboxServer(
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Port],
-  )(implicit logCtx: LoggingContext): Resource[ApiServer] = {
+  )(implicit loggingContext: LoggingContext): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
-
-    val defaultConfiguration = config.ledgerConfig.initialConfiguration
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
@@ -256,12 +269,11 @@ final class SandboxServer(
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
+          name,
           config.ledgerIdMode,
           config.participantId,
           jdbcUrl,
-          defaultConfiguration,
           timeProvider,
-          acs,
           ledgerEntries,
           startMode,
           config.commandConfig.maxParallelSubmissions,
@@ -274,9 +286,9 @@ final class SandboxServer(
 
       case None =>
         "in-memory" -> SandboxIndexAndWriteService.inMemory(
+          name,
           config.ledgerIdMode,
           config.participantId,
-          defaultConfiguration,
           timeProvider,
           acs,
           ledgerEntries,
@@ -311,7 +323,7 @@ final class SandboxServer(
         optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),
         indexService = new TimedIndexService(indexAndWriteService.indexService, metrics),
         authorizer = authorizer,
-        engine = SandboxServer.engine,
+        engine = engine,
         timeProvider = timeProvider,
         timeProviderType = timeProviderType,
         ledgerConfiguration = ledgerConfiguration,
@@ -324,7 +336,7 @@ final class SandboxServer(
         metrics = metrics,
         healthChecks = healthChecks,
         seedService = seedingService,
-      )(materializer, executionSequencerFactory, logCtx)
+      )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
         apiServicesOwner,
@@ -343,7 +355,8 @@ final class SandboxServer(
     } yield {
       Banner.show(Console.out)
       logger.withoutContext.info(
-        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+        s"Initialized {} version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+        name,
         BuildInfo.Version,
         ledgerId,
         apiServer.port.toString,
@@ -351,7 +364,7 @@ final class SandboxServer(
         timeProviderType.description,
         ledgerType,
         authService.getClass.getSimpleName,
-        config.seeding.fold("no")(_.toString.toLowerCase),
+        config.seeding.fold(Seeding.NoSeedingModeName)(_.name),
         if (config.stackTraces) "" else ", stack traces = no",
         config.profileDir match {
           case None => ""
@@ -368,7 +381,7 @@ final class SandboxServer(
   }
 
   private def start(): Future[SandboxState] = {
-    newLoggingContext(logging.participantId(config.participantId)) { implicit logCtx =>
+    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
       val packageStore = loadDamlPackages()
       val apiServerResource = buildAndStartApiServer(
         materializer,
@@ -400,5 +413,5 @@ final class SandboxServer(
   private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
     config.portFile
       .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
-      .getOrElse(Future.successful(()))
+      .getOrElse(Future.unit)
 }

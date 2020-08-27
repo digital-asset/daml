@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
+import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
 
 import scala.concurrent.Future
@@ -23,5 +24,7 @@ trait CommitStrategy[Result] {
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
-      outputState: Map[DamlStateKey, DamlStateValue]): Future[Result]
+      outputState: Map[DamlStateKey, DamlStateValue],
+      exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder] = None,
+  ): Future[Result]
 }

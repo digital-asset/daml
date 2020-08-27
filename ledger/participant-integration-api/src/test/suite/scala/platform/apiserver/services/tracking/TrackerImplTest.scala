@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.dec.DirectExecutionContext
+import com.daml.logging.LoggingContext
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
@@ -34,6 +35,7 @@ class TrackerImplTest
   private var sut: Tracker = _
   private var consumer: TestSubscriber.Probe[NotUsed] = _
   private var queue: SourceQueueWithComplete[TrackerImpl.QueueInput] = _
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private def input(cid: Int) = SubmitAndWaitRequest(Some(Commands(commandId = cid.toString)))
 

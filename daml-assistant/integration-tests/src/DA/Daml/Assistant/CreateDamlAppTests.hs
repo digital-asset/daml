@@ -59,7 +59,7 @@ tests =
       withTempDir $ \tmpDir -> do
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
-          callCommandSilent $ "daml new " <> projectName <> " create-daml-app"
+          callCommandSilent $ "daml new " <> projectName <> " --template create-daml-app"
         let cdaDir = tmpDir </> projectName
         -- First test the base application (without the user-added feature).
         withCurrentDirectory cdaDir $ do

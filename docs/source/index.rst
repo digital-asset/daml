@@ -49,7 +49,7 @@ DAML SDK documentation
    DAML Script <daml-script/index>
    DAML REPL <daml-repl/index>
    upgrade/index
-   app-dev/authentication
+   app-dev/authorization
    app-dev/ledger-api
 
 .. toctree::
@@ -84,6 +84,7 @@ DAML SDK documentation
    concepts/ledger-model/index
    concepts/identity-and-package-management
    concepts/time
+   concepts/local-ledger
 
 .. toctree::
    :titlesonly:
@@ -105,6 +106,7 @@ DAML SDK documentation
    triggers/index
    tools/visual
    tools/trigger-service
+   concepts/interoperability
 
 .. toctree::
    :titlesonly:

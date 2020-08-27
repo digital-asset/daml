@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import java.util.regex.Pattern
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -16,8 +18,7 @@ import com.daml.ledger.test.model.Test.CallablePayout._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
 import com.daml.ledger.test.model.Test.WithObservers._
-import com.daml.ledger.test.model.Test.{Dummy, _}
-import java.util.regex.Pattern
+import com.daml.ledger.test.model.Test._
 import io.grpc.Status
 import scalaz.syntax.tag._
 

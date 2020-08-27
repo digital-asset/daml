@@ -51,7 +51,7 @@ class BatchingLedgerWriterSpec
       val batchCaptor = MockitoHelpers.captor[kvutils.Bytes]
       val mockWriter = createMockWriter(captor = Some(batchCaptor))
       val batchingWriter =
-        LoggingContext.newLoggingContext { implicit logCtx =>
+        LoggingContext.newLoggingContext { implicit loggingContext =>
           new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
         }
       val expectedBatch = createExpectedBatch(aCorrelationId -> aSubmission)
@@ -69,9 +69,9 @@ class BatchingLedgerWriterSpec
 
     "continue even when commit fails" in {
       val mockWriter =
-        createMockWriter(captor = None, submissionResult = SubmissionResult.Overloaded)
+        createMockWriter(captor = None)
       val batchingWriter =
-        LoggingContext.newLoggingContext { implicit logCtx =>
+        LoggingContext.newLoggingContext { implicit loggingContext =>
           new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
         }
       for {
@@ -112,9 +112,7 @@ object BatchingLedgerWriterSpec {
         }
     }
 
-  private def createMockWriter(
-      captor: Option[ArgumentCaptor[kvutils.Bytes]] = None,
-      submissionResult: SubmissionResult = SubmissionResult.Acknowledged): LedgerWriter = {
+  private def createMockWriter(captor: Option[ArgumentCaptor[kvutils.Bytes]]): LedgerWriter = {
     val writer = mock[LedgerWriter]
     when(
       writer.commit(

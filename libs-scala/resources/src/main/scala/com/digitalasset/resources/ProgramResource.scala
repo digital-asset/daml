@@ -23,7 +23,7 @@ class ProgramResource[T](
   private val executorService = Executors.newCachedThreadPool()
 
   def run(): Unit = {
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       val resource = {
         implicit val executionContext: ExecutionContext =
           ExecutionContext.fromExecutor(executorService)

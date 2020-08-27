@@ -41,6 +41,8 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
+    scriptDarPath <- locateRunfiles $
+        mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
     let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps' dir s
         runScenarios s
             -- We are currently seeing issues with GRPC FFI calls which make everything
@@ -53,6 +55,7 @@ main = do
         [ diagnosticTests run runScenarios
         , requestTests run runScenarios
         , scenarioTests runScenarios
+        , scriptTests damlcPath scriptDarPath
         , stressTests run runScenarios
         , executeCommandTests run runScenarios
         , regressionTests run runScenarios
@@ -470,6 +473,77 @@ scenarioTests run = testGroup "scenarios"
           closeDoc scenario
           closeDoc main'
     ]
+
+scriptTests :: FilePath -> FilePath -> TestTree
+scriptTests damlcPath scriptDarPath = testGroup "scripts"
+    [ testCase "opening codelens produces a notification" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "main : Script ()"
+              , "main = assert (True == True)"
+              ]
+          lenses <- getCodeLenses main'
+          uri <- scriptUri "Main.daml" "main"
+          liftIO $ lenses @?=
+              [ CodeLens
+                    { _range = Range (Position 4 0) (Position 4 4)
+                    , _command = Just $ Command
+                          { _title = "Script results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Script: main"
+                              ,  toJSON uri
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+              ]
+          mainScript <- openScript "Main.daml" "main"
+          _ <- waitForScriptDidChange
+          closeDoc mainScript
+    , testCase "script ok" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "main : Script String"
+              , "main = pure \"ok\""
+              ]
+          script <- openScript "Main.daml" "main"
+          expectScriptContent "Return value: &quot;ok&quot"
+          closeDoc script
+          closeDoc main'
+    , testCase "spaces in path" $ run $ do
+          main' <- openDoc' "spaces in path/Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "main : Script String"
+              , "main = pure \"ok\""
+              ]
+          script <- openScript "spaces in path/Main.daml" "main"
+          expectScriptContent "Return value: &quot;ok&quot"
+          closeDoc script
+          closeDoc main'
+    ]
+  where
+    run s | isWindows = pure ()
+          | otherwise = withTempDir $ \dir -> do
+        copyFile scriptDarPath (dir </> "daml-script.dar")
+        writeFileUTF8 (dir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: script-test"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies:"
+            , "- daml-prim"
+            , "- daml-stdlib"
+            , "- daml-script.dar"
+            ]
+        withCurrentDirectory dir $
+            runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
 
 executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
 executeCommandTests run _ = testGroup "execute command"

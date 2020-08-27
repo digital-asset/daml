@@ -19,6 +19,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.github.ghik.silencer.silent
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -34,24 +35,17 @@ import scala.util.{Failure, Success, Try}
   * @param allocateLogEntryId    defines how new log entry IDs are being generated
   * @param checkForMissingInputs whether all inputs declared as the required inputs in the
   *                              submission must be available in order to pass validation
-  * @param stateValueCache       a cache for deserializing state values from bytes
-  * @param metrics               defines the metric names
-  * @param executionContext      ExecutionContext to use when performing ledger state reads/writes
+  * @param stateValueCache        a cache for deserializing state values from bytes
+  * @param metrics                defines the metric names
   */
 class SubmissionValidator[LogResult] private[validator] (
     ledgerStateAccess: LedgerStateAccess[LogResult],
-    processSubmission: (
-        DamlLogEntryId,
-        Timestamp,
-        DamlSubmission,
-        ParticipantId,
-        DamlStateMap,
-    ) => LogEntryAndState,
+    processSubmission: SubmissionValidator.ProcessSubmission,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean,
     stateValueCache: Cache[Bytes, DamlStateValue],
     metrics: Metrics,
-)(implicit executionContext: ExecutionContext) {
+) {
 
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -62,8 +56,8 @@ class SubmissionValidator[LogResult] private[validator] (
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  ): Future[Either[ValidationFailed, Unit]] =
-    newLoggingContext { implicit logCtx =>
+  )(implicit executionContext: ExecutionContext): Future[Either[ValidationFailed, Unit]] =
+    newLoggingContext { implicit loggingContext =>
       runValidation(
         envelope,
         correlationId,
@@ -79,17 +73,20 @@ class SubmissionValidator[LogResult] private[validator] (
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  ): Future[Either[ValidationFailed, LogResult]] =
-    newLoggingContext { implicit logCtx =>
-      validateAndCommitWithLoggingContext(envelope, correlationId, recordTime, participantId)
+  )(implicit executionContext: ExecutionContext): Future[Either[ValidationFailed, LogResult]] =
+    newLoggingContext { implicit loggingContext =>
+      validateAndCommitWithContext(envelope, correlationId, recordTime, participantId)
     }
 
-  private[validator] def validateAndCommitWithLoggingContext(
+  private[validator] def validateAndCommitWithContext(
       envelope: Bytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Either[ValidationFailed, LogResult]] =
     runValidation(
       envelope,
       correlationId,
@@ -109,8 +106,8 @@ class SubmissionValidator[LogResult] private[validator] (
           StateMap,
           LogEntryAndState,
           LedgerStateOperations[LogResult]) => Future[U]
-  ): Future[Either[ValidationFailed, U]] =
-    newLoggingContext { implicit logCtx =>
+  )(implicit executionContext: ExecutionContext): Future[Either[ValidationFailed, U]] =
+    newLoggingContext { implicit loggingContext =>
       runValidation(
         envelope,
         correlationId,
@@ -121,12 +118,13 @@ class SubmissionValidator[LogResult] private[validator] (
       )
     }
 
+  @silent(" ignored .* is never used") // matches runValidation signature
   private def commit(
       logEntryId: DamlLogEntryId,
-      ignored: StateMap,
+      ignored: Any,
       logEntryAndState: LogEntryAndState,
       stateOperations: LedgerStateOperations[LogResult],
-  ): Future[LogResult] = {
+  )(implicit executionContext: ExecutionContext): Future[LogResult] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
     val eventualLogResult = stateOperations.appendToLog(logEntryId.toByteString, rawLogEntry)
     val eventualStateResult =
@@ -153,7 +151,10 @@ class SubmissionValidator[LogResult] private[validator] (
           LedgerStateOperations[LogResult],
       ) => Future[T],
       postProcessResultTimer: Option[Timer],
-  )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] =
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Either[ValidationFailed, T]] =
     metrics.daml.kvutils.submission.validator.openEnvelope
       .time(() => Envelope.open(envelope)) match {
       case Right(Envelope.SubmissionBatchMessage(batch)) =>
@@ -260,7 +261,7 @@ class SubmissionValidator[LogResult] private[validator] (
       extends LedgerStateAccess[LogResult] {
     override def inTransaction[T](
         body: LedgerStateOperations[LogResult] => Future[T]
-    ): Future[T] = {
+    )(implicit executionContext: ExecutionContext): Future[T] = {
       // This is necessary to ensure we capture successful and failed acquisitions separately.
       // These need to be measured separately as they may have very different characteristics.
       val acquisitionWasRecorded = new AtomicBoolean(false)
@@ -299,6 +300,17 @@ object SubmissionValidator {
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
+  private[validator] type RecordTime = Timestamp
+  private[validator] type InputState = DamlStateMap
+
+  private[validator] type ProcessSubmission = (
+      DamlLogEntryId,
+      RecordTime,
+      DamlSubmission,
+      ParticipantId,
+      InputState,
+  ) => LogEntryAndState
+
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
@@ -306,7 +318,7 @@ object SubmissionValidator {
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       engine: Engine,
       metrics: Metrics,
-  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
+  ): SubmissionValidator[LogResult] = {
     createForTimeMode(
       ledgerStateAccess,
       allocateNextLogEntryId,
@@ -318,6 +330,42 @@ object SubmissionValidator {
     )
   }
 
+  @deprecated("To be removed in v1.6.", since = "v1.5")
+  def create_v1_4[LogResult](
+      ledgerStateAccess: LedgerStateAccess.v1_4[LogResult],
+      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
+      checkForMissingInputs: Boolean = false,
+      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      engine: Engine,
+      metrics: Metrics,
+  ): SubmissionValidator[LogResult] =
+    new_v1_4(
+      ledgerStateAccess,
+      processSubmission(new KeyValueCommitting(engine, metrics, inStaticTimeMode = false)),
+      allocateNextLogEntryId,
+      checkForMissingInputs,
+      stateValueCache,
+      metrics,
+    )
+
+  @deprecated("To be removed in v1.6.", since = "v1.5")
+  private[validator] def new_v1_4[LogResult](
+      ledgerStateAccess: LedgerStateAccess.v1_4[LogResult],
+      processSubmission: SubmissionValidator.ProcessSubmission,
+      allocateLogEntryId: () => DamlLogEntryId,
+      checkForMissingInputs: Boolean,
+      stateValueCache: Cache[Bytes, DamlStateValue],
+      metrics: Metrics,
+  ): SubmissionValidator[LogResult] =
+    new SubmissionValidator(
+      ledgerStateAccess.modernize(),
+      processSubmission,
+      allocateLogEntryId,
+      checkForMissingInputs,
+      stateValueCache,
+      metrics,
+    )
+
   // Internal method to enable proper command dedup in sandbox with static time mode
   private[daml] def createForTimeMode[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
@@ -327,7 +375,7 @@ object SubmissionValidator {
       engine: Engine,
       metrics: Metrics,
       inStaticTimeMode: Boolean,
-  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] =
+  ): SubmissionValidator[LogResult] =
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission(new KeyValueCommitting(engine, metrics, inStaticTimeMode)),

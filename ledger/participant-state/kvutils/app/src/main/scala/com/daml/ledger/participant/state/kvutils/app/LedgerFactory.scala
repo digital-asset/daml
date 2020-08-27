@@ -22,6 +22,7 @@ import com.daml.resources.ResourceOwner
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
+@com.github.ghik.silencer.silent(" config .* is never used") // possibly used in overrides
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
@@ -94,7 +95,7 @@ trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[E
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RS]
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RS]
 }
 
 trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider[ExtraConfig] {
@@ -102,7 +103,7 @@ trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[WS]
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[WS]
 }
 
 trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
@@ -113,21 +114,21 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS] =
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS] =
     readWriteServiceOwner(config, participantConfig, engine)
 
   override final def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS] =
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS] =
     readWriteServiceOwner(config, participantConfig, engine)
 
   def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS]
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS]
 }
 
 object LedgerFactory {
@@ -142,7 +143,7 @@ object LedgerFactory {
         engine: Engine,
     )(
         implicit materializer: Materializer,
-        logCtx: LoggingContext,
+        loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
         readerWriter <- owner(config, participantConfig, engine)
@@ -157,7 +158,7 @@ object LedgerFactory {
         value: Config[Unit],
         config: ParticipantConfig,
         engine: Engine,
-    )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[KVL]
+    )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[KVL]
 
     override final def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
       ()

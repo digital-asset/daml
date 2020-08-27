@@ -6,7 +6,6 @@ package com.daml.platform.store.dao
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.lf.data.Ref
 import com.daml.platform.store.entries.ConfigurationEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
@@ -25,9 +24,8 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         offset,
         Instant.EPOCH,
         s"submission-$offsetString",
-        Ref.ParticipantId.assertFromString("participant-0"),
         defaultConfig,
-        None
+        None,
       )
       optStoredConfig <- ledgerDao.lookupLedgerConfiguration()
       endingOffset <- ledgerDao.lookupLedgerEnd()
@@ -43,7 +41,6 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
     val startExclusive = nextOffset()
     val offset = nextOffset()
     val offsetString = offset.toLong
-    val participantId = Ref.ParticipantId.assertFromString("participant-0")
     for {
       startingConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
       proposedConfig = startingConfig.getOrElse(defaultConfig)
@@ -51,9 +48,8 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         offset,
         Instant.EPOCH,
         s"config-rejection-$offsetString",
-        participantId,
         proposedConfig,
-        Some("bad config")
+        Some("bad config"),
       )
       storedConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
       entries <- ledgerDao
@@ -65,7 +61,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
       startingConfig shouldEqual storedConfig
       entries shouldEqual List(
         offset -> ConfigurationEntry
-          .Rejected(s"config-rejection-$offsetString", participantId, "bad config", proposedConfig)
+          .Rejected(s"config-rejection-$offsetString", "bad config", proposedConfig)
       )
     }
   }
@@ -74,7 +70,6 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
     val startExclusive = nextOffset()
     val offset0 = nextOffset()
     val offsetString0 = offset0.toLong
-    val participantId = Ref.ParticipantId.assertFromString("participant-0")
     for {
       config <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).getOrElse(defaultConfig))
 
@@ -84,9 +79,8 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         offset0,
         Instant.EPOCH,
         submissionId,
-        participantId,
         config.copy(generation = config.generation + 1),
-        None
+        None,
       )
       newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
@@ -96,9 +90,8 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         offset1,
         Instant.EPOCH,
         submissionId,
-        participantId,
         newConfig.copy(generation = config.generation + 1),
-        None
+        None,
       )
 
       // Submission with mismatching generation is rejected
@@ -108,9 +101,8 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         offset2,
         Instant.EPOCH,
         s"refuse-config-$offsetString2",
-        participantId,
         config,
-        None
+        None,
       )
 
       // Submission with unique submissionId and correct generation is accepted.
@@ -121,9 +113,8 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         offset3,
         Instant.EPOCH,
         s"refuse-config-$offsetString3",
-        participantId,
         lastConfig,
-        None
+        None,
       )
       lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
@@ -135,17 +126,14 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
       resp3 shouldEqual PersistenceResponse.Ok
       lastConfig shouldEqual lastConfigActual
       entries.toList shouldEqual List(
-        offset0 -> ConfigurationEntry
-          .Accepted(s"refuse-config-$offsetString0", participantId, newConfig),
+        offset0 -> ConfigurationEntry.Accepted(s"refuse-config-$offsetString0", newConfig),
         /* offset1 is duplicate */
-        offset2 -> ConfigurationEntry
-          .Rejected(
-            s"refuse-config-${offset2.toLong}",
-            participantId,
-            "Generation mismatch: expected=2, actual=0",
-            config),
-        offset3 -> ConfigurationEntry
-          .Accepted(s"refuse-config-$offsetString3", participantId, lastConfig)
+        offset2 -> ConfigurationEntry.Rejected(
+          s"refuse-config-${offset2.toLong}",
+          "Generation mismatch: expected=2, actual=0",
+          config,
+        ),
+        offset3 -> ConfigurationEntry.Accepted(s"refuse-config-$offsetString3", lastConfig)
       )
     }
   }
