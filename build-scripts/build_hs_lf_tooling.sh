@@ -13,6 +13,8 @@ fi
 TARGET_DIR=$PWD/$1
 cd "$(dirname ${BASH_SOURCE[0]})/.."
 
+mkdir -p $TARGET_DIR
+
 package_from_dir() {
     local dir=$1
     if [ ! -d $dir ]; then
@@ -21,7 +23,7 @@ package_from_dir() {
     fi
     pushd $dir
     cabal new-sdist
-    cp dist-newstyle/sdist/*.tar.gz "$TARGET_DIR"
+    cp dist-newstyle/sdist/*.tar.gz "$TARGET_DIR/"
     rm -rf cabal.tix dist-newstyle/
     popd
 }
