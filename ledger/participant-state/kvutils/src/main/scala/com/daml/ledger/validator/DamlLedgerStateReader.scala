@@ -20,10 +20,10 @@ trait DamlLedgerStateReader {
   def readState(keys: Seq[DamlStateKey]): Future[Seq[Option[DamlStateValue]]]
 }
 
-private[validator] object DamlLedgerStateReader {
+object DamlLedgerStateReader {
   def from(
       ledgerStateReader: LedgerStateReader,
-      keySerializationStrategy: StateKeySerializationStrategy)(
-      implicit executionContext: ExecutionContext): DamlLedgerStateReader =
+      keySerializationStrategy: StateKeySerializationStrategy,
+  )(implicit executionContext: ExecutionContext): DamlLedgerStateReader =
     new RawToDamlLedgerStateReaderAdapter(ledgerStateReader, keySerializationStrategy)
 }
