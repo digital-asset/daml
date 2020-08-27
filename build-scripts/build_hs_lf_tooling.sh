@@ -11,7 +11,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 TARGET_DIR=$PWD/$1
-cd "$(dirname ${BASH_SOURCE[0]})"
+cd "$(dirname ${BASH_SOURCE[0]})/.."
 
 pushd daml-assistant
 cabal new-sdist
