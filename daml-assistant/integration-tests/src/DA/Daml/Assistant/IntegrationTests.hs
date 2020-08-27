@@ -520,7 +520,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
               waitForConnectionOnPort (threadDelay 100000) sandboxPort
               triggerServicePort :: Int <- fromIntegral <$> getFreePort
-              let triggerServiceProc = (shell $ unwords ["daml", "trigger-service", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show triggerServicePort, "--wall-clock-time", "--no-secret-key"]) { std_out = UseHandle devNull2, std_err = UseHandle devNull3, std_in = CreatePipe }
+              let triggerServiceProc = (shell $ unwords ["daml", "trigger-service", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show triggerServicePort, "--wall-clock-time"]) { std_out = UseHandle devNull2, std_err = UseHandle devNull3, std_in = CreatePipe }
               withCreateProcess triggerServiceProc $ \_ _ _ triggerServicePh -> race_ (waitForProcess' triggerServiceProc triggerServicePh) $ do
                 let endpoint = "http://localhost:" <> show triggerServicePort <> "/v1/health"
                 waitForHttpServer (threadDelay 100000) endpoint []

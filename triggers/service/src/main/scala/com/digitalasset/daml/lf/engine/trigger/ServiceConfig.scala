@@ -27,7 +27,6 @@ private[trigger] final case class ServiceConfig(
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     init: Boolean,
-    noSecretKey: Boolean, // Default false
     jdbcConfig: Option[JdbcConfig],
 )
 
@@ -143,10 +142,6 @@ private[trigger] object ServiceConfig {
       .valueName(JdbcConfig.usage)
       .text("JDBC configuration parameters. If omitted the service runs without a database.")
 
-    opt[Unit]("no-secret-key")
-      .action((_, c) => c.copy(noSecretKey = true))
-      .text("Allow running without a secret key.")
-
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
       .text("Initialize database and terminate.")
@@ -168,7 +163,6 @@ private[trigger] object ServiceConfig {
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         init = false,
-        noSecretKey = false,
         jdbcConfig = None,
       ),
     )

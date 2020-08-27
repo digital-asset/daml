@@ -123,7 +123,6 @@ object TriggerServiceFixture extends StrictLogging {
         restartConfig,
         encodedDar,
         jdbcConfig,
-        noSecretKey = true // That's ok, use the default.
       )
     } yield service
 
