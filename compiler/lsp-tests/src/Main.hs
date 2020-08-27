@@ -472,6 +472,18 @@ scenarioTests run = testGroup "scenarios"
           expectScenarioContent "Return value: &quot;ok&quot"
           closeDoc scenario
           closeDoc main'
+    , testCase "submit location" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "module Main where"
+              , "template T with party : Party where signatory party"
+              , "main = scenario $ do"
+              , "  alice <- getParty \"Alice\""
+              , "  submit alice do create (T alice)"
+              ]
+          script <- openScript "Main.daml" "main"
+          expectScenarioContent "title=\"Main:5:3\">Main:5:3</a>"
+          closeDoc script
+          closeDoc main'
     ]
 
 scriptTests :: FilePath -> FilePath -> TestTree
@@ -525,6 +537,21 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
               ]
           script <- openScript "spaces in path/Main.daml" "main"
           expectScriptContent "Return value: &quot;ok&quot"
+          closeDoc script
+          closeDoc main'
+    , testCase "submit location" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "template T with party : Party where signatory party"
+              , "main : Script (ContractId T)"
+              , "main = do"
+              , "  alice <- allocateParty \"Alice\""
+              , "  submit alice do createCmd (T alice)"
+              ]
+          script <- openScript "Main.daml" "main"
+          expectScriptContent "title=\"Main:8:3\">Main:8:3</a>"
           closeDoc script
           closeDoc main'
     ]
