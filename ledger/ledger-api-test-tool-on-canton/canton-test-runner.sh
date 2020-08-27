@@ -9,6 +9,7 @@ set -o pipefail
 CANTON_COMMAND=(
   "$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton)"
   daemon
+  "-d"
   "--config=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton.conf)"
   "--bootstrap=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/bootstrap.canton)"
 )
