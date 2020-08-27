@@ -56,6 +56,25 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
   })
 
   test(
+    "CSCAfterEnd",
+    "An OUT_OF_RANGE error should be returned for subscribing to completions past the ledger end",
+    allocate(SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitRequest(party, Dummy(party).create.command)
+      for {
+        _ <- ledger.submit(request)
+        futureOffset <- ledger.futureOffset()
+        invalidRequest = ledger
+          .completionStreamRequest()(party)
+          .update(_.offset := futureOffset)
+        failure <- ledger.firstCompletions(invalidRequest).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
+      }
+  })
+
+  test(
     "CSCNoCompletionsWithoutRightParty",
     "Read no completions without the correct party",
     allocate(TwoParties),

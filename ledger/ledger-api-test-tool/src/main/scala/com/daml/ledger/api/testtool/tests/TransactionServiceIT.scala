@@ -95,6 +95,40 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
+    "TXAfterEnd",
+    "An OUT_OF_RANGE error should be returned for subscribing past the ledger end",
+    allocate(SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger, party)) =>
+      for {
+        _ <- ledger.create(party, Dummy(party))
+        futureOffset <- ledger.futureOffset()
+        request = ledger.getTransactionsRequest(Seq(party))
+        beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
+        failure <- ledger.flatTransactions(beyondEnd).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
+      }
+  })
+
+  test(
+    "TXTreesAfterEnd",
+    "An OUT_OF_RANGE error should be returned for subscribing to trees past the ledger end",
+    allocate(SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger, party)) =>
+      for {
+        _ <- ledger.create(party, Dummy(party))
+        futureOffset <- ledger.futureOffset()
+        request = ledger.getTransactionsRequest(Seq(party))
+        beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
+        failure <- ledger.transactionTrees(beyondEnd).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
+      }
+  })
+
+  test(
     "TXServeUntilCancellation",
     "Items should be served until the client cancels",
     allocate(SingleParty),
