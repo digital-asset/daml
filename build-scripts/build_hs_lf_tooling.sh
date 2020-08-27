@@ -157,4 +157,29 @@ packages:
   ./daml-lf-reader-0.1.4.0.tar.gz
 EOF
     echo "Wrote $TARGET_DIR/cabal.project"
+else
+    echo "not overwriting existing cabal.project file"
+fi
+
+if [ ! -f "$TARGET_DIR/stack.yaml" ]; then
+    cat <<EOF > "$TARGET_DIR/stack.yaml"
+# last known good resolver configuration for these libraries
+resolver: 14.27
+
+packages:
+  - .
+
+# adding proto3 libraries (not on stackage) for daml-lf-proto-types
+extra-deps:
+- proto3-suite-0.4.0.0
+- proto3-wire-1.1.0
+- ./da-hs-base-0.1.0.tar.gz
+- ./daml-lf-ast-0.1.0.tar.gz
+- ./daml-lf-proto-types-0.1.0.tar.gz
+- ./daml-lf-proto-0.1.0.tar.gz
+- ./daml-lf-reader-0.1.4.0.tar.gz
+EOF
+    echo "Wrote $TARGET_DIR/stack.yaml"
+else
+    echo "not overwriting existing stack.yaml file"
 fi
