@@ -961,9 +961,9 @@ java_import(
     jars = glob(["lib/**"]),
 )
 """,
-    sha256 = "c1e5aff815c52b57a0c1cac13a5c3523cc1e6a63005b3b788015a96fd058c527",
-    strip_prefix = "canton-0.15.0",
-    urls = ["https://www.canton.io/releases/canton-0.15.0.tar.gz"],
+    sha256 = "666801388fd5d2b163b49511d52713f941d5c734216064eeaa6fa04db2b7b9c2",
+    strip_prefix = "canton-0.18.1",
+    urls = ["https://www.canton.io/releases/canton-0.18.1.tar.gz"],
 )
 
 http_file(
