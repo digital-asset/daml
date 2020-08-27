@@ -34,7 +34,7 @@ private[kvutils] class PartyAllocationCommitter(
         s"participant id ${partyAllocationEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
       rejectionTraceLog(msg, partyAllocationEntry)
       reject(
-        ctx.getRecordTime,
+        ctx,
         partyAllocationEntry,
         _.setParticipantNotAuthorized(
           ParticipantNotAuthorized.newBuilder
@@ -52,7 +52,7 @@ private[kvutils] class PartyAllocationCommitter(
       val msg = s"party string '$party' invalid"
       rejectionTraceLog(msg, partyAllocationEntry)
       reject(
-        ctx.getRecordTime,
+        ctx,
         partyAllocationEntry,
         _.setInvalidName(
           Invalid.newBuilder
@@ -71,7 +71,7 @@ private[kvutils] class PartyAllocationCommitter(
       val msg = s"party already exists party='$party'"
       rejectionTraceLog(msg, partyAllocationEntry)
       reject(
-        ctx.getRecordTime,
+        ctx,
         partyAllocationEntry,
         _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(msg))
       )
@@ -87,7 +87,7 @@ private[kvutils] class PartyAllocationCommitter(
       val msg = s"duplicate submission='${partyAllocationEntry.getSubmissionId}'"
       rejectionTraceLog(msg, partyAllocationEntry)
       reject(
-        ctx.getRecordTime,
+        ctx,
         partyAllocationEntry,
         _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
       )
@@ -129,12 +129,15 @@ private[kvutils] class PartyAllocationCommitter(
   }
 
   private def reject[PartialResult](
-      recordTime: Option[Timestamp],
+      ctx: CommitContext,
       partyAllocationEntry: DamlPartyAllocationEntry.Builder,
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
   ): StepResult[PartialResult] = {
     metrics.daml.kvutils.committer.partyAllocation.rejections.inc()
-    StepStop(buildRejectionLogEntry(recordTime, partyAllocationEntry, addErrorDetails))
+    if (ctx.preExecute) {
+      setOutOfTimeBoundsLogEntry(partyAllocationEntry, ctx)
+    }
+    StepStop(buildRejectionLogEntry(ctx.getRecordTime, partyAllocationEntry, addErrorDetails))
   }
 
   private def buildRejectionLogEntry(

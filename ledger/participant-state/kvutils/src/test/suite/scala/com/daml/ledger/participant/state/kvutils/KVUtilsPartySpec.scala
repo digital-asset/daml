@@ -46,6 +46,14 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
       }
     }
 
+    "reject when participant id does not match with pre-execution" in KVTest.runTest {
+      withParticipantId(p0) {
+        preExecutePartyAllocation("mismatch", "alice", p1)
+      }.map { preExecutionResult =>
+        preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
+      }
+    }
+
     "reject on bad party string" in KVTest.runTest {
       for {
         logEntry1 <- submitPartyAllocation("empty party", "", p0)
@@ -55,7 +63,20 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
         logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
         logEntry2.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME
+      }
+    }
 
+    "reject on bad party string with pre-execution" in KVTest.runTest {
+      for {
+        preExecutionOutput1 <- preExecutePartyAllocation("empty party", "", p0)
+        preExecutionOutput2 <- preExecutePartyAllocation("bad party", "%", p0)
+        logEntry1 = preExecutionOutput1.successfulLogEntry
+        logEntry2 = preExecutionOutput2.successfulLogEntry
+      } yield {
+        logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
+        logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME
+        logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
+        logEntry2.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME
       }
     }
 
@@ -63,6 +84,19 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
       for {
         logEntry1 <- submitPartyAllocation("alice", "alice", p0)
         logEntry2 <- submitPartyAllocation("alice again", "alice", p0)
+      } yield {
+        logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
+        logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
+        logEntry2.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS
+      }
+    }
+
+    "reject on duplicate party with pre-execution" in KVTest.runTest {
+      for {
+        preExecutionOutput1 <- preExecutePartyAllocation("alice", "alice", p0)
+        preExecutionOutput2 <- preExecutePartyAllocation("alice again", "alice", p0)
+        logEntry1 = preExecutionOutput1.successfulLogEntry
+        logEntry2 = preExecutionOutput2.successfulLogEntry
       } yield {
         logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
@@ -83,11 +117,39 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
       }
     }
 
+    "reject duplicate submission with pre-execution" in KVTest.runTest {
+      for {
+        preExecutionOutput0 <- preExecutePartyAllocation("submission-1", "alice", p0)
+        preExecutionOutput1 <- preExecutePartyAllocation("submission-1", "bob", p0)
+        logEntry0 = preExecutionOutput0.successfulLogEntry
+        logEntry1 = preExecutionOutput1.successfulLogEntry
+      } yield {
+        logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
+        logEntry1.getPayloadCase shouldEqual
+          DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
+        logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual
+          DamlPartyAllocationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
+      }
+    }
+
     "update metrics" in KVTest.runTestWithSimplePackage() {
       for {
         //Submit party twice to force one acceptance and one rejection on duplicate
         _ <- submitPartyAllocation("submission-1", "alice", p0)
         _ <- submitPartyAllocation("submission-1", "bob", p0)
+      } yield {
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        metrics.daml.kvutils.committer.partyAllocation.accepts.getCount should be >= 1L
+        metrics.daml.kvutils.committer.partyAllocation.rejections.getCount should be >= 1L
+        metrics.daml.kvutils.committer.runTimer("party_allocation").getCount should be >= 1L
+      }
+    }
+
+    "update metrics with pre-execution" in KVTest.runTestWithSimplePackage() {
+      for {
+        //Submit party twice to force one acceptance and one rejection on duplicate
+        _ <- preExecutePartyAllocation("submission-1", "alice", p0)
+        _ <- preExecutePartyAllocation("submission-1", "bob", p0)
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.partyAllocation.accepts.getCount should be >= 1L
