@@ -367,6 +367,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
             v match {
               case SVariant(_, "Submit", _, v) => {
                 v match {
+                  // For backwards compatibility we support SubmitCmd without a callstack.
                   case SRecord(_, _, vals) if vals.size == 3 || vals.size == 4 => {
                     for {
                       freeAp <- vals.get(1) match {
@@ -433,6 +434,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
               }
               case SVariant(_, "SubmitMustFail", _, v) => {
                 v match {
+                  // For backwards compatibility we support SubmitCmd without a callstack.
                   case SRecord(_, _, vals) if vals.size == 3 || vals.size == 4 => {
                     for {
                       freeAp <- vals.get(1) match {
