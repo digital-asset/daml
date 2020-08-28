@@ -46,6 +46,9 @@ popCallStack stk = case stk of
   PushCallStack (_, _, stk') -> stk'
   FreezeCallStack _      -> stk
 
+-- | Location in the source code.
+--
+-- Line and column are 1-based.
 data SrcLoc = SrcLoc
   { srcLocPackage   : TextLit
   , srcLocModule    : TextLit

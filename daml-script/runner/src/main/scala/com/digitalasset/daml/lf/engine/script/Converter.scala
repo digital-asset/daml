@@ -416,7 +416,6 @@ object Converter {
                       case id => knownPackages.get(id).toRight(s"Unknown package $id")
                     }
                     module <- toText(vals.get(1)).flatMap(ModuleName.fromString(_))
-                    // Lines and columns are 1-based in the call stack.
                     startLine <- toInt(vals.get(3))
                     startCol <- toInt(vals.get(4))
                     endLine <- toInt(vals.get(5))
@@ -426,8 +425,8 @@ object Converter {
                       packageId,
                       module,
                       definition,
-                      (startLine - 1, startCol - 1),
-                      (endLine - 1, endCol - 1))
+                      (startLine, startCol),
+                      (endLine, endCol))
                 case _ => Left("Expected SRecord of Daml.Script.SrcLoc")
               }
             } yield Some(loc)

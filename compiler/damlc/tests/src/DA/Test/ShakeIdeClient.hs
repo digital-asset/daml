@@ -1165,9 +1165,9 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResourceRegex vr $ T.concat
-            [ "  c, called at .*Foo.daml:6:8 in main:Foo<br>"
-            , "  b, called at .*Foo.daml:4:8 in main:Foo<br>"
-            , "  a, called at .*Foo.daml:10:10 in main:Foo<br>"
+            [ "  c, called at .*Foo.daml:5:7 in main:Foo<br>"
+            , "  b, called at .*Foo.daml:3:7 in main:Foo<br>"
+            , "  a, called at .*Foo.daml:9:9 in main:Foo<br>"
             ]
     , testCase' "debug is lazy" $ do
         let goodScenario =

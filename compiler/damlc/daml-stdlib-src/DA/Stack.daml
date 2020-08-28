@@ -55,7 +55,7 @@ callStack =
 
 -- | Location in the source code.
 --
--- Line and column are 1-based.
+-- Line and column are 0-based.
 data SrcLoc = SrcLoc
 -- User-facing type using Text instead of TextLit.
   { srcLocPackage   : Text
@@ -73,9 +73,9 @@ convSrcLoc GHC.SrcLoc{..} =
     { srcLocPackage = fromString srcLocPackage
     , srcLocModule = fromString srcLocModule
     , srcLocFile = fromString srcLocFile
-    , srcLocStartLine
-    , srcLocStartCol
-    , srcLocEndLine
-    , srcLocEndCol
+    , srcLocStartLine = srcLocStartLine - 1
+    , srcLocStartCol = srcLocStartCol - 1
+    , srcLocEndLine = srcLocEndLine - 1
+    , srcLocEndCol = srcLocEndCol - 1
     }
 
