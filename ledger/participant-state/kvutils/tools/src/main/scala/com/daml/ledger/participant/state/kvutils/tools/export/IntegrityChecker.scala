@@ -74,8 +74,11 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       .mapAsync(1) {
         case (submissionInfo, expectedWriteSet) =>
           println(
-            s"Read submission correlationId=${submissionInfo.correlationId} submissionEnvelopeSize=${submissionInfo.submissionEnvelope
-              .size()} writeSetSize=${expectedWriteSet.size}")
+            "Read submission"
+              + s" correlationId=${submissionInfo.correlationId}"
+              + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size()}"
+              + s" writeSetSize=${expectedWriteSet.size}"
+          )
           for {
             _ <- submissionValidator.validateAndCommit(
               submissionInfo.submissionEnvelope,
