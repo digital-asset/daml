@@ -17,17 +17,20 @@ abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matc
 
   name should {
     "serialize a submission to something deserializable" in {
+      val participantId = v1.ParticipantId.assertFromString("id")
+      val correlationId = "parent"
+      val submissionEnvelope = ByteString.copyFromUtf8("an envelope")
+      val recordTimeInstant = Instant.ofEpochSecond(123456, 123456789)
+
       val inputStream = new PipedInputStream()
       val outputStream = new PipedOutputStream(inputStream)
       val exporter = newExporter(outputStream)
-      val expectedRecordTimeInstant = Instant.ofEpochSecond(123456, 123456789)
-      val expectedParticipantId = v1.ParticipantId.assertFromString("id")
 
       val submission = exporter.addSubmission(
-        v1.ParticipantId.assertFromString("id"),
-        "parent",
-        ByteString.copyFromUtf8("an envelope"),
-        expectedRecordTimeInstant,
+        participantId,
+        correlationId,
+        submissionEnvelope,
+        recordTimeInstant,
       )
       val writeSetA1 = submission.addChild()
       writeSetA1 ++= Seq(keyValuePairOf("a", "b"), keyValuePairOf("c", "d"))
@@ -39,10 +42,10 @@ abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matc
       val importer = newImporter(inputStream)
 
       val (actualSubmissionInfo, actualWriteSet) = importer.read().head
-      actualSubmissionInfo.submissionEnvelope should be(ByteString.copyFromUtf8("an envelope"))
-      actualSubmissionInfo.correlationId should be("parent")
-      actualSubmissionInfo.recordTimeInstant should be(expectedRecordTimeInstant)
-      actualSubmissionInfo.participantId should be(expectedParticipantId)
+      actualSubmissionInfo.participantId should be(participantId)
+      actualSubmissionInfo.correlationId should be(correlationId)
+      actualSubmissionInfo.submissionEnvelope should be(submissionEnvelope)
+      actualSubmissionInfo.recordTimeInstant should be(recordTimeInstant)
       actualWriteSet should be(
         Seq(
           keyValuePairOf("a", "b"),
