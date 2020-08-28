@@ -9,7 +9,7 @@ final class ProtobufBasedLedgerDataExportSpec
     extends LedgerDataExportSpecBase("protocol buffers-based export") {
 
   override protected def newExporter(outputStream: OutputStream): LedgerDataExporter =
-    new ProtobufBasedLedgerDataExporter(outputStream)
+    ProtobufBasedLedgerDataExporter.start(outputStream)
 
   override protected def newImporter(inputStream: InputStream): LedgerDataImporter =
     new ProtobufBasedLedgerDataImporter(inputStream)
