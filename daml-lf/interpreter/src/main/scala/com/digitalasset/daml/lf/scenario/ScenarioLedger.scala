@@ -9,6 +9,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.ledger._
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{
+  BlindingInfo,
   CommittedTransaction,
   GlobalKey,
   NodeId,
@@ -17,7 +18,6 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value
 import Value.{NodeId => _, _}
-import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
@@ -85,8 +85,7 @@ object ScenarioLedger {
       effectiveAt: Time.Timestamp,
       transactionId: LedgerString,
       transaction: CommittedTransaction,
-      explicitDisclosure: Relation[NodeId, Party],
-      implicitDisclosure: Relation[ContractId, Party],
+      blindingInfo: BlindingInfo,
       failedAuthorizations: FailedAuthorizations,
   )
 
@@ -105,15 +104,17 @@ object ScenarioLedger {
         transactionId: LedgerString,
         submittedTransaction: SubmittedTransaction,
     ): RichTransaction = {
-      val enrichedTx = EnrichedTransaction(Authorize(Set(committer)), submittedTransaction)
+      val failedAuthorizations =
+        AuthorizingTransaction.checkAuthFailures(Authorize(Set(committer)), submittedTransaction)
+      val blindingInfo =
+        BlindingTransaction.calculateBlindingInfo(submittedTransaction)
       new RichTransaction(
         committer = committer,
         effectiveAt = effectiveAt,
         transactionId = transactionId,
         transaction = Tx.commitTransaction(submittedTransaction),
-        explicitDisclosure = enrichedTx.explicitDisclosure,
-        implicitDisclosure = enrichedTx.implicitDisclosure,
-        failedAuthorizations = enrichedTx.failedAuthorizations,
+        blindingInfo = blindingInfo,
+        failedAuthorizations = failedAuthorizations,
       )
     }
 
@@ -525,12 +526,12 @@ object ScenarioLedger {
       // NOTE(MH): Since `addDisclosures` is biased towards existing
       // disclosures, we need to add the "stronger" explicit ones first.
       val cacheWithExplicitDisclosures =
-        richTr.explicitDisclosure.foldLeft(cacheAfterProcess) {
+        richTr.blindingInfo.disclosure.foldLeft(cacheAfterProcess) {
           case (cacheP, (nodeId, witnesses)) =>
             cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
               _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap))
         }
-      richTr.implicitDisclosure.foldLeft(cacheWithExplicitDisclosures) {
+      richTr.blindingInfo.divulgence.foldLeft(cacheWithExplicitDisclosures) {
         case (cacheP, (coid, divulgees)) =>
           cacheP.updateLedgerNodeInfo(cacheAfterProcess.coidToNodeId(coid))(
             _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap))
