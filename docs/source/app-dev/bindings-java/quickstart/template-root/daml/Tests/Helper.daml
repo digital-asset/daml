@@ -11,6 +11,10 @@ template Helper
   where
     signatory party
     controller party can
+      -- DAML Script is restricted to commands that are available on the ledger
+      -- API. This means that we cannot call 'fetch' directly in DAML Script.
+      -- Instead we define a helper template and choice that calls 'fetch'.
+      -- See https://docs.daml.com/daml-script/index.html#migrating-from-scenarios
       FetchIou : Iou
         with
           cid : IouCid
