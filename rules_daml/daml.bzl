@@ -332,7 +332,7 @@ sdk-version: {sdk_version}
 name: test
 version: 0.0.1
 source: .
-dependencies: [daml-stdlib, daml-prim $$(printf ",%s" $${{DEPS[@]}})]
+dependencies: [daml-stdlib, daml-prim $$([ $${{#DEPS[@]}} -gt 0 ] && printf ',"%s"' $${{DEPS[@]}})]
 EOF
 {cp_srcs}
 cd $$tmpdir
