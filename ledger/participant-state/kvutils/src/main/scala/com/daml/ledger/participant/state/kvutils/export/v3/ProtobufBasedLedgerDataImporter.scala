@@ -32,7 +32,7 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
     val builder = LedgerExportEntry.newBuilder
     if (input.synchronized(builder.mergeDelimitedFrom(input))) {
       val entry = builder.build()
-      val submissionInfo: SubmissionInfo = parseSubmissionInfo(entry)
+      val submissionInfo = parseSubmissionInfo(entry)
       val writeSet = parseWriteSet(entry)
       (submissionInfo -> writeSet) #:: readEntries()
     } else {

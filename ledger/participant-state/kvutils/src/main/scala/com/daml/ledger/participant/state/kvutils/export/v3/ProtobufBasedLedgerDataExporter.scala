@@ -16,7 +16,8 @@ import com.daml.ledger.participant.state.kvutils.export.{
   SubmissionInfo,
   WriteSet
 }
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+
+import scala.collection.JavaConverters._
 
 final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
     extends LedgerDataExporter
@@ -28,17 +29,15 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
   override def close(): Unit = output.close()
 
   private object Writer extends LedgerDataWriter {
-    override def write(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit =
+    override def write(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit = {
+      val entry = LedgerExportEntry.newBuilder
+        .setSubmissionInfo(buildSubmissionInfo(submissionInfo))
+        .addAllWriteSet(buildWriteSet(writeSet).asJava)
+        .build
       output.synchronized {
-        val builder = LedgerExportEntry.newBuilder
-        builder.setSubmissionInfo(buildSubmissionInfo(submissionInfo))
-        writeSet.foreach {
-          case (key, value) =>
-            builder.addWriteSet(buildWriteEntry(key, value))
-        }
-        val entry = builder.build()
         entry.writeDelimitedTo(output)
       }
+    }
 
     private def buildSubmissionInfo(
         submissionInfo: SubmissionInfo,
@@ -50,12 +49,16 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
         .setRecordTime(Conversions.buildTimestamp(submissionInfo.recordTimeInstant))
         .build()
 
-    private def buildWriteEntry(
-        key: Key,
-        value: Value,
-    ): LedgerExportEntry.WriteEntry = {
-      LedgerExportEntry.WriteEntry.newBuilder.setKey(key).setValue(value).build()
-    }
+    private def buildWriteSet(writeSet: WriteSet): Seq[LedgerExportEntry.WriteEntry] =
+      writeSet
+        .sortBy(_._1.asReadOnlyByteBuffer())
+        .map(
+          writeEntry =>
+            LedgerExportEntry.WriteEntry.newBuilder
+              .setKey(writeEntry._1)
+              .setValue(writeEntry._2)
+              .build())
+
   }
 
 }

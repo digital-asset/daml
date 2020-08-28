@@ -12,7 +12,7 @@ final class InMemorySubmissionAggregator(submissionInfo: SubmissionInfo, writer:
 
   import InMemorySubmissionAggregator._
 
-  private val buffer = mutable.ListBuffer.empty[WriteItem]
+  private val buffer = mutable.Buffer.empty[WriteItem]
 
   override def addChild(): WriteSetBuilder = new InMemoryWriteSetBuilder(buffer)
 
