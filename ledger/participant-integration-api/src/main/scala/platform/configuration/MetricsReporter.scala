@@ -4,7 +4,7 @@
 package com.daml.platform.configuration
 
 import java.net.{InetSocketAddress, URI}
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import com.codahale.metrics
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter}
@@ -26,10 +26,12 @@ object MetricsReporter {
   }
 
   final case class Csv(directory: Path) extends MetricsReporter {
-    override def register(registry: MetricRegistry): ScheduledReporter =
+    override def register(registry: MetricRegistry): ScheduledReporter = {
+      Files.createDirectories(directory)
       metrics.CsvReporter
         .forRegistry(registry)
         .build(directory.toFile)
+    }
   }
 
   final case class Graphite(address: InetSocketAddress, prefix: Option[String] = None)
