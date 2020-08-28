@@ -314,19 +314,40 @@ def daml_build_test(
 def daml_test(
         name,
         srcs = [],
+        deps = [],
         damlc = "//compiler/damlc",
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [damlc] + srcs,
+        data = [damlc] + srcs + deps,
         cmd = """\
+set -eou pipefail
+tmpdir=$$(mktemp -d)
+trap "rm -rf $$tmpdir" EXIT
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
 rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
-
-$$DAMLC test --files $$(rlocations {files})
+DEPS=($$(rlocations {deps}))
+cat << EOF > $$tmpdir/daml.yaml
+sdk-version: {sdk_version}
+name: test
+version: 0.0.1
+source: .
+dependencies: [daml-stdlib, daml-prim $$(printf ",%s" $${{DEPS[@]}})]
+EOF
+{cp_srcs}
+cd $$tmpdir
+$$DAMLC test --files {files}
 """.format(
             damlc = damlc,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
+            sdk_version = sdk_version,
+            deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
+            cp_srcs = "\n".join([
+                "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
+                src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
+                dest = "$$tmpdir/$(rootpath {})".format(src))
+                for src in srcs
+            ]),
         ),
         **kwargs
     )
