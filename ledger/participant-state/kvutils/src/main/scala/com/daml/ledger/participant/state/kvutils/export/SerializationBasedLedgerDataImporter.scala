@@ -7,6 +7,7 @@ import java.io.DataInputStream
 import java.time.Instant
 
 import com.daml.ledger.participant.state
+import com.google.common.io.ByteStreams
 import com.google.protobuf.ByteString
 
 /**
@@ -54,9 +55,7 @@ final class SerializationBasedLedgerDataImporter(input: DataInputStream)
 
   private def readBytes(): ByteString = {
     val size = input.readInt()
-    val byteArray = new Array[Byte](size)
-    input.readFully(byteArray)
-    ByteString.copyFrom(byteArray)
+    ByteString.readFrom(ByteStreams.limit(input, size.toLong), size)
   }
 
   private def readInstant(): Instant = {

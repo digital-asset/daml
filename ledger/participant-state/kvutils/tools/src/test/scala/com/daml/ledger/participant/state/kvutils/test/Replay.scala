@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.test
 
-import java.io.DataInputStream
+import java.io.{BufferedInputStream, DataInputStream}
 import java.lang.System.err.println
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
@@ -207,7 +207,7 @@ object Replay {
   private def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
     println(s"%%% load ledger export file  $dumpFile...")
     val importer = new SerializationBasedLedgerDataImporter(
-      new DataInputStream(Files.newInputStream(dumpFile)))
+      new DataInputStream(new BufferedInputStream(Files.newInputStream(dumpFile))))
     val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
     if (transactions.isEmpty) sys.error("no transaction find")
 
