@@ -1,8 +1,11 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE ApplicativeDo #-}
 
 module IDRef where
+
+import DA.Assert
+import Daml.Script
 
 -- ID_REF_TEST_BEGIN
 data Bank = Bank with
@@ -33,10 +36,10 @@ template CashBalance
   where
     signatory accountant
 
-id_ref_test = scenario do
-  accountant <- getParty "Bob"
-  owner <- getParty "Alice"
-  bank_party <- getParty "Bank"
+id_ref_test = do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
   let
     bank = Bank with
       party = bank_party
@@ -47,30 +50,30 @@ id_ref_test = scenario do
       amount = 100.0
 
   accountCid <- submit accountant do
-     create Account with
+     createCmd Account with
       accountant
       owner
       bank
       number = "ABC123"
 
   balanceCid <- submit accountant do
-    create CashBalance with
+    createCmd CashBalance with
       accountant
       cash
       account = accountCid
 
   -- Now the accountant updates the telephone number for the bank on the account
+  Some account <- queryContractId accountant accountCid
   new_account <- submit accountant do
-    account <- fetch accountCid
-    archive accountCid
-    create account with
+    archiveCmd accountCid
+    createCmd account with
       bank = account.bank with
         telephone = "098 7654 321"
+    pure ()
 
   -- The `account` field on the balance now refers to the archived
   -- contract, so this will fail.
-  submitMustFail accountant do
-    balance <- fetch balanceCid
-    fetch balance.account
+  Some balance <- queryContractId accountant balanceCid
+  optAccount <- queryContractId accountant balance.account
+  optAccount === None
 -- ID_REF_TEST_END
-

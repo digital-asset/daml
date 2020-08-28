@@ -72,4 +72,4 @@ Furthermore, DAML ledgers *guarantee* that parties see all transactions where th
 Next up
 -------
 
-In :doc:`2_Scenario`, you'll learn about how to try out the ``Token`` contract template in DAML's inbuilt ``scenario`` testing language.
+In :doc:`2_DamlScript`, you'll learn about how to try out the ``Token`` contract template in DAML's inbuilt DAML Script testing language.

@@ -672,6 +672,7 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-test",
     srcs = glob(["source/daml/intro/daml/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_build_test(
