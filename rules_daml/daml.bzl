@@ -344,8 +344,9 @@ $$DAMLC test --files {files}
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
-                src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
-                dest = "$$tmpdir/$(rootpath {})".format(src))
+                    src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
+                    dest = "$$tmpdir/$(rootpath {})".format(src),
+                )
                 for src in srcs
             ]),
         ),
