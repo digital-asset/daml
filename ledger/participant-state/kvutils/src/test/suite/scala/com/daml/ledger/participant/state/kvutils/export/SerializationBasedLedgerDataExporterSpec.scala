@@ -5,10 +5,10 @@ package com.daml.ledger.participant.state.kvutils.export
 
 import java.io.{DataOutputStream, OutputStream}
 
-final class FileBasedLedgerDataExporterSpec
-    extends LedgerDataExporterSpecBase[FileBasedLedgerDataExporter] {
+final class SerializationBasedLedgerDataExporterSpec
+    extends LedgerDataExporterSpecBase[SerializationBasedLedgerDataExporter] {
 
   override protected def implementation(outputStream: OutputStream): LedgerDataExporter =
-    new FileBasedLedgerDataExporter(new DataOutputStream(outputStream))
+    new SerializationBasedLedgerDataExporter(new DataOutputStream(outputStream))
 
 }

@@ -15,7 +15,8 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
   * Enables exporting ledger data to an output stream.
   * This class is thread-safe.
   */
-class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataExporter {
+final class SerializationBasedLedgerDataExporter(output: DataOutputStream)
+    extends LedgerDataExporter {
 
   private val outputLock = new StampedLock
 
@@ -28,10 +29,10 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
     this.synchronized {
       val submissionInfo =
         SubmissionInfo(participantId, correlationId, submissionEnvelope, recordTimeInstant)
-      new InMemorySubmissionAggregator(submissionInfo, FileBasedLedgerDataWriter)
+      new InMemorySubmissionAggregator(submissionInfo, SerializationBasedLedgerDataWriter)
     }
 
-  object FileBasedLedgerDataWriter extends LedgerDataWriter {
+  object SerializationBasedLedgerDataWriter extends LedgerDataWriter {
     override def write(submissionInfo: SubmissionInfo, writeSet: Seq[(Key, Value)]): Unit = {
       val stamp = outputLock.writeLock()
       try {

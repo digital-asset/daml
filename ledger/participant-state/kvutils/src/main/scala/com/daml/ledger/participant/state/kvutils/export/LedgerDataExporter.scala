@@ -41,7 +41,7 @@ object LedgerDataExporter {
           ResourceOwner
             .forCloseable(() => new DataOutputStream(Files.newOutputStream(path)))
             .acquire()
-            .map(new FileBasedLedgerDataExporter(_))
+            .map(new SerializationBasedLedgerDataExporter(_))
         }
         .getOrElse(Resource.successful(NoOpLedgerDataExporter))
   }
