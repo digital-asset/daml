@@ -397,9 +397,9 @@ object Converter {
       knownPackages: Map[String, PackageId],
       v: SValue): Either[String, Option[Location]] =
     v match {
-      case SOptional(None) => Right(None)
-      case SOptional(Some(pair)) =>
-        pair match {
+      case SList(list) => list.pop match {
+        case None => Right(None)
+        case Some((pair, _)) => pair match {
           case SRecord(_, _, vals) if vals.size == 2 =>
             for {
               // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
@@ -432,7 +432,8 @@ object Converter {
             } yield Some(loc)
           case _ => Left("Expected SRecord of a pair")
         }
-      case _ => Left(s"Expected SOptional but got $v")
+      }
+      case _ => Left(s"Expected SList but got $v")
     }
 
   // Helper to construct a record
