@@ -1,13 +1,24 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 module GHC.Stack.Types where
 
+import GHC.Classes ()
 import GHC.CString
 import GHC.Err
 import GHC.Tuple ()
 import GHC.Types
+
+-- | Request a CallStack.
+--
+-- Calls to functions with this constraint will be added to the callstack.
+-- You can get access to the current call stack with `callStack`.
+--
+-- Note that if the call stack is reset if any function in between does not
+-- have a `HasCallStack` constraint.
+type HasCallStack = (?callStack : CallStack)
 
 -- NOTE (MK): Note that everything in this module
 -- needs to use `TextLit`. Otherwise, you will get core linting errors
@@ -35,6 +46,9 @@ popCallStack stk = case stk of
   PushCallStack (_, _, stk') -> stk'
   FreezeCallStack _      -> stk
 
+-- | Location in the source code.
+--
+-- Line and column are 1-based.
 data SrcLoc = SrcLoc
   { srcLocPackage   : TextLit
   , srcLocModule    : TextLit

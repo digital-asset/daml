@@ -119,12 +119,16 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
-  def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
-      implicit ec: ExecutionContext,
-      mat: Materializer)
+  def submit(
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command],
+      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
-  def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+  def submitMustFail(
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command],
+      optLocation: Option[Location])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Either[Unit, Unit]]
 
@@ -176,9 +180,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         })))
   }
 
-  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
+  override def submit(
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command],
+      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
     val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
@@ -214,10 +219,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       }))
   }
 
-  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
-    submit(party, commands).map({
+  override def submitMustFail(
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command],
+      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
+    submit(party, commands, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
@@ -378,11 +384,13 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     compiledPackages.compiler.unsafeCompile(cmds)
   }
 
-  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
-      implicit ec: ExecutionContext,
-      mat: Materializer)
+  override def submit(
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command],
+      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
     try {
+      machine.commitLocation = optLocation
       machine.returnValue = null
       val translated = translateCommands(commands)
       machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
@@ -463,6 +471,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       Right(result)
     } finally {
       // Reset the machine
+      machine.commitLocation = None
       machine.returnValue = null
       machine.clearCommit
       machine.localContracts = Map.empty
@@ -470,10 +479,13 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     }
   }
 
-  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
+  override def submitMustFail(
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command],
+      optLocation: Option[Location])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Either[Unit, Unit]] = {
-    submit(party, commands)
+    submit(party, commands, optLocation)
       .map({
         case Right(_) => Left(())
         // We don't expect to hit this case but list it for completeness.
@@ -611,9 +623,10 @@ class JsonLedgerClient(
       parsedResults
     }
   }
-  override def submit(party: SParty, commands: List[ScriptLedgerClient.Command])(
-      implicit ec: ExecutionContext,
-      mat: Materializer)
+  override def submit(
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command],
+      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
       () <- validateTokenParty(party, "submit a command")
@@ -637,10 +650,11 @@ class JsonLedgerClient(
       }
     } yield result
   }
-  override def submitMustFail(party: SParty, commands: List[ScriptLedgerClient.Command])(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
-    submit(party, commands).map({
+  override def submitMustFail(
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command],
+      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
+    submit(party, commands, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })

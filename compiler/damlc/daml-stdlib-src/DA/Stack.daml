@@ -16,15 +16,6 @@ import DA.Text
 import GHC.Stack.Types hiding (SrcLoc(..))
 import qualified GHC.Stack.Types as GHC
 
--- | Request a CallStack.
---
--- Calls to functions with this constraint will be added to the callstack.
--- You can get access to the current call stack with `callStack`.
---
--- Note that if the call stack is reset if any function in between does not
--- have a `HasCallStack` constraint.
-type HasCallStack = (?callStack : CallStack)
-
 -- Pretty-print a `CallStack`.
 prettyCallStack : CallStack -> Text
 prettyCallStack = intercalate "\n" . prettyCallStackLines
@@ -64,7 +55,7 @@ callStack =
 
 -- | Location in the source code.
 --
--- Line and column are 1-based.
+-- Line and column are 0-based.
 data SrcLoc = SrcLoc
 -- User-facing type using Text instead of TextLit.
   { srcLocPackage   : Text
@@ -82,9 +73,9 @@ convSrcLoc GHC.SrcLoc{..} =
     { srcLocPackage = fromString srcLocPackage
     , srcLocModule = fromString srcLocModule
     , srcLocFile = fromString srcLocFile
-    , srcLocStartLine
-    , srcLocStartCol
-    , srcLocEndLine
-    , srcLocEndCol
+    , srcLocStartLine = srcLocStartLine - 1
+    , srcLocStartCol = srcLocStartCol - 1
+    , srcLocEndLine = srcLocEndLine - 1
+    , srcLocEndCol = srcLocEndCol - 1
     }
 
