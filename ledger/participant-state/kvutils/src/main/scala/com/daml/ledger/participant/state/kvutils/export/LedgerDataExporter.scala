@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.DataOutputStream
+import java.io.{BufferedOutputStream, DataOutputStream}
 import java.nio.file.{Files, Paths}
 
 import com.daml.resources.{Resource, ResourceOwner}
@@ -30,7 +30,8 @@ object LedgerDataExporter {
         .map { path =>
           logger.info(s"Enabled writing ledger entries to $path.")
           ResourceOwner
-            .forCloseable(() => new DataOutputStream(Files.newOutputStream(path)))
+            .forCloseable(() =>
+              new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path))))
             .acquire()
             .map(new SerializationBasedLedgerDataExporter(_))
         }

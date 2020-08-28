@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.driver
 
-import java.io.DataInputStream
+import java.io.{BufferedInputStream, DataInputStream}
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.Executors
 
@@ -32,7 +32,7 @@ object IntegrityCheckV2 {
     val executionContext: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
         Executors.newFixedThreadPool(sys.runtime.availableProcessors()))
-    val ledgerDumpStream = new DataInputStream(Files.newInputStream(path))
+    val ledgerDumpStream = new DataInputStream(new BufferedInputStream(Files.newInputStream(path)))
     new IntegrityChecker(LogAppendingCommitStrategySupport)
       .run(ledgerDumpStream)(executionContext)
       .andThen {
