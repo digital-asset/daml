@@ -485,11 +485,6 @@ message LedgerDumpEntry {
   repeated StatePair output_state = 5;
 }
 
-// A header for the exporter and importer, to ensure we're consuming the export appropriately.
-message LedgerExportHeader {
-  string version = 1;
-}
-
 // A v3 export of a "kvutils" ledger. Used by the integrity checker to test that a new version of
 // kvutils can process older ledgers.
 message LedgerExportEntry {

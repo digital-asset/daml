@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.io.OutputStream
 
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{LedgerExportEntry, LedgerExportHeader}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
@@ -48,15 +48,10 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
 }
 
 object ProtobufBasedLedgerDataExporter {
-  val version = "v3"
+  val header = new Header(version = "v3")
 
   def start(output: OutputStream): LedgerDataExporter = {
-    writeHeader(output)
+    header.write(output)
     new ProtobufBasedLedgerDataExporter(output)
-  }
-
-  private def writeHeader(output: OutputStream): Unit = {
-    val header = LedgerExportHeader.newBuilder.setVersion(version).build()
-    header.writeDelimitedTo(output)
   }
 }
