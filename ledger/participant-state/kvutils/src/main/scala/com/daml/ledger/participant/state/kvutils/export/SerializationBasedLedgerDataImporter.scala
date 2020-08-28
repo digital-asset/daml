@@ -17,12 +17,14 @@ final class SerializationBasedLedgerDataImporter(input: DataInputStream)
     extends LedgerDataImporter {
 
   override def read(): Stream[(SubmissionInfo, WriteSet)] =
-    if (input.available() == 0)
+    if (input.available() == 0) {
+      input.close()
       Stream.empty
-    else
+    } else {
       deserializeEntry() #:: read()
+    }
 
-  private def deserializeEntry(): (SubmissionInfo, WriteSet) = {
+  private def deserializeEntry(): (SubmissionInfo, WriteSet) = synchronized {
     val submissionInfo = deserializeSubmissionInfo()
     val writeSet = deserializeWriteSet()
     (submissionInfo, writeSet)
