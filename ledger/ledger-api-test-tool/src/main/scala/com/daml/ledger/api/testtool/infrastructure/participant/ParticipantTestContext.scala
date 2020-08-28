@@ -141,7 +141,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.transaction.getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId)).map(_.getOffset)
 
   /**
-    * Gets the absolute offset that is beyond the current ledger end.
+    * Returns an absolute offset that is beyond the current ledger end.
     *
     * Note: offsets are opaque byte strings, but they are lexicographically sortable.
     * Prepending the current absolute ledger end with non-zero bytes creates an offset that
@@ -150,7 +150,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     * This method can therefore only be used for offsets that are only interpreted by the
     * ledger API server and not sent to the ledger.
     */
-  def futureOffset(): Future[LedgerOffset] =
+  def offsetBeyondLedgerEnd(): Future[LedgerOffset] =
     currentEnd().map(end => LedgerOffset(LedgerOffset.Value.Absolute("FFFF" + end.getAbsolute)))
 
   def time(): Future[Instant] =

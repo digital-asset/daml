@@ -96,13 +96,13 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXAfterEnd",
-    "An OUT_OF_RANGE error should be returned for subscribing past the ledger end",
+    "An OUT_OF_RANGE error should be returned when subscribing past the ledger end",
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         _ <- ledger.create(party, Dummy(party))
-        futureOffset <- ledger.futureOffset()
+        futureOffset <- ledger.offsetBeyondLedgerEnd()
         request = ledger.getTransactionsRequest(Seq(party))
         beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
         failure <- ledger.flatTransactions(beyondEnd).failed
@@ -113,13 +113,13 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXTreesAfterEnd",
-    "An OUT_OF_RANGE error should be returned for subscribing to trees past the ledger end",
+    "An OUT_OF_RANGE error should be returned when subscribing to trees past the ledger end",
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         _ <- ledger.create(party, Dummy(party))
-        futureOffset <- ledger.futureOffset()
+        futureOffset <- ledger.offsetBeyondLedgerEnd()
         request = ledger.getTransactionsRequest(Seq(party))
         beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
         failure <- ledger.transactionTrees(beyondEnd).failed
