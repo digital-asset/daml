@@ -658,6 +658,7 @@ daml_test(
         # and we cannot conveniently add daml-script as a dependency for daml_test
         exclude = ["source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml"],
     ),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
