@@ -25,7 +25,7 @@ def install_java_deps():
             "com.github.scopt:scopt_2.12:3.7.1",
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",
-            "com.google.guava:guava:24.0-jre",
+            "com.google.guava:guava:29.0-jre",
             "com.h2database:h2:1.4.200",
             "com.lihaoyi:pprint_2.12:0.5.3",
             "commons-io:commons-io:2.5",
