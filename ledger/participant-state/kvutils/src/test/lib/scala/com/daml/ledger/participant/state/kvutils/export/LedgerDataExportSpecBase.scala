@@ -17,21 +17,18 @@ abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matc
 
   name should {
     "serialize a submission to something deserializable" in {
-      val participantId = v1.ParticipantId.assertFromString("id")
-      val correlationId = "parent"
-      val submissionEnvelope = ByteString.copyFromUtf8("an envelope")
-      val recordTimeInstant = Instant.ofEpochSecond(123456, 123456789)
+      val submissionInfo = SubmissionInfo(
+        participantId = v1.ParticipantId.assertFromString("id"),
+        correlationId = "parent",
+        submissionEnvelope = ByteString.copyFromUtf8("an envelope"),
+        recordTimeInstant = Instant.ofEpochSecond(123456, 123456789),
+      )
 
       val inputStream = new PipedInputStream()
       val outputStream = new PipedOutputStream(inputStream)
       val exporter = newExporter(outputStream)
 
-      val submission = exporter.addSubmission(
-        participantId,
-        correlationId,
-        submissionEnvelope,
-        recordTimeInstant,
-      )
+      val submission = exporter.addSubmission(submissionInfo)
       val writeSetA1 = submission.addChild()
       writeSetA1 ++= Seq(keyValuePairOf("a", "b"), keyValuePairOf("c", "d"))
       val writeSetA2 = submission.addChild()
@@ -42,10 +39,7 @@ abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matc
       val importer = newImporter(inputStream)
 
       val (actualSubmissionInfo, actualWriteSet) = importer.read().head
-      actualSubmissionInfo.participantId should be(participantId)
-      actualSubmissionInfo.correlationId should be(correlationId)
-      actualSubmissionInfo.submissionEnvelope should be(submissionEnvelope)
-      actualSubmissionInfo.recordTimeInstant should be(recordTimeInstant)
+      actualSubmissionInfo should be(submissionInfo)
       actualWriteSet should be(
         Seq(
           keyValuePairOf("a", "b"),

@@ -7,8 +7,6 @@ import java.io.DataOutputStream
 import java.time.Instant
 import java.util.concurrent.locks.StampedLock
 
-import com.daml.ledger.participant.state.kvutils.CorrelationId
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 /**
@@ -20,14 +18,7 @@ final class SerializationBasedLedgerDataExporter(output: DataOutputStream)
 
   private val outputLock = new StampedLock
 
-  override def addSubmission(
-      participantId: ParticipantId,
-      correlationId: CorrelationId,
-      submissionEnvelope: Key,
-      recordTimeInstant: Instant,
-  ): SubmissionAggregator = {
-    val submissionInfo =
-      SubmissionInfo(participantId, correlationId, submissionEnvelope, recordTimeInstant)
+  override def addSubmission(submissionInfo: SubmissionInfo): SubmissionAggregator = {
     new InMemorySubmissionAggregator(submissionInfo, SerializationBasedLedgerDataWriter)
   }
 

@@ -11,7 +11,11 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.export.{LedgerDataExporter, SubmissionAggregator}
+import com.daml.ledger.participant.state.kvutils.export.{
+  LedgerDataExporter,
+  SubmissionAggregator,
+  SubmissionInfo
+}
 import com.daml.ledger.participant.state.kvutils.{CorrelationId, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator
@@ -114,13 +118,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       commitStrategy: CommitStrategy[CommitResult]
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
     withCorrelationIdLogged(correlationId) { implicit loggingContext =>
-      val exporterAggregator = ledgerDataExporter.addSubmission(
-        participantId,
-        correlationId,
-        submissionEnvelope,
-        recordTimeInstant,
-      )
       val recordTime = Time.Timestamp.assertFromInstant(recordTimeInstant)
+      val submissionInfo =
+        SubmissionInfo(participantId, correlationId, submissionEnvelope, recordTimeInstant)
+      val exporterAggregator = ledgerDataExporter.addSubmission(submissionInfo)
       Timed.future(
         metrics.validateAndCommit, {
           val result = metrics.openEnvelope.time(() => Envelope.open(submissionEnvelope)) match {
