@@ -6,7 +6,7 @@
 
 In :doc:`1_Token`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
 
-In :doc:`2_DamlScript`, you learnt about the script view in DAML Studio, which displays the current ledger state. It shows one table per template, with one row per contract of that type and one column per field in the arguments.
+In :doc:`2_Scenario`, you learnt about the script view in DAML Studio, which displays the current ledger state. It shows one table per template, with one row per contract of that type and one column per field in the arguments.
 
 This actually provides a useful way of thinking about templates: like tables in databases. Templates specify a data schema for the ledger:
 
@@ -222,7 +222,7 @@ You have already met the type ``ContractId a``, which references a contract of t
   :start-after: -- ID_REF_TEST_BEGIN
   :end-before: -- ID_REF_TEST_END
 
-The script above uses the ``queryContractId`` function, which retrieves the arguments of an active contract using its contract ID. If there is no active contract with the given identifier visible to the given party, ``queryContractId`` returns ``None``. Here, we use a pattern match on ``Some`` which will abort the script if ``queryContractId`` returns ``None``.
+The script above uses the ``fetch`` function, which retrieves the arguments of an active contract using its contract ID. ``fetch`` is not directly exposed to ledger clients. Therefore, we create a helper template with the functionality relying on ``fetch`` exposed via choices. We will learn more about choices in :doc:`the next section <4_Transformations>`. We can call those choices by specifying the template and the choice as arguments to ``createAndExerciseCmd``. Note that within the choices we omit the ``cmd`` suffix since that code is executed directly by the ledger instead of building up commands on the client.
 
 Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
 

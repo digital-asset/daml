@@ -149,7 +149,7 @@ You can always write a recipe using just pen and paper, but you can't cook it up
 - An ``Update a`` is "a recipe to update a DAML ledger, which, when committed, has the effect of changing the ledger, and returns a value of type ``a``". An update to a DAML ledger is a transaction so equivalently, an ``Update a`` is "a recipe to construct a transaction, which, when executed in the context of a ledger, returns a value of type ``a``".
 - A ``Script a`` is "a recipe for a test, which, when performed against a ledger, has the effect of changing the ledger in ways analogous to those available via the API, and returns a value of type ``a``".
 
-Expressions like ``getTime``, ``allocateParty party``, ``passTime time``, ``submit party commands``, ``create contract`` and ``exercise choice`` should make more sense in that light. For example:
+Expressions like ``getTime``, ``allocateParty party``, ``passTime time``, ``submit party update``, ``create contract`` and ``exercise choice`` should make more sense in that light. For example:
 
 - ``getTime : Update Time`` is the recipe for an empty transaction that also happens to return a value of type ``Time``.
 - ``passTime (days 10) : Script ()`` is a recipe for a transaction that doesn't submit any transactions, but has the side-effect of changing the LET of the test ledger. It returns ``()``, also called ``Unit`` and can be thought of as a zero-tuple.
@@ -170,7 +170,7 @@ a more restricted version of ``Action`` that enforces that there are
 no dependencies between commands. If you do have dependencies between
 commands, you can always wrap it in a choice in a helper template and
 call that via ``createAndExerciseCmd`` just like we did to call
-``fetchByKey``. Alternatively, if you do not need them to be part of the
+``fetch``. Alternatively, if you do not need them to be part of the
 same transaction, you can make multiple calls to ``submit``.
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml

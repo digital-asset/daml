@@ -9,6 +9,19 @@ import Daml.Script
 import Intro.Asset
 import Intro.Asset.Role
 
+-- | Helper template to be called via createAndExerciseCmd
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+    choice FetchAsset : Asset
+      with
+        cid : ContractId Asset
+      controller p
+      do fetch cid
+
+
 setupRoles = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
@@ -42,7 +55,12 @@ test_issuance = do
         symbol = "USD"
         quantity = 100.0
 
+<<<<<<< HEAD
   Some asset <- queryContractId bank assetCid
+=======
+  asset <- submit bank do
+    createAndExerciseCmd (Helper bank) (FetchAsset assetCid)
+>>>>>>> Migrate DAML Intro to DAML Script
   assert (asset == Asset with
       issuer = bank
       owner = alice

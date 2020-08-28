@@ -5,6 +5,7 @@
 module IDRef where
 
 import DA.Assert
+
 import Daml.Script
 
 -- ID_REF_TEST_BEGIN

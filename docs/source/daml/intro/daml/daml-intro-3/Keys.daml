@@ -70,35 +70,50 @@ id_ref_test = do
 
   Some account <- queryContractId accountant accountCid
   balanceCid <- submit accountant do
-    createCmd CashBalance with
-      accountant
-      cash
-      account = key account
+    createAndExerciseCmd (Helper accountant) (CreateCashBalance accountCid cash)
 
   -- Now the accountant updates the telephone number for the bank on the account
   Some account <- queryContractId accountant accountCid
   new_accountCid <- submit accountant do
-    archiveCmd accountCid
-    cid <- createCmd account with
-      bank = account.bank with
-        telephone = "098 7654 321"
-    pure cid
+    createAndExerciseCmd (Helper accountant) (UpdatePhoneNumber accountCid "098 7654 321")
 
   -- Thanks to contract keys, the current account contract is fetched
-  Some balance <- queryContractId accountant balanceCid
   (cid, account) <- submit accountant do
-    createAndExerciseCmd (Helper accountant) (FetchAccountByKey balance.account)
+    createAndExerciseCmd (Helper accountant) (FetchBalanceAccount balanceCid)
   assert (cid == new_accountCid)
 
--- Helper template to call `fetchByKey`.
+-- Helper template to call `fetch`.
 template Helper
   with
     p : Party
   where
     signatory p
-    choice FetchAccountByKey : (ContractId Account, Account)
+    choice CreateCashBalance : ContractId CashBalance
       with
-        accountKey : AccountKey
+        cid : ContractId Account
+        cash : Cash
       controller p
-      do fetchByKey @Account accountKey
+      do account <- fetch cid
+         create CashBalance with
+           accountant = p
+           cash
+           account = key account
+
+    choice UpdatePhoneNumber : ContractId Account
+      with
+        cid : ContractId Account
+        number : Text
+      controller p
+      do account <- fetch cid
+         archive cid
+         create account with
+           bank = account.bank with
+             telephone = number
+
+    choice FetchBalanceAccount : (ContractId Account, Account)
+      with
+        cid : ContractId CashBalance
+      controller p
+      do balance <- fetch cid
+         fetchByKey @Account balance.account
 -- KEY_TEST_END

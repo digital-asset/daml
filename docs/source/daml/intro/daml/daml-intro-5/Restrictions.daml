@@ -300,7 +300,7 @@ errPow base exponent
 
 {-
 -- NON_PERFORMED_ERROR_BEGIN
-nonPerformedError = script do
+nonPerformedError = do
   let causeError = False
   let failingComputation = errPow 1 (-1)
   let successfulComputation = errPow 1 1
@@ -308,7 +308,7 @@ nonPerformedError = script do
 -- NON_PERFORMED_ERROR_END
 -}
 
-test = script do
+test: Script () = do
   optPow 2 5 === Some 32
   optPow 5 2 === Some 25
   errPow 2 5 === 32
