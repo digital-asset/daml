@@ -3,7 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.export.v3
 
-import java.io.InputStream
+import java.io.{Closeable, InputStream}
+import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
@@ -16,11 +17,16 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 
 import scala.collection.JavaConverters._
 
-final class ProtobufBasedLedgerDataImporter(input: InputStream) extends LedgerDataImporter {
+final class ProtobufBasedLedgerDataImporter(input: InputStream)
+    extends LedgerDataImporter
+    with Closeable {
+
   override def read(): Stream[(SubmissionInfo, WriteSet)] = {
     header.consumeAndVerify(input)
     readEntries()
   }
+
+  override def close(): Unit = input.close()
 
   private def readEntries(): Stream[(SubmissionInfo, WriteSet)] = {
     val builder = LedgerExportEntry.newBuilder
@@ -30,6 +36,7 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream) extends LedgerDa
       val writeSet = parseWriteSet(entry)
       (submissionInfo -> writeSet) #:: readEntries()
     } else {
+      close()
       Stream.empty
     }
   }
@@ -48,4 +55,10 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream) extends LedgerDa
     entry.getWriteSetList.asScala.view
       .map(writeEntry => writeEntry.getKey -> writeEntry.getValue)
       .toVector
+
+}
+
+object ProtobufBasedLedgerDataImporter {
+  def apply(path: Path): ProtobufBasedLedgerDataImporter =
+    new ProtobufBasedLedgerDataImporter(Files.newInputStream(path))
 }

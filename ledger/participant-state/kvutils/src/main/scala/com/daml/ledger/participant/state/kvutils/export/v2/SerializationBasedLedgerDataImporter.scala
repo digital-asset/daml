@@ -3,7 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.export.v2
 
-import java.io.DataInputStream
+import java.io.{Closeable, DataInputStream}
+import java.nio.file.{Files, Path}
 import java.time.Instant
 
 import com.daml.ledger.participant.state
@@ -20,15 +21,18 @@ import com.google.protobuf.ByteString
   * This class is thread-safe.
   */
 final class SerializationBasedLedgerDataImporter(input: DataInputStream)
-    extends LedgerDataImporter {
+    extends LedgerDataImporter
+    with Closeable {
 
   override def read(): Stream[(SubmissionInfo, WriteSet)] =
     if (input.available() == 0) {
-      input.close()
+      close()
       Stream.empty
     } else {
       deserializeEntry() #:: read()
     }
+
+  override def close(): Unit = input.close()
 
   private def deserializeEntry(): (SubmissionInfo, WriteSet) = synchronized {
     val submissionInfo = deserializeSubmissionInfo()
@@ -68,5 +72,9 @@ final class SerializationBasedLedgerDataImporter(input: DataInputStream)
     val nano = input.readInt()
     Instant.ofEpochSecond(epochSecond, nano.toLong)
   }
+}
 
+object SerializationBasedLedgerDataImporter {
+  def apply(path: Path): SerializationBasedLedgerDataImporter =
+    new SerializationBasedLedgerDataImporter(new DataInputStream(Files.newInputStream(path)))
 }

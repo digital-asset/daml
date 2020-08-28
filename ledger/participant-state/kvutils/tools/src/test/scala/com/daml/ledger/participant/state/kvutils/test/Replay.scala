@@ -3,9 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.test
 
-import java.io.{BufferedInputStream, DataInputStream}
 import java.lang.System.err.println
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
@@ -204,56 +203,58 @@ object Replay {
 
   private def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
     println(s"%%% load ledger export file  $dumpFile...")
-    val importer = new SerializationBasedLedgerDataImporter(
-      new DataInputStream(new BufferedInputStream(Files.newInputStream(dumpFile))))
-    val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
-    if (transactions.isEmpty) sys.error("no transaction find")
+    val importer = SerializationBasedLedgerDataImporter(dumpFile)
+    try {
+      val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
+      if (transactions.isEmpty) sys.error("no transaction find")
 
-    val createsNodes: Seq[Node.NodeCreate.WithTxValue[ContractId]] =
-      transactions.flatMap(entry =>
-        entry.tx.nodes.values.collect {
-          case create: Node.NodeCreate.WithTxValue[ContractId] =>
-            create
-      })
+      val createsNodes: Seq[Node.NodeCreate.WithTxValue[ContractId]] =
+        transactions.flatMap(entry =>
+          entry.tx.nodes.values.collect {
+            case create: Node.NodeCreate.WithTxValue[ContractId] =>
+              create
+        })
 
-    val allContracts: Map[ContractId, Value.ContractInst[Tx.Value[ContractId]]] =
-      createsNodes.map(node => node.coid -> node.coinst).toMap
+      val allContracts: Map[ContractId, Value.ContractInst[Tx.Value[ContractId]]] =
+        createsNodes.map(node => node.coid -> node.coinst).toMap
 
-    val allContractsWithKey = createsNodes.flatMap { node =>
-      node.key.toList.map(
-        key =>
-          node.coid -> GlobalKey(
-            node.coinst.template,
-            key.key.value.assertNoCid(key => s"found cid in key $key")))
-    }.toMap
+      val allContractsWithKey = createsNodes.flatMap { node =>
+        node.key.toList.map(
+          key =>
+            node.coid -> GlobalKey(
+              node.coinst.template,
+              key.key.value.assertNoCid(key => s"found cid in key $key")))
+      }.toMap
 
-    val benchmarks = transactions.flatMap { entry =>
-      entry.tx.roots.map(entry.tx.nodes) match {
-        case ImmArray(exe: Node.NodeExercises.WithTxValue[_, ContractId]) =>
-          val inputContracts = entry.tx.inputContracts
-          List(
-            BenchmarkState(
-              name = exe.templateId.qualifiedName.toString + ":" + exe.choiceId,
-              transaction = entry,
-              contracts = allContracts.filterKeys(inputContracts),
-              contractKeys = inputContracts.iterator
-                .flatMap(cid => allContractsWithKey.get(cid).toList.map(_ -> cid))
-                .toMap
-            ))
-        case _ =>
+      val benchmarks = transactions.flatMap { entry =>
+        entry.tx.roots.map(entry.tx.nodes) match {
+          case ImmArray(exe: Node.NodeExercises.WithTxValue[_, ContractId]) =>
+            val inputContracts = entry.tx.inputContracts
+            List(
+              BenchmarkState(
+                name = exe.templateId.qualifiedName.toString + ":" + exe.choiceId,
+                transaction = entry,
+                contracts = allContracts.filterKeys(inputContracts),
+                contractKeys = inputContracts.iterator
+                  .flatMap(cid => allContractsWithKey.get(cid).toList.map(_ -> cid))
+                  .toMap
+              ))
+          case _ =>
+            List.empty
+        }
+      }
+
+      benchmarks.groupBy(_.name).flatMap {
+        case (key, Seq(test)) =>
+          println(s"%%% found 1 exercise for $key")
+          List(key -> test)
+        case (key, tests) =>
+          println(s"%%% found ${tests.length} exercises for $key. IGNORED")
           List.empty
       }
+    } finally {
+      importer.close()
     }
-
-    benchmarks.groupBy(_.name).flatMap {
-      case (key, Seq(test)) =>
-        println(s"%%% found 1 exercise for $key")
-        List(key -> test)
-      case (key, tests) =>
-        println(s"%%% found ${tests.length} exercises for $key. IGNORED")
-        List.empty
-    }
-
   }
 
   def adapt(

@@ -3,7 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.export.v2
 
-import java.io.DataOutputStream
+import java.io.{BufferedOutputStream, Closeable, DataOutputStream}
+import java.nio.file.{Files, Path}
 import java.time.Instant
 import java.util.concurrent.locks.StampedLock
 
@@ -22,13 +23,16 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
   * This class is thread-safe.
   */
 final class SerializationBasedLedgerDataExporter(output: DataOutputStream)
-    extends LedgerDataExporter {
+    extends LedgerDataExporter
+    with Closeable {
 
   private val outputLock = new StampedLock
 
   override def addSubmission(submissionInfo: SubmissionInfo): SubmissionAggregator = {
     new InMemorySubmissionAggregator(submissionInfo, SerializationBasedLedgerDataWriter)
   }
+
+  override def close(): Unit = output.close()
 
   object SerializationBasedLedgerDataWriter extends LedgerDataWriter {
     override def write(submissionInfo: SubmissionInfo, writeSet: Seq[(Key, Value)]): Unit = {
@@ -75,4 +79,10 @@ final class SerializationBasedLedgerDataExporter(output: DataOutputStream)
     }
   }
 
+}
+
+object SerializationBasedLedgerDataExporter {
+  def apply(path: Path): SerializationBasedLedgerDataExporter =
+    new SerializationBasedLedgerDataExporter(
+      new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path))))
 }

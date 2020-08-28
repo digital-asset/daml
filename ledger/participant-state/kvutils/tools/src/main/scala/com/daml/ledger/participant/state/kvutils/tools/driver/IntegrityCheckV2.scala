@@ -3,8 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.driver
 
-import java.io.{BufferedInputStream, DataInputStream}
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 import java.util.concurrent.Executors
 
 import com.daml.dec.DirectExecutionContext
@@ -33,13 +32,12 @@ object IntegrityCheckV2 {
     val executionContext: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
         Executors.newFixedThreadPool(sys.runtime.availableProcessors()))
-    val input = new DataInputStream(new BufferedInputStream(Files.newInputStream(path)))
-    val importer = new SerializationBasedLedgerDataImporter(input)
+    val importer = SerializationBasedLedgerDataImporter(path)
     new IntegrityChecker(LogAppendingCommitStrategySupport)
       .run(importer)(executionContext)
       .andThen {
         case _ =>
-          input.close()
+          importer.close()
           executionContext.shutdown()
       }(DirectExecutionContext)
       .failed
