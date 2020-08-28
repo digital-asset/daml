@@ -21,9 +21,6 @@ object Blinding {
     val failedAuthorizations =
       AuthorizingTransaction.checkAuthFailures(authorization, tx)
 
-    val blindingInfo =
-      BlindingTransaction.calculateBlindingInfo(tx)
-
     def authorizationErrors(failures: Map[NodeId, FailedAuthorization]) = {
       failures
         .map {
@@ -53,6 +50,7 @@ object Blinding {
         .mkString(";")
     }
     if (failedAuthorizations.isEmpty) {
+      val blindingInfo = BlindingTransaction.calculateBlindingInfo(tx)
       Right(blindingInfo)
     } else {
       Left(

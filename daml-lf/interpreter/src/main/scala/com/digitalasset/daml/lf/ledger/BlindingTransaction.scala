@@ -16,7 +16,7 @@ object BlindingTransaction {
     throw new IllegalArgumentException(reason)
 
   private object BlindState {
-    def Empty =
+    val Empty =
       BlindState(Map.empty, Map.empty)
   }
 

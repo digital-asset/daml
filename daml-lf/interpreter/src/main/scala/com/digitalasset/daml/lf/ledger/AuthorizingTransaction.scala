@@ -10,7 +10,7 @@ import com.daml.lf.value.Value.ContractId
 object AuthorizingTransaction {
 
   private object CheckState {
-    def Empty =
+    val Empty =
       CheckState(Map.empty)
   }
 
