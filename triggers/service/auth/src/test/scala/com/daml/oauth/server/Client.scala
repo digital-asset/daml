@@ -17,7 +17,7 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-// This is a test client (using terminology from oauth) terminology.
+// This is a test client (using terminology from oauth).
 // The trigger service would also take the role of a client.
 object Client {
   import com.daml.oauth.server.JsonProtocol._
@@ -37,6 +37,8 @@ object Client {
   case class AccessParams(parties: Seq[String])
   case class AccessResponse(token: String)
 
+  def toRedirectUri(uri: Uri): Uri = uri.withPath(Path./("cb"))
+
   def start(
       config: Config)(implicit asys: ActorSystem, ec: ExecutionContext): Future[ServerBinding] = {
     import JsonProtocol._
@@ -49,7 +51,7 @@ object Client {
             params =>
               extractRequest {
                 request =>
-                  val redirectUri = request.uri.withPath(Path./("cb"))
+                  val redirectUri = toRedirectUri(request.uri)
                   val authParams = Request.Authorize(
                     responseType = "code",
                     clientId = config.clientId,
@@ -69,26 +71,29 @@ object Client {
         get {
           parameters(('code, 'state ?)).as[Response.Authorize](Response.Authorize) {
             resp =>
-              // We got the code, now request a token
-              val body = Request.Token(
-                grantType = "authorization_code",
-                code = resp.code,
-                redirectUri = None,
-                clientId = config.clientId,
-                clientSecret = config.clientSecret)
-              val req = HttpRequest(
-                uri = config.authServerUrl.withPath(Path./("token")),
-                entity = HttpEntity(MediaTypes.`application/json`, body.toJson.compactPrint),
-                method = HttpMethods.POST,
-              )
-              val f = for {
-                resp <- Http().singleRequest(req)
-                tokenResp <- Unmarshal(resp).to[Response.Token]
-              } yield tokenResp
-              onSuccess(f) { tokenResp =>
-                // Now we have the access_token and potentially the refresh token. At this point,
-                // we would start the trigger.
-                complete(AccessResponse(tokenResp.accessToken))
+              extractRequest {
+                request =>
+                  // We got the code, now request a token
+                  val body = Request.Token(
+                    grantType = "authorization_code",
+                    code = resp.code,
+                    redirectUri = toRedirectUri(request.uri),
+                    clientId = config.clientId,
+                    clientSecret = config.clientSecret)
+                  val req = HttpRequest(
+                    uri = config.authServerUrl.withPath(Path./("token")),
+                    entity = HttpEntity(MediaTypes.`application/json`, body.toJson.compactPrint),
+                    method = HttpMethods.POST,
+                  )
+                  val f = for {
+                    resp <- Http().singleRequest(req)
+                    tokenResp <- Unmarshal(resp).to[Response.Token]
+                  } yield tokenResp
+                  onSuccess(f) { tokenResp =>
+                    // Now we have the access_token and potentially the refresh token. At this point,
+                    // we would start the trigger.
+                    complete(AccessResponse(tokenResp.accessToken))
+                  }
               }
           }
         }

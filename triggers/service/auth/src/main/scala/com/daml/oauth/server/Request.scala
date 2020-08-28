@@ -43,7 +43,7 @@ object Request {
   case class Token(
       grantType: String,
       code: String,
-      redirectUri: Option[Uri],
+      redirectUri: Uri,
       clientId: String,
       clientSecret: String)
 
@@ -59,7 +59,7 @@ object Response {
     }
   }
 
-  // https://tools.ietf.org/html/rfc6749#section-4.1.1
+  // https://tools.ietf.org/html/rfc6749#section-5.1
   case class Token(
       accessToken: String,
       tokenType: String,
