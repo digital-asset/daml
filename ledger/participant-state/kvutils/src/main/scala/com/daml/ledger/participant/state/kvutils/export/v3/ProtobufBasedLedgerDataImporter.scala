@@ -18,7 +18,7 @@ import scala.collection.JavaConverters._
 
 final class ProtobufBasedLedgerDataImporter(input: InputStream) extends LedgerDataImporter {
   override def read(): Stream[(SubmissionInfo, WriteSet)] = {
-    ProtobufBasedLedgerDataExporter.header.consumeAndVerify(input)
+    header.consumeAndVerify(input)
     readEntries()
   }
 
