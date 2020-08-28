@@ -16,9 +16,14 @@ object Blinding {
 
   private[this] def maybeAuthorizeAndBlind(
       tx: Transaction.Transaction,
-      authorization: Authorization): Either[AuthorizationError, BlindingInfo] = {
-    val enrichedTx =
-      EnrichedTransaction(authorization, tx)
+      authorization: Authorize): Either[AuthorizationError, BlindingInfo] = {
+
+    val failedAuthorizations =
+      AuthorizingTransaction.checkAuthFailures(authorization, tx)
+
+    val blindingInfo =
+      BlindingTransaction.calculateBlindingInfo(tx)
+
     def authorizationErrors(failures: Map[NodeId, FailedAuthorization]) = {
       failures
         .map {
@@ -47,16 +52,12 @@ object Blinding {
         }
         .mkString(";")
     }
-    if (enrichedTx.failedAuthorizations.isEmpty) {
-      Right(
-        BlindingInfo(
-          disclosure = enrichedTx.explicitDisclosure,
-          divulgence = enrichedTx.implicitDisclosure,
-        ))
+    if (failedAuthorizations.isEmpty) {
+      Right(blindingInfo)
     } else {
       Left(
         AuthorizationError(
-          s"The following errors occured: ${authorizationErrors(enrichedTx.failedAuthorizations)}"))
+          s"The following errors occured: ${authorizationErrors(failedAuthorizations)}"))
     }
   }
 
@@ -82,12 +83,8 @@ object Blinding {
     * Like checkAuthorizationAndBlind, but does not authorize the transaction, just blinds it.
     */
   def blind(tx: Transaction.Transaction): BlindingInfo =
-    maybeAuthorizeAndBlind(tx, DontAuthorize) match {
-      case Left(err) =>
-        throw new RuntimeException(
-          s"Impossible: got authorization exception even if we're not authorizing: $err")
-      case Right(x) => x
-    }
+    BlindingTransaction
+      .calculateBlindingInfo(tx)
 
   /** Returns the part of the transaction which has to be divulged to the given party.
     *

@@ -207,8 +207,8 @@ private[sandbox] object ScenarioLoader {
           workflowId,
           Some(richTransaction.committer),
           tx,
-          richTransaction.explicitDisclosure,
-          richTransaction.implicitDisclosure,
+          richTransaction.blindingInfo.disclosure,
+          richTransaction.blindingInfo.divulgence,
           List.empty
         ) match {
           case Right(newAcs) =>
@@ -225,7 +225,7 @@ private[sandbox] object ScenarioLoader {
                     time.toInstant,
                     time.toInstant,
                     tx,
-                    richTransaction.explicitDisclosure
+                    richTransaction.blindingInfo.disclosure,
                   )))
             (newAcs, time, Some(txId))
           case Left(err) =>
