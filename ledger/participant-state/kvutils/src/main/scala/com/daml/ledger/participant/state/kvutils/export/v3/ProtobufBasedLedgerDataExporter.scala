@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.export.v3
 
-import java.io.{Closeable, OutputStream}
+import java.io.{BufferedOutputStream, Closeable, OutputStream}
 import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.Conversions
@@ -67,5 +67,5 @@ object ProtobufBasedLedgerDataExporter {
   }
 
   def start(path: Path): ProtobufBasedLedgerDataExporter =
-    start(Files.newOutputStream(path))
+    start(new BufferedOutputStream(Files.newOutputStream(path)))
 }

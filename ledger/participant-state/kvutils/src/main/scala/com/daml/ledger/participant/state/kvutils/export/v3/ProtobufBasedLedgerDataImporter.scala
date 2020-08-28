@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.export.v3
 
-import java.io.{Closeable, InputStream}
+import java.io.{BufferedInputStream, Closeable, InputStream}
 import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.Conversions
@@ -60,5 +60,5 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
 
 object ProtobufBasedLedgerDataImporter {
   def apply(path: Path): ProtobufBasedLedgerDataImporter =
-    new ProtobufBasedLedgerDataImporter(Files.newInputStream(path))
+    new ProtobufBasedLedgerDataImporter(new BufferedInputStream(Files.newInputStream(path)))
 }

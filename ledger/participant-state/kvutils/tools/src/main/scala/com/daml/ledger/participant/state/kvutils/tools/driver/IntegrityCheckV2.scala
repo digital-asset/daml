@@ -3,12 +3,17 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.driver
 
-import java.nio.file.Paths
+import java.io.Closeable
+import java.nio.file.{Path, Paths}
 import java.util.concurrent.Executors
 
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
-import com.daml.ledger.participant.state.kvutils.export.v2.SerializationBasedLedgerDataImporter
+import com.daml.ledger.participant.state.kvutils.export.{
+  LedgerDataExporter,
+  LedgerDataImporter,
+  v2,
+  v3
+}
 import com.daml.ledger.participant.state.kvutils.tools.color
 import com.daml.ledger.participant.state.kvutils.tools.export.{
   IntegrityChecker,
@@ -18,6 +23,11 @@ import com.daml.ledger.participant.state.kvutils.tools.export.{
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 object IntegrityCheckV2 {
+  private val importers: Seq[Path => Option[LedgerDataImporter with Closeable]] = Seq(
+    path => if (v3.header.isValid(path)) Some(v3.ProtobufBasedLedgerDataImporter(path)) else None,
+    path => Some(v2.SerializationBasedLedgerDataImporter(path)),
+  )
+
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
       println("usage: integrity-check <ledger dump file>")
@@ -32,7 +42,7 @@ object IntegrityCheckV2 {
     val executionContext: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
         Executors.newFixedThreadPool(sys.runtime.availableProcessors()))
-    val importer = SerializationBasedLedgerDataImporter(path)
+    val importer = importers.flatMap(newImporter => newImporter(path).toList).head
     new IntegrityChecker(LogAppendingCommitStrategySupport)
       .run(importer)(executionContext)
       .andThen {

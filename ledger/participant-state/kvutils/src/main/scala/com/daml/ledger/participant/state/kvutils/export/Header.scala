@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.io.{InputStream, OutputStream}
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.export.Header._
 
@@ -32,19 +33,33 @@ final class Header(version: String) {
   }
 
   def consumeAndVerify(input: InputStream): Unit = {
-    verifyChunk(input, preamble)
-    verifyChunk(input, versionBytes)
+    if (!isValid(input)) {
+      throw new InvalidExportHeaderException(version)
+    }
   }
 
-  private def verifyChunk(input: InputStream, value: ByteBuffer): Unit = {
+  def isValid(path: Path): Boolean = {
+    val input = Files.newInputStream(path)
+    try {
+      isValid(input)
+    } finally {
+      input.close()
+    }
+  }
+
+  private def isValid(input: InputStream): Boolean = {
+    verifyChunk(input, preamble) && verifyChunk(input, versionBytes)
+  }
+
+  private def verifyChunk(input: InputStream, value: ByteBuffer): Boolean = {
     val size = value.limit() + 1
     val buffer = ByteBuffer.allocate(size)
     val charactersRead = input.read(buffer.array())
     buffer.rewind()
-    if (charactersRead != size
-      || buffer.array()(value.limit()) != 0
-      || !buffer.limit(value.limit()).equals(value)) {
-      throw new Header.InvalidExportHeaderException(version)
-    }
+    (
+      charactersRead == size
+      && buffer.array()(value.limit()) == 0
+      && buffer.limit(value.limit()).equals(value)
+    )
   }
 }
