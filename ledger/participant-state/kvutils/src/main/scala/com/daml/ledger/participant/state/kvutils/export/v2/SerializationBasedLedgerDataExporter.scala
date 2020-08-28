@@ -13,10 +13,11 @@ import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataExporter,
   LedgerDataWriter,
   SubmissionAggregator,
-  SubmissionInfo,
-  WriteSet
+  SubmissionInfo
 }
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+
+import scala.collection.SortedMap
 
 /**
   * Enables exporting ledger data to an output stream.
@@ -35,7 +36,7 @@ final class SerializationBasedLedgerDataExporter(output: DataOutputStream)
   override def close(): Unit = output.close()
 
   object SerializationBasedLedgerDataWriter extends LedgerDataWriter {
-    override def write(submissionInfo: SubmissionInfo, writeSet: Seq[(Key, Value)]): Unit = {
+    override def write(submissionInfo: SubmissionInfo, writeSet: SortedMap[Key, Value]): Unit = {
       val stamp = outputLock.writeLock()
       try {
         serializeEntry(submissionInfo, writeSet)
@@ -47,7 +48,7 @@ final class SerializationBasedLedgerDataExporter(output: DataOutputStream)
 
     private def serializeEntry(
         submissionInfo: SubmissionInfo,
-        writeSet: Seq[(Key, Value)],
+        writeSet: SortedMap[Key, Value],
     ): Unit = {
       serializeSubmissionInfo(submissionInfo)
       serializeWriteSet(writeSet)
@@ -60,9 +61,9 @@ final class SerializationBasedLedgerDataExporter(output: DataOutputStream)
       output.writeUTF(submissionInfo.participantId)
     }
 
-    private def serializeWriteSet(writeSet: WriteSet): Unit = {
+    private def serializeWriteSet(writeSet: SortedMap[Key, Value]): Unit = {
       output.writeInt(writeSet.size)
-      for ((key, value) <- writeSet.sortBy(_._1.asReadOnlyByteBuffer())) {
+      for ((key, value) <- writeSet) {
         writeBytes(key)
         writeBytes(value)
       }
