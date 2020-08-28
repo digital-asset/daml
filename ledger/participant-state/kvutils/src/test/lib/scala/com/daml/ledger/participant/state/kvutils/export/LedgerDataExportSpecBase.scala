@@ -3,31 +3,27 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.{DataInputStream, OutputStream, PipedInputStream, PipedOutputStream}
+import java.io.{InputStream, OutputStream, PipedInputStream, PipedOutputStream}
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1
 import com.google.protobuf.ByteString
-import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
-import scala.reflect.ClassTag
+abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matchers {
+  protected def newExporter(outputStream: OutputStream): LedgerDataExporter
 
-abstract class LedgerDataExporterSpecBase[T <: LedgerDataExporter: ClassTag]
-    extends WordSpec
-    with Matchers
-    with MockitoSugar {
-  protected def implementation(outputStream: OutputStream): LedgerDataExporter
+  protected def newImporter(inputStream: InputStream): LedgerDataImporter
 
-  implicitly[ClassTag[T]].runtimeClass.getSimpleName should {
+  name should {
     "serialize a submission to something deserializable" in {
       val inputStream = new PipedInputStream()
       val outputStream = new PipedOutputStream(inputStream)
-      val instance = implementation(outputStream)
+      val exporter = newExporter(outputStream)
       val expectedRecordTimeInstant = Instant.ofEpochSecond(123456, 123456789)
       val expectedParticipantId = v1.ParticipantId.assertFromString("id")
 
-      val submission = instance.addSubmission(
+      val submission = exporter.addSubmission(
         v1.ParticipantId.assertFromString("id"),
         "parent",
         ByteString.copyFromUtf8("an envelope"),
@@ -40,8 +36,9 @@ abstract class LedgerDataExporterSpecBase[T <: LedgerDataExporter: ClassTag]
 
       submission.finish()
 
-      val (actualSubmissionInfo, actualWriteSet) =
-        Deserialization.deserializeEntry(new DataInputStream(inputStream))
+      val importer = newImporter(inputStream)
+
+      val (actualSubmissionInfo, actualWriteSet) = importer.read().head
       actualSubmissionInfo.submissionEnvelope should be(ByteString.copyFromUtf8("an envelope"))
       actualSubmissionInfo.correlationId should be("parent")
       actualSubmissionInfo.recordTimeInstant should be(expectedRecordTimeInstant)
