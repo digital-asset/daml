@@ -21,7 +21,6 @@ import "com/daml/lf/transaction.proto";
 import "com/daml/lf/value.proto";
 import "com/daml/ledger/participant/state/ledger_configuration.proto";
 
-
 // Envelope with which we wrap all kvutils messages that are sent over the network
 // or persisted on disk. The envelope specifies the kvutils version that defines how
 // a message is decoded and processed. Optionally the message payload may be stored
@@ -123,14 +122,14 @@ message DamlLogEntry {
 }
 
 message DamlLogEntryId {
-   // Entry identifiers are opaque bytestrings chosen by the implementation that provide a unique
-   // reference to the entry. They do not need to be comparable, as long as the implementation can
-   // provide an ordered sequence of log entries.
-   // The entry identifier is used:
-   // * to lookup the log entry when producing `Update`.
-   // * as the DAML transaction identifier and rendered as hexadecimal.
-   // * as part of contract identifiers.
-   bytes entry_id = 1;
+  // Entry identifiers are opaque bytestrings chosen by the implementation that provide a unique
+  // reference to the entry. They do not need to be comparable, as long as the implementation can
+  // provide an ordered sequence of log entries.
+  // The entry identifier is used:
+  // * to lookup the log entry when producing `Update`.
+  // * as the DAML transaction identifier and rendered as hexadecimal.
+  // * as part of contract identifiers.
+  bytes entry_id = 1;
 }
 
 message DamlSubmitterInfo {
@@ -461,7 +460,7 @@ message DamlContractKeyState {
   google.protobuf.Timestamp active_at = 2;
 }
 
-// A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test
+// A v1 dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test
 // that a new version of kvutils can process older submissions and ledgers.
 message LedgerDumpEntry {
   message StatePair {
@@ -469,8 +468,8 @@ message LedgerDumpEntry {
     bytes state_value = 2; // wrapped in envelope.
   }
 
-  // The submission to the ledger, wrapped in envelope. Optional, if unset the
-  // submission is synthesized from the log entry if possible.
+  // The submission to the ledger, wrapped in an envelope.
+  // Optional. If unset the submission is synthesized from the log entry if possible.
   bytes submission = 1;
 
   // The participant that submitted it.
@@ -484,6 +483,37 @@ message LedgerDumpEntry {
 
   // The resulting output state.
   repeated StatePair output_state = 5;
+}
+
+// A v3 export of a "kvutils" ledger. Used by the integrity checker to test that a new version of
+// kvutils can process older ledgers.
+message LedgerExportEntry {
+  // Information about the submission.
+  message SubmissionInfo {
+    // The submitting participant ID.
+    string participant_id = 1;
+
+    // The correlation ID of the batch.
+    string correlation_id = 2;
+
+    // The submission to the ledger, wrapped in an envelope.
+    bytes submission_envelope = 3;
+
+    // the record time of the submission.
+    google.protobuf.Timestamp record_time = 4;
+  }
+
+  // A single entry, either to the log or to the state.
+  // Both key and value are serialized first.
+  message WriteEntry {
+    bytes key = 1;
+
+    bytes value = 2;
+  }
+
+  SubmissionInfo submission_info = 1;
+
+  repeated WriteEntry write_set = 2;
 }
 
 // Errors
