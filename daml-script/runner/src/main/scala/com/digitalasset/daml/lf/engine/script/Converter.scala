@@ -404,6 +404,7 @@ object Converter {
             for {
               // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
               //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
+              //   The definition is not used when pretty printing locations. So, we can ignore this.
               definition <- toText(vals.get(0))
               loc <- vals.get(1) match {
                 case SRecord(_, _, vals) if vals.size == 7 =>
