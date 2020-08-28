@@ -350,9 +350,6 @@ private[indexer] class JdbcIndexer private[indexer] (
         implicit executionContext: ExecutionContext
     ): Resource[IndexFeedHandle] =
       Resource(Future {
-        metrics.daml.indexer.currentRecordTimeLag(() =>
-          Instant.now().toEpochMilli - lastReceivedRecordTime)
-
         val (killSwitch, completionFuture) = readService
           .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
