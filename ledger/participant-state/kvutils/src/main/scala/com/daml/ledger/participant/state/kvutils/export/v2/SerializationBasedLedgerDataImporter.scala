@@ -1,12 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.export
+package com.daml.ledger.participant.state.kvutils.export.v2
 
 import java.io.DataInputStream
 import java.time.Instant
 
 import com.daml.ledger.participant.state
+import com.daml.ledger.participant.state.kvutils.export.{
+  LedgerDataImporter,
+  SubmissionInfo,
+  WriteSet
+}
 import com.google.common.io.ByteStreams
 import com.google.protobuf.ByteString
 

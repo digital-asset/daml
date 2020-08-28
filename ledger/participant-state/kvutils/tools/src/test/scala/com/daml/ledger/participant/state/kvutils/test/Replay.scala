@@ -9,10 +9,8 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.export.{
-  SerializationBasedLedgerDataImporter,
-  SubmissionInfo
-}
+import com.daml.ledger.participant.state.kvutils.export.SubmissionInfo
+import com.daml.ledger.participant.state.kvutils.export.v2.SerializationBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}

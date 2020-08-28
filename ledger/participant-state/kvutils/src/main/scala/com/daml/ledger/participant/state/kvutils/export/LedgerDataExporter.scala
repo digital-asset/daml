@@ -33,7 +33,7 @@ object LedgerDataExporter {
             .forCloseable(() =>
               new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path))))
             .acquire()
-            .map(new SerializationBasedLedgerDataExporter(_))
+            .map(new v2.SerializationBasedLedgerDataExporter(_))
         }
         .getOrElse(Resource.successful(NoOpLedgerDataExporter))
   }

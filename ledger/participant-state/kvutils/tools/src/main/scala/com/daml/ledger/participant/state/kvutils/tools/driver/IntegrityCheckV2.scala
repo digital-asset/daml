@@ -8,10 +8,8 @@ import java.nio.file.{Files, Paths}
 import java.util.concurrent.Executors
 
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.participant.state.kvutils.export.{
-  LedgerDataExporter,
-  SerializationBasedLedgerDataImporter
-}
+import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
+import com.daml.ledger.participant.state.kvutils.export.v2.SerializationBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.tools.color
 import com.daml.ledger.participant.state.kvutils.tools.export.{
   IntegrityChecker,

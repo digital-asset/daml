@@ -1,9 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.export
+package com.daml.ledger.participant.state.kvutils.export.v2
 
 import java.io.{DataInputStream, DataOutputStream, InputStream, OutputStream}
+
+import com.daml.ledger.participant.state.kvutils.export.{
+  LedgerDataExportSpecBase,
+  LedgerDataExporter,
+  LedgerDataImporter
+}
 
 final class SerializationBasedLedgerDataExportSpec
     extends LedgerDataExportSpecBase("serialization-based export") {
