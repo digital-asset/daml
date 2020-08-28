@@ -479,9 +479,11 @@ scenarioTests run = testGroup "scenarios"
               , "main = scenario $ do"
               , "  alice <- getParty \"Alice\""
               , "  submit alice do create (T alice)"
+              , "  submitCreateT alice"
+              , "submitCreateT party = submit party do create (T party)"
               ]
-          script <- openScript "Main.daml" "main"
-          expectScenarioContent "title=\"Main:5:3\">Main:5:3</a>"
+          script <- openScenario "Main.daml" "main"
+          expectScenarioContentMatch "title=\"Main:5:3\">Main:5:3</a>.*title=\"Main:7:1\">Main:7:1</a>"
           closeDoc script
           closeDoc main'
     ]
@@ -549,9 +551,11 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
               , "main = do"
               , "  alice <- allocateParty \"Alice\""
               , "  submit alice do createCmd (T alice)"
+              , "  submitCreateT alice"
+              , "submitCreateT party = submit party do createCmd (T party)"
               ]
           script <- openScript "Main.daml" "main"
-          expectScriptContent "title=\"Main:8:3\">Main:8:3</a>"
+          expectScriptContentMatch "title=\"Main:8:3\">Main:8:3</a>.*title=\"Main:10:23\">Main:10:23</a>"
           closeDoc script
           closeDoc main'
     ]
