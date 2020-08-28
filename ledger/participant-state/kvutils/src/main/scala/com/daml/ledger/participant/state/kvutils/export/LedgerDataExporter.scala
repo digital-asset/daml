@@ -5,23 +5,14 @@ package com.daml.ledger.participant.state.kvutils.export
 
 import java.io.DataOutputStream
 import java.nio.file.{Files, Paths}
-import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.CorrelationId
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.resources.{Resource, ResourceOwner}
-import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
 
 trait LedgerDataExporter {
-  def addSubmission(
-      participantId: ParticipantId,
-      correlationId: CorrelationId,
-      submissionEnvelope: ByteString,
-      recordTimeInstant: Instant,
-  ): SubmissionAggregator
+  def addSubmission(submissionInfo: SubmissionInfo): SubmissionAggregator
 }
 
 object LedgerDataExporter {
@@ -41,7 +32,7 @@ object LedgerDataExporter {
           ResourceOwner
             .forCloseable(() => new DataOutputStream(Files.newOutputStream(path)))
             .acquire()
-            .map(new FileBasedLedgerDataExporter(_))
+            .map(new SerializationBasedLedgerDataExporter(_))
         }
         .getOrElse(Resource.successful(NoOpLedgerDataExporter))
   }

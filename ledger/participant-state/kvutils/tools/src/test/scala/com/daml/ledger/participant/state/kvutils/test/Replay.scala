@@ -9,7 +9,10 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.export.{Deserialization, SubmissionInfo}
+import com.daml.ledger.participant.state.kvutils.export.{
+  SerializationBasedLedgerDataImporter,
+  SubmissionInfo
+}
 import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
@@ -158,21 +161,6 @@ object Replay {
     engine
   }
 
-  private[this] def exportEntries(file: Path): Stream[SubmissionInfo] = {
-
-    val ledgerExportStream = new DataInputStream(Files.newInputStream(file))
-
-    def go: Stream[SubmissionInfo] =
-      if (ledgerExportStream.available() > 0)
-        Deserialization.deserializeEntry(ledgerExportStream)._1 #:: go
-      else {
-        ledgerExportStream.close()
-        Stream.empty
-      }
-
-    go
-  }
-
   private[this] def decodeSubmission(
       participantId: Ref.ParticipantId,
       submission: Proto.DamlSubmission,
@@ -218,7 +206,9 @@ object Replay {
 
   private def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
     println(s"%%% load ledger export file  $dumpFile...")
-    val transactions = exportEntries(dumpFile).flatMap(decodeSubmissionInfo)
+    val importer = new SerializationBasedLedgerDataImporter(
+      new DataInputStream(Files.newInputStream(dumpFile)))
+    val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
     if (transactions.isEmpty) sys.error("no transaction find")
 
     val createsNodes: Seq[Node.NodeCreate.WithTxValue[ContractId]] =

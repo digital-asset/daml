@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-object NoOpLedgerDataExporter extends LedgerDataExporter {
-  override def addSubmission(submissionInfo: SubmissionInfo): SubmissionAggregator =
-    NoOpSubmissionAggregator
+trait LedgerDataImporter {
+  def read(): Stream[(SubmissionInfo, WriteSet)]
 }
