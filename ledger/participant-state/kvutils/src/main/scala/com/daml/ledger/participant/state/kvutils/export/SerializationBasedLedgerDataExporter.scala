@@ -25,12 +25,11 @@ final class SerializationBasedLedgerDataExporter(output: DataOutputStream)
       correlationId: CorrelationId,
       submissionEnvelope: Key,
       recordTimeInstant: Instant,
-  ): SubmissionAggregator =
-    this.synchronized {
-      val submissionInfo =
-        SubmissionInfo(participantId, correlationId, submissionEnvelope, recordTimeInstant)
-      new InMemorySubmissionAggregator(submissionInfo, SerializationBasedLedgerDataWriter)
-    }
+  ): SubmissionAggregator = {
+    val submissionInfo =
+      SubmissionInfo(participantId, correlationId, submissionEnvelope, recordTimeInstant)
+    new InMemorySubmissionAggregator(submissionInfo, SerializationBasedLedgerDataWriter)
+  }
 
   object SerializationBasedLedgerDataWriter extends LedgerDataWriter {
     override def write(submissionInfo: SubmissionInfo, writeSet: Seq[(Key, Value)]): Unit = {
