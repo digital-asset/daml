@@ -29,7 +29,7 @@ object LedgerDataExporter {
         .map { path =>
           logger.info(s"Enabled writing ledger entries to $path.")
           ResourceOwner
-            .forCloseable(() => v2.SerializationBasedLedgerDataExporter(path))
+            .forCloseable(() => v3.ProtobufBasedLedgerDataExporter.start(path))
             .acquire()
         }
         .getOrElse(Resource.successful(NoOpLedgerDataExporter))
