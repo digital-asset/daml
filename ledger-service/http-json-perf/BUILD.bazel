@@ -30,6 +30,8 @@ da_scala_library(
         "//ledger-service/jwt",
         "//libs-scala/ports",
         "//libs-scala/scala-utils",
+        #        "//ledger-service/db-backend",
+        #        "//libs-scala/postgresql-testing",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_fasterxml_jackson_core_jackson_databind",
         "@maven//:com_github_scopt_scopt_2_12",
