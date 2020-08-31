@@ -1357,6 +1357,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "module A where"
               , "import DA.Record"
               , "import DA.Generics"
+              , "import DA.Validation"
               -- test typeclass export
               , "class Foo t where"
               , "  foo : Int -> t"
@@ -1416,6 +1417,13 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "instance YourGeneric Int"
                   -- ^ tests detection of Generic reference via
                   -- specialization of MyGeneric instance
+
+              -- [Issue #7256] Tests that orphan superclass instances are dependended on correctly.
+              -- E.g. Applicative Validation is an orphan instance implemented in DA.Validation.
+              , "instance Action (Validation e) where"
+              , "  v >>= f = case v of"
+              , "    Errors e-> Errors e"
+              , "    Success a -> f a"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
