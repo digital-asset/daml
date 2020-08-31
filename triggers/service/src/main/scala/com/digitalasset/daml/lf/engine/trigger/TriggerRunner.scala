@@ -9,9 +9,8 @@ import akka.actor.typed.SupervisorStrategy._
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.ActorContext
 import akka.stream.Materializer
-import com.typesafe.scalalogging.StrictLogging
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.logging.LoggingContextOf
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.scalautil.Statement.discard
 
@@ -39,10 +38,11 @@ final class TriggerRunner private (
     implicit esf: ExecutionSequencerFactory,
     mat: Materializer,
     loggingContext: LoggingContextOf[TriggerRunner.Config])
-    extends AbstractBehavior[TriggerRunner.Message](ctx)
-    with StrictLogging {
+    extends AbstractBehavior[TriggerRunner.Message](ctx) {
 
   import TriggerRunner.{Message, Stop}
+
+  private[this] def logger = ContextualizedLogger get getClass
 
   // Spawn a trigger runner impl. Supervise it. Stop immediately on
   // initialization halted exceptions, retry any initialization or
