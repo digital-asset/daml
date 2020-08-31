@@ -24,6 +24,7 @@ module Daml.Script
   , archiveCmd
   , getTime
   , setTime
+  , passTime
   , sleep
   , script
   ) where
@@ -114,11 +115,26 @@ data SetTimePayload a = SetTimePayload
 --
 -- This is only supported in static time mode when running over the gRPC API.
 --
--- Note that the time service does not support going backwards in time.
+-- Note that the ledger time service does not support going backwards in time.
+-- However, you can go back in time in DAML Studio.
 setTime : Time -> Script ()
 setTime time = lift $ Free $ SetTime $ SetTimePayload with
   time
   continue = pure
+
+-- | Advance ledger time by the given interval.
+--
+-- Only supported in static time mode when running over the gRPC API
+-- and in DAML Studio. Note that this is not an atomic operation over the
+-- gRPC API so no other clients should try to change time while this is
+-- running.
+--
+-- Note that the ledger time service does not support going backwards in time.
+-- However, you can go back in time in DAML Studio.
+passTime : RelTime -> Script ()
+passTime rt = do
+  t <- getTime
+  setTime (addRelTime t rt)
 
 data AllocateParty a = AllocateParty
   { displayName : Text

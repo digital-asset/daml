@@ -349,6 +349,7 @@ main =
                       "import Daml.Script",
                       "import DA.Date",
                       "import DA.Time",
+                      "import DA.Assert",
                       "template T",
                       "  with",
                       "    p : Party",
@@ -368,7 +369,16 @@ main =
                       "  t0 <- submit p $ exerciseCmd cid GetTime",
                       "  setTime (time (date 2000 Feb 2) 0 1 2)",
                       "  t1 <- submit p $ exerciseCmd cid GetTime",
-                      "  pure (t0, t1)"
+                      "  pure (t0, t1)",
+                      "testPassTime = do",
+                      "  p <- allocateParty \"p\"",
+                      "  t0 <- getTime",
+                      "  passTime (days 1)",
+                      "  t1 <- getTime",
+                      "  t1 === addRelTime t0 (days 1)",
+                      "  cid <- submit p $ createCmd (T p)",
+                      "  passTime (days (-1))",
+                      "  submit p $ exerciseCmd cid Archive"
                     ]
                 expectScriptSuccess rs (vr "testTime") $ \r ->
                     matchRegex r $
@@ -385,7 +395,10 @@ main =
                           "  DA\\.Types:Tuple2@[a-z0-9]+ with",
                           "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z",
                           ""
-                        ],
+                        ]
+                expectScriptFailure rs (vr "testPassTime") $ \r ->
+                    matchRegex r "Attempt to fetch or exercise a contract not yet effective"
+            ,
               testCase "partyManagement" $ do
                 rs <-
                   runScripts
