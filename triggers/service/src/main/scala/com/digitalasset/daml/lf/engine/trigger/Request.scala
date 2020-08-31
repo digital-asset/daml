@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.Identifier
 import scalaz.Tag
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsString, JsValue, JsonFormat, RootJsonFormat, deserializationError}
@@ -19,7 +19,8 @@ object Request {
     def write(id: Identifier): JsValue = JsString(id.toString)
   }
 
-  private[Request] implicit val PartyFormat: JsonFormat[Party] = Tag.subst(implicitly[JsonFormat[String]])
+  private[Request] implicit val PartyFormat: JsonFormat[Party] =
+    Tag.subst(implicitly[JsonFormat[String]])
 
   final case class StartParams(triggerName: Identifier, party: Party)
   object StartParams extends ((Identifier, Party) => StartParams) {
