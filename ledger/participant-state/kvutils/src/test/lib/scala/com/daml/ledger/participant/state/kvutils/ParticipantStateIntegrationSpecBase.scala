@@ -7,6 +7,7 @@ import java.io.File
 import java.time.{Clock, Duration}
 import java.util.UUID
 
+import akka.Done
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -18,8 +19,9 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.archive.DarReader
 import com.daml.lf.crypto
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party.ordering
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -30,10 +32,11 @@ import org.scalatest.Inside._
 import org.scalatest.Matchers._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
+import scala.collection.{SortedSet, mutable}
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.util.{Failure, Success, Try}
 
 //noinspection DuplicatedCode
 abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
@@ -567,28 +570,48 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       val partyNames =
         partyIds
           .map(i => Ref.Party.assertFromString(s"party-%0${partyIdDigits}d".format(i)))
-          .toVector
+          .to[SortedSet]
 
-      val updatesF = ps
+      val expectedOffsets = partyIds.map(i => toOffset(i)).to[SortedSet]
+
+      val updates = mutable.Buffer.empty[(Offset, Update)]
+      val stateUpdatesF = ps
         .stateUpdates(beginAfter = None)
         .idleTimeout(IdleTimeout)
         .take(partyCount)
-        .runWith(Sink.seq)
+        .runWith(Sink.foreach { update =>
+          updates.synchronized {
+            updates += update
+            ()
+          }
+        })
       for {
-        results <- Future.sequence(
-          partyNames.map(name =>
-            ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala),
-        )
+        results <- Future.traverse(partyNames.toVector)(name =>
+          ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala)
         _ = all(results) should be(SubmissionResult.Acknowledged)
-        updates <- updatesF
+
+        _ <- stateUpdatesF.transform {
+          case Success(Done) => Success(())
+          case Failure(exception: TimeoutException) =>
+            val acceptedPartyNames =
+              updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName)
+            val missingPartyNames = partyNames.map(name => name: String) -- acceptedPartyNames
+            Failure(
+              new RuntimeException(
+                s"Timed out with parties missing: ${missingPartyNames.mkString(", ")}",
+                exception))
+          case Failure(exception) => Failure(exception)
+        }
       } yield {
-        val expectedOffsets = partyIds.map(i => toOffset(i)).toVector
-        val actualOffsets = updates.map(_._1).sorted.toVector
-        actualOffsets should be(expectedOffsets)
+        updates.size should be(partyCount)
+
+        val (actualOffsets, actualUpdates) = updates.unzip
+        all(actualUpdates) should be(a[PartyAddedToParticipant])
+        actualOffsets.to[SortedSet] should be(expectedOffsets)
 
         val actualNames =
-          updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName).sorted.toVector
-        actualNames should be(partyNames)
+          actualUpdates.map(_.asInstanceOf[PartyAddedToParticipant].displayName)
+        actualNames.to[SortedSet] should be(partyNames)
       }
     }
 
