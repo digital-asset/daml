@@ -25,6 +25,7 @@ module Daml.Script
   , getTime
   , setTime
   , sleep
+  , script
   ) where
 
 import DA.Functor
@@ -311,3 +312,11 @@ lift : Free ScriptF a -> Script a
 lift m = Script $ \s -> do
   a <- m
   pure (a, s)
+
+-- | Convenience helper to declare you are writing a Script.
+--
+-- This is only useful for readability and to improve type inference.
+-- Any expression of type `Script a` is a valid script regardless of whether
+-- it is implemented using `script` or not.
+script : Script a -> Script a
+script = identity
