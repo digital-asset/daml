@@ -27,6 +27,8 @@ A contract is *active* from the point where there is a committed transaction tha
 
 .. Graphic with timeline inactive -> create -> active -> archive -> inactive
 
+Individual contracts are *immutable* in the sense that an active contract can not be changed. You can only change the *active contract set* by creating new contract, or archiving old.
+
 DAML specifies what transactions are legal on a DAML Ledger. The rules the DAML code specifies are collectively called a *DAML model* or *contract model*.
 
 DAML files and modules
