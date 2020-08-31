@@ -24,7 +24,7 @@ import scalaz.syntax.tag._
 
 final class CommandServiceIT extends LedgerTestSuite {
   test(
-    "CSsubmitAndWait",
+    "CSsubmitAndWaitBasic",
     "SubmitAndWait creates a contract of the expected template",
     allocate(SingleParty),
   )(implicit ec => {
@@ -150,7 +150,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSduplicateSubmitAndWait",
+    "CSduplicateSubmitAndWaitBasic",
     "SubmitAndWait should fail on duplicate requests",
     allocate(SingleParty),
   )(implicit ec => {
