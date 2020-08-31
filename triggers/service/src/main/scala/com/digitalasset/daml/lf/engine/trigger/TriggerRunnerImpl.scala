@@ -31,13 +31,12 @@ object TriggerRunnerImpl {
   final case class Config(
       server: ActorRef[Message],
       triggerInstance: UUID,
-      credentials: UserCredentials,
+      party: Party,
       // TODO(SF, 2020-06-09): Add access token field here in the presence of authentication.
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
-      party: Party,
   ) {
     def loggingExtension: Map[String, String] =
       Map(

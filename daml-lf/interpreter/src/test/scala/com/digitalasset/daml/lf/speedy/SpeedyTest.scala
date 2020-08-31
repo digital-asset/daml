@@ -8,13 +8,13 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data.{FrontStack, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
@@ -117,7 +117,7 @@ class SpeedyTest extends WordSpec with Matchers {
         SOptional(
           Some(
             SStruct(
-              Ref.Name.Array(n"x1", n"x2"),
+              ImmArray(n"x1", n"x2"),
               ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
             ),
           ),
@@ -187,7 +187,7 @@ class SpeedyTest extends WordSpec with Matchers {
             Ast.TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
           ),
@@ -203,7 +203,7 @@ class SpeedyTest extends WordSpec with Matchers {
             ),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
           ),
@@ -217,7 +217,7 @@ class SpeedyTest extends WordSpec with Matchers {
             ),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
           ),
@@ -238,7 +238,7 @@ class SpeedyTest extends WordSpec with Matchers {
             Some(
               SRecord(
                 Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
-                Name.Array(Name.assertFromString("party")),
+                ImmArray(Name.assertFromString("party")),
                 ArrayList(SParty(Party.assertFromString("Alice"))),
               ),
             ),
@@ -260,7 +260,7 @@ class SpeedyTest extends WordSpec with Matchers {
           Some(
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-              Name.Array(Name.assertFromString("party")),
+              ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
           ),
@@ -321,7 +321,7 @@ class SpeedyTest extends WordSpec with Matchers {
         Right(
           SRecord(
             qualify("M:Point"),
-            Name.Array(n"x", n"y"),
+            ImmArray(n"x", n"y"),
             ArrayList(SInt64(1), SInt64(0))
           )
         )
@@ -350,7 +350,7 @@ class SpeedyTest extends WordSpec with Matchers {
         Right(
           SRecord(
             qualify("M:Point"),
-            Name.Array(n"x", n"y"),
+            ImmArray(n"x", n"y"),
             ArrayList(SInt64(1), SInt64(2)),
           )
         )
@@ -389,7 +389,7 @@ class SpeedyTest extends WordSpec with Matchers {
         Right(
           SRecord(
             qualify("M:Point"),
-            Name.Array(n"x", n"y"),
+            ImmArray(n"x", n"y"),
             ArrayList(SInt64(3), SInt64(4)),
           )
         )

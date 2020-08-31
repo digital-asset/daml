@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdNotFoundException}
+import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
@@ -63,7 +63,7 @@ private[platform] object ReadOnlySqlLedger {
     ): Future[LedgerId] = {
       val predicate: PartialFunction[Throwable, Boolean] = {
         case _: LedgerIdNotFoundException => true
-        case _: LedgerIdMismatchException => false
+        case _: MismatchException.LedgerId => false
         case _ => false
       }
       val retryDelay = 5.seconds
@@ -78,7 +78,7 @@ private[platform] object ReadOnlySqlLedger {
                 Future.successful(initialLedgerId)
               case Some(foundLedgerId) =>
                 Future.failed(
-                  new LedgerIdMismatchException(foundLedgerId, initialLedgerId)
+                  new MismatchException.LedgerId(foundLedgerId, initialLedgerId)
                   with StartupException)
               case None =>
                 logger.info(

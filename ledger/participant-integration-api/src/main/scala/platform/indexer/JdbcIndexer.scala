@@ -11,14 +11,18 @@ import akka.stream.scaladsl.{Keep, Sink}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.ParticipantId
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.common
+import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
@@ -93,6 +97,7 @@ object JdbcIndexer {
         providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
         _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
           checkLedgerIds(_, providedLedgerId))
+        _ <- initOrCheckParticipantId(dao)
         initialLedgerEnd <- dao.lookupInitialLedgerEnd()
       } yield initialLedgerEnd
 
@@ -104,7 +109,7 @@ object JdbcIndexer {
         logger.info(s"Found existing ledger with ID: $existingLedgerId")
         Future.unit
       } else {
-        Future.failed(new LedgerIdMismatchException(existingLedgerId, providedLedgerId))
+        Future.failed(new MismatchException.LedgerId(existingLedgerId, providedLedgerId))
       }
 
     private def initializeLedgerData(
@@ -114,6 +119,23 @@ object JdbcIndexer {
       logger.info(s"Initializing ledger with ID: $providedLedgerId")
       ledgerDao.initializeLedger(providedLedgerId)
     }
+
+    private def initOrCheckParticipantId(dao: LedgerDao)(
+        implicit executionContext: ExecutionContext,
+    ): Future[Unit] = {
+      val id = ParticipantId(Ref.ParticipantId.assertFromString(config.participantId))
+      dao
+        .lookupParticipantId()
+        .flatMap(
+          _.fold(dao.initializeParticipantId(id)) {
+            case `id` =>
+              Future.successful(logger.info(s"Found existing participant id '$id'"))
+            case retrievedLedgerId =>
+              Future.failed(new common.MismatchException.ParticipantId(retrievedLedgerId, id))
+          }
+        )
+    }
+
   }
 
   private def contextFor(update: Update): Map[String, String] =
@@ -202,7 +224,7 @@ object JdbcIndexer {
   */
 private[indexer] class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
-    participantId: ParticipantId,
+    participantId: v1.ParticipantId,
     ledgerDao: LedgerDao,
     metrics: Metrics,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
@@ -328,9 +350,6 @@ private[indexer] class JdbcIndexer private[indexer] (
         implicit executionContext: ExecutionContext
     ): Resource[IndexFeedHandle] =
       Resource(Future {
-        metrics.daml.indexer.currentRecordTimeLag(() =>
-          Instant.now().toEpochMilli - lastReceivedRecordTime)
-
         val (killSwitch, completionFuture) = readService
           .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])

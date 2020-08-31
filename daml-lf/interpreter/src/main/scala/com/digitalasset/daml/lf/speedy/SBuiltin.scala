@@ -756,7 +756,7 @@ private[lf] object SBuiltin {
   }
 
   /** $rcon[R, fields] :: a -> b -> ... -> R */
-  final case class SBRecCon(id: Identifier, fields: Array[Name])
+  final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
       extends SBuiltinPure(fields.length)
       with SomeArrayEquals {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
@@ -816,7 +816,7 @@ private[lf] object SBuiltin {
   }
 
   /** $tcon[fields] :: a -> b -> ... -> Struct */
-  final case class SBStructCon(fields: Array[Name])
+  final case class SBStructCon(fields: ImmArray[Name])
       extends SBuiltinPure(fields.length)
       with SomeArrayEquals {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
@@ -829,7 +829,7 @@ private[lf] object SBuiltin {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
         case SStruct(fields, values) =>
-          values.get(fields.indexOf(field))
+          values.get(fields.indexWhere(_ == field))
         case v =>
           crash(s"StructProj on non-struct: $v")
       }
@@ -842,7 +842,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SStruct(fields, values) =>
           val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
-          values2.set(fields.indexOf(field), args.get(1))
+          values2.set(fields.indexWhere(_ == field), args.get(1))
           SStruct(fields, values2)
         case v =>
           crash(s"StructUpd on non-struct: $v")
@@ -1290,18 +1290,18 @@ private[lf] object SBuiltin {
             machine.outputTransactionVersions,
             machine.compiledPackages.packageLanguageVersion,
           ) match {
-            case Right(Right(tx)) =>
+            case PartialTransaction.CompleteTransaction(tx) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
               // do that.
               machine.returnValue = SV.Unit
               throw SpeedyHungry(
                 SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit))
-            case Right(Left(_)) =>
+            case PartialTransaction.IncompleteTransaction(_) =>
               machine.clearCommit
               machine.returnValue = SV.Unit
-            case Left(msg) =>
-              crash(msg)
+            case PartialTransaction.SerializationError(msg) =>
+              throw ScenarioErrorSerializationError(msg)
           }
         case v =>
           crash(s"endCommit: expected bool, got: $v")
@@ -1314,7 +1314,7 @@ private[lf] object SBuiltin {
           machine.outputTransactionVersions,
           machine.compiledPackages.packageLanguageVersion,
         ) match {
-        case Right(Right(tx)) =>
+        case PartialTransaction.CompleteTransaction(tx) =>
           throw SpeedyHungry(
             SResultScenarioCommit(
               value = args.get(0),
@@ -1326,11 +1326,11 @@ private[lf] object SBuiltin {
               }
             )
           )
-        case Right(Left(ptx)) =>
+        case PartialTransaction.IncompleteTransaction(ptx) =>
           checkAborted(ptx)
           crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
-        case Left(msg) =>
-          crash(msg)
+        case PartialTransaction.SerializationError(msg) =>
+          throw ScenarioErrorSerializationError(msg)
       }
   }
 

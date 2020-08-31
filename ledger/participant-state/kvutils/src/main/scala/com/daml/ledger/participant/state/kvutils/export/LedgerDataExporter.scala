@@ -3,39 +3,16 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.{DataOutputStream, FileOutputStream}
-import java.time.Instant
+import java.io.{BufferedOutputStream, DataOutputStream}
+import java.nio.file.{Files, Paths}
 
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.google.protobuf.ByteString
+import com.daml.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.ExecutionContext
+
 trait LedgerDataExporter {
-
-  /**
-    * Adds given submission and its parameters to the list of in-progress submissions.
-    */
-  def addSubmission(
-      submissionEnvelope: ByteString,
-      correlationId: String,
-      recordTimeInstant: Instant,
-      participantId: ParticipantId): Unit
-
-  /**
-    * Establishes parent-child relation between two correlation IDs.
-    */
-  def addParentChild(parentCorrelationId: String, childCorrelationId: String): Unit
-
-  /**
-    * Adds given key-value pairs to the write-set belonging to the given correlation ID.
-    */
-  def addToWriteSet(correlationId: String, data: Iterable[(Key, Value)]): Unit
-
-  /**
-    * Signals that entries for the given top-level (parent) correlation ID may be persisted.
-    */
-  def finishedProcessing(correlationId: String): Unit
+  def addSubmission(submissionInfo: SubmissionInfo): SubmissionAggregator
 }
 
 object LedgerDataExporter {
@@ -43,17 +20,22 @@ object LedgerDataExporter {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private lazy val outputStreamMaybe: Option[DataOutputStream] = {
-    Option(System.getenv(EnvironmentVariableName))
-      .map { filename =>
-        logger.info(s"Enabled writing ledger entries to $filename")
-        new DataOutputStream(new FileOutputStream(filename))
-      }
+  object Owner extends ResourceOwner[LedgerDataExporter] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[LedgerDataExporter] =
+      sys.env
+        .get(EnvironmentVariableName)
+        .map(Paths.get(_))
+        .map { path =>
+          logger.info(s"Enabled writing ledger entries to $path.")
+          ResourceOwner
+            .forCloseable(() =>
+              new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(path))))
+            .acquire()
+            .map(new SerializationBasedLedgerDataExporter(_))
+        }
+        .getOrElse(Resource.successful(NoOpLedgerDataExporter))
   }
 
-  private lazy val instance = outputStreamMaybe
-    .map(new FileBasedLedgerDataExporter(_))
-    .getOrElse(NoopLedgerDataExporter)
-
-  def apply(): LedgerDataExporter = instance
 }

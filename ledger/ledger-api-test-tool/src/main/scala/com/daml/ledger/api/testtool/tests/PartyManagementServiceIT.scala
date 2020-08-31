@@ -210,8 +210,11 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         )
 
         // The following assertions allow some slack to distributed ledger implementations, as they can
-        // either publish parties across participants as non-local or bar that from happening entirely
-        if (alpha.endpointId != beta.endpointId) {
+        // either publish parties across participants as non-local or bar that from happening entirely.
+        // Furthermore, as participants with matching ledger ids expose the "same ledger", such participants
+        // are allowed to expose parties as local on multiple participants, and therefore restrict the asserts to
+        // participants with different ledger ids.
+        if (alpha.endpointId != beta.endpointId && alpha.ledgerId != beta.ledgerId) {
           assert(
             alphaParties.exists(p => p.party == bob.unwrap && !p.isLocal) || !alphaParties.exists(
               _.party == bob.unwrap),

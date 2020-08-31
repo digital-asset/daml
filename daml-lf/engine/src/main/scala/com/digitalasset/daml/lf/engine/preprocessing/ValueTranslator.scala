@@ -203,8 +203,8 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
 
             SValue.SRecord(
               typeRecordId,
-              Ref.Name.Array(fields.map(_._1).toSeq: _*),
-              ArrayList(fields.map(_._2).toSeq: _*)
+              fields.map(_._1),
+              ArrayList(fields.map(_._2).toSeq: _*),
             )
 
           case (TTyCon(typeEnumId), ValueEnum(mbId, constructor)) =>

@@ -3,6 +3,8 @@
 
 package com.daml.metrics
 
+import java.time.Instant
+
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 
@@ -318,6 +320,7 @@ final class Metrics(val registry: MetricRegistry) {
         val storeConfigurationEntry: Timer = registry.timer(Prefix :+ "store_configuration_entry")
 
         val lookupLedgerId: Timer = registry.timer(Prefix :+ "lookup_ledger_id")
+        val lookupParticipantId: Timer = registry.timer(Prefix :+ "lookup_participant_id")
         val lookupLedgerEnd: Timer = registry.timer(Prefix :+ "lookup_ledger_end")
         val lookupTransaction: Timer = registry.timer(Prefix :+ "lookup_transaction")
         val lookupLedgerConfiguration: Timer =
@@ -344,10 +347,12 @@ final class Metrics(val registry: MetricRegistry) {
 
         val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
+        val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
           "initialize_ledger_parameters")
+        val initializeParticipantId: DatabaseMetrics = createDbMetrics("initialize_participant_id")
         val lookupConfiguration: DatabaseMetrics = createDbMetrics("lookup_configuration")
         val loadConfigurationEntries: DatabaseMetrics = createDbMetrics(
           "load_configuration_entries")
@@ -427,8 +432,11 @@ final class Metrics(val registry: MetricRegistry) {
       val lastReceivedOffset = new VarGauge[String]("<none>")
       registry.register(Prefix :+ "last_received_offset", lastReceivedOffset)
 
-      def currentRecordTimeLag(value: () => Long): Unit =
-        register(Prefix :+ "current_record_time_lag", () => () => value())
+      registerGauge(
+        Prefix :+ "current_record_time_lag",
+        () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
+        registry,
+      )
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
     }

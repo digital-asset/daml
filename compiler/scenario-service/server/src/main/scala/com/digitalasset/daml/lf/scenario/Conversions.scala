@@ -154,6 +154,11 @@ final class Conversions(
       case SError.ScenarioErrorPartyAlreadyExists(party) =>
         builder.setScenarioPartyAlreadyExists(party)
 
+      case SError.ScenarioErrorSerializationError(msg) =>
+        sys.error(
+          s"Cannot serialization a transaction: $msg"
+        )
+
       case wtc: SError.DamlEWronglyTypedContract =>
         sys.error(
           s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.",

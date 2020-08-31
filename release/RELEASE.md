@@ -64,12 +64,19 @@ patches we backport to the 1.0 release branch).
    >
    > [ad-hoc]: https://github.com/DACH-NY/daml-language-ad-hoc
    >
+   > `ad-hoc.sh` prints IP address, username and password for the created Windows VM.
+   > Save this output. You will need this information later when you create an RDP connection.
+   >
    > If you're on a Mac, you can use Microsoft Remote Desktop to connect; on
    > Linux, you can use Remmina.
    >
+   > Remmina notes: when creating an RDP connection, you may want to specify custom
+   > resolution. The default setting is to `use client resolution`.
+   >
    > The first thing you should do is install Firefox, because Internet
    > Explorer is a pain. Open IE, go to Internet Options (gear icon in the top
-   > right), switch to the Security tab, click Trusted Sites, click Sites, and
+   > right. If you don't see the icon, make sure the entire window fits into your screen),
+   > switch to the Security tab, click Trusted Sites, click Sites, and
    > add `*.mozilla.net`. Then navigate to [getfirefox.com] and download the
    > "64-bit MSI" version.
    >

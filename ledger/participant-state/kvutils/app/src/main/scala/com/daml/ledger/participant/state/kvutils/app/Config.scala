@@ -15,11 +15,11 @@ import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
 import com.daml.ports.Port
-import com.daml.resources.ProgramResource.SuppressedStartupException
 import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
 final case class Config[Extra](
+    mode: Mode,
     ledgerId: String,
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
@@ -38,21 +38,6 @@ final case class Config[Extra](
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
 }
 
-case class ParticipantConfig(
-    participantId: ParticipantId,
-    address: Option[String],
-    port: Port,
-    portFile: Option[Path],
-    serverJdbcUrl: String,
-    allowExistingSchemaForIndex: Boolean,
-    maxCommandsInFlight: Option[Int],
-)
-
-object ParticipantConfig {
-  def defaultIndexJdbcUrl(participantId: ParticipantId): String =
-    s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
-}
-
 object Config {
   val DefaultPort: Port = Port(6865)
 
@@ -60,6 +45,7 @@ object Config {
 
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
+      mode = Mode.Run,
       ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
       tlsConfig = None,
@@ -82,7 +68,7 @@ object Config {
       args: Seq[String],
   ): ResourceOwner[Config[Extra]] =
     parse(name, extraOptions, defaultExtra, args)
-      .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new Config.ConfigParseException))(
+      .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new ConfigParseException))(
         ResourceOwner.successful)
 
   def parse[Extra](
@@ -91,7 +77,13 @@ object Config {
       defaultExtra: Extra,
       args: Seq[String],
   ): Option[Config[Extra]] =
-    parser(name, extraOptions).parse(args, createDefault(defaultExtra))
+    parser(name, extraOptions).parse(args, createDefault(defaultExtra)).flatMap {
+      case config if config.mode == Mode.Run && config.participants.isEmpty =>
+        System.err.println("No --participant provided to run")
+        None
+      case config =>
+        Some(config)
+    }
 
   private def parser[Extra](
       name: String,
@@ -101,9 +93,8 @@ object Config {
       head(name)
 
       opt[Map[String, String]]("participant")
-        .minOccurs(1)
         .unbounded()
-        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight]")
+        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
@@ -208,11 +199,26 @@ object Config {
         .action((interval, config) => config.copy(metricsReportingInterval = interval))
         .hidden()
 
+      cmd("dump-index-metadata")
+        .text("Print ledger id, ledger end and integration API version and quit.")
+        .children {
+          arg[String]("<jdbc-url>...")
+            .minOccurs(1)
+            .unbounded()
+            .text("The JDBC URL to connect to an index database")
+            .action((jdbcUrl, config) =>
+              config.copy(mode = config.mode match {
+                case Mode.Run =>
+                  Mode.DumpIndexMetadata(Vector(jdbcUrl))
+                case Mode.DumpIndexMetadata(jdbcUrls) =>
+                  Mode.DumpIndexMetadata(jdbcUrls :+ jdbcUrl)
+              }))
+        }
+
       help("help").text(s"$name as a service.")
     }
     extraOptions(parser)
     parser
   }
 
-  class ConfigParseException extends RuntimeException with SuppressedStartupException
 }

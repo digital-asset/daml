@@ -74,6 +74,7 @@ import Type (splitTyConApp)
 data Error
     = ParseError MsgDoc
     | UnsupportedStatement String -- ^ E.g., pattern on the LHS
+    | ExpectedExpression String
     | NotImportedModules [ModuleName]
     | TypeError -- ^ The actual error will be in the diagnostics
     | ScriptError ReplClient.BackendError
@@ -84,6 +85,8 @@ renderError dflags err = case err of
         putStrLn (showSDoc dflags err)
     (UnsupportedStatement str) ->
         putStrLn ("Unsupported statement: " <> str)
+    (ExpectedExpression str) ->
+        putStrLn ("Expected an expression but got: " <> str)
     (NotImportedModules names) ->
         putStrLn ("Not imported, cannot remove: " <> intercalate ", " (map moduleNameString names))
     TypeError ->
@@ -390,27 +393,34 @@ runRepl importPkgs opts replClient logger ideState = do
         :: DynFlags
         -> String
         -> Stmt GhcPs (LHsExpr GhcPs)
+        -> ReplClient.ReplResponseType
         -> ExceptT Error ReplM ()
-    handleStmt dflags line stmt = do
+    handleStmt dflags line stmt rspType = do
         ReplState {imports, bindings, lineNumber} <- State.get
         supportedStmt <- maybe (throwError (UnsupportedStatement line)) pure (validateStmt stmt)
         let rendering = renderModule dflags imports lineNumber bindings supportedStmt
-        (lfMod, tmrModule -> tcMod) <- printDelayedDiagnostics $ case rendering of
-            BindingRendering t ->
+        (lfMod, tmrModule -> tcMod) <- printDelayedDiagnostics $ case (rspType, rendering) of
+            (ReplClient.ReplText, BindingRendering t) ->
                 tryTypecheck lineNumber (T.pack t)
-            BodyRenderings {..} ->
+            (ReplClient.ReplText, BodyRenderings {..}) ->
                 withExceptT getLast
                 $   withExceptT Last (tryTypecheck lineNumber (T.pack unitScript))
                 <!> withExceptT Last (tryTypecheck lineNumber (T.pack printableScript))
-                <!> withExceptT Last (tryTypecheck lineNumber (T.pack nonprintableScript))
+                <!> withExceptT Last (tryTypecheck lineNumber (T.pack arbitraryScript))
                 <!> withExceptT Last (tryTypecheck lineNumber (T.pack purePrintableExpr))
+            (ReplClient.ReplJson, BindingRendering _) ->
+                throwError (ExpectedExpression line, [])
+            (ReplClient.ReplJson, BodyRenderings {..}) ->
+                withExceptT getLast
+                $   withExceptT Last (tryTypecheck lineNumber (T.pack arbitraryScript))
+                <!> withExceptT Last (tryTypecheck lineNumber (T.pack pureArbitraryExpr))
         -- Type of the statement so we can give it a type annotation
         -- and avoid incurring a typeclass constraint.
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
         -- If we get an error we don’t increment lineNumber and we
         -- do not get a new binding
         mbResult <- withExceptT ScriptError $ ExceptT $ liftIO $
-            ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
+            ReplClient.runScript replClient (optDamlLfVersion opts) lfMod rspType
         liftIO $ whenJust mbResult T.putStrLn
         let boundVars = stmtBoundVars supportedStmt
             boundVars' = mkOccSet $ map occName boundVars
@@ -458,7 +468,7 @@ runRepl importPkgs opts replClient logger ideState = do
         r <- runExceptT $ do
             input <- ExceptT $ pure $ parseReplInput line dflags
             case input of
-                ReplStatement stmt -> handleStmt dflags line stmt
+                ReplStatement stmt -> handleStmt dflags line stmt ReplClient.ReplText
                 ReplImport imp -> handleImport dflags imp
         case r of
             Left err -> liftIO $ renderError dflags err
@@ -479,6 +489,7 @@ runRepl importPkgs opts replClient logger ideState = do
     replOptions :: [(String, [String] -> ReplM ())]
     replOptions =
       [ ("help", mkReplOption optHelp)
+      , ("json", mkReplOption optJson)
       , ("module", mkReplOption optModule)
       , ("show", mkReplOption optShow)
       ]
@@ -486,9 +497,15 @@ runRepl importPkgs opts replClient logger ideState = do
       [ " Commands available from the prompt:"
       , ""
       , "   <statement>                 evaluate/run <statement>"
+      , "   :json <expression>          evaluate/run <expression> and print the result in JSON format"
       , "   :module [+/-] <mod> ...     add or remove the modules from the import list"
       , "   :show imports               show the current module imports"
       ]
+    optJson dflags (unwords -> line) = do
+        input <- ExceptT $ pure $ parseReplInput line dflags
+        case input of
+            ReplStatement stmt -> handleStmt dflags line stmt ReplClient.ReplJson
+            ReplImport _ -> throwError (ExpectedExpression line)
     optModule _dflags ("-" : names) =
         removeImports $ map mkModuleName names
     optModule dflags ("+" : names) =
@@ -548,13 +565,15 @@ data ModuleRenderings
         , printableScript :: String
           -- ^ e :: Script a with for some a that is an instance of Show. Here
           -- we print the result.
-        , nonprintableScript :: String
-          -- ^ e :: Script a for some a that is not an instance of Show.
+        , arbitraryScript :: String
+          -- ^ e :: Script a for some a that may not be an instance of Show.
         , purePrintableExpr :: String
           -- ^ e :: a for some a that is an instance of Show. Here we
           -- print the result. Note that we do not support
           -- non-printable pure expressions since there is no
           -- reason to run them.
+        , pureArbitraryExpr :: String
+          -- ^ e :: a for some a that may not be an instance of Show.
         }
 
 moduleImports
@@ -607,7 +626,7 @@ renderModule dflags imports line binds stmt = case stmt of
               , exprLhs
               , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
               ]
-          , nonprintableScript = unlines $
+          , arbitraryScript = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script _"
               , exprLhs
@@ -619,6 +638,13 @@ renderModule dflags imports line binds stmt = case stmt of
               , exprLhs
               , showSDoc dflags $ Outputable.nest 2 $ ppr $
                 returnShowAp expr
+              ]
+          , pureArbitraryExpr = unlines $
+              moduleHeader dflags imports line <>
+              [ exprTy "Script _"
+              , exprLhs
+              , showSDoc dflags $ Outputable.nest 2 $ ppr $
+                returnAp $ noLoc $ HsPar noExt expr
               ]
           }
     LetStatement binding ->

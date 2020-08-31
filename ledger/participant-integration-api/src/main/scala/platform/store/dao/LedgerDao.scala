@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.WorkflowId
-import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{
@@ -43,6 +43,8 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 
   /** Looks up the ledger id */
   def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]]
+
+  def lookupParticipantId()(implicit loggingContext: LoggingContext): Future[Option[ParticipantId]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset]
@@ -174,6 +176,10 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * @param ledgerId the ledger id to be stored
     */
   def initializeLedger(ledgerId: LedgerId)(implicit loggingContext: LoggingContext): Future[Unit]
+
+  def initializeParticipantId(participantId: ParticipantId)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Unit]
 
   def storeTransaction(
       submitterInfo: Option[SubmitterInfo],

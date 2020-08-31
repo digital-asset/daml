@@ -31,7 +31,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.common.MismatchException
 import com.daml.resources.{Resource, ResourceOwner}
 import com.google.protobuf.ByteString
 
@@ -143,7 +143,7 @@ object SqlLedgerReaderWriter {
           .flatMap { ledgerId =>
             if (providedLedgerId != ledgerId) {
               Failure(
-                new LedgerIdMismatchException(
+                new MismatchException.LedgerId(
                   domain.LedgerId(ledgerId),
                   domain.LedgerId(providedLedgerId),
                 ))

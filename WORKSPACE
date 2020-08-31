@@ -961,14 +961,7 @@ java_import(
     jars = glob(["lib/**"]),
 )
 """,
-    sha256 = "c1e5aff815c52b57a0c1cac13a5c3523cc1e6a63005b3b788015a96fd058c527",
-    strip_prefix = "canton-0.15.0",
-    urls = ["https://www.canton.io/releases/canton-0.15.0.tar.gz"],
-)
-
-http_file(
-    name = "ref-ledger-authentication",
-    downloaded_file_path = "ref-ledger-authentication.jar",
-    sha256 = "761b1731339acea3370baf98a3242714e0c81789d8cbb26b623bbf93ce6f80ef",
-    urls = ["https://github.com/digital-asset/ref-ledger-authenticator/releases/download/v0.0.0-snapshot-20200716.15.2b46f9f5/ref-ledger-authenticator-0.0.0-snapshot-20200716.15.2b46f9f5.jar"],
+    sha256 = "dff85a80e893f1d4e99c3eb3cd62ed0fbb8a91d4b76aa2cc3394a635da968aed",
+    strip_prefix = "canton-0.18.2",
+    urls = ["https://www.canton.io/releases/canton-0.18.2.tar.gz"],
 )

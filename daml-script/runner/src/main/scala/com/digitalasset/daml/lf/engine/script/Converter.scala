@@ -13,7 +13,7 @@ import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time
+import com.daml.lf.data.{ImmArray, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -217,7 +217,7 @@ object Converter {
       Array(),
       2,
       SEApp(
-        SEBuiltin(SBStructCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
+        SEBuiltin(SBStructCon(ImmArray(Name.assertFromString("a"), Name.assertFromString("b")))),
         Array(SELocA(0), SELocA(1))),
     )
     val machine =
@@ -383,11 +383,64 @@ object Converter {
       case _ => Left(s"Expected STimestamp but got $v")
     }
 
+  def toText(v: SValue): Either[String, String] = v match {
+    case SText(s) => Right(s)
+    case v => Left(s"Expected SText but got $v")
+  }
+
+  def toInt(v: SValue): Either[String, Int] = v match {
+    case SInt64(n) => Right(n.toInt)
+    case v => Left(s"Expected SInt64 but got $v")
+  }
+
+  def toOptionLocation(
+      knownPackages: Map[String, PackageId],
+      v: SValue): Either[String, Option[Location]] =
+    v match {
+      case SList(list) =>
+        list.pop match {
+          case None => Right(None)
+          case Some((pair, _)) =>
+            pair match {
+              case SRecord(_, _, vals) if vals.size == 2 =>
+                for {
+                  // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
+                  //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
+                  //   The definition is not used when pretty printing locations. So, we can ignore this.
+                  definition <- toText(vals.get(0))
+                  loc <- vals.get(1) match {
+                    case SRecord(_, _, vals) if vals.size == 7 =>
+                      for {
+                        packageId <- toText(vals.get(0)).flatMap {
+                          // GHC uses unit-id "main" for the current package,
+                          // but the scenario context expects "-homePackageId-".
+                          case "main" => PackageId.fromString("-homePackageId-")
+                          case id => knownPackages.get(id).toRight(s"Unknown package $id")
+                        }
+                        module <- toText(vals.get(1)).flatMap(ModuleName.fromString(_))
+                        startLine <- toInt(vals.get(3))
+                        startCol <- toInt(vals.get(4))
+                        endLine <- toInt(vals.get(5))
+                        endCol <- toInt(vals.get(6))
+                      } yield
+                        Location(
+                          packageId,
+                          module,
+                          definition,
+                          (startLine, startCol),
+                          (endLine, endCol))
+                    case _ => Left("Expected SRecord of Daml.Script.SrcLoc")
+                  }
+                } yield Some(loc)
+              case _ => Left("Expected SRecord of a pair")
+            }
+        }
+      case _ => Left(s"Expected SList but got $v")
+    }
+
   // Helper to construct a record
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-    val fieldNames = Name.Array(fields.map({
-      case (n, _) => Name.assertFromString(n)
-    }): _*)
+    val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to[ImmArray]
     val args =
       new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
     SRecord(ty, fieldNames, args)

@@ -5,24 +5,8 @@ package com.daml.lf.ledger
 
 import com.daml.lf.data.Ref.{ChoiceName, Identifier, Location, Party}
 
-sealed trait Authorization {
-  def fold[A](ifDontAuthorize: A)(ifAuthorize: Set[Party] => A): A =
-    this match {
-      case DontAuthorize => ifDontAuthorize
-      case Authorize(authorizers) => ifAuthorize(authorizers)
-    }
-
-  def map(f: Set[Party] => Set[Party]): Authorization = this match {
-    case DontAuthorize => DontAuthorize
-    case Authorize(parties) => Authorize(f(parties))
-  }
-}
-
-/** Do not authorize the transaction. If this is passed in, failedAuthorizations is guaranteed to be empty. */
-case object DontAuthorize extends Authorization
-
 /** Authorize the transaction using the provided parties as initial authorizers for the dynamic authorization. */
-final case class Authorize(authorizers: Set[Party]) extends Authorization
+final case class Authorize(authParties: Set[Party])
 
 sealed trait FailedAuthorization
 

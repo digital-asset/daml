@@ -15,7 +15,7 @@ import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
@@ -100,6 +100,13 @@ private class JdbcLedgerDao(
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
     dbDispatcher.executeSql(metrics.daml.index.db.getLedgerId)(ParametersTable.getLedgerId)
 
+  override def lookupParticipantId()(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[ParticipantId]] =
+    dbDispatcher.executeSql(metrics.daml.index.db.getParticipantId)(
+      ParametersTable.getParticipantId,
+    )
+
   /**
     * Defaults to Offset.begin if ledger_end is unset
     */
@@ -118,6 +125,13 @@ private class JdbcLedgerDao(
   ): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters)(
       ParametersTable.setLedgerId(ledgerId.unwrap)
+    )
+
+  override def initializeParticipantId(participantId: ParticipantId)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Unit] =
+    dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId)(
+      ParametersTable.setParticipantId(participantId.unwrap)
     )
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(

@@ -9,15 +9,17 @@ import cats.effect.{ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.trigger.{EncryptedToken, JdbcConfig, RunningTrigger, UserCredentials}
+import com.daml.lf.engine.trigger.{JdbcConfig, RunningTrigger}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.postgres.implicits._
 import doobie.util.log
-import doobie.{Fragment, Transactor}
+import doobie.{Fragment, Put, Transactor}
+import scalaz.Tag
 
 import java.io.{Closeable, IOException}
 import javax.sql.DataSource
@@ -61,6 +63,10 @@ object Connection {
 final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Connection.T)
     extends RunningTriggerDao {
 
+  implicit val partyPut: Put[Party] = Tag.subst(implicitly[Put[String]])
+
+  implicit val identifierPut: Put[Identifier] = implicitly[Put[String]].contramap(_.toString)
+
   private implicit val logHandler: log.LogHandler = log.LogHandler.jdkLogHandler
 
   private[this] val flywayMigrations = new DbFlywayMigrations(dataSource)
@@ -71,15 +77,13 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   // NOTE(RJR) Interpolation in `sql` literals:
   // Doobie provides a `Put` typeclass that allows us to interpolate values of various types in our
   // SQL query strings. This includes basic types like `String` and `UUID` as well as unary case
-  // classes wrapping these types (e.g. `EncryptedToken`). Doobie also does some formatting of these
+  // classes wrapping these types. Doobie also does some formatting of these
   // values, e.g. single quotes around `String` and `UUID` values. This is NOT the case if you use
   // `Fragment.const` which will try to use a raw string as a SQL query.
 
   private def insertRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
-    val partyToken: EncryptedToken = t.credentials.token
-    val fullTriggerName: String = t.triggerName.toString
     val insert: Fragment = sql"""
-        insert into running_triggers values (${t.triggerInstance}, $partyToken, $fullTriggerName)
+        insert into running_triggers values (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName})
       """
     insert.update.run.void
   }
@@ -91,10 +95,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     delete.update.run.map(_ == 1)
   }
 
-  private def selectRunningTriggers(partyToken: EncryptedToken): ConnectionIO[Vector[UUID]] = {
+  private def selectRunningTriggers(party: Party): ConnectionIO[Vector[UUID]] = {
     val select: Fragment = sql"""
         select trigger_instance from running_triggers
-        where party_token = $partyToken
+        where trigger_party = $party
       """
     // We do not use an `order by` clause because we sort the UUIDs afterwards using Scala's
     // comparison of UUIDs (which is different to Postgres).
@@ -129,16 +133,17 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     } yield (pkgId, payload)
 
   private def selectAllTriggers: ConnectionIO[Vector[(UUID, String, String)]] = {
-    val select: Fragment = sql"select * from running_triggers order by trigger_instance"
+    val select: Fragment = sql"""
+      select trigger_instance, trigger_party, full_trigger_name from running_triggers order by trigger_instance
+    """
     select.query[(UUID, String, String)].to[Vector]
   }
 
   private def parseRunningTrigger(
       triggerInstance: UUID,
-      token: String,
+      party: String,
       fullTriggerName: String): Either[String, RunningTrigger] = {
-    val credentials = UserCredentials(EncryptedToken(token))
-    Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, credentials))
+    Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, Tag(party)))
   }
 
   // Drop all tables and other objects associated with the database.
@@ -165,10 +170,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   override def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean] =
     run(deleteRunningTrigger(triggerInstance))
 
-  override def listRunningTriggers(credentials: UserCredentials): Either[String, Vector[UUID]] = {
+  override def listRunningTriggers(party: Party): Either[String, Vector[UUID]] = {
     // Note(RJR): Postgres' ordering of UUIDs is different to Scala/Java's.
     // We sort them after the query to be consistent with the ordering when not using a database.
-    run(selectRunningTriggers(credentials.token)).map(_.sorted)
+    run(selectRunningTriggers(party)).map(_.sorted)
   }
 
   // Write packages to the `dalfs` table so we can recover state after a shutdown.

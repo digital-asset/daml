@@ -104,7 +104,11 @@ main =
                       "testMulti = do",
                       "  p <- allocateParty \"p\"",
                       "  (cid1, cid2) <- submit p $ (,) <$> createCmd (T p 23) <*> createCmd (T p 42)",
-                      "  submit p $ (,) <$> exerciseCmd cid1 C <*> exerciseCmd cid2 C"
+                      "  submit p $ (,) <$> exerciseCmd cid1 C <*> exerciseCmd cid2 C",
+                      "testArchive = do",
+                      "  p <- allocateParty \"p\"",
+                      "  cid <- submit p (createCmd (T p 42))",
+                      "  submit p (archiveCmd cid)"
                     ]
                 expectScriptSuccess rs (vr "testCreate") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: #0:0\n\n$"
@@ -121,7 +125,9 @@ main =
                         "  DA\\.Types:Tuple2@[a-z0-9]+ with",
                         "    _1 = 23; _2 = 42",
                         ""
-                      ],
+                      ]
+                expectScriptSuccess rs (vr "testArchive") $ \r ->
+                  matchRegex r "'p' exercises Archive on #0:0",
               testCase "exerciseByKeyCmd" $ do
                 rs <-
                   runScripts
@@ -202,7 +208,17 @@ main =
                       "testAbort = do",
                       "  p <- allocateParty \"p\"",
                       "  cid <- submit p (createCmd (Helper p))",
-                      "  submit p (exerciseCmd cid Abort)"
+                      "  submit p (exerciseCmd cid Abort)",
+                      "testPartialSubmit = do",
+                      "  p1 <- allocateParty \"p1\"",
+                      "  p2 <- allocateParty \"p2\"",
+                      "  submit p1 (createCmd (Helper p1))",
+                      "  submit p2 (createCmd (Helper p1))",
+                      "testPartialSubmitMustFail = do",
+                      "  p1 <- allocateParty \"p1\"",
+                      "  p2 <- allocateParty \"p2\"",
+                      "  submit p1 (createCmd (Helper p1))",
+                      "  submitMustFail p2 (createCmd (Helper p2))"
                     ]
                 expectScriptFailure rs (vr "testMissingAuthorization") $ \r ->
                   matchRegex r "failed due to a missing authorization from 'p2'"
@@ -214,6 +230,31 @@ main =
                   matchRegex r "Aborted:  errorCrash"
                 expectScriptFailure rs (vr "testAbort") $ \r ->
                   matchRegex r "Aborted:  abortCrash"
+                expectScriptFailure rs (vr "testPartialSubmit") $ \r ->
+                  matchRegex r  $ T.unlines
+                    [ "Scenario execution failed on commit at Test:57:3:"
+                    , ".*"
+                    , ".*failed due to a missing authorization.*"
+                    , ".*"
+                    , ".*"
+                    , ".*"
+                    , "Partial transaction:"
+                    , "  Sub-transactions:"
+                    , "     0"
+                    , ".*create Test:Helper.*"
+                    ]
+                expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
+                  matchRegex r $ T.unlines
+                    [ "Scenario execution failed on commit at Test:62:3:"
+                    , "  Aborted:  Expected submit to fail but it succeeded"
+                    , ".*"
+                    , ".*"
+                    , ".*"
+                    , "Partial transaction:"
+                    , "  Sub-transactions:"
+                    , "     0"
+                    , ".*create Test:Helper.*"
+                    ]
                 pure (),
               testCase "query" $
                 do
@@ -343,6 +384,7 @@ main =
                       "import Daml.Script",
                       "import DA.Date",
                       "import DA.Time",
+                      "import DA.Assert",
                       "template T",
                       "  with",
                       "    p : Party",
@@ -362,7 +404,16 @@ main =
                       "  t0 <- submit p $ exerciseCmd cid GetTime",
                       "  setTime (time (date 2000 Feb 2) 0 1 2)",
                       "  t1 <- submit p $ exerciseCmd cid GetTime",
-                      "  pure (t0, t1)"
+                      "  pure (t0, t1)",
+                      "testPassTime = do",
+                      "  p <- allocateParty \"p\"",
+                      "  t0 <- getTime",
+                      "  passTime (days 1)",
+                      "  t1 <- getTime",
+                      "  t1 === addRelTime t0 (days 1)",
+                      "  cid <- submit p $ createCmd (T p)",
+                      "  passTime (days (-1))",
+                      "  submit p $ exerciseCmd cid Archive"
                     ]
                 expectScriptSuccess rs (vr "testTime") $ \r ->
                     matchRegex r $
@@ -379,7 +430,10 @@ main =
                           "  DA\\.Types:Tuple2@[a-z0-9]+ with",
                           "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z",
                           ""
-                        ],
+                        ]
+                expectScriptFailure rs (vr "testPassTime") $ \r ->
+                    matchRegex r "Attempt to fetch or exercise a contract not yet effective"
+            ,
               testCase "partyManagement" $ do
                 rs <-
                   runScripts

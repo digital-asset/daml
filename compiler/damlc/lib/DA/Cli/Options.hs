@@ -209,7 +209,7 @@ enableScenarioOpt = EnableScenarioService <$>
 
 enableScriptsOpt :: Parser EnableScripts
 enableScriptsOpt = EnableScripts <$>
-    flagYesNoAuto "daml-script" False "Enable/disable support for running DAML Scripts" internal
+    flagYesNoAuto "daml-script" True "Enable/disable support for running DAML Scripts" internal
 
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled

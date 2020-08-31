@@ -21,13 +21,17 @@ module Daml.Script
   , exerciseCmd
   , exerciseByKeyCmd
   , createAndExerciseCmd
+  , archiveCmd
   , getTime
   , setTime
+  , passTime
   , sleep
+  , script
   ) where
 
 import DA.Functor
 import DA.Optional
+import DA.Stack
 import DA.Time
 
 -- | A free monad
@@ -111,11 +115,26 @@ data SetTimePayload a = SetTimePayload
 --
 -- This is only supported in static time mode when running over the gRPC API.
 --
--- Note that the time service does not support going backwards in time.
+-- Note that the ledger time service does not support going backwards in time.
+-- However, you can go back in time in DAML Studio.
 setTime : Time -> Script ()
 setTime time = lift $ Free $ SetTime $ SetTimePayload with
   time
   continue = pure
+
+-- | Advance ledger time by the given interval.
+--
+-- Only supported in static time mode when running over the gRPC API
+-- and in DAML Studio. Note that this is not an atomic operation over the
+-- gRPC API so no other clients should try to change time while this is
+-- running.
+--
+-- Note that the ledger time service does not support going backwards in time.
+-- However, you can go back in time in DAML Studio.
+passTime : RelTime -> Script ()
+passTime rt = do
+  t <- getTime
+  setTime (addRelTime t rt)
 
 data AllocateParty a = AllocateParty
   { displayName : Text
@@ -234,11 +253,11 @@ data SubmitFailure = SubmitFailure
 -- The @handleFailure@ field is kept on @submit@ for backwards compatibility.
 -- Older versions of the DAML SDK didn't distinguish @Submit@ and
 -- @SubmitMustFail@ in the script runner.
-data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a }
+data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a, locations : [(Text, SrcLoc)] }
   deriving Functor
 
 -- | Details of the @submitMustFail@ command.
-data SubmitMustFailCmd a = SubmitMustFailCmd { party : Party, commands : Commands a, continue : () -> a }
+data SubmitMustFailCmd a = SubmitMustFailCmd { party : Party, commands : Commands a, continue : () -> a, locations : [(Text, SrcLoc)] }
   deriving Functor
 
 -- | Submit the commands as a single transaction.
@@ -246,10 +265,10 @@ data SubmitMustFailCmd a = SubmitMustFailCmd { party : Party, commands : Command
 -- This will error if the submission fails.
 
 instance HasSubmit Script Commands where
-  submit p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
+  submit p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail (getCallStack callStack))
     where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
 
-  submitMustFail p cmds = lift $ Free (fmap pure $ SubmitMustFail $ SubmitMustFailCmd p (void cmds) (const ()))
+  submitMustFail p cmds = lift $ Free (fmap pure $ SubmitMustFail $ SubmitMustFailCmd p (void cmds) (const ()) (getCallStack callStack))
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
@@ -286,6 +305,12 @@ exerciseByKeyCmd key arg = Commands $ Ap (\f -> f (ExerciseByKey (templateTypeRe
 createAndExerciseCmd : forall t c r. Choice t c r => t -> c -> Commands r
 createAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise (toAnyTemplate tplArg) (toAnyChoice @t choiceArg) identity) (pure fromLedgerValue))
 
+-- | Archive the given contract.
+--
+-- `archiveCmd cid` is equivalent to `exerciseCmd cid Archive`.
+archiveCmd : Choice t Archive () => ContractId t -> Commands ()
+archiveCmd cid = exerciseCmd cid Archive
+
 instance Applicative Script where
     pure a = Script $ \ s -> return (a, s)
 
@@ -303,3 +328,11 @@ lift : Free ScriptF a -> Script a
 lift m = Script $ \s -> do
   a <- m
   pure (a, s)
+
+-- | Convenience helper to declare you are writing a Script.
+--
+-- This is only useful for readability and to improve type inference.
+-- Any expression of type `Script a` is a valid script regardless of whether
+-- it is implemented using `script` or not.
+script : Script a -> Script a
+script = identity

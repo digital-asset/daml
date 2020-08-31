@@ -841,7 +841,7 @@ jobs:
 
           source $(bash-lib)
 
-          AUTH="$(get-gh-auth-header)"
+          AUTH="$(get_gh_auth_header)"
           PR=$(curl -H "$AUTH" \
                     -H "Accept: application/vnd.github.groot-preview+json" \
                     -s -f \
@@ -854,7 +854,7 @@ jobs:
           # the PR. Hence the `|| echo ""`.
           PR_HANDLER=$(head -1 release/rotation | awk '{print $1}')
 
-          tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> has completed with status $(status)."
+          tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> has completed with status $(status). See <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md|RELEASE.md> for what to do next."
 
   - job: notify_user
     condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))

@@ -12,13 +12,11 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
 import com.daml.ledger.api.tls.TlsConfigurationCli
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
-import scalaz.syntax.tag._
 import scopt.RenderingMode
 
 import scala.concurrent.duration._
@@ -47,14 +45,15 @@ object Main extends StrictLogging {
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
         s", portFile=${config.portFile: Option[Path]}" +
-        s", applicationId=${config.applicationId.unwrap: String}" +
-        s", packageReloadInterval=${config.packageReloadInterval.toString}" +
+        s", packageReloadInterval=${config.packageReloadInterval: FiniteDuration}" +
+        s", packageMaxInboundMessageSize=${config.packageMaxInboundMessageSize: Option[Int]}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
         s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
         s", allowNonHttps=${config.allowNonHttps.shows}" +
-        s", accessTokenFile=${config.accessTokenFile.toString}" +
+        s", accessTokenFile=${config.accessTokenFile: Option[Path]}" +
+        s", wsConfig=${config.wsConfig.shows}" +
         ")")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
@@ -152,10 +151,12 @@ object Main extends StrictLogging {
       )
 
       opt[String]("application-id")
-        .action((x, c) => c.copy(applicationId = ApplicationId(x)))
+        .foreach(x =>
+          logger.warn(
+            s"Command-line option '--application-id' is deprecated. Please do NOT specify it. " +
+              s"Application ID: '$x' provided in the command-line is NOT used, using Application ID from JWT."))
         .optional()
-        .text(
-          s"Optional application ID to use for ledger registration. Defaults to ${Config.Empty.applicationId.unwrap: String}")
+        .hidden()
 
       TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
         c copy (tlsConfig = f(c.tlsConfig)))
@@ -165,13 +166,20 @@ object Main extends StrictLogging {
         .optional()
         .text(
           s"Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. " +
-            s"Defaults to ${Config.Empty.packageReloadInterval.toString}")
+            s"Defaults to ${Config.Empty.packageReloadInterval: FiniteDuration}")
+
+      opt[Int]("package-max-inbound-message-size")
+        .action((x, c) => c.copy(packageMaxInboundMessageSize = Some(x)))
+        .optional()
+        .text(
+          s"Optional max inbound message size in bytes used for uploading and downloading package updates." +
+            s" Defaults to the `max-inbound-message-size` setting.")
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .optional()
         .text(
-          s"Optional max inbound message size in bytes. Defaults to ${Config.Empty.maxInboundMessageSize: Int}")
+          s"Optional max inbound message size in bytes. Defaults to ${Config.Empty.maxInboundMessageSize: Int}.")
 
       opt[Map[String, String]]("query-store-jdbc-config")
         .action((x, c) => c.copy(jdbcConfig = Some(JdbcConfig.createUnsafe(x))))

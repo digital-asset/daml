@@ -32,6 +32,10 @@ object ServerRole {
     override val threadPoolSuffix: String = "sandbox"
   }
 
+  object ReadIndexMetadata extends ServerRole {
+    override val threadPoolSuffix: String = "dump-index-metadata"
+  }
+
   final case class Testing(testClass: Class[_]) extends ServerRole {
     override val threadPoolSuffix: String = testClass.getSimpleName.toLowerCase
   }

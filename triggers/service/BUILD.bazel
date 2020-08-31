@@ -45,7 +45,6 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-        "//libs-scala/timer-utils",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
@@ -80,19 +79,6 @@ da_scala_binary(
     deps = [
         ":trigger-service",
     ],
-)
-
-# The ref-ledger-authentication binary that we exercise from the
-# service tests.
-java_import(
-    name = "ref-ledger-authentication-jar",
-    jars = ["@ref-ledger-authentication//file:ref-ledger-authentication.jar"],
-)
-
-java_binary(
-    name = "ref-ledger-authentication-binary",
-    main_class = "com.projectdabl.authenticationservice.Main",
-    runtime_deps = [":ref-ledger-authentication-jar"],
 )
 
 da_scala_test(
@@ -139,9 +125,6 @@ da_scala_test(
 da_scala_test(
     name = "auth-client-tests",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/auth/client/*.scala"]),
-    data = [
-        "//triggers/service:ref-ledger-authentication-binary",
-    ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
         ":trigger-service",

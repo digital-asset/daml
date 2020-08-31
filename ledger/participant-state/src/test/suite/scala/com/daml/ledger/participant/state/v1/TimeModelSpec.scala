@@ -7,7 +7,7 @@ import java.time._
 
 import org.scalatest.{Matchers, WordSpec}
 
-class TimeModelTest extends WordSpec with Matchers {
+class TimeModelSpec extends WordSpec with Matchers {
 
   private val referenceTime = Instant.EPOCH
   private val epsilon = Duration.ofMillis(10L)

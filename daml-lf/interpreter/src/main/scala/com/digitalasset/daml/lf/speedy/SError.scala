@@ -128,4 +128,7 @@ object SError {
 
   /** Tried to allocate a party that already exists. */
   final case class ScenarioErrorPartyAlreadyExists(name: String) extends SErrorScenario
+
+  final case class ScenarioErrorSerializationError(msg: String) extends SErrorScenario
+
 }

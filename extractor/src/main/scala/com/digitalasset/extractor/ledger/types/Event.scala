@@ -31,7 +31,7 @@ final case class ExercisedEvent(
     actingParties: Set[String],
     consuming: Boolean,
     witnessParties: Set[String],
-    childEventIds: Set[String]
+    childEventIds: Seq[String]
 ) extends Event
 
 object Event {
@@ -88,7 +88,7 @@ object Event {
           apiEvent.actingParties.toSet,
           apiEvent.consuming,
           apiEvent.witnessParties.toSet,
-          apiEvent.childEventIds.toSet
+          apiEvent.childEventIds
         )
     }
   }

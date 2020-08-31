@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.WorkflowId
-import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1._
@@ -39,6 +39,11 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
     Timed.future(metrics.daml.index.db.lookupLedgerId, ledgerDao.lookupLedgerId())
+
+  override def lookupParticipantId()(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[ParticipantId]] =
+    Timed.future(metrics.daml.index.db.lookupParticipantId, ledgerDao.lookupParticipantId())
 
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
@@ -192,6 +197,11 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
   override def initializeLedger(ledgerId: LedgerId)(
       implicit loggingContext: LoggingContext): Future[Unit] =
     ledgerDao.initializeLedger(ledgerId)
+
+  override def initializeParticipantId(participantId: ParticipantId)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Unit] =
+    ledgerDao.initializeParticipantId(participantId)
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     ledgerDao.reset()

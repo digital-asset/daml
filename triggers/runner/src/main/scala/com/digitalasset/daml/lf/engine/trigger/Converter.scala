@@ -10,7 +10,7 @@ import java.util
 import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.FrontStack
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
@@ -81,7 +81,7 @@ object Converter {
 
   // Helper to make constructing an SRecord more convenient
   private def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-    val fieldNames = Name.Array(fields.map({ case (n, _) => Name.assertFromString(n) }): _*)
+    val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to[ImmArray]
     val args = new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
     SRecord(ty, fieldNames, args)
   }

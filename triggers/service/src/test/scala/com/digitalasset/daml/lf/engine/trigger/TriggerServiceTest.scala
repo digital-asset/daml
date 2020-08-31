@@ -3,12 +3,12 @@
 
 package com.daml.lf.engine.trigger
 
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
@@ -22,6 +22,7 @@ import org.scalatest.time.{Seconds, Span}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scalaz.Tag
 import scalaz.syntax.tag._
 import spray.json._
 import com.daml.bazeltools.BazelRunfiles.requiredResource
@@ -71,38 +72,33 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   implicit val esf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
-  protected case class User(userName: String, password: String)
-  protected val alice = User("Alice", "&alC2l3SDS*V")
-  protected val bob = User("Bob", "7GR8G@InIO&v")
-
-  protected def headersWithAuth(user: User): List[Authorization] = {
-    user match {
-      case User(party, password) => List(Authorization(BasicHttpCredentials(party, password)))
-    }
-  }
+  protected val alice: Party = Tag("Alice")
+  protected val bob: Party = Tag("Bob")
 
   def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
       testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
     TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)(testFn)
 
-  def startTrigger(uri: Uri, triggerName: String, party: User): Future[HttpResponse] = {
+  def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/start")),
-      headers = headersWithAuth(party),
       entity = HttpEntity(
         ContentTypes.`application/json`,
-        s"""{"triggerName": "$triggerName"}"""
+        s"""{"triggerName": "$triggerName", "party": "$party"}"""
       )
     )
     Http().singleRequest(req)
   }
 
-  def listTriggers(uri: Uri, party: User): Future[HttpResponse] = {
+  def listTriggers(uri: Uri, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.GET,
       uri = uri.withPath(Uri.Path(s"/v1/list")),
-      headers = headersWithAuth(party),
+      entity = HttpEntity(
+        ContentTypes.`application/json`,
+        s"""{"party": "$party"}"""
+      )
     )
     Http().singleRequest(req)
   }
@@ -116,11 +112,13 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     Http().singleRequest(req)
   }
 
-  def stopTrigger(uri: Uri, triggerInstance: UUID, party: User): Future[HttpResponse] = {
+  def stopTrigger(uri: Uri, triggerInstance: UUID, party: Party): Future[HttpResponse] = {
+    // silence unused warning, we probably need this parameter again when we
+    // support auth.
+    val _ = party
     val id = triggerInstance.toString
     val req = HttpRequest(
       method = HttpMethods.DELETE,
-      headers = headersWithAuth(party),
       uri = uri.withPath(Uri.Path(s"/v1/stop/$id")),
     )
     Http().singleRequest(req)
@@ -173,7 +171,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     } yield triggerIds
   }
 
-  def assertTriggerIds(uri: Uri, party: User, expected: Vector[UUID]): Future[Assertion] =
+  def assertTriggerIds(uri: Uri, party: Party, expected: Vector[UUID]): Future[Assertion] =
     for {
       resp <- listTriggers(uri, party)
       result <- parseTriggerIds(resp)
@@ -397,37 +395,6 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
           aliceTrigger,
           _.count(_ == "stopped: runtime failure") should be > 2)
       } yield succeed
-  }
-
-  it should "give an 'unauthorized' response for a stop request without an authorization header" in withTriggerService(
-    None) { (uri: Uri, _, _) =>
-    val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
-    val req = HttpRequest(
-      method = HttpMethods.DELETE,
-      uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
-    )
-    for {
-      resp <- Http().singleRequest(req)
-      _ <- resp.status should equal(StatusCodes.Unauthorized)
-      body <- responseBodyToString(resp)
-      JsObject(fields) = body.parseJson
-      _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.Unauthorized.intValue)))
-      _ <- fields.get("errors") should equal(
-        Some(JsArray(JsString("missing Authorization header with Basic Token"))))
-    } yield succeed
-  }
-
-  it should "give an 'unauthorized' response for a start request with an invalid party identifier" in withTriggerService(
-    Some(dar)) { (uri: Uri, _, _) =>
-    for {
-      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", User("Alice-!", "&alC2l3SDS*V"))
-      _ <- resp.status should equal(StatusCodes.Unauthorized)
-      body <- responseBodyToString(resp)
-      JsObject(fields) = body.parseJson
-      _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.Unauthorized.intValue)))
-      _ <- fields.get("errors") should equal(
-        Some(JsArray(JsString("invalid party identifier 'Alice-!'"))))
-    } yield succeed
   }
 
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(

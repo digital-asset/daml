@@ -472,6 +472,20 @@ scenarioTests run = testGroup "scenarios"
           expectScenarioContent "Return value: &quot;ok&quot"
           closeDoc scenario
           closeDoc main'
+    , testCase "submit location" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "module Main where"
+              , "template T with party : Party where signatory party"
+              , "main = scenario $ do"
+              , "  alice <- getParty \"Alice\""
+              , "  submit alice do create (T alice)"
+              , "  submitCreateT alice"
+              , "submitCreateT party = submit party do create (T party)"
+              ]
+          script <- openScenario "Main.daml" "main"
+          expectScenarioContentMatch "title=\"Main:5:3\">Main:5:3</a>.*title=\"Main:7:1\">Main:7:1</a>"
+          closeDoc script
+          closeDoc main'
     ]
 
 scriptTests :: FilePath -> FilePath -> TestTree
@@ -527,9 +541,27 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
           expectScriptContent "Return value: &quot;ok&quot"
           closeDoc script
           closeDoc main'
+    , testCase "submit location" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "template T with party : Party where signatory party"
+              , "main : Script (ContractId T)"
+              , "main = do"
+              , "  alice <- allocateParty \"Alice\""
+              , "  submit alice do createCmd (T alice)"
+              , "  submitCreateT alice"
+              , "submitCreateT party = submit party do createCmd (T party)"
+              ]
+          script <- openScript "Main.daml" "main"
+          expectScriptContentMatch "title=\"Main:8:3\">Main:8:3</a>.*title=\"Main:10:23\">Main:10:23</a>"
+          closeDoc script
+          closeDoc main'
     ]
   where
-    run s = withTempDir $ \dir -> do
+    run s | isWindows = pure ()
+          | otherwise = withTempDir $ \dir -> do
         copyFile scriptDarPath (dir </> "daml-script.dar")
         writeFileUTF8 (dir </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -542,7 +574,7 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
             , "- daml-script.dar"
             ]
         withCurrentDirectory dir $
-            runSessionWithConfig conf (damlcPath <> " ide --daml-script=yes") fullCaps' dir s
+            runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
 
 executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
 executeCommandTests run _ = testGroup "execute command"

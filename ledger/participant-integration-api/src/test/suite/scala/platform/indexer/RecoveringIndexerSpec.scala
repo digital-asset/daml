@@ -13,7 +13,6 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
 import com.daml.platform.testing.LogCollector
 import com.daml.resources.{Resource, ResourceOwner}
-import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.collection.mutable
@@ -21,11 +20,7 @@ import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-class RecoveringIndexerSpec
-    extends AsyncWordSpec
-    with Matchers
-    with MockitoSugar
-    with BeforeAndAfterEach {
+final class RecoveringIndexerSpec extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
 
   private[this] implicit val executionContext: ExecutionContext = DirectExecutionContext
   private[this] implicit val loggingContext: LoggingContext = LoggingContext.ForTesting

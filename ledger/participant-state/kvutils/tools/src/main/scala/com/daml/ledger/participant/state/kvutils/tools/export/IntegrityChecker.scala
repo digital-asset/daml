@@ -8,14 +8,15 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
-import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.{
-  SubmissionInfo,
+import com.daml.ledger.participant.state.kvutils.export.{
+  NoOpLedgerDataExporter,
+  SerializationBasedLedgerDataImporter,
   WriteSet
 }
-import com.daml.ledger.participant.state.kvutils.export.{NoopLedgerDataExporter, Serialization}
 import com.daml.ledger.participant.state.kvutils.tools._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
@@ -47,7 +48,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       new KeyValueCommitting(engine, metrics),
       new ConflictDetection(metrics),
       metrics,
-      NoopLedgerDataExporter,
+      NoOpLedgerDataExporter,
     )
     val ComponentsForReplay(reader, commitStrategy, queryableWriteSet) =
       commitStrategySupport.createComponentsForReplay()
@@ -69,31 +70,34 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       commitStrategy: CommitStrategy[LogResult],
       queryableWriteSet: QueryableWriteSet,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    def go(): Future[Int] =
-      if (input.available() == 0) {
-        Future.successful(0)
-      } else {
-        for {
-          (submissionInfo, expectedWriteSet) <- Future(readSubmissionAndOutputs(input))
-          _ <- submissionValidator.validateAndCommit(
-            submissionInfo.submissionEnvelope,
-            submissionInfo.correlationId,
-            submissionInfo.recordTimeInstant,
-            submissionInfo.participantId,
-            reader,
-            commitStrategy,
+    Source(new SerializationBasedLedgerDataImporter(input).read())
+      .mapAsync(1) {
+        case (submissionInfo, expectedWriteSet) =>
+          println(
+            "Read submission"
+              + s" correlationId=${submissionInfo.correlationId}"
+              + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size()}"
+              + s" writeSetSize=${expectedWriteSet.size}"
           )
-          actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
-          sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-          _ = compareWriteSets(expectedWriteSet, sortedActualWriteSet)
-          n <- go()
-        } yield n + 1
+          for {
+            _ <- submissionValidator.validateAndCommit(
+              submissionInfo.submissionEnvelope,
+              submissionInfo.correlationId,
+              submissionInfo.recordTimeInstant,
+              submissionInfo.participantId,
+              reader,
+              commitStrategy,
+            )
+            actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
+            sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+            _ = compareWriteSets(expectedWriteSet, sortedActualWriteSet)
+          } yield ()
       }
-
-    go().map { counter =>
-      println(s"Processed $counter submissions.".white)
-      println()
-    }
+      .runWith(Sink.fold(0)((n, _) => n + 1))
+      .map { counter =>
+        println(s"Processed $counter submissions.".white)
+        println()
+      }
   }
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit =
@@ -163,14 +167,6 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
             |Actual: $actualStateValue""".stripMargin
       }
       .orElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
-
-  private def readSubmissionAndOutputs(input: DataInputStream): (SubmissionInfo, WriteSet) = {
-    val (submissionInfo, writeSet) = Serialization.readEntry(input)
-    println(
-      s"Read submission correlationId=${submissionInfo.correlationId} submissionEnvelopeSize=${submissionInfo.submissionEnvelope
-        .size()} writeSetSize=${writeSet.size}")
-    (submissionInfo, writeSet)
-  }
 
   private def reportDetailedMetrics(metricRegistry: MetricRegistry): Unit = {
     val reporter = ConsoleReporter

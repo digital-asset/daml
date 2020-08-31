@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, WriteService}
 import com.daml.lf.data.ImmArray
@@ -43,7 +44,7 @@ private[sandbox] object SandboxIndexAndWriteService {
 
   def postgres(
       name: LedgerName,
-      initialLedgerId: LedgerIdMode,
+      providedLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
       timeProvider: TimeProvider,
@@ -63,7 +64,8 @@ private[sandbox] object SandboxIndexAndWriteService {
       name = name,
       serverRole = ServerRole.Sandbox,
       jdbcUrl = jdbcUrl,
-      initialLedgerId = initialLedgerId,
+      providedLedgerId = providedLedgerId,
+      participantId = domain.ParticipantId(participantId),
       timeProvider = timeProvider,
       packages = templateStore,
       initialLedgerEntries = ledgerEntries,
@@ -77,7 +79,7 @@ private[sandbox] object SandboxIndexAndWriteService {
 
   def inMemory(
       name: LedgerName,
-      initialLedgerId: LedgerIdMode,
+      providedLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
@@ -91,7 +93,7 @@ private[sandbox] object SandboxIndexAndWriteService {
   ): ResourceOwner[IndexAndWriteService] = {
     val ledger =
       new InMemoryLedger(
-        initialLedgerId.or(new LedgerIdGenerator(name).generateRandomId()),
+        providedLedgerId.or(LedgerIdGenerator.generateRandomId(name)),
         timeProvider,
         acs,
         transactionCommitter,

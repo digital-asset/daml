@@ -9,7 +9,11 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.export.{
+  NoOpLedgerDataExporter,
+  SubmissionAggregator
+}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, ValidationFailed}
@@ -20,8 +24,8 @@ import com.google.protobuf.ByteString
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, argThat}
 import org.mockito.Mockito._
-import org.scalatest.{Assertion, AsyncWordSpec, Inside, Matchers}
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{Assertion, AsyncWordSpec, Inside, Matchers}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
@@ -36,13 +40,24 @@ class BatchedSubmissionValidatorSpec
   private val engine = Engine.DevEngine()
   private val metrics = new Metrics(new MetricRegistry)
 
+  private def newBatchedSubmissionValidator[CommitResult](
+      params: BatchedSubmissionValidatorParameters,
+      metrics: Metrics = this.metrics,
+  ): BatchedSubmissionValidator[CommitResult] =
+    new BatchedSubmissionValidator[CommitResult](
+      params,
+      new KeyValueCommitting(engine, metrics),
+      new ConflictDetection(metrics),
+      metrics,
+      NoOpLedgerDataExporter,
+    )
+
   "validateAndCommit" should {
 
     "return validation failure for invalid envelope" in {
-      val validator = BatchedSubmissionValidator[Unit](
+      val validator = newBatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
-        engine,
-        metrics)
+      )
 
       validator
         .validateAndCommit(
@@ -60,10 +75,9 @@ class BatchedSubmissionValidatorSpec
     }
 
     "return validation failure for invalid message type in envelope" in {
-      val validator = BatchedSubmissionValidator[Unit](
+      val validator = newBatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
-        engine,
-        metrics)
+      )
       val notASubmission = Envelope.enclose(DamlStateValue.getDefaultInstance)
 
       validator
@@ -82,10 +96,9 @@ class BatchedSubmissionValidatorSpec
     }
 
     "return validation failure for invalid envelope in batch" in {
-      val validator = BatchedSubmissionValidator[Unit](
+      val validator = newBatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
-        engine,
-        metrics)
+      )
       val batchSubmission = DamlSubmissionBatch.newBuilder
         .addSubmissions(
           CorrelatedSubmission.newBuilder
@@ -124,12 +137,13 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           logEntryCaptor.capture(),
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          outputStateCaptor.capture()))
+          outputStateCaptor.capture(),
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
+        ))
         .thenReturn(Future.unit)
-      val validator = BatchedSubmissionValidator[Unit](
+      val validator = newBatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
-        engine,
-        metrics)
+      )
 
       validator
         .validateAndCommit(
@@ -179,12 +193,13 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           logEntryCaptor.capture(),
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          any[Map[DamlStateKey, DamlStateValue]]
+          any[Map[DamlStateKey, DamlStateValue]],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
       val validatorConfig =
         BatchedSubmissionValidatorParameters.reasonableDefault.copy(commitParallelism = 1)
-      val validator = BatchedSubmissionValidator[Unit](validatorConfig, engine, metrics)
+      val validator = newBatchedSubmissionValidator[Unit](validatorConfig)
 
       validator
         .validateAndCommit(
@@ -202,7 +217,9 @@ class BatchedSubmissionValidatorSpec
             any[DamlLogEntryId],
             any[DamlLogEntry],
             any[DamlInputState],
-            any[DamlOutputState])
+            any[DamlOutputState],
+            any[Option[SubmissionAggregator.WriteSetBuilder]],
+          )
           // Verify that the log entries have been committed in the right order.
           val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
           logEntries.map(_.getPartyAllocationEntry) should be(
@@ -233,13 +250,13 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           any[DamlLogEntry],
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          any[Map[DamlStateKey, DamlStateValue]]
+          any[Map[DamlStateKey, DamlStateValue]],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
-      val validator = BatchedSubmissionValidator[Unit](
+      val validator = newBatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
-        engine,
-        metrics)
+      )
 
       validator
         .validateAndCommit(
@@ -258,7 +275,9 @@ class BatchedSubmissionValidatorSpec
             any[DamlLogEntryId],
             any[DamlLogEntry],
             any[DamlInputState],
-            any[DamlOutputState])
+            any[DamlOutputState],
+            any[Option[SubmissionAggregator.WriteSetBuilder]],
+          )
           succeed
         }
     }
@@ -279,14 +298,14 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           any[DamlLogEntry],
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          any[Map[DamlStateKey, DamlStateValue]]
+          any[Map[DamlStateKey, DamlStateValue]],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
-      val validator =
-        BatchedSubmissionValidator[Unit](
-          BatchedSubmissionValidatorParameters.reasonableDefault,
-          engine,
-          metrics)
+      val validator = newBatchedSubmissionValidator[Unit](
+        BatchedSubmissionValidatorParameters.reasonableDefault,
+        metrics = metrics,
+      )
 
       validator
         .validateAndCommit(
@@ -335,12 +354,14 @@ class BatchedSubmissionValidatorSpec
         any[DamlLogEntryId],
         logEntryCaptor.capture(),
         any[Map[DamlStateKey, Option[DamlStateValue]]],
-        outputStateCaptor.capture()))
+        outputStateCaptor.capture(),
+        any[Option[SubmissionAggregator.WriteSetBuilder]],
+      ))
       .thenReturn(Future.unit)
     val validatorConfig =
       BatchedSubmissionValidatorParameters.reasonableDefault.copy(
         commitParallelism = commitParallelism)
-    val validator = BatchedSubmissionValidator[Unit](validatorConfig, engine, metrics)
+    val validator = newBatchedSubmissionValidator[Unit](validatorConfig)
 
     validator
       .validateAndCommit(
@@ -360,7 +381,9 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           any[DamlLogEntry],
           any[DamlInputState],
-          any[DamlOutputState])
+          any[DamlOutputState],
+          any[Option[SubmissionAggregator.WriteSetBuilder]],
+        )
         // Verify we have all the expected log entries.
         val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
         logEntries.map(_.getPartyAllocationEntry) should contain allElementsOf

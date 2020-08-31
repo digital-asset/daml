@@ -30,6 +30,7 @@ da_haskell_test(
         "network-uri",
         "parser-combinators",
         "process",
+        "regex-tdfa",
         "tasty",
         "tasty-hunit",
         "text",

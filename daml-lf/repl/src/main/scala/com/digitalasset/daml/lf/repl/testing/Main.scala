@@ -366,7 +366,7 @@ object Repl {
       case TForall((v, _), body) =>
         maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
       case TStruct(fields) =>
-        "(" + fields
+        "(" + fields.iterator
           .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
           .toSeq
           .mkString(", ") + ")"

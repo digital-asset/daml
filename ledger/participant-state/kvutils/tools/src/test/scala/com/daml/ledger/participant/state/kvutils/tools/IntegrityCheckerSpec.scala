@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools
 
-import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.WriteSet
+import com.daml.ledger.participant.state.kvutils.export.WriteSet
 import com.daml.ledger.participant.state.kvutils.tools.export.{
   CommitStrategySupport,
   IntegrityChecker
