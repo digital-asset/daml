@@ -25,7 +25,7 @@ import io.grpc.Status
 import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.Success
 
 final class SemanticTests extends LedgerTestSuite {
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
@@ -86,12 +86,8 @@ final class SemanticTests extends LedgerTestSuite {
                     .transform(Success(_))
             })
           } yield {
-            assertLength(s"Contract $c successful archives", 1, results.collect({
-              case Success(_) => true
-            }))
-            assertLength(s"Contract $c failed archives", archives - 1, results.collect({
-              case Failure(_) => true
-            }))
+            assertLength(s"Contract $c successful archives", 1, results.filter(_.isSuccess))
+            assertLength(s"Contract $c failed archives", archives - 1, results.filter(_.isFailure))
             ()
         })
         .map(_ => ())
