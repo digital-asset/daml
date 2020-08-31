@@ -702,7 +702,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  private val IdleTimeout: FiniteDuration = 5.seconds
+  private val IdleTimeout: FiniteDuration = 15.seconds
   private val DefaultInterpretationCost = 0L
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
