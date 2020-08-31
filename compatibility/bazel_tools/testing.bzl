@@ -83,6 +83,21 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "0.0.0",  # TODO Update to first snapshot after 1.5.0-snapshot.20200825.5071.0.d33e130f
+        "platform_ranges": [
+            {
+                "start": "1.0.0",
+                "end": "1.3.0",
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/7251
+                    "CommandSubmissionCompletionIT:CSCAfterEnd",
+                    "TransactionServiceIT:TXAfterEnd",
+                    "TransactionServiceIT:TXTreesAfterEnd",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
