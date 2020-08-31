@@ -547,13 +547,10 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[Unit] = {
     val diff = time.micros - scenarioRunner.ledger.currentTime.micros
-    // ScenarioLedger only provides pass, so we have to check the difference.
-    if (diff < 0) {
-      Future.failed(new RuntimeException("Time cannot be set backwards"))
-    } else {
-      scenarioRunner.ledger = scenarioRunner.ledger.passTime(diff)
-      Future.unit
-    }
+    // ScenarioLedger only provides pass, so we have to calculate the diff.
+    // Note that ScenarioLedger supports going backwards in time.
+    scenarioRunner.ledger = scenarioRunner.ledger.passTime(diff)
+    Future.unit
   }
 }
 
