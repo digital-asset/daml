@@ -362,6 +362,7 @@ class Runner(
     // The materialized value of the flow is the (future) final state
     // of this process.
     Flow[TriggerMsg]
+      .wireTap(tm => logger.debug(s"trigger message $tm"))
       .mapConcat[TriggerMsg]({
         case CompletionMsg(c) =>
           try {
