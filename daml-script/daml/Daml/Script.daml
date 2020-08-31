@@ -21,6 +21,7 @@ module Daml.Script
   , exerciseCmd
   , exerciseByKeyCmd
   , createAndExerciseCmd
+  , archiveCmd
   , getTime
   , setTime
   , sleep
@@ -286,6 +287,12 @@ exerciseByKeyCmd key arg = Commands $ Ap (\f -> f (ExerciseByKey (templateTypeRe
 -- | Create a contract and exercise a choice on it in the same transacton.
 createAndExerciseCmd : forall t c r. Choice t c r => t -> c -> Commands r
 createAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise (toAnyTemplate tplArg) (toAnyChoice @t choiceArg) identity) (pure fromLedgerValue))
+
+-- | Archive the given contract.
+--
+-- `archiveCmd cid` is equivalent to `exerciseCmd cid Archive`.
+archiveCmd : Choice t Archive () => ContractId t -> Commands ()
+archiveCmd cid = exerciseCmd cid Archive
 
 instance Applicative Script where
     pure a = Script $ \ s -> return (a, s)

@@ -104,7 +104,11 @@ main =
                       "testMulti = do",
                       "  p <- allocateParty \"p\"",
                       "  (cid1, cid2) <- submit p $ (,) <$> createCmd (T p 23) <*> createCmd (T p 42)",
-                      "  submit p $ (,) <$> exerciseCmd cid1 C <*> exerciseCmd cid2 C"
+                      "  submit p $ (,) <$> exerciseCmd cid1 C <*> exerciseCmd cid2 C",
+                      "testArchive = do",
+                      "  p <- allocateParty \"p\"",
+                      "  cid <- submit p (createCmd (T p 42))",
+                      "  submit p (archiveCmd cid)"
                     ]
                 expectScriptSuccess rs (vr "testCreate") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: #0:0\n\n$"
@@ -121,7 +125,9 @@ main =
                         "  DA\\.Types:Tuple2@[a-z0-9]+ with",
                         "    _1 = 23; _2 = 42",
                         ""
-                      ],
+                      ]
+                expectScriptSuccess rs (vr "testArchive") $ \r ->
+                  matchRegex r "'p' exercises Archive on #0:0",
               testCase "exerciseByKeyCmd" $ do
                 rs <-
                   runScripts
