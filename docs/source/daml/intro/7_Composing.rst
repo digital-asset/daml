@@ -211,18 +211,28 @@ DAML's execution model
 
 DAML's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
 
-1. A party submits a list of ``Commands``.
-2. The transaction is interpreted, meaning the ``Update`` corresponding to each command is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.).
-3. The views of the transaction that parties get to see (see :ref:`privacy`) are calculated in a process called *blinding*, or *projecting*.
-4. The blinded views are distributed to the parties.
-5. The transaction is *validated* based on the blinded views and a consensus protocol depending on the underlying infrastructure.
-6. If validation succeeds, the transaction is *committed*.
+Command
+  A user submits a list of Commands via the Ledger API of a Participant Node, acting as a `Party` hosted on that Node. That party is called the requester.
+Interpretation
+  Each Command corresponds to one or more Actions. During this step, the ``Update`` corresponding to each Action is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.). The result of this is a complete Transaction. Together with its requestor, this is also known as a Commit.
+Blinding
+  On ledgers with strong privacy, projections (see :ref:`privacy`) for all involved parties are created. This is also called *projecting*.
+Submission
+  The Transaction/Commit is submitted to the network.
+Validation
+  The Transaction/Commit is validated by the network. Who exactly validates can differ from implementation to implementation. Validation also involves scheduling and collision detection, ensuring that the transaction has a well-defined place in the (partial) ordering of Commits, and no double spends occur.
+Commitment
+  The Commit is actually commited according to the commit or consensus protocol of the Ledger.
+Confirmation
+  The network sends confirmations of the commitment back to all involved Participant Nodes.
+Completion
+  The user gets back a confirmation through the Ledger API of the submitting Participant Node.
 
 The first important consequence of the above is that all transactions are committed atomically. Either a transaction is committed as a whole and for all participants, or it fails.
 
 That's important in the context of the ``Trade_Settle`` choice shown above. The choice transfers a ``baseAsset`` one way and a ``quoteAsset`` the other way. Thanks to transaction atomicity, there is no chance that either party is left out of pocket.
 
-The second consequence, due to 2., is that the submitter of a transaction knows all consequences of their submitted transaction -- there are no surprises in DAML. However, it also means that the submitter must have all the information to interpret the transaction.
+The second consequence, due to 2., is that the requester of a transaction knows all consequences of their submitted transaction -- there are no surprises in DAML. However, it also means that the requester must have all the information to interpret the transaction.
 
 That's also important in the context of ``Trade``. In order to allow Bob to interpret a transaction that transfers Alice's cash to Bob, Bob needs to know both about Alice's ``Asset`` contract, as well as about some way for ``Alice`` to accept a transfer -- remember, accepting a transfer needs the authority of ``issuer`` in this example.
 
