@@ -545,7 +545,7 @@ convertVariantDef env tycon = do
 convertVariantConDef :: Env -> TyCon -> [(TypeVarName, LF.Kind)] -> DataCon -> ConvertM ((VariantConName, LF.Type), [Definition])
 convertVariantConDef env tycon tyVars con =
     case (ctorLabels con, dataConOrigArgTys con) of
-        ([], []) ->
+        ([], []) | not (isEmptyVariantRecordCon env con) ->
             pure ((ctorName, TUnit), [])
         ([], [argTy]) -> do
             argTy' <- convertType env argTy
@@ -1122,8 +1122,27 @@ isSimpleRecordCon con =
     && not (isConstraintTupleCon con)
     && not (isClassCon con)
 
-isVariantRecordCon :: DataCon -> Bool
-isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
+isVariantRecordCon :: Env -> DataCon -> Bool
+isVariantRecordCon env con =
+    (isEmptyVariantRecordCon env con || conHasLabels con)
+    && not (conIsSingle con)
+
+isEmptyVariantRecordCon :: Env -> DataCon -> Bool
+isEmptyVariantRecordCon env con
+    = (envLfVersion env > version1_8)
+        -- Empty variant record constructors are only used
+        -- with LF versions > 1.8, to prevent breaking
+        -- existing data-dependencies suddenly.
+    && (conHasNoArgs con)
+{-
+    && (not (builtinModule (nameModule (getName con))))
+  where
+    builtinModule :: GHC.Module -> Bool
+    builtinModule = \case
+        ModuleIn DamlPrim _ -> True
+        ModuleIn DamlStdlib _ -> True
+        _ -> False
+-}
 
 -- | The different classes of data cons with respect to LF conversion.
 data DataConClass
@@ -1135,13 +1154,13 @@ data DataConClass
     | ConstraintTupleCon -- ^ constructor for a constraint tuple
     deriving (Eq, Show)
 
-classifyDataCon :: DataCon -> DataConClass
-classifyDataCon con
+classifyDataCon :: Env -> DataCon -> DataConClass
+classifyDataCon env con
     | isEnumCon con = EnumCon
     | isConstraintTupleCon con = ConstraintTupleCon
     | isClassCon con = ClassCon
     | isSimpleRecordCon con = SimpleRecordCon
-    | isVariantRecordCon con = VariantRecordCon
+    | isVariantRecordCon env con = VariantRecordCon
     | otherwise = SimpleVariantCon
         -- in which case, daml-preprocessor ensures that the
         -- constructor cannot have more than one argument
@@ -1176,7 +1195,7 @@ convertDataCon env m con args
             fldNames = ctorLabels con
             xargs = (dataConName con, args)
 
-        fmap (, []) $ case classifyDataCon con of
+        fmap (, []) $ case classifyDataCon env con of
             EnumCon -> do
                 unless (null args) $ unhandled "enum constructor with arguments" xargs
                 pure $ EEnumCon qTCon ctorName
@@ -1272,7 +1291,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
         patVariant = mkVariantCon (getOccText con)
         vArg = mkVar "$arg"
 
-    case classifyDataCon con of
+    case classifyDataCon env con of
         EnumCon ->
             CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
 
