@@ -142,11 +142,11 @@ In the ``assert`` statements above, we always compared values of in-built types.
   :start-after: -- EQ_TEST_BEGIN
   :end-before: -- EQ_TEST_END
 
-``Eq`` is what is called a *type-class*. You can think of a type-class as being like an interface in other languages: it is the mechanism by which you can define a set of functions (for example, ``==`` and ``/=`` in the case of ``Eq``) to work on multiple types, with a specific implementation for each type they can apply to.
+``Eq`` is what is called a *typeclass*. You can think of a typeclass as being like an interface in other languages: it is the mechanism by which you can define a set of functions (for example, ``==`` and ``/=`` in the case of ``Eq``) to work on multiple types, with a specific implementation for each type they can apply to.
 
-There are some other type-classes that the compiler can derive automatically. Most prominently, ``Show`` to get access to the function ``show`` (equivalent to ``toString`` in many languages) and ``Ord``, which gives access to comparison operators ``<``, ``>``, ``<=``, ``>=``.
+There are some other typeclasses that the compiler can derive automatically. Most prominently, ``Show`` to get access to the function ``show`` (equivalent to ``toString`` in many languages) and ``Ord``, which gives access to comparison operators ``<``, ``>``, ``<=``, ``>=``.
 
-It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show)``. The record types created using ``template T with`` do this automatically.
+It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show)``. The record types created using ``template T with`` do this automatically, and the native types have appropriate typeclass instances. Eg `Int` derives `Eq`, `Show` and `Ord`, and `ContractId a` derives `Eq`.
 
 Records can give the data on ``CashBalance`` a bit more structure:
 
