@@ -6,8 +6,9 @@ package com.daml.lf.engine.trigger
 import akka.http.scaladsl.model._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.time.format.{DateTimeFormatter, DateTimeParseException}
 
 // The HTTP service can `complete` using one of these functions to construct a
 // a response with a JSON object and status code matching the one in the body.
@@ -46,8 +47,13 @@ object Response {
         JsString(dt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
 
       override def read(json: JsValue): LocalDateTime = json match {
-        case JsString(s) => LocalDateTime.parse(s, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        case _ => throw new DeserializationException("Decode local datetime failed")
+        case JsString(s) =>
+          try LocalDateTime.parse(s, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+          catch {
+            case e: DateTimeParseException =>
+              deserializationError("Decode local datetime failed", e)
+          }
+        case _ => deserializationError("Decode local datetime failed")
       }
     }
 
