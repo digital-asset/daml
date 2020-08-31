@@ -71,7 +71,7 @@ final class HeaderSpec extends WordSpec with Matchers {
     "flushes correctly, and does not buffer" in {
       val input = new PipedInputStream
       val output = new PipedOutputStream(input)
-      val header = new Header(version = "666")
+      val header = new Header(version = "six is the version")
       val expectedContent = "and some more stuff"
 
       header.write(output)
