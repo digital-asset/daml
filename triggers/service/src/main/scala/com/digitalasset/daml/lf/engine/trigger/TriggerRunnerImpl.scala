@@ -23,7 +23,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
 import java.util.UUID
 
@@ -55,7 +55,7 @@ object TriggerRunnerImpl {
   def apply(config: Config)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer,
-      loggingContext: LoggingContext): Behavior[Message] =
+      loggingContext: LoggingContextOf[Config]): Behavior[Message] =
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
       implicit val ec: ExecutionContext = ctx.executionContext
