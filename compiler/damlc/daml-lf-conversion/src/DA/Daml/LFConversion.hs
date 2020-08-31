@@ -1133,7 +1133,7 @@ isEmptyVariantRecordCon env con
         -- Empty variant record constructors are only used
         -- with LF versions > 1.8, to prevent breaking
         -- existing data-dependencies suddenly.
-    && (conHasNoArgs con)
+    && conHasNoArgs con
 {-
     && (not (builtinModule (nameModule (getName con))))
   where
