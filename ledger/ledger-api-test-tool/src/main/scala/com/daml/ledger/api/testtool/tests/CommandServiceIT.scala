@@ -41,7 +41,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSsubmitAndWaitForTransactionId",
+    "CSsubmitAndWaitForTransactionIdBasic",
     "SubmitAndWaitForTransactionId returns a valid transaction identifier",
     allocate(SingleParty),
   )(implicit ec => {
@@ -90,7 +90,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSsubmitAndWaitForTransaction",
+    "CSsubmitAndWaitForTransactionBasic",
     "SubmitAndWaitForTransaction returns a transaction",
     allocate(SingleParty),
   )(implicit ec => {

@@ -756,7 +756,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXAgreementText",
+    "TXAgreementTextExplicit",
     "Expose the agreement text for templates with an explicit agreement text",
     allocate(SingleParty),
   )(implicit ec => {
