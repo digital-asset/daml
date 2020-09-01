@@ -57,6 +57,7 @@ ScriptTest:sleepTest SUCCESS
 ScriptExample:initializeFixed SUCCESS
 ScriptTest:testStack SUCCESS
 ScriptTest:testMaxInboundMessageSize SUCCESS
+ScriptTest:testLookupFetch SUCCESS
 EOF
 )"
 

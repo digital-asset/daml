@@ -453,12 +453,11 @@ object Converter {
       entityName <- DottedName.fromString(id.entityName)
     } yield Identifier(packageId, QualifiedName(moduleName, entityName))
 
-  // Convert a Created event to a pair of (ContractId (), AnyTemplate)
-  def fromCreated(
+  // Convert an active contract to AnyTemplate
+  def fromContract(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract): Either[String, SValue] = {
     val anyTemplateTyCon = daInternalAny("AnyTemplate")
-    val pairTyCon = daTypes("Tuple2")
     val tyCon = contract.templateId
     for {
       argSValue <- translator
@@ -467,7 +466,16 @@ object Converter {
         .map(
           err => s"Failure to translate value in create: $err"
         )
-      anyTpl = record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), argSValue)))
+    } yield record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), argSValue)))
+  }
+
+  // Convert a Created event to a pair of (ContractId (), AnyTemplate)
+  def fromCreated(
+      translator: preprocessing.ValueTranslator,
+      contract: ScriptLedgerClient.ActiveContract): Either[String, SValue] = {
+    val pairTyCon = daTypes("Tuple2")
+    for {
+      anyTpl <- fromContract(translator, contract)
     } yield record(pairTyCon, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
   }
 

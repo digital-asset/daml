@@ -11,8 +11,6 @@ import Daml.Script
 import Iou
 import IouTrade
 
-import Tests.Helper
-
 trade_test = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
@@ -70,16 +68,14 @@ trade_test = do
     exerciseCmd tradePropCid IouTrade_Accept with quoteIouCid = iouBobCid
 
   do
-    iou <- submit alice do
-      createAndExerciseCmd (Helper alice) (FetchIou (fst newIous))
+    Some iou <- queryContractId alice (fst newIous)
     alice === iou.owner
     usBank === iou.issuer
     "USD" === iou.currency
     110.0 === iou.amount
 
   do
-    iou <- submit bob do
-      createAndExerciseCmd (Helper bob) (FetchIou (snd newIous))
+    Some iou <- queryContractId bob (snd newIous)
     bob === iou.owner
     eurBank === iou.issuer
     "EUR" === iou.currency
