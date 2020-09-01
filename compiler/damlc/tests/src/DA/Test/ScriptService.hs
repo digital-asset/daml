@@ -543,7 +543,34 @@ main =
                     , "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "testQueryContractId") $ \r ->
-                  matchRegex r "Active contracts:  #2:0, #0:0, #1:0"
+                  matchRegex r "Active contracts:  #2:0, #0:0, #1:0",
+              testCase "trace" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "    choice C : ()"
+                    , "      controller p"
+                    , "      do debug \"logLedger\""
+                    , "testTrace = do"
+                    , "  debug \"logClient1\""
+                    , "  p <- allocateParty \"p\""
+                    , "  submit p (createAndExerciseCmd (T p) C)"
+                    , "  debug \"logClient2\""
+                    , "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "testTrace") $ \r ->
+                  matchRegex r $ T.concat
+                    [ "Trace: \n"
+                    , "  \"logClient1\"\n"
+                    , "  \"logLedger\"\n"
+                    , "  \"logClient2\""
+                    ]
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

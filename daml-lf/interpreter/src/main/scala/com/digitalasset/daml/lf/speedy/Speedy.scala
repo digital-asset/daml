@@ -665,6 +665,7 @@ private[lf] object Speedy {
         outputTransactionVersions: VersionRange[TransactionVersion],
         validating: Boolean = false,
         onLedger: Boolean = true,
+        traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine =
       new Machine(
         inputValueVersions = inputValueVersions,
@@ -680,7 +681,7 @@ private[lf] object Speedy {
         ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = committers,
         commitLocation = None,
-        traceLog = TraceLog(damlTraceLog, 100),
+        traceLog = traceLog,
         compiledPackages = compiledPackages,
         dependsOnTime = false,
         localContracts = Map.empty,

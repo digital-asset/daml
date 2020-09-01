@@ -283,6 +283,33 @@ object Runner {
 class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode: ScriptTimeMode)
     extends StrictLogging {
 
+  // We overwrite the definition of fromLedgerValue with an identity function.
+  // This is a type error but Speedy doesn’t care about the types and the only thing we do
+  // with the result is convert it to ledger values/record so this is safe.
+  private val extendedCompiledPackages = {
+    val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
+      case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
+        SEMakeClo(Array(), 1, SELocA(0))
+    }
+    new CompiledPackages(Compiler.FullStackTrace, Compiler.NoProfile) {
+      override def getPackage(pkgId: PackageId): Option[Package] =
+        compiledPackages.getPackage(pkgId)
+      override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
+        fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
+      // FIXME: avoid override of non abstract method
+      override def packages: PartialFunction[PackageId, Package] = compiledPackages.packages
+      override def packageIds: Set[PackageId] = compiledPackages.packageIds
+      // FIXME: avoid override of non abstract method
+      override def definitions: PartialFunction[SDefinitionRef, SExpr] =
+        fromLedgerValue.orElse(compiledPackages.definitions)
+      override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
+        compiledPackages.packageLanguageVersion
+    }
+  }
+
+  val machine =
+    Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, onLedger = false)
+
   private val utcClock = Clock.systemUTC()
 
   private def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
@@ -308,29 +335,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
           Right(_))
     } yield choice.returnType
 
-  // We overwrite the definition of fromLedgerValue with an identity function.
-  // This is a type error but Speedy doesn’t care about the types and the only thing we do
-  // with the result is convert it to ledger values/record so this is safe.
-  private val extendedCompiledPackages = {
-    val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
-      case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SEMakeClo(Array(), 1, SELocA(0))
-    }
-    new CompiledPackages(Compiler.FullStackTrace, Compiler.NoProfile) {
-      override def getPackage(pkgId: PackageId): Option[Package] =
-        compiledPackages.getPackage(pkgId)
-      override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
-        fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
-      // FIXME: avoid override of non abstract method
-      override def packages: PartialFunction[PackageId, Package] = compiledPackages.packages
-      override def packageIds: Set[PackageId] = compiledPackages.packageIds
-      // FIXME: avoid override of non abstract method
-      override def definitions: PartialFunction[SDefinitionRef, SExpr] =
-        fromLedgerValue.orElse(compiledPackages.definitions)
-      override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
-        compiledPackages.packageLanguageVersion
-    }
-  }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
@@ -344,8 +348,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
-    val machine =
-      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, onLedger = false)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
@@ -357,6 +359,16 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
         case res =>
           Left(new RuntimeException(s"Unexpected speedy result $res"))
       }
+
+    // Copy the tracelog from the client to the current machine
+    // interleaving ledger-side trace statements with client-side trace
+    // statements.
+    def copyTracelog(client: ScriptLedgerClient) = {
+      for ((msg, optLoc) <- client.tracelogIterator) {
+        machine.traceLog.add(msg, optLoc)
+      }
+      client.clearTracelog
+    }
 
     def run(expr: SExpr): Future[SValue] = {
       machine.setExpressionToEvaluate(expr)
@@ -393,6 +405,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                         Converter.toFuture(Converter.toOptionLocation(knownPackages, vals.get(3)))
                       }
                       submitRes <- client.submit(party, commands, commitLocation)
+                      _ = copyTracelog(client)
                       v <- submitRes match {
                         case Right(results) => {
                           for {
@@ -460,6 +473,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                         Converter.toFuture(Converter.toOptionLocation(knownPackages, vals.get(3)))
                       }
                       submitRes <- client.submitMustFail(party, commands, commitLocation)
+                      _ = copyTracelog(client)
                       v <- submitRes match {
                         case Right(()) =>
                           run(SEApp(SEValue(vals.get(2)), Array(SEValue(SUnit))))

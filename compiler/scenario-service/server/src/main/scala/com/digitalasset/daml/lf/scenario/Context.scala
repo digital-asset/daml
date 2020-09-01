@@ -188,7 +188,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       pkgId: String,
       name: String,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer)
-    : Future[Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])]] = {
+    : Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
     val defns = this.defns
     val compiledPackages =
       PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
@@ -206,11 +206,12 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val client = new IdeClient(compiledPackages)
     val participants = Participants(Some(client), Map.empty, Map.empty)
     runner.runWithClients(participants).transform {
-      case Success(v) => Success(Some((client.scenarioRunner.ledger, client.machine, Right(v))))
+      case Success(v) =>
+        Success(Some((client.scenarioRunner.ledger, (runner.machine, client.machine), Right(v))))
       case Failure(e: SError) =>
         // SError are the errors that should be handled and displayed as
         // failed partial transactions.
-        Success(Some((client.scenarioRunner.ledger, client.machine, Left(e))))
+        Success(Some((client.scenarioRunner.ledger, (runner.machine, client.machine), Left(e))))
       case Failure(e) => Failure(e)
     }
   }

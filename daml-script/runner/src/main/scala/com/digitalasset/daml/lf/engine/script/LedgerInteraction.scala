@@ -18,6 +18,7 @@ import io.grpc.{Status, StatusRuntimeException}
 import java.time.Instant
 import java.util.UUID
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scalaz.{-\/, \/-}
@@ -37,7 +38,7 @@ import com.daml.lf.data.{Time}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.speedy.ScenarioRunner
+import com.daml.lf.speedy.{ScenarioRunner, TraceLog}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{PartialTransaction, SExpr, SValue}
 import com.daml.lf.speedy.SError._
@@ -153,6 +154,10 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[Unit]
+
+  def tracelogIterator: Iterator[(String, Option[Location])]
+
+  def clearTracelog: Unit
 }
 
 class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
@@ -337,10 +342,26 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case TreeEvent(TreeEvent.Kind.Empty) =>
         throw new ConverterException("Invalid tree event Empty")
     }
+
+  override def tracelogIterator = Iterator.empty
+  override def clearTracelog = ()
 }
 
 // Client for the script service.
 class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClient {
+  class ArrayBufferTraceLog extends TraceLog {
+    val buffer = ArrayBuffer[(String, Option[Location])]()
+    override def add(message: String, optLocation: Option[Location]): Unit = {
+      buffer.append((message, optLocation))
+    }
+    override def iterator: Iterator[(String, Option[Location])] = {
+      buffer.iterator
+    }
+    def clear: Unit = buffer.clear
+  }
+
+  val traceLog = new ArrayBufferTraceLog()
+
   private val txSeeding =
     speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"script-service"))
 
@@ -354,6 +375,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     committers = Set.empty,
     inputValueVersions = value.ValueVersions.DevOutputVersions,
     outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
+    traceLog = traceLog,
   )
   val scenarioRunner = ScenarioRunner(machine)
   private var allocatedParties: Map[String, PartyDetails] = Map()
@@ -603,6 +625,9 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     scenarioRunner.ledger = scenarioRunner.ledger.passTime(diff)
     Future.unit
   }
+
+  override def tracelogIterator = traceLog.iterator
+  override def clearTracelog = traceLog.clear
 }
 
 // Current limitations and issues when running DAML script over the JSON API:
@@ -929,6 +954,9 @@ class JsonLedgerClient(
       }
     }
   }
+
+  override def tracelogIterator = Iterator.empty
+  override def clearTracelog = ()
 }
 
 object JsonLedgerClient {
