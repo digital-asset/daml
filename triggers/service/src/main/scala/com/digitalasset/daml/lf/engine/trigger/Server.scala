@@ -34,6 +34,7 @@ import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.scalautil.Statement.discard
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -48,7 +49,8 @@ class Server(
     triggerDao: RunningTriggerDao)(
     implicit ctx: ActorContext[Message],
     materializer: Materializer,
-    esf: ExecutionSequencerFactory) {
+    esf: ExecutionSequencerFactory)
+    extends StrictLogging {
 
   import java.util.{concurrent => jconc}
 
@@ -79,7 +81,9 @@ class Server(
     }
 
     pkgMap foreach {
-      case (pkgId, pkg) => complete(compiledPackages.addPackage(pkgId, pkg))
+      case (pkgId, pkg) =>
+        logger.info(s"uploading package $pkgId")
+        complete(compiledPackages.addPackage(pkgId, pkg))
     }
   }
 

@@ -155,6 +155,7 @@ object TriggerRunnerImpl {
         Behaviors
           .receiveMessagePartial[Message] {
             case Stop =>
+              logger.info(s"Trigger $name is stopping")
               // Don't think about trying to send the server a message
               // here. It won't receive it (I found out the hard way).
               Behaviors.stopped
