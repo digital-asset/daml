@@ -276,7 +276,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients)
+    runner.runWithClients(initialClients)._2
   }
 }
 
@@ -306,9 +306,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
         compiledPackages.packageLanguageVersion
     }
   }
-
-  val machine =
-    Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, onLedger = false)
 
   private val utcClock = Clock.systemUTC()
 
@@ -343,11 +340,14 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
     md <- compiledPackages.getPackage(pkgId).flatMap(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
+  // Returns the machine that will be used for execution as well as a Future for the result.
   def runWithClients(initialClients: Participants[ScriptLedgerClient])(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[SValue] = {
+      mat: Materializer): (Speedy.Machine, Future[SValue]) = {
     var clients = initialClients
+    val machine =
+      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, onLedger = false)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
@@ -707,7 +707,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
         }
     }
 
-    for {
+    val resultF = for {
       _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
       result <- stepToValue().fold(Future.failed, Future.successful)
       expr <- result match {
@@ -728,5 +728,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       }
       v <- run(expr)
     } yield v
+    (machine, resultF)
   }
 }

@@ -203,15 +203,20 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ScriptTimeMode.Static
     )
-    val client = new IdeClient(compiledPackages)
-    val participants = Participants(Some(client), Map.empty, Map.empty)
-    runner.runWithClients(participants).transform {
+    val ledgerClient = new IdeClient(compiledPackages)
+    val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
+    val (clientMachine, resultF) = runner.runWithClients(participants)
+    resultF.transform {
       case Success(v) =>
-        Success(Some((client.scenarioRunner.ledger, (runner.machine, client.machine), Right(v))))
+        Success(
+          Some(
+            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Right(v))))
       case Failure(e: SError) =>
         // SError are the errors that should be handled and displayed as
         // failed partial transactions.
-        Success(Some((client.scenarioRunner.ledger, (runner.machine, client.machine), Left(e))))
+        Success(
+          Some(
+            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e))))
       case Failure(e) => Failure(e)
     }
   }
