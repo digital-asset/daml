@@ -65,6 +65,11 @@ da_scala_binary(
         "no_scala_version_suffix",
     ],
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:io_gatling_gatling_charts",
+        "@maven//:io_gatling_highcharts_gatling_highcharts",
+    ],
     deps = [
         ":http-json-perf",
         "//language-support/scala/bindings-akka",
@@ -73,7 +78,6 @@ da_scala_binary(
         "//ledger-service/http-json-testing",
         "//ledger-service/jwt",
         "//libs-scala/scala-utils",
-        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_fasterxml_jackson_core_jackson_databind",
         "@maven//:com_github_scopt_scopt_2_12",

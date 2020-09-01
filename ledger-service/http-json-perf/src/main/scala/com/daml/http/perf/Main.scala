@@ -118,9 +118,11 @@ object Main extends StrictLogging {
 
     val configBuilder = new GatlingPropertiesBuilder()
       .simulationClass(config.scenario)
-      .resultsDirectory("results-" + config.scenario)
+      .resultsDirectory(config.reportsDir.map(_.getAbsolutePath).getOrElse("./reports"))
+      .noReports() // TODO(Leo): we want the reports, but they are currently failing with a runtime exception
 
     Future(app.Gatling.fromMap(configBuilder.build))
       .map(a => if (a == app.cli.StatusCode.Success.code) ExitCode.Ok else ExitCode.GatlingError)
+
   }
 }

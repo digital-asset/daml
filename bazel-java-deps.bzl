@@ -150,6 +150,7 @@ def install_java_deps():
             "io.gatling:gatling-commons:3.3.1",
             "io.gatling:gatling-recorder:3.3.1",
             "io.gatling:gatling-charts:3.3.1",
+            "io.gatling.highcharts:gatling-highcharts:3.3.1",
             "io.gatling:gatling-http:3.3.1",
             "io.gatling:gatling-http-client:3.3.1",
             "com.fasterxml.jackson.core:jackson-core:2.9.9",
