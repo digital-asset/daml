@@ -250,6 +250,8 @@ class Runner(
                     party = party,
                     commands = commands
                   )
+                  logger.debug(
+                    s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
                   submit(SubmitRequest(commands = Some(commandsArg)))
                 }
               }

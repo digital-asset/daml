@@ -25,6 +25,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.daml.lf.engine.trigger.RunnerConfig
+import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest._
 import io.grpc.netty.NettyChannelBuilder
@@ -71,7 +72,15 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   protected def getRunner(client: LedgerClient, name: QualifiedName, party: String): Runner = {
     val triggerId = Identifier(packageId, name)
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).right.get
-    new Runner(compiledPackages, trigger, client, config.timeProviderType.get, applicationId, party)
+    newLoggingContext(label[Trigger], trigger.loggingExtension) { implicit lc =>
+      new Runner(
+        compiledPackages,
+        trigger,
+        client,
+        config.timeProviderType.get,
+        applicationId,
+        party)
+    }
   }
 
   protected def allocateParty(client: LedgerClient)(implicit ec: ExecutionContext): Future[String] =
