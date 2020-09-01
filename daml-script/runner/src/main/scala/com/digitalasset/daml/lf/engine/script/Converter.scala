@@ -12,8 +12,8 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
-import com.daml.lf.data.Ref.{IdString, _}
-import com.daml.lf.data.{ImmArray, Struct, Time}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -29,7 +29,6 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.CompiledPackages
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.v1.value
-import com.daml.lf.data.ImmArray.ImmArraySeq
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -212,7 +211,8 @@ object Converter {
 
   private[this] val tupleFieldNames =
     ImmArray(Name.assertFromString("fst"), Name.assertFromString("snd"))
-  private[this] val Seq(fstIdx, sndIdx) = tupleFieldNames.indices
+  private[this] val fstIdx = 0
+  private[this] val sndIdx = 1
   private[this] val extractToTuple = SEMakeClo(
     Array(),
     2,
@@ -449,7 +449,7 @@ object Converter {
     SRecord(ty, fieldNames, args)
   }
 
-  def fromApiIdentifier(id: tupleFieldNames.Identifier): Either[String, Identifier] =
+  def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
     for {
       packageId <- PackageId.fromString(id.packageId)
       moduleName <- DottedName.fromString(id.moduleName)
