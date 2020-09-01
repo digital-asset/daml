@@ -209,29 +209,32 @@ object Converter {
       case _ => Left(s"Expected CreateAndExercise but got $v")
     }
 
+  private[this] val tupleFieldNames =
+    ImmArray(Name.assertFromString("fst"), Name.assertFromString("snd"))
+  private[this] val fstIdx = 0
+  private[this] val sndIdx = 1
+  private[this] val extractToTuple = SEMakeClo(
+    Array(),
+    2,
+    SEApp(SEBuiltin(SBStructCon(tupleFieldNames)), Array(SELocA(0), SELocA(1))),
+  )
+
   // Extract the two fields out of the RankN encoding used in the Ap constructor.
   def toApFields(
       compiledPackages: CompiledPackages,
-      fun: SValue): Either[String, (SValue, SValue)] = {
-    val extractStruct = SEMakeClo(
-      Array(),
-      2,
-      SEApp(
-        SEBuiltin(SBStructCon(ImmArray(Name.assertFromString("a"), Name.assertFromString("b")))),
-        Array(SELocA(0), SELocA(1))),
-    )
+      fun: SValue,
+  ): Either[String, (SValue, SValue)] = {
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractStruct)))
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {
-          case SStruct(_, values) if values.size == 2 => {
-            Right((values.get(0), values.get(1)))
-          }
-          case v => Left(s"Expected SStruct but got $v")
+          case SStruct(_, values) if values.size == 2 =>
+            Right((values.get(fstIdx), values.get(sndIdx)))
+          case v => Left(s"Expected binary SStruct but got $v")
         }
       case SResultError(err) => Left(Pretty.prettyError(err, machine.ptx).render(80))
-      case res => Left(res.toString())
+      case res => Left(res.toString)
     }
   }
 
