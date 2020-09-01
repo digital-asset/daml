@@ -65,7 +65,6 @@ id_ref_test = do
   -- Now the accountant updates the telephone number for the bank on the account
   Some account <- queryContractId accountant accountCid
   new_account <- submit accountant do
-<<<<<<< HEAD
     archiveCmd accountCid
     createCmd account with
         telephone = "098 7654 321"
@@ -76,6 +75,3 @@ id_ref_test = do
   Some balance <- queryContractId accountant balanceCid
   optAccount <- queryContractId accountant balance.account
   optAccount === None
-=======
-    createAndExerciseCmd (Helper accountant) (UpdatePhoneNumber accountCid "098 7654 321")
-
