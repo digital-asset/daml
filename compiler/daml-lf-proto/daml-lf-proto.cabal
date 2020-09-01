@@ -1,7 +1,7 @@
 cabal-version: 2.4
 name: daml-lf-proto
 build-type: Simple
-version: 0.1.0
+version: 0.1.4.0
 synopsis: DAML-LF Protobuf Encoding
 license: Apache-2.0
 author: Digital Asset
@@ -34,6 +34,7 @@ library
       template-haskell,
       text,
       transformers,
+      unordered-containers,
       vector,
     exposed-modules:
       DA.Daml.LF.Mangling
@@ -43,11 +44,14 @@ library
       DA.Daml.LF.Proto3.Encode
       DA.Daml.LF.Proto3.EncodeV1
       DA.Daml.LF.Proto3.Error
+      DA.Daml.LF.Proto3.Util
     default-extensions:
       BangPatterns
       FlexibleContexts
+      GeneralizedNewtypeDeriving
       LambdaCase
-      NonDecreasingIndentation
+      NamedFieldPuns
+      NondecreasingIndentation
       OverloadedStrings
       PackageImports
       RecordWildCards
