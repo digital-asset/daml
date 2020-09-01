@@ -145,6 +145,7 @@ def install_java_deps():
             "org.wartremover:wartremover_2.12.11:2.4.9",
             "org.xerial:sqlite-jdbc:3.30.1",
             # gatling dependencies
+            "io.gatling:gatling-app:3.3.1",
             "io.gatling:gatling-core:3.3.1",
             "io.gatling:gatling-commons:3.3.1",
             "io.gatling:gatling-recorder:3.3.1",

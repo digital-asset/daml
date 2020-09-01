@@ -15,7 +15,6 @@ private[perf] final case class Config(
     scenario: String,
     dars: List[File],
     jwt: Jwt,
-    packageId: Option[String],
     maxDuration: Option[FiniteDuration]
 ) {
   override def toString: String =
@@ -23,14 +22,13 @@ private[perf] final case class Config(
       s"scenario=${this.scenario}, " +
       s"dars=${dars: List[File]}," +
       s"jwt=..., " + // don't print the JWT
-      s"packageId=${this.packageId: Option[String]}," +
       s"maxDuration=${this.maxDuration: Option[FiniteDuration]}" +
       ")"
 }
 
 private[perf] object Config {
   val Empty =
-    Config(scenario = "", dars = List.empty, jwt = Jwt(""), packageId = None, maxDuration = None)
+    Config(scenario = "", dars = List.empty, jwt = Jwt(""), maxDuration = None)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Config.Empty)
@@ -59,11 +57,6 @@ private[perf] object Config {
         .required()
         .validate(validateJwt)
         .text("JWT token to use when connecting to JSON API")
-
-      opt[String]("package-id")
-        .action((x, c) => c.copy(packageId = Some(x)))
-        .optional()
-        .text("Optional package ID to specify in the commands sent to JSON API")
 
       opt[Duration]("max-duration")
         .action((x, c) => c.copy(maxDuration = Some(FiniteDuration(x.length, x.unit))))

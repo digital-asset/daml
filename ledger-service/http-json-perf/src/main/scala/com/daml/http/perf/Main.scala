@@ -7,16 +7,20 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.withHttpService
+import com.daml.http.domain.LedgerId
+import com.daml.http.perf.scenario.SimulationConfig
+import com.daml.http.{EndpointsCompanion, HttpService}
+import com.daml.jwt.domain.Jwt
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.\/
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
 object Main extends StrictLogging {
-
-  type Scenario = Config => Future[Unit]
 
   sealed abstract class ExitCode(val code: Int) extends Product with Serializable
   object ExitCode {
@@ -25,10 +29,11 @@ object Main extends StrictLogging {
     case object StartupError extends ExitCode(101)
     case object InvalidScenario extends ExitCode(102)
     case object TimedOutScenario extends ExitCode(103)
+    case object GatlingError extends ExitCode(104)
   }
 
   def main(args: Array[String]): Unit = {
-    val name = "http-json-per"
+    val name = "http-json-perf"
     val terminationTimeout: FiniteDuration = 30.seconds
 
     implicit val asys: ActorSystem = ActorSystem(name)
@@ -69,18 +74,53 @@ object Main extends StrictLogging {
       ec: ExecutionContext
   ): Future[ExitCode] = {
     logger.info(s"$config")
-    if (config.scenario == "commands") {
-      withHttpService(config.scenario, config.dars, None, None) { (_, _, _, _) =>
-        runScenarioSync(config, _ => Future.unit) // TODO(Leo): scenario runner goes here
-      }.map(_ => ExitCode.Ok)
+
+    val ledgerId = getLedgerId(config.jwt)
+      .getOrElse(throw new IllegalArgumentException("Cannot infer Ledger ID from JWT"))
+
+    if (isValidScenario(config.scenario)) {
+      withHttpService(ledgerId.unwrap, config.dars, None, None) { (uri, _, _, _) =>
+        runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
+      }
     } else {
-      logger.error(s"Unsupported scenario: ${config.scenario}")
+      logger.error(s"Invalid scenario: ${config.scenario}")
       Future.successful(ExitCode.InvalidScenario)
     }
   }
 
-  private def runScenarioSync(config: Config, scenario: Scenario)(
-      implicit ec: ExecutionContext): Future[Unit] = {
-    scenario(config).map(_ => Thread.sleep(5000)) // XXX
+  private def isValidScenario(scenario: String): Boolean = {
+    try {
+      val klass: Class[_] = Class.forName(scenario)
+      classOf[io.gatling.core.scenario.Simulation].isAssignableFrom(klass)
+    } catch {
+      case e: ClassCastException =>
+        logger.error(s"Invalid Gatling scenario: '$scenario'", e)
+        false
+      case e: Throwable =>
+        logger.error(s"Cannot find Gatling scenario: '$scenario'", e)
+        false
+    }
+  }
+
+  private def getLedgerId(jwt: Jwt): EndpointsCompanion.Unauthorized \/ LedgerId =
+    EndpointsCompanion
+      .decodeAndParsePayload(jwt, HttpService.decodeJwt)
+      .map { case (_, payload) => payload.ledgerId }
+
+  private def runGatlingScenario(config: Config, jsonApiHost: String, jsonApiPort: Int)(
+      implicit ec: ExecutionContext): Future[ExitCode] = {
+    import io.gatling.app
+    import io.gatling.core.config.GatlingPropertiesBuilder
+
+    val hostAndPort = s"${jsonApiHost: String}:${jsonApiPort: Int}"
+    discard { System.setProperty(SimulationConfig.HostAndPortKey, hostAndPort) }
+    discard { System.setProperty(SimulationConfig.JwtKey, config.jwt.value) }
+
+    val configBuilder = new GatlingPropertiesBuilder()
+      .simulationClass(config.scenario)
+      .resultsDirectory("results-" + config.scenario)
+
+    Future(app.Gatling.fromMap(configBuilder.build))
+      .map(a => if (a == app.cli.StatusCode.Success.code) ExitCode.Ok else ExitCode.GatlingError)
   }
 }
