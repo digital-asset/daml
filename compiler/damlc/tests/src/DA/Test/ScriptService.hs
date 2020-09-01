@@ -481,6 +481,53 @@ main =
                   matchRegex r "Tried to allocate a party that already exists:  alice"
                 expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists:  bob"
+            , testCase "lookup and fetch" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with"
+                    , "    owner : Party"
+                    , "    observer : Party"
+                    , "  where"
+                    , "    signatory owner"
+                    , "    observer observer"
+                    , "template Divulger"
+                    , "  with"
+                    , "    divulgee : Party"
+                    , "    sig : Party"
+                    , "  where"
+                    , "    signatory divulgee"
+                    , "    observer sig"
+                    , "    nonconsuming choice Divulge : T"
+                    , "      with cid : ContractId T"
+                    , "      controller sig"
+                    , "      do fetch cid"
+                    , "testQueryContractId = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  onlyP1 <- submit p1 $ createCmd (T p1 p1)"
+                    , "  both <- submit p1 $ createCmd (T p1 p2)"
+                    , "  divulger <- submit p2 $ createCmd (Divulger p2 p1)"
+                    , "  optOnlyP1 <- queryContractId p1 onlyP1"
+                    , "  optOnlyP1 === Some (T p1 p1)"
+                    , "  optOnlyP1 <- queryContractId p2 onlyP1"
+                    , "  optOnlyP1 === None"
+                    , "  optBoth <- queryContractId p1 both"
+                    , "  optBoth === Some (T p1 p2)"
+                    , "  optBoth <- queryContractId p2 both"
+                    , "  optBoth === Some (T p1 p2)"
+                    -- Divulged contracts should not be returned in lookups
+                    , "  submit p1 $ exerciseCmd divulger (Divulge onlyP1)"
+                    , "  optOnlyP1 <- queryContractId p2 onlyP1"
+                    , "  optOnlyP1 === None"
+                    , "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "testQueryContractId") $ \r ->
+                  matchRegex r "Active contracts:  #2:0, #0:0, #1:0"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

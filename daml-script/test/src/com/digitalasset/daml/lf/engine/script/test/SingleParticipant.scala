@@ -408,6 +408,22 @@ case class TestContractId(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestLookupFetch(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testQueryContractId"))
+  def runTests(): Unit = {
+    runner.genericTest(
+      "testQueryContractId",
+      scriptId,
+      None, {
+        // We test with assertions in the test
+        case SUnit => Right(())
+        case v => Left(s"Expected SUnit but got $v")
+      }
+    )
+  }
+}
+
 object SingleParticipant {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
@@ -512,6 +528,7 @@ object SingleParticipant {
         val devRunner =
           new TestRunner(participantParams, devDar, config.wallclockTime, config.rootCa)
         if (!config.auth) {
+          TestLookupFetch(dar, runner).runTests()
           TraceOrder(dar, runner).runTests()
           Test0(dar, runner).runTests()
           Test1(dar, runner).runTests()

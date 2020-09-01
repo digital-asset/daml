@@ -119,6 +119,10 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
+  def queryContractId(party: SParty, templateId: Identifier, cid: ContractId)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
+
   def submit(
       party: SParty,
       commands: List[ScriptLedgerClient.Command],
@@ -178,6 +182,17 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
               )
           ScriptLedgerClient.ActiveContract(templateId, cid, argument)
         })))
+  }
+
+  override def queryContractId(party: SParty, templateId: Identifier, cid: ContractId)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+    // We cannot do better than a linear search over query here.
+    for {
+      activeContracts <- query(party, templateId)
+    } yield {
+      activeContracts.find(c => c.contractId == cid)
+    }
   }
 
   override def submit(
@@ -356,6 +371,26 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     Future.successful(filtered.map {
       case (cid, c) => ScriptLedgerClient.ActiveContract(templateId, cid, c.value)
     })
+  }
+
+  override def queryContractId(party: SParty, templateId: Identifier, cid: ContractId)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+    scenarioRunner.ledger.lookupGlobalContract(
+      view = ScenarioLedger.ParticipantView(party.value),
+      effectiveAt = scenarioRunner.ledger.currentTime,
+      cid) match {
+      case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), stakeholders)
+          if stakeholders.contains(party.value) =>
+        Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg.value)))
+      case _ =>
+        // Note that contrary to `fetch` in a scenario, we do not
+        // abort on any of the error cases. This makes sense if you
+        // consider this a wrapper around the ACS endpoint where
+        // we cannot differentiate between visibility errors
+        // and the contract not being active.
+        Future.successful(None)
+    }
   }
 
   // Translate from a ledger command to an Update expression
@@ -635,6 +670,38 @@ class JsonLedgerClient(
       parsedResults
     }
   }
+  override def queryContractId(party: SParty, templateId: Identifier, cid: ContractId)(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
+    val req = HttpRequest(
+      method = HttpMethods.POST,
+      uri = uri.withPath(uri.path./("v1")./("fetch")),
+      entity = HttpEntity(
+        ContentTypes.`application/json`,
+        JsonLedgerClient.FetchArgs(cid).toJson.prettyPrint),
+      headers = List(Authorization(OAuth2BearerToken(token.value)))
+    )
+    for {
+      () <- validateTokenParty(party, "queryContractId")
+      resp <- Http().singleRequest(req)
+      fetchResponse <- if (resp.status.isSuccess) {
+        Unmarshal(resp.entity).to[JsonLedgerClient.FetchResponse]
+      } else {
+        getResponseDataBytes(resp).flatMap {
+          case body => Future.failed(new RuntimeException(s"Failed to query ledger: $resp, $body"))
+        }
+      }
+    } yield {
+      val ctx = templateId.qualifiedName
+      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
+      fetchResponse.result.map(r => {
+        val payload = r.payload.convertTo[Value[ContractId]](
+          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
+        val cid = ContractId.assertFromString(r.contractId)
+        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
+      })
+    }
+  }
   override def submit(
       party: SParty,
       commands: List[ScriptLedgerClient.Command],
@@ -867,6 +934,8 @@ object JsonLedgerClient {
   final case class QueryArgs(templateId: Identifier)
   final case class QueryResponse(results: List[ActiveContract])
   final case class ActiveContract(contractId: String, payload: JsValue)
+  final case class FetchArgs(contractId: ContractId)
+  final case class FetchResponse(result: Option[ActiveContract])
 
   final case class CreateArgs(templateId: Identifier, payload: JsValue)
   final case class CreateResponse(contractId: String)
@@ -911,6 +980,15 @@ object JsonLedgerClient {
         case _ => deserializationError(s"Could not parse QueryResponse: $v")
       }
     }
+    implicit val fetchWriter: JsonWriter[FetchArgs] = args =>
+      JsObject("contractId" -> args.contractId.coid.toString.toJson)
+    implicit val fetchReader: RootJsonReader[FetchResponse] = v =>
+      v.asJsObject.getFields("result") match {
+        case Seq(JsNull) => FetchResponse(None)
+        case Seq(r) => FetchResponse(Some(r.convertTo[ActiveContract]))
+        case _ => deserializationError(s"Could not parse FetchResponse: $v")
+    }
+
     implicit val activeContractReader: RootJsonReader[ActiveContract] = v => {
       v.asJsObject.getFields("contractId", "payload") match {
         case Seq(JsString(s), v) => ActiveContract(s, v)
