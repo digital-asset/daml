@@ -281,6 +281,17 @@ main =
                         "  where",
                         "    signatory p1",
                         "    observer p2",
+                        "template Divulger",
+                        "  with",
+                        "    divulgee : Party",
+                        "    sig : Party",
+                        "  where",
+                        "    signatory divulgee",
+                        "    observer sig",
+                        "    nonconsuming choice Divulge : T1",
+                        "      with cid : ContractId T1",
+                        "      controller sig",
+                        "      do fetch cid",
                         "testQueryInactive = do",
                         "  p <- allocateParty \"p\"",
                         "  cid1_1 <- submit p (createCmd (T1 p 42))",
@@ -300,12 +311,17 @@ main =
                         "testQueryVisibility = do",
                         "  p1 <- allocateParty \"p1\"",
                         "  p2 <- allocateParty \"p2\"",
+                        "  divulger <- submit p2 (createCmd (Divulger p2 p1))",
                         "  cidT1p1 <- submit p1 (createCmd (T1 p1 42))",
                         "  cidT1p2 <- submit p2 (createCmd (T1 p2 23))",
                         "  cidSharedp1 <- submit p1 (createCmd (TShared p1 p2))",
                         "  cidSharedp2 <- submit p2 (createCmd (TShared p2 p1))",
                         "  t1p1 <- query @T1 p1",
                         "  t1p1 === [(cidT1p1, T1 p1 42)]",
+                        "  t1p2 <- query @T1 p2",
+                        "  t1p2 === [(cidT1p2, T1 p2 23)]",
+                        -- Divulgence should not influence query result
+                        "  submit p1 $ exerciseCmd divulger (Divulge cidT1p1)",
                         "  t1p2 <- query @T1 p2",
                         "  t1p2 === [(cidT1p2, T1 p2 23)]",
                         "  sharedp1 <- query @TShared p1",
@@ -316,7 +332,7 @@ main =
                   expectScriptSuccess rs (vr "testQueryInactive") $ \r ->
                     matchRegex r "Active contracts:  #2:0, #0:0\n\n"
                   expectScriptSuccess rs (vr "testQueryVisibility") $ \r ->
-                    matchRegex r "Active contracts:  #0:0, #1:0, #2:0, #3:0\n\n"
+                    matchRegex r "Active contracts:  #4:0, #3:0, #2:0, #0:0, #1:0\n\n"
                   pure (),
               testCase "submitMustFail" $ do
                   rs <-

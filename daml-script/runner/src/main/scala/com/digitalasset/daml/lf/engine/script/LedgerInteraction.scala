@@ -351,7 +351,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       effectiveAt = scenarioRunner.ledger.currentTime)
     // Filter to contracts of the given template id.
     val filtered = acs.collect {
-      case (cid, Value.ContractInst(tpl, arg, _)) if tpl == templateId => (cid, arg)
+      case ScenarioLedger.LookupOk(cid, Value.ContractInst(tpl, arg, _), stakeholders) if tpl == templateId && stakeholders.contains(party.value) => (cid, arg)
     }
     Future.successful(filtered.map {
       case (cid, c) => ScriptLedgerClient.ActiveContract(templateId, cid, c.value)
