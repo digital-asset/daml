@@ -26,8 +26,9 @@ object TriggerRunner {
   def apply(config: Config, name: String)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): Behavior[TriggerRunner.Message] =
-    newLoggingContext(label[Config], config.loggingExtension) { implicit loggingContext =>
-      Behaviors.setup(ctx => new TriggerRunner(ctx, config, name))
+    newLoggingContext(label[Config with Trigger], config.loggingExtension) {
+      implicit loggingContext =>
+        Behaviors.setup(ctx => new TriggerRunner(ctx, config, name))
     }
 }
 
@@ -37,7 +38,7 @@ final class TriggerRunner private (
     name: String)(
     implicit esf: ExecutionSequencerFactory,
     mat: Materializer,
-    loggingContext: LoggingContextOf[TriggerRunner.Config])
+    loggingContext: LoggingContextOf[TriggerRunner.Config with Trigger])
     extends AbstractBehavior[TriggerRunner.Message](ctx) {
 
   import TriggerRunner.{Message, Stop}

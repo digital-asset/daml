@@ -38,6 +38,8 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
 
@@ -52,12 +54,16 @@ final case class TypedExpr(expr: Expr, ty: TypeConApp)
 
 final case class Trigger(
     expr: TypedExpr,
+    triggerDefinition: Identifier,
     triggerIds: TriggerIds,
     filters: Filters, // We store Filters rather than
     // TransactionFilter since the latter is
     // party-specific.
     heartbeat: Option[FiniteDuration]
-)
+) {
+  private[trigger] def loggingExtension: Map[String, String] =
+    Map("triggerDefinition" -> triggerDefinition.toString)
+}
 
 // Utilities for interacting with the speedy machine.
 object Machine extends StrictLogging {
@@ -125,7 +131,7 @@ object Trigger extends StrictLogging {
       converter: Converter = Converter(compiledPackages, triggerIds)
       filter <- getTriggerFilter(compiledPackages, compiler, converter, expr)
       heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, expr)
-    } yield Trigger(expr, triggerIds, filter, heartbeat)
+    } yield Trigger(expr, triggerId, triggerIds, filter, heartbeat)
   }
 
   // Return the heartbeat specified by the user.
@@ -193,7 +199,7 @@ class Runner(
     timeProviderType: TimeProviderType,
     applicationId: ApplicationId,
     party: String,
-) extends StrictLogging {
+)(implicit loggingContext: LoggingContextOf[Trigger]) {
   // Compiles LF expressions into Speedy expressions.
   private val compiler: Compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
@@ -208,6 +214,8 @@ class Runner(
   private var usedCommandIds: Set[String] = Set.empty
   private val transactionFilter: TransactionFilter =
     TransactionFilter(Seq((party, trigger.filters)).toMap)
+
+  private[this] def logger = ContextualizedLogger get getClass
 
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
@@ -314,6 +322,12 @@ class Runner(
     (triggerMsgSource, postSubmitFailure)
   }
 
+  private def logReceivedMsg(tm: TriggerMsg): Unit = tm match {
+    case CompletionMsg(c) => logger.debug(s"trigger received completion message $c")
+    case TransactionMsg(t) => logger.debug(s"trigger received transaction, ID ${t.transactionId}")
+    case HeartbeatMsg() => ()
+  }
+
   // A sink for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
   // messages given the starting state represented by the ACS
@@ -362,7 +376,7 @@ class Runner(
     // The materialized value of the flow is the (future) final state
     // of this process.
     Flow[TriggerMsg]
-      .wireTap(tm => logger.debug(s"trigger message $tm"))
+      .wireTap(logReceivedMsg _)
       .mapConcat[TriggerMsg]({
         case CompletionMsg(c) =>
           try {
@@ -497,7 +511,9 @@ object Runner extends StrictLogging {
       case Right(trigger) => trigger
     }
     val runner =
-      new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, party)
+      newLoggingContext(label[Trigger], trigger.loggingExtension) { implicit lc =>
+        new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, party)
+      }
     for {
       (acs, offset) <- runner.queryACS()
       finalState <- runner.runWithACS(acs, offset)._2

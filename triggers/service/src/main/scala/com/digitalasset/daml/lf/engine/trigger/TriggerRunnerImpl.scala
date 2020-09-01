@@ -38,10 +38,8 @@ object TriggerRunnerImpl {
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
   ) {
-    def loggingExtension: Map[String, String] =
-      Map(
-        "triggerId" -> triggerInstance.toString,
-      )
+    private[trigger] def loggingExtension: Map[String, String] =
+      trigger.loggingExtension + ("triggerId" -> triggerInstance.toString)
   }
 
   import TriggerRunner.{Message, Stop}
@@ -55,7 +53,7 @@ object TriggerRunnerImpl {
   def apply(config: Config)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer,
-      loggingContext: LoggingContextOf[Config]): Behavior[Message] =
+      loggingContext: LoggingContextOf[Config with Trigger]): Behavior[Message] =
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
       implicit val ec: ExecutionContext = ctx.executionContext
