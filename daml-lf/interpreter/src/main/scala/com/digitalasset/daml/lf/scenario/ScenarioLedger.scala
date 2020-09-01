@@ -594,11 +594,11 @@ case class ScenarioLedger(
   def query(
       view: View,
       effectiveAt: Time.Timestamp,
-    ): Seq[LookupOk] = {
+  ): Seq[LookupOk] = {
     ledgerData.activeContracts.toList
       .map(cid => lookupGlobalContract(view, effectiveAt, cid))
       .collect {
-        case l @ LookupOk(_ , _, _) => l
+        case l @ LookupOk(_, _, _) => l
       }
   }
 
