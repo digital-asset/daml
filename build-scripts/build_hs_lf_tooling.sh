@@ -22,7 +22,7 @@ package_from_dir() {
         exit 1
     fi
     pushd $dir
-    cabal new-sdist
+    cabal v2-sdist
     cp dist-newstyle/sdist/*.tar.gz "$TARGET_DIR/"
     rm -rf cabal.tix dist-newstyle/
     popd
