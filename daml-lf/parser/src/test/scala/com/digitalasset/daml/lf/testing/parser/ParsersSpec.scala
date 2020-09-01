@@ -98,7 +98,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "a -> b -> a" -> TApp(TApp(TBuiltin(BTArrow), α), TApp(TApp(TBuiltin(BTArrow), β), α)),
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
         "<f1: a, f2: Bool, f3:Mod:T>" ->
-          TStruct(Struct(n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))
+          TStruct(Struct.assertFromSeq(List(n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T)))
       )
 
       forEvery(testCases)((stringToParse, expectedType) =>

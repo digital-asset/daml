@@ -167,24 +167,26 @@ class OrderingSpec
     } yield STypeRep(Ast.TTyCon(Ref.Identifier(pkgId, Ref.QualifiedName(mod, name))))
   }
 
+  private def struct[X](fields: (Ref.Name, X)*) = Struct.assertFromSeq(fields)
+
   private val typeStructReps = List(
-    Struct.empty,
-    Struct(Ref.Name.assertFromString("field0") -> AstUtil.TUnit),
-    Struct(Ref.Name.assertFromString("field0") -> AstUtil.TInt64),
-    Struct(Ref.Name.assertFromString("field1") -> AstUtil.TUnit),
-    Struct(
+    Struct.Empty,
+    struct(Ref.Name.assertFromString("field0") -> AstUtil.TUnit),
+    struct(Ref.Name.assertFromString("field0") -> AstUtil.TInt64),
+    struct(Ref.Name.assertFromString("field1") -> AstUtil.TUnit),
+    struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field2") -> AstUtil.TUnit,
     ),
-    Struct(
+    struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field2") -> AstUtil.TInt64,
     ),
-    Struct(
+    struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TInt64,
       Ref.Name.assertFromString("field2") -> AstUtil.TUnit,
     ),
-    Struct(
+    struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field3") -> AstUtil.TUnit,
     ),
@@ -206,8 +208,8 @@ class OrderingSpec
       Ast.TTyCon(VariantTypeCon),
       Ast.TNat(Numeric.Scale.MinValue),
       Ast.TNat(Numeric.Scale.MaxValue),
-      Ast.TStruct(Struct.empty),
-      Ast.TStruct(Struct(Ref.Name.assertFromString("field") -> AstUtil.TUnit)),
+      Ast.TStruct(Struct.Empty),
+      Ast.TStruct(struct(Ref.Name.assertFromString("field") -> AstUtil.TUnit)),
       Ast.TApp(Ast.TBuiltin(Ast.BTArrow), Ast.TBuiltin(Ast.BTUnit)),
       Ast.TApp(
         Ast.TApp(Ast.TBuiltin(Ast.BTArrow), Ast.TBuiltin(Ast.BTUnit)),
