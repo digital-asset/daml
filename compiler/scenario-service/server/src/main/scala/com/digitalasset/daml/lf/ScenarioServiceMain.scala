@@ -116,12 +116,25 @@ class ScenarioService(
                 errOrValue match {
                   case Left(err) =>
                     builder.setError(
-                      new Conversions(context.homePackageId, ledger, machine)
+                      new Conversions(
+                        context.homePackageId,
+                        ledger,
+                        machine.ptx,
+                        machine.traceLog,
+                        machine.commitLocation,
+                        machine.stackTrace())
                         .convertScenarioError(err),
                     )
                   case Right(value) =>
-                    builder.setResult(new Conversions(context.homePackageId, ledger, machine)
-                      .convertScenarioResult(value))
+                    builder.setResult(
+                      new Conversions(
+                        context.homePackageId,
+                        ledger,
+                        machine.ptx,
+                        machine.traceLog,
+                        machine.commitLocation,
+                        machine.stackTrace())
+                        .convertScenarioResult(value))
                 }
                 builder.build
             }
@@ -160,17 +173,30 @@ class ScenarioService(
           context
             .interpretScript(packageId, scenarioId.getName)
             .map(_.map {
-              case (ledger, machine, errOrValue) =>
+              case (ledger, (clientMachine, ledgerMachine), errOrValue) =>
                 val builder = RunScenarioResponse.newBuilder
                 errOrValue match {
                   case Left(err) =>
                     builder.setError(
-                      new Conversions(context.homePackageId, ledger, machine)
+                      new Conversions(
+                        context.homePackageId,
+                        ledger,
+                        ledgerMachine.ptx,
+                        clientMachine.traceLog,
+                        ledgerMachine.commitLocation,
+                        ledgerMachine.stackTrace())
                         .convertScenarioError(err),
                     )
                   case Right(value) =>
-                    builder.setResult(new Conversions(context.homePackageId, ledger, machine)
-                      .convertScenarioResult(value))
+                    builder.setResult(
+                      new Conversions(
+                        context.homePackageId,
+                        ledger,
+                        ledgerMachine.ptx,
+                        clientMachine.traceLog,
+                        ledgerMachine.commitLocation,
+                        ledgerMachine.stackTrace())
+                        .convertScenarioResult(value))
                 }
                 builder.build
             })
