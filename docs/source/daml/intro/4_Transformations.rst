@@ -77,11 +77,6 @@ contract with the given arguments and immediately exercise a choice on
 it. For a consuming choice, this archives the contract so the contract
 is created and archived within the same transaction.
 
-.. literalinclude:: daml/daml-intro-4/Contact.daml
-   :language: daml
-   :start-after: -- HELPER_BEGIN
-   :end-before: -- HELPER_END
-
 Choices as delegation
 ---------------------
 

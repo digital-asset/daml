@@ -6,7 +6,7 @@
 
 In :doc:`1_Token`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
 
-In :doc:`2_Scenario`, you learnt about the script view in DAML Studio, which displays the current ledger state. It shows one table per template, with one row per contract of that type and one column per field in the arguments.
+In :doc:`2_DamlScript`, you learnt about the script view in DAML Studio, which displays the current ledger state. It shows one table per template, with one row per contract of that type and one column per field in the arguments.
 
 This actually provides a useful way of thinking about templates: like tables in databases. Templates specify a data schema for the ledger:
 
