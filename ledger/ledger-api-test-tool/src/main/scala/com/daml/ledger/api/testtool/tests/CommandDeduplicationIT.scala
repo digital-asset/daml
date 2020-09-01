@@ -20,6 +20,9 @@ import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT extends LedgerTestSuite {
+  private val timeInterval = 5
+  private val deduplicationSeconds = 1 * timeInterval
+  private val deduplicationWindowWait = 2 * timeInterval
 
   test(
     "CDSimpleDeduplicationBasic",
@@ -27,7 +30,6 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
-      val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val requestA1 = ledger
         .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
@@ -51,7 +53,7 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
         completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
 
         // Wait until the end of first deduplication window
-        _ <- Delayed.by((deduplicationSeconds + 1).seconds)(())
+        _ <- Delayed.by((deduplicationWindowWait).seconds)(())
 
         // Submit command A (second deduplication window)
         // Note: the deduplication window is guaranteed to have passed on both
@@ -157,7 +159,6 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
-      val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val requestA = ledger
         .submitAndWaitRequest(party, Dummy(party).create.command)
@@ -171,7 +172,7 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
         failure1 <- ledger.submitAndWait(requestA).failed
 
         // Wait until the end of first deduplication window
-        _ <- Delayed.by((deduplicationSeconds + 1).seconds)(())
+        _ <- Delayed.by((deduplicationWindowWait).seconds)(())
 
         // Submit command A (second deduplication window)
         _ <- ledger.submitAndWait(requestA)
