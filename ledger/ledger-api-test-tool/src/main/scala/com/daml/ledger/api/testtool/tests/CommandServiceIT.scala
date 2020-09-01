@@ -120,7 +120,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSsubmitAndWaitForTransactionTree",
+    "CSsubmitAndWaitForTransactionTreeBasic",
     "SubmitAndWaitForTransactionTree returns a transaction tree",
     allocate(SingleParty),
   )(implicit ec => {
