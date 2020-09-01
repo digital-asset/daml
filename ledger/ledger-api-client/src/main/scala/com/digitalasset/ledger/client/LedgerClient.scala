@@ -83,7 +83,7 @@ object LedgerClient {
 
   def apply(
       channel: Channel,
-      config: LedgerClientConfiguration
+      config: LedgerClientConfiguration,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
     for {
       ledgerId <- new LedgerIdentityClient(
@@ -122,17 +122,16 @@ object LedgerClient {
     * A shutdown hook is also added to close the channel when the JVM stops.
     *
     */
-  def fromBuilder(builder: NettyChannelBuilder, configuration: LedgerClientConfiguration)(
-      implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-    val resource = new GrpcChannel.Owner(builder, configuration).acquire()
-    resource.asFuture.flatMap { channel =>
-      sys.addShutdownHook {
-        resource.release()
-        ()
-      }
-      apply(channel, configuration)
+  def fromBuilder(
+      builder: NettyChannelBuilder,
+      configuration: LedgerClientConfiguration,
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
+    val channel = GrpcChannel(builder, configuration)
+    sys.addShutdownHook {
+      channel.shutdownNow()
+      ()
     }
+    apply(channel, configuration)
   }
 
 }
