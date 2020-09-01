@@ -1,9 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools
+package com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2
 
 import scala.io.AnsiColor
+import scala.language.implicitConversions
 
 final class Color(val text: String) extends AnyVal {
   def green: String = color(AnsiColor.GREEN)
@@ -14,4 +15,8 @@ final class Color(val text: String) extends AnyVal {
 
   private def color(color: String): String =
     color + text + AnsiColor.RESET
+}
+
+object Color {
+  implicit def color(text: String): Color = new Color(text)
 }

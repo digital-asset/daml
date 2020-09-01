@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.export
+package com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2
 
 import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
 import com.daml.ledger.participant.state.kvutils
-import com.daml.ledger.participant.state.kvutils.tools.export.IntegrityChecker.bytesAsHexString
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2.IntegrityChecker.bytesAsHexString
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory

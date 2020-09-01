@@ -35,9 +35,8 @@ da_scala_library(
 
 da_scala_binary(
     name = "integrity-check",
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.driver.IntegrityCheck",
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.v1.Main",
     resources = glob(["src/main/resources/*"]),
-    tags = ["maven_coordinates=com.daml:participant-state-kvutils-integrity-check:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -46,20 +45,12 @@ da_scala_binary(
     ],
     deps = [
         ":tools",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//ledger/metrics",
-        "//ledger/participant-state",
-        "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
 da_scala_binary(
     name = "integrity-check-v2",
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.driver.IntegrityCheckV2",
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2.Main",
     resources = glob(["src/main/resources/*"]),
     visibility = [
         "//visibility:public",
@@ -69,11 +60,6 @@ da_scala_binary(
     ],
     deps = [
         ":tools",
-        "//ledger/ledger-on-memory",
-        "//ledger/participant-state/kvutils",
-        "//libs-scala/direct-execution-context",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 

@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.kvutils.test
 
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
+import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 

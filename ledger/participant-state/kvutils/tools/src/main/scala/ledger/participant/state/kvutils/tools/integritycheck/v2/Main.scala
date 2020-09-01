@@ -1,22 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.driver
+package com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2
 
 import java.nio.file.Paths
 import java.util.concurrent.Executors
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.{LedgerDataExporter, v3}
-import com.daml.ledger.participant.state.kvutils.tools.color
-import com.daml.ledger.participant.state.kvutils.tools.export.{
-  IntegrityChecker,
-  LogAppendingCommitStrategySupport
-}
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2.Color.color
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
-object IntegrityCheckV2 {
+object Main {
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
       println("usage: integrity-check <ledger dump file>")
