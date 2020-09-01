@@ -22,6 +22,7 @@ object GrpcChannel {
     configuration.sslContext
       .fold(builder.usePlaintext())(builder.sslContext(_).negotiationType(NegotiationType.TLS))
     builder.maxInboundMetadataSize(configuration.maxInboundMetadataSize)
+    builder.maxInboundMessageSize(configuration.maxInboundMessageSize)
     builder.build()
   }
 

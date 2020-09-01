@@ -3,18 +3,13 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.{ActorRef, Behavior, PreRestart, PostStop}
-import akka.actor.typed.scaladsl.Behaviors
-import akka.stream.{KillSwitch, KillSwitches, Materializer}
-import com.daml.ledger.api.refinements.ApiTypes.Party
-import io.grpc.netty.NettyChannelBuilder
+import java.util.UUID
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
-import scalaz.syntax.tag._
-import com.daml.lf.CompiledPackages
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior, PostStop, PreRestart}
+import akka.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.LedgerClient
@@ -23,9 +18,14 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import java.util.UUID
+import com.daml.lf.CompiledPackages
+import scalaz.syntax.tag._
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object TriggerRunnerImpl {
+
   case class Config(
       server: ActorRef[Message],
       triggerInstance: UUID,
@@ -62,7 +62,8 @@ object TriggerRunnerImpl {
         sslContext = None,
         // TODO(SF, 2020-06-09): In the presence of an authorization
         // service, get an access token and pass it through here!
-        token = None
+        token = None,
+        maxInboundMessageSize = config.ledgerConfig.maxInboundMessageSize,
       )
 
       // Waiting for the ACS query to finish so we can build the
@@ -177,13 +178,11 @@ object TriggerRunnerImpl {
           }
 
       val acsQuery: Future[QueriedACS] = for {
-        client <- LedgerClient
-          .fromBuilder(
-            NettyChannelBuilder
-              .forAddress(config.ledgerConfig.host, config.ledgerConfig.port)
-              .maxInboundMessageSize(config.ledgerConfig.maxInboundMessageSize),
-            clientConfig,
-          )
+        client <- LedgerClient.singleHost(
+          config.ledgerConfig.host,
+          config.ledgerConfig.port,
+          clientConfig,
+        )
         runner = new Runner(
           config.compiledPackages,
           config.trigger,

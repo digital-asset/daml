@@ -3,18 +3,11 @@
 
 package com.daml.lf.engine.trigger
 
+import java.io.File
+
 import akka.actor.ActorSystem
 import akka.stream._
-import java.io.File
-import io.grpc.netty.NettyChannelBuilder
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.Duration
-import scalaz.syntax.traverse._
-
-import com.daml.lf.archive.{Dar, DarReader}
-import com.daml.lf.archive.Decode
-import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.language.Ast._
+import com.daml.auth.TokenHolder
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.AkkaExecutionSequencerPool
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -24,7 +17,13 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.auth.TokenHolder
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.language.Ast._
+import scalaz.syntax.traverse._
+
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object RunnerMain {
 
@@ -82,17 +81,16 @@ object RunnerMain {
           commandClient =
             CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),
           sslContext = config.tlsConfig.client,
-          token = tokenHolder.flatMap(_.token)
+          token = tokenHolder.flatMap(_.token),
+          maxInboundMessageSize = config.maxInboundMessageSize,
         )
 
         val flow: Future[Unit] = for {
-          client <- LedgerClient
-            .fromBuilder(
-              NettyChannelBuilder
-                .forAddress(config.ledgerHost, config.ledgerPort)
-                .maxInboundMessageSize(config.maxInboundMessageSize),
-              clientConfig,
-            )(ec, sequencer)
+          client <- LedgerClient.singleHost(
+            config.ledgerHost,
+            config.ledgerPort,
+            clientConfig,
+          )(ec, sequencer)
 
           _ <- Runner.run(
             dar,

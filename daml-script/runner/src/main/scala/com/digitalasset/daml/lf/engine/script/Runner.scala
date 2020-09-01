@@ -11,8 +11,6 @@ import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import java.time.Clock
 
-import io.grpc.netty.NettyChannelBuilder
-
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.{Applicative, Traverse, \/-}
 import scalaz.std.either._
@@ -178,9 +176,8 @@ object Runner {
   private def connectApiParameters(
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
-      maxInboundMessageSize: Int)(
-      implicit ec: ExecutionContext,
-      seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
+      maxInboundMessageSize: Int,
+  )(implicit ec: ExecutionContext, seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
     val applicationId = params.application_id.getOrElse(Runner.DEFAULT_APPLICATION_ID)
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -188,14 +185,10 @@ object Runner {
       commandClient = CommandClientConfiguration.default,
       sslContext = tlsConfig.client,
       token = params.access_token,
+      maxInboundMessageSize = maxInboundMessageSize,
     )
     LedgerClient
-      .fromBuilder(
-        NettyChannelBuilder
-          .forAddress(params.host, params.port)
-          .maxInboundMessageSize(maxInboundMessageSize),
-        clientConfig,
-      )
+      .singleHost(params.host, params.port, clientConfig)
       .map(new GrpcLedgerClient(_, applicationId))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
