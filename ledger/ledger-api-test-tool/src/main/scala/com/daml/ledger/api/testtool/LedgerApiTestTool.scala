@@ -51,14 +51,14 @@ object LedgerApiTestTool {
     println()
     Tests.PerformanceTestsKeys.foreach(println(_))
   }
-  private def printAvailableTestSuites(): Unit = {
+  private def printAvailableTestSuites(config: Config): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
-    printListOfTests(Tests.all)(_.name)
+    printListOfTests(Tests.all(config))(_.name)
   }
 
-  private def printAvailableTests(): Unit = {
+  private def printAvailableTests(config: Config): Unit = {
     println("Listing all tests. Run with --list to only see test suites.")
-    printListOfTests(Tests.all.flatMap(_.tests))(_.name)
+    printListOfTests(Tests.all(config).flatMap(_.tests))(_.name)
   }
 
   private def extractResources(resources: Seq[String]): Unit = {
@@ -84,12 +84,12 @@ object LedgerApiTestTool {
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
     if (config.listTestSuites) {
-      printAvailableTestSuites()
+      printAvailableTestSuites(config)
       sys.exit(0)
     }
 
     if (config.listTests) {
-      printAvailableTests()
+      printAvailableTests(config)
       sys.exit(0)
     }
 
@@ -104,7 +104,7 @@ object LedgerApiTestTool {
     }
 
     val allTestCaseNames: Set[String] =
-      (Tests.all ++ Tests.retired).flatMap(_.tests).map(_.name).toSet
+      (Tests.all(config) ++ Tests.retired).flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
       allTestCaseNames.exists(_.startsWith(prefix)))
     if (missingTests.nonEmpty) {
@@ -130,7 +130,7 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
-    val allCases = Tests.all.flatMap(_.tests)
+    val allCases = Tests.all(config).flatMap(_.tests)
     val retiredCases = Tests.retired.flatMap(_.tests)
 
     val includedTests =

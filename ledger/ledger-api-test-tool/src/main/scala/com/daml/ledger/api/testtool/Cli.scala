@@ -197,6 +197,11 @@ object Cli {
       .action((_, _) => { println(BuildInfo.Version); sys.exit(0) })
       .text("Prints the version on stdout and exit.")
 
+    opt[Int]("ledger-clock-tick-interval")
+      .optional()
+      .action((interval, c) => c.copy(ledgerClockTickIntervalMs = interval))
+      .text("Specify the interval in ms at which the clock of the ledger under test ticks.")
+
     help("help").text("Prints this usage text")
 
   }

@@ -12,13 +12,13 @@ import scala.collection.SortedSet
 
 object Tests {
 
-  val all: Vector[LedgerTestSuite] =
+  def all(config: Config): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT,
+      new CommandDeduplicationIT(config.ledgerClockTickIntervalMs),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
       new DivulgenceIT,
