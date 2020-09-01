@@ -12,8 +12,8 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.Ref.{IdString, _}
+import com.daml.lf.data.{ImmArray, Struct, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -29,6 +29,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.CompiledPackages
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.v1.value
+import com.daml.lf.data.ImmArray.ImmArraySeq
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -209,29 +210,31 @@ object Converter {
       case _ => Left(s"Expected CreateAndExercise but got $v")
     }
 
+  private[this] val tupleFieldNames =
+    ImmArray(Name.assertFromString("fst"), Name.assertFromString("snd"))
+  private[this] val Seq(fstIdx, sndIdx) = tupleFieldNames.indices
+  private[this] val extractToTuple = SEMakeClo(
+    Array(),
+    2,
+    SEApp(SEBuiltin(SBStructCon(tupleFieldNames)), Array(SELocA(0), SELocA(1))),
+  )
+
   // Extract the two fields out of the RankN encoding used in the Ap constructor.
   def toApFields(
       compiledPackages: CompiledPackages,
-      fun: SValue): Either[String, (SValue, SValue)] = {
-    val extractStruct = SEMakeClo(
-      Array(),
-      2,
-      SEApp(
-        SEBuiltin(SBStructCon(ImmArray(Name.assertFromString("a"), Name.assertFromString("b")))),
-        Array(SELocA(0), SELocA(1))),
-    )
+      fun: SValue,
+  ): Either[String, (SValue, SValue)] = {
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractStruct)))
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {
-          case SStruct(_, values) if values.size == 2 => {
-            Right((values.get(0), values.get(1)))
-          }
-          case v => Left(s"Expected SStruct but got $v")
+          case SStruct(_, values) if values.size == 2 =>
+            Right((values.get(fstIdx), values.get(sndIdx)))
+          case v => Left(s"Expected binary SStruct but got $v")
         }
       case SResultError(err) => Left(Pretty.prettyError(err, machine.ptx).render(80))
-      case res => Left(res.toString())
+      case res => Left(res.toString)
     }
   }
 
@@ -446,7 +449,7 @@ object Converter {
     SRecord(ty, fieldNames, args)
   }
 
-  def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
+  def fromApiIdentifier(id: tupleFieldNames.Identifier): Either[String, Identifier] =
     for {
       packageId <- PackageId.fromString(id.packageId)
       moduleName <- DottedName.fromString(id.moduleName)
