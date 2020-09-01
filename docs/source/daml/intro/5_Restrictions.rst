@@ -170,7 +170,7 @@ a more restricted version of ``Action`` that enforces that there are
 no dependencies between commands. If you do have dependencies between
 commands, you can always wrap it in a choice in a helper template and
 call that via ``createAndExerciseCmd`` just like we did to call
-``fetch``. Alternatively, if you do not need them to be part of the
+``fetchByKey``. Alternatively, if you do not need them to be part of the
 same transaction, you can make multiple calls to ``submit``.
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml

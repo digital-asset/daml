@@ -71,13 +71,11 @@ the client side to build up the list of commands on the ledger. The
 versions without the suffix are used within choices and are executed
 directly on the server.
 
-As in :doc:`3_Data`, we create a ``Helper`` template to fetch a
-``Contact``. Now that we learned about choices we are in the position
-to explain what ``createAndExerciseCmd`` does: It first creates a
-contract of the given template and then it exercises the choice
-immediately within the same transaction. Exercising ``FetchContact``
-also archives the contract so at the end of the transaction there is
-no new active contract.
+There is also ``createAndExerciseCmd`` and ``createAndExercise`` which
+we have seen in the previous section. This allows you to create a new
+contract with the given arguments and immediately exercise a choice on
+it. For a consuming choice, this archives the contract so the contract
+is created and archived within the same transaction.
 
 .. literalinclude:: daml/daml-intro-4/Contact.daml
    :language: daml

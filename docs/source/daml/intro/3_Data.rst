@@ -222,7 +222,7 @@ You have already met the type ``ContractId a``, which references a contract of t
   :start-after: -- ID_REF_TEST_BEGIN
   :end-before: -- ID_REF_TEST_END
 
-The script above uses the ``fetch`` function, which retrieves the arguments of an active contract using its contract ID. ``fetch`` is not directly exposed to ledger clients. Therefore, we create a helper template with the functionality relying on ``fetch`` exposed via choices. We will learn more about choices in :doc:`the next section <4_Transformations>`. We can call those choices by specifying the template and the choice as arguments to ``createAndExerciseCmd``. Note that within the choices we omit the ``cmd`` suffix since that code is executed directly by the ledger instead of building up commands on the client.
+The script above uses the ``queryContractId`` function, which retrieves the arguments of an active contract using its contract ID. If there is no active contract with the given identifier visible to the given party, ``queryContractId`` returns ``None``. Here, we use a pattern match on ``Some`` which will abort the script if ``queryContractId`` returns ``None``.
 
 Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
 

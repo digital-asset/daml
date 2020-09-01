@@ -98,8 +98,6 @@ In :doc:`1_Token` you learned that creating a ``Token`` requires the authority o
 
 However, if you open the script view for that script, you see the following message:
 
-TODO UPDATE
-
 .. figure:: images/2_Scenario/failure.png
 
 The script failed, as expected, but scripts abort at the first failure. This means that it only tested that Alice can't create a token for Bob, and the second ``submit`` statement was never reached.
