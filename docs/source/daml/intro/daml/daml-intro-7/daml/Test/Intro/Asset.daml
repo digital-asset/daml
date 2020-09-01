@@ -22,8 +22,7 @@ test_asset = do
     exerciseCmd ahb Accept_Transfer with
       transferProposalCid = tp
 
-  asset <- submit bank do
-    createAndExerciseCmd (Helper bank) (FetchAsset assetCid)
+  Some asset <- queryContractId bank assetCid
   assert (asset == Asset with
       issuer = bank
       owner = bob
@@ -51,10 +50,8 @@ test_split = do
     exerciseCmd assetCid Split with
       splitQuantity = 30.0
 
-  (splitAsset, remainder) <- submit bank do
-    splitAsset <- createAndExerciseCmd (Helper bank) (FetchAsset splitResult.splitAsset)
-    remainder <- createAndExerciseCmd (Helper bank) (FetchAsset splitResult.remainder)
-    pure (splitAsset, remainder)
+  Some splitAsset <- queryContractId bank splitResult.splitAsset
+  Some remainder <- queryContractId bank splitResult.remainder
 
   assert (splitAsset.quantity == 30.0)
   assert (remainder.quantity == 70.0)
@@ -72,6 +69,5 @@ test_merge = do
     exerciseCmd splitResult.splitAsset Merge with
       otherCid = splitResult.remainder
 
-  asset <- submit bank do
-    createAndExerciseCmd (Helper bank) (FetchAsset assetCid)
+  Some asset <- queryContractId bank assetCid
   assert (asset.quantity == 100.0)

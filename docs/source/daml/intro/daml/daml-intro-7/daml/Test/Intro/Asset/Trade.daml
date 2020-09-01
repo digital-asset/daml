@@ -63,8 +63,7 @@ test_trade = do
       asset = eur
 
   -- Now she can createCmd the trade
-  usd <- submit alice do
-    createAndExerciseCmd (Helper alice) (FetchAsset usdCid)
+  Some usd <- queryContractId alice usdCid
   tradeCid <- submit alice do
     createCmd Trade with
       baseAssetCid = usdCid
@@ -73,8 +72,7 @@ test_trade = do
       quoteAsset = eur
 
   -- Bob accepts by supplying a transfer approval for the uas and his eur.
-  usd <- submit bob do
-    createAndExerciseCmd (Helper bob) (FetchAsset usdCid)
+  Some usd <- queryContractId bob usdCid
   usdtaCid <- submit bob do
     exerciseCmd usdhb Preapprove_Transfer with
       asset = usd
@@ -83,10 +81,8 @@ test_trade = do
       quoteAssetCid = eurCid
       baseApprovalCid = usdtaCid
 
-  eur <- submit eurbank do
-    createAndExerciseCmd (Helper eurbank) (FetchAsset eurCid)
+  Some eur <- queryContractId eurbank eurCid
   assert (eur.owner == alice)
 
-  usd <- submit usdbank do
-    createAndExerciseCmd (Helper usdbank) (FetchAsset usdCid)
+  Some usd <- queryContractId usdbank usdCid
   assert (usd.owner == bob)

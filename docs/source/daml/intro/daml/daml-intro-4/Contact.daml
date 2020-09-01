@@ -6,20 +6,6 @@ module Contact where
 
 import Daml.Script
 
--- HELPER_BEGIN
--- Helper template to call `fetch`.
-template Helper
-  with
-    p : Party
-  where
-    signatory p
-    choice FetchContact : Contact
-      with
-        cid : ContractId Contact
-      controller p
-      do fetch cid
--- HELPER_END
-
 -- CHOICE_BEGIN
 template Contact
   with
@@ -73,12 +59,7 @@ choice_test = do
     exerciseCmd contactCid UpdateTelephone with
       newTelephone = "098 7654 321"
 
-<<<<<<< HEAD
   Some newContact <- queryContractId owner newContactCid
-=======
-  newContact <- submit owner do
-    createAndExerciseCmd (Helper owner) (FetchContact newContactCid)
->>>>>>> Migrate DAML Intro to DAML Script
 
   assert (newContact.telephone == "098 7654 321")
 -- CHOICE_TEST_END
@@ -88,12 +69,7 @@ choice_test = do
     exerciseCmd newContactCid UpdateAddress with
       newAddress = "1-10 Bobstreet"
 
-<<<<<<< HEAD
   Some newContact <- queryContractId owner newContactCid
-=======
-  newContact <- submit owner do
-    createAndExerciseCmd (Helper owner) (FetchContact newContactCid)
->>>>>>> Migrate DAML Intro to DAML Script
 
   assert (newContact.address == "1-10 Bobstreet")
 -- DELEGATION_TEST_END
