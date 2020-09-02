@@ -12,6 +12,10 @@ In this section you will learn about DAML's authorization rules and how to devel
 - Write advanced choices
 - Reason through DAML's Authorization model
 
+.. hint::
+
+  Remember that you can load all the code for this section into a folder called ``6_Parties`` by running ``daml new 6_Parties daml-intro-6``
+
 Preventing IOU revocation
 -------------------------
 
