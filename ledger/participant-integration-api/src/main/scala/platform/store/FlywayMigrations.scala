@@ -16,7 +16,7 @@ import org.flywaydb.core.api.configuration.FluentConfiguration
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-class FlywayMigrations(jdbcUrl: String)(implicit logCtx: LoggingContext) {
+private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val dbType = DbType.jdbcType(jdbcUrl)
@@ -68,7 +68,7 @@ class FlywayMigrations(jdbcUrl: String)(implicit logCtx: LoggingContext) {
     )
 }
 
-object FlywayMigrations {
+private[platform] object FlywayMigrations {
   def configurationBase(dbType: DbType): FluentConfiguration =
     Flyway
       .configure()

@@ -123,7 +123,6 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
     import DamlLf.ArchivePayload.{SumCase => SC}
     import language.{LanguageMajorVersion => LMV}
     lf.getSumCase match {
-      case SC.DAML_LF_0 => LMV.V0
       case SC.DAML_LF_1 => LMV.V1
       case SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
     }

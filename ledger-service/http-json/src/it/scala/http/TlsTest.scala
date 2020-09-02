@@ -23,6 +23,8 @@ class TlsTest
 
   override def useTls = UseTls.Tls
 
+  override def wsConfig: Option[WebsocketConfig] = None
+
   "connect normally with tls on" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
       .flatMap {

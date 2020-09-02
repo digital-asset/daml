@@ -127,8 +127,8 @@ buildDepInstances Config{..} = MS.fromListWith (<>)
     | packageId <- Set.toList configDependencyPackages
     , Just LF.Package{..} <- [MS.lookup packageId configPackages]
     , LF.Module{..} <- NM.toList packageModules
-    , LF.DefValue{..} <- NM.toList moduleValues
-    , Just dfun <- [getDFunSig dvalBinder]
+    , dval@LF.DefValue{..} <- NM.toList moduleValues
+    , Just dfun <- [getDFunSig dval]
     , let clsName = LF.qualObject $ dfhName $ dfsHead dfun
     ]
 
@@ -242,6 +242,7 @@ generateSrcFromLf env = noLoc mod
     genDecls = do
         decls <- sequence . concat $
             [ classDecls
+            , synonymDecls
             , dataTypeDecls
             , valueDecls
             ]
@@ -330,6 +331,27 @@ generateSrcFromLf env = noLoc mod
                 , tcdDocs = []
                 }
 
+    synonymDecls :: [Gen (LHsDecl GhcPs)]
+    synonymDecls = do
+        defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        guard $ case synType of
+            LF.TStruct _ -> False
+            LF.TUnit -> False
+            _ -> True
+        LF.TypeSynName [name] <- [synName]
+        guard (shouldExposeDefTypeSyn defTypeSyn)
+        let occName = mkOccName tcName . T.unpack $ sanitize name
+        pure $ do
+            params <- mapM (convTyVarBinder env) synParams
+            rhs <- convType env reexportedClasses synType
+            pure . noLoc . TyClD noExt $ SynDecl
+                { tcdSExt = noExt
+                , tcdLName = noLoc $ mkRdrUnqual occName
+                , tcdTyVars = HsQTvs noExt params
+                , tcdFixity = Prefix
+                , tcdRhs = noLoc rhs
+                }
+
     dataTypeDecls :: [Gen (LHsDecl GhcPs)]
     dataTypeDecls = do
         dtype@LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
@@ -362,7 +384,7 @@ generateSrcFromLf env = noLoc mod
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
     instanceDecls = do
         dval@LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
-        Just dfunSig <- [getDFunSig dvalBinder]
+        Just dfunSig <- [getDFunSig dval]
         guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
         case find (isDuplicate env (snd dvalBinder) . LF.qualObject) (MS.findWithDefault [] clsName $ envDepInstances env) of
@@ -867,7 +889,7 @@ buildHiddenRefMap config world =
 
         | RValue val <- ref
         , Right dval@LF.DefValue{..} <- LF.lookupValue val world
-        , refs <- if hasDFunSig dvalBinder -- we only care about typeclass instances
+        , refs <- if hasDFunSig dval -- we only care about typeclass instances
             then DL.toList (refsFromDFun dval)
             else mempty
         , refGraph' <- HMS.insert ref (False, refs) refGraph
@@ -921,13 +943,13 @@ modRootRefs pkgId mod = fold
         ]
     , DL.fromList
         [ RValue (qualify (fst dvalBinder))
-        | LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
-        , hasDFunSig dvalBinder
+        | dval@LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
+        , hasDFunSig dval
         ]
     , fold
         [ refsFromType (snd dvalBinder)
-        | LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
-        , not (hasDFunSig dvalBinder)
+        | dval@LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
+        , not (hasDFunSig dval)
         ]
     ]
   where
@@ -1022,6 +1044,8 @@ data DFunSig = DFunSig
     { dfsBinders :: ![(LF.TypeVarName, LF.Kind)] -- ^ foralls
     , dfsContext :: ![LF.Type] -- ^ constraints
     , dfsHead :: !DFunHead
+    , dfsSuper :: ![(LF.PackageRef, LF.ModuleName)]
+        -- ^ references from superclass dependencies
     }
 
 -- | Instance declaration head
@@ -1039,14 +1063,15 @@ data DFunHead
 -- | Is this the type signature for a dictionary function? Note that this
 -- accepts both generic dictionary functions "$f..." and specialised
 -- dictionary functions "$d...".
-hasDFunSig :: (LF.ExprValName, LF.Type) -> Bool
-hasDFunSig binder = isJust (getDFunSig binder)
+hasDFunSig :: LF.DefValue -> Bool
+hasDFunSig dval = isJust (getDFunSig dval)
 
 -- | Break a value type signature down into a dictionary function signature.
-getDFunSig :: (LF.ExprValName, LF.Type) -> Maybe DFunSig
-getDFunSig (valName, valType) = do
+getDFunSig :: LF.DefValue -> Maybe DFunSig
+getDFunSig LF.DefValue {..} = do
+    let (valName, valType) = dvalBinder
     (dfsBinders, dfsContext, dfhName, dfhArgs) <- go valType
-    head <- if isHasField dfhName
+    dfsHead <- if isHasField dfhName
         then do
             (symbolTy : dfhArgs) <- Just dfhArgs
             -- We handle both the old state where symbol was translated to unit
@@ -1055,7 +1080,8 @@ getDFunSig (valName, valType) = do
             guard (not $ T.null dfhField)
             Just DFunHeadHasField {..}
         else Just DFunHeadNormal {..}
-    pure $ DFunSig dfsBinders dfsContext head
+    let dfsSuper = getSuperclassReferences dvalBody
+    pure $ DFunSig {..}
   where
     -- | Break a dictionary function type down into a tuple
     -- (foralls, constraints, synonym name, args).
@@ -1085,6 +1111,16 @@ getDFunSig (valName, valType) = do
         name' <- T.stripPrefix "$fHasField\"" name
         Just $ fst (T.breakOn "\"" name')
 
+getSuperclassReferences :: LF.Expr -> [(LF.PackageRef, LF.ModuleName)]
+getSuperclassReferences body =
+    [ (qualPackage, qualModule)
+    | RValue LF.Qualified{..} <- DL.toList (refsFromDFunBody body)
+    , isDFunName qualObject
+    ]
+
+isDFunName :: LF.ExprValName -> Bool
+isDFunName (LF.ExprValName t) = any (`T.isPrefixOf` t) ["$f", "$d"]
+
 -- | Convert dictionary function signature into a DAML type.
 convDFunSig :: Env -> MS.Map LF.TypeSynName LF.PackageId -> DFunSig -> Gen (HsType GhcPs)
 convDFunSig env reexported DFunSig{..} = do
@@ -1095,6 +1131,7 @@ convDFunSig env reexported DFunSig{..} = do
     let cls = case LF.unTypeSynName (LF.qualObject headName) of
             [n] -> HsTyVar noExt NotPromoted . noLoc $ mkOrig ghcMod . mkOccName clsName $ T.unpack n
             ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
+    mapM_ (uncurry (genModule env)) dfsSuper
     args <- case dfsHead of
       DFunHeadHasField{..} -> do
           let arg0 = HsTyLit noExt . HsStrTy NoSourceText . mkFastString $ T.unpack dfhField

@@ -10,7 +10,7 @@ This examples requires a running sandbox.
 ## To start a sandbox running IOU example
 - create a new DAML Assistant `quickstart-scala` project
 ```
-$ daml new quickstart-scala quickstart-scala
+$ daml new quickstart-scala --template quickstart-scala
 ```
 - change directory to this project
 ```

@@ -23,19 +23,19 @@ compact way of representing models is needed.
 DAML provides exactly that: a compact representation of a contract model.
 Intuitively, the allowed actions are:
 
-#. **Create** actions on all instances of DAML templates such that
+#. **Create** actions on all instances of templates such that
    the template arguments satisfy the `ensure` clause of the
    template
 
 #. **Exercise** actions on a contract instance corresponding to
-   DAML choices on that template, with given
+   choices on that template, with given
    choice arguments, such that:
 
    #. The actors match the controllers of the choice.
-      That is, the DAML controllers define the :ref:`required authorizers <da-ledgers-required-authorizers>` of the choice.
+      That is, the controllers define the :ref:`required authorizers <da-ledgers-required-authorizers>` of the choice.
    #. The exercise kind matches.
    #. All assertions in the update block hold for the given choice arguments.
-   #. Create, exercise, fetch and key statements in the DAML update block are represented
+   #. Create, exercise, fetch and key statements in the update block are represented
       as create, exercise and fetch actions and key assertions in the consequences of the exercise
       action.
 
@@ -51,7 +51,7 @@ Intuitively, the allowed actions are:
 
 #. **NoSuchKey** assertions corresponding to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
 
-An instance of a DAML template, that is, a **DAML contract** or **contract instance**,
+An instance of a template, that is, a **DAML contract** or **contract instance**,
 is a triple of:
 
 #. a contract identifier
@@ -64,7 +64,7 @@ The observers are also derived from the template arguments and include:
 1. the observers as explicitly annotated on the template
 2. all controllers `c` of every choice defined using the syntax :code:`controller c can...` (as opposed to the syntax :code:`choice ... controller c`)
 
-For example, the following DAML template exactly describes the contract model
+For example, the following template exactly describes the contract model
 of a simple IOU with a unit amount, shown earlier.
 
 .. literalinclude:: ./daml/SimpleIou.daml
@@ -76,11 +76,11 @@ of a simple IOU with a unit amount, shown earlier.
 
 In this example, the owner is automatically made an observer on the contract, as the :code:`Transfer` and :code:`Settle` choices use the :code:`controller owner can` syntax.
 
-The template identifiers of DAML contracts are created
-through a content-addressing scheme. This means every DAML contract is
+The template identifiers of contracts are created
+through a content-addressing scheme. This means every contract is
 self-describing in a sense: it constrains its stakeholder annotations
 and all DAML-conformant actions on itself. As a consequence, one can
 talk about "the" DAML contract model, as a single contract model encoding all possible
-instances of all possible DAML templates. This model is subaction-closed;
+instances of all possible templates. This model is subaction-closed;
 all exercise and create actions done within an update block are also
 always permissible as top-level actions.

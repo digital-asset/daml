@@ -37,7 +37,6 @@ function bazel() {
 
 
 bazel shutdown
-bazel clean --expunge
 bazel fetch @nodejs_dev_env//...
 bazel build `
   `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `

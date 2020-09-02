@@ -3,15 +3,15 @@
 
 package com.daml.metrics
 
+import java.time.Instant
+
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 
 final class Metrics(val registry: MetricRegistry) {
 
-  private def gauge[T](name: MetricName, metricSupplier: MetricSupplier[Gauge[_]]): Gauge[T] = {
-    registry.remove(name)
-    registry.gauge(name, metricSupplier).asInstanceOf[Gauge[T]]
-  }
+  private[metrics] def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
+    registerGauge(name, gaugeSupplier, registry)
 
   object test {
     private val Prefix: MetricName = MetricName("test")
@@ -105,8 +105,9 @@ final class Metrics(val registry: MetricRegistry) {
           val decodeTimer: Timer = registry.timer(Prefix :+ "decode_timer")
           val accepts: Counter = registry.counter(Prefix :+ "accepts")
           val rejections: Counter = registry.counter(Prefix :+ "rejections")
-          def loadedPackages(value: () => Int): Gauge[Nothing] = {
-            gauge(Prefix :+ "loaded_packages", () => () => value())
+
+          def loadedPackages(value: () => Int): Unit = {
+            register(Prefix :+ "loaded_packages", () => () => value())
           }
         }
 
@@ -200,6 +201,13 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = kvutils.Prefix :+ "writer"
 
         val commit: Timer = registry.timer(Prefix :+ "commit")
+
+        val preExecutedCount: Counter = registry.counter(Prefix :+ "pre_executed_count")
+        val preExecutedInterpretationCosts: Histogram =
+          registry.histogram(Prefix :+ "pre_executed_interpretation_costs")
+        val committedCount: Counter = registry.counter(Prefix :+ "committed_count")
+        val committedInterpretationCosts: Histogram =
+          registry.histogram(Prefix :+ "committed_interpretation_costs")
       }
 
       object conflictdetection {
@@ -312,6 +320,7 @@ final class Metrics(val registry: MetricRegistry) {
         val storeConfigurationEntry: Timer = registry.timer(Prefix :+ "store_configuration_entry")
 
         val lookupLedgerId: Timer = registry.timer(Prefix :+ "lookup_ledger_id")
+        val lookupParticipantId: Timer = registry.timer(Prefix :+ "lookup_participant_id")
         val lookupLedgerEnd: Timer = registry.timer(Prefix :+ "lookup_ledger_end")
         val lookupTransaction: Timer = registry.timer(Prefix :+ "lookup_transaction")
         val lookupLedgerConfiguration: Timer =
@@ -338,10 +347,12 @@ final class Metrics(val registry: MetricRegistry) {
 
         val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
+        val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
           "initialize_ledger_parameters")
+        val initializeParticipantId: DatabaseMetrics = createDbMetrics("initialize_participant_id")
         val lookupConfiguration: DatabaseMetrics = createDbMetrics("lookup_configuration")
         val loadConfigurationEntries: DatabaseMetrics = createDbMetrics(
           "load_configuration_entries")
@@ -421,8 +432,11 @@ final class Metrics(val registry: MetricRegistry) {
       val lastReceivedOffset = new VarGauge[String]("<none>")
       registry.register(Prefix :+ "last_received_offset", lastReceivedOffset)
 
-      def currentRecordTimeLag(value: () => Long): Gauge[Nothing] =
-        gauge(Prefix :+ "current_record_time_lag", () => () => value())
+      registerGauge(
+        Prefix :+ "current_record_time_lag",
+        () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
+        registry,
+      )
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
     }

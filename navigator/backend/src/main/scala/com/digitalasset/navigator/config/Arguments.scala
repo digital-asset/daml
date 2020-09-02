@@ -128,7 +128,7 @@ object Arguments {
       opt[Unit]("tls")
         .optional()
         .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
-        .action((path, arguments) =>
+        .action((_, arguments) =>
           arguments.copy(tlsConfig =
             arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
 

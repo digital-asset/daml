@@ -6,6 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream } from  '@daml/ledger';
+import { Int } from '@daml/types';
 import pEvent from 'p-event';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
@@ -43,38 +44,37 @@ const getEnv = (variable: string): string => {
   return result;
 }
 
-const spawnJvmAndWaitOn = async (jar: string, args: string[], resource: string, jvmArgs: string[] = []): Promise<ChildProcess> => {
+const spawnJvm = (jar: string, args: string[], jvmArgs: string[] = []): ChildProcess => {
   const java = getEnv('JAVA');
   const proc = spawn(java, [...jvmArgs, '-jar', jar, ...args], {stdio: "inherit",});
-  await waitOn({resources: [resource]})
   return proc;
 }
 
 beforeAll(async () => {
   console.log ('build-and-lint-1.0.0 (' + buildAndLint.packageId + ") loaded");
   const darPath = getEnv('DAR');
-  sandboxProcess = await spawnJvmAndWaitOn(
+  sandboxProcess = spawnJvm(
     getEnv('SANDBOX'),
     ['--port', "0", '--port-file', SANDBOX_PORT_FILE, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
-    `file:${SANDBOX_PORT_FILE}`,
   );
+  await waitOn({resources: [`file:${SANDBOX_PORT_FILE}`]})
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, { encoding: 'utf8' });
   sandboxPort = parseInt(sandboxPortData);
   console.log('Sandbox listening on port ' + sandboxPort.toString());
 
-  jsonApiProcess = await spawnJvmAndWaitOn(
+  jsonApiProcess = spawnJvm(
     getEnv('JSON_API'),
     ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
      '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
-    `file:${JSON_API_PORT_FILE}`,
     ['-Dakka.http.server.request-timeout=60s',
      '-Dlogback.configurationFile=' + getEnv("JSON_API_LOGBACK")],
   )
+  await waitOn({resources: [`file:${JSON_API_PORT_FILE}`]})
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
   jsonApiPort = parseInt(jsonApiPortData);
   console.log('JSON API listening on port ' + jsonApiPort.toString());
-});
+}, 120_000);
 
 afterAll(() => {
   if (sandboxProcess) {
@@ -104,6 +104,24 @@ function promisifyStream<T extends object, K, I extends string, State>(
   const close = () => stream.close();
   return {next, close};
 }
+
+describe('decoders for recursive types do not loop', () => {
+  test('recursive enum', () => {
+    expect(buildAndLint.Main.Expr(Int).decoder.run(undefined).ok).toBe(false);
+  });
+
+  test('recursive record with guards', () => {
+    expect(buildAndLint.Main.Recursive.decoder.run(undefined).ok).toBe(false);
+  });
+
+  test('uninhabited record', () => {
+    expect(buildAndLint.Main.VoidRecord.decoder.run(undefined).ok).toBe(false);
+  });
+
+  test('uninhabited enum', () => {
+    expect(buildAndLint.Main.VoidEnum.decoder.run(undefined).ok).toBe(false);
+  });
+});
 
 test('create + fetch & exercise', async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
@@ -276,6 +294,8 @@ test('create + fetch & exercise', async () => {
     n5:  '3.14159',      // Numeric 5
     n10: '3.1415926536', // Numeric 10
     rec: {'recOptional': null, 'recList': [], 'recTextMap': {}},
+    voidRecord: null,
+    voidEnum: null,
   };
   const allTypesContract = await aliceLedger.create(buildAndLint.Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);

@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
@@ -21,5 +22,16 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_jvm",
+    ],
+)
+
+da_scala_test_suite(
+    name = "metrics-tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    deps = [
+        ":metrics",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

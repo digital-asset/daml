@@ -26,6 +26,7 @@ import com.daml.ledger.client.binding.retrying.{CommandRetryFlow, RetryInfo}
 import com.daml.ledger.client.binding.util.Slf4JLogger
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.util.Ctx
+import com.github.ghik.silencer.silent
 import io.grpc.ManagedChannel
 import io.grpc.netty.NegotiationType.TLS
 import io.grpc.netty.NettyChannelBuilder
@@ -99,7 +100,8 @@ class LedgerClientBinding(
         .map(_.map(compositeCommandAdapter.transform))
         .via(tracking)
 
-  private def createRetry[C](retryInfo: RetryInfo[C], completion: Completion): SubmitRequest = {
+  @silent(" ignored .* is never used") // matches CommandRetryFlow signature
+  private def createRetry[C](retryInfo: RetryInfo[C], ignored: Any): SubmitRequest = {
     if (retryInfo.request.commands.isEmpty) {
       logger.warn(s"Retrying with empty commands for {}", retryInfo.request)
     }
@@ -140,6 +142,7 @@ object LedgerClientBinding {
     builder.build()
   }
 
+  @silent(" config .* is never used") // public function, unsure whether arg needed
   def askLedgerId(channel: ManagedChannel, config: LedgerClientConfiguration)(
       implicit ec: ExecutionContext): Future[String] =
     LedgerIdentityServiceGrpc

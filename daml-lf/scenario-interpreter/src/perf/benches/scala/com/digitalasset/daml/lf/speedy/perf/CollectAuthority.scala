@@ -18,7 +18,6 @@ import com.daml.lf.speedy.Speedy.Machine
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-import com.daml.lf.transaction.TransactionVersions
 import org.openjdk.jmh.annotations._
 
 class CollectAuthority {
@@ -32,9 +31,9 @@ class CollectAuthority {
 class CollectAuthorityState {
 
   @Param(Array("//daml-lf/scenario-interpreter/CollectAuthority.dar"))
-  private var dar: String = _
+  private[perf] var dar: String = _
   @Param(Array("CollectAuthority:test"))
-  private var scenario: String = _
+  private[perf] var scenario: String = _
 
   var machine: Machine = null
   var the_sexpr: SExpr = null
@@ -57,7 +56,8 @@ class CollectAuthorityState {
       compiledPackages,
       seeding(),
       expr,
-      TransactionVersions.SupportedOutputDevVersions,
+      value.ValueVersions.DevOutputVersions,
+      transaction.TransactionVersions.DevOutputVersions,
     )
     the_sexpr = machine.ctrl
 

@@ -32,10 +32,14 @@ package object kvutils {
   type Bytes = ByteString
   type DamlStateMap = Map[DamlStateKey, Option[DamlStateValue]]
 
+  type CorrelationId = String
+
   type Fingerprint = Bytes
   type DamlStateMapWithFingerprints = Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
   val FingerprintPlaceholder: Fingerprint = ByteString.EMPTY
 
   val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
+
+  implicit val `Bytes Ordering`: Ordering[Bytes] = Ordering.by(_.asReadOnlyByteBuffer)
 
 }

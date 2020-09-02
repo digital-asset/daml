@@ -26,6 +26,10 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+
+rules_pkg_dependencies()
+
 register_toolchains(
     "//:c2hs-toolchain",
 )
@@ -216,9 +220,6 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
-    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
-    # confuses the JAR query in `daml-sdk-head`.
-    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -239,9 +240,6 @@ nixpkgs_package(
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
-    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
-    # confuses the JAR query in `daml-sdk-head`.
-    quiet = True,
     repositories = dev_env_nix_repos,
 )
 
@@ -445,7 +443,6 @@ haskell_register_ghc_nixpkgs(
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],
     },
-    is_static = True,
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
@@ -455,6 +452,7 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
+    static_runtime = True,
     version = "8.6.5",
 )
 
@@ -737,7 +735,7 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
 
 container_pull(
     name = "java_base",
-    digest = "sha256:7cef6d99241bc86e09659d41842e3656a1cab99adf0e440a44d2858c8e52a71a",
+    digest = "sha256:17b8b592d923f375972a59e902426bfaa30900d18fdb5e451f48089258fd621c",
     registry = "gcr.io",
     repository = "distroless/java",
     tag = "8",
@@ -787,15 +785,6 @@ yarn_install(
     package_json = "//:package.json",
     yarn_lock = "//:yarn.lock",
 )
-
-# Install all Bazel dependencies of the @npm packages
-load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
-
-install_bazel_dependencies()
-
-load("@npm_bazel_typescript//:index.bzl", "ts_setup_workspace")
-
-ts_setup_workspace()
 
 # TODO use fine-grained managed dependency
 yarn_install(
@@ -972,14 +961,7 @@ java_import(
     jars = glob(["lib/**"]),
 )
 """,
-    sha256 = "c1e5aff815c52b57a0c1cac13a5c3523cc1e6a63005b3b788015a96fd058c527",
-    strip_prefix = "canton-0.15.0",
-    urls = ["https://www.canton.io/releases/canton-0.15.0.tar.gz"],
-)
-
-http_file(
-    name = "ref-ledger-authentication",
-    downloaded_file_path = "ref-ledger-authentication.jar",
-    sha256 = "761b1731339acea3370baf98a3242714e0c81789d8cbb26b623bbf93ce6f80ef",
-    urls = ["https://github.com/digital-asset/ref-ledger-authenticator/releases/download/v0.0.0-snapshot-20200716.15.2b46f9f5/ref-ledger-authenticator-0.0.0-snapshot-20200716.15.2b46f9f5.jar"],
+    sha256 = "dff85a80e893f1d4e99c3eb3cd62ed0fbb8a91d4b76aa2cc3394a635da968aed",
+    strip_prefix = "canton-0.18.2",
+    urls = ["https://www.canton.io/releases/canton-0.18.2.tar.gz"],
 )

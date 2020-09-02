@@ -5,6 +5,7 @@ package com.daml.navigator.graphqless
 
 import sangria.schema._
 import shapeless._
+import com.github.ghik.silencer.silent
 
 import scala.reflect.ClassTag
 
@@ -18,6 +19,7 @@ object GraphQLObject {
 
 trait DerivedGraphQLObject {
 
+  @silent(" generic .*is never used") // used to calculate Repr0 tparam only
   implicit def caseClassGraphQLObject[C, Repr0 <: HList](
       implicit
       classTag: ClassTag[C],

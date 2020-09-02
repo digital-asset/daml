@@ -11,7 +11,7 @@ import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class TimedCommandExecutor(
+private[apiserver] class TimedCommandExecutor(
     delegate: CommandExecutor,
     metrics: Metrics,
 ) extends CommandExecutor {
@@ -21,7 +21,7 @@ class TimedCommandExecutor(
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     Timed.future(metrics.daml.execution.total, delegate.execute(commands, submissionSeed))
 

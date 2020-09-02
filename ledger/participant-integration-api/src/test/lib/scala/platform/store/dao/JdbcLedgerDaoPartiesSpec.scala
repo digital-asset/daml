@@ -6,8 +6,8 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
-import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.PartyDetails
+import com.daml.lf.data.Ref
 import com.daml.platform.store.entries.PartyLedgerEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
@@ -27,14 +27,12 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       displayName = Some("Bob Bobertson"),
       isLocal = true,
     )
-    val participantId = Ref.ParticipantId.assertFromString("participant-0")
     val offset1 = nextOffset()
     for {
       response <- ledgerDao.storePartyEntry(
         offset1,
         PartyLedgerEntry.AllocationAccepted(
           submissionIdOpt = Some(UUID.randomUUID().toString),
-          participantId = participantId,
           recordTime = Instant.now,
           partyDetails = alice,
         ),
@@ -45,7 +43,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
         offset2,
         PartyLedgerEntry.AllocationAccepted(
           submissionIdOpt = Some(UUID.randomUUID().toString),
-          participantId = participantId,
           recordTime = Instant.now,
           partyDetails = bob,
         ),
@@ -73,14 +70,12 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       displayName = Some("Carol Carlisle"),
       isLocal = true,
     )
-    val participantId = Ref.ParticipantId.assertFromString("participant-0")
     val offset = nextOffset()
     for {
       response <- ledgerDao.storePartyEntry(
         offset,
         PartyLedgerEntry.AllocationAccepted(
           submissionIdOpt = Some(UUID.randomUUID().toString),
-          participantId = participantId,
           recordTime = Instant.now,
           partyDetails = carol,
         ),
@@ -108,14 +103,12 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       displayName = Some("Dangerous Dan"),
       isLocal = true,
     )
-    val participantId = Ref.ParticipantId.assertFromString("participant-0")
     val offset1 = nextOffset()
     for {
       response <- ledgerDao.storePartyEntry(
         offset1,
         PartyLedgerEntry.AllocationAccepted(
           submissionIdOpt = Some(UUID.randomUUID().toString),
-          participantId = participantId,
           recordTime = Instant.now,
           partyDetails = dan,
         ),
@@ -126,7 +119,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
         offset2,
         PartyLedgerEntry.AllocationAccepted(
           submissionIdOpt = Some(UUID.randomUUID().toString),
-          participantId = participantId,
           recordTime = Instant.now,
           partyDetails = eve,
         ),
@@ -144,14 +136,12 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       displayName = Some("Fred Flintstone"),
       isLocal = true,
     )
-    val participantId = Ref.ParticipantId.assertFromString("participant-0")
     val offset1 = nextOffset()
     for {
       response <- ledgerDao.storePartyEntry(
         offset1,
         PartyLedgerEntry.AllocationAccepted(
           submissionIdOpt = Some(UUID.randomUUID().toString),
-          participantId = participantId,
           recordTime = Instant.now,
           partyDetails = fred,
         ),
@@ -162,7 +152,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
         offset2,
         PartyLedgerEntry.AllocationAccepted(
           submissionIdOpt = Some(UUID.randomUUID().toString),
-          participantId = participantId,
           recordTime = Instant.now,
           partyDetails = fred,
         ),

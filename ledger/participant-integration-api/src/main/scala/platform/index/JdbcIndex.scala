@@ -13,7 +13,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.ResourceOwner
 
-object JdbcIndex {
+private[platform] object JdbcIndex {
   def owner(
       serverRole: ServerRole,
       ledgerId: LedgerId,
@@ -22,7 +22,7 @@ object JdbcIndex {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexService] =
+  )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
       serverRole,
       jdbcUrl,

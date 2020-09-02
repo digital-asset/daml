@@ -16,24 +16,30 @@ import scala.concurrent.{ExecutionContext, Future}
 private[memory] final class InMemoryLedgerStateOperations(
     log: InMemoryState.MutableLog,
     state: InMemoryState.MutableState,
-)(implicit executionContext: ExecutionContext)
-    extends BatchingLedgerStateOperations[Index] {
+) extends BatchingLedgerStateOperations[Index] {
+
   import InMemoryLedgerStateOperations.appendEntry
 
-  override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+  override def readState(keys: Seq[Key])(
+      implicit executionContext: ExecutionContext
+  ): Future[Seq[Option[Value]]] =
     Future.successful(keys.map(state.get))
 
-  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] = {
+  override def writeState(keyValuePairs: Seq[(Key, Value)])(
+      implicit executionContext: ExecutionContext
+  ): Future[Unit] = {
     state ++= keyValuePairs
     Future.unit
   }
 
-  override def appendToLog(key: Key, value: Value): Future[Index] =
+  override def appendToLog(key: Key, value: Value)(
+      implicit executionContext: ExecutionContext
+  ): Future[Index] =
     Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
 }
 
 object InMemoryLedgerStateOperations {
-  def apply()(implicit executionContext: ExecutionContext): InMemoryLedgerStateOperations = {
+  def apply(): InMemoryLedgerStateOperations = {
     val inMemoryState = mutable.Map.empty[Key, Value]
     val inMemoryLog = mutable.ArrayBuffer[LedgerRecord]()
     new InMemoryLedgerStateOperations(inMemoryLog, inMemoryState)

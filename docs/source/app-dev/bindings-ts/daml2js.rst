@@ -20,7 +20,7 @@ Here's a complete example on a project built from the standard "skeleton" templa
 .. code-block:: bash
    :linenos:
 
-   daml new my-proj skeleton # Create a new project based off the skeleton template
+   daml new my-proj --template skeleton # Create a new project based off the skeleton template
    cd my-proj # Enter the newly created project directory
    daml build  # Compile the project's DAML files into a DAR
    daml codegen js -o daml.js .daml/dist/my-proj-0.0.1.dar # Generate JavaScript packages in the daml.js directory

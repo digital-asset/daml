@@ -96,16 +96,16 @@ This example connects to a database on host ``192.168.1.12``, listening on port 
 
   $ daml extractor postgres --connecturl jdbc:postgresql://192.168.1.12:5432/daml_export --user daml_exporter --password ExamplePassword --party [party]
 
-Authenticating Extractor
-************************
+Authorize Extractor
+*******************
 
-If you are running Extractor against a Ledger API server that requires authentication, you must provide the access token when you start it.
+If you are running Extractor against a Ledger API server that verifies authorization, you must provide the access token when you start it.
 
 The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
 
 Once you have retrieved your access token, you can provide it to Extractor by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
 
-Both in the case in which the token cannot be read from the provided path or if the Ledger API reports an authentication error (for example due to token expiration), Extractor will keep trying to read and use it and report the error via logging. This retry mechanism allows expired token to be overwritten with valid ones and keep Extractor going from where it left off.
+Both in the case in which the token cannot be read from the provided path or if the Ledger API reports an authorization error (for example due to token expiration), Extractor will keep trying to read and use it and report the error via logging. This retry mechanism allows expired token to be overwritten with valid ones and keep Extractor going from where it left off.
 
 Full list of options
 ********************
@@ -157,9 +157,9 @@ To see the full list of options, run the ``--help`` command, which gives the fol
                              Required if any other TLS parameters are set.
     --cacrt <value>          TLS: The crt file to be used as the trusted root CA.
 
-  Authentication:
+  Authorization:
     --access-token-file <value>
-                             provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
+                             provide the path from which the access token will be read, required if the Ledger API server verifies authorization, no default
 
 Some options are tied to a specific subcommand, like ``--connecturl`` only makes sense for the ``postgresql``, while others are general, like ``--party``.
 
@@ -254,28 +254,14 @@ Exercise events are stored in the ``exercise`` table in the ``public`` schema, w
 JSON format
 ***********
 
-Values on the ledger can be either primitive types, user-defined ``records``, or ``variants``. An extracted contract is represented in the database as a ``record`` of its create argument, and the fields of that ``records`` are either primitive types, other ``records``, or ``variants``. A contract can be a recursive structure of arbitrary depth.
+Extractor stores create and choice arguments
+using the :doc:`/json-api/lf-value-specification`. The parameters of the
+JSON schema are instantiated as follows in Extractor:
 
-These types are translated to `JSON types <https://json-schema.org/understanding-json-schema/reference/index.html>`_ the following way:
+.. code::
 
-**Primitive types**
-
-- ``ContractID``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Int64``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Decimal``: A decimal value with precision 38 (38 decimal digits), of which 10 after the comma / period. Represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``List``: represented as `array <https://json-schema.org/understanding-json-schema/reference/array.html>`_.
-- ``Text``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Date``: days since the unix epoch. represented as `integer <https://json-schema.org/understanding-json-schema/reference/numeric.html#integer>`_.
-- ``Time``: Microseconds since the UNIX epoch. Represented as `number <https://json-schema.org/understanding-json-schema/reference/numeric.html#number>`_.
-- ``Bool``: represented as `boolean <https://json-schema.org/understanding-json-schema/reference/boolean.html>`_.
-- ``Party``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Unit`` and ``Empty`` are represented as empty records.
-- ``Optional``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, as it was a ``Variant`` with two possible constructors: ``None`` and ``Some``.
-
-**User-defined types**
-
-- ``Record``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, where each create parameter’s name is a key, and the parameter’s value is the JSON-encoded value.
-- ``Variant``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, using the ``{constructor: body}`` format, e.g. ``{"Left": true}``.
+    encodeDecimalAsString: true
+    encodeInt64AsString: false
 
 Examples of output
 ******************

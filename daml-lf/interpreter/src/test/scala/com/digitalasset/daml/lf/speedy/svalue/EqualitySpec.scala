@@ -5,7 +5,7 @@ package com.daml.lf.speedy.svalue
 
 import java.util
 
-import com.daml.lf.data.{FrontStack, Numeric, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.Profile.LabelUnset
 import com.daml.lf.speedy.SValue._
@@ -15,6 +15,7 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz._
 import Scalaz._
+import com.daml.lf.speedy.SError.SErrorCrash
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap
@@ -37,14 +38,18 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   private val Record0TypeCon: Ref.TypeConName = "Unit"
   private val Record2TypeCon: Ref.TypeConName = "Tuple"
-  private val record2Fields = Ref.Name.Array("fst", "snd")
+  private val record2Fields = ImmArray[Ref.Name]("fst", "snd")
 
   private val VariantTypeCon: Ref.TypeConName = "Either"
   private val VariantCon1: Ref.Name = "Left"
   private val VariantCon2: Ref.Name = "Right"
 
+  private val struct2Fields = ImmArray[Ref.Name]("fst", "snd")
+
+  private val unit = SValue.SValue.Unit
+
   private val units =
-    List(SValue.SValue.Unit)
+    List(unit)
   private val bools =
     List(SValue.SValue.True, SValue.SValue.False)
   private val ints =
@@ -71,9 +76,9 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     SEnum(EnumTypeCon, EnumCon2, 1)
   )
 
-  private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
+  private val struct0 = List(SStruct(ImmArray.empty, ArrayList()))
 
-  private val records0 = List(SRecord(Record0TypeCon, Ref.Name.Array.empty, ArrayList()))
+  private val records0 = List(SRecord(Record0TypeCon, ImmArray.empty, ArrayList()))
 
   private val typeReps = List(
     AstUtil.TUnit,
@@ -95,7 +100,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     for {
       x <- fst
       y <- snd
-    } yield SStruct(record2Fields, ArrayList(x, y))
+    } yield SStruct(struct2Fields, ArrayList(x, y))
 
   private def lists(atLeast3Values: List[SValue]) = {
     val s = atLeast3Values.take(3)
@@ -135,6 +140,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   private val equatableValues: TableFor1[TableFor1[SValue]] = Table(
     "equatable values",
+    Table("textMap_1", mkTextMaps(lists(ints)): _*),
     // Atomic values
     Table("Unit", units: _*),
     Table("Bool", bools: _*),
@@ -170,10 +176,10 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     Table("any", anys: _*),
   )
 
-  private val lfFunction = SPAP(PBuiltin(SBuiltin.SBAddInt64), ArrayList(SInt64(1)), 2)
+  private val fun = SPAP(PBuiltin(SBuiltin.SBAddInt64), ArrayList(SInt64(1)), 2)
 
   private val funs = List(
-    lfFunction,
+    fun,
     SPAP(PClosure(LabelUnset, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
   )
 
@@ -217,55 +223,232 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     Table(
       "nonEquatable values" -> "equatable values",
       SOptional(None) ->
-        SOptional(Some(lfFunction)),
+        SOptional(Some(fun)),
       SList(FrontStack.empty) ->
-        SList(FrontStack(lfFunction)),
+        SList(FrontStack(fun)),
       STextMap(HashMap.empty) ->
-        STextMap(HashMap("a" -> lfFunction)),
-      SGenMap.Empty -> SGenMap(SInt64(0) -> lfFunction),
+        STextMap(HashMap("a" -> fun)),
+      SGenMap.Empty -> SGenMap(SInt64(0) -> fun),
       SVariant(VariantTypeCon, VariantCon1, 0, SInt64(0)) ->
-        SVariant(VariantTypeCon, VariantCon2, 1, lfFunction),
+        SVariant(VariantTypeCon, VariantCon2, 1, fun),
       SAny(AstUtil.TInt64, SInt64(1)) ->
-        SAny(AstUtil.TFun(AstUtil.TInt64, AstUtil.TInt64), lfFunction),
+        SAny(AstUtil.TFun(AstUtil.TInt64, AstUtil.TInt64), fun),
     )
 
   "Equality.areEqual" should {
 
+    import Equality.areEqual
+
     // In the following tests, we check only well-type equalities
 
     "be reflexive on equatable values" in {
-      forEvery(equatableValues)(atoms => forEvery(atoms)(x => assert(Equality.areEqual(x, x))))
+      forEvery(equatableValues)(atoms => forEvery(atoms)(x => assert(areEqual(x, x))))
     }
 
-    "return false when applied on two on different equatable values" in {
+    "return false when applied on two different equatable values" in {
       forAll(equatableValues)(atoms =>
         for {
           (x, i) <- atoms.zipWithIndex
           (y, j) <- atoms.zipWithIndex
           if i != j
-        } assert(!Equality.areEqual(x, y)))
+        } assert(!areEqual(x, y)))
     }
 
-    "be irreflexive on non-equatable values" in {
-      forEvery(nonEquatableValues)(atoms => forEvery(atoms)(x => assert(!Equality.areEqual(x, x))))
-    }
-
-    "return false when applied on two different non-equatable values" in {
-      forAll(nonEquatableValues)(atoms =>
-        for {
-          (x, i) <- atoms.zipWithIndex
-          (y, j) <- atoms.zipWithIndex
-          if i != j
-        } assert(!Equality.areEqual(x, y)))
+    "fail on non-equatable values" in {
+      forEvery(nonEquatableValues)(atoms =>
+        forEvery(atoms)(x => an[SErrorCrash] should be thrownBy areEqual(x, x)))
     }
 
     "return false when applied on an equatable and a nonEquatable values" in {
       forEvery(nonEquatableWithEquatableValues) {
         case (nonEq, eq) =>
-          assert(!Equality.areEqual(nonEq, eq))
-          assert(!Equality.areEqual(eq, nonEq))
+          assert(!areEqual(nonEq, eq))
+          assert(!areEqual(eq, nonEq))
       }
     }
+
+    val x1 = SVariant(VariantTypeCon, VariantCon1, 0, SInt64(1))
+    val x2 = SVariant(VariantTypeCon, VariantCon1, 0, SInt64(2))
+    val x3 = SVariant(VariantTypeCon, VariantCon1, 0, SInt64(3))
+    val u = SVariant(VariantTypeCon, VariantCon2, 1, fun)
+
+    "shortcut failure in records " in {
+      def record(x: SValue, y: SValue) =
+        SRecord(Record2TypeCon, record2Fields, ArrayList(x, y))
+
+      val negativeTestCases = Table(
+        "first arg" -> "second arg",
+        record(u, x1) -> record(u, x1),
+        record(u, x1) -> record(u, x2),
+        record(x1, u) -> record(x1, u)
+      )
+      val positiveTestCases = Table(
+        "first arg" -> "second arg",
+        record(x1, u) -> record(x2, u)
+      )
+
+      forEvery(negativeTestCases)((x, y) => an[SErrorCrash] should be thrownBy areEqual(x, y))
+      forEvery(positiveTestCases)((x, y) => areEqual(x, y))
+    }
+
+    "shortcut failure in variant" in {
+      val negativeTestCases = Table(
+        "first arg" -> "second arg",
+        u -> u,
+      )
+      val positiveTestCases = Table(
+        "first arg" -> "second arg",
+        u -> x1
+      )
+      forEvery(negativeTestCases) { (x, y) =>
+        an[SErrorCrash] should be thrownBy areEqual(x, y)
+        an[SErrorCrash] should be thrownBy areEqual(y, x)
+      }
+      forEvery(positiveTestCases) { (x, y) =>
+        areEqual(x, y)
+        areEqual(y, x)
+      }
+    }
+
+    "shortcut failure in list" in {
+      def list(xs: SValue*) = SList(FrontStack(xs))
+
+      val negativeTestCases = Table(
+        "first arg" -> "second arg",
+        list(u) -> list(u),
+        list(u, x1) -> list(u),
+        list(x1, u) -> list(x1, u),
+        list(x1, u, x1) -> list(x1, u),
+      )
+      val positiveTestCases = Table(
+        "first arg" -> "second arg",
+        list(x1, u) -> list(x2, u),
+        list(u) -> list(),
+        list() -> list(u)
+      )
+
+      forEvery(negativeTestCases) { (x, y) =>
+        an[SErrorCrash] should be thrownBy areEqual(x, y)
+        an[SErrorCrash] should be thrownBy areEqual(y, x)
+      }
+      forEvery(positiveTestCases) { (x, y) =>
+        areEqual(x, y)
+        areEqual(y, x)
+      }
+    }
+
+    "shortcut failure in optional" in {
+      val negativeTestCases = Table(
+        "first arg" -> "second arg",
+        SOptional(Some(u)) -> SOptional(Some(u)),
+      )
+      val positiveTestCases = Table(
+        "first arg" -> "second arg",
+        SOptional(None) -> SOptional(Some(u))
+      )
+      forEvery(negativeTestCases) { (x, y) =>
+        an[SErrorCrash] should be thrownBy areEqual(x, y)
+        an[SErrorCrash] should be thrownBy areEqual(y, x)
+      }
+      forEvery(positiveTestCases) { (x, y) =>
+        areEqual(x, y)
+        areEqual(y, x)
+      }
+    }
+
+    "shortcut failure in text map" in {
+      def map(xs: (String, SValue)*) = STextMap(HashMap(xs: _*))
+
+      val k1 = "a"
+      val k2 = "b"
+      val k3 = "c"
+      assert(k1 < k2)
+      assert(k2 < k3)
+
+      val negativeTestCases = Table(
+        "first arg" -> "second arg",
+        map(k1 -> u) -> map(k1 -> u),
+        map(k1 -> u, k2 -> x1) -> map(k1 -> u),
+        map(k1 -> u, k2 -> x1) -> map(k1 -> u, k3 -> x1),
+        map(k1 -> u, k2 -> x1) -> map(k1 -> u, k2 -> x2),
+        map(k1 -> x1, k2 -> u) -> map(k1 -> x1, k2 -> u),
+      )
+      val positiveTestCases = Table(
+        "first arg" -> "second arg",
+        map(k1 -> x1, k2 -> u) -> map(k1 -> x2, k2 -> u),
+        map(k1 -> x1) -> map(k2 -> u),
+        map(k1 -> x1, k2 -> u) -> map(k1 -> x1, k3 -> u),
+        map(k1 -> x1, k2 -> u) -> map(k2 -> u),
+        map(k1 -> x1, k2 -> u) -> map(k2 -> u),
+        map(k1 -> x1, k2 -> u) -> map(k2 -> x1, k3 -> u),
+        map(k1 -> u) -> map(),
+      )
+      forEvery(negativeTestCases) { (x, y) =>
+        an[SErrorCrash] should be thrownBy areEqual(x, y)
+        an[SErrorCrash] should be thrownBy areEqual(y, x)
+      }
+      forEvery(positiveTestCases) { (x, y) =>
+        areEqual(x, y)
+        areEqual(y, x)
+      }
+    }
+
+    "shortcut failure in gen map" in {
+      def map(xs: (SValue, SValue)*) = SGenMap(xs.iterator)
+
+      val k1 = x1
+      val k2 = x2
+      val k3 = x3
+      assert(Ordering.compare(k1, k2) < 0)
+      assert(Ordering.compare(k2, k3) < 0)
+
+      val negativeTestCases = Table(
+        "first arg" -> "second arg",
+        map(k1 -> u) -> map(k1 -> u),
+        map(k1 -> u, k2 -> x1) -> map(k1 -> u),
+        map(k1 -> u, k2 -> x1) -> map(k1 -> u, k3 -> x1),
+        map(k1 -> u, k2 -> x1) -> map(k1 -> u, k2 -> x2),
+        map(k1 -> x1, k2 -> u) -> map(k1 -> x1, k2 -> u),
+      )
+      val positiveTestCases = Table(
+        "first arg" -> "second arg",
+        map(k1 -> x1, k2 -> u) -> map(k1 -> x2, k2 -> u),
+        map(k1 -> x1) -> map(k2 -> u),
+        map(k1 -> x1, k2 -> u) -> map(k1 -> x1, k3 -> u),
+        map(k1 -> x1, k2 -> u) -> map(k2 -> u),
+        map(k1 -> x1, k2 -> u) -> map(k2 -> u),
+        map(k1 -> x1, k2 -> u) -> map(k2 -> x1, k3 -> u),
+        map(k1 -> u) -> map(),
+      )
+      forEvery(negativeTestCases) { (x, y) =>
+        an[SErrorCrash] should be thrownBy areEqual(x, y)
+        an[SErrorCrash] should be thrownBy areEqual(y, x)
+      }
+      forEvery(positiveTestCases) { (x, y) =>
+        areEqual(x, y)
+        areEqual(y, x)
+      }
+    }
+
+    "shortcut failure in struct" in {
+      def struct(x: SValue, y: SValue) =
+        SStruct(struct2Fields, ArrayList(x, y))
+
+      val negativeTestCases = Table(
+        "first arg" -> "second arg",
+        struct(u, x1) -> struct(u, x1),
+        struct(u, x1) -> struct(u, x2),
+        struct(x1, u) -> struct(x1, u)
+      )
+      val positiveTestCases = Table(
+        "first arg" -> "second arg",
+        struct(x1, u) -> struct(x2, u)
+      )
+
+      forEvery(negativeTestCases)((x, y) => an[SErrorCrash] should be thrownBy areEqual(x, y))
+      forEvery(positiveTestCases)((x, y) => areEqual(x, y))
+    }
+
   }
 
   "Hasher.hashCode" should {

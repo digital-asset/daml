@@ -8,7 +8,7 @@ import java.util
 
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
+import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
 import ImmArray.ImmArraySeq
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
@@ -62,6 +62,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             _,
             onlySerializableDataDefs).decode),
       directDeps = dependencyTracker.getDependencies,
+      languageVersion = languageVersion,
       metadata = metadata,
     )
 
@@ -238,7 +239,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         templates += ((defName, decodeTemplate(defn)))
       }
 
-      Module(moduleName, defs, templates, languageVersion, decodeFeatureFlags(lfModule.getFlags))
+      Module(moduleName, defs, templates, decodeFeatureFlags(lfModule.getFlags))
     }
 
     // -----------------------------------------------------------------------
@@ -638,8 +639,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val struct = lfType.getStruct
           val fields = struct.getFieldsList.asScala
           assertNonEmpty(fields, "fields")
-          TStruct(fields.map(decodeFieldWithType)(breakOut))
-
+          TStruct(Struct(fields.map(decodeFieldWithType): _*))
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
       }
@@ -1555,6 +1555,11 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
       BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty, minVersion = partyTextConversions),
       BuiltinFunctionInfo(TO_TEXT_TEXT, BToTextText),
+      BuiltinFunctionInfo(
+        TO_TEXT_CONTRACT_ID,
+        BToTextContractId,
+        minVersion = contractIdTextConversions,
+      ),
       BuiltinFunctionInfo(TO_QUOTED_TEXT_PARTY, BToQuotedTextParty),
       BuiltinFunctionInfo(TEXT_FROM_CODE_POINTS, BToTextCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(FROM_TEXT_PARTY, BFromTextParty, minVersion = partyTextConversions),

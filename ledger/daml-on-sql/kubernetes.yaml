@@ -1,0 +1,137 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# This is an example configuration file that demonstrates how DAML on SQL can be
+# naively deployed with PostgreSQL in a Kubernetes cluster.
+#
+# It is not intended to be used in a production environment.
+#
+# Operational requirements that are not covered here include, but are not
+# limited to:
+#
+#   * scaling,
+#   * server security,
+#   * participant authentication,
+#   * participant authorization,
+#   * database backups,
+#   * database recovery,
+#   * and lots more.
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: daml-on-sql
+spec:
+  type: LoadBalancer
+  selector:
+    app: ledger
+  ports:
+    - name: ledger-api
+      port: 6865
+
+---
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: ledger
+  labels:
+    app: ledger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ledger
+  template:
+    metadata:
+      labels:
+        app: ledger
+    spec:
+      containers:
+        - name: daml-on-sql
+          image: bazel/ledger/daml-on-sql:daml-on-sql-image
+          args:
+            - --ledgerid=kubernetes-demo
+            - --sql-backend-jdbcurl=jdbc:postgresql://db:5432/daml?user=daml&password=daml
+            - --port=6865
+          ports:
+            - name: ledger-api
+              containerPort: 6865
+          startupProbe:
+            tcpSocket:
+              port: ledger-api
+            failureThreshold: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: ledger-api
+            failureThreshold: 3
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - grpc-health-probe
+                - -addr=:6865
+            periodSeconds: 10
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  labels:
+    app: db
+spec:
+  selector:
+    app: db
+  ports:
+    - name: postgresql
+      port: 5432
+
+---
+
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: db
+spec:
+  selector:
+    matchLabels:
+      app: db
+  serviceName: db
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgresql
+          image: postgres
+          env:
+            - name: POSTGRES_USER
+              value: daml
+            - name: POSTGRES_PASSWORD
+              value: daml
+          ports:
+            - name: postgresql
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          livenessProbe:
+            tcpSocket:
+              port: postgresql
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi

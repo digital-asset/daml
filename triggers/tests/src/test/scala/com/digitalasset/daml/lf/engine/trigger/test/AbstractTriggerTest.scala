@@ -3,20 +3,15 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.Sink
 import java.io.File
 import java.util.UUID
 
+import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.PureCompiledPackages
-import com.daml.lf.archive.{DarReader, Decode}
-import com.daml.lf.data.Ref._
-import com.daml.ledger.api.testing.utils.MockMessages
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.commands._
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand, _}
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.client.LedgerClient
@@ -25,26 +20,29 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.lf.engine.trigger.RunnerConfig
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.{Runner, RunnerConfig, Trigger}
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest._
-import io.grpc.netty.NettyChannelBuilder
-import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
-import com.daml.lf.engine.trigger.{Runner, Trigger}
+import scala.concurrent.{ExecutionContext, Future}
 
 trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   self: Suite =>
 
+  protected val applicationId = RunnerConfig.DefaultApplicationId
+
   protected def ledgerClientConfiguration =
     LedgerClientConfiguration(
-      applicationId = MockMessages.applicationId,
+      applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
-      token = None
+      token = None,
     )
 
   protected def ledgerClient(
@@ -52,11 +50,10 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
       implicit ec: ExecutionContext): Future[LedgerClient] =
     for {
       client <- LedgerClient
-        .fromBuilder(
-          NettyChannelBuilder
-            .forAddress("localhost", serverPort.value)
-            .maxInboundMessageSize(maxInboundMessageSize),
-          ledgerClientConfiguration,
+        .singleHost(
+          "localhost",
+          serverPort.value,
+          ledgerClientConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
         )
     } yield client
 
@@ -70,13 +67,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   protected def getRunner(client: LedgerClient, name: QualifiedName, party: String): Runner = {
     val triggerId = Identifier(packageId, name)
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).right.get
-    new Runner(
-      compiledPackages,
-      trigger,
-      client,
-      config.timeProviderType.get,
-      ApplicationId(MockMessages.applicationId),
-      party)
+    new Runner(compiledPackages, trigger, client, config.timeProviderType.get, applicationId, party)
   }
 
   protected def allocateParty(client: LedgerClient)(implicit ec: ExecutionContext): Future[String] =
@@ -91,7 +82,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
           party = party,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
-          applicationId = MockMessages.applicationId,
+          applicationId = ApplicationId.unwrap(applicationId),
           commandId = UUID.randomUUID.toString
         )))
     for {
@@ -117,11 +108,11 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
           party = party,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
-          applicationId = MockMessages.applicationId,
+          applicationId = ApplicationId.unwrap(applicationId),
           commandId = UUID.randomUUID.toString
         )))
     for {
-      response <- client.commandServiceClient.submitAndWaitForTransaction(request)
+      _ <- client.commandServiceClient.submitAndWaitForTransaction(request)
     } yield ()
   }
 

@@ -26,15 +26,15 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
-final class ApiTimeService private (
+private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
 )(
     implicit grpcExecutionContext: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
-    logCtx: LoggingContext)
-    extends TimeServiceAkkaGrpc
+    loggingContext: LoggingContext,
+) extends TimeServiceAkkaGrpc
     with FieldValidations
     with GrpcApiService {
 
@@ -121,11 +121,12 @@ final class ApiTimeService private (
   }
 }
 
-object ApiTimeService {
+private[apiserver] object ApiTimeService {
   def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext): TimeService with GrpcApiService =
+      loggingContext: LoggingContext,
+  ): TimeService with GrpcApiService =
     new ApiTimeService(ledgerId, backend)
 }

@@ -66,12 +66,17 @@ genrule(
             cp ../$$f $$dir/$$file
         done
         cd ..
-        tar c node_modules \\
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-          | gzip -n > $@
+        # Avoid file path too long errors on Windows of the form
+        #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
+        $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
     """,
+    tools = ["//bazel_tools/sh:mktgz"],
 )
 
+# This rule is not reproducible. `vsce package` generates a `.vsix` file which
+# is just a zip archive. The order of entries in that archive is
+# non-deterministic and the individual entries contain non-reproducible
+# timestamps.
 genrule(
     name = "vsix",
     srcs = glob([
@@ -103,7 +108,9 @@ genrule(
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
         $$DIR/$(location //:yarn)
         $$DIR/$(location //:yarn) compile
-        $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package -o $$DIR/$@
+        # vsce needs Yarn or NPM in path and for some reason NPM
+        # fails to find npm-cli.js so we use Yarn.
+        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [
         "//:yarn",

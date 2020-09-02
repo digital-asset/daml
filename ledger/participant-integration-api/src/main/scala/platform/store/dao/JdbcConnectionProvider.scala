@@ -9,7 +9,7 @@ import com.daml.ledger.api.health.ReportsHealth
 import com.daml.metrics.DatabaseMetrics
 
 /** A helper to run JDBC queries using a pool of managed connections */
-trait JdbcConnectionProvider extends ReportsHealth {
+private[platform] trait JdbcConnectionProvider extends ReportsHealth {
 
   /** Blocks are running in a single transaction as the commit happens when the connection
     * is returned to the pool.

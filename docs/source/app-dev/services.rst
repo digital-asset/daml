@@ -1,6 +1,8 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _ledger-api-services:
+   
 The Ledger API services
 #######################
 
@@ -38,6 +40,8 @@ Glossary
 - A ``submission`` is a proposed transaction, consisting of a list of ``commands``, which correspond to the top-level ``actions`` in that transaction.
 - A ``completion`` indicates the success or failure of a ``submission``.
 
+.. _ledger-api-submission-services:
+  
 Submitting commands to the ledger
 *********************************
 
@@ -77,7 +81,7 @@ The command submission service deduplicates submitted commands based on the subm
 
 - If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
 
-For details on how to use command deduplication, see the :ref:`Application Architecture Guide <handling-submission-failures>`.
+For details on how to use command deduplication, see the :ref:`Application Architecture Guide <command-deduplication>`.
 
 .. _command-completion-service:
 
@@ -155,6 +159,8 @@ Verbosity
 
 See :ref:`verbosity` above.
 
+.. _ledger-api-utility-services:
+
 Utility services
 ****************
 
@@ -191,12 +197,14 @@ This configuration includes the maximum command deduplication time (see `Command
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerConfigurationService>`.
 
-.. _time-service:
+.. _ledger-api-testing-services:
 
 Testing services
 ****************
 
 **These are only for use for testing with the Sandbox, not for on production ledgers.**
+
+.. _time-service:
 
 Time service
 ============

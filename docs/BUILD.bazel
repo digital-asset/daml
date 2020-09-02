@@ -4,7 +4,7 @@
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 
 nodejs_binary(
@@ -233,7 +233,7 @@ genrule(
         ln -s ../external/npm/node_modules .
 
         # Run sass and grunt
-        ../$(location @sass_nix//:bin/sass) \\
+        ../$(execpath @sass_nix//:bin/sass) \\
             -I bower_components_static/bourbon/dist \\
             -I bower_components_static/neat/app/assets/stylesheets \\
             -I bower_components_static/font-awesome/scss \\
@@ -242,20 +242,13 @@ genrule(
             --sourcemap=none \\
             --update \\
             sass:da_theme/static/css
-        ../$(location :grunt) build
+        ../$(execpath :grunt) build
 
-        tar c da_theme \\
-            --owner=1000 \\
-            --group=1000 \\
-            --mtime=2000-01-01\\ 00:00Z \\
-            --no-acls \\
-            --no-xattrs \\
-            --no-selinux \\
-            --sort=name \\
-            | gzip -n > ../$(location da_theme.tar.gz)
+        ../$(execpath //bazel_tools/sh:mktgz) ../$@ da_theme
     """,
     tools = [
         ":grunt",
+        "//bazel_tools/sh:mktgz",
         "@sass_nix//:bin/sass",
     ],
 ) if not is_windows else None
@@ -293,10 +286,9 @@ genrule(
         cp -L $(location //:LICENSE) source/LICENSE
         cp -L $(location //:NOTICES) source/NOTICES
 
-        tar c source \\
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-            | gzip -n > $(location source.tar.gz)
+        $(execpath //bazel_tools/sh:mktgz) $@ source
     """,
+    tools = ["//bazel_tools/sh:mktgz"],
 )
 
 genrule(
@@ -454,12 +446,11 @@ genrule(
         mkdir -p html/hoogle_db
         cp -rL ../$(location //compiler/damlc:daml-base-hoogle.txt) html/hoogle_db/base.txt
 
-        tar c html \\
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-            | gzip -n > ../$(location html-only.tar.gz)
+        ../$(execpath //bazel_tools/sh:mktgz) ../$@ html
         """.format(sdk = sdk_version),
     tools = [
         "@sphinx_nix//:bin/sphinx-build",
+        "//bazel_tools/sh:mktgz",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
 
@@ -482,10 +473,9 @@ genrule(
                 sed -i -e "s,__URL__,$${to}," redirects/$$from
             fi
         done <docs/redirects.map
-        tar c redirects \\
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-            | gzip -n > $(location redirects.tar.gz)
+        $(execpath //bazel_tools/sh:mktgz) $@ redirects
     """,
+    tools = ["//bazel_tools/sh:mktgz"],
 )
 
 genrule(
@@ -519,9 +509,7 @@ genrule(
         cp -L $(location :pdf-docs) html/_downloads
         # Remove Sphinx build products
         rm -rf .buildinfo .doctrees objects.inv
-        tar c html \\
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-            | gzip -n > $(location html.tar.gz)
+        $(execpath //bazel_tools/sh:mktgz) $@ html
     """.format(
         head = """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
         item = """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
@@ -530,6 +518,7 @@ genrule(
     ),
     stamp = 1,
     tags = ["pdfdocs"],
+    tools = ["//bazel_tools/sh:mktgz"],
 ) if not is_windows else None
 
 filegroup(
@@ -551,13 +540,15 @@ genrule(
     srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/**"]),
     outs = ["quickstart-java.tar.gz"],
     cmd = """
-        mkdir -p quickstart-java
-        cp -rL docs/source/app-dev/bindings-java/quickstart/template-root/* quickstart-java/
-        sed -i "s/__VERSION__/{mvn}/" quickstart-java/pom.xml
-        tar c quickstart-java \\
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-            | gzip -n > $@
+        set -eou pipefail
+        TMP_DIR=$$(mktemp -d)
+        trap "rm -rf $$TMP_DIR" EXIT
+        mkdir -p $$TMP_DIR/quickstart-java
+        cp -rL docs/source/app-dev/bindings-java/quickstart/template-root/* $$TMP_DIR/quickstart-java/
+        sed -i "s/__VERSION__/{mvn}/" $$TMP_DIR/quickstart-java/pom.xml
+        $(execpath //bazel_tools/sh:mktgz) $@ -C $$TMP_DIR quickstart-java
     """.format(mvn = mvn_version),
+    tools = ["//bazel_tools/sh:mktgz"],
     visibility = ["//visibility:public"],
 )
 
@@ -670,6 +661,7 @@ daml_test(
         # and we cannot conveniently add daml-script as a dependency for daml_test
         exclude = ["source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml"],
     ),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(

@@ -10,12 +10,12 @@ import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait CommandExecutor {
+private[apiserver] trait CommandExecutor {
   def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]]
 }

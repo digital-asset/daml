@@ -24,7 +24,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
     * @param inputState input state used for the submission
     * @param logEntry log entry generated from processing the submission
     * @param outputState  output state generated from processing the submission
-    * @param logCtx logging context to use
+    * @param loggingContext logging context to use
     * @return pair of invalidated keys and output log entry and state; in case a conflict cannot be
     *         recovered None is output
     */
@@ -32,7 +32,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
       invalidatedKeys: collection.Set[DamlStateKey],
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       logEntry: DamlLogEntry,
-      outputState: Map[DamlStateKey, DamlStateValue])(implicit logCtx: LoggingContext)
+      outputState: Map[DamlStateKey, DamlStateValue])(implicit loggingContext: LoggingContext)
     : Option[(collection.Set[DamlStateKey], (DamlLogEntry, Map[DamlStateKey, DamlStateValue]))] = {
     val newInvalidatedKeys = outputState.collect {
       case (key, outputValue)
@@ -54,7 +54,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
   private def changedStateValueOf(
       key: DamlStateKey,
       inputValueMaybe: Option[DamlStateValue],
-      outputValue: DamlStateValue)(implicit logCtx: LoggingContext): Boolean =
+      outputValue: DamlStateValue)(implicit loggingContext: LoggingContext): Boolean =
     inputValueMaybe.forall { inputValue =>
       val contentsDiffer = inputValue.hashCode() != outputValue
         .hashCode() || inputValue != outputValue
@@ -82,7 +82,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
       case PARTY_ALLOCATION_ENTRY | PACKAGE_UPLOAD_ENTRY | CONFIGURATION_ENTRY |
           TRANSACTION_REJECTION_ENTRY | CONFIGURATION_REJECTION_ENTRY |
           PACKAGE_UPLOAD_REJECTION_ENTRY | PARTY_ALLOCATION_REJECTION_ENTRY |
-          OUT_OF_TIME_BOUNDS_ENTRY =>
+          OUT_OF_TIME_BOUNDS_ENTRY | TIME_UPDATE_ENTRY =>
         logger.trace(s"Dropping conflicting submission (${logEntry.getPayloadCase})")
         metrics.dropped.inc()
         None

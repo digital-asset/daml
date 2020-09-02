@@ -3,9 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.util.regex.Pattern
+
 import ai.x.diff.DiffShow
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import java.util.regex.Pattern
 import io.grpc.Status
 
 import scala.language.higherKinds
@@ -50,9 +51,7 @@ object Assertions extends DiffExtensions {
         }
       // None both represents pattern that we do not care about as well as
       // exceptions that have no message.
-      case (GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _), None) => ()
-      case (GrpcException(GrpcStatus(`expectedCode`, None), _), None) =>
-        ()
+      case (GrpcException(GrpcStatus(`expectedCode`, _), _), None) => ()
       case (GrpcException(GrpcStatus(code, _), _), _) =>
         fail(s"Expected code [$expectedCode], but got [$code].")
       case (NonFatal(e), _) =>

@@ -75,6 +75,7 @@ class DarReaderTest
           "GHC.Enum",
           "GHC.Show",
           "GHC.Num",
+          "GHC.Stack.Types",
           "GHC.Classes",
           "Control.Exception.Base",
           "GHC.Err",

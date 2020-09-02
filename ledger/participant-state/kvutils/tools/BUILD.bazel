@@ -5,15 +5,16 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
     "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
     "lf_scalacopts",
 )
 
 da_scala_binary(
-    name = "integrity-check",
-    srcs = ["src/main/scala/com/daml/ledger/participant/state/kvutils/tools/IntegrityCheck.scala"],
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.IntegrityCheck",
+    name = "integrity-check-v1",
+    srcs = glob(["integrity-check-v1/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/v1/**/*.scala"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.v1.Main",
     resources = glob(["src/main/resources/*"]),
-    tags = ["maven_coordinates=com.daml:participant-state-kvutils-integrity-check:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -34,8 +35,8 @@ da_scala_binary(
 
 da_scala_binary(
     name = "integrity-check-v2",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/kvutils/tools/*"]),
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.IntegrityCheckV2",
+    srcs = glob(["integrity-check-v2/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/v2/**/*.scala"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2.Main",
     resources = glob(["src/main/resources/*"]),
     visibility = [
         "//visibility:public",
@@ -59,12 +60,22 @@ da_scala_binary(
     ],
 )
 
+da_scala_test(
+    name = "integrity-check-v2-tests",
+    size = "small",
+    srcs = glob(["integrity-check-v2/src/test/scala/ledger/participant/state/kvutils/tools/integritycheck/v2/IntegrityCheckerSpec.scala"]),
+    deps = [
+        ":integrity-check-v2",
+        "//ledger/participant-state/kvutils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)
+
 da_scala_benchmark_jmh(
     name = "benchmark-replay",
-    srcs = glob([
-        "src/test/scala/**/Replay.scala",
-        "src/test/scala/**/Adapter.scala",
-    ]),
+    srcs = glob(["engine-benchmark/src/benchmark/scala/**/*"]),
     max_heap_size = "4g",
     scalacopts = lf_scalacopts,
     deps = [
@@ -72,6 +83,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_java_proto",

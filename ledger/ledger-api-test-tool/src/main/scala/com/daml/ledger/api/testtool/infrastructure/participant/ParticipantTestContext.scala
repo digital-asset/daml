@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
 
+import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{
@@ -12,7 +13,6 @@ import com.daml.ledger.api.testtool.infrastructure.{
   LedgerServices,
   PartyAllocationConfiguration
 }
-import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
@@ -140,6 +140,19 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def currentEnd(overrideLedgerId: String): Future[LedgerOffset] =
     services.transaction.getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId)).map(_.getOffset)
 
+  /**
+    * Returns an absolute offset that is beyond the current ledger end.
+    *
+    * Note: offsets are opaque byte strings, but they are lexicographically sortable.
+    * Prepending the current absolute ledger end with non-zero bytes creates an offset that
+    * is be beyond the current ledger end for the ledger API server.
+    * The offset might however not be valid for the underlying ledger.
+    * This method can therefore only be used for offsets that are only interpreted by the
+    * ledger API server and not sent to the ledger.
+    */
+  def offsetBeyondLedgerEnd(): Future[LedgerOffset] =
+    currentEnd().map(end => LedgerOffset(LedgerOffset.Value.Absolute("FFFF" + end.getAbsolute)))
+
   def time(): Future[Instant] =
     new StreamConsumer[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
       .first()
@@ -226,7 +239,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           .map(_ => ())
       }
     } else {
-      Future.successful(())
+      Future.unit
     }
 
   def activeContracts(

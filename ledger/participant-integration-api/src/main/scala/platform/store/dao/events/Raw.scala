@@ -20,7 +20,7 @@ import com.daml.platform.participant.util.LfEngineToApi
   * wrap events from the database while delaying deserialization
   * so that it doesn't happen on the database thread pool.
   */
-sealed trait Raw[+E] {
+private[events] sealed trait Raw[+E] {
 
   /**
     * Fill the blanks left in the raw event by running
@@ -33,7 +33,7 @@ sealed trait Raw[+E] {
 
 }
 
-object Raw {
+private[events] object Raw {
 
   /**
     * Since created events can be both a flat event or a tree event

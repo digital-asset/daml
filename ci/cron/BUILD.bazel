@@ -19,6 +19,7 @@ da_haskell_binary(
         "http-types",
         "process",
         "regex-tdfa",
+        "semver",
         "split",
         "text",
         "unordered-containers",

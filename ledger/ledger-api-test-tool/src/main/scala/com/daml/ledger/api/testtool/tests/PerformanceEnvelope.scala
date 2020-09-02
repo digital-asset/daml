@@ -9,7 +9,12 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{Allocation, Assertions, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.{
+  Allocation,
+  Assertions,
+  Envelope,
+  LedgerTestSuite
+}
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest,
@@ -25,58 +30,18 @@ import com.daml.ledger.client.binding.{Primitive => P}
 import com.daml.ledger.test.performance.{PingPong => PingPongModule}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Context, Status}
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.tag._
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Random, Success, Try}
 
-sealed trait Envelope {
-  val name: String
-  val transactionSizeKb: Int
-  val throughput: Int
-  val latencyMs: Int
-}
+sealed trait PerformanceEnvelope[E <: Envelope] {
 
-object Envelope {
-
-  /** test will unlikely fail */
-  case object ProofOfConcept extends Envelope {
-    val name = "PoC"; val transactionSizeKb = 1; val throughput = 0; val latencyMs = 60000
-  }
-
-  /** test will fail if performance is lower than alpha envelope */
-  case object Alpha extends Envelope {
-    val name = "Alpha"; val transactionSizeKb = 100; val throughput = 5; val latencyMs = 3000
-  }
-
-  /** test will fail if performance is lower then beta envelope */
-  case object Beta extends Envelope {
-    val name = "Beta"; val transactionSizeKb = 1000; val throughput = 20; val latencyMs = 1000
-  }
-
-  case object Public extends Envelope {
-    val name = "Public"; val transactionSizeKb = 5000; val throughput = 50; val latencyMs = 1000
-  }
-
-  case object Enterprise extends Envelope {
-    val name = "Enterprise"
-    val transactionSizeKb = 25000
-    val throughput = 500
-    val latencyMs = 500
-  }
-
-  // [FT] Could use macros as in https://riptutorial.com/scala/example/26215/using-sealed-trait-and-case-objects-and-allvalues-macro
-  //   or even by pulling in https://github.com/lloydmeta/enumeratum  but https://github.com/bazelbuild/rules_scala/issues/445
-  val values: List[Envelope] = List[Envelope](ProofOfConcept, Alpha, Beta, Public, Enterprise)
-}
-
-trait PerformanceEnvelope {
-
-  def logger: Logger
-  def envelope: Envelope
-  def maxInflight: Int
+  protected def logger: Logger
+  protected def envelope: E
+  protected def maxInflight: Int
 
   protected def waitForParties(participants: Seq[Allocation.Participant]): Unit = {
     val (participantAlice, alice) = (participants.head.ledger, participants.head.parties.head)
@@ -326,68 +291,80 @@ trait PerformanceEnvelope {
 
 object PerformanceEnvelope {
 
+  def apply[E <: Envelope](
+      envelope: E,
+      reporter: (String, Double) => Unit,
+  ): LedgerTestSuite =
+    envelope match {
+      case e: Envelope.Latency => new LatencyTest(e, reporter = reporter)
+      case e: Envelope.Throughput => new ThroughputTest(e, reporter = reporter)
+      case e: Envelope.TransactionSize => new TransactionSizeScaleTest(e)
+    }
+
   /** Throughput test
     *
     * @param numPings  how many pings to run during the throughput test
     * @param maxInflight how many inflight commands we can have. set it high enough such that the system saturates, keep it low enough to not hit timeouts.
     * @param numWarmupPings how many pings to run before the perf test to warm up the system
     */
-  class ThroughputTest(
-      val logger: Logger,
-      val envelope: Envelope,
-      val numPings: Int = 200,
-      val maxInflight: Int = 40,
-      val numWarmupPings: Int = 40,
-      reporter: (String, Double) => Unit)
-      extends LedgerTestSuite
-      with PerformanceEnvelope {
+  private final class ThroughputTest(
+      override protected val envelope: Envelope.Throughput,
+      override protected val maxInflight: Int = 40,
+      numPings: Int = 200,
+      numWarmupPings: Int = 40,
+      reporter: (String, Double) => Unit,
+  ) extends LedgerTestSuite
+      with PerformanceEnvelope[Envelope.Throughput] {
+
+    override protected val logger: Logger = LoggerFactory.getLogger(getClass)
 
     test(
-      "perf-envelope-throughput",
+      envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} throughput envelope",
       allocate(SingleParty, SingleParty),
-    )(implicit ec => {
-      case participants =>
-        waitForParties(participants.participants)
+    )(implicit ec => { participants =>
+      waitForParties(participants.participants)
 
-        def runTest(num: Int, description: String): Future[(Duration, List[Duration])] =
-          sendPings(
-            from = participants.participants.head,
-            to = participants.participants(1),
-            workflowIds = (1 to num).map(x => s"$description-$x").toList,
-            payload = description)
-        for {
-          _ <- runTest(numWarmupPings, "throughput-warmup")
-          timings <- runTest(numPings, "throughput-test")
-        } yield {
-          val (elapsed, latencies) = timings
-          val throughput = numPings / elapsed.toMillis.toDouble * 1000.0
-          logger.info(
-            s"Sending of $numPings succeeded after $elapsed, yielding a throughput of ${"%.2f" format throughput}.")
-          reporter("rate", throughput)
-          logger.info(
-            s"Throughput latency stats: ${genStats(latencies.map(_.toMillis), (_, _) => ())}")
-          assert(
-            throughput >= envelope.throughput,
-            s"Observed throughput of ${"%.2f" format throughput} is below the necessary envelope level ${envelope.throughput}")
-        }
+      def runTest(num: Int, description: String): Future[(Duration, List[Duration])] =
+        sendPings(
+          from = participants.participants.head,
+          to = participants.participants(1),
+          workflowIds = (1 to num).map(x => s"$description-$x").toList,
+          payload = description)
+      for {
+        _ <- runTest(numWarmupPings, "throughput-warmup")
+        timings <- runTest(numPings, "throughput-test")
+      } yield {
+        val (elapsed, latencies) = timings
+        val throughput = numPings / elapsed.toMillis.toDouble * 1000.0
+        logger.info(
+          s"Sending of $numPings succeeded after $elapsed, yielding a throughput of ${"%.2f" format throughput}.")
+        reporter("rate", throughput)
+        logger.info(
+          s"Throughput latency stats: ${genStats(latencies.map(_.toMillis), (_, _) => ())}")
+        assert(
+          throughput >= envelope.operationsPerSecond,
+          s"Observed throughput of ${"%.2f" format throughput} is below the necessary envelope level ${envelope.operationsPerSecond}"
+        )
+      }
     })
   }
 
-  class LatencyTest(
-      val logger: Logger,
-      val envelope: Envelope,
-      val numPings: Int = 20,
-      val numWarmupPings: Int = 10,
-      reporter: (String, Double) => Unit)
-      extends LedgerTestSuite
-      with PerformanceEnvelope {
+  private final class LatencyTest(
+      override protected val envelope: Envelope.Latency,
+      numPings: Int = 20,
+      numWarmupPings: Int = 10,
+      reporter: (String, Double) => Unit,
+  ) extends LedgerTestSuite
+      with PerformanceEnvelope[Envelope.Latency] {
 
-    val maxInflight = 1 // will only be one
+    override protected val logger: Logger = LoggerFactory.getLogger(getClass)
+
+    override protected val maxInflight = 1 // will only be one
     require(numPings > 0 && numWarmupPings >= 0)
 
     test(
-      "perf-envelope-latency",
+      envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} latency envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { participants =>
@@ -402,7 +379,7 @@ object PerformanceEnvelope {
         case (_, latencies) =>
           val sample = latencies.drop(numWarmupPings).map(_.toMillis).sorted
           require(sample.length == numPings)
-          val tailCount = sample.count(_ > envelope.latencyMs)
+          val tailCount = sample.count(_ > envelope.latency.toMillis)
           val stats = genStats(sample, reporter)
           logger.info(s"Latency test finished: $stats")
           assert(
@@ -423,14 +400,16 @@ object PerformanceEnvelope {
     s"Sample size of ${sample.length}: avg=${"%.0f" format avg} ms, median=$med ms, stdev=${"%.0f" format stddev} ms"
   }
 
-  class TransactionSizeScaleTest(val logger: Logger, val envelope: Envelope)
-      extends LedgerTestSuite
-      with PerformanceEnvelope {
+  private final class TransactionSizeScaleTest(
+      override protected val envelope: Envelope.TransactionSize,
+  ) extends LedgerTestSuite
+      with PerformanceEnvelope[Envelope.TransactionSize] {
 
-    val maxInflight = 10
+    override protected val logger: Logger = LoggerFactory.getLogger(getClass)
+    override protected val maxInflight = 10
 
     test(
-      "perf-envelope-transaction-size",
+      envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} transaction size envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { participants =>
@@ -440,7 +419,7 @@ object PerformanceEnvelope {
         from = participants.participants.head,
         to = participants.participants(1),
         workflowIds = List("transaction-size"),
-        payload = Random.alphanumeric.take(envelope.transactionSizeKb * 1024).mkString("")
+        payload = Random.alphanumeric.take(envelope.kilobytes * 1024).mkString("")
       ).map(_ => ())
     })
   }

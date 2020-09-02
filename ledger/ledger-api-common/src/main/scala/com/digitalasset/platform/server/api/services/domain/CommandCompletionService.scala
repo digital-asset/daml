@@ -19,4 +19,6 @@ trait CommandCompletionService {
 
   def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute]
 
+  def offsetOrdering: Ordering[LedgerOffset.Absolute]
+
 }

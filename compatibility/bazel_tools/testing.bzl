@@ -83,6 +83,21 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "0.0.0",  # TODO Update to first snapshot after 1.5.0-snapshot.20200825.5071.0.d33e130f
+        "platform_ranges": [
+            {
+                "start": "1.0.0",
+                "end": "1.3.0",
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/7251
+                    "CommandSubmissionCompletionIT:CSCAfterEnd",
+                    "TransactionServiceIT:TXAfterEnd",
+                    "TransactionServiceIT:TXTreesAfterEnd",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
@@ -197,7 +212,11 @@ def create_daml_app_codegen(sdk_version):
         name = "create-daml-app-codegen-{}".format(version_to_name(sdk_version)),
         outs = ["create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version))],
         srcs = [dar, daml_types, daml_ledger],
-        tools = [daml, "//bazel_tools/create-daml-app:run-with-yarn"],
+        tools = [
+            daml,
+            "//bazel_tools/create-daml-app:run-with-yarn",
+            "@daml//bazel_tools/sh:mktgz",
+        ],
         cmd = """\
 set -euo pipefail
 TMP_DIR=$$(mktemp -d)
@@ -208,9 +227,7 @@ tar xf $(rootpath {daml_types}) --strip-components=1 -C $$TMP_DIR/daml-types
 tar xf $(rootpath {daml_ledger}) --strip-components=1 -C $$TMP_DIR/daml-ledger
 $(execpath //bazel_tools/create-daml-app:run-with-yarn) $$TMP_DIR $$PWD/$(execpath {daml}) codegen js -o $$TMP_DIR/daml.js $(execpath {dar})
 rm -rf $$TMP_DIR/daml.js/node_modules
-tar c --format=ustar -C $$TMP_DIR daml.js \
-  --owner=0 --group=0 --numeric-owner --mtime="2000-01-01 00:00Z" --sort=name \
-  | gzip -n > $@
+$(execpath @daml//bazel_tools/sh:mktgz) $@ -C $$TMP_DIR daml.js
 """.format(
             daml = daml,
             daml_types = daml_types,
@@ -405,7 +422,9 @@ def sdk_platform_test(sdk_version, platform_version):
         sandbox = sandbox,
         sandbox_args = sandbox_args,
         size = "large",
-        tags = extra_tags(sdk_version, platform_version),
+        # We see timeouts here fairly regularly so we
+        # increase the number of CPUs.
+        tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
     )
 
     # For now, we only cover the DABL usecase where

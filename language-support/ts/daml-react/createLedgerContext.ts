@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, {useContext, useEffect, useMemo, useState } from 'react';
-import { Party, Template } from '@daml/types';
+import { ContractId,Party, Template } from '@daml/types';
 import Ledger, { CreateEvent, Query } from '@daml/ledger';
 
 /**
@@ -62,6 +62,7 @@ export type LedgerContext = {
   useParty: () => Party;
   useLedger: () => Ledger;
   useQuery: <T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]) => QueryResult<T, K, I>;
+  useFetch: <T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>) => FetchResult<T, K, I>;
   useFetchByKey: <T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]) => FetchResult<T, K, I>;
   useStreamQuery: <T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]) => QueryResult<T, K, I>;
   useStreamFetchByKey: <T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]) => FetchResult<T, K, I>;
@@ -128,6 +129,22 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
       load();
     // NOTE(MH): See note at the top of the file regarding "useEffect dependencies".
     }, [state.ledger, state.reloadToken, template, ...(queryDeps ?? [])]);
+    return result;
+  }
+
+  function useFetch<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): FetchResult<T, K, I> {
+    const state = useDamlState();
+    const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: true});
+    useEffect(() => {
+      setResult({contract: null, loading: true});
+      const load = async (): Promise<void> => {
+        const contract = await state.ledger.fetch(template, contractId);
+        setResult({contract, loading: false});
+      };
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      load();
+    // NOTE(MH): See note at the top of the file regarding "useEffect dependencies".
+    }, [state.ledger, state.reloadToken, template, contractId]);
     return result;
   }
 
@@ -199,5 +216,5 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
     return (): void => state.triggerReload();
   }
 
-  return { DamlLedger, useParty, useLedger, useQuery, useFetchByKey, useStreamQuery, useStreamFetchByKey, useReload };
+  return { DamlLedger, useParty, useLedger, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamFetchByKey, useReload };
 }

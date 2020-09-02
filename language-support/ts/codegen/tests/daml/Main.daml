@@ -46,6 +46,8 @@ template AllTypes with
     n5 : Numeric 5
     n10 : Decimal
     rec : Recursive
+    voidRecord: Optional VoidRecord
+    voidEnum: Optional VoidEnum
   where
     signatory party
 
@@ -72,6 +74,14 @@ template Person with
       do
         archive self
         create this with name = newName
+
+    nonconsuming choice AddOthersFriends: ContractId Person with
+        otherCid: ContractId Person
+      controller party
+      do
+        other <- fetch otherCid
+        archive self
+        create this with friends = friends ++ other.friends
 
 data Pair a b = Pair {
   one: a;
@@ -135,4 +145,11 @@ data Recursive = Recursive with
     recOptional : Optional Recursive
     recList: [Recursive]
     recTextMap : TextMap Recursive
+  deriving (Eq, Show)
+
+data VoidRecord = VoidRecord with
+    inner: VoidRecord
+  deriving (Eq, Show)
+
+data VoidEnum = VoidEnum VoidEnum
   deriving (Eq, Show)

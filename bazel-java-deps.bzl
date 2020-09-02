@@ -6,6 +6,7 @@
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:specs.bzl", "maven")
 
 def install_java_deps():
     maven_install(
@@ -20,10 +21,11 @@ def install_java_deps():
             "com.github.ghik:silencer-lib_2.12.11:1.6.0",
             "com.github.ghik:silencer-plugin_2.12.11:1.6.0",
             "com.github.pureconfig:pureconfig_2.12:0.8.0",
+            maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.8.0", neverlink = True),
             "com.github.scopt:scopt_2.12:3.7.1",
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",
-            "com.google.guava:guava:24.0-jre",
+            "com.google.guava:guava:29.0-jre",
             "com.h2database:h2:1.4.200",
             "com.lihaoyi:pprint_2.12:0.5.3",
             "commons-io:commons-io:2.5",
@@ -142,6 +144,17 @@ def install_java_deps():
             "org.typelevel:paiges-core_2.12:0.2.1",
             "org.wartremover:wartremover_2.12.11:2.4.9",
             "org.xerial:sqlite-jdbc:3.30.1",
+            # gatling dependencies
+            "io.gatling:gatling-app:3.3.1",
+            "io.gatling:gatling-core:3.3.1",
+            "io.gatling:gatling-commons:3.3.1",
+            "io.gatling:gatling-recorder:3.3.1",
+            "io.gatling:gatling-charts:3.3.1",
+            "io.gatling.highcharts:gatling-highcharts:3.3.1",
+            "io.gatling:gatling-http:3.3.1",
+            "io.gatling:gatling-http-client:3.3.1",
+            "com.fasterxml.jackson.core:jackson-core:2.9.9",
+            "com.fasterxml.jackson.core:jackson-databind:2.9.9.3",
         ],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install.json",

@@ -70,11 +70,18 @@ da_scala_test_suite(
         ],
         exclude = testing_utils,
     ),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = [
+        "-P:silencer:checkUnused",
+    ],
     deps = [
         ":codegen-testing",
         ":codegen-testing-testing",
         "//language-support/scala/bindings",
         "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:org_apache_commons_commons_text",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",

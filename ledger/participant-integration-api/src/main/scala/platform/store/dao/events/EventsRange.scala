@@ -3,13 +3,16 @@
 package com.daml.platform.store.dao.events
 
 import anorm.SqlParser.get
-import anorm.SqlStringInterpolation
+import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
 
 // (startExclusive, endInclusive]
-final case class EventsRange[A](startExclusive: A, endInclusive: A)
+private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {
+  def map[B](f: A => B): EventsRange[B] =
+    copy(startExclusive = f(startExclusive), endInclusive = f(endInclusive))
+}
 
-object EventsRange {
+private[events] object EventsRange {
   private val EmptyLedgerEventSeqId = 0L
 
   // (0, 0] -- non-existent range
@@ -60,5 +63,31 @@ object EventsRange {
     SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc limit 1"
       .as(get[Long](1).singleOpt)(connection)
       .getOrElse(EmptyLedgerEventSeqId)
+  }
+
+  private[events] def readPage[A](
+      read: (EventsRange[Long], String) => SimpleSql[Row], // takes range and limit sub-expression
+      row: RowParser[A],
+      range: EventsRange[Long],
+      pageSize: Int): SqlSequence[Vector[A]] = {
+    val minPageSize = 10 min pageSize max (pageSize / 10)
+    val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
+    SqlSequence
+      .vector(
+        read(range copy (endInclusive = guessedPageEnd), "") withFetchSize Some(pageSize),
+        row)
+      .flatMap { arithPage =>
+        val found = arithPage.size
+        if (guessedPageEnd == range.endInclusive || found >= minPageSize)
+          SqlSequence point arithPage
+        else
+          SqlSequence
+            .vector(
+              read(
+                range copy (startExclusive = guessedPageEnd),
+                s"limit ${minPageSize - found: Int}") withFetchSize Some(minPageSize - found),
+              row)
+            .map(arithPage ++ _)
+      }
   }
 }

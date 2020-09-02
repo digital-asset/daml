@@ -322,3 +322,13 @@ fromAnyContractKey (AnyContractKey any rep)
 
 deriving instance Eq Archive
 deriving instance Show Archive
+
+-- | True if contract exists, submitter is a stakeholder, and all maintainers
+-- authorize. False if contract does not exist and all maintainers authorize.
+-- Fails otherwise.
+visibleByKey : forall t k. (HasLookupByKey t k) => k -> Update Bool
+visibleByKey k = do
+  m <- lookupByKey @t k
+  case m of
+    Some _ -> pure True
+    None -> pure False

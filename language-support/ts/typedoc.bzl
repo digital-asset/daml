@@ -10,16 +10,17 @@ def ts_docs(pkg_name):
     native.genrule(
         name = "docs",
         srcs = native.glob(["**/*.ts"], exclude = ["**/*test.ts"]) + [":README.md"],
-        tools = ["@language_support_ts_deps//typedoc/bin:typedoc"],
+        tools = [
+            "@language_support_ts_deps//typedoc/bin:typedoc",
+            "//bazel_tools/sh:mktgz",
+        ],
         outs = [pkg_name + "-docs.tar.gz"],
         cmd = """
           # NOTE: we need the --ignoreCompilerErrors flag because we get errors when tsc is trying to
           # resolve the imported packages.
           $(location @language_support_ts_deps//typedoc/bin:typedoc) --out docs --ignoreCompilerErrors --readme README.md --stripInternal $(SRCS)
           sed -i -e 's/0.0.0-SDKVERSION/{sdk_version}/' docs/**/*.html
-          tar -hc docs \\
-               --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
-               | gzip -n > $@
+          $(execpath //bazel_tools/sh:mktgz) $@ -h docs
         """,
         visibility = ["//visibility:public"],
     ) if not is_windows else None

@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.io.PrintStream
 import java.nio.file.{Files, Path, StandardOpenOption}
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
 trait BenchmarkReporter {
 

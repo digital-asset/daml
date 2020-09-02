@@ -59,7 +59,7 @@ object AkkaStreamGenerator extends ProtocCodeGenerator {
           Right(params.copy(singleLineToProtoString = true))
         case (Right(params), "ascii_format_to_string") =>
           Right(params.copy(asciiFormatToString = true))
-        case (Right(params), p) => Left(s"Unrecognized parameter: '$p'")
+        case (Right(_), p) => Left(s"Unrecognized parameter: '$p'")
         case (x, _) => x
       }
   }

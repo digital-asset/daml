@@ -47,6 +47,37 @@ EOF
     visibility = ["//visibility:public"],
 )
 
+# Test DAR in 1.dev to test new features.
+genrule(
+    name = "script-test-1.dev",
+    srcs =
+        glob(["**/*.daml"]) + ["//daml-script/daml:daml-script-1.dev.dar"],
+    outs = ["script-test-1.dev.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml:daml-script-1.dev.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: script-test-1dev
+version: 0.0.1
+source: daml
+build-options:
+  - --target=1.dev
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script-1.dev.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test-1.dev.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
 # A variant of script-test that has not been uploaded to the ledger
 # to test missing template ids. We only care that this has a different package id.
 genrule(
@@ -93,14 +124,14 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
-        "//ledger/ledger-api-common",
-        #        "//libs-scala/auth-utils",
-        "//ledger/ledger-api-auth",
         "//ledger-service/jwt",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
@@ -163,6 +194,7 @@ da_scala_test_suite(
         "//libs-scala/auth-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "@maven//:com_auth0_java_jwt",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
@@ -175,28 +207,46 @@ da_scala_test_suite(
 client_server_test(
     name = "test_static_time",
     client = ":test_client_single_participant",
-    client_files = ["$(rootpath :script-test.dar)"],
-    data = [":script-test.dar"],
+    client_files = [
+        "$(rootpath :script-test.dar)",
+        "$(rootpath :script-test-1.dev.dar)",
+    ],
+    data = [
+        ":script-test.dar",
+        ":script-test-1.dev.dar",
+    ],
     server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--static-time",
         "--port=0",
     ],
-    server_files = ["$(rootpath :script-test.dar)"],
+    server_files = [
+        "$(rootpath :script-test.dar)",
+        "$(rootpath :script-test-1.dev.dar)",
+    ],
 )
 
 client_server_test(
     name = "test_wallclock_time",
     client = ":test_client_single_participant",
     client_args = ["-w"],
-    client_files = ["$(rootpath :script-test.dar)"],
-    data = [":script-test.dar"],
+    client_files = [
+        "$(rootpath :script-test.dar)",
+        "$(rootpath :script-test-1.dev.dar)",
+    ],
+    data = [
+        ":script-test.dar",
+        ":script-test-1.dev.dar",
+    ],
     server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--wall-clock-time",
         "--port=0",
     ],
-    server_files = ["$(rootpath :script-test.dar)"],
+    server_files = [
+        "$(rootpath :script-test.dar)",
+        "$(rootpath :script-test-1.dev.dar)",
+    ],
 )
 
 client_server_test(
@@ -208,9 +258,11 @@ client_server_test(
     ],
     client_files = [
         "$(rootpath :script-test.dar)",
+        "$(rootpath :script-test-1.dev.dar)",
     ],
     data = [
         ":script-test.dar",
+        ":script-test-1.dev.dar",
     ],
     server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
@@ -230,9 +282,11 @@ client_server_test(
     ],
     client_files = [
         "$(rootpath :script-test.dar)",
+        "$(rootpath :script-test-1.dev.dar)",
     ],
     data = [
         ":script-test.dar",
+        ":script-test-1.dev.dar",
         "//ledger/test-common/test-certificates:ca.crt",
         "//ledger/test-common/test-certificates:server.crt",
         "//ledger/test-common/test-certificates:server.pem",
@@ -245,7 +299,10 @@ client_server_test(
         "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
         "--client-auth=none",
     ],
-    server_files = ["$(rootpath :script-test.dar)"],
+    server_files = [
+        "$(rootpath :script-test.dar)",
+        "$(rootpath :script-test-1.dev.dar)",
+    ],
 )
 
 client_server_test(

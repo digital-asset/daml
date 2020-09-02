@@ -1,0 +1,98 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+load("//rules_daml:daml.bzl", "daml_compile")
+
+hj_scalacopts = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
+da_scala_library(
+    name = "http-json-perf",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
+    scalacopts = hj_scalacopts,
+    tags = ["maven_coordinates=com.daml:http-json-perf:__VERSION__"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/http-json",
+        "//ledger-service/http-json-testing",
+        "//ledger-service/jwt",
+        "//libs-scala/scala-utils",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_gatling_gatling_app",
+        "@maven//:io_gatling_gatling_commons",
+        "@maven//:io_gatling_gatling_core",
+        "@maven//:io_gatling_gatling_http",
+        "@maven//:io_gatling_gatling_http_client",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_binary(
+    name = "http-json-perf-binary",
+    data = [
+        ":release/json-api-perf-logback.xml",
+    ],
+    jvm_flags = [
+        "-Dlogback.configurationFile=$(location :release/json-api-perf-logback.xml)",
+    ],
+    main_class = "com.daml.http.perf.Main",
+    scalacopts = hj_scalacopts,
+    tags = [
+        "maven_coordinates=com.daml:http-json-perf-deploy:__VERSION__",
+        "no_scala_version_suffix",
+    ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:io_gatling_gatling_charts",
+        "@maven//:io_gatling_highcharts_gatling_highcharts",
+    ],
+    deps = [
+        ":http-json-perf",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/http-json",
+        "//ledger-service/http-json-testing",
+        "//ledger-service/jwt",
+        "//libs-scala/scala-utils",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_gatling_gatling_app",
+        "@maven//:io_gatling_gatling_commons",
+        "@maven//:io_gatling_gatling_core",
+        "@maven//:io_gatling_gatling_http",
+        "@maven//:io_gatling_gatling_http_client",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+exports_files(["release/json-api-perf-logback.xml"])

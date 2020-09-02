@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
@@ -43,10 +43,10 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "participant-state-tests",
     size = "small",
-    srcs = glob(["src/test/suite/**/*.scala"]),
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
     resources = glob(["src/test/resources/*"]),
     deps = [
         ":participant-state",

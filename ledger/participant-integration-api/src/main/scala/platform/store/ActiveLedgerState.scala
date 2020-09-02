@@ -14,13 +14,13 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Contract.ActiveContract
 
-sealed abstract class LetLookup
+private[platform] sealed abstract class LetLookup
 
 /** Contract exists, but contract LET is unknown (e.g., a divulged contract) */
-case object LetUnknown extends LetLookup
+private[platform] case object LetUnknown extends LetLookup
 
 /** Contract exists with the given LET */
-final case class Let(instant: Instant) extends LetLookup
+private[platform] final case class Let(instant: Instant) extends LetLookup
 
 /**
   * An abstract representation of the active ledger state:
@@ -35,7 +35,7 @@ final case class Let(instant: Instant) extends LetLookup
   * The active ledger state could be derived from the transaction stream,
   * we keep track of it explicitly for performance reasons.
   */
-trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
+private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
 
   /** Callback to query an active or divulged contract, used for transaction validation
     * Returns:

@@ -8,6 +8,7 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.testtool.infrastructure.{
+  Dars,
   LedgerSessionConfiguration,
   LedgerTestCase,
   LedgerTestCasesRunner,
@@ -48,19 +49,19 @@ object LedgerApiTestTool {
     println("Alternatively, you can run performance tests.")
     println("They are not run by default, but can be run with `--perf-tests=TEST-NAME`.")
     println()
-    Tests.PerformanceTestsKeys.sorted.foreach(println(_))
+    Tests.PerformanceTestsKeys.foreach(println(_))
   }
-  private def printAvailableTestSuites(config: Config): Unit = {
+  private def printAvailableTestSuites(): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
     printListOfTests(Tests.all)(_.name)
   }
 
-  private def printAvailableTests(config: Config): Unit = {
+  private def printAvailableTests(): Unit = {
     println("Listing all tests. Run with --list to only see test suites.")
-    printListOfTests(Tests.all.flatMap(_.tests).toSeq)(_.name)
+    printListOfTests(Tests.all.flatMap(_.tests))(_.name)
   }
 
-  private def extractResources(resources: String*): Unit = {
+  private def extractResources(resources: Seq[String]): Unit = {
     val pwd = Paths.get(".").toAbsolutePath
     println(s"Extracting all DAML resources necessary to run the tests into $pwd.")
     for (resource <- resources) {
@@ -83,22 +84,17 @@ object LedgerApiTestTool {
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
     if (config.listTestSuites) {
-      printAvailableTestSuites(config)
+      printAvailableTestSuites()
       sys.exit(0)
     }
 
     if (config.listTests) {
-      printAvailableTests(config)
+      printAvailableTests()
       sys.exit(0)
     }
 
     if (config.extract) {
-      // This must be kept aligned manually with artifacts declared in /ledger/test-common/BUILD.bazel.
-      extractResources(
-        "/ledger/test-common/model-tests.dar",
-        "/ledger/test-common/performance-tests.dar",
-        "/ledger/test-common/semantic-tests.dar",
-      )
+      extractResources(Dars.resources)
       sys.exit(0)
     }
 

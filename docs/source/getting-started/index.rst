@@ -35,6 +35,11 @@ You will also need some common software tools to build and interact with the tem
 - `Yarn <https://classic.yarnpkg.com/en/docs/install/>`_ package manager for JavaScript. You have to have yarn version 1.10.0 or higher.
 
   Note: Ubuntu 17.04 and higher come with ``cmdtest`` package installed by default. If you are getting errors when installing yarn, you may want to run ``sudo apt remove cmdtest`` first and then install yarn. More information can be found `here <https://github.com/yarnpkg/yarn/issues/2821>`_ as well as in the official `yarn installation docs for Debian / Ubuntu <https://classic.yarnpkg.com/en/docs/install/#debian-stable>`_
+- `NodeJS <https://nodejs.org/en/download/>`_ in version 8.16 or higher. This will usually be
+  installed automatically as part of installing Yarn.
+
+  Note: On Ubuntu 18.04, NodeJS 8.10 will be installed as part of installing Yarn which is too old.
+  You can find instructions for installing newer versions at `NodeSource <https://github.com/nodesource/distributions/blob/master/README.md#installation-instructions>`_.
 - A terminal application for command line interaction
 
 
@@ -46,9 +51,11 @@ We'll start by getting the app up and running, and then explain the different co
 First off, open a terminal and instantiate the template project.
 ::
 
-    daml new create-daml-app create-daml-app
+    daml new create-daml-app --template create-daml-app
 
-This creates a new folder with contents from our template.
+This creates a new folder with contents from our template. To see
+a list of all available templates run ``daml new --list``.
+
 Change to the new folder::
 
     cd create-daml-app

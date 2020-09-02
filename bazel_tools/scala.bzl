@@ -53,6 +53,7 @@ common_scalacopts = [
     "-Xlint:missing-interpolator",
     "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
     "-Xlint:constant",  # / 0
+    "-Xlint:doc-detached",  # floating Scaladoc comment
     "-Xlint:inaccessible",  # method uses invisible types
     "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
     "-Xlint:option-implicit",  # implicit conversion arg might be null
@@ -71,9 +72,7 @@ common_scalacopts = [
     # Gives a warning for functions declared as returning Unit, but the body returns a value
     "-Ywarn-value-discard",
     "-Ywarn-unused-import",
-    # unfortunately give false warning for the `(a, b) = someTuple`
-    # line inside a for comprehension
-    # "-Ywarn-unused"
+    "-Ywarn-unused",
 ]
 
 plugin_deps = [
@@ -134,7 +133,6 @@ plugin_scalacopts = [
 # []
 # ^ means nothing to remove
 lf_scalacopts = [
-    "-Ywarn-unused",
 ]
 
 default_compile_arguments = {

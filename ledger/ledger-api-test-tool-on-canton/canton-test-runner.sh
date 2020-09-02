@@ -9,6 +9,7 @@ set -o pipefail
 CANTON_COMMAND=(
   "$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton)"
   daemon
+  "-d"
   "--config=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton.conf)"
   "--bootstrap=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/bootstrap.canton)"
 )
@@ -16,18 +17,6 @@ CANTON_COMMAND=(
 PARTICIPANT_1_HOST=localhost
 PARTICIPANT_1_LEDGER_API_PORT=5011
 PARTICIPANT_1_MONITORING_PORT=7000
-PARTICIPANT_2_HOST=localhost
-PARTICIPANT_2_LEDGER_API_PORT=5021
-PARTICIPANT_3_HOST=localhost
-PARTICIPANT_3_LEDGER_API_PORT=5031
-PARTICIPANT_4_HOST=localhost
-PARTICIPANT_4_LEDGER_API_PORT=5041
-PARTICIPANTS=(
-  "${PARTICIPANT_1_HOST}:${PARTICIPANT_1_LEDGER_API_PORT}"
-  "${PARTICIPANT_2_HOST}:${PARTICIPANT_2_LEDGER_API_PORT}"
-  "${PARTICIPANT_3_HOST}:${PARTICIPANT_3_LEDGER_API_PORT}"
-  "${PARTICIPANT_4_HOST}:${PARTICIPANT_4_LEDGER_API_PORT}"
-)
 
 TIMEOUT=60
 
@@ -50,17 +39,12 @@ function wait_until() {
 }
 
 command=("${CANTON_COMMAND[@]}")
-dars=()
 port_file=''
 while (($#)); do
-  # extract the port file
+  # Extract the port file.
   if [[ "$1" == '--port-file' ]]; then
     port_file="$2"
     shift
-    shift
-  # upload DARs with the DAML assistant
-  elif [[ "$1" =~ \.dar$ ]]; then
-    dars+=("$1")
     shift
   else
     command+=("$1")
@@ -74,15 +58,13 @@ if [[ -z "$port_file" ]]; then
   exit 2
 fi
 
-# Change HOME since Canton uses ammonite in the default configuration
-# which tries to write to ~/.ammonite/cache which is read-only
-# when sandboxing is enabled.
-export HOME=$(mktemp -d)
-# ammonite calls System.getProperty('user.home') which does not
-# read $HOME.
+# Change HOME since Canton uses ammonite in the default configuration, which tries to write to
+# ~/.ammonite/cache, which is read-only when sandboxing is enabled.
+HOME="$(mktemp -d)"
+export HOME
+# ammonite calls `System.getProperty('user.home')` which does not read $HOME.
 command+=("--wrapper_script_flag=--jvm_flag=-Duser.home=$HOME")
 
-# Redirect the Canton logs to a file for now, because they're really, really noisy.
 echo >&2 'Starting Canton...'
 "${command[@]}" &
 pid="$!"
@@ -105,19 +87,6 @@ function stop() {
 trap stop EXIT INT TERM
 
 wait_until curl -fsS "http://${PARTICIPANT_1_HOST}:${PARTICIPANT_1_MONITORING_PORT}/health"
-
-for participant in "${PARTICIPANTS[@]}"; do
-  for dar in "${dars[@]}"; do
-    base64 "$dar" |
-      jq -R --slurp '{"darFile": .}' |
-      grpcurl \
-        -plaintext \
-        -d @ \
-        "$participant" \
-        com.daml.ledger.api.v1.admin.PackageManagementService.UploadDarFile \
-        >/dev/null
-  done
-done
 
 # This should write two ports, but the runner doesn't support that.
 echo "$PARTICIPANT_1_LEDGER_API_PORT" >"$port_file"

@@ -6,16 +6,17 @@ package com.daml.platform.sandbox
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -27,11 +28,10 @@ import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
 
-object LedgerResource {
+private[sandbox] object LedgerResource {
 
   def inMemory(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
@@ -41,7 +41,6 @@ object LedgerResource {
       ResourceOwner.forValue(() =>
         new InMemoryLedger(
           ledgerId = ledgerId,
-          participantId = participantId,
           timeProvider = timeProvider,
           acs0 = acs,
           transactionCommitter = StandardTransactionCommitter,
@@ -49,28 +48,30 @@ object LedgerResource {
           ledgerEntries = entries,
       )))
 
+  private val TestParticipantId =
+    domain.ParticipantId(Ref.ParticipantId.assertFromString("test-participant-id"))
+
   def postgres(
       testClass: Class[_],
       ledgerId: LedgerId,
-      participantId: ParticipantId,
       timeProvider: TimeProvider,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Resource[Ledger] =
     new OwnedResource(
       for {
         database <- PostgresResource.owner()
         ledger <- new SqlLedger.Owner(
+          name = LedgerName(testClass.getSimpleName),
           serverRole = ServerRole.Testing(testClass),
           jdbcUrl = database.url,
-          initialLedgerId = LedgerIdMode.Static(ledgerId),
-          participantId = participantId,
+          providedLedgerId = LedgerIdMode.Static(ledgerId),
+          participantId = TestParticipantId,
           timeProvider = timeProvider,
-          acs = InMemoryActiveLedgerState.empty,
           packages = packages,
           initialLedgerEntries = ImmArray.empty,
           queueDepth = 128,

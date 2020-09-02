@@ -22,7 +22,8 @@ import com.daml.platform.store.Contract.ActiveContract
   * - Validates the transaction against the [[ActiveLedgerState]].
   * - Updates the [[ActiveLedgerState]].
   */
-class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => ALS) {
+private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
+    initialState: => ALS) {
 
   private case class AddTransactionState(
       acc: Option[ALS],

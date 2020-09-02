@@ -24,7 +24,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class CachingDamlLedgerStateReaderWithFingerprints(
     val cache: StateCacheWithFingerprints,
     shouldCache: DamlStateKey => Boolean,
-    keySerializationStrategy: StateKeySerializationStrategy,
     delegate: DamlLedgerStateReaderWithFingerprints)(implicit executionContext: ExecutionContext)
     extends DamlLedgerStateReaderWithFingerprints {
   override def read(keys: Seq[DamlKvutils.DamlStateKey])
@@ -76,7 +75,6 @@ object CachingDamlLedgerStateReaderWithFingerprints {
     new CachingDamlLedgerStateReaderWithFingerprints(
       cache,
       cachingPolicy.shouldCacheOnRead,
-      keySerializationStrategy,
       new RawToDamlLedgerStateReaderWithFingerprintsAdapter(
         ledgerStateReaderWithFingerprints,
         keySerializationStrategy)

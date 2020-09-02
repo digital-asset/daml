@@ -50,9 +50,9 @@ class ValidatingCommitter[LogResult](
       envelope: Bytes,
       submittingParticipantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
+    newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
       validator
-        .validateAndCommitWithLoggingContext(
+        .validateAndCommitWithContext(
           envelope,
           correlationId,
           Timestamp.assertFromInstant(now()),

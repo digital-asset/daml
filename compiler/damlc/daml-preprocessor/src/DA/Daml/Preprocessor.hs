@@ -51,6 +51,7 @@ mayImportInternal =
         , "DA.Generics"
         , "DA.Text"
         , "DA.Numeric"
+        , "DA.Stack"
 
         -- These modules are just listed to disable the record preprocessor.
         , "DA.NonEmpty.Types"

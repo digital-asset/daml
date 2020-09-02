@@ -63,19 +63,6 @@ class TransactionServiceRequestValidator(
 
   }
 
-  private def offsetIsBeforeEndIfAbsolute(
-      offsetType: String,
-      ledgerOffset: LedgerOffset,
-      ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute]): Result[Unit] =
-    ledgerOffset match {
-      case abs: LedgerOffset.Absolute if offsetOrdering.gt(abs, ledgerEnd) =>
-        Left(
-          invalidArgument(
-            s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"))
-      case _ => Right(())
-    }
-
   def validate(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
@@ -84,12 +71,17 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
-      _ <- partial.end.fold[Result[Unit]](Right(()))(
-        offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
-      convertedFilter <- TransactionFilterValidator.validate(
-        partial.transactionFilter,
-        "filter.filters_by_party")
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+        "Begin",
+        partial.begin,
+        ledgerEnd,
+        offsetOrdering)
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+        "End",
+        partial.end,
+        ledgerEnd,
+        offsetOrdering)
+      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
         ledgerId,
@@ -108,12 +100,17 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
-      _ <- partial.end.fold[Result[Unit]](Right(()))(
-        offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
-      convertedFilter <- transactionFilterToPartySet(
-        partial.transactionFilter,
-        "filter.filters_by_party")
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+        "Begin",
+        partial.begin,
+        ledgerEnd,
+        offsetOrdering)
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+        "End",
+        partial.end,
+        ledgerEnd,
+        offsetOrdering)
+      convertedFilter <- transactionFilterToPartySet(partial.transactionFilter)
     } yield {
       transaction.GetTransactionTreesRequest(
         partial.ledgerId,
@@ -168,7 +165,6 @@ class TransactionServiceRequestValidator(
 
   private def transactionFilterToPartySet(
       transactionFilter: TransactionFilter,
-      fieldName: String
   ) =
     transactionFilter.filtersByParty
       .collectFirst {

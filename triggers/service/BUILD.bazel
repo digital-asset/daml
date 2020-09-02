@@ -10,9 +10,15 @@ load(
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
+tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+    "NonUnitStatements",
+]]
+
 da_scala_library(
     name = "trigger-service",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    scalacopts = tsvc_main_scalacopts,
     # Uncomment this if/when the target is published to maven.
     # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -30,12 +36,14 @@ da_scala_library(
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//libs-scala/timer-utils",
+        "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
@@ -47,8 +55,9 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:io_grpc_grpc_netty",
+        "@maven//:com_zaxxer_HikariCP",
         "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_tpolecat_doobie_core_2_12",
@@ -70,25 +79,11 @@ da_scala_binary(
     ],
 )
 
-# The ref-ledger-authentication binary that we exercise from the
-# service tests.
-java_import(
-    name = "ref-ledger-authentication-jar",
-    jars = ["@ref-ledger-authentication//file:ref-ledger-authentication.jar"],
-)
-
-java_binary(
-    name = "ref-ledger-authentication-binary",
-    main_class = "com.projectdabl.authenticationservice.Main",
-    runtime_deps = [":ref-ledger-authentication-jar"],
-)
-
 da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
     data = [
         ":test-model.dar",
-        "//triggers/service:ref-ledger-authentication-binary",
     ] + (
         [
             "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
@@ -105,6 +100,7 @@ da_scala_test(
         "//daml-lf/data",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/participant-integration-api",
@@ -127,9 +123,6 @@ da_scala_test(
 da_scala_test(
     name = "auth-client-tests",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/auth/client/*.scala"]),
-    data = [
-        "//triggers/service:ref-ledger-authentication-binary",
-    ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
         ":trigger-service",

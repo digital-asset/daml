@@ -9,7 +9,7 @@ import com.daml.dec.DirectExecutionContext
 
 import scala.concurrent.Future
 
-object PaginatingAsyncStream {
+private[platform] object PaginatingAsyncStream {
 
   /**
     * Concatenates the results of multiple asynchronous calls into

@@ -17,6 +17,7 @@ case class TestConfig(
 )
 
 object TestConfig {
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[TestConfig]("test-script") {
     head("test-script")
 
@@ -41,7 +42,7 @@ object TestConfig {
       .text("File containing the participant configuration in JSON format")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
+      .action { (_, c) =>
         c.copy(timeMode = ScriptTimeMode.WallClock)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")

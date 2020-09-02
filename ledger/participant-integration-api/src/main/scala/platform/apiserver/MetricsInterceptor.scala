@@ -27,7 +27,7 @@ import scala.collection.concurrent.TrieMap
   *
   * e.g. "org.example.SomeService/someMethod" becomes "daml.lapi.some_service.some_method"
   */
-final class MetricsInterceptor(metrics: Metrics) extends ServerInterceptor {
+private[apiserver] final class MetricsInterceptor(metrics: Metrics) extends ServerInterceptor {
 
   // Cache the result of calling MetricsInterceptor.nameFor, which practically has a
   // limited co-domain and whose cost we don't want to pay every time an endpoint is hit

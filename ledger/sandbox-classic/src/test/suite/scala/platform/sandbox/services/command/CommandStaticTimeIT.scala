@@ -50,7 +50,7 @@ final class CommandStaticTimeIT
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), unwrappedLedgerId)
       .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
-      .map(tp =>
+      .map(_ =>
         new CommandClient(
           CommandSubmissionServiceGrpc.stub(channel),
           CommandCompletionServiceGrpc.stub(channel),
@@ -60,8 +60,7 @@ final class CommandStaticTimeIT
             maxCommandsInFlight = 1,
             maxParallelSubmissions = 1,
             defaultDeduplicationTime = java.time.Duration.ofSeconds(30)),
-          None
-        ).withTimeProvider(Some(tp)))(DirectExecutionContext)
+      ))(DirectExecutionContext)
 
   private lazy val submitRequest: SubmitRequest =
     MockMessages.submitRequest.update(
@@ -87,7 +86,6 @@ final class CommandStaticTimeIT
         for {
           commandClient <- createCommandClient()
           completion <- commandClient
-            .withTimeProvider(None)
             .trackSingleCommand(
               SubmitRequest(
                 Some(submitRequest.getCommands

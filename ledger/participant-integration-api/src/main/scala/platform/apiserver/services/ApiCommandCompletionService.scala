@@ -25,21 +25,24 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class ApiCommandCompletionService private (completionsService: IndexCompletionsService)(
+private[apiserver] final class ApiCommandCompletionService private (
+    completionsService: IndexCompletionsService,
+)(
     implicit ec: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
-    logCtx: LoggingContext)
-    extends CommandCompletionService {
+    loggingContext: LoggingContext,
+) extends CommandCompletionService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val subscriptionIdCounter = new AtomicLong()
 
   override def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionStreamResponse, NotUsed] =
+      request: CompletionStreamRequest,
+  ): Source[CompletionStreamResponse, NotUsed] =
     withEnrichedLoggingContext(logging.parties(request.parties), logging.offset(request.offset)) {
-      implicit logCtx =>
+      implicit loggingContext =>
         val subscriptionId = subscriptionIdCounter.getAndIncrement().toString
         logger.debug(s"Received request for completion subscription $subscriptionId: $request")
 
@@ -53,15 +56,19 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
+  override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
+    Ordering.by[LedgerOffset.Absolute, String](_.value)
+
 }
 
-object ApiCommandCompletionService {
+private[apiserver] object ApiCommandCompletionService {
 
   def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext): GrpcCommandCompletionService with GrpcApiService = {
+      loggingContext: LoggingContext,
+  ): GrpcCommandCompletionService with GrpcApiService = {
     val impl: CommandCompletionService =
       new ApiCommandCompletionService(completionsService)
 

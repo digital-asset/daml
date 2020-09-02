@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.events.EventsTableQueries.format
 
-trait SqlFunctions {
+private[events] trait SqlFunctions {
   def arrayIntersectionWhereClause(arrayColumn: String, party: Party): String =
     arrayIntersectionWhereClause(arrayColumn: String, Set(party))
 
@@ -15,7 +15,7 @@ trait SqlFunctions {
   def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String
 }
 
-object SqlFunctions {
+private[events] object SqlFunctions {
   def arrayIntersection(a: Array[String], b: Array[String]): Array[String] =
     a.toSet.intersect(b.toSet).toArray
 

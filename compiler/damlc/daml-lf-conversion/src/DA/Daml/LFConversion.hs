@@ -418,10 +418,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , n `elementOfUniqSet` consumingTypes
     -> pure []
 
-    -- Type synonyms get expanded out during conversion (see 'convertType').
-    | isTypeSynonymTyCon t
-    -> pure []
-
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
@@ -434,6 +430,11 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Type classes
     | isClassTyCon t
     -> convertClassDef env t
+
+    -- Type synonyms get expanded out during conversion (see 'convertType'), but we also
+    -- convert the synonyms we can so that we can expose them via data-dependencies.
+    | isTypeSynonymTyCon t
+    -> convertTypeSynonym env t
 
     -- Simple record types. This includes newtypes, and
     -- single constructor algebraic types with no fields or with
@@ -474,6 +475,28 @@ convertSimpleRecordDef env tycon = do
         workerDef = defNewtypeWorker (envLFModuleName env) tycon tconName con tyVars fields
 
     pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
+
+convertTypeSynonym :: Env -> TyCon -> ConvertM [Definition]
+convertTypeSynonym env tycon
+    | NameIn DA_Generics _ <- GHC.tyConName tycon
+    = pure []
+
+    | envLfVersion env `supports` featureTypeSynonyms
+    , Just (params, body) <- synTyConDefn_maybe tycon
+    , isLiftedTypeKind (tyConResKind tycon) -- accepts types and constraints
+    , not (isKindTyCon tycon)
+    = do
+        (env', tsynParams) <- bindTypeVars env params
+        tsynType <- convertType env' body
+        let tsynName = mkTypeSyn [getOccText tycon]
+        case tsynType of
+            TUnit -> pure []
+                -- We avoid converting TUnit type synonyms because it
+                -- clashes with the conversion of empty typeclasses.
+            _ -> pure [ defTypeSyn tsynName tsynParams tsynType ]
+
+    | otherwise
+    = pure []
 
 convertClassDef :: Env -> TyCon -> ConvertM [Definition]
 convertClassDef env tycon = do
@@ -863,7 +886,7 @@ convertExpr env0 e = do
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> mkPure env monad dict TUnit EUnit
     go env (VarIn DA_Action "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> mkPure env monad dict TUnit EUnit <*> convertExpr env y
-    go env submit@(VarIn DA_Internal_LF "submit") (LType m : LType cmds : LExpr dict : LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+    go env submit@(VarIn DA_Internal_LF "submit") (LType m : LType cmds : LExpr dict : LType typ : LExpr callstack : LExpr pty : LExpr upd : args) = fmap (, args) $ do
          m' <- convertType env m
          typ' <- convertType env typ
          pty' <- convertExpr env pty
@@ -874,8 +897,9 @@ convertExpr env0 e = do
              submit' <- convertExpr env submit
              cmds' <- convertType env cmds
              dict' <- convertExpr env dict
-             pure $ mkEApps submit' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg pty', TmArg upd']
-    go env submitMustFail@(VarIn DA_Internal_LF "submitMustFail") (LType m : LType cmds : LExpr dict : LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+             callstack' <- convertExpr env callstack
+             pure $ mkEApps submit' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg callstack', TmArg pty', TmArg upd']
+    go env submitMustFail@(VarIn DA_Internal_LF "submitMustFail") (LType m : LType cmds : LExpr dict : LType typ : LExpr callstack : LExpr pty : LExpr upd : args) = fmap (, args) $ do
          m' <- convertType env m
          typ' <- convertType env typ
          pty' <- convertExpr env pty
@@ -886,7 +910,8 @@ convertExpr env0 e = do
              submitMustFail' <- convertExpr env submitMustFail
              cmds' <- convertType env cmds
              dict' <- convertExpr env dict
-             pure $ mkEApps submitMustFail' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg pty', TmArg upd']
+             callstack' <- convertExpr env callstack
+             pure $ mkEApps submitMustFail' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg callstack', TmArg pty', TmArg upd']
 
     -- custom conversion because they correspond to builtins in DAML-LF, so can make the output more readable
     go env (VarIn DA_Internal_Prelude "pure") (LType monad : LExpr dict : LType t : LExpr x : args)

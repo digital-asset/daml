@@ -1,7 +1,7 @@
 cabal-version: 2.4
 name: da-hs-base
 build-type: Simple
-version: 0.1.0
+version: 0.1.4.0
 synopsis: Kitchen sink package for common functionality shared between packages
 license: Apache-2.0
 author: Digital Asset
@@ -28,7 +28,6 @@ library
       bytestring,
       conduit,
       containers,
-      daml-project-config,
       deepseq,
       directory,
       extra,
@@ -58,7 +57,7 @@ library
       Control.Lens.MonoTraversal
       DA.Pretty
       DA.Service.Logger
-      DA.Service.Logger.Impl.GCP
+      -- DA.Service.Logger.Impl.GCP imports SdkVersion build artefact
       DA.Service.Logger.Impl.IO
       DA.Service.Logger.Impl.Pure
       DA.Signals

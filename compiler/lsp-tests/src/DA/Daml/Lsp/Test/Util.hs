@@ -10,10 +10,16 @@ module DA.Daml.Lsp.Test.Util
     , openDocs
     , openDoc'
     , replaceDoc
+    , waitForScriptDidChange
+    , scriptUri
+    , openScript
+    , expectScriptContent
+    , expectScriptContentMatch
     , waitForScenarioDidChange
     , scenarioUri
     , openScenario
     , expectScenarioContent
+    , expectScenarioContentMatch
     , module Language.Haskell.LSP.Test
     ) where
 
@@ -32,6 +38,7 @@ import System.Directory
 import System.FilePath
 import System.IO.Extra
 import Test.Tasty.HUnit
+import Text.Regex.TDFA
 
 import Development.IDE.Test
 import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
@@ -66,6 +73,21 @@ openDoc' file languageId contents = do
     sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams item)
     pure $ TextDocumentIdentifier uri
 
+waitForScriptDidChange :: Session VirtualResourceChangedParams
+waitForScriptDidChange = waitForScenarioDidChange
+
+scriptUri :: FilePath -> String -> Session Uri
+scriptUri = scenarioUri
+
+openScript :: FilePath -> String -> Session TextDocumentIdentifier
+openScript = openScenario
+
+expectScriptContent :: T.Text -> Session ()
+expectScriptContent = expectScenarioContent
+
+expectScriptContentMatch :: String -> Session ()
+expectScriptContentMatch = expectScenarioContentMatch
+
 waitForScenarioDidChange :: Session VirtualResourceChangedParams
 waitForScenarioDidChange = do
   scenario <- skipManyTill anyMessage scenarioDidChange
@@ -97,3 +119,11 @@ expectScenarioContent needle = do
     liftIO $ assertBool
         ("Expected " <> show needle  <> " in " <> show (_vrcpContents m))
         (needle `T.isInfixOf` _vrcpContents m)
+
+expectScenarioContentMatch :: String -> Session ()
+expectScenarioContentMatch regexS = do
+    (regex :: Regex) <- makeRegexM regexS
+    m <- waitForScenarioDidChange
+    liftIO $ assertBool
+        ("Expected " <> regexS  <> " to match " <> show (_vrcpContents m))
+        (matchTest regex (_vrcpContents m))

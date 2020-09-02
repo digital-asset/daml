@@ -18,11 +18,11 @@ case object Commands extends SimpleCommand {
 
   private def prettyStatus(status: model.CommandStatus): String = {
     status match {
-      case s: model.CommandStatusWaiting => "Waiting"
+      case _: model.CommandStatusWaiting => "Waiting"
       case s: model.CommandStatusError => s"Error: ${Pretty.abbreviate(s.details, 30)}"
       case s: model.CommandStatusSuccess =>
         s"Success: Transaction ${ApiTypes.TransactionId.unwrap(s.tx.id)}"
-      case s: model.CommandStatusUnknown => "Unknown: Command tracking failed"
+      case _: model.CommandStatusUnknown => "Unknown: Command tracking failed"
     }
   }
 

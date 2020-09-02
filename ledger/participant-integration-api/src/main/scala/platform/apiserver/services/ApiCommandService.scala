@@ -10,7 +10,6 @@ import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -45,15 +44,14 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
-final class ApiCommandService private (
+private[apiserver] final class ApiCommandService private (
     services: LocalServices,
     configuration: ApiCommandService.Configuration,
     ledgerConfigProvider: LedgerConfigProvider,
 )(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
-    esf: ExecutionSequencerFactory,
-    logCtx: LoggingContext
+    loggingContext: LoggingContext
 ) extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
@@ -74,23 +72,28 @@ final class ApiCommandService private (
     submissionTracker.close()
   }
 
-  private def submitAndWaitInternal(request: SubmitAndWaitRequest): Future[Completion] =
+  private def submitAndWaitInternal(request: SubmitAndWaitRequest)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Completion] =
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
-      logging.party(request.getCommands.party)) { implicit logCtx =>
+      logging.party(request.getCommands.party),
+    ) { implicit loggingContext =>
       if (running) {
         ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
           Future.failed(ErrorFactories.missingLedgerConfig()))(ledgerConfig =>
           track(request, ledgerConfig))
       } else {
         Future.failed(
-          new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down.")))
+          new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
+        )
       }.andThen(logger.logErrorsOnCall[Completion])
     }
 
   private def track(
       request: SubmitAndWaitRequest,
-      ledgerConfig: LedgerConfiguration): Future[Completion] = {
+      ledgerConfig: LedgerConfiguration,
+  )(implicit loggingContext: LoggingContext): Future[Completion] = {
     val appId = request.getCommands.applicationId
     val submitter = TrackerMap.Key(application = appId, party = request.getCommands.party)
     submissionTracker.track(submitter, request) {
@@ -157,7 +160,7 @@ final class ApiCommandService private (
   override def toString: String = ApiCommandService.getClass.getSimpleName
 }
 
-object ApiCommandService {
+private[apiserver] object ApiCommandService {
 
   def create(
       configuration: Configuration,
@@ -167,8 +170,7 @@ object ApiCommandService {
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
-      esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext
+      loggingContext: LoggingContext
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(services, configuration, ledgerConfigProvider),

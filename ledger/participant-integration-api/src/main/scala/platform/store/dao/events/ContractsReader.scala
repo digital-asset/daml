@@ -10,6 +10,7 @@ import anorm.SqlParser.{binaryStream, str}
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
@@ -46,7 +47,7 @@ private[dao] sealed abstract class ContractsReader(
   private def lookupActiveContractAndLoadArgument(
       submitter: Party,
       contractId: ContractId,
-  ): Future[Option[Contract]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
         SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
@@ -68,7 +69,7 @@ private[dao] sealed abstract class ContractsReader(
       submitter: Party,
       contractId: ContractId,
       createArgument: Value,
-  ): Future[Option[Contract]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractWithCachedArgumentDbMetrics) {
         implicit connection =>
@@ -86,7 +87,7 @@ private[dao] sealed abstract class ContractsReader(
   override def lookupActiveContract(
       submitter: Party,
       contractId: ContractId,
-  ): Future[Option[Contract]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     // Depending on whether the contract argument is cached or not, submit a different query to the database
     translation.cache.contracts
       .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
@@ -100,12 +101,14 @@ private[dao] sealed abstract class ContractsReader(
   override def lookupContractKey(
       submitter: Party,
       key: Key,
-  ): Future[Option[ContractId]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
     dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
       lookupContractKeyQuery(submitter, key).as(contractId("contract_id").singleOpt)
     }
 
-  override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] =
+  override def lookupMaximumLedgerTime(ids: Set[ContractId])(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[Instant]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics) { implicit connection =>
         committedContracts.lookupMaximumLedgerTime(ids)
@@ -114,7 +117,7 @@ private[dao] sealed abstract class ContractsReader(
 
 }
 
-object ContractsReader {
+private[dao] object ContractsReader {
 
   private[dao] def apply(
       dispatcher: DbDispatcher,

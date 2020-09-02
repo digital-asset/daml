@@ -21,7 +21,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
 
   it should "preserve divulged contracts" in {
     val (create1, tx1) = {
-      val builder = new TransactionBuilder
+      val builder = TransactionBuilder()
       val contractId = builder.newCid
       builder.add(
         NodeCreate(
@@ -36,7 +36,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       contractId -> builder.buildCommitted()
     }
     val (create2, tx2) = {
-      val builder = new TransactionBuilder
+      val builder = TransactionBuilder()
       val contractId = builder.newCid
       builder.add(
         NodeCreate(
@@ -53,7 +53,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       contractId -> builder.buildCommitted()
     }
     val tx3 = {
-      val builder = new TransactionBuilder
+      val builder = TransactionBuilder()
       val rootExercise = builder.add(
         NodeExercises(
           targetCoid = create1,

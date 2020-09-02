@@ -6,6 +6,7 @@ package com.daml.lf.engine
 import java.time.Duration
 import java.util.UUID
 
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.services.time.TimeProviderType
 
@@ -27,13 +28,10 @@ package trigger {
       restartIntervalRandomFactor: Double = 0.2,
   )
 
-  final case class SecretKey(value: String)
-  final case class UserCredentials(token: EncryptedToken)
-
   final case class RunningTrigger(
       triggerInstance: UUID,
       triggerName: Identifier,
-      credentials: UserCredentials,
+      triggerParty: Party,
       // TODO(SF, 2020-0610): Add access token field here in the
       // presence of authentication.
   )

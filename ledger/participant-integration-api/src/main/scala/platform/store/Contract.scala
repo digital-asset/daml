@@ -15,7 +15,7 @@ import com.daml.ledger.{TransactionId, WorkflowId}
 /** A contract that is part of the [[ActiveLedgerState]].
   * Depending on where the contract came from, other metadata may be available.
   */
-sealed abstract class Contract {
+private[platform] sealed abstract class Contract {
   def id: Value.ContractId
 
   def contract: ContractInst[VersionedValue[ContractId]]
@@ -31,7 +31,7 @@ sealed abstract class Contract {
     parties.foldLeft(divulgences)((m, e) => if (m.contains(e)) m else m + (e -> transactionId))
 }
 
-object Contract {
+private[platform] object Contract {
 
   /**
     * For divulged contracts, we only know their contract argument, but no other metadata.
@@ -42,7 +42,6 @@ object Contract {
   final case class DivulgedContract(
       id: Value.ContractId,
       contract: ContractInst[VersionedValue[ContractId]],
-      /** For each party, the transaction id at which the contract was divulged */
       divulgences: Map[Party, TransactionId],
   ) extends Contract
 

@@ -10,7 +10,6 @@ import com.daml.ledger.validator.caching.CachingDamlLedgerStateReader.StateCache
 import com.daml.ledger.validator.{
   DamlLedgerStateReader,
   LedgerStateReader,
-  RawToDamlLedgerStateReaderAdapter,
   StateKeySerializationStrategy
 }
 
@@ -29,11 +28,12 @@ trait QueryableReadSet {
   * This is crucial for caching access to large frequently accessed state, for example
   * package state values (which are too expensive to deserialize from bytes every time).
   */
-class CachingDamlLedgerStateReader(
+final class CachingDamlLedgerStateReader(
     val cache: StateCache,
     shouldCache: DamlStateKey => Boolean,
     keySerializationStrategy: StateKeySerializationStrategy,
-    delegate: DamlLedgerStateReader)(implicit executionContext: ExecutionContext)
+    delegate: DamlLedgerStateReader,
+)(implicit executionContext: ExecutionContext)
     extends DamlLedgerStateReader
     with QueryableReadSet {
 
@@ -73,15 +73,16 @@ object CachingDamlLedgerStateReader {
 
   type StateCache = Cache[DamlStateKey, DamlStateValue]
 
-  private[validator] def apply(
+  def apply(
       cache: StateCache,
       cachingPolicy: CacheUpdatePolicy,
       ledgerStateOperations: LedgerStateReader,
-      keySerializationStrategy: StateKeySerializationStrategy)(
-      implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader =
+      keySerializationStrategy: StateKeySerializationStrategy,
+  )(implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader =
     new CachingDamlLedgerStateReader(
       cache,
       cachingPolicy.shouldCacheOnRead,
       keySerializationStrategy,
-      new RawToDamlLedgerStateReaderAdapter(ledgerStateOperations, keySerializationStrategy))
+      DamlLedgerStateReader.from(ledgerStateOperations, keySerializationStrategy),
+    )
 }

@@ -5,23 +5,21 @@ package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.daml.lf.{CompiledPackages, crypto}
+import com.daml.lf.crypto
 import com.daml.lf.data.{Relation => _, _}
+import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.platform.packages.InMemoryPackageStore
-import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
-import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
 
-object ScenarioLoader {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+private[sandbox] object ScenarioLoader {
 
   /** When loading from the scenario, we also specify by how much to bump the
     * ledger end after each entry. This is because in the scenario transaction
@@ -53,23 +51,23 @@ object ScenarioLoader {
     */
   def fromScenario(
       packages: InMemoryPackageStore,
-      compiledPackages: CompiledPackages,
+      engine: Engine,
       scenario: String,
       transactionSeed: crypto.Hash,
   ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
-    val (scenarioLedger, scenarioRef) =
-      buildScenarioLedger(packages, compiledPackages, scenario, transactionSeed)
+    val (scenarioLedger, _) =
+      buildScenarioLedger(packages, engine, scenario, transactionSeed)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
       new ArrayBuffer[(ScenarioLedger.TransactionId, LedgerEntry)](
         scenarioLedger.scenarioSteps.size)
     type Acc = (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioLedger.TransactionId])
-    val (acs, time, txId) =
+    val (acs, time, _) =
       scenarioLedger.scenarioSteps.iterator
         .foldLeft[Acc]((InMemoryActiveLedgerState.empty, Time.Timestamp.Epoch, None)) {
           case ((acs, time, mbOldTxId), (stepId @ _, step)) =>
-            executeScenarioStep(ledgerEntries, scenarioRef, acs, time, mbOldTxId, stepId, step)
+            executeScenarioStep(ledgerEntries, acs, time, mbOldTxId, stepId, step)
         }
     // now decorate the entries with what the next increment is
     @tailrec
@@ -87,7 +85,7 @@ object ScenarioLoader {
       toProcess match {
         case ImmArray() => processed.toImmArray
         // we have to bump the offsets when the first one is not zero (passTimes),
-        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _))
+        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, _), _))
             if (processed.isEmpty && entryTxId.index > 0) =>
           val newProcessed = (processed :++ ImmArray(
             LedgerEntryOrBump.Bump(entryTxId.index),
@@ -99,7 +97,7 @@ object ScenarioLoader {
         case ImmArrayCons((_, entry), ImmArray()) =>
           (processed :+ LedgerEntryOrBump.Entry(entry)).toImmArray
 
-        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _)) =>
+        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, _), _)) =>
           val newProcessed = processed :+ LedgerEntryOrBump.Entry(entry) :++ bumps(
             entryTxId,
             nextTxId)
@@ -112,7 +110,7 @@ object ScenarioLoader {
 
   private[this] def buildScenarioLedger(
       packages: InMemoryPackageStore,
-      compiledPackages: CompiledPackages,
+      engine: Engine,
       scenario: String,
       transactionSeed: crypto.Hash,
   ): (ScenarioLedger, Ref.DefinitionRef) = {
@@ -120,13 +118,8 @@ object ScenarioLoader {
     val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     @com.github.ghik.silencer.silent("can be used only by sandbox classic.")
-    val scenarioLedger = ScenarioRunner.getScenarioLedger(
-      scenarioRef = scenarioRef,
-      scenarioDef = scenarioDef,
-      compiledPackages = compiledPackages,
-      transactionSeed = transactionSeed,
-      outputTransactionVersions = SandboxServer.engineConfig.outputTransactionVersions,
-    )
+    val scenarioLedger =
+      ScenarioRunner.getScenarioLedger(engine, scenarioRef, scenarioDef, transactionSeed)
     (scenarioLedger, scenarioRef)
   }
 
@@ -182,7 +175,6 @@ object ScenarioLoader {
 
   private def executeScenarioStep(
       ledger: ArrayBuffer[(ScenarioLedger.TransactionId, LedgerEntry)],
-      scenarioRef: Ref.DefinitionRef,
       acs: InMemoryActiveLedgerState,
       time: Time.Timestamp,
       mbOldTxId: Option[ScenarioLedger.TransactionId],
@@ -215,8 +207,8 @@ object ScenarioLoader {
           workflowId,
           Some(richTransaction.committer),
           tx,
-          richTransaction.explicitDisclosure,
-          richTransaction.implicitDisclosure,
+          richTransaction.blindingInfo.disclosure,
+          richTransaction.blindingInfo.divulgence,
           List.empty
         ) match {
           case Right(newAcs) =>
@@ -233,7 +225,7 @@ object ScenarioLoader {
                     time.toInstant,
                     time.toInstant,
                     tx,
-                    richTransaction.explicitDisclosure
+                    richTransaction.blindingInfo.disclosure,
                   )))
             (newAcs, time, Some(txId))
           case Left(err) =>

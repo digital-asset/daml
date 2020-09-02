@@ -7,14 +7,6 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.TransactionId
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
@@ -25,14 +17,23 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse,
+  GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
 
 /** Defines all the functionalities a Ledger needs to provide */
-trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
+private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
 
@@ -41,69 +42,89 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  ): Source[(Offset, GetTransactionsResponse), NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       requestingParties: Set[Party],
       verbose: Boolean,
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionTreesResponse), NotUsed]
 
-  def ledgerEnd: Offset
+  def ledgerEnd()(implicit loggingContext: LoggingContext): Offset
 
   def completions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Ref.Party]): Source[(Offset, CompletionStreamResponse), NotUsed]
+      parties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed]
 
   def activeContracts(
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  ): (Source[GetActiveContractsResponse, NotUsed], Offset)
+  )(implicit loggingContext: LoggingContext): (Source[GetActiveContractsResponse, NotUsed], Offset)
 
   def lookupContract(
       contractId: Value.ContractId,
       forParty: Party
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
+  )(implicit loggingContext: LoggingContext)
+    : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
   def lookupMaximumLedgerTime(
       contractIds: Set[ContractId],
-  ): Future[Option[Instant]]
+  )(implicit loggingContext: LoggingContext): Future[Option[Instant]]
 
-  def lookupKey(key: GlobalKey, forParty: Party): Future[Option[ContractId]]
+  def lookupKey(key: GlobalKey, forParty: Party)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[ContractId]]
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): Future[Option[GetFlatTransactionResponse]]
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
 
   def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): Future[Option[GetTransactionResponse]]
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
   // Party management
-  def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
+  def getParties(parties: Seq[Party])(
+      implicit loggingContext: LoggingContext,
+  ): Future[List[PartyDetails]]
 
-  def listKnownParties(): Future[List[PartyDetails]]
+  def listKnownParties()(implicit loggingContext: LoggingContext): Future[List[PartyDetails]]
 
-  def partyEntries(startExclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed]
+  def partyEntries(startExclusive: Offset)(
+      implicit loggingContext: LoggingContext,
+  ): Source[(Offset, PartyLedgerEntry), NotUsed]
 
   // Package management
-  def listLfPackages(): Future[Map[PackageId, PackageDetails]]
+  def listLfPackages()(
+      implicit loggingContext: LoggingContext,
+  ): Future[Map[PackageId, PackageDetails]]
 
-  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+  def getLfArchive(packageId: PackageId)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[Archive]]
 
-  def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
+  def getLfPackage(packageId: PackageId)(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[Ast.Package]]
 
-  def packageEntries(startExclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed]
+  def packageEntries(startExclusive: Offset)(
+      implicit loggingContext: LoggingContext,
+  ): Source[(Offset, PackageLedgerEntry), NotUsed]
 
   // Configuration management
-  def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]]
+  def lookupLedgerConfiguration()(
+      implicit loggingContext: LoggingContext,
+  ): Future[Option[(Offset, Configuration)]]
+
   def configurationEntries(
-      startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed]
+      startExclusive: Offset,
+  )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed]
 
   /** Deduplicates commands.
     * Returns CommandDeduplicationNew if this is the first time the command is submitted
@@ -116,7 +137,8 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       commandId: CommandId,
       submitter: Ref.Party,
       submittedAt: Instant,
-      deduplicateUntil: Instant): Future[CommandDeduplicationResult]
+      deduplicateUntil: Instant,
+  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
 
   /**
     * Stops deduplicating the given command.
@@ -127,7 +149,7 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def stopDeduplicatingCommand(
       commandId: CommandId,
       submitter: Ref.Party,
-  ): Future[Unit]
+  )(implicit loggingContext: LoggingContext): Future[Unit]
 
   /**
     * Remove all expired deduplication entries. This method has to be called
@@ -144,5 +166,5 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
     */
   def removeExpiredDeduplicationData(
       currentTime: Instant,
-  ): Future[Unit]
+  )(implicit loggingContext: LoggingContext): Future[Unit]
 }

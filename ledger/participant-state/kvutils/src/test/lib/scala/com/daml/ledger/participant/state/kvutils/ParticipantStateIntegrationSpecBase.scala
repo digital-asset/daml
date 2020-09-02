@@ -7,6 +7,7 @@ import java.io.File
 import java.time.{Clock, Duration}
 import java.util.UUID
 
+import akka.Done
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -18,22 +19,24 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.archive.DarReader
 import com.daml.lf.crypto
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party.ordering
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.common.MismatchException
 import com.daml.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
+import scala.collection.{SortedSet, mutable}
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.util.{Failure, Success, Try}
 
 //noinspection DuplicatedCode
 abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
@@ -59,7 +62,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
+  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
     newParticipantState(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
@@ -67,7 +70,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   private def newParticipantState(
       ledgerId: LedgerId,
   ): ResourceOwner[ParticipantState] =
-    newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit loggingContext =>
       participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
     }
 
@@ -298,7 +301,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (offset1, _) <- waitForNextUpdate(ps, None)
           _ <- ps
             .submitTransaction(
-              submitterInfo(rt, alice),
+              submitterInfo(alice),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost)
@@ -317,7 +320,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (offset1, update1) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._1),
+              submitterInfo(alice, commandIds._1),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -327,7 +330,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           // Below submission is a duplicate, should get dropped.
           result3 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._1),
+              submitterInfo(alice, commandIds._1),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -335,7 +338,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .toScala
           result4 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, commandIds._2),
+              submitterInfo(alice, commandIds._2),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -367,7 +370,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (offset1, _) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, "X1"),
+              submitterInfo(alice, "X1"),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost)
@@ -375,7 +378,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
           result3 <- ps
             .submitTransaction(
-              submitterInfo(rt, alice, "X2"),
+              submitterInfo(alice, "X2"),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost)
@@ -408,7 +411,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           // Submit without allocation
           _ <- ps
             .submitTransaction(
-              submitterInfo(rt, unallocatedParty),
+              submitterInfo(unallocatedParty),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -435,7 +438,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
           _ <- ps
             .submitTransaction(
-              submitterInfo(rt, party = newParty),
+              submitterInfo(party = newParty),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -567,28 +570,48 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       val partyNames =
         partyIds
           .map(i => Ref.Party.assertFromString(s"party-%0${partyIdDigits}d".format(i)))
-          .toVector
+          .to[SortedSet]
 
-      val updatesF = ps
+      val expectedOffsets = partyIds.map(i => toOffset(i)).to[SortedSet]
+
+      val updates = mutable.Buffer.empty[(Offset, Update)]
+      val stateUpdatesF = ps
         .stateUpdates(beginAfter = None)
         .idleTimeout(IdleTimeout)
         .take(partyCount)
-        .runWith(Sink.seq)
+        .runWith(Sink.foreach { update =>
+          updates.synchronized {
+            updates += update
+            ()
+          }
+        })
       for {
-        results <- Future.sequence(
-          partyNames.map(name =>
-            ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala),
-        )
+        results <- Future.traverse(partyNames.toVector)(name =>
+          ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala)
         _ = all(results) should be(SubmissionResult.Acknowledged)
-        updates <- updatesF
+
+        _ <- stateUpdatesF.transform {
+          case Success(Done) => Success(())
+          case Failure(exception: TimeoutException) =>
+            val acceptedPartyNames =
+              updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName)
+            val missingPartyNames = partyNames.map(name => name: String) -- acceptedPartyNames
+            Failure(
+              new RuntimeException(
+                s"Timed out with parties missing: ${missingPartyNames.mkString(", ")}",
+                exception))
+          case Failure(exception) => Failure(exception)
+        }
       } yield {
-        val expectedOffsets = partyIds.map(i => toOffset(i)).toVector
-        val actualOffsets = updates.map(_._1).sorted.toVector
-        actualOffsets should be(expectedOffsets)
+        updates.size should be(partyCount)
+
+        val (actualOffsets, actualUpdates) = updates.unzip
+        all(actualUpdates) should be(a[PartyAddedToParticipant])
+        actualOffsets.to[SortedSet] should be(expectedOffsets)
 
         val actualNames =
-          updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName).sorted.toVector
-        actualNames should be(partyNames)
+          actualUpdates.map(_.asInstanceOf[PartyAddedToParticipant].displayName)
+        actualNames.to[SortedSet] should be(partyNames)
       }
     }
 
@@ -619,10 +642,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             Future.unit
           }.failed
         } yield {
-          exception should be(a[LedgerIdMismatchException])
-          val mismatchException = exception.asInstanceOf[LedgerIdMismatchException]
-          mismatchException.existingLedgerId should be(ledgerId)
-          mismatchException.providedLedgerId should be(attemptedLedgerId)
+          exception should be(a[MismatchException.LedgerId])
+          val mismatchException = exception.asInstanceOf[MismatchException.LedgerId]
+          mismatchException.existing should be(ledgerId)
+          mismatchException.provided should be(attemptedLedgerId)
         }
       }
 
@@ -657,7 +680,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
     }
   }
 
-  private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
+  private def submitterInfo(party: Ref.Party, commandId: String = "X") =
     SubmitterInfo(
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),
@@ -670,7 +693,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
   private def waitForNextUpdate(
       ps: ParticipantState,
-      offset: Option[Offset] = None): Future[(Offset, Update)] =
+      offset: Option[Offset]): Future[(Offset, Update)] =
     ps.stateUpdates(beginAfter = offset)
       .idleTimeout(IdleTimeout)
       .runWith(Sink.head)
@@ -679,7 +702,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  private val IdleTimeout: FiniteDuration = 5.seconds
+  private val IdleTimeout: FiniteDuration = 15.seconds
   private val DefaultInterpretationCost = 0L
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")

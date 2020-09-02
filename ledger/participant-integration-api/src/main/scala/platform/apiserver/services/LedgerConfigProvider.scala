@@ -25,7 +25,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.{DurationInt, DurationLong}
 
 /**
@@ -35,13 +35,13 @@ import scala.concurrent.duration.{DurationInt, DurationLong}
   * This class helps avoiding code duplication and limiting the number of
   * database lookups, as multiple services and validators require the latest ledger config.
   */
-final class LedgerConfigProvider private (
+private[apiserver] final class LedgerConfigProvider private (
     index: IndexConfigManagementService,
     optWriteService: Option[WriteService],
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
@@ -105,10 +105,10 @@ final class LedgerConfigProvider private (
             index
               .configurationEntries(state.get._1)
               .map {
-                case (offset, domain.ConfigurationEntry.Accepted(_, _, config)) =>
+                case (offset, domain.ConfigurationEntry.Accepted(_, config)) =>
                   logger.info(s"New ledger configuration $config found at $offset")
                   configFound(offset, config)
-                case (offset, domain.ConfigurationEntry.Rejected(_, _, _, _)) =>
+                case (offset, domain.ConfigurationEntry.Rejected(_, _, _)) =>
                   logger.trace(s"New ledger configuration rejection found at $offset")
                   state.updateAndGet(previous => Some(offset) -> previous._2)
                   ()
@@ -121,7 +121,6 @@ final class LedgerConfigProvider private (
   }
 
   private[this] def submitInitialConfig(writeService: WriteService): Future[Unit] = {
-    implicit val executionContext: ExecutionContext = DE
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
     // - There already is a configuration, it just didn't appear in the index yet
@@ -166,7 +165,7 @@ final class LedgerConfigProvider private (
   }
 }
 
-object LedgerConfigProvider {
+private[apiserver] object LedgerConfigProvider {
 
   def create(
       index: IndexConfigManagementService,
@@ -174,6 +173,7 @@ object LedgerConfigProvider {
       timeProvider: TimeProvider,
       config: LedgerConfiguration)(
       implicit materializer: Materializer,
-      logCtx: LoggingContext): LedgerConfigProvider =
+      loggingContext: LoggingContext,
+  ): LedgerConfigProvider =
     new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
 }

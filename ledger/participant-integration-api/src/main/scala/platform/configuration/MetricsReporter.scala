@@ -3,13 +3,14 @@
 
 package com.daml.platform.configuration
 
-import java.net.{InetAddress, InetSocketAddress}
-import java.nio.file.{Path, Paths}
+import java.net.{InetSocketAddress, URI}
+import java.nio.file.{Files, Path, Paths}
 
 import com.codahale.metrics
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter}
-
 import scopt.Read
+
+import scala.util.control.NonFatal
 
 sealed abstract class MetricsReporter {
   def register(registry: MetricRegistry): ScheduledReporter
@@ -25,10 +26,12 @@ object MetricsReporter {
   }
 
   final case class Csv(directory: Path) extends MetricsReporter {
-    override def register(registry: MetricRegistry): ScheduledReporter =
+    override def register(registry: MetricRegistry): ScheduledReporter = {
+      Files.createDirectories(directory)
       metrics.CsvReporter
         .forRegistry(registry)
         .build(directory.toFile)
+    }
   }
 
   final case class Graphite(address: InetSocketAddress, prefix: Option[String] = None)
@@ -41,32 +44,44 @@ object MetricsReporter {
   }
 
   object Graphite {
-    val defaultHost: InetAddress = InetAddress.getLoopbackAddress
     val defaultPort: Int = 2003
-
-    def apply(): Graphite =
-      Graphite(new InetSocketAddress(defaultHost, defaultPort))
-
-    def apply(port: Int): Graphite =
-      Graphite(new InetSocketAddress(defaultHost, port))
   }
 
-  implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads { value =>
-    if (value == "console") {
-      Console
-    } else {
-      val uri = Read.uriRead.reads(value)
-      uri.getScheme match {
-        case "csv" => Csv(Paths.get(uri.getPath))
-        case "graphite" =>
-          val port = if (uri.getPort > 0) uri.getPort else Graphite.defaultPort
-          val address = new InetSocketAddress(uri.getHost, port)
-          val metricPrefix = Some(uri.getPath.stripPrefix("/")).filter(_.nonEmpty)
-          Graphite(address, metricPrefix)
-        case _ =>
-          throw new InvalidConfigException(
-            """Must be one of "console", "csv:///PATH", or "graphite://HOST[:PORT][/METRIC_PREFIX]".""")
-      }
+  implicit val metricsReporterRead: Read[MetricsReporter] = {
+    Read.reads {
+      case "console" =>
+        Console
+      case value if value.startsWith("csv://") =>
+        val uri = parseUri(value)
+        if (uri.getHost != null || uri.getPort >= 0) {
+          throw invalidRead
+        }
+        Csv(Paths.get(uri.getPath))
+      case value if value.startsWith("graphite://") =>
+        val uri = parseUri(value)
+        if (uri.getHost == null) {
+          throw invalidRead
+        }
+        val port = if (uri.getPort > 0) uri.getPort else Graphite.defaultPort
+        val address = new InetSocketAddress(uri.getHost, port)
+        val metricPrefix = Some(uri.getPath.stripPrefix("/")).filter(_.nonEmpty)
+        Graphite(address, metricPrefix)
+      case _ =>
+        throw invalidRead
     }
   }
+
+  def parseUri(value: String): URI =
+    try {
+      new URI(value)
+    } catch {
+      case NonFatal(exception) =>
+        throw new InvalidConfigException(invalidReadError + " " + exception.getMessage)
+    }
+
+  private val invalidReadError: String =
+    """Must be one of "console", "csv:///PATH", or "graphite://HOST[:PORT][/METRIC_PREFIX]"."""
+
+  private def invalidRead: InvalidConfigException =
+    new InvalidConfigException(invalidReadError)
 }

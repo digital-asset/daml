@@ -3,41 +3,28 @@
 
 package com.daml.platform.store.entries
 
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.ledger.api.domain
+import com.daml.ledger.participant.state.v1.Configuration
 
-sealed abstract class ConfigurationEntry extends Product with Serializable {
+private[platform] sealed abstract class ConfigurationEntry extends Product with Serializable {
   def toDomain: domain.ConfigurationEntry
 }
 
-object ConfigurationEntry {
+private[platform] object ConfigurationEntry {
 
-  final case class Accepted(
-      submissionId: String,
-      participantId: ParticipantId,
-      configuration: Configuration,
-  ) extends ConfigurationEntry {
+  final case class Accepted(submissionId: String, configuration: Configuration)
+      extends ConfigurationEntry {
     override def toDomain: domain.ConfigurationEntry =
-      domain.ConfigurationEntry.Accepted(
-        submissionId,
-        domain.ParticipantId(participantId),
-        configuration
-      )
+      domain.ConfigurationEntry.Accepted(submissionId, configuration)
   }
 
   final case class Rejected(
       submissionId: String,
-      participantId: ParticipantId,
       rejectionReason: String,
-      proposedConfiguration: Configuration
+      proposedConfiguration: Configuration,
   ) extends ConfigurationEntry {
     override def toDomain: domain.ConfigurationEntry =
-      domain.ConfigurationEntry.Rejected(
-        submissionId,
-        domain.ParticipantId(participantId),
-        rejectionReason,
-        proposedConfiguration
-      )
+      domain.ConfigurationEntry.Rejected(submissionId, rejectionReason, proposedConfiguration)
   }
 
 }

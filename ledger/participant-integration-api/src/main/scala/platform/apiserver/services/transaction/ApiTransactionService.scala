@@ -32,7 +32,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object ApiTransactionService {
+private[apiserver] object ApiTransactionService {
 
   def create(
       ledgerId: LedgerId,
@@ -41,7 +41,8 @@ object ApiTransactionService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext): GrpcTransactionService with BindableService =
+      loggingContext: LoggingContext,
+  ): GrpcTransactionService with BindableService =
     new GrpcTransactionService(
       new ApiTransactionService(transactionsService),
       ledgerId,
@@ -49,13 +50,9 @@ object ApiTransactionService {
     )
 }
 
-final class ApiTransactionService private (
+private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
-    parallelism: Int = 4)(
-    implicit executionContext: ExecutionContext,
-    materializer: Materializer,
-    esf: ExecutionSequencerFactory,
-    logCtx: LoggingContext)
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
 
@@ -69,7 +66,7 @@ final class ApiTransactionService private (
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.parties(request.filter.filtersByParty.keys),
-    ) { implicit logCtx =>
+    ) { implicit loggingContext =>
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
@@ -83,7 +80,7 @@ final class ApiTransactionService private (
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
-    ) { implicit logCtx =>
+    ) { implicit loggingContext =>
       logger.debug(s"Received $request")
       transactionsService
         .transactionTrees(
@@ -100,7 +97,7 @@ final class ApiTransactionService private (
     withEnrichedLoggingContext(
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
-    ) { implicit logCtx =>
+    ) { implicit loggingContext =>
       logger.debug(s"Received $request")
       ledger.EventId
         .fromString(request.eventId.unwrap)
@@ -121,7 +118,7 @@ final class ApiTransactionService private (
     withEnrichedLoggingContext(
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
-    ) { implicit logCtx =>
+    ) { implicit loggingContext =>
       logger.debug(s"Received $request")
       lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetTransactionResponse])
@@ -132,7 +129,7 @@ final class ApiTransactionService private (
     withEnrichedLoggingContext(
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
-    ) { implicit logCtx =>
+    ) { implicit loggingContext =>
       ledger.EventId
         .fromString(request.eventId.unwrap)
         .fold(
@@ -148,10 +145,12 @@ final class ApiTransactionService private (
     }
 
   override def getFlatTransactionById(
-      request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] =
+      request: GetTransactionByIdRequest,
+  ): Future[GetFlatTransactionResponse] =
     withEnrichedLoggingContext(
       logging.transactionId(request.transactionId),
-      logging.parties(request.requestingParties)) { implicit logCtx =>
+      logging.parties(request.requestingParties),
+    ) { implicit loggingContext =>
       lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }

@@ -15,19 +15,11 @@ import com.daml.timer.Delayed
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
-import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT extends LedgerTestSuite {
-
-  /** A deduplicated submission can either
-    * succeed (if the participant knows that the original submission has succeeded),
-    * or fail with status ALREADY_EXISTS */
-  private[this] def assertDeduplicated(result: Either[Throwable, Unit]): Unit = result match {
-    case Left(e) => assertGrpcError(e, Status.Code.ALREADY_EXISTS, "")
-    case Right(v) => ()
-  }
 
   test(
     "CDSimpleDeduplication",
@@ -153,7 +145,7 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
         // a resubmission of exactly the same command should succeed.
         _ <- submissionResults
           .collectFirst { case (request, Failure(_)) => request }
-          .fold(Future.successful(()))(request => ledger.submitAndWait(request))
+          .fold(Future.unit)(request => ledger.submitAndWait(request))
       } yield {
         ()
       }

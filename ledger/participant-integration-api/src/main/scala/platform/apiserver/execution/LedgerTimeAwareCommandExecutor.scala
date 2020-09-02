@@ -14,7 +14,7 @@ import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerTimeAwareCommandExecutor(
+private[apiserver] final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
     contractStore: ContractStore,
     maxRetries: Int,
@@ -34,7 +34,7 @@ final class LedgerTimeAwareCommandExecutor(
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     loop(commands, submissionSeed, maxRetries)
 
@@ -44,7 +44,7 @@ final class LedgerTimeAwareCommandExecutor(
       retriesLeft: Int,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext
+      loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     delegate
       .execute(commands, submissionSeed)

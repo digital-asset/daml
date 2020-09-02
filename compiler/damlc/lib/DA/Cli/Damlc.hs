@@ -264,9 +264,18 @@ cmdRepl numProcessors =
             -- This is useful for tests and `bazel run`.
             <*> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
             <*> many packageImport
-            <*> strOption (long "ledger-host" <> help "Host of the ledger API")
-            <*> strOption (long "ledger-port" <> help "Port of the ledger API")
+            <*> optional
+                  ((,) <$> strOption (long "ledger-host" <> help "Host of the ledger API")
+                       <*> strOption (long "ledger-port" <> help "Port of the ledger API")
+                  )
             <*> accessTokenFileFlag
+            <*> optional
+                  (ReplClient.ApplicationId <$>
+                     strOption
+                       (long "application-id" <>
+                        help "Application ID used for command submissions"
+                       )
+                  )
             <*> sslConfig
             <*> optional
                     (option auto $
@@ -469,7 +478,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
           initPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
-              withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
+              withScenarioService' enableScenarioService (optDamlLfVersion options) loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer
@@ -599,13 +608,14 @@ execRepl
     :: ProjectOpts
     -> Options
     -> FilePath -> [FilePath] -> [(LF.PackageName, Maybe LF.PackageVersion)]
-    -> String -> String
+    -> Maybe (String, String)
     -> Maybe FilePath
+    -> Maybe ReplClient.ApplicationId
     -> Maybe ReplClient.ClientSSLConfig
     -> Maybe ReplClient.MaxInboundMessageSize
     -> ReplClient.ReplTimeMode
     -> Command
-execRepl projectOpts opts scriptDar dars importPkgs ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
+execRepl projectOpts opts scriptDar dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
             dars <- mapM makeAbsolute dars
@@ -616,7 +626,7 @@ execRepl projectOpts opts scriptDar dars importPkgs ledgerHost ledgerPort mbAuth
             logger <- getLogger opts "repl"
             runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
             let jar = runfilesDir </> "repl-service.jar"
-            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode Inherit) $ \replHandle _stdout _ph ->
+            ReplClient.withReplClient (ReplClient.Options jar mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode Inherit) $ \replHandle _stdout _ph ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
                 sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar

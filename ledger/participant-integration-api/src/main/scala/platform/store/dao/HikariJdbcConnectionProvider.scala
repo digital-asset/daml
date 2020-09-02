@@ -22,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
-final class HikariConnection(
+private[platform] final class HikariConnection(
     serverRole: ServerRole,
     jdbcUrl: String,
     minimumIdle: Int,
@@ -31,7 +31,7 @@ final class HikariConnection(
     metrics: Option[MetricRegistry],
     connectionPoolPrefix: String,
     maxInitialConnectRetryAttempts: Int,
-)(implicit logCtx: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends ResourceOwner[HikariDataSource] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -62,7 +62,7 @@ final class HikariConnection(
       ) { (i, _) =>
         Future {
           logger.info(
-            s"Attempting to connect to Postgres (attempt ${i + 1}/${maxInitialConnectRetryAttempts})")
+            s"Attempting to connect to $jdbcUrl (attempt $i/$maxInitialConnectRetryAttempts)")
           new HikariDataSource(config)
         }
       }
@@ -70,7 +70,7 @@ final class HikariConnection(
   }
 }
 
-object HikariConnection {
+private[platform] object HikariConnection {
   private val MaxInitialConnectRetryAttempts = 600
   private val ConnectionPoolPrefix: String = "daml.index.db.connection"
 
@@ -82,7 +82,7 @@ object HikariConnection {
       connectionTimeout: FiniteDuration,
       metrics: Option[MetricRegistry],
   )(
-      implicit logCtx: LoggingContext
+      implicit loggingContext: LoggingContext
   ): HikariConnection =
     new HikariConnection(
       serverRole,
@@ -96,8 +96,9 @@ object HikariConnection {
     )
 }
 
-class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: Timer)(
-    implicit logCtx: LoggingContext
+private[platform] class HikariJdbcConnectionProvider(
+    dataSource: HikariDataSource,
+    healthPoller: Timer,
 ) extends JdbcConnectionProvider {
   private val transientFailureCount = new AtomicInteger(0)
 
@@ -148,7 +149,7 @@ class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: T
   }
 }
 
-object HikariJdbcConnectionProvider {
+private[platform] object HikariJdbcConnectionProvider {
   private val MaxTransientFailureCount: Int = 5
   private val HealthPollingSchedule: FiniteDuration = 1.second
 
@@ -157,7 +158,7 @@ object HikariJdbcConnectionProvider {
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
-  )(implicit logCtx: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
+  )(implicit loggingContext: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
     for {
       // these connections should never time out as we have the same number of threads as connections
       dataSource <- HikariConnection.owner(

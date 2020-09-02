@@ -207,11 +207,15 @@ the corresponding ``Original`` or ``Subscriber`` no longer exists.
    :start-after: -- ARCHIVE_COPIES_BEGIN
    :end-before: -- ARCHIVE_COPIES_END
 
-To send the corresponding archve commands to the ledger, we iterate
+To send the corresponding archive commands to the ledger, we iterate
 over ``archiveCopies`` using ``forA`` and call the ``emitCommands``
 function. Each call to ``emitCommands`` takes a list of commands which
 will be submitted as a single transaction. The actual commands can be
-created using ``exerciseCmd`` and ``createCmd``.
+created using ``exerciseCmd`` and ``createCmd``. In addition to that,
+we also pass in a list of contract ids. Those contracts will be marked
+pending and not be included in the result of ``getContracts`` until
+the commands have either been comitted to the ledger or the command
+submission failed.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
    :language: daml
@@ -231,8 +235,8 @@ which only sends the commands if it is not already in flight.
 Running a DAML Trigger
 ----------------------
 
-To try this example out, you can replicate it using ``daml new
-copy-trigger copy-trigger``. You first have to build the trigger like
+To try this example out, you can replicate it using
+``daml new copy-trigger --template copy-trigger``. You first have to build the trigger like
 you would build a regular DAML project using ``daml build``.
 Then start the sandbox and navigator using ``daml start``.
 

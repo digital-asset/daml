@@ -3,10 +3,10 @@
 
 package com.daml.lf.scenario
 
-import com.daml.lf.data.{Numeric, Ref}
+import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SError, SValue, Speedy, PartialTransaction => SPartialTransaction}
+import com.daml.lf.speedy.{SError, SValue, PartialTransaction => SPartialTransaction, TraceLog}
 import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId, Transaction => Tx}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
@@ -16,7 +16,10 @@ import scala.collection.JavaConverters._
 final class Conversions(
     homePackageId: Ref.PackageId,
     ledger: ScenarioLedger,
-    machine: Speedy.Machine,
+    ptx: SPartialTransaction,
+    traceLog: TraceLog,
+    commitLocation: Option[Ref.Location],
+    stackTrace: ImmArray[Ref.Location],
 ) {
 
   private val empty: proto.Empty = proto.Empty.newBuilder.build
@@ -26,7 +29,7 @@ final class Conversions(
 
   // The ledger data will not contain information from the partial transaction at this point.
   // We need the mapping for converting error message so we manually add it here.
-  private val ptxCoidToNodeId = machine.ptx.nodes
+  private val ptxCoidToNodeId = ptx.nodes
     .collect {
       case (nodeId, node: N.NodeCreate[V.ContractId, _]) =>
         node.coid -> ledger.ptxEventId(nodeId)
@@ -47,7 +50,7 @@ final class Conversions(
       .addAllScenarioSteps(steps.asJava)
       .setReturnValue(convertSValue(svalue))
       .setFinalTime(ledger.currentTime.micros)
-    machine.traceLog.iterator.foreach { entry =>
+    traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
     }
     builder.build
@@ -61,20 +64,20 @@ final class Conversions(
       .addAllScenarioSteps(steps.asJava)
       .setLedgerTime(ledger.currentTime.micros)
 
-    machine.traceLog.iterator.foreach { entry =>
+    traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
     }
 
     def setCrash(reason: String) = builder.setCrash(reason)
 
-    machine.commitLocation.foreach { loc =>
+    commitLocation.foreach { loc =>
       builder.setCommitLoc(convertLocation(loc))
     }
 
-    builder.addAllStackTrace(machine.stackTrace().map(convertLocation).toSeq.asJava)
+    builder.addAllStackTrace(stackTrace.map(convertLocation).toSeq.asJava)
 
     builder.setPartialTransaction(
-      convertPartialTransaction(machine.ptx),
+      convertPartialTransaction(ptx),
     )
 
     err match {
@@ -151,9 +154,22 @@ final class Conversions(
       case SError.ScenarioErrorInvalidPartyName(party, _) =>
         builder.setScenarioInvalidPartyName(party)
 
+      case SError.ScenarioErrorPartyAlreadyExists(party) =>
+        builder.setScenarioPartyAlreadyExists(party)
+
+      case SError.ScenarioErrorSerializationError(msg) =>
+        sys.error(
+          s"Cannot serialization a transaction: $msg"
+        )
+
       case wtc: SError.DamlEWronglyTypedContract =>
         sys.error(
           s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.",
+        )
+
+      case divv: SError.DamlEDisallowedInputValueVersion =>
+        sys.error(
+          s"Got unexpected DamlEDisallowedInputVersion error in scenario service: $divv. Note that in the scenario service this error should never surface since its accept all stable versions.",
         )
     }
     builder.build

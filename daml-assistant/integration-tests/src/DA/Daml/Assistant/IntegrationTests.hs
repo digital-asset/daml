@@ -82,13 +82,13 @@ packagingTests :: TestTree
 packagingTests = testGroup "packaging"
      [ testCase "Build copy trigger" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
-        callCommandSilent $ unwords ["daml", "new", projDir, "copy-trigger"]
+        callCommandSilent $ unwords ["daml", "new", projDir, "--template=copy-trigger"]
         withCurrentDirectory projDir $ callCommandSilent "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
         assertFileExists dar
      , testCase "Build copy trigger with LF version 1.dev" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
-        callCommandSilent $ unwords ["daml", "new", projDir, "copy-trigger"]
+        callCommandSilent $ unwords ["daml", "new", projDir, "--template=copy-trigger"]
         withCurrentDirectory projDir $ callCommandSilent "daml build --target 1.dev"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
         assertFileExists dar
@@ -133,13 +133,13 @@ packagingTests = testGroup "packaging"
         assertFileExists dar
      , testCase "Build DAML script example" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
-        callCommandSilent $ unwords ["daml", "new", projDir, "script-example"]
+        callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
         withCurrentDirectory projDir $ callCommandSilent "daml build"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertFileExists dar
      , testCase "Build DAML script example with LF version 1.dev" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
-        callCommandSilent $ unwords ["daml", "new", projDir, "script-example"]
+        callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
         withCurrentDirectory projDir $ callCommandSilent "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertFileExists dar
@@ -361,12 +361,68 @@ packagingTests = testGroup "packaging"
               manager <- newManager defaultManagerSettings
               queryResponse <- httpLbs queryRequest manager
               responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
+     , testCase "daml start with relative DAML_PROJECT path" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "project"
+        createDirectoryIfMissing True (projDir </> "daml")
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: sandbox-options"
+          , "version: \"1.0\""
+          , "source: daml"
+          , "sandbox-options:"
+          , "  - --wall-clock-time"
+          , "  - --ledgerid=MyLedger"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          ]
+        writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
+          [ "daml 1.2"
+          , "module Main where"
+          , "template T with p : Party where signatory p"
+          ]
+        sandboxPort :: Int <- fromIntegral <$> getFreePort
+        jsonApiPort :: Int <- fromIntegral <$> getFreePort
+        let startProc = shell $ unwords
+              [ "daml"
+              , "start"
+              , "--start-navigator=no"
+              , "--sandbox-port=" <> show sandboxPort
+              , "--json-api-port=" <> show jsonApiPort
+              ]
+        withCurrentDirectory tmpDir $ withEnv [("DAML_PROJECT", Just "project")] $
+          withCreateProcess startProc $ \_ _ _ startPh ->
+            race_ (waitForProcess' startProc startPh) $ do
+              let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                    { JWT.unregisteredClaims = JWT.ClaimsMap $
+                          Map.fromList [("https://daml.com/ledger-api", Aeson.Object $ HashMap.fromList [("actAs", Aeson.toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                    }
+              let headers =
+                    [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
+                    ] :: RequestHeaders
+              waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+
+              manager <- newManager defaultManagerSettings
+              initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/create"
+              let createRequest = initialRequest
+                    { method = "POST"
+                    , requestHeaders = headers
+                    , requestBody = RequestBodyLBS $ Aeson.encode $ Aeson.object
+                        ["templateId" Aeson..= Aeson.String "Main:T"
+                        ,"payload" Aeson..= [Aeson.String "Alice"]
+                        ]
+                    }
+              createResponse <- httpLbs createRequest manager
+              -- If the ledger id or wall clock time is not picked up this would fail.
+              statusCode (responseStatus createResponse) @?= 200
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess startPh
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
-          callCommandSilent $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
+          callCommandSilent $ unwords ["daml", "new", quickstartDir, "--template=quickstart-java"]
     , testCase "daml build" $ withCurrentDirectory quickstartDir $
           callCommandSilent "daml build"
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
@@ -464,7 +520,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
               waitForConnectionOnPort (threadDelay 100000) sandboxPort
               triggerServicePort :: Int <- fromIntegral <$> getFreePort
-              let triggerServiceProc = (shell $ unwords ["daml", "trigger-service", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show triggerServicePort, "--wall-clock-time", "--no-secret-key"]) { std_out = UseHandle devNull2, std_err = UseHandle devNull3, std_in = CreatePipe }
+              let triggerServiceProc = (shell $ unwords ["daml", "trigger-service", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show triggerServicePort, "--wall-clock-time"]) { std_out = UseHandle devNull2, std_err = UseHandle devNull3, std_in = CreatePipe }
               withCreateProcess triggerServiceProc $ \_ _ _ triggerServicePh -> race_ (waitForProcess' triggerServiceProc triggerServicePh) $ do
                 let endpoint = "http://localhost:" <> show triggerServicePort <> "/v1/health"
                 waitForHttpServer (threadDelay 100000) endpoint []
@@ -536,7 +592,7 @@ cleanTests baseDir = testGroup "daml clean"
                 createDirectoryIfMissing True baseDir
                 withCurrentDirectory baseDir $ do
                     let projectDir = baseDir </> ("proj-" <> templateName)
-                    callCommandSilent $ unwords ["daml", "new", projectDir, templateName]
+                    callCommandSilent $ unwords ["daml", "new", projectDir, "--template", templateName]
                     withCurrentDirectory projectDir $ do
                         filesAtStart <- sort <$> listFilesRecursive "."
                         callCommandSilent "daml build"
@@ -553,13 +609,21 @@ cleanTests baseDir = testGroup "daml clean"
                                 ]
 
 templateTests :: TestTree
-templateTests = testGroup "templates"
+templateTests = testGroup "templates" $
     [ testCase name $ do
           withTempDir $ \dir -> withCurrentDirectory dir $ do
-              callCommandSilent $ unwords ["daml", "new", "foobar", name]
+              callCommandSilent $ unwords ["daml", "new", "foobar", "--template", name]
               withCurrentDirectory (dir </> "foobar") $ callCommandSilent "daml build"
     | name <- templateNames
+    ] <>
+    [ testCase "quickstart-java, positional template" $ do
+          -- Verify that the old syntax for `daml new` still works.
+          withTempDir $ \dir -> withCurrentDirectory dir $ do
+              callCommandSilent "daml new foobar quickstart-java"
+              contents <- readFileUTF8 "foobar/daml.yaml"
+              assertInfixOf "name: quickstart" contents
     ]
+
 
 
   -- NOTE (MK) We might want to autogenerate this list at some point but for now
@@ -593,7 +657,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
                 createDirectoryIfMissing True codegenDir
                 withCurrentDirectory codegenDir $ do
                     let projectDir = codegenDir </> ("proj-" ++ lang)
-                    callCommandSilent $ unwords ["daml new", projectDir, "skeleton"]
+                    callCommandSilent $ unwords ["daml new", projectDir, "--template=skeleton"]
                     withCurrentDirectory projectDir $ do
                         callCommandSilent "daml build"
                         let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"

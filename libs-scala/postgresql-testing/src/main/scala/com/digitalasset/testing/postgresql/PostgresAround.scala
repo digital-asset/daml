@@ -10,7 +10,7 @@ import java.nio.file.{Files, Path}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.daml.ports.Port
+import com.daml.ports.{LockedFreePort, Port}
 import com.daml.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory

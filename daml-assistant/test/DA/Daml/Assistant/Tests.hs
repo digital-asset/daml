@@ -60,9 +60,16 @@ testGetDamlPath = Tasty.testGroup "DA.Daml.Assistant.Env.getDamlPath"
             withSystemTempDirectory "test-getDamlPath" $ \expected -> do
                 DamlPath got <- withEnv [(damlPathEnvVar, Just expected)] getDamlPath
                 Tasty.assertEqual "daml home path" expected got
-        , if isWindows
-            then testGetDamlPathWindows
-            else testGetDamlPathPosix
+    , Tasty.testCase "getDamlPath returns DAML_HOME (made absolute)" $ do
+            withSystemTempDirectory "test-getDamlPath" $ \dir -> do
+                let expected = dir </> "daml"
+                setCurrentDirectory dir
+                createDirectory expected
+                DamlPath got <- withEnv [(damlPathEnvVar, Just "daml")] getDamlPath
+                Tasty.assertEqual "daml home path" expected got
+    , if isWindows
+        then testGetDamlPathWindows
+        else testGetDamlPathPosix
     ]
 
 testGetDamlPathWindows :: Tasty.TestTree
@@ -94,6 +101,15 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             setCurrentDirectory dir
             createDirectory expected
             Just got <- withEnv [(projectPathEnvVar, Just expected)] getProjectPath
+            Tasty.assertEqual "project path" (ProjectPath expected) got
+            return ()
+
+    , Tasty.testCase "getProjectPath returns environment variable (made absolute)" $ do
+        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+            let expected = dir </> "project"
+            setCurrentDirectory dir
+            createDirectory expected
+            Just got <- withEnv [(projectPathEnvVar, Just "project")] getProjectPath
             Tasty.assertEqual "project path" (ProjectPath expected) got
             return ()
 

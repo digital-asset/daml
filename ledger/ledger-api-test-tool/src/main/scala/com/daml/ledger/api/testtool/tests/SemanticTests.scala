@@ -25,6 +25,7 @@ import io.grpc.Status
 import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 final class SemanticTests extends LedgerTestSuite {
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
@@ -56,6 +57,40 @@ final class SemanticTests extends LedgerTestSuite {
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
       }
+  })
+
+  test(
+    "SemanticConcurrentDoubleSpend",
+    "Cannot concurrently double spend across transactions",
+    allocate(TwoParties, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(alpha, payer, owner1), Participant(beta, owner2)) =>
+      // This test create a contract and then concurrently archives it several times
+      // through two different participants
+      val contracts = 10 // Number of contracts to create
+      val archives = 10 // Number of concurrent archives per contract
+      Future
+        .traverse((1 to contracts).toList)(c =>
+          for {
+            shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
+            _ <- synchronize(alpha, beta)
+            results <- Future.traverse((1 to archives).toList)(i =>
+              i % 2 match {
+                case 0 =>
+                  alpha
+                    .exercise(owner1, shared.exerciseSharedContract_Consume1)
+                    .transform(Success(_))
+                case 1 =>
+                  beta
+                    .exercise(owner2, shared.exerciseSharedContract_Consume2)
+                    .transform(Success(_))
+            })
+          } yield {
+            assertLength(s"Contract $c successful archives", 1, results.filter(_.isSuccess))
+            assertLength(s"Contract $c failed archives", archives - 1, results.filter(_.isFailure))
+            ()
+        })
+        .map(_ => ())
   })
 
   test(
@@ -189,7 +224,7 @@ final class SemanticTests extends LedgerTestSuite {
     "It should not be possible to exercise a choice without the consent of the controller",
     allocate(TwoParties, SingleParty),
   )(implicit ec => {
-    case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
+    case Participants(Participant(alpha @ _, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))

@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.{BatchedValidatingCommitter, LedgerStateOperations}
+import com.daml.ledger.validator.ValidateAndCommit
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -17,7 +17,7 @@ import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 class InMemoryLedgerReaderWriterSpec
     extends AsyncWordSpec
@@ -27,22 +27,17 @@ class InMemoryLedgerReaderWriterSpec
   "commit" should {
     "not signal new head in case of failure" in {
       val mockDispatcher = mock[Dispatcher[Index]]
-      val mockCommitter = mock[BatchedValidatingCommitter[Index]]
-      when(
-        mockCommitter.commit(
-          anyString(),
-          any[ByteString](),
-          any[ParticipantId](),
-          any[LedgerStateOperations[Index]])(any[ExecutionContext]()))
+      val mockCommitter = mock[ValidateAndCommit]
+      when(mockCommitter(anyString(), any[ByteString](), any[ParticipantId]()))
         .thenReturn(
           Future.successful(SubmissionResult.InternalError("Validation failed with an exception")))
       val instance = new InMemoryLedgerReaderWriter(
-        Ref.ParticipantId.assertFromString("participant ID"),
         "ledger ID",
+        Ref.ParticipantId.assertFromString("participant ID"),
         mockDispatcher,
         InMemoryState.empty,
         mockCommitter,
-        new Metrics(new MetricRegistry)
+        new Metrics(new MetricRegistry),
       )
 
       instance

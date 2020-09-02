@@ -97,12 +97,17 @@ You can `hover`_ over most symbols in the code to display additional information
 
 .. _hover: https://code.visualstudio.com/docs/editor/editingevolved#_hover
 
-Scenario results
-================
+.. _scenario-results:
 
-Top-level declarations of type ``Scenario`` are decorated with a ``Scenario results`` code lens.
-You can click on the ``Scenario results`` code lens to inspect the
-execution of the scenario.
+Scenario and DAML Script results
+================================
+
+Top-level declarations of type ``Scenario`` or ``Script`` are decorated with
+a ``Scenario results`` or a ``Script results`` code lens.
+You can click on the code lens to inspect the
+execution transaction graph and the active contracts. The functionality
+for inspecting the results is identical for DAML Scripts
+and scenarios.
 
 For the scenario from the :download:`Iou<daml-studio/daml/Iou.daml>`
 module, you get the following table displaying all contracts that are

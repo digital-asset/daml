@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.participant.state.kvutils.{Fingerprint, FingerprintPlaceholder}
-import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerprints
 import org.mockito.ArgumentMatchers.argThat
@@ -116,14 +115,12 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
     }
   }
 
-  private val keySerializationStrategy = DefaultStateKeySerializationStrategy
-
   private def aDamlStateKey(id: Int = 0): DamlStateKey =
     DamlStateKey.newBuilder
       .setContractId(id.toString)
       .build
 
-  private def aDamlStateValue(id: Int = 0): DamlStateValue =
+  private def aDamlStateValue(id: Int): DamlStateValue =
     DamlStateValue.newBuilder
       .setParty(
         DamlPartyAllocation.newBuilder
@@ -136,10 +133,6 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReaderWithFingerprints = {
     val cache = WeightedCache.from[DamlStateKey, (DamlStateValue, Fingerprint)](
       WeightedCache.Configuration(1024))
-    new CachingDamlLedgerStateReaderWithFingerprints(
-      cache,
-      _ => shouldCache,
-      keySerializationStrategy,
-      delegate)
+    new CachingDamlLedgerStateReaderWithFingerprints(cache, _ => shouldCache, delegate)
   }
 }

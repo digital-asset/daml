@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
-object EventsTableQueries {
+private[events] object EventsTableQueries {
   def format(ps: Set[Party]): String =
     ps.view.map(p => s"'$p'").mkString(",")
 }

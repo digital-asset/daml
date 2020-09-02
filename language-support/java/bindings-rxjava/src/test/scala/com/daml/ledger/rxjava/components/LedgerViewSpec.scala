@@ -32,7 +32,6 @@ class LedgerViewSpec extends FlatSpec with Matchers {
     val state = LedgerViewFlowable.LedgerView.create[Unit]()
     val tid = templateId()
     val cid = contractId()
-    val commId = commandId()
     val newState = state.addActiveContract(tid, cid, ()).archiveContract(tid, cid)
     newState.getContracts(tid) shouldBe HashTreePMap.empty()
   }

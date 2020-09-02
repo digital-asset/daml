@@ -6,7 +6,7 @@ package svalue
 
 import java.util
 
-import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -58,12 +58,14 @@ class OrderingSpec
 
   private val Record0TypeCon: Ref.TypeConName = "Unit"
   private val Record2TypeCon: Ref.TypeConName = "Tuple"
-  private val record2Fields = Ref.Name.Array("fst", "snd")
+  private val record2Fields = ImmArray[Ref.Name]("fst", "snd")
 
   private val VariantTypeCon: Ref.TypeConName = "Either"
   private val VariantCon1: Ref.Name = "Left"
   private val VariantCon2: Ref.Name = "Middle"
   private val VariantCon3: Ref.Name = "Right"
+
+  private val struct2Fields = ImmArray[Ref.Name]("fst", "snd")
 
   private val units =
     List(SValue.SValue.Unit)
@@ -97,9 +99,9 @@ class OrderingSpec
       case (con, rank) => SEnum(EnumTypeCon, con, rank)
     }
 
-  private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
+  private val struct0 = List(SStruct(ImmArray.empty, ArrayList()))
 
-  private val records0 = List(SRecord(Record0TypeCon, Ref.Name.Array.empty, ArrayList()))
+  private val records0 = List(SRecord(Record0TypeCon, ImmArray.empty, ArrayList()))
 
   private val builtinTypeReps = List(
     Ast.BTUnit,
@@ -166,23 +168,23 @@ class OrderingSpec
   }
 
   private val typeStructReps = List(
-    ImmArray.empty,
-    ImmArray(Ref.Name.assertFromString("field0") -> AstUtil.TUnit),
-    ImmArray(Ref.Name.assertFromString("field0") -> AstUtil.TInt64),
-    ImmArray(Ref.Name.assertFromString("field1") -> AstUtil.TUnit),
-    ImmArray(
+    Struct.empty,
+    Struct(Ref.Name.assertFromString("field0") -> AstUtil.TUnit),
+    Struct(Ref.Name.assertFromString("field0") -> AstUtil.TInt64),
+    Struct(Ref.Name.assertFromString("field1") -> AstUtil.TUnit),
+    Struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field2") -> AstUtil.TUnit,
     ),
-    ImmArray(
+    Struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field2") -> AstUtil.TInt64,
     ),
-    ImmArray(
+    Struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TInt64,
       Ref.Name.assertFromString("field2") -> AstUtil.TUnit,
     ),
-    ImmArray(
+    Struct(
       Ref.Name.assertFromString("field1") -> AstUtil.TUnit,
       Ref.Name.assertFromString("field3") -> AstUtil.TUnit,
     ),
@@ -204,8 +206,8 @@ class OrderingSpec
       Ast.TTyCon(VariantTypeCon),
       Ast.TNat(Numeric.Scale.MinValue),
       Ast.TNat(Numeric.Scale.MaxValue),
-      Ast.TStruct(ImmArray.empty),
-      Ast.TStruct(ImmArray(Ref.Name.assertFromString("field") -> AstUtil.TUnit)),
+      Ast.TStruct(Struct.empty),
+      Ast.TStruct(Struct(Ref.Name.assertFromString("field") -> AstUtil.TUnit)),
       Ast.TApp(Ast.TBuiltin(Ast.BTArrow), Ast.TBuiltin(Ast.BTUnit)),
       Ast.TApp(
         Ast.TApp(Ast.TBuiltin(Ast.BTArrow), Ast.TBuiltin(Ast.BTUnit)),
@@ -227,7 +229,7 @@ class OrderingSpec
     for {
       x <- fst
       y <- snd
-    } yield SStruct(record2Fields, ArrayList(x, y))
+    } yield SStruct(struct2Fields, ArrayList(x, y))
 
   @tailrec
   private def mkList(

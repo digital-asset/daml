@@ -6,9 +6,11 @@ package scenario
 
 import java.util.concurrent.atomic.AtomicLong
 
+import akka.stream.Materializer
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Decode.ParseError
-import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.Compiler
@@ -18,11 +20,22 @@ import com.daml.lf.speedy.Speedy
 import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
-import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 
+import com.daml.lf.engine.script.{
+  Runner,
+  Script,
+  ScriptIds,
+  ScriptTimeMode,
+  IdeClient,
+  Participants
+}
+
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.collection.immutable.HashMap
+import scala.util.{Failure, Success}
 
 /**
   * Scenario interpretation context: maintains a set of modules and external packages, with which
@@ -34,13 +47,14 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext: Context = new Context(contextCounter.incrementAndGet())
+  def newContext(lfVerion: LanguageVersion): Context =
+    new Context(contextCounter.incrementAndGet(), lfVerion)
 
   private def assert[X](either: Either[String, X]): X =
     either.fold(e => throw new ParseError(e), identity)
 }
 
-class Context(val contextId: Context.ContextId) {
+class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion) {
 
   import Context._
 
@@ -62,7 +76,7 @@ class Context(val contextId: Context.ContextId) {
   def loadedPackages(): Iterable[PackageId] = extPackages.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext
+    val newCtx = Context.newContext(languageVersion)
     newCtx.extPackages = extPackages
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -71,16 +85,13 @@ class Context(val contextId: Context.ContextId) {
     newCtx
   }
 
-  private def decodeModule(
-      major: LanguageVersion.Major,
-      minor: String,
-      bytes: ByteString,
-  ): Ast.Module = {
-    val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
-    val dop: Decode.OfPackage[_] = Decode.decoders
-      .lift(lfVer)
-      .getOrElse(throw Context.ContextException(s"No decode support for LF ${lfVer.pretty}"))
-      .decoder
+  private[this] val dop: Decode.OfPackage[_] = Decode.decoders
+    .lift(languageVersion)
+    .getOrElse(
+      throw Context.ContextException(s"No decode support for LF ${languageVersion.pretty}"))
+    .decoder
+
+  private def decodeModule(bytes: ByteString): Ast.Module = {
     val lfScenarioModule = dop.protoScenarioModule(Decode.damlLfCodedInputStream(bytes.newInput))
     dop.decodeScenarioModule(homePackageId, lfScenarioModule)
   }
@@ -94,8 +105,7 @@ class Context(val contextId: Context.ContextId) {
       omitValidation: Boolean,
   ): Unit = synchronized {
 
-    val newModules = loadModules.map(module =>
-      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
+    val newModules = loadModules.map(module => decodeModule(module.getDamlLf1))
     modules --= unloadModules
     newModules.foreach(mod => modules += mod.name -> mod)
 
@@ -136,7 +146,7 @@ class Context(val contextId: Context.ContextId) {
   }
 
   def allPackages: Map[PackageId, Ast.Package] = synchronized {
-    extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet, None))
+    extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet, languageVersion, None))
   }
 
   // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
@@ -153,14 +163,15 @@ class Context(val contextId: Context.ContextId) {
         compiledPackages,
         txSeeding,
         defn,
-        TransactionVersions.SupportedOutputDevVersions,
+        value.ValueVersions.DevOutputVersions,
+        transaction.TransactionVersions.DevOutputVersions,
       )
   }
 
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] =
+  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] = {
     buildMachine(
       Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
     ).map { machine =>
@@ -171,5 +182,42 @@ class Context(val contextId: Context.ContextId) {
           (ledger, machine, Left(err))
       }
     }
+  }
 
+  def interpretScript(
+      pkgId: String,
+      name: String,
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer)
+    : Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
+    val defns = this.defns
+    val compiledPackages =
+      PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
+    val expectedScriptId = DottedName.assertFromString("Daml.Script")
+    val Some(scriptPackageId) = allPackages.collectFirst {
+      case (pkgId, pkg) if pkg.modules contains expectedScriptId => pkgId
+    }
+    val scriptExpr = SExpr.SEVal(
+      LfDefRef(Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))))
+    val runner = new Runner(
+      compiledPackages,
+      Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
+      ScriptTimeMode.Static
+    )
+    val ledgerClient = new IdeClient(compiledPackages)
+    val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
+    val (clientMachine, resultF) = runner.runWithClients(participants)
+    resultF.transform {
+      case Success(v) =>
+        Success(
+          Some(
+            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Right(v))))
+      case Failure(e: SError) =>
+        // SError are the errors that should be handled and displayed as
+        // failed partial transactions.
+        Success(
+          Some(
+            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e))))
+      case Failure(e) => Failure(e)
+    }
+  }
 }

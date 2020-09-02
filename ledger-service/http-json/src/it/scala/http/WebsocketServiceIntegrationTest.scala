@@ -6,14 +6,17 @@ package com.daml.http
 import akka.NotUsed
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
-import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
+import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.daml.http.json.{DomainJsonEncoder, SprayJson}
+import com.daml.http.json.SprayJson
 import com.daml.http.util.TestUtil
 import HttpServiceTestFixture.UseTls
+import akka.actor.ActorSystem
+import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.StrictLogging
 import org.scalacheck.Gen
 import org.scalatest._
+import org.scalatest.matchers.{MatchResult, Matcher}
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
 import scalaz.std.vector._
@@ -36,13 +39,14 @@ class WebsocketServiceIntegrationTest
     with BeforeAndAfterAll {
 
   import WebsocketServiceIntegrationTest._
-  import WebsocketEndpoints._
 
   override def jdbcConfig: Option[JdbcConfig] = None
 
   override def staticContentConfig: Option[StaticContentConfig] = None
 
   override def useTls = UseTls.NoTls
+
+  override def wsConfig: Option[WebsocketConfig] = Some(Config.DefaultWsConfig)
 
   private val baseQueryInput: Source[Message, NotUsed] =
     Source.single(TextMessage.Strict("""{"templateIds": ["Account:Account"]}"""))
@@ -53,8 +57,6 @@ class WebsocketServiceIntegrationTest
   private val baseFetchInput: Source[Message, NotUsed] =
     Source.single(TextMessage.Strict(fetchRequest))
 
-  private val validSubprotocol = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
-
   List(
     SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
     SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput)
@@ -63,7 +65,7 @@ class WebsocketServiceIntegrationTest
       (uri, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
-          validSubprotocol,
+          validSubprotocol(jwt),
           scenario.input)._1 flatMap (x =>
           x.response.status shouldBe StatusCodes.SwitchingProtocols)
     }
@@ -92,7 +94,7 @@ class WebsocketServiceIntegrationTest
           Http().webSocketClientFlow(
             WebSocketRequest(
               uri = uri.copy(scheme = "ws").withPath(scenario.path),
-              subprotocol = validSubprotocol))
+              subprotocol = validSubprotocol(jwt)))
         input
           .via(webSocketFlow)
           .runWith(collectResultsAsTextMessageSkipOffsetTicks)
@@ -126,7 +128,7 @@ class WebsocketServiceIntegrationTest
           Http().webSocketClientFlow(
             WebSocketRequest(
               uri = uri.copy(scheme = "ws").withPath(scenario.path),
-              subprotocol = validSubprotocol))
+              subprotocol = validSubprotocol(jwt)))
         scenario.input
           .via(webSocketFlow)
           .runWith(collectResultsAsTextMessageSkipOffsetTicks)
@@ -149,71 +151,12 @@ class WebsocketServiceIntegrationTest
     }
   }
 
-  private val collectResultsAsTextMessageSkipOffsetTicks: Sink[Message, Future[Seq[String]]] =
-    Flow[Message]
-      .collect { case m: TextMessage => m.getStrictText }
-      .filterNot(isOffsetTick)
-      .toMat(Sink.seq)(Keep.right)
-
-  private val collectResultsAsTextMessage: Sink[Message, Future[Seq[String]]] =
-    Flow[Message]
-      .collect { case m: TextMessage => m.getStrictText }
-      .toMat(Sink.seq)(Keep.right)
-
-  private def singleClientWSStream(
-      path: String,
-      serviceUri: Uri,
-      query: String,
-      offset: Option[domain.Offset]): Source[Message, NotUsed] = {
-    import spray.json._, json.JsonProtocol._
-    val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
-    logger.info(
-      s"---- singleClientWSStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}")
-    val webSocketFlow =
-      Http().webSocketClientFlow(WebSocketRequest(uri = uri, subprotocol = validSubprotocol))
-    offset
-      .cata(
-        off =>
-          Source.fromIterator(() =>
-            Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator),
-        Source single query)
-      .map(TextMessage(_))
-      .via(webSocketFlow)
-  }
-
-  private def singleClientQueryStream(
-      serviceUri: Uri,
-      query: String,
-      offset: Option[domain.Offset] = None): Source[Message, NotUsed] =
-    singleClientWSStream("query", serviceUri, query, offset)
-
-  private def singleClientFetchStream(
-      serviceUri: Uri,
-      request: String,
-      offset: Option[domain.Offset] = None): Source[Message, NotUsed] =
-    singleClientWSStream("fetch", serviceUri, request, offset)
-
-  private def initialIouCreate(serviceUri: Uri) = {
-    val payload = TestUtil.readFile("it/iouCreateCommand.json")
-    TestUtil.postJsonStringRequest(
-      serviceUri.withPath(Uri.Path("/v1/create")),
-      payload,
-      headersWithAuth)
-  }
-
-  private def initialAccountCreate(
-      serviceUri: Uri,
-      encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
-    val command = accountCreateCommand(domain.Party("Alice"), "abc123")
-    postCreateCommand(command, encoder, serviceUri)
-  }
-
   "query endpoint should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>
       for {
         _ <- initialIouCreate(uri)
 
-        clientMsg <- singleClientQueryStream(uri, """{"templateIds": ["Iou:Iou"]}""")
+        clientMsg <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
           .runWith(collectResultsAsTextMessage)
       } yield
         inside(clientMsg) {
@@ -229,7 +172,7 @@ class WebsocketServiceIntegrationTest
       for {
         _ <- initialAccountCreate(uri, encoder)
 
-        clientMsg <- singleClientFetchStream(uri, fetchRequest)
+        clientMsg <- singleClientFetchStream(jwt, uri, fetchRequest)
           .runWith(collectResultsAsTextMessage)
       } yield
         inside(clientMsg) {
@@ -246,6 +189,7 @@ class WebsocketServiceIntegrationTest
       _ <- initialIouCreate(uri)
 
       clientMsg <- singleClientQueryStream(
+        jwt,
         uri,
         """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
         .runWith(collectResultsAsTextMessage)
@@ -263,6 +207,7 @@ class WebsocketServiceIntegrationTest
       _ <- initialAccountCreate(uri, encoder)
 
       clientMsg <- singleClientFetchStream(
+        jwt,
         uri,
         """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["Alice", "abc123"]}]""")
         .runWith(collectResultsAsTextMessage)
@@ -278,7 +223,7 @@ class WebsocketServiceIntegrationTest
 
   "query endpoint should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
-      val clientMsg = singleClientQueryStream(uri, "{}")
+      val clientMsg = singleClientQueryStream(jwt, uri, "{}")
         .runWith(collectResultsAsTextMessageSkipOffsetTicks)
 
       val result = Await.result(clientMsg, 10.seconds)
@@ -291,7 +236,7 @@ class WebsocketServiceIntegrationTest
 
   "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
-      val clientMsg = singleClientFetchStream(uri, """[abcdefg!]""")
+      val clientMsg = singleClientFetchStream(jwt, uri, """[abcdefg!]""")
         .runWith(collectResultsAsTextMessageSkipOffsetTicks)
 
       val result = Await.result(clientMsg, 10.seconds)
@@ -399,13 +344,13 @@ class WebsocketServiceIntegrationTest
         creation <- initialCreate
         _ = creation._1 shouldBe 'success
         iouCid = getContractId(getResult(creation._2))
-        lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp(iouCid)
+        lastState <- singleClientQueryStream(jwt, uri, query) via parseResp runWith resp(iouCid)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 2, lastSeen) =>
             lastSeen.unwrap should be > liveStart.unwrap
             liveStart
         }
-        rescan <- (singleClientQueryStream(uri, query, Some(liveOffset))
+        rescan <- (singleClientQueryStream(jwt, uri, query, Some(liveOffset))
           via parseResp runWith remainingDeltas)
       } yield
         inside(rescan) {
@@ -482,7 +427,7 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientFetchStream(uri, fetchRequest())
+        lastState <- singleClientFetchStream(jwt, uri, fetchRequest())
           .via(parseResp) runWith resp(cid1, cid2)
 
         liveOffset = inside(lastState) {
@@ -494,7 +439,7 @@ class WebsocketServiceIntegrationTest
         // check contractIdAtOffsets' effects on phantom filtering
         resumes <- Future.traverse(Seq((None, 2L), (Some(None), 0L), (Some(Some(cid1)), 1L))) {
           case (abcHint, expectArchives) =>
-            (singleClientFetchStream(uri, fetchRequest(abcHint), Some(liveOffset))
+            (singleClientFetchStream(jwt, uri, fetchRequest(abcHint), Some(liveOffset))
               via parseResp runWith remainingDeltas)
               .map {
                 case (creates, archives, _) =>
@@ -506,9 +451,66 @@ class WebsocketServiceIntegrationTest
       } yield resumes.foldLeft(1 shouldBe 1)((_, a) => a)
   }
 
+  "fetch multiple keys should work" in withHttpService { (uri, encoder, _) =>
+    def create(account: String): Future[domain.ContractId] =
+      for {
+        r <- postCreateCommand(accountCreateCommand(domain.Party("Alice"), account), encoder, uri)
+      } yield {
+        assert(r._1.isSuccess)
+        getContractId(getResult(r._2))
+      }
+    def archive(id: domain.ContractId): Future[Assertion] =
+      for {
+        r <- postArchiveCommand(domain.TemplateId(None, "Account", "Account"), id, encoder, uri)
+      } yield {
+        assert(r._1.isSuccess)
+      }
+    val req =
+      """
+          |[{"templateId": "Account:Account", "key": ["Alice", "abc123"]},
+          | {"templateId": "Account:Account", "key": ["Alice", "def456"]}]
+          |""".stripMargin
+    val futureResults =
+      singleClientFetchStream(jwt, uri, req, keepOpen = true)
+        .via(parseResp)
+        .filterNot(isOffsetTick)
+        .take(4)
+        .runWith(Sink.seq[JsValue])
+
+    for {
+      cid1 <- create("abc123")
+      _ <- create("abc124")
+      _ <- create("abc125")
+      cid2 <- create("def456")
+      _ <- archive(cid2)
+      _ <- archive(cid1)
+      results <- futureResults
+    } yield {
+      val expected: Seq[JsValue] = {
+        import spray.json._
+        Seq(
+          """
+            |{"events":[{"created":{"payload":{"number":"abc123"}}}]}
+            |""".stripMargin.parseJson,
+          """
+            |{"events":[{"created":{"payload":{"number":"def456"}}}]}
+            |""".stripMargin.parseJson,
+          """
+            |{"events":[{"archived":{}}]}
+            |""".stripMargin.parseJson,
+          """
+            |{"events":[{"archived":{}}]}
+            |""".stripMargin.parseJson
+        )
+      }
+      results should matchJsValues(expected)
+
+    }
+  }
+
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
     (uri, _, _) =>
-      singleClientFetchStream(uri, "[]")
+      singleClientFetchStream(jwt, uri, "[]")
         .runWith(collectResultsAsTextMessageSkipOffsetTicks)
         .map { clientMsgs =>
           inside(clientMsgs) {
@@ -530,7 +532,7 @@ class WebsocketServiceIntegrationTest
         """[
           {"templateIds": ["Iou:Iou"]}
         ]"""
-      singleClientQueryStream(uri, query)
+      singleClientQueryStream(jwt, uri, query)
         .via(parseResp)
         .map(iouSplitResult)
         .filterNot(_ == \/-((Vector(), Vector()))) // liveness marker/heartbeat
@@ -682,26 +684,12 @@ class WebsocketServiceIntegrationTest
       case \/-(eventsBlock) =>
         eventsBlock.events shouldBe Vector.empty[JsValue]
         inside(eventsBlock.offset) {
-          case JsString(offset) =>
+          case Some(JsString(offset)) =>
             offset.length should be > 0
-          case JsNull =>
+          case Some(JsNull) =>
             Succeeded
         }
     }
-
-  private def isOffsetTick(str: String): Boolean =
-    SprayJson
-      .decode[EventsBlock](str)
-      .map { b =>
-        val isEmpty: Boolean = (b.events: Vector[JsValue]) == Vector.empty[JsValue]
-        val hasOffset: Boolean = b.offset match {
-          case JsString(offset) => offset.length > 0
-          case JsNull => true
-          case _ => false
-        }
-        isEmpty && hasOffset
-      }
-      .valueOr(_ => false)
 
   private def decodeErrorResponse(str: String): domain.ErrorResponse = {
     import json.JsonProtocol._
@@ -718,8 +706,11 @@ class WebsocketServiceIntegrationTest
   }
 }
 
-object WebsocketServiceIntegrationTest {
+private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
   import spray.json._
+  import WebsocketEndpoints._
+
+  private def validSubprotocol(jwt: Jwt) = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
 
   def dummyFlow[A](source: Source[A, NotUsed]): Flow[A, A, NotUsed] =
     Flow.fromSinkAndSource(Sink.foreach(println), source)
@@ -793,10 +784,21 @@ object WebsocketServiceIntegrationTest {
   private object Archived extends JsoField("archived")
   private object MatchedQueries extends JsoField("matchedQueries")
 
-  private final case class EventsBlock(events: Vector[JsValue], offset: JsValue)
-  private object EventsBlock {
+  private[http] final case class EventsBlock(events: Vector[JsValue], offset: Option[JsValue])
+  private[http] object EventsBlock {
+    import spray.json._
     import DefaultJsonProtocol._
-    implicit val EventsBlockFormat: RootJsonFormat[EventsBlock] = jsonFormat2(EventsBlock.apply)
+
+    // cannot rely on default reader, offset: JsNull gets read as None, I want Some(JsNull) for LedgerBegin
+    implicit val EventsBlockReader: RootJsonReader[EventsBlock] = (json: JsValue) => {
+      val obj = json.asJsObject
+      val events = obj.fields("events").convertTo[Vector[JsValue]]
+      val offset: Option[JsValue] = obj.fields.get("offset").collect {
+        case x: JsString => x
+        case JsNull => JsNull
+      }
+      EventsBlock(events, offset)
+    }
   }
 
   type IouSplitResult =
@@ -839,4 +841,127 @@ object WebsocketServiceIntegrationTest {
         )
       else Gen const Leaf(x)
   }
+
+  def singleClientQueryStream(
+      jwt: Jwt,
+      serviceUri: Uri,
+      query: String,
+      offset: Option[domain.Offset] = None,
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] =
+    singleClientWSStream(jwt, "query", serviceUri, query, offset, keepOpen)
+
+  def singleClientFetchStream(
+      jwt: Jwt,
+      serviceUri: Uri,
+      request: String,
+      offset: Option[domain.Offset] = None,
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] =
+    singleClientWSStream(jwt, "fetch", serviceUri, request, offset, keepOpen)
+
+  def singleClientWSStream(
+      jwt: Jwt,
+      path: String,
+      serviceUri: Uri,
+      query: String,
+      offset: Option[domain.Offset],
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] = {
+
+    import spray.json._, json.JsonProtocol._
+    val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
+    logger.info(
+      s"---- singleClientWSStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}")
+    val webSocketFlow =
+      Http().webSocketClientFlow(WebSocketRequest(uri = uri, subprotocol = validSubprotocol(jwt)))
+    offset
+      .cata(
+        off =>
+          Source.fromIterator(() =>
+            Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator),
+        Source single query)
+      .map(TextMessage(_))
+      .concatMat(if (keepOpen) Source.maybe[Message] else Source.empty)(Keep.left)
+      .via(webSocketFlow)
+  }
+
+  val collectResultsAsTextMessageSkipOffsetTicks: Sink[Message, Future[Seq[String]]] =
+    Flow[Message]
+      .collect { case m: TextMessage => m.getStrictText }
+      .filterNot(isOffsetTick)
+      .toMat(Sink.seq)(Keep.right)
+
+  val collectResultsAsTextMessage: Sink[Message, Future[Seq[String]]] =
+    Flow[Message]
+      .collect { case m: TextMessage => m.getStrictText }
+      .toMat(Sink.seq)(Keep.right)
+
+  private def isOffsetTick(str: String): Boolean =
+    SprayJson
+      .decode[EventsBlock](str)
+      .map(isOffsetTick)
+      .valueOr(_ => false)
+
+  private def isOffsetTick(v: JsValue): Boolean =
+    SprayJson
+      .decode[EventsBlock](v)
+      .map(isOffsetTick)
+      .valueOr(_ => false)
+
+  def isOffsetTick(x: EventsBlock): Boolean = {
+    val hasOffset = x.offset
+      .collect {
+        case JsString(offset) => offset.length > 0
+        case JsNull => true // JsNull is for LedgerBegin
+      }
+      .getOrElse(false)
+
+    x.events.isEmpty && hasOffset
+  }
+
+  def isAbsoluteOffsetTick(x: EventsBlock): Boolean = {
+    val hasAbsoluteOffset = x.offset
+      .collect {
+        case JsString(offset) => offset.length > 0
+      }
+      .getOrElse(false)
+
+    x.events.isEmpty && hasAbsoluteOffset
+  }
+
+  def isAcs(x: EventsBlock): Boolean =
+    x.events.nonEmpty && x.offset.isEmpty
+
+  def eventsBlockVector(msgs: Vector[String]): SprayJson.JsonReaderError \/ Vector[EventsBlock] =
+    msgs.traverse(SprayJson.decode[EventsBlock])
+
+  def matchJsValue(expected: JsValue) = new JsValueMatcher(expected)
+
+  def matchJsValues(expected: Seq[JsValue]) = new MultipleJsValuesMatcher(expected)
+
+  final class JsValueMatcher(right: JsValue) extends Matcher[JsValue] {
+    override def apply(left: JsValue): MatchResult = {
+      import spray.json._
+      val result = (left, right) match {
+        case (JsArray(l), JsArray(r)) =>
+          l.length == r.length && matchJsValues(r)(l).matches
+        case (JsObject(l), JsObject(r)) =>
+          r.keys.forall(k => matchJsValue(r(k))(l(k)).matches)
+        case (JsString(l), JsString(r)) => l == r
+        case (JsNumber(l), JsNumber(r)) => l == r
+        case (JsBoolean(l), JsBoolean(r)) => l == r
+        case (JsNull, JsNull) => true
+        case _ => false
+      }
+      MatchResult(result, s"$left did not match $right", s"$left matched $right")
+    }
+  }
+
+  final class MultipleJsValuesMatcher(right: Seq[JsValue]) extends Matcher[Seq[JsValue]] {
+    override def apply(left: Seq[JsValue]): MatchResult = {
+      val result = left.length == right.length && (left, right).zipped.forall {
+        case (l, r) => matchJsValue(r)(l).matches
+      }
+      MatchResult(result, s"$left did not match $right", s"$left matched $right")
+    }
+  }
+
 }

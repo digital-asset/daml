@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.v1.Offset
 // This utility object makes sure that the offset representation is always
 // padded with zeros up to 8 bytes.
 // This should only be used in SqlLedger and InMemoryLedger.
-object SandboxOffset {
+private[ledger] object SandboxOffset {
 
   def numBytes = 8
 

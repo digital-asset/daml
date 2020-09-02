@@ -6,17 +6,18 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import React, { ComponentType, useState } from 'react';
 import { renderHook, RenderHookResult, act } from '@testing-library/react-hooks';
-import DamlLedger, { useParty, useQuery, useFetchByKey, useStreamQuery, useStreamFetchByKey, useReload, createLedgerContext } from './index';
-import { Template } from '@daml/types';
+import DamlLedger, { useParty, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamFetchByKey, useReload, createLedgerContext } from './index';
+import { ContractId, Template } from '@daml/types';
 import { Stream } from '@daml/ledger';
 import {EventEmitter} from 'events';
 
 const mockConstructor = jest.fn();
 const mockQuery = jest.fn();
+const mockFetch = jest.fn();
 const mockFetchByKey = jest.fn();
 const mockStreamQuery = jest.fn();
 const mockStreamFetchByKey = jest.fn();
-const mockFunctions = [mockConstructor, mockQuery, mockFetchByKey, mockStreamQuery, mockStreamFetchByKey];
+const mockFunctions = [mockConstructor, mockQuery, mockFetch, mockFetchByKey, mockStreamQuery, mockStreamFetchByKey];
 
 jest.mock('@daml/ledger', () => class {
   constructor(...args: unknown[]) {
@@ -24,6 +25,10 @@ jest.mock('@daml/ledger', () => class {
   }
   query(...args: unknown[]): Promise<string> {
     return mockQuery(...args);
+  }
+
+  fetch(...args: unknown[]): Promise<string> {
+    return mockFetch(...args);
   }
 
   fetchByKey(...args: unknown[]): Promise<string> {
@@ -184,6 +189,22 @@ describe('useQuery', () => {
     expect(mockQuery).toHaveBeenCalledTimes(1);
     expect(mockQuery).toHaveBeenLastCalledWith(Foo, undefined);
     expect(result.current.queryResult).toEqual({contracts : resolvent2, loading : false});
+  });
+});
+
+describe('useFetch', () => {
+  test('one shot', async () => {
+    const contract = {owner: 'Alice'};
+    const contractId = "1" as unknown as ContractId<typeof Foo>;
+    mockFetch.mockReturnValueOnce(Promise.resolve(contract));
+    const {result, waitForNextUpdate} = renderDamlHook(() => useFetch(Foo, contractId));
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenLastCalledWith(Foo, contractId);
+    mockFetch.mockClear();
+    expect(result.current).toEqual({contract: null, loading: true});
+    await waitForNextUpdate();
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(result.current).toEqual({contract, loading: false});
   });
 });
 

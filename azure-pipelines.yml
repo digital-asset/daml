@@ -365,6 +365,8 @@ jobs:
       protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
       daml-on-sql: $[ dependencies.Linux.outputs['publish.daml-on-sql'] ]
       json-api: $[ dependencies.Linux.outputs['publish.json-api'] ]
+      script-runner: $[ dependencies.Linux.outputs['publish.script-runner'] ]
+      trigger-runner: $[ dependencies.Linux.outputs['publish.trigger-runner'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
@@ -373,11 +375,11 @@ jobs:
       - checkout: self
         persistCredentials: true
       - bash: |
-          set -euxo pipefail
+          set -euo pipefail
           if git tag v$(release_tag) $(release_sha); then
             git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
-            mkdir $(Build.StagingDirectory)/bucket
+            mkdir $(Build.StagingDirectory)/artifactory
           else
             echo "##vso[task.setvariable variable=skip-github]TRUE"
           fi
@@ -409,12 +411,22 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(daml-on-sql)
-          targetPath: $(Build.StagingDirectory)/bucket
+          targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(json-api)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(trigger-runner)
+          targetPath: $(Build.StagingDirectory)/artifactory
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(script-runner)
+          targetPath: $(Build.StagingDirectory)/artifactory
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail
@@ -433,7 +445,7 @@ jobs:
           for f in *; do
               gpg --homedir $GPG_DIR -ab $f
           done
-          cd ../bucket
+          cd ../artifactory
           for f in *; do
               gpg --homedir $GPG_DIR -ab $f
           done
@@ -467,9 +479,9 @@ jobs:
           gcloud auth activate-service-account --key-file=$GCS_KEY
           export BOTO_CONFIG=/dev/null
 
-          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql) \
+          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql) \
                     gs://daml-binaries/daml-on-sql/$(daml-on-sql)
-          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql).asc \
+          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql).asc \
                     gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
           gsutil cp $(Build.StagingDirectory)/release/$(json-api) \
                     gs://daml-binaries/json-api/$(json-api)
@@ -478,6 +490,37 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
         condition: not(eq(variables['skip-github'], 'TRUE'))
+      - bash: |
+          set -euo pipefail
+
+          push() {
+            local file repository
+            repository=$1
+            file=$2
+            curl -f \
+                 -u "$AUTH" \
+                 -H "X-Checksum-MD5:$(md5sum ${local} | awk '{print $1}')" \
+                 -H "X-Checksum-SHA1:$(sha1sum ${local} | awk '{print $1}')" \
+                 -X PUT \
+                 -T $(Build.StagingDirectory)/artifactory/${file} \
+                 https://digitalasset.jfrog.io/artifactory/${repository}/$(release_tag)/${file}
+          }
+
+          push daml-trigger-runner $(trigger-runner)
+          push daml-trigger-runner $(trigger-runner).asc
+          push daml-script-runner $(script-runner)
+          push daml-script-runner $(script-runner).asc
+        env:
+          AUTH: $(ARTIFACTORY_USERPASS)
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - bash: |
+          set -euo pipefail
+          pr_handler=$(head -1 release/rotation | awk '{print $1}')
+          curl -XPOST \
+               -i \
+               -H 'Content-Type: application/json' \
+               --data "{\"text\":\"<@${pr_handler}> Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
+               $(Slack.team-daml)
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
@@ -496,15 +539,19 @@ jobs:
     - checkout: self
       persistCredentials: true
     - bash: ci/dev-env-install.sh
+    - template: ci/bash-lib.yml
+      parameters:
+        var_name: bash_lib
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
+
+        source $(bash_lib)
 
         setvar() {
             echo "Setting '$1' to '$2'"
             echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
         }
-
 
         DELAY=1
         while ! curl --fail -I https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/$(release_tag)/ledger-api-test-tool-$(release_tag).jar; do
@@ -516,12 +563,7 @@ jobs:
             fi
         done
 
-        # With `persistCredentials: true`, Azure Pipelines will store the
-        # credentials to interact with GitHub in the url for the origin remote,
-        # using basic auth format:
-        # https://username:password@github.com/:user/:repo.git
-        # This series of pipes extracts the `username:password` part.
-        AUTH="$(git config remote.origin.url | grep -o "://.*:.*@" | cut -c4- | rev | cut -c2- | rev)"
+        AUTH="$(get_gh_auth_header)"
 
         git checkout origin/master
         BRANCH=update-compat-versions-for-$(release_tag)
@@ -536,11 +578,12 @@ jobs:
         git -c user.name="Azure Pipelines DAML Build" \
             -c user.email="support@digitalasset.com" \
             commit \
-            -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n"))"
+            -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
         git push origin $BRANCH:$BRANCH
         curl -H "Content-Type: application/json" \
-             -u $AUTH \
+             -H "$AUTH" \
              --silent \
+             --fail \
              --include \
              --location \
              -d "{\"title\": \"update compat versions for $(release_tag)\", \"head\": \"$BRANCH\", \"base\": \"master\"}" \
@@ -772,11 +815,53 @@ jobs:
           PR_NUM: $(pr.num)
           PR_BRANCH: $(pr.branch)
 
+  - job: notify_release_pr
+    condition: and(not(canceled()),
+                   startsWith(variables['Build.SourceBranchName'], 'auto-release-pr-'),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
+    dependsOn:
+      - git_sha
+      - collect_build_data
+      - check_for_release
+    pool:
+      name: 'linux-pool'
+      demands: assignment -equals default
+    variables:
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+      status: $[ dependencies.collect_build_data.result ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    steps:
+      - checkout: self
+        persistCredentials: true
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
+      - bash: |
+          set -euo pipefail
+
+          source $(bash-lib)
+
+          AUTH="$(get_gh_auth_header)"
+          PR=$(curl -H "$AUTH" \
+                    -H "Accept: application/vnd.github.groot-preview+json" \
+                    -s -f \
+                    "https://api.github.com/repos/digital-asset/daml/commits/$(git rev-parse HEAD)/pulls" \
+               | jq '.[0].number' \
+               || echo "")
+          # Note: if we somehow fail to resolve the PR number from the GitHub
+          # API, there is still value in getting the notification on Slack, as
+          # we do have the build number and from there we can click through to
+          # the PR. Hence the `|| echo ""`.
+          PR_HANDLER=$(head -1 release/rotation | awk '{print $1}')
+
+          tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> has completed with status $(status). See <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md|RELEASE.md> for what to do next."
+
   - job: notify_user
     condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
     dependsOn:
       - git_sha
       - collect_build_data
+      - check_for_release
     pool:
       name: 'linux-pool'
       demands: assignment -equals default

@@ -269,3 +269,15 @@ testSetTime : Script (Time, Time) = do
   setTime (time (date 2000 Feb 2) 0 1 2)
   t1 <- getTime
   pure (t0, t1)
+
+testQueryContractId : Script () = do
+  p <- allocateParty "p"
+  jsonQueryContractId p
+
+jsonQueryContractId p = do
+  cid <- submit p do createCmd (C p 42)
+  optR <- queryContractId p cid
+  optR === Some (C p 42)
+  submit p do archiveCmd cid
+  optR <- queryContractId p cid
+  optR === None

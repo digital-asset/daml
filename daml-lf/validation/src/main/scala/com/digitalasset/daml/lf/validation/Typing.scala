@@ -3,7 +3,7 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.{ImmArray, Numeric}
+import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
@@ -119,8 +119,7 @@ private[validation] object Typing {
       BTextMapToList ->
         TForall(
           alpha.name -> KStar,
-          TTextMap(alpha) ->: TList(
-            TStruct(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
+          TTextMap(alpha) ->: TList(TStruct(Struct(keyFieldName -> TText, valueFieldName -> alpha)))
         ),
       BTextMapSize ->
         TForall(
@@ -180,6 +179,7 @@ private[validation] object Typing {
       BToTextTimestamp -> (TTimestamp ->: TText),
       BToTextParty -> (TParty ->: TText),
       BToTextDate -> (TDate ->: TText),
+      BToTextContractId -> TForall(alpha.name -> KStar, TContractId(alpha) ->: TOptional(TText)),
       BSHA256Text -> (TText ->: TText),
       BToQuotedTextParty -> (TParty ->: TText),
       BToTextCodePoints -> (TList(TInt64) ->: TText),
@@ -228,11 +228,12 @@ private[validation] object Typing {
     case PCUnit => TUnit
   }
 
-  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit =
+  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit = {
+    val languageVersion = world.lookupPackage(NoContext, pkgId).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
@@ -248,13 +249,14 @@ private[validation] object Typing {
             env.checkEnumType(tyConName, params, values)
         }
       case (dfnName, dfn: DValue) =>
-        Env(mod.languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
+  }
 
   case class Env(
       languageVersion: LanguageVersion,
@@ -428,8 +430,8 @@ private[validation] object Typing {
       case TForall((v, k), b) =>
         introTypeVar(v, k).checkType(b, KStar)
         KStar
-      case TStruct(recordType) =>
-        checkRecordType(recordType)
+      case TStruct(fields) =>
+        checkRecordType(fields.toImmArray)
         KStar
     }
 
@@ -450,9 +452,7 @@ private[validation] object Typing {
       case TForall((v, k), b) =>
         TForall((v, k), introTypeVar(v, k).expandTypeSynonyms(b))
       case TStruct(recordType) =>
-        TStruct(recordType.transform { (_, x) =>
-          expandTypeSynonyms(x)
-        })
+        TStruct(recordType.mapValue(expandTypeSynonyms(_)))
     }
 
     private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
@@ -515,14 +515,12 @@ private[validation] object Typing {
 
     private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type = {
       checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      TStruct(fields.transform { (_, x) =>
-        typeOf(x)
-      })
+      TStruct(Struct(fields.iterator.map { case (f, x) => f -> typeOf(x) }.toSeq: _*))
     }
 
     private def typeOfStructProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
       case TStruct(structType) =>
-        structType.lookup(field, EUnknownField(ctx, field))
+        structType.lookup(field).getOrElse(throw EUnknownField(ctx, field))
       case typ =>
         throw EExpectedStructType(ctx, typ)
     }
@@ -530,7 +528,7 @@ private[validation] object Typing {
     private def typeOfStructUpd(field: FieldName, struct: Expr, update: Expr): Type =
       typeOf(struct) match {
         case typ @ TStruct(structType) =>
-          checkExpr(update, structType.lookup(field, EUnknownField(ctx, field)))
+          checkExpr(update, structType.lookup(field).getOrElse(throw EUnknownField(ctx, field)))
           typ
         case typ =>
           throw EExpectedStructType(ctx, typ)
@@ -760,7 +758,7 @@ private[validation] object Typing {
         // fetches return the contract id and the contract itself
         TUpdate(
           TStruct(
-            ImmArray(
+            Struct(
               (contractIdFieldName, TContractId(TTyCon(retrieveByKey.templateId))),
               (contractFieldName, TTyCon(retrieveByKey.templateId)))))
       case UpdateLookupByKey(retrieveByKey) =>
