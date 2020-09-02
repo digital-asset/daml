@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2.benchmark
+package com.daml.ledger.participant.state.kvutils.tools.engine.benchmark
 
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}

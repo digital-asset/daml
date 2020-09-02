@@ -75,7 +75,7 @@ da_scala_test(
 
 da_scala_benchmark_jmh(
     name = "benchmark-replay",
-    srcs = glob(["integrity-check-v2/src/benchmark/scala/**/*"]),
+    srcs = glob(["engine-benchmark/src/benchmark/scala/**/*"]),
     max_heap_size = "4g",
     scalacopts = lf_scalacopts,
     deps = [
