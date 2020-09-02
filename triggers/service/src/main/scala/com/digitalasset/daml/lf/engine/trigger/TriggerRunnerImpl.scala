@@ -173,7 +173,7 @@ object TriggerRunnerImpl {
               // Don't think about trying to send the server a message
               // here. It won't receive it (many Bothans died to bring
               // us this information).
-              ctx.log.info(s"Trigger $name is stopping")
+              logger.info(s"Trigger $name stopped")
               killSwitch.shutdown
               Behaviors.stopped
             case (_, PreRestart) =>
@@ -181,7 +181,7 @@ object TriggerRunnerImpl {
               // already been informed of the earlier failure and in
               // the process of being restarted, will be informed of
               // the start along the way.
-              ctx.log.info(s"Trigger $name is being restarted")
+              logger.info(s"Trigger $name is being restarted")
               Behaviors.same
           }
 
