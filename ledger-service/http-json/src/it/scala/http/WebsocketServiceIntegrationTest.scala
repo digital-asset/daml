@@ -16,6 +16,7 @@ import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.StrictLogging
 import org.scalacheck.Gen
 import org.scalatest._
+import org.scalatest.matchers.{MatchResult, Matcher}
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
 import scalaz.std.vector._
@@ -451,27 +452,6 @@ class WebsocketServiceIntegrationTest
   }
 
   "fetch multiple keys should work" in withHttpService { (uri, encoder, _) =>
-    def matches(expected: Seq[JsValue], actual: Seq[JsValue]): Boolean =
-      expected.length == actual.length && (expected, actual).zipped.forall {
-        case (exp, act) => matchesJs(exp, act)
-      }
-    // matches if all the values specified in expected appear with the same
-    // value in actual; actual is allowed to have extra fields. Arrays must
-    // have the same length.
-    def matchesJs(expected: spray.json.JsValue, actual: spray.json.JsValue): Boolean = {
-      import spray.json._
-      (expected, actual) match {
-        case (JsArray(expected), JsArray(actual)) =>
-          expected.length == actual.length && matches(expected, actual)
-        case (JsObject(expected), JsObject(actual)) =>
-          expected.keys.forall(k => matchesJs(expected(k), actual(k)))
-        case (JsString(expected), JsString(actual)) => expected == actual
-        case (JsNumber(expected), JsNumber(actual)) => expected == actual
-        case (JsBoolean(expected), JsBoolean(actual)) => expected == actual
-        case (JsNull, JsNull) => true
-        case _ => false
-      }
-    }
     def create(account: String): Future[domain.ContractId] =
       for {
         r <- postCreateCommand(accountCreateCommand(domain.Party("Alice"), account), encoder, uri)
@@ -523,7 +503,7 @@ class WebsocketServiceIntegrationTest
             |""".stripMargin.parseJson
         )
       }
-      assert(matches(expected, results))
+      results should matchJsValues(expected)
 
     }
   }
@@ -952,4 +932,36 @@ private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
 
   def eventsBlockVector(msgs: Vector[String]): SprayJson.JsonReaderError \/ Vector[EventsBlock] =
     msgs.traverse(SprayJson.decode[EventsBlock])
+
+  def matchJsValue(expected: JsValue) = new JsValueMatcher(expected)
+
+  def matchJsValues(expected: Seq[JsValue]) = new MultipleJsValuesMatcher(expected)
+
+  final class JsValueMatcher(right: JsValue) extends Matcher[JsValue] {
+    override def apply(left: JsValue): MatchResult = {
+      import spray.json._
+      val result = (left, right) match {
+        case (JsArray(l), JsArray(r)) =>
+          l.length == r.length && matchJsValues(r)(l).matches
+        case (JsObject(l), JsObject(r)) =>
+          r.keys.forall(k => matchJsValue(r(k))(l(k)).matches)
+        case (JsString(l), JsString(r)) => l == r
+        case (JsNumber(l), JsNumber(r)) => l == r
+        case (JsBoolean(l), JsBoolean(r)) => l == r
+        case (JsNull, JsNull) => true
+        case _ => false
+      }
+      MatchResult(result, s"$left did not match $right", s"$left matched $right")
+    }
+  }
+
+  final class MultipleJsValuesMatcher(right: Seq[JsValue]) extends Matcher[Seq[JsValue]] {
+    override def apply(left: Seq[JsValue]): MatchResult = {
+      val result = left.length == right.length && (left, right).zipped.forall {
+        case (l, r) => matchJsValue(r)(l).matches
+      }
+      MatchResult(result, s"$left did not match $right", s"$left matched $right")
+    }
+  }
+
 }
