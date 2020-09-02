@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.test
+package com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2.benchmark
 
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -12,9 +12,10 @@ import com.daml.lf.value.Value.ContractId
 
 import scala.collection.mutable
 
-private[test] final class Adapter(
+private[benchmark] final class Adapter(
     packages: Map[Ref.PackageId, Ast.Package],
-    pkgLangVersion: Ref.PackageId => LanguageVersion) {
+    pkgLangVersion: Ref.PackageId => LanguageVersion
+) {
 
   def adapt(tx: Tx.Transaction): SubmittedTransaction =
     tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
