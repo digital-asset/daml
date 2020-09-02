@@ -3,19 +3,15 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.Sink
 import java.io.File
 import java.util.UUID
 
+import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.PureCompiledPackages
-import com.daml.lf.archive.{DarReader, Decode}
-import com.daml.lf.data.Ref._
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.commands._
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand, _}
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.client.LedgerClient
@@ -24,15 +20,16 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.lf.engine.trigger.RunnerConfig
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.{Runner, RunnerConfig, Trigger}
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest._
-import io.grpc.netty.NettyChannelBuilder
-import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
-import com.daml.lf.engine.trigger.{Runner, RunnerConfig, Trigger}
+import scala.concurrent.{ExecutionContext, Future}
 
 trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   self: Suite =>
@@ -45,7 +42,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
-      token = None
+      token = None,
     )
 
   protected def ledgerClient(
@@ -53,11 +50,10 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
       implicit ec: ExecutionContext): Future[LedgerClient] =
     for {
       client <- LedgerClient
-        .fromBuilder(
-          NettyChannelBuilder
-            .forAddress("localhost", serverPort.value)
-            .maxInboundMessageSize(maxInboundMessageSize),
-          ledgerClientConfiguration,
+        .singleHost(
+          "localhost",
+          serverPort.value,
+          ledgerClientConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
         )
     } yield client
 

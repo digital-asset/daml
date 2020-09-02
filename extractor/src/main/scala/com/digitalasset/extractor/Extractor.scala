@@ -10,7 +10,7 @@ import com.daml.auth.TokenHolder
 import com.daml.extractor.Types._
 import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.daml.extractor.helpers.FutureUtil.toFuture
-import com.daml.extractor.helpers.{TemplateIds}
+import com.daml.extractor.helpers.TemplateIds
 import com.daml.extractor.ledger.types.TransactionTree
 import com.daml.extractor.ledger.types.TransactionTree._
 import com.daml.extractor.writers.Writer
@@ -28,7 +28,6 @@ import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.netty.NettyChannelBuilder
 import scalaz.\/
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
@@ -252,16 +251,16 @@ class Extractor[T](config: ExtractorConfig, target: T)(
   }
 
   private def createClient: Future[LedgerClient] =
-    LedgerClient.fromBuilder(
-      NettyChannelBuilder
-        .forAddress(config.ledgerHost, config.ledgerPort.value)
-        .maxInboundMessageSize(config.ledgerInboundMessageSizeMax),
+    LedgerClient.singleHost(
+      config.ledgerHost,
+      config.ledgerPort.value,
       LedgerClientConfiguration(
-        config.appId,
-        LedgerIdRequirement.none,
-        CommandClientConfiguration(1, 1, java.time.Duration.ofSeconds(20L)),
+        applicationId = config.appId,
+        ledgerIdRequirement = LedgerIdRequirement.none,
+        commandClient = CommandClientConfiguration(1, 1, java.time.Duration.ofSeconds(20L)),
         sslContext = config.tlsConfig.client,
-        tokenHolder.flatMap(_.token)
+        token = tokenHolder.flatMap(_.token),
+        maxInboundMessageSize = config.ledgerInboundMessageSizeMax,
       )
     )
 

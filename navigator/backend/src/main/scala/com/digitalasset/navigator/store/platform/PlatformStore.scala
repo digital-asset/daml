@@ -12,7 +12,6 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
 import akka.pattern.ask
 import akka.stream.Materializer
 import akka.util.Timeout
-import com.daml.lf.data.Ref
 import com.daml.grpc.GrpcException
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.{ApiTypes, IdGenerator}
@@ -25,13 +24,14 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.lf.data.Ref
 import com.daml.navigator.ApplicationInfo
 import com.daml.navigator.model._
 import com.daml.navigator.store.Store._
 import com.daml.navigator.time._
 import com.daml.navigator.util.RetryHelper
 import io.grpc.Channel
-import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
+import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -305,11 +305,11 @@ class PlatformStore(
     }
 
     for {
-      ledgerClient <- LedgerClient.fromBuilder(
-        NettyChannelBuilder
-          .forAddress(platformHost, platformPort)
-          .maxInboundMessageSize(ledgerMaxInbound),
-        configuration)
+      ledgerClient <- LedgerClient.singleHost(
+        platformHost,
+        platformPort,
+        configuration.copy(maxInboundMessageSize = ledgerMaxInbound),
+      )
       staticTime <- getStaticTime(ledgerClient.channel, ledgerClient.ledgerId.unwrap)
       time <- getTimeProvider(staticTime)
     } yield ConnectionResult(ledgerClient, staticTime, time)
