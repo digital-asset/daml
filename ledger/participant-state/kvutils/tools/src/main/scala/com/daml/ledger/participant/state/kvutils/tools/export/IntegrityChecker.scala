@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.export
 
-import java.io.DataInputStream
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
@@ -13,8 +12,8 @@ import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
 import com.daml.ledger.participant.state.kvutils.export.{
+  LedgerDataImporter,
   NoOpLedgerDataExporter,
-  SerializationBasedLedgerDataImporter,
   WriteSet
 }
 import com.daml.ledger.participant.state.kvutils.tools._
@@ -36,7 +35,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 
   import IntegrityChecker._
 
-  def run(input: DataInputStream)(implicit executionContext: ExecutionContext): Future[Unit] = {
+  def run(
+      importer: LedgerDataImporter,
+  )(implicit executionContext: ExecutionContext): Future[Unit] = {
     val actorSystem: ActorSystem = ActorSystem("integrity-checker")
     implicit val materializer: Materializer = Materializer(actorSystem)
 
@@ -52,7 +53,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     )
     val ComponentsForReplay(reader, commitStrategy, queryableWriteSet) =
       commitStrategySupport.createComponentsForReplay()
-    processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
+    processSubmissions(importer, submissionValidator, reader, commitStrategy, queryableWriteSet)
       .map { _ =>
         reportDetailedMetrics(metricRegistry)
       }
@@ -64,13 +65,13 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
   }
 
   private def processSubmissions(
-      input: DataInputStream,
+      importer: LedgerDataImporter,
       submissionValidator: BatchedSubmissionValidator[LogResult],
       reader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[LogResult],
       queryableWriteSet: QueryableWriteSet,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    Source(new SerializationBasedLedgerDataImporter(input).read())
+    Source(importer.read())
       .mapAsync(1) {
         case (submissionInfo, expectedWriteSet) =>
           println(

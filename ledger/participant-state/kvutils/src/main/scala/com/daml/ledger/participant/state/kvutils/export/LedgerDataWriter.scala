@@ -3,6 +3,10 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+
+import scala.collection.SortedMap
+
 trait LedgerDataWriter {
-  def write(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit
+  def write(submissionInfo: SubmissionInfo, writeSet: SortedMap[Key, Value]): Unit
 }

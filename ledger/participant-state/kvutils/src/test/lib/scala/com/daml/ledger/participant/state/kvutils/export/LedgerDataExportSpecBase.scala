@@ -30,11 +30,13 @@ abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matc
 
       val submission = exporter.addSubmission(submissionInfo)
       val writeSetA1 = submission.addChild()
-      writeSetA1 ++= Seq(keyValuePairOf("a", "b"), keyValuePairOf("c", "d"))
+      writeSetA1 ++= Seq(keyValuePairOf("a", "b"), keyValuePairOf("g", "h"))
       val writeSetA2 = submission.addChild()
-      writeSetA2 ++= Seq(keyValuePairOf("e", "f"), keyValuePairOf("g", "h"))
+      writeSetA2 ++= Seq(keyValuePairOf("i", "j"), keyValuePairOf("e", "f"))
+      writeSetA2 += keyValuePairOf("c", "d")
 
       submission.finish()
+      outputStream.close()
 
       val importer = newImporter(inputStream)
 
@@ -46,6 +48,7 @@ abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matc
           keyValuePairOf("c", "d"),
           keyValuePairOf("e", "f"),
           keyValuePairOf("g", "h"),
+          keyValuePairOf("i", "j"),
         ))
     }
   }
