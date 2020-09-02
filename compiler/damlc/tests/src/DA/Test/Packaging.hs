@@ -1682,6 +1682,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
         writeFileUTF8 (tmpDir </> "type" </> "Foo.daml") $ unlines
             [ "module Foo where"
             , "data A = B | C Int"
+            , "data D = D ()" -- single-constructor case uses explicit unit
             ]
         withCurrentDirectory (tmpDir </> "type") $
             callProcessSilent damlc ["build", "-o", "type.dar"]
@@ -1707,6 +1708,12 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             , "  case a of"
             , "    B -> 0"
             , "    C n -> n"
+            , "mkD : D"
+            , "mkD = D ()"
+            , "matchD : D -> ()"
+            , "matchD d ="
+            , "  case d of"
+            , "    D () -> ()"
             ]
         withCurrentDirectory (tmpDir </> "proj") $
             callProcessSilent damlc ["build"]
