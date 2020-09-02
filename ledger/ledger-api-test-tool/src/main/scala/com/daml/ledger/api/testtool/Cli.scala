@@ -197,10 +197,10 @@ object Cli {
       .action((_, _) => { println(BuildInfo.Version); sys.exit(0) })
       .text("Prints the version on stdout and exit.")
 
-    opt[Int]("ledger-clock-tick-interval")
+    opt[Int]("ledger-clock-granularity")
       .optional()
-      .action((interval, c) => c.copy(ledgerClockTickIntervalMs = interval))
-      .text("Specify the interval in ms at which the clock of the ledger under test ticks.")
+      .action((interval, c) => c.copy(ledgerClockGranularityMs = interval))
+      .text("Specify the largest interval in ms that you will see between clock ticks on the ledger under test")
 
     help("help").text("Prints this usage text")
 

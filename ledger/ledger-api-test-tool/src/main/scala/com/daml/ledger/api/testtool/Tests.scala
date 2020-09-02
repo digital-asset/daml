@@ -18,7 +18,7 @@ object Tests {
       new ClosedWorldIT,
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT(config.ledgerClockTickIntervalMs),
+      new CommandDeduplicationIT(config.ledgerClockGranularityMs),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
       new DivulgenceIT,

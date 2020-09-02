@@ -19,10 +19,9 @@ import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-class CommandDeduplicationIT(ledgerTimeIntervalMs: Int) extends LedgerTestSuite {
-  private val timeInterval = ledgerTimeIntervalMs / 1000
-  private val deduplicationSeconds = 1 * timeInterval
-  private val deduplicationWindowWait = 2 * timeInterval
+final class CommandDeduplicationIT(ledgerTimeIntervalMs: Int) extends LedgerTestSuite {
+  private val deduplicationSeconds = ledgerTimeIntervalMs / 1000
+  private val deduplicationWindowWait = 2 * deduplicationSeconds
 
   test(
     "CDSimpleDeduplicationBasic",
