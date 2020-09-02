@@ -1667,6 +1667,49 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
         withCurrentDirectory (tmpDir </> "proj") $
             callProcessSilent damlc ["build"]
 
+    , testCaseSteps "Empty variant constructors" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test checks that variant constructors without argument
+        -- are preserved. This is a regression test for issue #7207.
+        step "building project with type definition"
+        createDirectoryIfMissing True (tmpDir </> "type")
+        writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: type"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "type" </> "Foo.daml") $ unlines
+            [ "module Foo where"
+            , "data A = B | C Int"
+            ]
+        withCurrentDirectory (tmpDir </> "type") $
+            callProcessSilent damlc ["build", "-o", "type.dar"]
+
+        step "building project that uses it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "type" </> "type.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import Foo"
+            , "mkA : A"
+            , "mkA = B"
+            , "matchA : A -> Int"
+            , "matchA a ="
+            , "  case a of"
+            , "    B -> 0"
+            , "    C n -> n"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
     ]
 
 -- | Check that the given file exists in the dar in the given directory.

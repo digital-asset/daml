@@ -479,6 +479,9 @@ generateSrcFromLf env = noLoc mod
 
         convConDetails :: LF.Type -> Gen (HsConDeclDetails GhcPs)
         convConDetails = \case
+            -- empty variant constructor (see issue #7207)
+            LF.TUnit ->
+                pure $ PrefixCon []
 
             -- variant record constructor
             LF.TConApp LF.Qualified{..} _
