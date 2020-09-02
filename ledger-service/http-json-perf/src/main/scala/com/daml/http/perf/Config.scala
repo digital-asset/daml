@@ -15,7 +15,7 @@ private[perf] final case class Config(
     scenario: String,
     dars: List[File],
     jwt: Jwt,
-    packageId: Option[String],
+    reportsDir: Option[File],
     maxDuration: Option[FiniteDuration]
 ) {
   override def toString: String =
@@ -23,14 +23,14 @@ private[perf] final case class Config(
       s"scenario=${this.scenario}, " +
       s"dars=${dars: List[File]}," +
       s"jwt=..., " + // don't print the JWT
-      s"packageId=${this.packageId: Option[String]}," +
+      s"reportsDir=${reportsDir: Option[File]}," +
       s"maxDuration=${this.maxDuration: Option[FiniteDuration]}" +
       ")"
 }
 
 private[perf] object Config {
   val Empty =
-    Config(scenario = "", dars = List.empty, jwt = Jwt(""), packageId = None, maxDuration = None)
+    Config(scenario = "", dars = List.empty, jwt = Jwt(""), reportsDir = None, maxDuration = None)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Config.Empty)
@@ -47,23 +47,23 @@ private[perf] object Config {
       opt[String]("scenario")
         .action((x, c) => c.copy(scenario = x))
         .required()
-        .text("Performance test scenario to run")
+        .text("Performance test scenario to run.")
 
       opt[Seq[File]]("dars")
         .action((x, c) => c.copy(dars = x.toList))
         .required()
-        .text("DAR files to pass to Sandbox")
+        .text("DAR files to pass to Sandbox.")
 
       opt[String]("jwt")
         .action((x, c) => c.copy(jwt = Jwt(x)))
         .required()
         .validate(validateJwt)
-        .text("JWT token to use when connecting to JSON API")
+        .text("JWT token to use when connecting to JSON API.")
 
-      opt[String]("package-id")
-        .action((x, c) => c.copy(packageId = Some(x)))
+      opt[File]("reports-dir")
+        .action((x, c) => c.copy(reportsDir = Some(x)))
         .optional()
-        .text("Optional package ID to specify in the commands sent to JSON API")
+        .text("Directory where reports generated. If not set, reports will not be generated.")
 
       opt[Duration]("max-duration")
         .action((x, c) => c.copy(maxDuration = Some(FiniteDuration(x.length, x.unit))))

@@ -242,7 +242,7 @@ object HttpService extends StrictLogging {
   }
 
   // Decode JWT without any validation
-  private val decodeJwt: EndpointsCompanion.ValidateJwt =
+  private[http] val decodeJwt: EndpointsCompanion.ValidateJwt =
     jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
