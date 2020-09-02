@@ -6,7 +6,12 @@ package com.daml.lf.speedy
 import com.daml.lf.data.Ref.Location
 import org.slf4j.Logger
 
-final case class TraceLog(logger: Logger, capacity: Int) {
+private[lf] trait TraceLog {
+  def add(message: String, optLocation: Option[Location]): Unit
+  def iterator: Iterator[(String, Option[Location])]
+}
+
+private[lf] final case class RingBufferTraceLog(logger: Logger, capacity: Int) extends TraceLog {
 
   private val buffer = Array.ofDim[(String, Option[Location])](capacity)
   private var pos: Int = 0

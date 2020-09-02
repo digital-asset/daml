@@ -33,6 +33,7 @@ import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.collection.compat._
+import scala.collection.mutable.HashSet
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -257,11 +258,18 @@ object WebSocketService {
             .toLeftDisjunction(x.ekey.templateId)
         }
 
-      val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
+      val q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
+        resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
+          (acc, el) =>
+            acc.get(el._1) match {
+              case Some(v) => acc.updated(el._1, v += el._2)
+              case None => acc.updated(el._1, HashSet(el._2))
+          })
       val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
-        if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
-          Some(())
-        else None
+        a.key match {
+          case None => None
+          case Some(k) => if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
+        }
       }
       (q.keySet, unresolved, fn)
     }

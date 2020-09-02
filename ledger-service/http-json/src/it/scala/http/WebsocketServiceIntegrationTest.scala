@@ -16,6 +16,7 @@ import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.StrictLogging
 import org.scalacheck.Gen
 import org.scalatest._
+import org.scalatest.matchers.{MatchResult, Matcher}
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
 import scalaz.std.vector._
@@ -450,6 +451,63 @@ class WebsocketServiceIntegrationTest
       } yield resumes.foldLeft(1 shouldBe 1)((_, a) => a)
   }
 
+  "fetch multiple keys should work" in withHttpService { (uri, encoder, _) =>
+    def create(account: String): Future[domain.ContractId] =
+      for {
+        r <- postCreateCommand(accountCreateCommand(domain.Party("Alice"), account), encoder, uri)
+      } yield {
+        assert(r._1.isSuccess)
+        getContractId(getResult(r._2))
+      }
+    def archive(id: domain.ContractId): Future[Assertion] =
+      for {
+        r <- postArchiveCommand(domain.TemplateId(None, "Account", "Account"), id, encoder, uri)
+      } yield {
+        assert(r._1.isSuccess)
+      }
+    val req =
+      """
+          |[{"templateId": "Account:Account", "key": ["Alice", "abc123"]},
+          | {"templateId": "Account:Account", "key": ["Alice", "def456"]}]
+          |""".stripMargin
+    val futureResults =
+      singleClientFetchStream(jwt, uri, req, keepOpen = true)
+        .via(parseResp)
+        .filterNot(isOffsetTick)
+        .take(4)
+        .runWith(Sink.seq[JsValue])
+
+    for {
+      cid1 <- create("abc123")
+      _ <- create("abc124")
+      _ <- create("abc125")
+      cid2 <- create("def456")
+      _ <- archive(cid2)
+      _ <- archive(cid1)
+      results <- futureResults
+    } yield {
+      val expected: Seq[JsValue] = {
+        import spray.json._
+        Seq(
+          """
+            |{"events":[{"created":{"payload":{"number":"abc123"}}}]}
+            |""".stripMargin.parseJson,
+          """
+            |{"events":[{"created":{"payload":{"number":"def456"}}}]}
+            |""".stripMargin.parseJson,
+          """
+            |{"events":[{"archived":{}}]}
+            |""".stripMargin.parseJson,
+          """
+            |{"events":[{"archived":{}}]}
+            |""".stripMargin.parseJson
+        )
+      }
+      results should matchJsValues(expected)
+
+    }
+  }
+
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
     (uri, _, _) =>
       singleClientFetchStream(jwt, uri, "[]")
@@ -788,22 +846,25 @@ private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
       jwt: Jwt,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset] = None)(implicit asys: ActorSystem): Source[Message, NotUsed] =
-    singleClientWSStream(jwt, "query", serviceUri, query, offset)
+      offset: Option[domain.Offset] = None,
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] =
+    singleClientWSStream(jwt, "query", serviceUri, query, offset, keepOpen)
 
   def singleClientFetchStream(
       jwt: Jwt,
       serviceUri: Uri,
       request: String,
-      offset: Option[domain.Offset] = None)(implicit asys: ActorSystem): Source[Message, NotUsed] =
-    singleClientWSStream(jwt, "fetch", serviceUri, request, offset)
+      offset: Option[domain.Offset] = None,
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] =
+    singleClientWSStream(jwt, "fetch", serviceUri, request, offset, keepOpen)
 
   def singleClientWSStream(
       jwt: Jwt,
       path: String,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset])(implicit asys: ActorSystem): Source[Message, NotUsed] = {
+      offset: Option[domain.Offset],
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] = {
 
     import spray.json._, json.JsonProtocol._
     val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
@@ -818,6 +879,7 @@ private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
             Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator),
         Source single query)
       .map(TextMessage(_))
+      .concatMat(if (keepOpen) Source.maybe[Message] else Source.empty)(Keep.left)
       .via(webSocketFlow)
   }
 
@@ -835,6 +897,12 @@ private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
   private def isOffsetTick(str: String): Boolean =
     SprayJson
       .decode[EventsBlock](str)
+      .map(isOffsetTick)
+      .valueOr(_ => false)
+
+  private def isOffsetTick(v: JsValue): Boolean =
+    SprayJson
+      .decode[EventsBlock](v)
       .map(isOffsetTick)
       .valueOr(_ => false)
 
@@ -864,4 +932,36 @@ private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
 
   def eventsBlockVector(msgs: Vector[String]): SprayJson.JsonReaderError \/ Vector[EventsBlock] =
     msgs.traverse(SprayJson.decode[EventsBlock])
+
+  def matchJsValue(expected: JsValue) = new JsValueMatcher(expected)
+
+  def matchJsValues(expected: Seq[JsValue]) = new MultipleJsValuesMatcher(expected)
+
+  final class JsValueMatcher(right: JsValue) extends Matcher[JsValue] {
+    override def apply(left: JsValue): MatchResult = {
+      import spray.json._
+      val result = (left, right) match {
+        case (JsArray(l), JsArray(r)) =>
+          l.length == r.length && matchJsValues(r)(l).matches
+        case (JsObject(l), JsObject(r)) =>
+          r.keys.forall(k => matchJsValue(r(k))(l(k)).matches)
+        case (JsString(l), JsString(r)) => l == r
+        case (JsNumber(l), JsNumber(r)) => l == r
+        case (JsBoolean(l), JsBoolean(r)) => l == r
+        case (JsNull, JsNull) => true
+        case _ => false
+      }
+      MatchResult(result, s"$left did not match $right", s"$left matched $right")
+    }
+  }
+
+  final class MultipleJsValuesMatcher(right: Seq[JsValue]) extends Matcher[Seq[JsValue]] {
+    override def apply(left: Seq[JsValue]): MatchResult = {
+      val result = left.length == right.length && (left, right).zipped.forall {
+        case (l, r) => matchJsValue(r)(l).matches
+      }
+      MatchResult(result, s"$left did not match $right", s"$left matched $right")
+    }
+  }
+
 }

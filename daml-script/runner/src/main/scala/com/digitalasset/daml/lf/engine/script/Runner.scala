@@ -11,8 +11,6 @@ import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import java.time.Clock
 
-import io.grpc.netty.NettyChannelBuilder
-
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.{Applicative, Traverse, \/-}
 import scalaz.std.either._
@@ -178,9 +176,8 @@ object Runner {
   private def connectApiParameters(
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
-      maxInboundMessageSize: Int)(
-      implicit ec: ExecutionContext,
-      seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
+      maxInboundMessageSize: Int,
+  )(implicit ec: ExecutionContext, seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
     val applicationId = params.application_id.getOrElse(Runner.DEFAULT_APPLICATION_ID)
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -188,14 +185,10 @@ object Runner {
       commandClient = CommandClientConfiguration.default,
       sslContext = tlsConfig.client,
       token = params.access_token,
+      maxInboundMessageSize = maxInboundMessageSize,
     )
     LedgerClient
-      .fromBuilder(
-        NettyChannelBuilder
-          .forAddress(params.host, params.port)
-          .maxInboundMessageSize(maxInboundMessageSize),
-        clientConfig,
-      )
+      .singleHost(params.host, params.port, clientConfig)
       .map(new GrpcLedgerClient(_, applicationId))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
@@ -276,12 +269,36 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients)
+    runner.runWithClients(initialClients)._2
   }
 }
 
 class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode: ScriptTimeMode)
     extends StrictLogging {
+
+  // We overwrite the definition of fromLedgerValue with an identity function.
+  // This is a type error but Speedy doesn’t care about the types and the only thing we do
+  // with the result is convert it to ledger values/record so this is safe.
+  private val extendedCompiledPackages = {
+    val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
+      case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
+        SEMakeClo(Array(), 1, SELocA(0))
+    }
+    new CompiledPackages(Compiler.FullStackTrace, Compiler.NoProfile) {
+      override def getPackage(pkgId: PackageId): Option[Package] =
+        compiledPackages.getPackage(pkgId)
+      override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
+        fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
+      // FIXME: avoid override of non abstract method
+      override def packages: PartialFunction[PackageId, Package] = compiledPackages.packages
+      override def packageIds: Set[PackageId] = compiledPackages.packageIds
+      // FIXME: avoid override of non abstract method
+      override def definitions: PartialFunction[SDefinitionRef, SExpr] =
+        fromLedgerValue.orElse(compiledPackages.definitions)
+      override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
+        compiledPackages.packageLanguageVersion
+    }
+  }
 
   private val utcClock = Clock.systemUTC()
 
@@ -308,29 +325,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
           Right(_))
     } yield choice.returnType
 
-  // We overwrite the definition of fromLedgerValue with an identity function.
-  // This is a type error but Speedy doesn’t care about the types and the only thing we do
-  // with the result is convert it to ledger values/record so this is safe.
-  private val extendedCompiledPackages = {
-    val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
-      case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SEMakeClo(Array(), 1, SELocA(0))
-    }
-    new CompiledPackages(Compiler.FullStackTrace, Compiler.NoProfile) {
-      override def getPackage(pkgId: PackageId): Option[Package] =
-        compiledPackages.getPackage(pkgId)
-      override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
-        fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
-      // FIXME: avoid override of non abstract method
-      override def packages: PartialFunction[PackageId, Package] = compiledPackages.packages
-      override def packageIds: Set[PackageId] = compiledPackages.packageIds
-      // FIXME: avoid override of non abstract method
-      override def definitions: PartialFunction[SDefinitionRef, SExpr] =
-        fromLedgerValue.orElse(compiledPackages.definitions)
-      override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
-        compiledPackages.packageLanguageVersion
-    }
-  }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
@@ -339,10 +333,11 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
     md <- compiledPackages.getPackage(pkgId).flatMap(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
+  // Returns the machine that will be used for execution as well as a Future for the result.
   def runWithClients(initialClients: Participants[ScriptLedgerClient])(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[SValue] = {
+      mat: Materializer): (Speedy.Machine, Future[SValue]) = {
     var clients = initialClients
     val machine =
       Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, onLedger = false)
@@ -357,6 +352,16 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
         case res =>
           Left(new RuntimeException(s"Unexpected speedy result $res"))
       }
+
+    // Copy the tracelog from the client to the current machine
+    // interleaving ledger-side trace statements with client-side trace
+    // statements.
+    def copyTracelog(client: ScriptLedgerClient) = {
+      for ((msg, optLoc) <- client.tracelogIterator) {
+        machine.traceLog.add(msg, optLoc)
+      }
+      client.clearTracelog
+    }
 
     def run(expr: SExpr): Future[SValue] = {
       machine.setExpressionToEvaluate(expr)
@@ -393,6 +398,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                         Converter.toFuture(Converter.toOptionLocation(knownPackages, vals.get(3)))
                       }
                       submitRes <- client.submit(party, commands, commitLocation)
+                      _ = copyTracelog(client)
                       v <- submitRes match {
                         case Right(results) => {
                           for {
@@ -460,6 +466,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                         Converter.toFuture(Converter.toOptionLocation(knownPackages, vals.get(3)))
                       }
                       submitRes <- client.submitMustFail(party, commands, commitLocation)
+                      _ = copyTracelog(client)
                       v <- submitRes match {
                         case Right(()) =>
                           run(SEApp(SEValue(vals.get(2)), Array(SEValue(SUnit))))
@@ -656,6 +663,26 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       new ConverterException(s"Expected record with 2 fields but got $v"))
                 }
               }
+              case SVariant(_, "QueryContractId", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 4 => {
+                    val continue = vals.get(3)
+                    for {
+                      party <- Converter.toFuture(Converter.toParty(vals.get(0)))
+                      tplId <- Converter.toFuture(Converter.typeRepToIdentifier(vals.get(1)))
+                      cid <- Converter.toFuture(Converter.toContractId(vals.get(2)))
+                      client <- Converter.toFuture(clients.getPartyParticipant(Party(party.value)))
+                      optR <- client.queryContractId(party, tplId, cid)
+                      optR <- Converter.toFuture(
+                        optR.traverse(Converter.fromContract(valueTranslator, _)))
+                      v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 4 fields but got $v"))
+                }
+              }
               case _ =>
                 Future.failed(
                   new ConverterException(s"Expected Submit, Query or AllocParty but got $v"))
@@ -673,7 +700,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
         }
     }
 
-    for {
+    val resultF = for {
       _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
       result <- stepToValue().fold(Future.failed, Future.successful)
       expr <- result match {
@@ -694,5 +721,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       }
       v <- run(expr)
     } yield v
+    (machine, resultF)
   }
 }

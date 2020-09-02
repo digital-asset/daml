@@ -25,6 +25,10 @@ In this section, you'll learn how to create rich data schemas for your ledger. S
 
 After this section, you should be able to use a DAML ledger as a simple database where individual parties can write, read and delete complex data.
 
+.. hint::
+
+  Remember that you can load all the code for this section into a folder called ``3_Data`` by running ``daml new 3_Data daml-intro-3``
+
 Native types
 ------------
 

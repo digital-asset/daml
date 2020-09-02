@@ -140,6 +140,7 @@ da_scala_test_suite(
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "//libs-scala/contextualized-logging",
         "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
@@ -206,7 +207,7 @@ da_java_proto_library(
         ) if not is_windows else None,
     )
     for (name, port, environment_variable, checker) in [
-        ("reference-ledger-dump", 65101, "KVUTILS_LEDGER_DUMP", "//ledger/participant-state/kvutils/tools:integrity-check"),
+        ("reference-ledger-dump", 65101, "KVUTILS_LEDGER_DUMP", "//ledger/participant-state/kvutils/tools:integrity-check-v1"),
         ("reference-ledger-export", 65102, "KVUTILS_LEDGER_EXPORT", "//ledger/participant-state/kvutils/tools:integrity-check-v2"),
     ]
 ]

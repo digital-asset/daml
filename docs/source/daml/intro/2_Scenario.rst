@@ -13,6 +13,10 @@ In this section you will test the ``Token`` model from :doc:`1_Token` using DAML
 - Archiving contracts
 - Viewing ledger and final ledger state
 
+.. hint::
+
+  Remember that you can load all the code for this section into a folder called ``2_Scenario`` by running ``daml new 2_Scenario daml-intro-2``
+
 .. scenario_basics:
 
 Scenario basics

@@ -281,6 +281,17 @@ main =
                         "  where",
                         "    signatory p1",
                         "    observer p2",
+                        "template Divulger",
+                        "  with",
+                        "    divulgee : Party",
+                        "    sig : Party",
+                        "  where",
+                        "    signatory divulgee",
+                        "    observer sig",
+                        "    nonconsuming choice Divulge : T1",
+                        "      with cid : ContractId T1",
+                        "      controller sig",
+                        "      do fetch cid",
                         "testQueryInactive = do",
                         "  p <- allocateParty \"p\"",
                         "  cid1_1 <- submit p (createCmd (T1 p 42))",
@@ -300,12 +311,17 @@ main =
                         "testQueryVisibility = do",
                         "  p1 <- allocateParty \"p1\"",
                         "  p2 <- allocateParty \"p2\"",
+                        "  divulger <- submit p2 (createCmd (Divulger p2 p1))",
                         "  cidT1p1 <- submit p1 (createCmd (T1 p1 42))",
                         "  cidT1p2 <- submit p2 (createCmd (T1 p2 23))",
                         "  cidSharedp1 <- submit p1 (createCmd (TShared p1 p2))",
                         "  cidSharedp2 <- submit p2 (createCmd (TShared p2 p1))",
                         "  t1p1 <- query @T1 p1",
                         "  t1p1 === [(cidT1p1, T1 p1 42)]",
+                        "  t1p2 <- query @T1 p2",
+                        "  t1p2 === [(cidT1p2, T1 p2 23)]",
+                        -- Divulgence should not influence query result
+                        "  submit p1 $ exerciseCmd divulger (Divulge cidT1p1)",
                         "  t1p2 <- query @T1 p2",
                         "  t1p2 === [(cidT1p2, T1 p2 23)]",
                         "  sharedp1 <- query @TShared p1",
@@ -316,7 +332,7 @@ main =
                   expectScriptSuccess rs (vr "testQueryInactive") $ \r ->
                     matchRegex r "Active contracts:  #2:0, #0:0\n\n"
                   expectScriptSuccess rs (vr "testQueryVisibility") $ \r ->
-                    matchRegex r "Active contracts:  #0:0, #1:0, #2:0, #3:0\n\n"
+                    matchRegex r "Active contracts:  #4:0, #3:0, #2:0, #0:0, #1:0\n\n"
                   pure (),
               testCase "submitMustFail" $ do
                   rs <-
@@ -481,6 +497,80 @@ main =
                   matchRegex r "Tried to allocate a party that already exists:  alice"
                 expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists:  bob"
+            , testCase "lookup and fetch" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with"
+                    , "    owner : Party"
+                    , "    observer : Party"
+                    , "  where"
+                    , "    signatory owner"
+                    , "    observer observer"
+                    , "template Divulger"
+                    , "  with"
+                    , "    divulgee : Party"
+                    , "    sig : Party"
+                    , "  where"
+                    , "    signatory divulgee"
+                    , "    observer sig"
+                    , "    nonconsuming choice Divulge : T"
+                    , "      with cid : ContractId T"
+                    , "      controller sig"
+                    , "      do fetch cid"
+                    , "testQueryContractId = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  onlyP1 <- submit p1 $ createCmd (T p1 p1)"
+                    , "  both <- submit p1 $ createCmd (T p1 p2)"
+                    , "  divulger <- submit p2 $ createCmd (Divulger p2 p1)"
+                    , "  optOnlyP1 <- queryContractId p1 onlyP1"
+                    , "  optOnlyP1 === Some (T p1 p1)"
+                    , "  optOnlyP1 <- queryContractId p2 onlyP1"
+                    , "  optOnlyP1 === None"
+                    , "  optBoth <- queryContractId p1 both"
+                    , "  optBoth === Some (T p1 p2)"
+                    , "  optBoth <- queryContractId p2 both"
+                    , "  optBoth === Some (T p1 p2)"
+                    -- Divulged contracts should not be returned in lookups
+                    , "  submit p1 $ exerciseCmd divulger (Divulge onlyP1)"
+                    , "  optOnlyP1 <- queryContractId p2 onlyP1"
+                    , "  optOnlyP1 === None"
+                    , "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "testQueryContractId") $ \r ->
+                  matchRegex r "Active contracts:  #2:0, #0:0, #1:0",
+              testCase "trace" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "    choice C : ()"
+                    , "      controller p"
+                    , "      do debug \"logLedger\""
+                    , "testTrace = do"
+                    , "  debug \"logClient1\""
+                    , "  p <- allocateParty \"p\""
+                    , "  submit p (createAndExerciseCmd (T p) C)"
+                    , "  debug \"logClient2\""
+                    , "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "testTrace") $ \r ->
+                  matchRegex r $ T.concat
+                    [ "Trace: \n"
+                    , "  \"logClient1\"\n"
+                    , "  \"logLedger\"\n"
+                    , "  \"logClient2\""
+                    ]
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

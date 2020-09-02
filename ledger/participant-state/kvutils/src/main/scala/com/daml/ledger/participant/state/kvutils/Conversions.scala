@@ -7,15 +7,13 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmitterInfo}
-import com.daml.lf.crypto
-import com.daml.lf.data
 import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction._
 import com.daml.lf.transaction.VersionTimeline.Implicits._
+import com.daml.lf.transaction.{GlobalKey, _}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.daml.lf.{crypto, data}
 import com.google.protobuf.Empty
 
 /** Utilities for converting between protobuf messages and our scala
@@ -137,7 +135,10 @@ private[state] object Conversions {
       .build
 
   def parseTimestamp(ts: com.google.protobuf.Timestamp): Time.Timestamp =
-    Time.Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong))
+    Time.Timestamp.assertFromInstant(parseInstant(ts))
+
+  def parseInstant(ts: com.google.protobuf.Timestamp): Instant =
+    Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong)
 
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
     crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))

@@ -6,9 +6,9 @@ It can also be used to profile DAML interpretation code in a more isolated fashi
 
 ## Build
 
-Build the tool with Bazel:
+Build the tools with Bazel:
 
-    bazel build //ledger/participant-state/kvutils/tools:integrity-check
+    bazel build //ledger/participant-state/kvutils/tools:all
 
 ## Preparing a dump
 
@@ -19,19 +19,17 @@ You can produce a ledger dump using the in memory kv ledger implementation conta
 
 Run the tool using Bazel:
 
-    bazel run //ledger/participant-state/kvutils/tools:integrity-check <ledger dump file>
+    bazel run //ledger/participant-state/kvutils/tools:integrity-check-v2 <ledger dump file>
 
 # `benchmark-replay`
 
-that benchmarks LF engine using transactions from a ledger export
-stored in a file.
+This benchmarks the LF engine using transactions from a ledger export stored in a file.
 
 ## Build 
 
 Build the tool with Bazel:
 
-    bazel build  //ledger/participant-state/kvutils/tools:benchmark-replay 
-    
+    bazel build //ledger/participant-state/kvutils/tools:benchmark-replay 
     
 ## Running the tool 
 

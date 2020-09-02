@@ -15,6 +15,17 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object GrpcChannel {
 
+  def apply(
+      builder: NettyChannelBuilder,
+      configuration: LedgerClientConfiguration,
+  ): ManagedChannel = {
+    configuration.sslContext
+      .fold(builder.usePlaintext())(builder.sslContext(_).negotiationType(NegotiationType.TLS))
+    builder.maxInboundMetadataSize(configuration.maxInboundMetadataSize)
+    builder.maxInboundMessageSize(configuration.maxInboundMessageSize)
+    builder.build()
+  }
+
   final class Owner(builder: NettyChannelBuilder, configuration: LedgerClientConfiguration)
       extends ResourceOwner[ManagedChannel] {
     def this(port: Port, configuration: LedgerClientConfiguration) =
@@ -25,15 +36,7 @@ object GrpcChannel {
       )
 
     override def acquire()(implicit executionContext: ExecutionContext): Resource[ManagedChannel] =
-      Resource(
-        Future {
-          configuration.sslContext
-            .fold(builder.usePlaintext())(
-              builder.sslContext(_).negotiationType(NegotiationType.TLS))
-          builder.maxInboundMetadataSize(configuration.maxInboundMessageSize)
-          builder.build()
-        }
-      )(channel =>
+      Resource(Future(GrpcChannel(builder, configuration)))(channel =>
         Future {
           channel.shutdownNow()
           ()

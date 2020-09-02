@@ -24,7 +24,7 @@ import scalaz.syntax.tag._
 
 final class CommandServiceIT extends LedgerTestSuite {
   test(
-    "CSsubmitAndWait",
+    "CSsubmitAndWaitBasic",
     "SubmitAndWait creates a contract of the expected template",
     allocate(SingleParty),
   )(implicit ec => {
@@ -41,7 +41,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSsubmitAndWaitForTransactionId",
+    "CSsubmitAndWaitForTransactionIdBasic",
     "SubmitAndWaitForTransactionId returns a valid transaction identifier",
     allocate(SingleParty),
   )(implicit ec => {
@@ -90,7 +90,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSsubmitAndWaitForTransaction",
+    "CSsubmitAndWaitForTransactionBasic",
     "SubmitAndWaitForTransaction returns a transaction",
     allocate(SingleParty),
   )(implicit ec => {
@@ -120,7 +120,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSsubmitAndWaitForTransactionTree",
+    "CSsubmitAndWaitForTransactionTreeBasic",
     "SubmitAndWaitForTransactionTree returns a transaction tree",
     allocate(SingleParty),
   )(implicit ec => {
@@ -150,7 +150,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSduplicateSubmitAndWait",
+    "CSduplicateSubmitAndWaitBasic",
     "SubmitAndWait should fail on duplicate requests",
     allocate(SingleParty),
   )(implicit ec => {

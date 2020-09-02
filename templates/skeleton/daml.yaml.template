@@ -1,7 +1,7 @@
 sdk-version: __VERSION__
 name: __PROJECT_NAME__
 source: daml
-init-script: Setup:initialize
+init-script: Main:setup
 parties:
   - Alice
   - Bob

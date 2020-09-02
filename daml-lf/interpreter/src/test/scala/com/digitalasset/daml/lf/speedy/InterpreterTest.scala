@@ -154,11 +154,11 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   "tracelog" should {
     val logger = LoggerFactory.getLogger("test-daml-trace-logger")
     "empty size" in {
-      val log = TraceLog(logger, 10)
+      val log = RingBufferTraceLog(logger, 10)
       log.iterator.hasNext shouldBe false
     }
     "half full" in {
-      val log = TraceLog(logger, 2)
+      val log = RingBufferTraceLog(logger, 2)
       log.add("test", None)
       val iter = log.iterator
       iter.hasNext shouldBe true
@@ -166,7 +166,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       iter.hasNext shouldBe false
     }
     "overflow" in {
-      val log = TraceLog(logger, 2)
+      val log = RingBufferTraceLog(logger, 2)
       log.add("test1", None)
       log.add("test2", None)
       log.add("test3", None) // should replace "test1"

@@ -30,7 +30,7 @@ prettyCallStackLines cs = case getCallStack cs of
 
 prettySrcLoc : SrcLoc -> Text
 prettySrcLoc SrcLoc {..}
-  = foldr (<>) ""
+  = implode
       [ srcLocFile, ":"
       , show srcLocStartLine, ":"
       , show srcLocStartCol, " in "

@@ -361,5 +361,13 @@ final class JsonApiIt
         assert(ex.toString.contains("Cannot resolve template ID"))
       }
     }
+    "queryContractId" in {
+      for {
+        clients <- getClients()
+        result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonQueryContractId"))
+      } yield {
+        assert(result == SUnit)
+      }
+    }
   }
 }

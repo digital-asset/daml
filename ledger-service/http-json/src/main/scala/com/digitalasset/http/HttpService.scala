@@ -12,7 +12,6 @@ import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{
   ApiValueToJsValueConverter,
@@ -21,7 +20,6 @@ import com.daml.http.json.{
   JsValueToApiValueConverter
 }
 import com.daml.http.util.ApiValueToLfValueConverter
-import com.daml.util.ExceptionOps._
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.apiLedgerId
 import com.daml.jwt.JwtDecoder
@@ -38,8 +36,9 @@ import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ports.{Port, PortFiles}
+import com.daml.scalautil.Statement.discard
+import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
 import scalaz._
 
@@ -107,20 +106,21 @@ object HttpService extends StrictLogging {
       commandClient = CommandClientConfiguration.default,
       sslContext = tlsConfig.client,
       token = tokenHolder.flatMap(_.token),
+      maxInboundMessageSize = maxInboundMessageSize,
     )
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
       client <- eitherT(
-        ledgerClient(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)
+        ledgerClient(ledgerHost, ledgerPort, clientConfig)
       ): ET[LedgerClient]
 
       pkgManagementClient <- eitherT(
         ledgerClient(
           ledgerHost,
           ledgerPort,
-          clientConfig,
-          packageMaxInboundMessageSize.getOrElse(maxInboundMessageSize))
-      ): ET[LedgerClient]
+          packageMaxInboundMessageSize.fold(clientConfig)(size =>
+            clientConfig.copy(maxInboundMessageSize = size)),
+        )): ET[LedgerClient]
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
@@ -242,7 +242,7 @@ object HttpService extends StrictLogging {
   }
 
   // Decode JWT without any validation
-  private val decodeJwt: EndpointsCompanion.ValidateJwt =
+  private[http] val decodeJwt: EndpointsCompanion.ValidateJwt =
     jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
@@ -304,15 +304,9 @@ object HttpService extends StrictLogging {
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
-      maxInboundMessageSize: Int,
   )(implicit ec: ExecutionContext, aesf: ExecutionSequencerFactory): Future[Error \/ LedgerClient] =
     LedgerClient
-      .fromBuilder(
-        NettyChannelBuilder
-          .forAddress(ledgerHost, ledgerPort)
-          .maxInboundMessageSize(maxInboundMessageSize),
-        clientConfig,
-      )
+      .singleHost(ledgerHost, ledgerPort, clientConfig)
       .map(_.right)
       .recover {
         case NonFatal(e) =>
