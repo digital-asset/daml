@@ -30,8 +30,8 @@ class PackageServiceTest
     "identifiers with the same (moduleName, entityName) are not unique" in
       forAll(genDuplicateModuleEntityTemplateIds) { ids =>
         toNoPkgSet(ids) should have size 1L
-        val map = PackageService.buildTemplateIdMap(ids.toSet)
-        map.all shouldBe ids.toSet
+        val map = PackageService.buildTemplateIdMap(ids)
+        map.all shouldBe ids
         map.unique shouldBe Map.empty
       }
 
