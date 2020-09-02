@@ -51,24 +51,24 @@ The above command makes the ledger available to clients from the host machine at
 `localhost:6861`. It is also available to other docker containers on the `docker_default`
 network under `ledger:6865`.
 
-## Creating ledger dumps
+## Creating ledger exports
 
-Ledger On Memory can be used to generate ledger dumps through an environment variable:
+Ledger On Memory can be used to generate ledger exports through an environment variable:
 
-    export KVUTILS_LEDGER_DUMP=/path/to/dump/file
+    export KVUTILS_LEDGER_EXPORT=/path/to/export/file
 
 Then launch the ledger using the Bazel or Java command as described above.
 
 In case the ledger is run from within the Docker container, use following syntax:
 
-    export KVUTILS_LEDGER_DUMP=/path/to/dump/directory"
+    export KVUTILS_LEDGER_EXPORT=/path/to/export/directory"
     docker run \
             -it \
             --rm \
             --name ledger \
             --network docker_default \
             -p 6861:6865 \
-            -v ${KVUTILS_LEDGER_DUMP}:/dump \
-            -e KVUTILS_LEDGER_DUMP=/dump/my-ledger.dump \
+            -v ${KVUTILS_LEDGER_EXPORT}:/export \
+            -e KVUTILS_LEDGER_EXPORT=/export/my-ledger.export \
             bazel/ledger/ledger-on-memory:app-image \
                 --participant participant-id=foo,port=6865,address=0.0.0.0
