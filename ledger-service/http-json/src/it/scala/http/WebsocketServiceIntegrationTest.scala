@@ -482,28 +482,19 @@ class WebsocketServiceIntegrationTest
       _ <- archive(cid1)
       results <- futureResults
     } yield {
-      val expected: Seq[JsValue] = {
-        import spray.json._
-        Seq(
-          """
-            |{"events": []}
-            |""".stripMargin.parseJson,
-          """
-            |{"events":[{"created":{"payload":{"number":"abc123"}}}]}
-            |""".stripMargin.parseJson,
-          """
-            |{"events":[{"created":{"payload":{"number":"def456"}}}]}
-            |""".stripMargin.parseJson,
-          """
-            |{"events":[{"archived":{}}]}
-            |""".stripMargin.parseJson,
-          """
-            |{"events":[{"archived":{}}]}
-            |""".stripMargin.parseJson
-        )
-      }
-      results should matchJsValues(expected)
+      import spray.json._
 
+      val expected: Seq[JsValue] = Seq(
+        """{"events": [{"created": {"payload": {"number": "abc123"}}}]}""",
+        """{"events": [{"created": {"payload": {"number": "def456"}}}]}""",
+        """{"events": [{"archived": {}}]}""",
+        """{"events": [{"archived": {}}]}""",
+      ).map(_.parseJson)
+
+      val actual: Seq[JsValue] =
+        results.filterNot(_.asJsObject.fields("events").asInstanceOf[JsArray].elements.isEmpty)
+
+      actual should matchJsValues(expected)
     }
   }
 
