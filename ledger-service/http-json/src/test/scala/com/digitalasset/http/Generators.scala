@@ -26,17 +26,17 @@ object Generators {
       e <- Gen.identifier
     } yield domain.TemplateId(p, m, e)
 
-  def nonEmptySet[A](gen: Gen[A]): Gen[Set[A]] = Gen.nonEmptyListOf(gen).map(_.toSet)
+  def nonEmptySetOf[A](gen: Gen[A]): Gen[Set[A]] = Gen.nonEmptyListOf(gen).map(_.toSet)
 
   // Generate Identifiers with unique packageId values, but the same moduleName and entityName.
-  def genDuplicateApiIdentifiers: Gen[List[lav1.value.Identifier]] =
+  def genDuplicateModuleEntityApiIdentifiers: Gen[Set[lav1.value.Identifier]] =
     for {
       id0 <- genApiIdentifier
-      otherPackageIds <- nonEmptySet(Gen.identifier.filter(x => x != id0.packageId))
-    } yield id0 :: otherPackageIds.map(a => id0.copy(packageId = a)).toList
+      otherPackageIds <- nonEmptySetOf(Gen.identifier.filter(x => x != id0.packageId))
+    } yield Set(id0) ++ otherPackageIds.map(a => id0.copy(packageId = a))
 
-  def genDuplicateDomainTemplateIdR: Gen[List[domain.TemplateId.RequiredPkg]] =
-    genDuplicateApiIdentifiers.map(xs => xs.map(domain.TemplateId.fromLedgerApi))
+  def genDuplicateModuleEntityTemplateIds: Gen[Set[domain.TemplateId.RequiredPkg]] =
+    genDuplicateModuleEntityApiIdentifiers.map(xs => xs.map(domain.TemplateId.fromLedgerApi))
 
   trait PackageIdGen[A] {
     def gen: Gen[A]

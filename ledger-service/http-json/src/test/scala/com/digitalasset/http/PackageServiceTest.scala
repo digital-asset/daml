@@ -3,10 +3,13 @@
 
 package com.daml.http
 
-import com.daml.http.Generators.{genDomainTemplateId, genDuplicateDomainTemplateIdR, nonEmptySet}
+import com.daml.http.Generators.{
+  genDomainTemplateId,
+  genDuplicateModuleEntityTemplateIds,
+  nonEmptySetOf
+}
 import com.daml.http.PackageService.TemplateIdMap
 import com.daml.ledger.api.{v1 => lav1}
-import org.scalacheck.Gen.nonEmptyListOf
 import org.scalacheck.Shrink
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
@@ -25,7 +28,7 @@ class PackageServiceTest
 
   "PackageService.buildTemplateIdMap" - {
     "identifiers with the same (moduleName, entityName) are not unique" in
-      forAll(genDuplicateDomainTemplateIdR) { ids =>
+      forAll(genDuplicateModuleEntityTemplateIds) { ids =>
         toNoPkgSet(ids) should have size 1L
         val map = PackageService.buildTemplateIdMap(ids.toSet)
         map.all shouldBe ids.toSet
@@ -58,38 +61,42 @@ class PackageServiceTest
       }
 
     "TemplateIdMap.all should contain dups and unique identifiers" in
-      forAll(nonEmptyListOf(genDomainTemplateId), genDuplicateDomainTemplateIdR) { (xs, dups) =>
-        whenever(noModuleEntityIntersection(xs, dups)) {
-          val map = PackageService.buildTemplateIdMap((xs ++ dups).toSet)
-          map.all should ===(xs.toSet ++ dups.toSet)
-          dups.foreach { x =>
-            map.all.contains(x) shouldBe true
+      forAll(nonEmptySetOf(genDomainTemplateId), genDuplicateModuleEntityTemplateIds) {
+        (xs, dups) =>
+          uniqueModuleEntity(dups) shouldBe false
+          whenever(uniqueModuleEntity(xs) && noModuleEntityIntersection(xs, dups)) {
+            val map = PackageService.buildTemplateIdMap((xs ++ dups))
+            map.all should ===(xs ++ dups)
+            dups.foreach { x =>
+              map.all.contains(x) shouldBe true
+            }
+            xs.foreach { x =>
+              map.all.contains(x) shouldBe true
+            }
           }
-          xs.foreach { x =>
-            map.all.contains(x) shouldBe true
-          }
-        }
       }
 
     "TemplateIdMap.unique should not contain dups" in
-      forAll(nonEmptyListOf(genDomainTemplateId), genDuplicateDomainTemplateIdR) { (xs, dups) =>
-        whenever(noModuleEntityIntersection(xs, dups)) {
-          val map = PackageService.buildTemplateIdMap((xs ++ dups).toSet)
-          map.all should ===(dups.toSet ++ xs.toSet)
-          xs.foreach { x =>
-            map.unique.get(PackageService.key2(x)) shouldBe Some(x)
+      forAll(nonEmptySetOf(genDomainTemplateId), genDuplicateModuleEntityTemplateIds) {
+        (xs, dups) =>
+          uniqueModuleEntity(dups) shouldBe false
+          whenever(uniqueModuleEntity(xs) && noModuleEntityIntersection(xs, dups)) {
+            val map = PackageService.buildTemplateIdMap((xs ++ dups))
+            map.all should ===(dups ++ xs)
+            xs.foreach { x =>
+              map.unique.get(PackageService.key2(x)) shouldBe Some(x)
+            }
+            dups.foreach { x =>
+              map.unique.get(PackageService.key2(x)) shouldBe None
+            }
           }
-          dups.foreach { x =>
-            map.unique.get(PackageService.key2(x)) shouldBe None
-          }
-        }
       }
   }
 
   "PackageService.resolveTemplateId" - {
 
     "should resolve unique Template ID by (moduleName, entityName)" in forAll(
-      nonEmptySet(genDomainTemplateId)) { ids =>
+      nonEmptySetOf(genDomainTemplateId)) { ids =>
       val map = PackageService.buildTemplateIdMap(ids)
       val uniqueIds: Set[domain.TemplateId.RequiredPkg] = map.unique.values.toSet
       uniqueIds.foreach { id =>
@@ -98,7 +105,7 @@ class PackageServiceTest
       }
     }
 
-    "should resolve fully qualified Template ID" in forAll(nonEmptySet(genDomainTemplateId)) {
+    "should resolve fully qualified Template ID" in forAll(nonEmptySetOf(genDomainTemplateId)) {
       ids =>
         val map = PackageService.buildTemplateIdMap(ids)
         ids.foreach { id =>
@@ -118,11 +125,14 @@ class PackageServiceTest
   private def appendToPackageId(x: String)(a: domain.TemplateId.RequiredPkg) =
     a.copy(packageId = a.packageId + x)
 
+  private def uniqueModuleEntity(as: Set[domain.TemplateId.RequiredPkg]): Boolean =
+    toNoPkgSet(as).size == as.size
+
   private def noModuleEntityIntersection(
-      as: List[domain.TemplateId.RequiredPkg],
-      bs: List[domain.TemplateId.RequiredPkg]): Boolean =
+      as: Set[domain.TemplateId.RequiredPkg],
+      bs: Set[domain.TemplateId.RequiredPkg]): Boolean =
     !(toNoPkgSet(as) exists toNoPkgSet(bs))
 
-  private def toNoPkgSet(xs: List[domain.TemplateId.RequiredPkg]): Set[domain.TemplateId.NoPkg] =
-    xs.iterator.map(_ copy (packageId = ())).toSet
+  private def toNoPkgSet(xs: Set[domain.TemplateId.RequiredPkg]): Set[domain.TemplateId.NoPkg] =
+    xs.map(_ copy (packageId = ()))
 }
