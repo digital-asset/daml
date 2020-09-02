@@ -31,7 +31,7 @@ Help for each specific codegen::
 
   $ daml codegen [java|scala|js] --help
 
-**Java** and **Scala** take the same set of configuration settings::
+**Java** and **Scala** codegens take the same set of configuration settings::
 
       <DAR-file[=package-prefix]>...
                                DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources.
@@ -43,7 +43,7 @@ Help for each specific codegen::
       -r, --root <value>       Regular expression for fully-qualified names of templates to generate -- defaults to .*
       --help                   This help text
 
-**JavaScript** takes a different set of configuration settings::
+**JavaScript** codegen takes a different set of configuration settings::
 
       DAR-FILES                DAR files to generate TypeScript bindings for
       -o DIR                   Output directory for the generated packages
