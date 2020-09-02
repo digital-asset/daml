@@ -11,7 +11,7 @@ load(
 )
 
 da_scala_binary(
-    name = "integrity-check",
+    name = "integrity-check-v1",
     srcs = glob(["integrity-check-v1/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/v1/**/*.scala"]),
     main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.v1.Main",
     resources = glob(["src/main/resources/*"]),

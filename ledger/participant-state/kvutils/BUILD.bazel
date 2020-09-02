@@ -207,7 +207,7 @@ da_java_proto_library(
         ) if not is_windows else None,
     )
     for (name, port, environment_variable, checker) in [
-        ("reference-ledger-dump", 65101, "KVUTILS_LEDGER_DUMP", "//ledger/participant-state/kvutils/tools:integrity-check"),
+        ("reference-ledger-dump", 65101, "KVUTILS_LEDGER_DUMP", "//ledger/participant-state/kvutils/tools:integrity-check-v1"),
         ("reference-ledger-export", 65102, "KVUTILS_LEDGER_EXPORT", "//ledger/participant-state/kvutils/tools:integrity-check-v2"),
     ]
 ]
