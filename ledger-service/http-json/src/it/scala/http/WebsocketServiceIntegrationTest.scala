@@ -491,7 +491,11 @@ class WebsocketServiceIntegrationTest
           | {"templateId": "Account:Account", "key": ["Alice", "def456"]}]
           |""".stripMargin
     val futureResults =
-      singleClientFetchStream(jwt, uri, req).via(parseResp).runWith(Sink.seq[JsValue])
+      singleClientFetchStream(jwt, uri, req, keepOpen = true)
+        .via(parseResp)
+        .filterNot(isOffsetTick)
+        .take(4)
+        .runWith(Sink.seq[JsValue])
 
     for {
       cid1 <- create("abc123")
@@ -505,9 +509,6 @@ class WebsocketServiceIntegrationTest
       val expected: Seq[JsValue] = {
         import spray.json._
         Seq(
-          """
-            |{"events": []}
-            |""".stripMargin.parseJson,
           """
             |{"events":[{"created":{"payload":{"number":"abc123"}}}]}
             |""".stripMargin.parseJson,
@@ -865,22 +866,25 @@ private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
       jwt: Jwt,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset] = None)(implicit asys: ActorSystem): Source[Message, NotUsed] =
-    singleClientWSStream(jwt, "query", serviceUri, query, offset)
+      offset: Option[domain.Offset] = None,
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] =
+    singleClientWSStream(jwt, "query", serviceUri, query, offset, keepOpen)
 
   def singleClientFetchStream(
       jwt: Jwt,
       serviceUri: Uri,
       request: String,
-      offset: Option[domain.Offset] = None)(implicit asys: ActorSystem): Source[Message, NotUsed] =
-    singleClientWSStream(jwt, "fetch", serviceUri, request, offset)
+      offset: Option[domain.Offset] = None,
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] =
+    singleClientWSStream(jwt, "fetch", serviceUri, request, offset, keepOpen)
 
   def singleClientWSStream(
       jwt: Jwt,
       path: String,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset])(implicit asys: ActorSystem): Source[Message, NotUsed] = {
+      offset: Option[domain.Offset],
+      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] = {
 
     import spray.json._, json.JsonProtocol._
     val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
@@ -895,6 +899,7 @@ private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
             Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator),
         Source single query)
       .map(TextMessage(_))
+      .concatMat(if (keepOpen) Source.maybe[Message] else Source.empty)(Keep.left)
       .via(webSocketFlow)
   }
 
@@ -912,6 +917,12 @@ private[http] object WebsocketServiceIntegrationTest extends StrictLogging {
   private def isOffsetTick(str: String): Boolean =
     SprayJson
       .decode[EventsBlock](str)
+      .map(isOffsetTick)
+      .valueOr(_ => false)
+
+  private def isOffsetTick(v: JsValue): Boolean =
+    SprayJson
+      .decode[EventsBlock](v)
       .map(isOffsetTick)
       .valueOr(_ => false)
 
