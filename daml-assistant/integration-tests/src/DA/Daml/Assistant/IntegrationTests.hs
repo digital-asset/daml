@@ -157,8 +157,8 @@ packagingTests = testGroup "packaging"
           ]
         writeFileUTF8 (tmpDir </> "proj" </> "A.daml") $ unlines
           [ "module A where"
-          , "import Main (setup)"
-          , "setup' = setup"
+          , "import Main (Asset)"
+          , "type X = Asset"
           ]
         withCurrentDirectory (tmpDir </> "proj") $ callCommandSilent "daml build"
      , testCase "DAML Script --input-file and --output-file" $ withTempDir $ \projDir -> do
