@@ -7,9 +7,9 @@ DAML codegen
 Introduction
 ============
 
-You can use the DAML codegen to generate Java and Scala classes representing DAML contract templates.
-These classes incorporate all boilerplate code for constructing corresponding ledger ``com.daml.ledger.api.v1.CreateCommand``
-and ``com.daml.ledger.api.v1.ExerciseCommand``.
+You can use the DAML codegen to generate Java, Scala, and JavaScript/TypeScript classes representing DAML contract templates.
+These classes incorporate all boilerplate code for constructing corresponding ledger ``com.daml.ledger.api.v1.CreateCommand``,
+``com.daml.ledger.api.v1.ExerciseCommand``, ``com.daml.ledger.api.v1.ExerciseByKeyCommand``, and ``com.daml.ledger.api.v1.CreateAndExerciseCommand``.
 
 Running the DAML codegen
 ========================
@@ -43,7 +43,7 @@ Help for each specific codegen::
       -r, --root <value>       Regular expression for fully-qualified names of templates to generate -- defaults to .*
       --help                   This help text
 
-**JavaScript** codegen takes a different set of configuration settings::
+**JavaScript/TypeScript** codegen takes a different set of configuration settings::
 
       DAR-FILES                DAR files to generate TypeScript bindings for
       -o DIR                   Output directory for the generated packages
@@ -55,7 +55,7 @@ Project file configuration (Java and Scala)
 -------------------------------------------
 
 For **Java** and **Scala** the above settings can be configured in the ``codegen`` element of the DAML project file ``daml.yaml``.
-At present the **Javascript** ``codegen`` does not support this. See `this issue <https://github.com/digital-asset/daml/issues/6355>`_ for status on this feature.
+At present the **JavaScript/TypeScript** ``codegen`` does not support this. See `this issue <https://github.com/digital-asset/daml/issues/6355>`_ for status on this feature.
 
 Here is an example::
 
