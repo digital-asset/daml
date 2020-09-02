@@ -97,13 +97,16 @@ add the corresponding dependencies to your build tools.
 
 For **Scala**, you can depend on::
 
-    "com.daml" %% "bindings-scala" % 1.0.1
+    "com.daml" %% "bindings-scala" % YOUR_SDK_VERSION
 
 For **Java**, add the following **Maven** dependency::
 
     <dependency>
       <groupId>com.daml</groupId>
       <artifactId>bindings-java</artifactId>
-      <version>1.0.1</version>
+      <version>YOUR_SDK_VERSION</version>
     </dependency>
 
+.. note::
+
+  Replace ``YOUR_SDK_VERSION`` with the version of your DAML SDK
