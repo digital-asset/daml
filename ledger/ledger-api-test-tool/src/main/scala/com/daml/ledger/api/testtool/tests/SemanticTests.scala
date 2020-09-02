@@ -43,7 +43,7 @@ final class SemanticTests extends LedgerTestSuite {
    */
 
   test(
-    "SemanticDoubleSpend",
+    "SemanticDoubleSpendBasic",
     "Cannot double spend across transactions",
     allocate(TwoParties, TwoParties),
   )(implicit ec => {

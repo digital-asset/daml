@@ -756,7 +756,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXAgreementText",
+    "TXAgreementTextExplicit",
     "Expose the agreement text for templates with an explicit agreement text",
     allocate(SingleParty),
   )(implicit ec => {
@@ -817,7 +817,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXMultiActorChoiceOk",
+    "TXMultiActorChoiceOkBasic",
     "Accept exercising a well-authorized multi-actor choice",
     allocate(TwoParties, SingleParty),
   )(implicit ec => {
@@ -946,7 +946,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     })
 
   test(
-    "TXSingleMultiSame",
+    "TXSingleMultiSameBasic",
     "The same transaction should be served regardless of subscribing as one or multiple parties",
     allocate(TwoParties),
   )(implicit ec => {
@@ -1172,7 +1172,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXTransactionTreeById",
+    "TXTransactionTreeByIdBasic",
     "Expose a visible transaction tree by identifier",
     allocate(SingleParty),
   )(implicit ec => {
@@ -1251,7 +1251,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXFlatTransactionById",
+    "TXFlatTransactionByIdBasic",
     "Expose a visible transaction by identifier",
     allocate(SingleParty))(implicit ec => {
     case Participants(Participant(ledger, party)) =>
@@ -1328,7 +1328,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXTransactionTreeByEventId",
+    "TXTransactionTreeByEventIdBasic",
     "Expose a visible transaction tree by event identifier",
     allocate(SingleParty),
   )(implicit ec => {
@@ -1398,7 +1398,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXFlatTransactionByEventId",
+    "TXFlatTransactionByEventIdBasic",
     "Expose a visible flat transaction by event identifier",
     allocate(SingleParty),
   )(implicit ec => {

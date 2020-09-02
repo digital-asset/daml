@@ -22,7 +22,7 @@ import scala.util.{Failure, Success}
 final class CommandDeduplicationIT extends LedgerTestSuite {
 
   test(
-    "CDSimpleDeduplication",
+    "CDSimpleDeduplicationBasic",
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
   )(implicit ec => {
@@ -191,7 +191,7 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
   })
 
   test(
-    "CDDeduplicateSubmitter",
+    "CDDeduplicateSubmitterBasic",
     "Commands with identical submitter and command identifier should be deduplicated by the submission client",
     allocate(TwoParties),
   )(implicit ec => {
