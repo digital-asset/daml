@@ -118,10 +118,7 @@ final class LedgerTestCasesRunner(
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val participantSessionManager = new ParticipantSessionManager
-    val ledgerSession = new LedgerSession(config, participantSessionManager)
-
-    def uploadDars(): Future[Unit] =
+    def uploadDars(participantSessionManager: ParticipantSessionManager): Future[Unit] =
       Future
         .sequence(config.participants.map { hostAndPort =>
           val participant = config.forParticipant(hostAndPort)
@@ -139,7 +136,8 @@ final class LedgerTestCasesRunner(
         })
         .map(_ => ())
 
-    def runTestCases(
+    def runTests(
+        ledgerSession: LedgerSession,
         testCases: Vector[LedgerTestCase],
         concurrency: Int,
     ): Future[Vector[LedgerTestSummary]] = {
@@ -155,13 +153,14 @@ final class LedgerTestCasesRunner(
     }
 
     val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
-
+    val participantSessionManager = new ParticipantSessionManager
     val testResults =
       for {
-        _ <- uploadDars()
-        concurrentTestsResults <- runTestCases(concurrentTestCases, concurrentTestRuns)
-        sequentialTestsResults <- runTestCases(sequentialTestCases, concurrency = 1)
-      } yield concurrentTestsResults ++ sequentialTestsResults
+        ledgerSession <- LedgerSession(config, participantSessionManager)
+        _ <- uploadDars(participantSessionManager)
+        concurrentTestResults <- runTests(ledgerSession, concurrentTestCases, concurrentTestRuns)
+        sequentialTestResults <- runTests(ledgerSession, sequentialTestCases, concurrency = 1)
+      } yield concurrentTestResults ++ sequentialTestResults
 
     testResults
       .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }

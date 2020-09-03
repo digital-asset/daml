@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration.{DurationInt, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 
-private[participant] final class ParticipantSession(
+private[infrastructure] final class ParticipantSession(
     val config: ParticipantSessionConfiguration,
     channel: ManagedChannel,
     eventLoopGroup: NioEventLoopGroup,
