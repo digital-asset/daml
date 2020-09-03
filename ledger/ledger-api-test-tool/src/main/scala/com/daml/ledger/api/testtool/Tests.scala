@@ -20,7 +20,8 @@ object Tests {
       new ClosedWorldIT,
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT(Duration.apply(config.ledgerClockGranularityMs.toDouble, TimeUnit.MILLISECONDS)),
+      new CommandDeduplicationIT(
+        Duration.apply(config.ledgerClockGranularityMs.toDouble, TimeUnit.MILLISECONDS)),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
       new DivulgenceIT,

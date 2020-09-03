@@ -30,7 +30,6 @@ final class CommandDeduplicationIT(ledgerTimeInterval: ScalaDuration) extends Le
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
-
       val requestA1 = ledger
         .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
         .update(
