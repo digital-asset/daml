@@ -29,8 +29,8 @@ object LedgerTestCasesRunner {
   private[this] val uncaughtExceptionErrorMessage =
     "UNEXPECTED UNCAUGHT EXCEPTION, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
 
-  private final case class UncaughtExceptionError(cause: Throwable)
-      extends RuntimeException(uncaughtExceptionErrorMessage)
+  private final class UncaughtExceptionError(cause: Throwable)
+      extends RuntimeException(uncaughtExceptionErrorMessage, cause)
 }
 
 final class LedgerTestCasesRunner(
@@ -164,7 +164,7 @@ final class LedgerTestCasesRunner(
       } yield concurrentTestsResults ++ sequentialTestsResults
 
     testResults
-      .recover { case NonFatal(e) => throw LedgerTestCasesRunner.UncaughtExceptionError(e) }
+      .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }
       .onComplete { result =>
         participantSessionManager.closeAll()
         materializer.shutdown()
