@@ -35,6 +35,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
+      estimatedInterpretationCost: Long,
   ): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "submitter" -> submitterInfo.submitter,

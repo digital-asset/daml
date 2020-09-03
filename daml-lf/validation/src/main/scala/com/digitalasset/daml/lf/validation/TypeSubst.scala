@@ -28,7 +28,7 @@ private[validation] object TypeSubst {
         } else
           TForall(v0 -> k, go(fv0 + v0, subst0 - v0, t))
       case TStruct(ts) =>
-        TStruct(ts.mapValue(go(fv0, subst0, _)))
+        TStruct(ts.mapValues(go(fv0, subst0, _)))
     }
 
   private def freshTypeVarName(fv: Set[TypeVarName]): TypeVarName =

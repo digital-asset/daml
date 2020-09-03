@@ -10,50 +10,55 @@ class StructSpec extends WordSpec with Matchers with PropertyChecks {
 
   private[this] val List(f1, f2, f3) = List("f1", "f2", "f3").map(Ref.Name.assertFromString)
 
-  "SortMap.fromSortedImmArray" should {
+  "SortMap.toSeq" should {
 
-    "fail if the input list is not sorted" in {
-
-      val negativeTestCases =
-        Table(
-          "list",
-          ImmArray.empty,
-          ImmArray(f1 -> 1),
-          ImmArray(f1 -> 1, f1 -> 2),
-          ImmArray(f1 -> 1, f2 -> 2, f3 -> 3),
-        )
-
-      val positiveTestCases = Table(
-        "list",
-        ImmArray(f1 -> 1, f2 -> 2, f3 -> 3, f1 -> 2),
-        ImmArray(f2 -> 2, f3 -> 3, f1 -> 1),
-      )
-
-      forEvery(negativeTestCases)(l => Struct.fromSortedImmArray(l) shouldBe 'right)
-
-      forEvery(positiveTestCases)(l => Struct.fromSortedImmArray(l) shouldBe 'left)
-
-    }
-  }
-
-  "SortMap.apply" should {
-    "sorted fields" in {
+    "sort fields" in {
 
       val testCases =
         Table(
           "list",
-          Struct(),
-          Struct(f1 -> 1),
-          Struct(f1 -> 1, f1 -> 2),
-          Struct(f1 -> 1, f2 -> 2, f3 -> 3),
-          Struct(f1 -> 1, f2 -> 2, f3 -> 3, f1 -> 2),
-          Struct(f2 -> 2, f3 -> 3, f1 -> 1),
+          List(),
+          List(f1 -> 1),
+          List(f1 -> 1, f2 -> 2, f3 -> 3),
+          List(f2 -> 1, f3 -> 2, f1 -> 3),
+          List(f3 -> 2, f2 -> 3, f1 -> 1),
         )
 
-      forEvery(testCases) { s =>
-        s.names.toSeq shouldBe s.names.toSeq.sorted[String]
+      forEvery(testCases) { list =>
+        val struct = Struct.assertFromSeq(list)
+        (struct.names zip struct.names.drop(1)).foreach {
+          case (x, y) => (x: String) shouldBe <(y: String)
+        }
       }
 
+    }
+
+    """reject struct with  duplicate name.""" in {
+
+      val testCases =
+        Table(
+          "list",
+          List(f1 -> 1, f1 -> 1),
+          List(f1 -> 1, f1 -> 2),
+          List(f1 -> 1, f2 -> 2, f3 -> 3, f1 -> 2),
+          List(f2 -> 2, f3 -> 3, f2 -> 1, f3 -> 4, f3 -> 0),
+        )
+
+      forEvery(testCases) { list =>
+        Struct.fromSeq(list) shouldBe 'left
+      }
+
+    }
+  }
+
+  "Struct" should {
+    "be equal if built in different order" in {
+      Struct.fromSeq(List(f1 -> 1, f2 -> 2)) shouldBe
+        Struct.fromSeq(List(f2 -> 2, f1 -> 1))
+      Struct.fromSeq(List(f1 -> 1, f2 -> 2, f3 -> 3)) shouldBe
+        Struct.fromSeq(List(f2 -> 2, f1 -> 1, f3 -> 3))
+      Struct.fromSeq(List(f1 -> 1, f2 -> 2, f3 -> 3)) shouldBe
+        Struct.fromSeq(List(f3 -> 3, f1 -> 1, f2 -> 2))
     }
   }
 

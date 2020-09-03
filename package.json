@@ -5,13 +5,13 @@
   "private": true,
   "version": "0.0.0",
   "resolutions" : {
-    "**/elliptic": "^6.5.3"
+    "**/elliptic": "^6.5.3",
+    "**/bl": "^4.0.3"
   },
   "dependencies": {
     "bower": "1.8.8",
     "color-convert": "2.0.1",
     "colors": "1.4.0",
-    "dockerode": "^2.5.8",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
     "grunt": "1.0.4",

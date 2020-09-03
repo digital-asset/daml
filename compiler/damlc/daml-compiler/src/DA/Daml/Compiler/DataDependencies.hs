@@ -450,8 +450,9 @@ generateSrcFromLf env = noLoc mod
             fields' <- mapM (uncurry (mkConDeclField env)) fields
             pure [ mkConDecl occName (RecCon (noLoc fields')) ]
         LF.DataVariant cons -> do
+            let hasExactlyOneConstructor = length cons == 1
             sequence
-                [ mkConDecl (occNameFor conName) <$> convConDetails ty
+                [ mkConDecl (occNameFor conName) <$> convConDetails hasExactlyOneConstructor ty
                 | (conName, ty) <- cons
                 ]
         LF.DataEnum cons -> do
@@ -477,8 +478,15 @@ generateSrcFromLf env = noLoc mod
             , con_args = details
             }
 
-        convConDetails :: LF.Type -> Gen (HsConDeclDetails GhcPs)
-        convConDetails = \case
+        convConDetails :: Bool -> LF.Type -> Gen (HsConDeclDetails GhcPs)
+        convConDetails hasExactlyOneConstructor = \case
+            -- nullary variant constructor (see issue #7207)
+            --
+            -- We translate a variant constructor `C ()` to `C` in DAML. But
+            -- if it's the only constructor, we leave it as `C ()` to distinguish
+            -- it from an enum type.
+            LF.TUnit | not hasExactlyOneConstructor ->
+                pure $ PrefixCon []
 
             -- variant record constructor
             LF.TConApp LF.Qualified{..} _

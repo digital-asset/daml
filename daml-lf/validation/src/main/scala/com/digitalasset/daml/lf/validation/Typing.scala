@@ -119,7 +119,8 @@ private[validation] object Typing {
       BTextMapToList ->
         TForall(
           alpha.name -> KStar,
-          TTextMap(alpha) ->: TList(TStruct(Struct(keyFieldName -> TText, valueFieldName -> alpha)))
+          TTextMap(alpha) ->: TList(
+            TStruct(Struct.assertFromSeq(List(keyFieldName -> TText, valueFieldName -> alpha))))
         ),
       BTextMapSize ->
         TForall(
@@ -452,7 +453,7 @@ private[validation] object Typing {
       case TForall((v, k), b) =>
         TForall((v, k), introTypeVar(v, k).expandTypeSynonyms(b))
       case TStruct(recordType) =>
-        TStruct(recordType.mapValue(expandTypeSynonyms(_)))
+        TStruct(recordType.mapValues(expandTypeSynonyms(_)))
     }
 
     private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
@@ -513,10 +514,10 @@ private[validation] object Typing {
           throw EExpectedRecordType(ctx, typ0)
       }
 
-    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type = {
-      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      TStruct(Struct(fields.iterator.map { case (f, x) => f -> typeOf(x) }.toSeq: _*))
-    }
+    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type =
+      Struct
+        .fromSeq(fields.iterator.map { case (f, x) => f -> typeOf(x) }.toSeq)
+        .fold(name => throw EDuplicateField(ctx, name), TStruct)
 
     private def typeOfStructProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
       case TStruct(structType) =>
@@ -758,9 +759,11 @@ private[validation] object Typing {
         // fetches return the contract id and the contract itself
         TUpdate(
           TStruct(
-            Struct(
-              (contractIdFieldName, TContractId(TTyCon(retrieveByKey.templateId))),
-              (contractFieldName, TTyCon(retrieveByKey.templateId)))))
+            Struct.assertFromSeq(
+              List(
+                contractIdFieldName -> TContractId(TTyCon(retrieveByKey.templateId)),
+                contractFieldName -> TTyCon(retrieveByKey.templateId)
+              ))))
       case UpdateLookupByKey(retrieveByKey) =>
         checkRetrieveByKey(retrieveByKey)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))

@@ -42,7 +42,7 @@ private[daml] class AstRewriter(
         case TForall(binder, body) =>
           TForall(binder, apply(body))
         case TStruct(fields) =>
-          TStruct(fields.mapValue(apply))
+          TStruct(fields.mapValues(apply))
       }
 
   def apply(nameWithType: (Name, Type)): (Name, Type) = nameWithType match {
