@@ -196,7 +196,7 @@ Use the command line option ``--timeout-scale-factor`` to tune timeouts applied
 Accomodating different ledger clock intervals
 ========================================
 
-Use the command line option ``--ledger-clock-granularity`` to change the maximum
+Use the command line option ``--ledger-clock-granularity`` to indicate the maximum
  interval at which the ledger's clock will increment.
 
 - If running on a ledger where ledger time increments in a time period greater than 10s,
