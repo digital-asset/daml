@@ -26,7 +26,7 @@ final case class Config(
     listTestSuites: Boolean,
     shuffleParticipants: Boolean,
     partyAllocation: PartyAllocationConfiguration,
-    ledgerClockGranularityMs: Int
+    ledgerClockGranularityMs: Int,
 )
 
 object Config {
@@ -47,6 +47,6 @@ object Config {
     listTestSuites = false,
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
-    ledgerClockGranularityMs = 10000
+    ledgerClockGranularityMs = 10000,
   )
 }

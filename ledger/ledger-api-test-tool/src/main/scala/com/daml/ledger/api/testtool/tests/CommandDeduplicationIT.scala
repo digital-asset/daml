@@ -17,9 +17,12 @@ import io.grpc.Status
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-final class CommandDeduplicationIT(ledgerTimeIntervalMs: scala.concurrent.duration.Duration) extends LedgerTestSuite {
-  private val deduplicationTime = com.google.protobuf.duration.Duration.of(ledgerTimeIntervalMs.toSeconds, 0)
-  private val deduplicationWindowWait = ledgerTimeIntervalMs * 2
+import scala.concurrent.duration.{Duration => ScalaDuration}
+import com.google.protobuf.duration.{Duration => ProtoDuration}
+
+final class CommandDeduplicationIT(ledgerTimeInterval: ScalaDuration) extends LedgerTestSuite {
+  private val deduplicationTime = ProtoDuration.of(ledgerTimeInterval.toSeconds, 0)
+  private val deduplicationWindowWait = ledgerTimeInterval * 2
 
   test(
     "CDSimpleDeduplicationBasic",

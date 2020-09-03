@@ -200,7 +200,7 @@ object Cli {
     opt[Int]("ledger-clock-granularity")
       .optional()
       .action((interval, c) => c.copy(ledgerClockGranularityMs = interval))
-      .text("Specify the largest interval in ms that you will see between clock ticks on the ledger under test")
+      .text("Specify the largest interval in ms that you will see between clock ticks on the ledger under test.  The default is 10000ms")
 
     help("help").text("Prints this usage text")
 
