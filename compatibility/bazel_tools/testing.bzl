@@ -84,7 +84,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "0.0.0",  # TODO Update to first snapshot after 1.5.0-snapshot.20200825.5071.0.d33e130f
+        "start": "1.5.0-snapshot.20200902.5118.0.2b3cf1b3",
         "platform_ranges": [
             {
                 "start": "1.0.0",
