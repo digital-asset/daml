@@ -59,6 +59,7 @@ conformance_test(
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
     ],
+    flaky = true,
     ports = [
         5011,
         5021,
