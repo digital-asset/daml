@@ -1,0 +1,645 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.lf
+package speedy
+
+import com.daml.lf.data.{ImmArray, Ref, Struct}
+import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SError.SError
+import com.daml.lf.speedy.SResult.SResultError
+import com.daml.lf.testing.parser.ParserParameters
+import com.daml.lf.value.Value.ContractId
+import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
+import org.scalatest.{Matchers, WordSpec}
+
+class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
+
+  import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
+
+  private[this] val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")
+  private[this] val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")
+
+  private[this] implicit val parserParameters: ParserParameters[this.type] =
+    com.daml.lf.testing.parser.Implicits.defaultParserParameters.copy(
+      defaultPackageId = pkgId1
+    )
+
+  private[this] val pkg1 =
+    p"""
+        module Mod {
+          variant Either a b = Left : a | Right : b ;
+          record MyUnit = { };
+          record Tuple a b = { fst: a, snd: b };
+          enum Color = Red | Green | Blue;
+
+          record @serializable Template = { };
+ 
+          template (this : Template) =  {
+             precondition True,
+             signatories (Nil @Party),
+             observers (Nil @Party),
+             agreement "Agreement for Mod:Template",
+             choices { }
+          };
+        }
+
+        module a {
+          enum a = ;
+          enum b = ;
+        }
+
+        module b {
+          enum a = ;
+          enum b = ;
+        }
+
+
+    """
+
+  private[this] val pkg2 = {
+
+    implicit val parserParameters: ParserParameters[this.type] =
+      com.daml.lf.testing.parser.Implicits.defaultParserParameters.copy(
+        defaultPackageId = pkgId2
+      )
+
+    p"""
+         module a {
+          enum a = ;
+          enum b = ;
+        }
+
+    """
+  }
+
+  private[this] val builtins: TableFor2[Ast.BuiltinFunction, Int => Boolean] = Table(
+    "builtin" -> "result",
+    Ast.BLess -> (_ < 0),
+    Ast.BLessEq -> (_ <= 0),
+    Ast.BEqual -> (_ == 0),
+    Ast.BGreaterEq -> (_ >= 0),
+    Ast.BGreater -> (_ > 0),
+  )
+
+  "generic comparison builtins" should {
+
+    "respects specified order" in {
+
+      val comparableValues: TableFor2[Ast.Type, List[Ast.Expr]] =
+        Table(
+          "type" -> "comparable values in order",
+          // Atomic values
+          t"Unit" -> List(e"()"),
+          t"Bool" -> List(e"False", e"True"),
+          t"Int64" -> List(e"-3", e"0", e"1"),
+          t"Decimal" -> List(e"-10000.0000000000", e"0.0000000000", e"10000.0000000000"),
+          t"Numeric 0" -> List(e"-10000.", e"0.", e"10000."),
+          t"Text" -> List(
+            e""""a bit of text"""",
+            e""""some other text"""",
+            e""""some other text again""""),
+          t"Date" -> List(e"1969-07-21", e"1970-01-01", e"2020-02-02"),
+          t"Timestamp" -> List(
+            e"1969-07-21T02:56:15.000000Z",
+            e"1970-01-01T00:00:00.000000Z",
+            e"2020-02-02T20:20:02.020000Z",
+          ),
+          t"Party" -> List(e"'alice'", e"'bob'", e"'carol'"),
+          /// Table("ContractId", contractIds: _*),
+          t"Mod:Color" -> List(e"Mod:Color:Red", e"Mod:Color:Green", e"Mod:Color:Blue"),
+          t"Mod:MyUnit" -> List(e"Mod:MyUnit {}"),
+          // Contract IDs cannot be built from expressions.
+          // We map at runtime the variables `cid1`, `cid2` and, `cid3` two 3 contract IDs in increasing order.
+          t"ContractId Mod:Template" -> List(e"cid1", e"cid2", e"cid3"),
+          /// Type Representations
+          t"Mod:TypRep" ->
+            List(
+              e"type_rep @Unit",
+              e"type_rep @Bool",
+              e"type_rep @Int64",
+              e"type_rep @Text",
+              e"type_rep @Numeric",
+              e"type_rep @Timestamp",
+              e"type_rep @Date",
+              e"type_rep @Party",
+              e"type_rep @ContractId",
+              e"type_rep @Arrow",
+              e"type_rep @Option",
+              e"type_rep @List",
+              e"type_rep @TextMap",
+              e"type_rep @GenMap",
+              e"type_rep @Any",
+              e"type_rep @TypeRep",
+              e"type_rep @Update",
+              e"type_rep @Scenario",
+            ),
+          t"Mod:TypeRep" ->
+            List(
+              e"type_rep @0",
+              e"type_rep @10",
+              e"type_rep @37",
+            ),
+          t"Mod:TypeRep" ->
+            List(
+              e"type_rep @'-packageId1-':a:a",
+              e"type_rep @'-packageId1-':a:b",
+              e"type_rep @'-packageId1-':b:a",
+              e"type_rep @'-packageId1-':b:b",
+              e"type_rep @'-packageId2-':a:a",
+              e"type_rep @'-packageId2-':a:b",
+            ),
+          t"Mod:TypeRep" ->
+            List(
+              e"type_rep @<field0: Unit>",
+              e"type_rep @<field0: Int64>",
+              e"type_rep @<field1: Unit>",
+              e"type_rep @<field1: Unit, filed2: Unit>",
+              e"type_rep @<field1: Unit, filed2: Int64>",
+              e"type_rep @<field1: Int64, filed2: Unit>",
+              e"type_rep @<field1: Int64, filed2: Int64>",
+              e"type_rep @<field1: Unit, filed3: Unit>",
+            ),
+          t"Mod:TypeRep" ->
+            List(
+              e"type_rep @(Arrow Unit)",
+              e"type_rep @(Arrow Int64)",
+              e"type_rep @(Option Unit)",
+              e"type_rep @(Option Int64)",
+            ),
+          t"Mod:TypeRep" ->
+            List(
+              e"type_rep @Unit",
+              e"type_rep @Scenario",
+              e"type_rep @a:a",
+              e"type_rep @b:b",
+              e"type_rep @5",
+              e"type_rep @20",
+              e"type_rep @<field: Unit>",
+              e"type_rep @(Arrow Unit)",
+              e"type_rep @(Arrow Unit Unit)",
+            ),
+          // 1 level nested values
+          t"Mod:Tuple Int64 Int64" ->
+            List(
+              e"Mod:Tuple @Int64 @Int64 {fst = 0, snd = 0}",
+              e"Mod:Tuple @Int64 @Int64 {fst = 0, snd = 1}",
+              e"Mod:Tuple @Int64 @Int64 {fst = 1, snd = 0}",
+              e"Mod:Tuple @Int64 @Int64 {fst = 1, snd = 1}"
+            ),
+          t"Mod:Either Text Int64" -> List(
+            e"""Mod:Either:Left @Text @Int64 "a" """,
+            e"""Mod:Either:Left @Text @Int64 "b" """,
+            e"""Mod:Either:Right @Text @Int64 -1 """,
+            e"""Mod:Either:Right @Text @Int64 1 """,
+          ),
+          t"<fst: Int64, snd: Int64>" ->
+            List(
+              e"<fst = 0, snd = 0>",
+              e"<fst = 0, snd = 1>",
+              e"<fst = 1, snd = 0>",
+              e"<fst = 1, snd = 1>"
+            ),
+          t"Optional Text" ->
+            List(
+              e""" None @Text """,
+              e""" Some @Text "A" """,
+              e""" Some @Text "AA" """,
+            ),
+          t"List Int64" ->
+            List(
+              e"Nil @Int64",
+              e"Cons @Int64 [0] (Nil @Int64)",
+              e"Cons @Int64 [0,0] (Nil @Int64)",
+              e"Cons @Int64 [0,0,1] (Nil @Int64)",
+              e"Cons @Int64 [0,1,1] (Nil @Int64)",
+              e"Cons @Int64 [1] (Nil @Int64)",
+              e"Cons @Int64 [1,0] (Nil @Int64)",
+              e"Cons @Int64 [1,1] (Nil @Int64)",
+            ),
+          t"TextMap Int64" ->
+            List(
+              e"TEXTMAP_EMPTY @Int64",
+              e"""TEXTMAP_INSERT @Int64 "a" 1 (TEXTMAP_EMPTY @Int64)""",
+              e"""TEXTMAP_INSERT @Int64 "a" 1 (TEXTMAP_INSERT @Int64"b" 1 (TEXTMAP_EMPTY @Int64))""",
+              e"""TEXTMAP_INSERT @Int64 "a" 1 (TEXTMAP_INSERT @Int64"b" 2 (TEXTMAP_EMPTY @Int64))""",
+              e"""TEXTMAP_INSERT @Int64 "a" 2 (TEXTMAP_EMPTY @Int64)""",
+              e"""TEXTMAP_INSERT @Int64 "a" 2 (TEXTMAP_INSERT @Int64 "b" 1 (TEXTMAP_EMPTY @Int64))""",
+              e"""TEXTMAP_INSERT @Int64 "a" 2 (TEXTMAP_INSERT @Int64 "b" 2 (TEXTMAP_EMPTY @Int64))""",
+              e"""TEXTMAP_INSERT @Int64 "a" 2 (TEXTMAP_INSERT @Int64 "b" 2 (TEXTMAP_INSERT @Int64 "c" 3 (TEXTMAP_EMPTY @Int64)))""",
+            ),
+          t"GenMap Text Int64" ->
+            List(
+              e"GENMAP_EMPTY @Text @Int64",
+              e"""GENMAP_INSERT @Text @Int64 "a" 1 (GENMAP_EMPTY @Text @Int64)""",
+              e"""GENMAP_INSERT @Text @Int64 "a" 1 (GENMAP_INSERT @Text @Int64"b" 1 (GENMAP_EMPTY @Text @Int64))""",
+              e"""GENMAP_INSERT @Text @Int64 "a" 1 (GENMAP_INSERT @Text @Int64"b" 2 (GENMAP_EMPTY @Text @Int64))""",
+              e"""GENMAP_INSERT @Text @Int64 "a" 2 (GENMAP_EMPTY @Text @Int64)""",
+              e"""GENMAP_INSERT @Text @Int64 "a" 2 (GENMAP_INSERT @Text @Int64 "b" 1 (GENMAP_EMPTY @Text @Int64))""",
+              e"""GENMAP_INSERT @Text @Int64 "a" 2 (GENMAP_INSERT @Text @Int64 "b" 2 (GENMAP_EMPTY @Text @Int64))""",
+              e"""GENMAP_INSERT @Text @Int64 "a" 2 (GENMAP_INSERT @Text @Int64 "b" 2 (GENMAP_INSERT @Text @Int64 "c" 3 (GENMAP_EMPTY @Text @Int64)))""",
+            ),
+          // 2 level nested values
+          t"Mod:Tuple (Option Text) (Option Int64)" ->
+            List(
+              e"""Mod:Tuple @Int64 @Int64 {fst = None @Text, snd = None @Int64}""",
+              e"""Mod:Tuple @Int64 @Int64 {fst = None @Text, snd = Some @Int64 0}""",
+              e"""Mod:Tuple @Int64 @Int64 {fst = None @Text, snd = Some @Int64 1}""",
+              e"""Mod:Tuple @Int64 @Int64 {fst = Some @Text "a", snd = None @Int64}""",
+              e"""Mod:Tuple @Int64 @Int64 {fst = Some @Text "a", snd = Some @Int64 0}""",
+              e"""Mod:Tuple @Int64 @Int64 {fst = Some @Text "a", snd = Some @Int64 1}""",
+              e"""Mod:Tuple @Int64 @Int64 {fst = Some @Text "b", snd = None @Int64}""",
+              e"""Mod:Tuple @Int64 @Int64 {fst = Some @Text "b", snd = Some @Int64 0}""",
+              e"""Mod:Tuple @Int64 @Int64 {fst = Some @Text "b", snd = Some @Int64 1}""",
+            ),
+          t"Mod:Either (Option Int64) (Option Int64)" -> List(
+            e"""Mod:Either:Left @(Option Text) @(Option Int64) None @Text""",
+            e"""Mod:Either:Left @(Option Text) @(Option Int64) Some @Text "a" """,
+            e"""Mod:Either:Left @(Option Text) @(Option Int64) Some @Text "b" """,
+            e"""Mod:Either:Right @(Option Int64) @(Option Int64) None @Int64 """,
+            e"""Mod:Either:Right @(Option Int64) @(Option Int64) Some @Int64 42 """,
+            e"""Mod:Either:Right @(Option Int64) @(Option Int64) Some @Int64 43 """,
+          ),
+          t"<fst: Option Text, snd: Option Int64>" ->
+            List(
+              e"""<fst = None @Text, snd = None @Int64>""",
+              e"""<fst = None @Text, snd = Some @Int64 0>""",
+              e"""<fst = None @Text, snd = Some @Int64 1>""",
+              e"""<fst = Some @Text "a", snd = None @Int64>""",
+              e"""<fst = Some @Text "a", snd = Some @Int64 0>""",
+              e"""<fst = Some @Text "a", snd = Some @Int64 1>""",
+              e"""<fst = Some @Text "b", snd = None @Int64>""",
+              e"""<fst = Some @Text "b", snd = Some @Int64 0>""",
+              e"""<fst = Some @Text "b", snd = Some @Int64 1>""",
+            ),
+          t"Option (Option Int64)" ->
+            List(
+              e"None @(Option Int64)",
+              e"Some @(Option Int64) (None @Int64)",
+              e"Some @(Option Int64) (Some @Int64 0)",
+              e"Some @(Option Int64) (Some @Int64 1)",
+            ),
+          t"List (Option Int64)" -> List(
+            e"Nil @(Option Int64)",
+            e"Cons @(Option Int64) [None @Int64] (Nil @(Option Int64))",
+            e"Cons @(Option Int64) [None @Int64, None @Int64] (Nil @(Option Int64))",
+            e"Cons @(Option Int64) [None @Int64, None @Int64, Some @Int64 0] (Nil @(Option Int64))",
+            e"Cons @(Option Int64) [None @Int64, Some @Int64 0, Some @Int64 0] (Nil @(Option Int64))",
+            e"Cons @(Option Int64) [None @Int64, Some @Int64 1, Some @Int64 0] (Nil @(Option Int64))",
+            e"Cons @(Option Int64) [Some @Int64 0] (Nil @(Option Int64))",
+            e"Cons @(Option Int64) [Some @Int64 0, None @Int64] (Nil @(Option Int64))",
+            e"Cons @(Option Int64) [Some @Int64 0, Some @Int64 0] (Nil @(Option Int64))",
+            e"Cons @(Option Int64) [Some @Int64 1, Some @Int64 0] (Nil @(Option Int64))",
+          ),
+          t"TextMap (Option Int64)" ->
+            List(
+              e"TEXTMAP_EMPTY @(Option Int64)",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (None @Int64) (TEXTMAP_EMPTY @(Option Int64))""",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (None @Int64) (TEXTMAP_INSERT @(Option Int64)"b" (None @Int64) (TEXTMAP_EMPTY @(Option Int64)))""",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (None @Int64) (TEXTMAP_INSERT @(Option Int64)"b" (Some @Int64 -10) (TEXTMAP_EMPTY @(Option Int64)))""",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (Some @Int64 0) (TEXTMAP_EMPTY @(Option Int64))""",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (Some @Int64 0) (TEXTMAP_INSERT @(Option Int64) "b" (None @Int64) (TEXTMAP_EMPTY @(Option Int64)))""",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (Some @Int64 0) (TEXTMAP_INSERT @(Option Int64) "b" (Some @Int64 -10) (TEXTMAP_EMPTY @(Option Int64)))""",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (Some @Int64 0) (TEXTMAP_INSERT @(Option Int64) "b" (Some @Int64 -10) (TEXTMAP_INSERT @(Option Int64) "c" (None @Int64) (TEXTMAP_EMPTY @(Option Int64))))""",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (Some @Int64 0) (TEXTMAP_INSERT @(Option Int64) "b" (Some @Int64 -1) (TEXTMAP_EMPTY @(Option Int64)))""",
+              e"""TEXTMAP_INSERT @(Option Int64) "a" (Some @Int64 1) (TEXTMAP_EMPTY @(Option Int64))""",
+            ),
+          t"GenMap Text Int64" ->
+            List(
+              e"GENMAP_EMPTY @(Option Text) @(Option Int64)",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (None @Int64) (GENMAP_EMPTY @(Option Text) @(Option Int64))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (None @Int64) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (None @Int64) (GENMAP_EMPTY @(Option Text) @(Option Int64)))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (None @Int64) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (Some @Int64 0) (GENMAP_EMPTY @(Option Text) @(Option Int64)))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (Some @Int64 0) (GENMAP_EMPTY @(Option Text) @(Option Int64))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (Some @Int64 0) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (None @Int64) (GENMAP_EMPTY @(Option Text) @(Option Int64)))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (Some @Int64 0) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (Some @Int64 0) (GENMAP_EMPTY @(Option Text) @(Option Int64)))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (Some @Int64 0) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (Some @Int64 0) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "1") (Some @Int64 2) (GENMAP_EMPTY @(Option Text) @(Option Int64))))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (Some @Int64 1) (GENMAP_EMPTY @(Option Text) @(Option Int64))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (Some @Int64 1) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (None @Int64) (GENMAP_EMPTY @(Option Text) @(Option Int64)))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (Some @Int64 1) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (Some @Int64 0) (GENMAP_EMPTY @(Option Text) @(Option Int64)))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (None @Text) (Some @Int64 1) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (Some @Int64 0) (GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "1") (Some @Int64 2) (GENMAP_EMPTY @(Option Text) @(Option Int64))))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (None @Int64) (GENMAP_EMPTY @(Option Text) @(Option Int64))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "0") (Some @Int64 0) (GENMAP_EMPTY @(Option Text) @(Option Int64))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "1") (Some @Int64 0) (GENMAP_EMPTY @(Option Text) @(Option Int64))""",
+              e"""GENMAP_INSERT @(Option Text) @(Option Int64) (Some @Text "1") (Some @Int64 1)  (GENMAP_EMPTY @(Option Text) @(Option Int64))""",
+            ),
+          // any
+          t"Any" -> List(
+            e"to_any @Int64 -1",
+            e"to_any @Int64 0",
+            e"to_any @Int64 1",
+            e"to_any @Any (to_any @Int64 1)",
+            e"to_any @Any (to_any @Int64 2)",
+            e"to_any @(Option Int64) (None @Int64)",
+            e"to_any @(Option Int64) (Some @Int64 0)",
+            e"to_any @(Option Int64) (Some @Int64 1)",
+          ),
+        )
+
+      forEvery(comparableValues) {
+        case (typ, expr) =>
+          for {
+            xi <- expr.zipWithIndex
+            (x, i) = xi
+            yj <- expr.zipWithIndex
+            (y, j) = yj
+          } {
+            val diff = i compare j
+            forEvery(builtins) {
+              case (bi, result) =>
+                eval(bi, typ, x, y) shouldBe Right(SValue.SBool(result(diff)))
+            }
+          }
+      }
+    }
+
+    // FIXME: comparison is broken for struct.
+
+    "should not distinguish struct built in different order" ignore {
+
+      val typ = t"""<first = Int64, second = Int64, third = Int64>"""
+
+      val values = Table(
+        "expr",
+        e"""<first = 1, second = 2, third = 3>""",
+        e"""<third = 3, second = 2, first = 1>""",
+        e"""<first = 1, third = 3, second = 2>""",
+      )
+
+      forEvery(builtins) {
+        case (bi, _) =>
+          forEvery(values) { x =>
+            eval(bi, typ, x, x) shouldBe 'right
+            forEvery(values) { y =>
+              eval(bi, typ, x, y) shouldBe 'left
+              eval(bi, typ, y, x) shouldBe 'right
+            }
+          }
+      }
+
+    }
+
+    "fail when comparing non-comparable values" in {
+      import language.Ast._
+      import language.Util._
+
+      val funT = t"(Int64 -> Int64)"
+      val fun1 = e"(ADD_INT64 1)"
+      val fun2 = e"""(\(x: Int64) -> 42)"""
+
+      def tApps(t: Type, args: Type*) =
+        args.foldLeft(t)(TApp)
+
+      def eApps(e: Expr, args: Expr*) =
+        args.foldLeft(e)(EApp)
+
+      def etApps(e: Expr, types: Type*) =
+        types.foldLeft(e)(ETyApp)
+
+      def text(s: String) = EPrimLit(PLText(s))
+
+      val eitherT = t"Mod:Either"
+      val TTyCon(eitherTyCon) = eitherT
+      val leftName = Ref.Name.assertFromString("Left")
+      val rightName = Ref.Name.assertFromString("Right")
+
+      def left(leftT: Type, rightT: Type)(l: Expr) =
+        EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), rightName, l)
+
+      def right(leftT: Type, rightT: Type)(r: Expr) =
+        EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), leftName, r)
+
+      val tupleT = t"Mod:Tuple"
+      val TTyCon(tupleTyCon) = tupleT
+      val fstName = Ref.Name.assertFromString("fst")
+      val sndName = Ref.Name.assertFromString("snd")
+
+      def tupleR(fstT: Type, sndT: Type)(fst: Expr, snd: Expr) =
+        ERecCon(
+          TypeConApp(tupleTyCon, ImmArray(fstT, sndT)),
+          ImmArray(fstName -> fst, sndName -> snd))
+
+      def list(t: Type)(es: Expr*) =
+        if (es.isEmpty) ENil(t) else ECons(t, ImmArray(es), ENil(t))
+
+      def textMap(T: Type)(entries: (String, Expr)*) =
+        entries.foldRight(etApps(EBuiltin(BTextMapEmpty), T)) {
+          case ((key, value), acc) =>
+            eApps(etApps(EBuiltin(BTextMapInsert), T), text(key), value, acc)
+        }
+
+      def genMap(kT: Type, vT: Type)(entries: (Expr, Expr)*) =
+        entries.foldRight(etApps(EBuiltin(BGenMapEmpty), kT, vT)) {
+          case ((key, value), acc) =>
+            eApps(etApps(EBuiltin(BGenMapInsert), kT, vT), key, value, acc)
+        }
+
+      def tupleS(fst: Expr, snd: Expr) =
+        EStructCon(ImmArray(fstName -> fst, sndName -> snd))
+
+      val T = tApps(eitherT, funT, TInt64)
+      val X1 = left(funT, TInt64)(e"1")
+      val X2 = left(funT, TInt64)(e"2")
+      val X3 = left(funT, TInt64)(e"3")
+      val U = right(funT, TInt64)(fun1)
+
+      case class Test(
+          typ: Type,
+          negativeTestCases: List[(Expr, Expr)],
+          positiveTestCases: List[(Expr, Expr)],
+      )
+
+      val tests = Table(
+        ("test cases"),
+        Test(
+          typ = funT,
+          negativeTestCases = List.empty,
+          positiveTestCases = List(fun1 -> fun1, fun1 -> fun2)
+        ),
+        Test(
+          typ = T,
+          negativeTestCases = List(X1 -> U, U -> X1),
+          positiveTestCases = List(U -> U),
+        ),
+        Test(
+          typ = tApps(tupleT, T, T),
+          negativeTestCases = List(
+            tupleR(T, T)(X1, U) -> tupleR(T, T)(X2, U)
+          ),
+          positiveTestCases = List(
+            tupleR(T, T)(U, X1) -> tupleR(T, T)(U, X1),
+            tupleR(T, T)(U, X1) -> tupleR(T, T)(U, X2),
+            tupleR(T, T)(X1, U) -> tupleR(T, T)(X1, U)
+          ),
+        ),
+        Test(
+          typ = TList(T),
+          negativeTestCases = List(
+            list(T)(X1, U) -> list(T)(X2, U),
+            list(T)(U) -> list(T)(),
+            list(T)() -> list(T)(U)
+          ),
+          positiveTestCases = List(
+            list(T)(U) -> list(T)(U),
+            list(T)(U, X1) -> list(T)(U),
+            list(T)(X1, U) -> list(T)(X1, U),
+            list(T)(X1, U, X1) -> list(T)(X1, U),
+          ),
+        ),
+        Test(
+          typ = TOptional(T),
+          negativeTestCases = List(
+            ENone(T) -> ESome(T, U),
+            ESome(T, X1) -> ESome(T, U)
+          ),
+          positiveTestCases = List(
+            ESome(T, U) -> ESome(T, U)
+          ),
+        ),
+        Test(
+          typ = TTextMap(T),
+          negativeTestCases = List(
+            textMap(T)("a" -> X1, "b" -> U) ->
+              textMap(T)("a" -> X2, "b" -> U),
+            textMap(T)("a" -> X1) ->
+              textMap(T)("b" -> U),
+            textMap(T)("a" -> X1, "b" -> U) ->
+              textMap(T)("a" -> X1, "c" -> U),
+            textMap(T)("a" -> X1, "b" -> U) ->
+              textMap(T)("b" -> U),
+            textMap(T)("a" -> X1, "b" -> U) ->
+              textMap(T)("b" -> U),
+            textMap(T)("a" -> X1, "b" -> U) ->
+              textMap(T)("b" -> X1, "c" -> U),
+            textMap(T)("a" -> U) ->
+              textMap(T)()
+          ),
+          positiveTestCases = List(
+            textMap(T)("a" -> U) ->
+              textMap(T)("a" -> U),
+            textMap(T)("a" -> U, "b" -> X1) ->
+              textMap(T)("a" -> U),
+            textMap(T)("a" -> U, "b" -> X1) ->
+              textMap(T)("a" -> U, "c" -> X1),
+            textMap(T)("a" -> U, "b" -> X1) ->
+              textMap(T)("a" -> U, "b" -> X2),
+            textMap(T)("a" -> X1, "b" -> U) ->
+              textMap(T)("a" -> X1, "b" -> U),
+          ),
+        ),
+        Test(
+          typ = TGenMap(T, T),
+          negativeTestCases = List(
+            genMap(T, T)(X1 -> X1, X2 -> U) ->
+              genMap(T, T)(X1 -> X2, X2 -> U),
+            genMap(T, T)(X1 -> X1) ->
+              genMap(T, T)(X2 -> U),
+            genMap(T, T)(X1 -> X1, X2 -> U) ->
+              genMap(T, T)(X1 -> X1, X3 -> U),
+            genMap(T, T)(X1 -> X1, X2 -> U) ->
+              genMap(T, T)(X2 -> U),
+            genMap(T, T)(X1 -> X1, X2 -> U) ->
+              genMap(T, T)(X2 -> U),
+            genMap(T, T)(X1 -> X1, X2 -> U) ->
+              genMap(T, T)(X2 -> X1, X3 -> U),
+            genMap(T, T)(X1 -> U) ->
+              genMap(T, T)()
+          ),
+          positiveTestCases = List(
+            genMap(T, T)(X1 -> U) ->
+              genMap(T, T)(X1 -> U),
+            genMap(T, T)(X1 -> U, X2 -> X1) ->
+              genMap(T, T)(X1 -> U),
+            genMap(T, T)(X1 -> U, X2 -> X1) ->
+              genMap(T, T)(X1 -> U, X3 -> X1),
+            genMap(T, T)(X1 -> U, X2 -> X1) ->
+              genMap(T, T)(X1 -> U, X2 -> X2),
+            genMap(T, T)(X1 -> X1, X2 -> U) ->
+              genMap(T, T)(X1 -> X1, X2 -> U),
+          ),
+        ),
+        Test(
+          typ = TStruct(Struct(fstName -> T, sndName -> T)),
+          negativeTestCases = List(
+            tupleS(X1, U) -> tupleS(X2, U),
+          ),
+          positiveTestCases = List(
+            tupleS(U, X1) -> tupleS(U, X1),
+            tupleS(U, X1) -> tupleS(U, X2),
+            tupleS(X1, U) -> tupleS(X1, U)
+          )
+        ),
+        Test(
+          typ = TAny,
+          negativeTestCases = List(
+            EToAny(tApps(eitherT, funT, TText), right(funT, TText)(fun1)) ->
+              EToAny(tApps(eitherT, funT, TInt64), right(funT, TInt64)(fun1))
+          ),
+          positiveTestCases = List(
+            EToAny(T, U) -> EToAny(T, U)
+          ),
+        )
+      )
+
+      forEvery(tests) {
+        case Test(typ, negativeTestCases, positiveTestCases) =>
+          negativeTestCases.foreach {
+            case (x, y) =>
+              forEvery(builtins) {
+                case (bi, _) =>
+                  eval(bi, typ, x, y) shouldBe 'right
+                  if (x != y) eval(bi, typ, y, x) shouldBe 'right
+              }
+          }
+
+          positiveTestCases.foreach {
+            case (x, y) =>
+              forEvery(builtins) {
+                case (bi, _) =>
+                  eval(bi, typ, x, y) shouldBe 'left
+                  if (x != y) eval(bi, typ, y, x) shouldBe 'left
+              }
+          }
+
+      }
+
+    }
+
+  }
+
+  private[this] val compiledPackages = PureCompiledPackages(Map(pkgId1 -> pkg1, pkgId2 -> pkg2)).right.get
+
+  private[this] val binder1 = Ref.Name.assertFromString("cid1") -> t"ContractId Mod:Template"
+  private[this] val binder2 = Ref.Name.assertFromString("cid2") -> t"ContractId Mod:Template"
+  private[this] val binder3 = Ref.Name.assertFromString("cid3") -> t"ContractId Mod:Template"
+
+  private[this] val contractIds =
+    Array(
+      ContractId.V1.assertFromString("00" * 32 + "0000"),
+      ContractId.V1.assertFromString("00" * 32 + "0001"),
+      ContractId.V1.assertFromString("00" + "ff" * 32),
+    ).map(cid => SExpr.SEValue(SValue.SContractId(cid)): SExpr)
+
+  private[this] def eval(bi: Ast.BuiltinFunction, t: Ast.Type, x: Ast.Expr, y: Ast.Expr) = {
+    final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
+    val sexpr = compiledPackages.compiler.unsafeCompile(
+      Ast.EAbs(
+        binder1,
+        Ast.EAbs(
+          binder2,
+          Ast.EAbs(binder3, Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltin(bi), t), x), y), None),
+          None),
+        None)
+    )
+    val machine =
+      Speedy.Machine.fromPureSExpr(compiledPackages, SExpr.SEApp(sexpr, contractIds), false)
+    try {
+      machine.run() match {
+        case SResult.SResultFinalValue(v) => Right(v)
+        case SResultError(err) => throw Goodbye(err)
+        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
+      }
+    } catch { case Goodbye(err) => Left(err) }
+  }
+
+}
