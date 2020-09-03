@@ -716,6 +716,7 @@ daml_build_test(
         ":daml-upgrade-example-v2": "path/to/coin-2.0.0.dar",
         ":daml-upgrade-example-upgrade": "path/to/coin-upgrade-1.0.0.dar",
         "//triggers/daml:daml-trigger.dar": "path/to/daml-trigger.dar",
+        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
     },
     project_dir = "source/upgrade/example/coin-upgrade-trigger",
 )

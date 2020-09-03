@@ -9,6 +9,7 @@ import DA.Assert
 import qualified DA.Next.Map as Map
 import Daml.Trigger
 import Daml.Trigger.Assert
+import qualified Daml.Script as Script
 
 template T
   with
@@ -43,9 +44,9 @@ trigger = Trigger with
   registeredTemplates = RegisteredTemplates [registeredTemplate @T]
   heartbeat = None
 
-test = scenario do
-  alice <- getParty "Alice"
-  tId <- submit alice do create T with party = alice, count = 1
+test = do
+  alice <- Script.allocateParty "Alice"
+  tId <- submit alice do Script.createCmd T with party = alice, count = 1
   let activeContracts = toACS tId
   let commandsInFlight = Map.empty
   commands <- testRule trigger alice activeContracts commandsInFlight 1
