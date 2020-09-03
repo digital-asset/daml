@@ -1717,6 +1717,49 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             ]
         withCurrentDirectory (tmpDir </> "proj") $
             callProcessSilent damlc ["build"]
+
+    , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
+        step "building project with implicit parameters"
+        createDirectoryIfMissing True (tmpDir </> "dep")
+        writeFileUTF8 (tmpDir </> "dep" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: dep"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "dep" </> "Foo.daml") $ unlines
+            [ "module Foo where"
+            , "f : Scenario ()"
+            , "f = scenario do"
+            , "  p <- getParty \"p\""
+            , "  submit p $ pure ()"
+            , "  submit p $ pure ()"
+            -- This will produce two implicit instances.
+            -- GHC occasionally seems to inline those instances and I don’t understand
+            -- how to reliably stop it from doing this so be careful when changing this.
+            ]
+        withCurrentDirectory (tmpDir </> "dep") $
+            callProcessSilent damlc ["build", "-o", "dep.dar"]
+
+        step "building project that uses it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "dep" </> "dep.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import Foo"
+            , "g = f"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
     ]
 
 -- | Check that the given file exists in the dar in the given directory.
