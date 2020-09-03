@@ -13,7 +13,7 @@ import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.{ImmArray, Struct, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -209,14 +209,17 @@ object Converter {
       case _ => Left(s"Expected CreateAndExercise but got $v")
     }
 
-  private[this] val tupleFieldNames =
-    ImmArray(Name.assertFromString("fst"), Name.assertFromString("snd"))
-  private[this] val fstIdx = 0
-  private[this] val sndIdx = 1
+  private val fstName = Name.assertFromString("fst")
+  private val sndName = Name.assertFromString("snd")
+  private[this] val tupleFieldInputOrder =
+    Struct.assertFromSeq(List(fstName, sndName).zipWithIndex)
+  private[this] val fstOutputIdx = tupleFieldInputOrder.indexOf(fstName)
+  private[this] val sndOutputIdx = tupleFieldInputOrder.indexOf(sndName)
+
   private[this] val extractToTuple = SEMakeClo(
     Array(),
     2,
-    SEApp(SEBuiltin(SBStructCon(tupleFieldNames)), Array(SELocA(0), SELocA(1))),
+    SEApp(SEBuiltin(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
   )
 
   // Extract the two fields out of the RankN encoding used in the Ap constructor.
@@ -230,7 +233,7 @@ object Converter {
       case SResultFinalValue(v) =>
         v match {
           case SStruct(_, values) if values.size == 2 =>
-            Right((values.get(fstIdx), values.get(sndIdx)))
+            Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))
           case v => Left(s"Expected binary SStruct but got $v")
         }
       case SResultError(err) => Left(Pretty.prettyError(err, machine.ptx).render(80))

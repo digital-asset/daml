@@ -588,8 +588,11 @@ private[lf] object Speedy {
             crash("SValue.fromValue: record missing identifier")
           case V.ValueStruct(fs) =>
             val values = new util.ArrayList[SValue](fs.size)
-            fs.values.foreach(v => values.add(go(v)))
-            SStruct(fs.names.to[ImmArray], values)
+            val fieldNames = fs.mapValues { v =>
+              values.add(go(v))
+              ()
+            }
+            SStruct(fieldNames, values)
           case V.ValueVariant(None, _variant @ _, _value @ _) =>
             crash("SValue.fromValue: variant without identifier")
           case V.ValueEnum(None, constructor @ _) =>

@@ -73,12 +73,21 @@ object Struct {
         .toLeft(struct)
     }
 
-  def assertFromSeq[X](fields: Seq[(Name, X)]): Struct[X] =
-    fromSeq(fields).fold(
+  private[this] def assertSuccess[X](either: Either[String, X]) =
+    either.fold(
       name =>
         throw new IllegalArgumentException(s"name $name duplicated when trying to build Struct"),
       identity,
     )
+
+  def assertFromSeq[X](fields: Seq[(Name, X)]): Struct[X] =
+    assertSuccess(fromSeq(fields))
+
+  def fromNameSeq[X](names: Seq[Name]): Either[Name, Struct[Unit]] =
+    fromSeq(names.map(_ -> (())))
+
+  def assertFromNameSeq[X](names: Seq[Name]): Struct[Unit] =
+    assertSuccess(fromNameSeq(names))
 
   val Empty: Struct[Nothing] = new Struct(ImmArray.empty)
 

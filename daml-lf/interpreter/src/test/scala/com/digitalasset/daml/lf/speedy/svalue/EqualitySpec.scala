@@ -5,7 +5,7 @@ package com.daml.lf.speedy.svalue
 
 import java.util
 
-import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.Profile.LabelUnset
 import com.daml.lf.speedy.SValue._
@@ -44,7 +44,8 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
   private val VariantCon1: Ref.Name = "Left"
   private val VariantCon2: Ref.Name = "Right"
 
-  private val struct2Fields = ImmArray[Ref.Name]("fst", "snd")
+  private val struct2Fields =
+    Struct.assertFromNameSeq(List("fst", "snd"))
 
   private val unit = SValue.SValue.Unit
 
@@ -76,7 +77,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     SEnum(EnumTypeCon, EnumCon2, 1)
   )
 
-  private val struct0 = List(SStruct(ImmArray.empty, ArrayList()))
+  private val struct0 = List(SStruct(Struct.Empty, ArrayList()))
 
   private val records0 = List(SRecord(Record0TypeCon, ImmArray.empty, ArrayList()))
 

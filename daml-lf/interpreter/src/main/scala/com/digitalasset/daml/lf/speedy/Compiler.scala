@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Time}
+import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
@@ -303,8 +303,10 @@ private[lf] final case class Compiler(
       case erecupd: ERecUpd =>
         compileERecUpd(erecupd)
       case EStructCon(fields) =>
+        val fieldsInputOrder =
+          Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toSeq)
         SEApp(
-          SEBuiltin(SBStructCon(fields.map(_._1))),
+          SEBuiltin(SBStructCon(fieldsInputOrder)),
           fields.iterator.map { case (_, e) => compile(e) }.toArray
         )
       case EStructProj(field, struct) =>
@@ -827,9 +829,12 @@ private[lf] final case class Compiler(
         }
     }
 
-  private[this] def encodeKeyWithMaintainers(key: SExpr, tmplKey: TemplateKey): SExpr =
+  private[this] val keyWithMaintainersStruct: Struct[Int] =
+    Struct.assertFromSeq(List(keyFieldName, maintainersFieldName).zipWithIndex)
+
+  private def encodeKeyWithMaintainers(key: SExpr, tmplKey: TemplateKey): SExpr =
     SELet(key) in
-      SBStructCon(ImmArray(keyFieldName, maintainersFieldName))(
+      SBStructCon(keyWithMaintainersStruct)(
         SEVar(1), // key
         SEApp(compile(tmplKey.maintainers), Array(SEVar(1) /* key */ )),
       )
@@ -1500,6 +1505,9 @@ private[lf] final case class Compiler(
     }
   }
 
+  private[this] val fetchByKeyResultStruct: Struct[Int] =
+    Struct.assertFromSeq(List(contractIdFieldName, contractFieldName).zipWithIndex)
+
   @inline
   private[this] def compileFetchByKey(templateId: TypeConName, key: SExpr) = {
     // Translates 'fetchByKey Foo <key>' into:
@@ -1543,7 +1551,7 @@ private[lf] final case class Compiler(
                 SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
                 SEVar(3) // token
               ),
-            ) in SBStructCon(ImmArray(contractIdFieldName, contractFieldName))(
+            ) in SBStructCon(fetchByKeyResultStruct)(
               SEVar(3), // contract id
               SEVar(2) // contract
             )
