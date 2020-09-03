@@ -194,7 +194,7 @@ Use the command line option ``--timeout-scale-factor`` to tune timeouts applied
   wait shorter.
 
 Accomodating different ledger clock intervals
-========================================
+=============================================
 
 Use the command line option ``--ledger-clock-granularity`` to indicate the maximum
  interval at which the ledger's clock will increment.
@@ -203,7 +203,7 @@ Use the command line option ``--ledger-clock-granularity`` to indicate the maxim
   set ``--ledger-clock-granularity`` to a value higher than 10000 (10,000ms).  Tests
   that are sensitive to the ledger clock will then wait for a corresponding longer period
   of time to ensure completion of operations, avoiding timeouts and premature failures.
-  The command deduplication test suite is particularly sensitive to this value
+  The command deduplication test suite is particularly sensitive to this value.
 
 Verbose output
 ==============
