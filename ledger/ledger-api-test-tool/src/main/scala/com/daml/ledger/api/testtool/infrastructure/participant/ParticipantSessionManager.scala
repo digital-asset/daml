@@ -63,8 +63,16 @@ private[infrastructure] final class ParticipantSessionManager {
         Future.successful(session)
       case None =>
         create(configuration).map { newSession =>
-          channels.update(configuration, newSession)
-          newSession
+          channels.putIfAbsent(configuration, newSession) match {
+            // If we got into a race and created two sessions for the same configuration,
+            // drop this one and return the existing session. We need to keep the existing one
+            // because otherwise we could end up closing a session that is being used elsewhere.
+            case Some(session) =>
+              newSession.close()
+              session
+            case None =>
+              newSession
+          }
         }
     }
 
