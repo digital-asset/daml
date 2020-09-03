@@ -119,6 +119,18 @@ class DecodeV1Spec
     List(1, 4, 6, 8).map(i => LV.Minor.Stable(i.toString)): _*
   )
 
+  private val preInterningVersions = Table(
+    "minVersion",
+    LV.Minor.Stable("6"),
+  )
+
+  private val postInterningVersions = Table(
+    "minVersion",
+    LV.Minor.Stable("7"),
+    LV.Minor.Stable("8"),
+    LV.Minor.Dev,
+  )
+
   private val postContractIdTextConversionVersions = Table(
     "minVersion",
     // FIXME: https://github.com/digital-asset/daml/issues/7139
@@ -261,6 +273,67 @@ class DecodeV1Spec
         decoder.decodeType(buildPrimType(ANY)) shouldBe TAny
       }
     }
+
+    "reject Struct with duplicate field names" in {
+      val negativeTestCases =
+        Table("field names", List("a", "b", "c"))
+      val positiveTestCases =
+        Table("field names", List("a", "a"), List("a", "b", "c", "a"), List("a", "b", "c", "b"))
+
+      val unit = DamlLf1.Type
+        .newBuilder()
+        .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
+        .build
+
+      def fieldWithUnitWithoutInterning(s: String) =
+        DamlLf1.FieldWithType.newBuilder().setFieldStr(s).setType(unit)
+
+      def buildTStructWithoutInterning(fields: Seq[String]) =
+        DamlLf1.Type
+          .newBuilder()
+          .setStruct(
+            fields.foldLeft(DamlLf1.Type.Struct.newBuilder())((builder, name) =>
+              builder.addFields(fieldWithUnitWithoutInterning(name)))
+          )
+          .build()
+
+      val stringTable = ImmArraySeq("a", "b", "c")
+      val stringIdx = stringTable.zipWithIndex.toMap
+
+      def fieldWithUnitWithInterning(s: String) =
+        DamlLf1.FieldWithType.newBuilder().setFieldInternedStr(stringIdx(s)).setType(unit)
+
+      def buildTStructWithInterning(fields: Seq[String]) =
+        DamlLf1.Type
+          .newBuilder()
+          .setStruct(
+            fields.foldLeft(DamlLf1.Type.Struct.newBuilder())((builder, name) =>
+              builder.addFields(fieldWithUnitWithInterning(name)))
+          )
+          .build()
+
+      forEvery(preInterningVersions) { minVersion =>
+        val decoder = moduleDecoder(minVersion)
+        forEvery(negativeTestCases) { fieldNames =>
+          decoder.decodeType(buildTStructWithoutInterning(fieldNames))
+        }
+        forEvery(positiveTestCases) { fieldNames =>
+          a[ParseError] shouldBe thrownBy(
+            decoder.decodeType(buildTStructWithoutInterning(fieldNames)))
+        }
+      }
+
+      forEvery(postInterningVersions) { minVersion =>
+        val decoder = moduleDecoder(minVersion, stringTable)
+        forEvery(negativeTestCases) { fieldNames =>
+          decoder.decodeType(buildTStructWithInterning(fieldNames))
+        }
+        forEvery(positiveTestCases) { fieldNames =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeType(buildTStructWithInterning(fieldNames)))
+        }
+      }
+    }
+
   }
 
   "decodeExpr" should {

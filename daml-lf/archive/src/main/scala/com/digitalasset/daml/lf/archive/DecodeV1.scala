@@ -639,7 +639,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val struct = lfType.getStruct
           val fields = struct.getFieldsList.asScala
           assertNonEmpty(fields, "fields")
-          TStruct(Struct(fields.map(decodeFieldWithType): _*))
+          TStruct(
+            Struct
+              .fromSeq(fields.map(decodeFieldWithType))
+              .fold(
+                name => throw ParseError(s"TStruct: duplicate field $name"),
+                identity
+              ))
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
       }

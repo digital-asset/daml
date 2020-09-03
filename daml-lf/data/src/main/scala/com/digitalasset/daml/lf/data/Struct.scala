@@ -6,43 +6,75 @@ package data
 
 import com.daml.lf.data.Ref.Name
 
-final case class Struct[+X] private (sortedFields: ImmArray[(Ref.Name, X)]) extends NoCopy {
+/** We use this container to describe structural record as sorted flat list in various parts of the codebase.
+    `entries` are sorted by their first component without duplicate.
+  */
+final case class Struct[+X] private (private val sortedFields: ImmArray[(Ref.Name, X)])
+    extends NoCopy {
 
-  def lookup(name: Ref.Name): Option[X] =
-    sortedFields.find(_._1 == name).map(_._2)
+  /** O(n) */
+  @throws[IndexOutOfBoundsException]
+  def apply(name: Ref.Name): X = sortedFields(indexOf(name))._2
 
-  def mapValue[Y](f: X => Y) = new Struct(sortedFields.map { case (k, v) => k -> f(v) })
+  /** O(n) */
+  def indexOf(name: Ref.Name): Int = sortedFields.indexWhere(_._1 == name)
 
+  /** O(n) */
+  def lookup(name: Ref.Name): Option[X] = sortedFields.find(_._1 == name).map(_._2)
+
+  /** O(n) */
+  def mapValues[Y](f: X => Y) = new Struct(sortedFields.map { case (k, v) => k -> f(v) })
+
+  /** O(1) */
   def toImmArray: ImmArray[(Ref.Name, X)] = sortedFields
 
+  /** O(1) */
   def names: Iterator[Ref.Name] = iterator.map(_._1)
 
+  /** O(1) */
   def values: Iterator[X] = iterator.map(_._2)
 
+  /** O(1) */
   def iterator: Iterator[(Ref.Name, X)] = sortedFields.iterator
 
-  def foreach(f: ((Ref.Name, X)) => Unit): Unit = sortedFields.foreach(f)
+  /** O(1) */
+  def size: Int = sortedFields.length
+
+  /** O(n) */
+  override def toString: String = iterator.mkString("Struct(", ",", ")")
 
 }
 
 object Struct {
 
-  def apply[X](fields: (Name, X)*): Struct[X] =
-    new Struct(fields.sortBy(_._1: String).to[ImmArray])
+  /** Constructs a Struct.
+    * In case one of the field name is duplicated, return it as Left.
+    * O(n log n)
+    */
+  def fromSeq[X](fields: Seq[(Name, X)]): Either[Name, Struct[X]] =
+    if (fields.isEmpty) rightEmpty
+    else {
+      val struct = Struct(ImmArray(fields.sortBy(_._1: String)))
+      val names = struct.names
+      var previous = names.next()
+      names
+        .find { name =>
+          val found = name == previous
+          previous = name
+          found
+        }
+        .toLeft(struct)
+    }
 
-  def apply[X](fields: ImmArray[(Name, X)]): Struct[X] = apply(fields.toSeq: _*)
-
-  def fromSortedImmArray[X](fields: ImmArray[(Ref.Name, X)]): Either[String, Struct[X]] = {
-    val struct = new Struct(fields)
-    Either.cond(
-      (struct.names zip struct.names.drop(1)).forall { case (x, y) => (x compare y) <= 0 },
-      struct,
-      s"the list $fields is not sorted by name"
+  def assertFromSeq[X](fields: Seq[(Name, X)]): Struct[X] =
+    fromSeq(fields).fold(
+      name =>
+        throw new IllegalArgumentException(s"name $name duplicated when trying to build Struct"),
+      identity,
     )
-  }
 
-  private[this] val Emtpy = new Struct(ImmArray.empty)
+  val Empty: Struct[Nothing] = new Struct(ImmArray.empty)
 
-  def empty[X]: Struct[X] = Emtpy.asInstanceOf[Struct[X]]
+  private[this] val rightEmpty = Right(Empty)
 
 }
