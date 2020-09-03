@@ -12,16 +12,14 @@ import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.TextKeyOperations._
 import com.daml.ledger.test.model.Test._
 import com.daml.timer.Delayed
-import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
 import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-final class CommandDeduplicationIT(ledgerTimeIntervalMs: Int) extends LedgerTestSuite {
-  private val deduplicationSeconds = ledgerTimeIntervalMs / 1000
-  private val deduplicationWindowWait = 2 * deduplicationSeconds
+final class CommandDeduplicationIT(ledgerTimeIntervalMs: scala.concurrent.duration.Duration) extends LedgerTestSuite {
+  private val deduplicationTime = com.google.protobuf.duration.Duration.of(ledgerTimeIntervalMs.toSeconds, 0)
+  private val deduplicationWindowWait = ledgerTimeIntervalMs * 2
 
   test(
     "CDSimpleDeduplicationBasic",
@@ -29,7 +27,7 @@ final class CommandDeduplicationIT(ledgerTimeIntervalMs: Int) extends LedgerTest
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
-      val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
+
       val requestA1 = ledger
         .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
         .update(
@@ -52,7 +50,7 @@ final class CommandDeduplicationIT(ledgerTimeIntervalMs: Int) extends LedgerTest
         completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
 
         // Wait until the end of first deduplication window
-        _ <- Delayed.by((deduplicationWindowWait).seconds)(())
+        _ <- Delayed.by(deduplicationWindowWait)(())
 
         // Submit command A (second deduplication window)
         // Note: the deduplication window is guaranteed to have passed on both
@@ -158,7 +156,6 @@ final class CommandDeduplicationIT(ledgerTimeIntervalMs: Int) extends LedgerTest
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
-      val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val requestA = ledger
         .submitAndWaitRequest(party, Dummy(party).create.command)
         .update(
@@ -171,7 +168,7 @@ final class CommandDeduplicationIT(ledgerTimeIntervalMs: Int) extends LedgerTest
         failure1 <- ledger.submitAndWait(requestA).failed
 
         // Wait until the end of first deduplication window
-        _ <- Delayed.by((deduplicationWindowWait).seconds)(())
+        _ <- Delayed.by(deduplicationWindowWait)(())
 
         // Submit command A (second deduplication window)
         _ <- ledger.submitAndWait(requestA)

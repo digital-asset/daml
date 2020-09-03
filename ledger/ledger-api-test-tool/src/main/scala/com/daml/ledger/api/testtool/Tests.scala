@@ -4,11 +4,13 @@
 package com.daml.ledger.api.testtool
 
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
 import com.daml.ledger.api.testtool.tests._
 
 import scala.collection.SortedSet
+import scala.concurrent.duration.Duration
 
 object Tests {
 
@@ -18,7 +20,7 @@ object Tests {
       new ClosedWorldIT,
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT(config.ledgerClockGranularityMs),
+      new CommandDeduplicationIT(Duration(config.ledgerClockGranularityMs, TimeUnit.MILLISECONDS)),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
       new DivulgenceIT,
