@@ -34,8 +34,8 @@ import scala.language.{higherKinds, implicitConversions}
   */
 object LoggingContextOf {
 
-  def label[P]: label[P] = new label(0)
-  final class label[P] private[LoggingContextOf] (private val ignored: Int) extends AnyVal
+  def label[P]: label[P] = new label(())
+  final class label[P] private[LoggingContextOf] (private val ignored: Unit) extends AnyVal
 
   @silent(" label .* is never used") // Proxy only
   def newLoggingContext[P, Z](label: label[P], kvs: Map[String, String])(
