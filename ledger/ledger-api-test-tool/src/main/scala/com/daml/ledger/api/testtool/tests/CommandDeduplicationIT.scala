@@ -18,10 +18,10 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 import scala.concurrent.duration.{Duration => ScalaDuration}
-import com.google.protobuf.duration.{Duration => ProtoDuration}
+import com.google.protobuf.duration.{Duration => ProtobufDuration}
 
 final class CommandDeduplicationIT(ledgerTimeInterval: ScalaDuration) extends LedgerTestSuite {
-  private val deduplicationTime = ProtoDuration.of(ledgerTimeInterval.toSeconds, 0)
+  private val deduplicationTime = ProtobufDuration.of(ledgerTimeInterval.toSeconds, 0)
   private val deduplicationWindowWait = ledgerTimeInterval * 2
 
   test(
