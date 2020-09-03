@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerServices
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSession.logger
 import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndRequest
 import com.daml.timer.RetryStrategy
@@ -18,21 +19,13 @@ private[infrastructure] final class ParticipantSession(
     val config: ParticipantSessionConfiguration,
     channel: ManagedChannel,
     eventLoopGroup: NioEventLoopGroup,
+    services: LedgerServices,
+    // The ledger ID is retrieved only once when the participant session is created.
+    // Changing the ledger ID during a session can result in unexpected consequences.
+    // The test tool is designed to run tests in an isolated environment but changing the
+    // global state of the ledger breaks this assumption, no matter what.
+    ledgerId: String,
 )(implicit val executionContext: ExecutionContext) {
-
-  private[this] val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
-
-  private[this] val services: LedgerServices = new LedgerServices(channel)
-
-  // The ledger identifier is retrieved only once when the participant session is created
-  // Changing the ledger identifier during the execution of a session can result in unexpected consequences
-  // The test tool is designed to run tests in an isolated environment but changing the
-  // global state of the ledger breaks this assumption, no matter what
-  private[this] val ledgerIdF =
-    RetryStrategy.exponentialBackoff(10, 10.millis) { (attempt, wait) =>
-      logger.debug(s"Fetching ledgerId to create context (attempt #$attempt, next one in $wait)...")
-      services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
-    }
 
   private[testtool] def createInitContext(
       applicationId: String,
@@ -46,7 +39,6 @@ private[infrastructure] final class ParticipantSession(
       identifierSuffix: String,
   ): Future[ParticipantTestContext] =
     for {
-      ledgerId <- ledgerIdF
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
     } yield
       new ParticipantTestContext(
@@ -72,5 +64,24 @@ private[infrastructure] final class ParticipantSession(
       sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
     }
     logger.info(s"Connection to participant at ${config.host}:${config.port} closed.")
+  }
+}
+
+object ParticipantSession {
+  private val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
+
+  def apply(
+      config: ParticipantSessionConfiguration,
+      channel: ManagedChannel,
+      eventLoopGroup: NioEventLoopGroup,
+  )(implicit executionContext: ExecutionContext): Future[ParticipantSession] = {
+    val services = new LedgerServices(channel)
+    for {
+      ledgerId <- RetryStrategy.exponentialBackoff(10, 10.millis) { (attempt, wait) =>
+        logger.debug(
+          s"Fetching ledgerId to create context (attempt #$attempt, next one in $wait)...")
+        services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
+      }
+    } yield new ParticipantSession(config, channel, eventLoopGroup, services, ledgerId)
   }
 }

@@ -21,7 +21,7 @@ private[infrastructure] final class ParticipantSessionManager {
   @throws[RuntimeException]
   private def create(
       config: ParticipantSessionConfiguration,
-  )(implicit ec: ExecutionContext): ParticipantSession = {
+  )(implicit ec: ExecutionContext): Future[ParticipantSession] = {
     logger.info(s"Connecting to participant at ${config.host}:${config.port}...")
     val threadFactoryPoolName = s"grpc-event-loop-${config.host}-${config.port}"
     val daemonThreads = false
@@ -51,14 +51,22 @@ private[infrastructure] final class ParticipantSessionManager {
     }
     managedChannelBuilder.maxInboundMessageSize(10000000)
     val managedChannel = managedChannelBuilder.build()
-    logger.info(s"Connection to participant at ${config.host}:${config.port}")
-    new ParticipantSession(config, managedChannel, eventLoopGroup)
+    logger.info(s"Connected to participant at ${config.host}:${config.port}.")
+    ParticipantSession(config, managedChannel, eventLoopGroup)
   }
 
   def getOrCreate(
       configuration: ParticipantSessionConfiguration,
   )(implicit ec: ExecutionContext): Future[ParticipantSession] =
-    Future(channels.getOrElseUpdate(configuration, create(configuration)))
+    channels.get(configuration) match {
+      case Some(session) =>
+        Future.successful(session)
+      case None =>
+        create(configuration).map { newSession =>
+          channels.update(configuration, newSession)
+          newSession
+        }
+    }
 
   def close(configuration: ParticipantSessionConfiguration): Unit =
     channels.get(configuration).foreach(_.close())
