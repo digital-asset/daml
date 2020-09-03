@@ -31,6 +31,7 @@ da_scala_library(
         "//ledger-service/cli-opts",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",

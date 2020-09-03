@@ -9,8 +9,9 @@ import akka.actor.typed.SupervisorStrategy._
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.ActorContext
 import akka.stream.Materializer
-import com.typesafe.scalalogging.StrictLogging
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import LoggingContextOf.{label, newLoggingContext}
 import com.daml.scalautil.Statement.discard
 
 class InitializationHalted(s: String) extends Exception(s) {}
@@ -25,17 +26,24 @@ object TriggerRunner {
   def apply(config: Config, name: String)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): Behavior[TriggerRunner.Message] =
-    Behaviors.setup(ctx => new TriggerRunner(ctx, config, name))
+    newLoggingContext(label[Config with Trigger], config.loggingExtension) {
+      implicit loggingContext =>
+        Behaviors.setup(ctx => new TriggerRunner(ctx, config, name))
+    }
 }
 
-class TriggerRunner(
+final class TriggerRunner private (
     ctx: ActorContext[TriggerRunner.Message],
     config: TriggerRunner.Config,
-    name: String)(implicit esf: ExecutionSequencerFactory, mat: Materializer)
-    extends AbstractBehavior[TriggerRunner.Message](ctx)
-    with StrictLogging {
+    name: String)(
+    implicit esf: ExecutionSequencerFactory,
+    mat: Materializer,
+    loggingContext: LoggingContextOf[TriggerRunner.Config with Trigger])
+    extends AbstractBehavior[TriggerRunner.Message](ctx) {
 
   import TriggerRunner.{Message, Stop}
+
+  private[this] def logger = ContextualizedLogger get getClass
 
   // Spawn a trigger runner impl. Supervise it. Stop immediately on
   // initialization halted exceptions, retry any initialization or

@@ -18,6 +18,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.lf.CompiledPackages
 import scalaz.syntax.tag._
 
@@ -26,7 +27,7 @@ import scala.util.{Failure, Success}
 
 object TriggerRunnerImpl {
 
-  case class Config(
+  final case class Config(
       server: ActorRef[Message],
       triggerInstance: UUID,
       party: Party,
@@ -35,7 +36,10 @@ object TriggerRunnerImpl {
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
-  )
+  ) {
+    private[trigger] def loggingExtension: Map[String, String] =
+      trigger.loggingExtension + ("triggerId" -> triggerInstance.toString)
+  }
 
   import TriggerRunner.{Message, Stop}
   final private case class Failed(error: Throwable) extends Message
@@ -43,16 +47,19 @@ object TriggerRunnerImpl {
   final private case class QueriedACS(runner: Runner, acs: Seq[CreatedEvent], offset: LedgerOffset)
       extends Message
 
+  private[this] val logger = ContextualizedLogger get getClass
+
   def apply(config: Config)(
       implicit esf: ExecutionSequencerFactory,
-      mat: Materializer): Behavior[Message] =
+      mat: Materializer,
+      loggingContext: LoggingContextOf[Config with Trigger]): Behavior[Message] =
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
       implicit val ec: ExecutionContext = ctx.executionContext
       val triggerInstance = config.triggerInstance
       // Report to the server that this trigger is starting.
       config.server ! TriggerStarting(triggerInstance)
-      ctx.log.info(s"Trigger $name is starting")
+      logger.info(s"Trigger $name is starting")
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,
@@ -148,6 +155,7 @@ object TriggerRunnerImpl {
         Behaviors
           .receiveMessagePartial[Message] {
             case Stop =>
+              logger.info(s"Trigger $name is stopping")
               // Don't think about trying to send the server a message
               // here. It won't receive it (I found out the hard way).
               Behaviors.stopped
@@ -165,7 +173,7 @@ object TriggerRunnerImpl {
               // Don't think about trying to send the server a message
               // here. It won't receive it (many Bothans died to bring
               // us this information).
-              ctx.log.info(s"Trigger $name is stopping")
+              logger.info(s"Trigger $name stopped")
               killSwitch.shutdown
               Behaviors.stopped
             case (_, PreRestart) =>
@@ -173,7 +181,7 @@ object TriggerRunnerImpl {
               // already been informed of the earlier failure and in
               // the process of being restarted, will be informed of
               // the start along the way.
-              ctx.log.info(s"Trigger $name is being restarted")
+              logger.info(s"Trigger $name is being restarted")
               Behaviors.same
           }
 

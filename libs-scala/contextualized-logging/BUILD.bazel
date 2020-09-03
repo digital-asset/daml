@@ -10,12 +10,17 @@ load(
 da_scala_library(
     name = "contextualized-logging",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = ["-Xsource:2.13"],
     tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//libs-scala/grpc-utils",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_grpc_grpc_api",
