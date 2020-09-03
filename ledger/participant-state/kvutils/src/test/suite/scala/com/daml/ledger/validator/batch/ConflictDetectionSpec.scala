@@ -132,7 +132,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
         DamlStateKey.newBuilder
           .setContractKey(
             DamlContractKey.newBuilder
-              .setHash(ByteString.copyFromUtf8("somehash"))
+              .setHash(ByteString.copyFromUtf8("some hash"))
               .setTemplateId(
                 ValueOuterClass.Identifier.newBuilder
                   .addName("Foo")
