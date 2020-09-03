@@ -23,7 +23,7 @@ import com.daml.metrics.Metrics
   *
   * @param reader       [[LedgerReader]] instance to adapt
   * @param writer       [[LedgerWriter]] instance to adapt
-  * @param materializer materializer to use when streaming updates from `reader`
+  * @param metrics      used to record timing metrics for [[LedgerWriter]] calls
   */
 class KeyValueParticipantState(
     reader: LedgerReader,

@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.v1
 import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.api.health.ReportsHealth
-import com.github.ghik.silencer.silent
 
 /** An interface to change a ledger via a participant.
   *
@@ -95,21 +94,10 @@ trait WriteService
     *                                    handling submitted transactions differently.
     * @return an async result of a SubmissionResult
     */
-  @silent(
-    "method submitTransaction in trait WriteService is deprecated \\(since 1.3.0\\): Will be removed in 1.4.0|estimatedInterpretationCost.*never used")
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] =
-    submitTransaction(submitterInfo, transactionMeta, transaction)
-
-  @deprecated("Will be removed in 1.4.0", since = "1.3.0")
-  def submitTransaction(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction,
-  ): CompletionStage[SubmissionResult] =
-    submitTransaction(submitterInfo, transactionMeta, transaction, 0)
+  ): CompletionStage[SubmissionResult]
 }
