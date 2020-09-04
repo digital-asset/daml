@@ -20,16 +20,24 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
   private[this] val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")
   private[this] val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")
 
-  private[this] implicit val parserParameters: ParserParameters[this.type] =
+  val parserParameters1: ParserParameters[this.type] =
     com.daml.lf.testing.parser.Implicits.defaultParserParameters.copy(
       defaultPackageId = pkgId1
     )
 
-  private[this] val pkg1 =
+  val parserParameters2: ParserParameters[this.type] =
+    com.daml.lf.testing.parser.Implicits.defaultParserParameters.copy(
+      defaultPackageId = pkgId2
+    )
+
+  private[this] val pkg1 = {
+    implicit def parserParameters: ParserParameters[this.type] = parserParameters1
+
     p"""
         module Mod {
           variant Either a b = Left : a | Right : b ;
           record MyUnit = { };
+          record Box a = { x: a };
           record Tuple a b = { fst: a, snd: b };
           enum Color = Red | Green | Blue;
 
@@ -44,30 +52,28 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
           };
         }
 
-        module a {
-          enum a = ;
-          enum b = ;
+        module A {
+          enum A = ;
+          enum B = ;
         }
 
-        module b {
-          enum a = ;
-          enum b = ;
+        module B {
+          enum A = ;
+          enum B = ;
         }
 
 
     """
+  }
 
   private[this] val pkg2 = {
 
-    implicit val parserParameters: ParserParameters[this.type] =
-      com.daml.lf.testing.parser.Implicits.defaultParserParameters.copy(
-        defaultPackageId = pkgId2
-      )
+    implicit def parserParameters: ParserParameters[this.type] = parserParameters2
 
     p"""
-         module a {
-          enum a = ;
-          enum b = ;
+         module A {
+          enum A = ;
+          enum B = ;
         }
 
     """
@@ -83,6 +89,8 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
   )
 
   "generic comparison builtins" should {
+
+    implicit def parserParameters: ParserParameters[this.type] = parserParameters1
 
     "respects specified order" in {
 
@@ -106,12 +114,11 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
             e"2020-02-02T20:20:02.020000Z",
           ),
           t"Party" -> List(e"'alice'", e"'bob'", e"'carol'"),
-          /// Table("ContractId", contractIds: _*),
           t"Mod:Color" -> List(e"Mod:Color:Red", e"Mod:Color:Green", e"Mod:Color:Blue"),
           t"Mod:MyUnit" -> List(e"Mod:MyUnit {}"),
           // Contract IDs cannot be built from expressions.
           // We map at runtime the variables `cid1`, `cid2` and, `cid3` two 3 contract IDs in increasing order.
-          t"ContractId Mod:Template" -> List(e"cid1", e"cid2", e"cid3"),
+//          t"ContractId Mod:Template" -> List(e"cid1", e"cid2", e"cid3"),
           /// Type Representations
           t"Mod:TypRep" ->
             List(
@@ -119,35 +126,44 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
               e"type_rep @Bool",
               e"type_rep @Int64",
               e"type_rep @Text",
-              e"type_rep @Numeric",
               e"type_rep @Timestamp",
               e"type_rep @Date",
               e"type_rep @Party",
-              e"type_rep @ContractId",
-              e"type_rep @Arrow",
-              e"type_rep @Option",
-              e"type_rep @List",
-              e"type_rep @TextMap",
-              e"type_rep @GenMap",
               e"type_rep @Any",
               e"type_rep @TypeRep",
-              e"type_rep @Update",
-              e"type_rep @Scenario",
+              e"type_rep @Mod:Template",
+            ),
+          t"Mod:TypRep" ->
+            List(
+              e"type_rep @(Numeric 0)",
+              e"type_rep @(ContractId Mod:Template)",
+              e"type_rep @(Option Mod:Template)",
+              e"type_rep @(List Mod:Template)",
+              e"type_rep @(TextMap Mod:Template)",
+              e"type_rep @(Update Mod:Template)",
+              e"type_rep @(Scenario Mod:Template)",
+              e"type_rep @(Mod:Box Mod:Template)",
+            ),
+          t"Mod:TypRep" ->
+            List(
+              e"type_rep @(Arrow Mod:Template  Mod:Template)",
+              e"type_rep @(GenMap Mod:Template  Mod:Template)",
+              e"type_rep @(Mod:Tuple Mod:Template  Mod:Template)",
             ),
           t"Mod:TypeRep" ->
             List(
-              e"type_rep @0",
-              e"type_rep @10",
-              e"type_rep @37",
+              e"type_rep @(Numeric 0)",
+              e"type_rep @(Numeric 10)",
+              e"type_rep @(Numeric 37)",
             ),
           t"Mod:TypeRep" ->
             List(
-              e"type_rep @'-packageId1-':a:a",
-              e"type_rep @'-packageId1-':a:b",
-              e"type_rep @'-packageId1-':b:a",
-              e"type_rep @'-packageId1-':b:b",
-              e"type_rep @'-packageId2-':a:a",
-              e"type_rep @'-packageId2-':a:b",
+              e"type_rep @'-packageId1-':A:A",
+              e"type_rep @'-packageId1-':A:B",
+              e"type_rep @'-packageId1-':B:A",
+              e"type_rep @'-packageId1-':B:B",
+              e"type_rep @'-packageId2-':A:A",
+              e"type_rep @'-packageId2-':A:B",
             ),
           t"Mod:TypeRep" ->
             List(
@@ -162,21 +178,21 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
             ),
           t"Mod:TypeRep" ->
             List(
-              e"type_rep @(Arrow Unit)",
-              e"type_rep @(Arrow Int64)",
               e"type_rep @(Option Unit)",
               e"type_rep @(Option Int64)",
+              e"type_rep @(List Unit)",
+              e"type_rep @(List Int64)",
             ),
           t"Mod:TypeRep" ->
             List(
               e"type_rep @Unit",
-              e"type_rep @Scenario",
+              e"type_rep @Party",
               e"type_rep @a:a",
               e"type_rep @b:b",
               e"type_rep @5",
               e"type_rep @20",
               e"type_rep @<field: Unit>",
-              e"type_rep @(Arrow Unit)",
+              e"type_rep @(Option Unit)",
               e"type_rep @(Arrow Unit Unit)",
             ),
           // 1 level nested values
@@ -200,7 +216,7 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
               e"<fst = 1, snd = 0>",
               e"<fst = 1, snd = 1>"
             ),
-          t"Optional Text" ->
+          t"Option Text" ->
             List(
               e""" None @Text """,
               e""" Some @Text "A" """,
@@ -239,6 +255,7 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
               e"""GENMAP_INSERT @Text @Int64 "a" 2 (GENMAP_INSERT @Text @Int64 "b" 1 (GENMAP_EMPTY @Text @Int64))""",
               e"""GENMAP_INSERT @Text @Int64 "a" 2 (GENMAP_INSERT @Text @Int64 "b" 2 (GENMAP_EMPTY @Text @Int64))""",
               e"""GENMAP_INSERT @Text @Int64 "a" 2 (GENMAP_INSERT @Text @Int64 "b" 2 (GENMAP_INSERT @Text @Int64 "c" 3 (GENMAP_EMPTY @Text @Int64)))""",
+              e"""GENMAP_INSERT @Text @Int64 "b" 1 (GENMAP_EMPTY @Text @Int64)""",
             ),
           // 2 level nested values
           t"Mod:Tuple (Option Text) (Option Int64)" ->
@@ -355,7 +372,6 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
     }
 
     // FIXME: comparison is broken for struct.
-
     "should not distinguish struct built in different order" ignore {
 
       val typ = t"""<first = Int64, second = Int64, third = Int64>"""
@@ -368,12 +384,12 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
       )
 
       forEvery(builtins) {
-        case (bi, _) =>
+        case (bi, result) =>
+          val expectedResult = Right(SValue.SBool(result(0)))
           forEvery(values) { x =>
-            eval(bi, typ, x, x) shouldBe 'right
             forEvery(values) { y =>
-              eval(bi, typ, x, y) shouldBe 'left
-              eval(bi, typ, y, x) shouldBe 'right
+              eval(bi, typ, x, y) shouldBe expectedResult
+              eval(bi, typ, y, x) shouldBe expectedResult
             }
           }
       }
@@ -610,9 +626,14 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
 
   private[this] val compiledPackages = PureCompiledPackages(Map(pkgId1 -> pkg1, pkgId2 -> pkg2)).right.get
 
-  private[this] val binder1 = Ref.Name.assertFromString("cid1") -> t"ContractId Mod:Template"
-  private[this] val binder2 = Ref.Name.assertFromString("cid2") -> t"ContractId Mod:Template"
-  private[this] val binder3 = Ref.Name.assertFromString("cid3") -> t"ContractId Mod:Template"
+  private[this] val binderType = {
+    implicit def parserParameters: ParserParameters[this.type] = parserParameters1
+    t"ContractId Mod:Template"
+  }
+
+  private[this] val binder1 = Ref.Name.assertFromString("cid1") -> binderType
+  private[this] val binder2 = Ref.Name.assertFromString("cid2") -> binderType
+  private[this] val binder3 = Ref.Name.assertFromString("cid3") -> binderType
 
   private[this] val contractIds =
     Array(
