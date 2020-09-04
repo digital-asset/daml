@@ -103,10 +103,10 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
           t"Int64" -> List(e"-3", e"0", e"1"),
           t"Decimal" -> List(e"-10000.0000000000", e"0.0000000000", e"10000.0000000000"),
           t"Numeric 0" -> List(e"-10000.", e"0.", e"10000."),
-          t"Text" -> List(
-            e""""a bit of text"""",
-            e""""some other text"""",
-            e""""some other text again""""),
+          t"Text" ->
+            // Note that in UTF8  "｡" < "😂" but in UTF16 "｡" > "😂"
+            List("a bit of text", "some other text", "some other text again", "｡", "😂")
+              .map(t => Ast.EPrimLit(Ast.PLText(t))),
           t"Date" -> List(e"1969-07-21", e"1970-01-01", e"2020-02-02"),
           t"Timestamp" -> List(
             e"1969-07-21T02:56:15.000000Z",
@@ -118,7 +118,7 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
           t"Mod:MyUnit" -> List(e"Mod:MyUnit {}"),
           // Contract IDs cannot be built from expressions.
           // We map at runtime the variables `cid1`, `cid2` and, `cid3` two 3 contract IDs in increasing order.
-//          t"ContractId Mod:Template" -> List(e"cid1", e"cid2", e"cid3"),
+          t"ContractId Mod:Template" -> List(e"cid1", e"cid2", e"cid3"),
           /// Type Representations
           t"Mod:TypRep" ->
             List(
