@@ -867,7 +867,6 @@ to remove dependence on the order of fields ::
    |Mod:S τ₁ … τₙ|   ↠   σ[α₁ ↦ σ₁, …, αₙ ↦ σₙ]
 
    τ₁ ↠ σ₁   ⋯   τₙ  ↠  σₙ
-   f₁, …, fₘ are mutually distinct
    [f₁, …, fₘ] sorts lexicographically to [fⱼ₁, …, fⱼₘ]
   ———————————————————————————————————————————————— RewriteStruct
    ⟨ f₁: τ₁, …, fₘ: τₘ ⟩ ↠ ⟨ fⱼ₁: σⱼ₁, …, fⱼₘ: σⱼₘ ⟩
@@ -1152,6 +1151,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  Mod:T:Eᵢ  :  Mod:T
 
       ⟨ f₁: τ₁, …, fₘ: τₘ ⟩ ↠ σ
+      Γ  ⊢  σ  :  ⋆
       Γ  ⊢  e₁  :  τ₁      ⋯      Γ  ⊢  eₘ  :  τₘ
     ——————————————————————————————————————————————————————————————— ExpStructCon
       Γ  ⊢  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩  :  σ
