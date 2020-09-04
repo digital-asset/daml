@@ -15,7 +15,8 @@
        Set to TRACE for troubleshooting.
   -->
   <logger name="com.daml" level="DEBUG"/>
-  <logger name="com.digitalasset" level="DEBUG"/>
+  <!-- canton logs left at INFO to keep in check log file length and readability to "general daml-ledger" audience -->
+  <logger name="com.digitalasset" level="INFO"/>
   <!-- netty reports ssl errors on DEBUG level ... -->
-  <logger name="io.netty.handler.ssl" level="DEBUG"/>
+  <logger name="io.netty.handler.ssl" level="INFO"/>
 </configuration>
