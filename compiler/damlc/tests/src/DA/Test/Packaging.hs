@@ -1,6 +1,5 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
 module DA.Test.Packaging (main) where
 
 import qualified "zip-archive" Codec.Archive.Zip as Zip
@@ -17,6 +16,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
 import Data.List.Extra
 import Data.Maybe
+import qualified Data.NameMap as NM
 import Module (unitIdString)
 import System.Directory.Extra
 import System.Environment.Blank
@@ -1714,6 +1714,68 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             , "matchD d ="
             , "  case d of"
             , "    D () -> ()"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
+
+    , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
+        step "building project with implicit parameters"
+        createDirectoryIfMissing True (tmpDir </> "dep")
+        writeFileUTF8 (tmpDir </> "dep" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: dep"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "dep" </> "Foo.daml") $ unlines
+            [ "module Foo where"
+            , "f : Scenario ()"
+            , "f = scenario do"
+            , "  p <- getParty \"p\""
+            , "  submit p $ pure ()"
+            , "  submit p $ pure ()"
+            -- This will produce two implicit instances.
+            -- GHC occasionally seems to inline those instances and I don’t understand
+            -- how to reliably stop it from doing this therefore,
+            -- we assert that the instance actually exists.
+            ]
+        withCurrentDirectory (tmpDir </> "dep") $
+            callProcessSilent damlc ["build", "-o", "dep.dar"]
+        Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (tmpDir </> "dep" </> "dep.dar")
+        (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
+
+        Just mod <- pure $ NM.lookup (LF.ModuleName ["Foo"]) (LF.packageModules pkg)
+        let callStackInstances = do
+                v@LF.DefValue{dvalBinder = (_, ty)} <- NM.toList (LF.moduleValues mod)
+                LF.TSynApp
+                  (LF.Qualified _ (LF.ModuleName ["GHC", "Classes"]) (LF.TypeSynName ["IP"]))
+                  [ _
+                  , LF.TCon
+                      (LF.Qualified
+                         _
+                         (LF.ModuleName ["GHC", "Stack", "Types"])
+                         (LF.TypeConName ["CallStack"])
+                      )
+                  ] <- pure ty
+                pure v
+        assertEqual "Expected two implicit CallStack" (length callStackInstances) 2
+
+        step "building project that uses it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "dep" </> "dep.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import Foo"
+            , "g = f"
             ]
         withCurrentDirectory (tmpDir </> "proj") $
             callProcessSilent damlc ["build"]
