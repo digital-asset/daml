@@ -204,7 +204,7 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
             List(
               e""" None @Text """,
               e""" Some @Text "A" """,
-              e""" Some @Text "AA" """,
+              e""" Some @Text "B" """,
             ),
           t"List Int64" ->
             List(
@@ -221,12 +221,13 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
             List(
               e"TEXTMAP_EMPTY @Int64",
               e"""TEXTMAP_INSERT @Int64 "a" 1 (TEXTMAP_EMPTY @Int64)""",
-              e"""TEXTMAP_INSERT @Int64 "a" 1 (TEXTMAP_INSERT @Int64"b" 1 (TEXTMAP_EMPTY @Int64))""",
-              e"""TEXTMAP_INSERT @Int64 "a" 1 (TEXTMAP_INSERT @Int64"b" 2 (TEXTMAP_EMPTY @Int64))""",
+              e"""TEXTMAP_INSERT @Int64 "a" 1 (TEXTMAP_INSERT @Int64 "b" 1 (TEXTMAP_EMPTY @Int64))""",
+              e"""TEXTMAP_INSERT @Int64 "a" 1 (TEXTMAP_INSERT @Int64 "b" 2 (TEXTMAP_EMPTY @Int64))""",
               e"""TEXTMAP_INSERT @Int64 "a" 2 (TEXTMAP_EMPTY @Int64)""",
               e"""TEXTMAP_INSERT @Int64 "a" 2 (TEXTMAP_INSERT @Int64 "b" 1 (TEXTMAP_EMPTY @Int64))""",
               e"""TEXTMAP_INSERT @Int64 "a" 2 (TEXTMAP_INSERT @Int64 "b" 2 (TEXTMAP_EMPTY @Int64))""",
               e"""TEXTMAP_INSERT @Int64 "a" 2 (TEXTMAP_INSERT @Int64 "b" 2 (TEXTMAP_INSERT @Int64 "c" 3 (TEXTMAP_EMPTY @Int64)))""",
+              e"""TEXTMAP_INSERT @Int64 "b" 1 (TEXTMAP_EMPTY @Int64)""",
             ),
           t"GenMap Text Int64" ->
             List(
