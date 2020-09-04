@@ -154,11 +154,11 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
               e"type_rep @<field0: Unit>",
               e"type_rep @<field0: Int64>",
               e"type_rep @<field1: Unit>",
-              e"type_rep @<field1: Unit, filed2: Unit>",
-              e"type_rep @<field1: Unit, filed2: Int64>",
-              e"type_rep @<field1: Int64, filed2: Unit>",
-              e"type_rep @<field1: Int64, filed2: Int64>",
-              e"type_rep @<field1: Unit, filed3: Unit>",
+              e"type_rep @<field1: Unit, field2: Unit>",
+              e"type_rep @<field1: Unit, field2: Int64>",
+              e"type_rep @<field1: Int64, field2: Unit>",
+              e"type_rep @<field1: Int64, field2: Int64>",
+              e"type_rep @<field1: Unit, field3: Unit>",
             ),
           t"Mod:TypeRep" ->
             List(
