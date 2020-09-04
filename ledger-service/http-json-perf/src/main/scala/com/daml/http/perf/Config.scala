@@ -7,15 +7,17 @@ import java.io.File
 
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
+import scalaz.{Applicative, Traverse}
 import scopt.RenderingMode
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.language.higherKinds
 
-private[perf] final case class Config(
-    scenario: String,
+private[perf] final case class Config[+S](
+    scenario: S,
     dars: List[File],
     jwt: Jwt,
-    reportsDir: Option[File],
+    reportsDir: File,
     maxDuration: Option[FiniteDuration]
 ) {
   override def toString: String =
@@ -23,21 +25,34 @@ private[perf] final case class Config(
       s"scenario=${this.scenario}, " +
       s"dars=${dars: List[File]}," +
       s"jwt=..., " + // don't print the JWT
-      s"reportsDir=${reportsDir: Option[File]}," +
+      s"reportsDir=${reportsDir: File}," +
       s"maxDuration=${this.maxDuration: Option[FiniteDuration]}" +
       ")"
 }
 
 private[perf] object Config {
   val Empty =
-    Config(scenario = "", dars = List.empty, jwt = Jwt(""), reportsDir = None, maxDuration = None)
+    Config[String](
+      scenario = "",
+      dars = List.empty,
+      jwt = Jwt(""),
+      reportsDir = new File(""),
+      maxDuration = None)
 
-  def parseConfig(args: Seq[String]): Option[Config] =
+  implicit val configInstance: Traverse[Config] = new Traverse[Config] {
+    override def traverseImpl[G[_]: Applicative, A, B](fa: Config[A])(
+        f: A => G[B]): G[Config[B]] = {
+      import scalaz.syntax.functor._
+      f(fa.scenario).map(b => Empty.copy(scenario = b))
+    }
+  }
+
+  def parseConfig(args: Seq[String]): Option[Config[String]] =
     configParser.parse(args, Config.Empty)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  private val configParser: scopt.OptionParser[Config] =
-    new scopt.OptionParser[Config]("http-json-perf-binary") {
+  private val configParser: scopt.OptionParser[Config[String]] =
+    new scopt.OptionParser[Config[String]]("http-json-perf-binary") {
       override def renderingMode: RenderingMode = RenderingMode.OneColumn
 
       head("JSON API Perf Test Tool")
@@ -61,7 +76,7 @@ private[perf] object Config {
         .text("JWT token to use when connecting to JSON API.")
 
       opt[File]("reports-dir")
-        .action((x, c) => c.copy(reportsDir = Some(x)))
+        .action((x, c) => c.copy(reportsDir = x))
         .optional()
         .text("Directory where reports generated. If not set, reports will not be generated.")
 
