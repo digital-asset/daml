@@ -559,7 +559,7 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
           ),
         ),
         Test(
-          typ = TStruct(Struct(fstName -> T, sndName -> T)),
+          typ = TStruct(Struct.assertFromSeq(List(fstName -> T, sndName -> T))),
           negativeTestCases = List(
             tupleS(X1, U) -> tupleS(X2, U),
           ),
