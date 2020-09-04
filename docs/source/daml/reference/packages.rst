@@ -186,6 +186,8 @@ When importing packages this way, the DAML compiler will try to reconstruct the 
 
 Because of their flexibility, data-dependencies are a tool that is recommended for performing DAML model upgrades. See the :ref:`upgrade documentation <upgrade-overview>` for more details.
 
+.. _module_collisions:
+
 Handling module name collisions
 *******************************
 
