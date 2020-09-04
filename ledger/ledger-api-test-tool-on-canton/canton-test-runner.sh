@@ -9,7 +9,6 @@ set -o pipefail
 CANTON_COMMAND=(
   "$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton)"
   daemon
-  "-d"
   "--config=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton.conf)"
   "--bootstrap=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/bootstrap.canton)"
 )
@@ -64,6 +63,7 @@ HOME="$(mktemp -d)"
 export HOME
 # ammonite calls `System.getProperty('user.home')` which does not read $HOME.
 command+=("--wrapper_script_flag=--jvm_flag=-Duser.home=$HOME")
+command+=("--wrapper_script_flag=--jvm_flag=-Dlogback.configurationFile=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/logback-debug.xml)")
 
 echo >&2 'Starting Canton...'
 "${command[@]}" &
