@@ -624,12 +624,15 @@ final class Conversions(
         builder.setTuple(
           proto.Tuple.newBuilder
             .addAllFields(
-              fields.toSeq.map { field =>
-                proto.Field.newBuilder
-                  .setLabel(field._1)
-                  .setValue(convertValue(field._2))
-                  .build
-              }.asJava,
+              fields.iterator
+                .map { field =>
+                  proto.Field.newBuilder
+                    .setLabel(field._1)
+                    .setValue(convertValue(field._2))
+                    .build
+                }
+                .toSeq
+                .asJava,
             )
             .build,
         )

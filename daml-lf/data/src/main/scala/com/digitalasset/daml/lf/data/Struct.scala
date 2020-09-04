@@ -4,7 +4,14 @@
 package com.daml.lf
 package data
 
-import com.daml.lf.data.Ref.Name
+import IdString.`Name order instance`
+import Ref.Name
+import ScalazEqual._
+
+import scalaz.std.iterable._
+import scalaz.std.tuple._
+import scalaz.syntax.order._
+import scalaz.{Equal, Order}
 
 /** We use this container to describe structural record as sorted flat list in various parts of the codebase.
     `entries` are sorted by their first component without duplicate.
@@ -76,5 +83,15 @@ object Struct {
   val Empty: Struct[Nothing] = new Struct(ImmArray.empty)
 
   private[this] val rightEmpty = Right(Empty)
+
+  implicit def structEqualInstance[X: Equal]: Equal[Struct[X]] =
+    _.toImmArray === _.toImmArray
+
+  implicit def structOrderInstance[X: Order]: Order[Struct[X]] =
+    // following daml-lf specification, this considers first names, then values.
+    orderBy(
+      s => (toIterableForScalazInstances(s.names), toIterableForScalazInstances(s.values)),
+      true,
+    )
 
 }
