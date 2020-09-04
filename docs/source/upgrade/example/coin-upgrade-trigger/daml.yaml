@@ -9,6 +9,7 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - path/to/daml-trigger.dar
+  - path/to/daml-script.dar
 data-dependencies:
   - path/to/coin-upgrade-1.0.0.dar
   - path/to/coin-1.0.0.dar

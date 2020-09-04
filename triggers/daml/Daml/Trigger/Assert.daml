@@ -21,18 +21,21 @@ import Daml.Trigger
 import Daml.Trigger.Internal
 import Daml.Trigger.LowLevel hiding (Trigger)
 
+import Daml.Script (Script, queryContractId)
+
 -- | Used to construct an 'ACS' for 'testRule'.
-newtype ACSBuilder = ACSBuilder [Update (AnyContractId, AnyTemplate)]
+newtype ACSBuilder = ACSBuilder (Party -> [Script (AnyContractId, AnyTemplate)])
 
 instance Semigroup ACSBuilder where
-  ACSBuilder l <> ACSBuilder r = ACSBuilder (l <> r)
+  ACSBuilder l <> ACSBuilder r =
+    ACSBuilder (\p -> l p <> r p)
 
 instance Monoid ACSBuilder where
-  mempty = ACSBuilder mempty
+  mempty = ACSBuilder (const mempty)
 
-buildACS : Party -> ACSBuilder -> Scenario ACS
+buildACS : Party -> ACSBuilder -> Script ACS
 buildACS party (ACSBuilder fetches) = do
-  activeContracts <- submit party $ sequence fetches
+  activeContracts <- sequence (fetches party)
   pure ACS
     { activeContracts = activeContracts
     , pendingContracts = Map.empty
@@ -40,8 +43,10 @@ buildACS party (ACSBuilder fetches) = do
 
 -- | Include the given contract in the 'ACS'.
 toACS : Template t => ContractId t -> ACSBuilder
-toACS cid = ACSBuilder
-  [fetch cid >>= \tpl -> pure (toAnyContractId cid, toAnyTemplate tpl)]
+toACS cid = ACSBuilder $ \p ->
+  [ do Some t <- queryContractId p cid
+       pure (toAnyContractId cid, toAnyTemplate t)
+  ]
 
 -- | Execute a trigger's rule once in a scenario.
 testRule
@@ -50,7 +55,7 @@ testRule
   -> ACSBuilder  -- ^ List these contracts in the 'ACS'.
   -> Map CommandId [Command]  -- ^ The commands in flight.
   -> s  -- ^ The trigger state.
-  -> Scenario [Commands]  -- ^ The 'Commands' emitted by the rule. The 'CommandId's will start from @"0"@.
+  -> Script [Commands]  -- ^ The 'Commands' emitted by the rule. The 'CommandId's will start from @"0"@.
 testRule trigger party acsBuilder commandsInFlight s = do
   time <- getTime
   acs <- buildACS party acsBuilder

@@ -17,7 +17,7 @@ DAML_LF_VERSIONS = [
 [
     genrule(
         name = "daml-trigger{}".format(suffix),
-        srcs = glob(["**/*.daml"]),
+        srcs = glob(["**/*.daml"]) + ["//daml-script/daml:daml-script{}".format(suffix)],
         outs = ["daml-trigger{}.dar".format(suffix)],
         cmd = """
           set -eou pipefail
@@ -27,6 +27,7 @@ DAML_LF_VERSIONS = [
           cp -L $(location Daml/Trigger/Assert.daml) $$TMP_DIR/daml/Daml/Trigger
           cp -L $(location Daml/Trigger/Internal.daml) $$TMP_DIR/daml/Daml/Trigger
           cp -L $(location Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
           cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: daml-trigger
@@ -35,6 +36,7 @@ version: {ghc}
 dependencies:
   - daml-stdlib
   - daml-prim
+  - daml-script.dar
 build-options: {build_options}
 EOF
           $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
@@ -47,6 +49,7 @@ EOF
                 "--target",
                 lf_version,
             ] if lf_version else []),
+            daml_script = "//daml-script/daml:daml-script{}".format(suffix),
             sdk = sdk_version,
             ghc = ghc_version,
         ),
@@ -68,18 +71,47 @@ filegroup(
 
 genrule(
     name = "daml-trigger-rst-docs",
-    srcs = glob(["**/*.daml"]) + [":daml-trigger-rst-template.rst"],
+    srcs = glob(["**/*.daml"]) + [
+        ":daml-trigger-rst-template.rst",
+        "//daml-script/daml:daml-script",
+    ],
     outs = ["daml-trigger.rst"],
     cmd = """
-        $(location //compiler/damlc) -- docs \
+          TMP_DIR=$$(mktemp -d)
+          mkdir -p $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location Daml/Trigger.daml) $$TMP_DIR/daml/Daml
+          cp -L $(location Daml/Trigger/Assert.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location Daml/Trigger/Internal.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $$PWD/$(location {daml_script}) $$TMP_DIR/daml-script.dar
+          cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: daml-trigger
+source: daml
+version: {ghc}
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script.dar
+EOF
+        DAMLC=$$PWD/$(location //compiler/damlc)
+        TEMPLATE=$$PWD/$(location :daml-trigger-rst-template.rst)
+        RST=$$PWD/$(location :daml-trigger.rst)
+        cd $$TMP_DIR
+        $$DAMLC init
+        $$DAMLC -- docs \
             --combine \
-            --output=$(location :daml-trigger.rst) \
+            --output=$$RST \
             --format=Rst \
-            --template=$(location :daml-trigger-rst-template.rst) \
-            $(location Daml/Trigger.daml) \
-            $(location Daml/Trigger/Assert.daml) \
-            $(location Daml/Trigger/LowLevel.daml)
-    """,
+            --template=$$TEMPLATE \
+            $$TMP_DIR/daml/Daml/Trigger.daml \
+            $$TMP_DIR/daml/Daml/Trigger/Assert.daml \
+            $$TMP_DIR/daml/Daml/Trigger/LowLevel.daml
+    """.format(
+        daml_script = "//daml-script/daml:daml-script",
+        sdk = sdk_version,
+        ghc = ghc_version,
+    ),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )

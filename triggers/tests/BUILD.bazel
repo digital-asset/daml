@@ -18,6 +18,7 @@ genrule(
     srcs =
         glob(["**/*.daml"]) + [
             "//triggers/daml:daml-trigger.dar",
+            "//daml-script/daml:daml-script.dar",
             "//docs:source/triggers/template-root/src/CopyTrigger.daml",
         ],
     outs = ["acs.dar"],
@@ -37,7 +38,8 @@ genrule(
       cp -L $(location :daml/Time.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Heartbeat.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
+      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/daml-trigger.dar
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/daml-script.dar
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: acs
@@ -47,6 +49,7 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - daml-trigger.dar
+  - daml-script.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
       rm -rf $$TMP_DIR

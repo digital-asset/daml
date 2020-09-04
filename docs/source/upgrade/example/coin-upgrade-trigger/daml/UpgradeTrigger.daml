@@ -9,6 +9,8 @@ import qualified DA.Next.Map as Map
 import DA.Next.Map (Map)
 import Daml.Trigger
 import Daml.Trigger.Assert
+import qualified Daml.Script as Script
+import Daml.Script (script)
 
 import CoinV1
 import UpgradeFromCoinV1
@@ -40,16 +42,16 @@ triggerRule issuer acs _ _ _ = do
         [toAnyContractId coinCid]
 -- TRIGGER_RULE_END
 
--- TODO (MK) The Bazel rule atm doesn’t run this scenario, we should fix that.
-test = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+-- TODO (MK) The Bazel rule atm doesn’t run this script, we should fix that.
+test = script do
+  alice <- Script.allocateParty "Alice"
+  bob <- Script.allocateParty "Bob"
 
-  coinProposal <- submit alice $ create (CoinProposal alice bob)
-  coin <- submit bob $ exercise coinProposal CoinProposal_Accept
+  coinProposal <- submit alice $ Script.createCmd (CoinProposal alice bob)
+  coin <- submit bob $ Script.exerciseCmd coinProposal CoinProposal_Accept
 
-  upgradeProposal <- submit alice $ create (UpgradeCoinProposal alice bob)
-  upgradeAgreement <- submit bob $ exercise upgradeProposal Accept
+  upgradeProposal <- submit alice $ Script.createCmd (UpgradeCoinProposal alice bob)
+  upgradeAgreement <- submit bob $ Script.exerciseCmd upgradeProposal Accept
 
   let acs = toACS coin <> toACS upgradeAgreement
 
