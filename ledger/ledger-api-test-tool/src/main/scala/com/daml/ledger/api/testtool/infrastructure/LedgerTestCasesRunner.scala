@@ -120,10 +120,8 @@ final class LedgerTestCasesRunner(
 
     def uploadDars(participantSessionManager: ParticipantSessionManager): Future[Unit] =
       Future
-        .sequence(config.participants.map { hostAndPort =>
-          val participant = config.forParticipant(hostAndPort)
+        .sequence(participantSessionManager.all.map { session =>
           for {
-            session <- participantSessionManager.getOrCreate(participant)
             context <- session.createInitContext("upload-dars", identifierSuffix)
             _ <- Future.sequence(Dars.resources.map { name =>
               logger.info("Uploading DAR \"{}\"...", name)
@@ -153,23 +151,31 @@ final class LedgerTestCasesRunner(
     }
 
     val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
-    val participantSessionManager = new ParticipantSessionManager
-    val testResults =
-      for {
-        ledgerSession <- LedgerSession(config, participantSessionManager)
-        _ <- uploadDars(participantSessionManager)
-        concurrentTestResults <- runTests(ledgerSession, concurrentTestCases, concurrentTestRuns)
-        sequentialTestResults <- runTests(ledgerSession, sequentialTestCases, concurrency = 1)
-      } yield concurrentTestResults ++ sequentialTestResults
+    ParticipantSessionManager(config.participants)
+      .flatMap { participantSessionManager =>
+        val ledgerSession = LedgerSession(config, participantSessionManager)
+        val testResults =
+          for {
+            _ <- uploadDars(participantSessionManager)
+            concurrentTestResults <- runTests(
+              ledgerSession,
+              concurrentTestCases,
+              concurrentTestRuns)
+            sequentialTestResults <- runTests(ledgerSession, sequentialTestCases, concurrency = 1)
+          } yield concurrentTestResults ++ sequentialTestResults
 
-    testResults
-      .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }
+        testResults
+          .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }
+          .andThen { case _ => participantSessionManager.closeAll() }
+      }
+      .andThen {
+        case _ =>
+          materializer.shutdown()
+          system.terminate().failed.foreach { throwable =>
+            logger.error("The actor system failed to terminate.", throwable)
+          }
+      }
       .onComplete { result =>
-        participantSessionManager.closeAll()
-        materializer.shutdown()
-        system.terminate().failed.foreach { throwable =>
-          logger.error("The actor system failed to terminate.", throwable)
-        }
         completionCallback(result)
       }
   }

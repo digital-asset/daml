@@ -16,7 +16,7 @@ import scala.concurrent.duration.{DurationInt, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[infrastructure] final class ParticipantSession(
-    val config: ParticipantSessionConfiguration,
+    config: ParticipantSessionConfiguration,
     channel: ManagedChannel,
     eventLoopGroup: NioEventLoopGroup,
     services: LedgerServices,

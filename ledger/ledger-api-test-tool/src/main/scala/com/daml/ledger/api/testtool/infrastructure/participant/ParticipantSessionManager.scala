@@ -9,16 +9,35 @@ import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
-import scala.collection.concurrent.TrieMap
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
-private[infrastructure] final class ParticipantSessionManager {
+private[infrastructure] final class ParticipantSessionManager(
+    sessions: immutable.Map[ParticipantSessionConfiguration, ParticipantSession]
+) {
+  lazy val all: immutable.Seq[ParticipantSession] = sessions.values.toVector
 
-  private[this] val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
+  def get(configuration: ParticipantSessionConfiguration): ParticipantSession =
+    sessions(configuration)
 
-  private[this] val channels = TrieMap.empty[ParticipantSessionConfiguration, ParticipantSession]
+  def closeAll(): Unit =
+    for ((_, session) <- sessions) {
+      session.close()
+    }
+}
 
-  @throws[RuntimeException]
+object ParticipantSessionManager {
+  private val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
+
+  def apply(configs: immutable.Seq[ParticipantSessionConfiguration])(
+      implicit executionContext: ExecutionContext
+  ): Future[ParticipantSessionManager] =
+    for {
+      participantSessions <- Future
+        .traverse(configs)(config => create(config).map(config -> _))
+        .map(_.toMap)
+    } yield new ParticipantSessionManager(participantSessions)
+
   private def create(
       config: ParticipantSessionConfiguration,
   )(implicit ec: ExecutionContext): Future[ParticipantSession] = {
@@ -54,34 +73,4 @@ private[infrastructure] final class ParticipantSessionManager {
     logger.info(s"Connected to participant at ${config.host}:${config.port}.")
     ParticipantSession(config, managedChannel, eventLoopGroup)
   }
-
-  def getOrCreate(
-      configuration: ParticipantSessionConfiguration,
-  )(implicit ec: ExecutionContext): Future[ParticipantSession] =
-    channels.get(configuration) match {
-      case Some(session) =>
-        Future.successful(session)
-      case None =>
-        create(configuration).map { newSession =>
-          channels.putIfAbsent(configuration, newSession) match {
-            // If we got into a race and created two sessions for the same configuration,
-            // drop this one and return the existing session. We need to keep the existing one
-            // because otherwise we could end up closing a session that is being used elsewhere.
-            case Some(session) =>
-              newSession.close()
-              session
-            case None =>
-              newSession
-          }
-        }
-    }
-
-  def close(configuration: ParticipantSessionConfiguration): Unit =
-    channels.get(configuration).foreach(_.close())
-
-  def closeAll(): Unit =
-    for ((_, session) <- channels) {
-      session.close()
-    }
-
 }
