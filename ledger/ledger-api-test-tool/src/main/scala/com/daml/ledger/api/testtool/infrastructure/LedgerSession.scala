@@ -10,6 +10,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.{
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Random
 
 private[infrastructure] final class LedgerSession(
     shuffleParticipants: Boolean,
@@ -18,17 +19,17 @@ private[infrastructure] final class LedgerSession(
   private[infrastructure] def createTestContext(
       applicationId: String,
       identifierSuffix: String,
-  ): Future[LedgerTestContext] =
+  ): Future[LedgerTestContext] = {
+    val sessions =
+      if (shuffleParticipants) Random.shuffle(participantSessions)
+      else participantSessions
     Future
-      .sequence(
-        (if (shuffleParticipants) scala.util.Random.shuffle(participantSessions)
-         else participantSessions)
-          .map {
-            case (endpointId, session) =>
-              session.createTestContext(endpointId, applicationId, identifierSuffix)
-          }
-      )
+      .traverse(sessions) {
+        case (endpointId, session) =>
+          session.createTestContext(endpointId, applicationId, identifierSuffix)
+      }
       .map(new LedgerTestContext(_))
+  }
 }
 
 object LedgerSession {
