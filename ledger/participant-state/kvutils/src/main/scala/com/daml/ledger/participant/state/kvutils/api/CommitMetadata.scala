@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.api
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting}
 import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
-import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
 
