@@ -172,11 +172,11 @@ object LedgerApiTestTool {
       cases: Iterable[LedgerTestCase],
       concurrencyOverride: Option[Int] = None): LedgerTestCasesRunner =
     new LedgerTestCasesRunner(
-      LedgerSessionConfiguration(
+      new LedgerSessionConfiguration(
         config.participants,
-        config.shuffleParticipants,
         config.tlsConfig,
         config.partyAllocation,
+        config.shuffleParticipants,
       ),
       cases.toVector,
       identifierSuffix,
