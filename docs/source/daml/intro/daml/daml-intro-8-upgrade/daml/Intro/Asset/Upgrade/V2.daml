@@ -1,0 +1,75 @@
+module Intro.Asset.Upgrade.V2 where
+
+import qualified Intro.Asset as AssetV1
+import qualified Intro.Asset.Role as RoleV1
+
+import qualified Intro.Asset.V2 as AssetV2
+import qualified Intro.Asset.V2.Role as RoleV2
+
+template UpgradeInvite
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer
+
+    controller owner can
+      Accept_Upgrade
+        : ContractId RoleV2.AssetHolder
+        with
+          holderCid : ContractId RoleV1.AssetHolder
+        do
+          archive holderCid
+          create Upgrade with ..
+          create RoleV2.AssetHolder with
+            issuer
+            owner = [owner]
+
+mapAssetV1ToV2 : AssetV1.Asset -> AssetV2.Asset
+mapAssetV1ToV2 (AssetV1.Asset with .. ) = 
+  AssetV2.Asset with 
+  owner = [owner]
+  ..
+
+template Upgrade
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+
+    controller owner can
+      UpgradeContracts
+        : [ContractId AssetV2.Asset]
+        with
+          assetCids : [ContractId AssetV1.Asset]
+        do
+          let upgradeAsset cid = do
+              asset <- fetch cid
+              assertMsg 
+                ("Asset " <> show asset <> " cannot be upgraded using " <> show this)
+                (asset.owner == owner && asset.issuer == issuer)
+              archive cid
+              create (mapAssetV1ToV2 asset)
+          mapA upgradeAsset assetCids
+    
+    controller issuer can
+      CompleteUpgrade
+        : ()
+        with
+          confirmationCid : ContractId UpgradeConfirmation
+        do
+          confirmation <- fetch confirmationCid
+          assertMsg 
+            ("Upgrade " <> show this <> " cannot be completed using " <> show confirmation)
+            (confirmation.owner == owner && confirmation.issuer == issuer)
+          archive confirmationCid
+
+
+template UpgradeConfirmation
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory owner
+    observer issuer

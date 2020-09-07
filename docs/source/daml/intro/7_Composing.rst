@@ -21,18 +21,18 @@ The model in this section is not a single DAML file, but a DAML project consisti
 DAML projects
 -------------
 
-DAML is organized in packages and modules. A DAML project is specified using a single ``daml.yaml`` file, and compiles into a package. Each DAML file within a project becomes a DAML module. You can start a new project with a skeleton structure using ``daml new project_name`` in the terminal.
+DAML is organized in projects, packages and modules. A DAML project is specified using a single ``daml.yaml`` file, and compiles into a package in DAML's intermediate language, or bytecode equivalent, DAML-LF. Each DAML file within a project becomes a DAML module, which is a bit like a namespace. Each DAML project has a source root specified in the ``source`` parameter inthe project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
 
-Each DAML project has a main source file, which is the entry point for the compiler. A common pattern is to have a main file called ``LibraryModules.daml``, which simply lists all the other modules to include.
+You can start a new project with a skeleton structure using ``daml new project_name`` in the terminal. A minimal project would contain just a ``daml.yaml`` file and an empty directory of source files.
 
-A minimal project would contain just a ``daml.yaml`` file and an empty directory of source files. Take a look at the ``daml.yaml`` for this project:
+ Take a look at the ``daml.yaml`` for the chapter 7 project:
 
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
-You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` lists package dependencies: you should always include ``daml-prim``, and ``daml-stdlib`` gives access to the DAML standard library.
+You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim``, and ``daml-stdlib`` gives access to the DAML Standard Library.
 
-You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` package in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the contract model.
+You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. More on all of this in :doc:`8_Upgrading`.
 
 Project structure
 -----------------
@@ -41,7 +41,7 @@ This project contains an asset holding model for transferrable, fungible assets 
 
 In addition, there are tests in modules ``Test.Intro.Asset``, ``Test.Intro.Asset.Role``, and ``Test.Intro.Asset.Trade``.
 
-All but the last ``.``-separated segment in module names correspond to paths, and the last one to a file name. The folder structure therefore looks like this:
+All but the last ``.``-separated segment in module names correspond to paths relative to the project source directory, and the last one to a file name. The folder structure therefore looks like this:
 
 .. code-block:: none
 
@@ -60,7 +60,7 @@ All but the last ``.``-separated segment in module names correspond to paths, an
   │           └── Asset.daml
   └── daml.yaml
 
-Each file contains the DAML pragma and module header. For example, ``daml/Intro/Asset/Role.daml``:
+Each file contains a module header. For example, ``daml/Intro/Asset/Role.daml``:
 
 .. literalinclude:: daml/daml-intro-7/daml/Intro/Asset/Role.daml
   :language: daml
@@ -297,3 +297,8 @@ Note that principle 2. of the privacy model means that sometimes parties see con
 .. figure:: images/7_Composing/divulgence.png
 
 This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing DAML models for privacy sensitive applications.
+
+Next up
+-------
+
+The model presented here is safe and sound so we could deploy it to production and start trading. But the development of an application doesn't end there. In :doc:`8_Upgrading` you will learn how to upgrade an already running applicaiton to enhance it with new features. In that context you'll learn a bit more about the architecture of DAML, about dependencies, and identifiers as well.
