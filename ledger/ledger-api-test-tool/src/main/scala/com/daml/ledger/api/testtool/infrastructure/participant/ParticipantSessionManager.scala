@@ -17,42 +17,29 @@ import scala.concurrent.duration.SECONDS
 import scala.concurrent.{ExecutionContext, Future}
 
 private[infrastructure] final class ParticipantSessionManager private (
-    sessions: Map[ParticipantSessionConfiguration, SessionParts],
+    sessions: immutable.Seq[Session],
 ) {
-  val allSessions: immutable.Seq[ParticipantSession] = sessions.values.toVector.map(_._1)
+  val allSessions: immutable.Seq[ParticipantSession] = sessions.map(_.session)
 
-  def closeAll(): Unit =
-    for ((config, (_, channel, eventLoopGroup)) <- sessions) {
-      logger.info(s"Disconnecting from participant at ${config.address}...")
-      channel.shutdownNow()
-      if (!channel.awaitTermination(10L, SECONDS)) {
-        sys.error("Channel shutdown stuck. Unable to recover. Terminating.")
-      }
-      logger.info(s"Connection to participant at ${config.address} shut down.")
-      if (!eventLoopGroup
-          .shutdownGracefully(0, 0, SECONDS)
-          .await(10L, SECONDS)) {
-        sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
-      }
-      logger.info(s"Connection to participant at ${config.address} closed.")
+  def disconnectAll(): Unit =
+    for (session <- sessions) {
+      session.disconnect()
     }
 }
 
 object ParticipantSessionManager {
-  private type SessionParts = (ParticipantSession, ManagedChannel, EventLoopGroup)
-
   private val logger = LoggerFactory.getLogger(classOf[ParticipantSessionManager])
 
   def apply(configs: immutable.Seq[ParticipantSessionConfiguration])(
       implicit executionContext: ExecutionContext
   ): Future[ParticipantSessionManager] =
     Future
-      .traverse(configs)(config => connect(config).map(config -> _))
-      .map(participantSessions => new ParticipantSessionManager(participantSessions.toMap))
+      .traverse(configs)(connect)
+      .map(participantSessions => new ParticipantSessionManager(participantSessions))
 
   private def connect(
       config: ParticipantSessionConfiguration,
-  )(implicit ec: ExecutionContext): Future[SessionParts] = {
+  )(implicit ec: ExecutionContext): Future[Session] = {
     logger.info(s"Connecting to participant at ${config.address}...")
     val threadFactoryPoolName = s"grpc-event-loop-${config.host}-${config.port}"
     val daemonThreads = false
@@ -83,6 +70,30 @@ object ParticipantSessionManager {
     channelBuilder.maxInboundMessageSize(10000000)
     val channel = channelBuilder.build()
     logger.info(s"Connected to participant at ${config.address}.")
-    ParticipantSession(config, channel).map(session => (session, channel, eventLoopGroup))
+    ParticipantSession(config, channel).map(session =>
+      new Session(config, session, channel, eventLoopGroup))
   }
+
+  private final class Session(
+      config: ParticipantSessionConfiguration,
+      val session: ParticipantSession,
+      channel: ManagedChannel,
+      eventLoopGroup: EventLoopGroup,
+  ) {
+    def disconnect(): Unit = {
+      logger.info(s"Disconnecting from participant at ${config.address}...")
+      channel.shutdownNow()
+      if (!channel.awaitTermination(10L, SECONDS)) {
+        sys.error("Channel shutdown stuck. Unable to recover. Terminating.")
+      }
+      logger.info(s"Connection to participant at ${config.address} shut down.")
+      if (!eventLoopGroup
+          .shutdownGracefully(0, 0, SECONDS)
+          .await(10L, SECONDS)) {
+        sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
+      }
+      logger.info(s"Connection to participant at ${config.address} closed.")
+    }
+  }
+
 }

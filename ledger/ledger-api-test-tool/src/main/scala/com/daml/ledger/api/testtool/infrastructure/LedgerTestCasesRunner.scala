@@ -171,7 +171,7 @@ final class LedgerTestCasesRunner(
 
         testResults
           .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }
-          .andThen { case _ => participantSessionManager.closeAll() }
+          .andThen { case _ => participantSessionManager.disconnectAll() }
       }
       .andThen {
         case _ =>
