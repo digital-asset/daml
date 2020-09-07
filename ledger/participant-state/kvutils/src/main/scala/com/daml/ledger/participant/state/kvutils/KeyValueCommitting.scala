@@ -35,6 +35,8 @@ class KeyValueCommitting private[daml] (
     engine: Engine,
     metrics: Metrics,
     inStaticTimeMode: Boolean) {
+  import KeyValueCommitting.submissionOutputs
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
@@ -140,127 +142,6 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")
     }
-
-  /** Compute the submission outputs, that is the DAML State Keys created or updated by
-    * the processing of the submission.
-    */
-  def submissionOutputs(submission: DamlSubmission): Set[DamlStateKey] = {
-    submission.getPayloadCase match {
-      case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        val packageEntry = submission.getPackageUploadEntry
-        submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
-          archive: DamlLf.Archive =>
-            DamlStateKey.newBuilder.setPackageId(archive.getHash).build
-        } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
-
-      case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        val partyEntry = submission.getPartyAllocationEntry
-        Set(
-          DamlStateKey.newBuilder
-            .setParty(submission.getPartyAllocationEntry.getParty)
-            .build,
-          partyAllocationDedupKey(partyEntry.getParticipantId, partyEntry.getSubmissionId),
-        )
-
-      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        val transactionEntry = submission.getTransactionEntry
-        transactionOutputs(transactionEntry) + commandDedupKey(
-          transactionEntry.getSubmitterInfo,
-        )
-
-      case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        val configEntry = submission.getConfigurationSubmission
-        Set(
-          configurationStateKey,
-          configDedupKey(configEntry.getParticipantId, configEntry.getSubmissionId),
-        )
-
-      case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-        throw Err.InvalidSubmission("DamlSubmission payload not set")
-    }
-  }
-
-  private def transactionOutputs(
-      transactionEntry: DamlTransactionEntry
-  ): Set[DamlStateKey] = {
-    val transaction = transactionEntry.getTransaction
-    val transactionVersion = TransactionCoder
-      .decodeVersion(transaction.getVersion)
-      .fold(err => throw Err.InvalidSubmission(err.errorMessage), identity)
-    transaction.getNodesList.asScala.flatMap { node: TransactionOuterClass.Node =>
-      node.getNodeTypeCase match {
-        case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
-          val create = node.getCreate
-          val templateId = create.getContractInstance.getTemplateId
-          val contractKeyStateKeyOrEmpty =
-            if (create.hasKeyWithMaintainers)
-              List(contractKeyToStateKey(templateId, create.getKeyWithMaintainers.getKey))
-            else
-              List.empty
-
-          Conversions
-            .contractIdStructOrStringToStateKey(
-              transactionVersion,
-              create.getContractId,
-              create.getContractIdStruct,
-            ) :: contractKeyStateKeyOrEmpty
-
-        case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
-          val exe = node.getExercise
-          val contractKeyStateKeyOrEmpty =
-            if (exe.getConsuming && exe.hasKeyWithMaintainers)
-              List(contractKeyToStateKey(exe.getTemplateId, exe.getKeyWithMaintainers.getKey))
-            else
-              List.empty
-
-          Conversions
-            .contractIdStructOrStringToStateKey(
-              transactionVersion,
-              exe.getContractId,
-              exe.getContractIdStruct,
-            ) :: contractKeyStateKeyOrEmpty
-
-        case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
-          // A fetch may cause a divulgence, which is why the target contract is a potential output.
-          List(
-            Conversions
-              .contractIdStructOrStringToStateKey(
-                transactionVersion,
-                node.getFetch.getContractId,
-                node.getFetch.getContractIdStruct,
-              ),
-          )
-        case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
-          // Contract state only modified on divulgence, in which case we'll have a fetch node,
-          // so no outputs from lookup node.
-          List.empty
-
-        case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
-          throw Err.InvalidSubmission("submissionOutputs: NODETYPE_NOT_SET")
-      }
-    }.toSet
-  }
-
-  private def contractKeyToStateKey(
-      templateId: ValueOuterClass.Identifier,
-      key: ValueOuterClass.VersionedValue): DamlStateKey = {
-    // NOTE(JM): The deserialization of the values is meant to be temporary. With the removal of relative
-    // contract ids from kvutils submissions we will be able to up-front compute the outputs without having
-    // to allocate a log entry id and we can directly place the output keys into the submission and do not need
-    // to compute outputs from serialized transaction.
-    val contractKey =
-      GlobalKey(
-        decodeIdentifier(templateId),
-        decodeVersionedValue(key).value.ensureNoCid
-          .getOrElse(throw Err.DecodeError("ContractKey", "Contract key contained contract id"))
-      )
-    DamlStateKey.newBuilder
-      .setContractKey(
-        DamlContractKey.newBuilder
-          .setTemplateId(templateId)
-          .setHash(contractKey.hash.bytes.toByteString))
-      .build
-  }
 
   private def verifyStateUpdatesAgainstPreDeclaredOutputs(
       actualStateUpdates: Map[DamlStateKey, DamlStateValue],

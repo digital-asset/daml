@@ -286,7 +286,7 @@ object KVTest {
     } yield {
       // Verify that all state touched matches with "submissionOutputs".
       assert(
-        newState.keySet subsetOf keyValueCommitting.submissionOutputs(submission)
+        newState.keySet subsetOf KeyValueCommitting.submissionOutputs(submission)
       )
       // Verify that we can always process the log entry.
       val _ = KeyValueConsumption.logEntryToUpdate(entryId, logEntry)
