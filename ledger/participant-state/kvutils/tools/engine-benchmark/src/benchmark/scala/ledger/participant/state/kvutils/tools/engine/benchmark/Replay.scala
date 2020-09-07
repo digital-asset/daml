@@ -8,7 +8,7 @@ import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, v3}
+import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, v2}
 import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
@@ -202,7 +202,7 @@ object Replay {
 
   private def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
     println(s"%%% load ledger export file  $dumpFile...")
-    val importer = v3.ProtobufBasedLedgerDataImporter(dumpFile)
+    val importer = v2.ProtobufBasedLedgerDataImporter(dumpFile)
     try {
       val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
       if (transactions.isEmpty) sys.error("no transaction find")
