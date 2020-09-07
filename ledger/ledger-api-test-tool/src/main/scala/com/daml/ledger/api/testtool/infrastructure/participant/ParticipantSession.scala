@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-private[infrastructure] final class ParticipantSession(
+private[infrastructure] final class ParticipantSession private (
     config: ParticipantSessionConfiguration,
     services: LedgerServices,
     // The ledger ID is retrieved only once when the participant session is created.

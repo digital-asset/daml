@@ -16,13 +16,10 @@ import scala.collection.immutable
 import scala.concurrent.duration.SECONDS
 import scala.concurrent.{ExecutionContext, Future}
 
-private[infrastructure] final class ParticipantSessionManager(
-    sessions: immutable.Map[ParticipantSessionConfiguration, SessionParts],
+private[infrastructure] final class ParticipantSessionManager private (
+    sessions: Map[ParticipantSessionConfiguration, SessionParts],
 ) {
-  lazy val all: immutable.Seq[ParticipantSession] = sessions.values.toVector.map(_._1)
-
-  def get(configuration: ParticipantSessionConfiguration): ParticipantSession =
-    sessions(configuration)._1
+  val allSessions: immutable.Seq[ParticipantSession] = sessions.values.toVector.map(_._1)
 
   def closeAll(): Unit =
     for ((config, (_, channel, eventLoopGroup)) <- sessions) {
@@ -49,11 +46,9 @@ object ParticipantSessionManager {
   def apply(configs: immutable.Seq[ParticipantSessionConfiguration])(
       implicit executionContext: ExecutionContext
   ): Future[ParticipantSessionManager] =
-    for {
-      participantSessions <- Future
-        .traverse(configs)(config => connect(config).map(config -> _))
-        .map(_.toMap)
-    } yield new ParticipantSessionManager(participantSessions)
+    Future
+      .traverse(configs)(config => connect(config).map(config -> _))
+      .map(participantSessions => new ParticipantSessionManager(participantSessions.toMap))
 
   private def connect(
       config: ParticipantSessionConfiguration,

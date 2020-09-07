@@ -12,9 +12,9 @@ import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
-private[infrastructure] final class LedgerSession(
-    shuffleParticipants: Boolean,
+private[infrastructure] final class LedgerSession private (
     participantSessions: immutable.Seq[(String, ParticipantSession)],
+    shuffleParticipants: Boolean,
 )(implicit val executionContext: ExecutionContext) {
   private[infrastructure] def createTestContext(
       applicationId: String,
@@ -34,15 +34,12 @@ private[infrastructure] final class LedgerSession(
 
 object LedgerSession {
   def apply(
-      config: LedgerSessionConfiguration,
       participantSessionManager: ParticipantSessionManager,
+      shuffleParticipants: Boolean,
   )(implicit executionContext: ExecutionContext): LedgerSession = {
     val endpointIdProvider =
       Identification.circularWithIndex(Identification.greekAlphabet)
-    val participantSessions = participantSessionManager.all.map(endpointIdProvider() -> _)
-    new LedgerSession(
-      shuffleParticipants = config.shuffleParticipants,
-      participantSessions = participantSessions,
-    )
+    val participantSessions = participantSessionManager.allSessions.map(endpointIdProvider() -> _)
+    new LedgerSession(participantSessions, shuffleParticipants)
   }
 }

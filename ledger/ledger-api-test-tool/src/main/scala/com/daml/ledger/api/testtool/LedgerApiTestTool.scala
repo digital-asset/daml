@@ -172,7 +172,7 @@ object LedgerApiTestTool {
       cases: Iterable[LedgerTestCase],
       concurrencyOverride: Option[Int] = None): LedgerTestCasesRunner =
     new LedgerTestCasesRunner(
-      LedgerSessionConfiguration(
+      new LedgerSessionConfiguration(
         config.participants,
         config.tlsConfig,
         config.partyAllocation,

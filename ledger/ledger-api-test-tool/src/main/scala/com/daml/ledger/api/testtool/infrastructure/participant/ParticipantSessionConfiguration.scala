@@ -12,5 +12,5 @@ private[testtool] final case class ParticipantSessionConfiguration(
     ssl: Option[TlsConfiguration],
     partyAllocation: PartyAllocationConfiguration,
 ) {
-  lazy val address: String = s"$host:$port"
+  val address: String = s"$host:$port"
 }

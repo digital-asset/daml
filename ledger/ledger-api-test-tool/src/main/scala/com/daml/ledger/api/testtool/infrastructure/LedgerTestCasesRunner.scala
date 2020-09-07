@@ -120,7 +120,7 @@ final class LedgerTestCasesRunner(
 
     def uploadDars(participantSessionManager: ParticipantSessionManager): Future[Unit] =
       Future
-        .sequence(participantSessionManager.all.map { session =>
+        .sequence(participantSessionManager.allSessions.map { session =>
           for {
             context <- session.createInitContext("upload-dars", identifierSuffix)
             _ <- Future.sequence(Dars.resources.map { name =>
@@ -134,7 +134,7 @@ final class LedgerTestCasesRunner(
         })
         .map(_ => ())
 
-    def runTests(
+    def runTestCases(
         ledgerSession: LedgerSession,
         testCases: Vector[LedgerTestCase],
         concurrency: Int,
@@ -153,15 +153,20 @@ final class LedgerTestCasesRunner(
     val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
     ParticipantSessionManager(config.participants)
       .flatMap { participantSessionManager =>
-        val ledgerSession = LedgerSession(config, participantSessionManager)
+        val ledgerSession = LedgerSession(participantSessionManager, config.shuffleParticipants)
         val testResults =
           for {
             _ <- uploadDars(participantSessionManager)
-            concurrentTestResults <- runTests(
+            concurrentTestResults <- runTestCases(
               ledgerSession,
               concurrentTestCases,
-              concurrentTestRuns)
-            sequentialTestResults <- runTests(ledgerSession, sequentialTestCases, concurrency = 1)
+              concurrentTestRuns,
+            )
+            sequentialTestResults <- runTestCases(
+              ledgerSession,
+              sequentialTestCases,
+              concurrency = 1,
+            )
           } yield concurrentTestResults ++ sequentialTestResults
 
         testResults
