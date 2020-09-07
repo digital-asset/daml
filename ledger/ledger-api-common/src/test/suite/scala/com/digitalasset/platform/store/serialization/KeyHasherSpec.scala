@@ -337,7 +337,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
         Ref.Name.assertFromString(s)
 
       implicit def toSortedLookupList[V](a: ImmArray[(String, V)]): SortedLookupList[V] =
-        SortedLookupList.fromSortedImmArray(a).right.get
+        SortedLookupList.fromOrderedImmArray(a).right.get
 
       val EnumTypeCon: Ref.TypeConName = "Color"
       val EnumTypeConBis: Ref.TypeConName = "ColorBis"

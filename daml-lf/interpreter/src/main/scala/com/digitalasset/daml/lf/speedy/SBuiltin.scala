@@ -493,73 +493,14 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBTextMapInsert extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(2) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              STextMap(map.updated(key, args.get(1)))
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapInsert, expected Text got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapInsert, expected TextMap got $x")
-      }
-    }
-  }
-
-  final case object SBTextMapLookup extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(1) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              SOptional(map.get(key))
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapLookup, expected Text get $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapLookup, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapDelete extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(1) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              STextMap(map - key)
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapDelete, expected Text get $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapDelete, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapToList extends SBuiltinPure(1) {
+  final case object SBGenMapToList extends SBuiltinPure(1) {
 
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case map: STextMap =>
-          SValue.toList(map)
+        case SGenMap(_, entries) =>
+          SValue.toList(entries)
         case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapToList, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapSize extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case STextMap(map) =>
-          SInt64(map.size.toLong)
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapSize, expected TextMap get $x")
+          throw SErrorCrash(s"type mismatch SBGenMapToList, expected GenMap get $x")
       }
     }
   }
@@ -567,10 +508,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapInsert extends SBuiltinPure(3) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(2) match {
-        case SGenMap(map) =>
+        case SGenMap(isTextMap, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SGenMap(map.updated(key, args.get(1)))
+          SGenMap(isTextMap, entries.updated(key, args.get(1)))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapInsert, expected GenMap got $x")
       }
@@ -580,10 +521,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapLookup extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(1) match {
-        case SGenMap(value) =>
+        case SGenMap(_, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SOptional(value.get(key))
+          SOptional(entries.get(key))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapLookup, expected GenMap get $x")
       }
@@ -593,10 +534,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapDelete extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(1) match {
-        case SGenMap(value) =>
+        case SGenMap(isTextMap, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SGenMap(value - key)
+          SGenMap(isTextMap, entries - key)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapDelete, expected GenMap get $x")
       }
@@ -606,8 +547,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapKeys extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SList(ImmArray(value.keys) ++: FrontStack.empty)
+        case SGenMap(_, entries) =>
+          SList(ImmArray(entries.keys) ++: FrontStack.empty)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapKeys, expected GenMap get $x")
       }
@@ -617,8 +558,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapValues extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SList(ImmArray(value.values) ++: FrontStack.empty)
+        case SGenMap(_, entries) =>
+          SList(ImmArray(entries.values) ++: FrontStack.empty)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapValues, expected GenMap get $x")
       }
@@ -628,8 +569,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapSize extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SInt64(value.size.toLong)
+        case SGenMap(_, entries) =>
+          SInt64(entries.size.toLong)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapSize, expected GenMap get $x")
       }
