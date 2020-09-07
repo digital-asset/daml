@@ -8,12 +8,14 @@ import Control.Monad
 import DA.Test.Process
 import DA.Test.Tar
 import DA.Test.Util
-import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Extra as Aeson
 import Data.Conduit ((.|), runConduitRes)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit.Combinators as Conduit
 import qualified Data.Conduit.Tar as Tar
 import qualified Data.Conduit.Zlib as Zlib
+import qualified Data.HashMap.Strict as HMS
 import Data.Maybe
 import Data.Proxy
 import Data.Tagged
@@ -21,6 +23,7 @@ import qualified Data.Text as T
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
+import System.Info.Extra
 import System.IO.Extra
 import System.Process
 import Test.Tasty
@@ -33,7 +36,8 @@ data Tools = Tools
   , damlTypesPath :: FilePath
   , damlReactPath :: FilePath
   , messagingPatch :: FilePath
-  , yarnPath :: FilePath
+  , npmPath :: FilePath
+  , nodePath :: FilePath
   , patchPath :: FilePath
   , testDepsPath :: FilePath
   , testTsPath :: FilePath
@@ -75,12 +79,19 @@ instance IsOption MessagingPatchOption where
   optionName = Tagged "messaging-patch"
   optionHelp = Tagged "path to messaging patch"
 
-newtype YarnOption = YarnOption FilePath
-instance IsOption YarnOption where
-  defaultValue = YarnOption ""
-  parseValue = Just . YarnOption
-  optionName = Tagged "yarn"
-  optionHelp = Tagged "path to yarn"
+newtype NpmOption = NpmOption FilePath
+instance IsOption NpmOption where
+  defaultValue = NpmOption ""
+  parseValue = Just . NpmOption
+  optionName = Tagged "npm"
+  optionHelp = Tagged "path to npm"
+
+newtype NodeOption = NodeOption FilePath
+instance IsOption NodeOption where
+  defaultValue = NodeOption ""
+  parseValue = Just . NodeOption
+  optionName = Tagged "node"
+  optionHelp = Tagged "path to node"
 
 newtype PatchOption = PatchOption FilePath
 instance IsOption PatchOption where
@@ -117,7 +128,8 @@ withTools tests = do
   askOption $ \(DamlTypesOption damlTypesPath) -> do
   askOption $ \(DamlReactOption damlReactPath) -> do
   askOption $ \(MessagingPatchOption messagingPatch) -> do
-  askOption $ \(YarnOption yarnPath) -> do
+  askOption $ \(NpmOption npmPath) -> do
+  askOption $ \(NodeOption nodePath) -> do
   askOption $ \(PatchOption patchPath) -> do
   askOption $ \(TestDepsOption testDepsPath) -> do
   askOption $ \(TestTsOption testTsPath) -> do
@@ -136,7 +148,8 @@ withTools tests = do
           , damlTypesPath
           , damlReactPath
           , messagingPatch
-          , yarnPath
+          , npmPath
+          , nodePath
           , patchPath
           , testDepsPath
           , testTsPath
@@ -145,8 +158,8 @@ withTools tests = do
   tests tools
 
 main :: IO ()
-main = withTempDir $ \yarnCache -> do
-  setEnv "YARN_CACHE_FOLDER" yarnCache True
+main = withTempDir $ \npmCache -> do
+  setEnv "npm_config_cache" npmCache True
   setEnv "TASTY_NUM_THREADS" "1" True
   let options =
         [ Option @DamlOption Proxy
@@ -154,7 +167,8 @@ main = withTempDir $ \yarnCache -> do
         , Option @DamlTypesOption Proxy
         , Option @DamlReactOption Proxy
         , Option @MessagingPatchOption Proxy
-        , Option @YarnOption Proxy
+        , Option @NpmOption Proxy
+        , Option @NodeOption Proxy
         , Option @PatchOption Proxy
         , Option @TestDepsOption Proxy
         , Option @TestTsOption Proxy
@@ -167,48 +181,116 @@ main = withTempDir $ \yarnCache -> do
         [ test getTools
         ]
   where
-    test getTools = testCaseSteps "Getting Started Guide" $ \step -> withTempDir $ \tmpDir -> do
+    test getTools = testCaseSteps "Getting Started Guide" $ \step -> withTempDir $ \tmpDir' -> do
+        -- npm gets confused when the temporary directory is not under 'private' on mac.
+        let tmpDir
+              | isMac = "/private" <> tmpDir'
+              | otherwise = tmpDir'
         Tools{..} <- getTools
         setEnv "CI" "yes" True
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
           callProcess damlBinary ["new", "create-daml-app", "create-daml-app"]
         let cdaDir = tmpDir </> "create-daml-app"
+        let uiDir = cdaDir </> "ui"
         step "Patch the application code with messaging feature"
         withCurrentDirectory cdaDir $ do
           callProcessSilent patchPath ["-p2", "-i", messagingPatch]
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
             assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
         step "Extract codegen output"
-        runConduitRes
-            $ Conduit.sourceFile codegenPath
-            .| Zlib.ungzip
-            .| Tar.untar (restoreFile (\a b -> fail (T.unpack $ a <> b)) (cdaDir </> "daml.js"))
-        withCurrentDirectory (cdaDir </> "ui") $ do
+        extractTarGz codegenPath $ uiDir </> "daml.js"
+        -- we patch all the 'package.json' files to point to the local versions of the TypeScript
+        -- libraries.
+        genFiles <- listFilesRecursive $ uiDir </> "daml.js"
+        forM_ [file | file <- genFiles, takeFileName file == "package.json"] (patchTsDependencies uiDir)
+        withCurrentDirectory uiDir $ do
           step "Set up libraries and workspaces"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"])
-            [(DamlLedger, damlLedgerPath), (DamlReact, damlReactPath), (DamlTypes, damlTypesPath)]
+          setupNpmEnv uiDir [(DamlTypes, damlTypesPath)
+                            , (DamlLedger, damlLedgerPath)
+                            , (DamlReact, damlReactPath)
+                            ]
           step "Install Jest, Puppeteer and other dependencies"
           addTestDependencies "package.json" testDepsPath
-          retry 3 (callProcessSilent yarnPath ["install"])
+          patchTsDependencies uiDir "package.json"
+          -- use '--scripts-prepend-node-path' to make sure we are using the correct 'node' binary
+          retry 3 (callProcessSilent npmPath ["install", "--scripts-prepend-node-path"])
           step "Run Puppeteer end-to-end tests"
-          copyFile testTsPath (cdaDir </> "ui" </> "src" </> "index.test.ts")
-          callProcess yarnPath ["run", "test", "--ci", "--all"]
+          copyFile testTsPath (uiDir </> "src" </> "index.test.ts")
+          -- we need 'npm-cli.js' in the path for the following test
+          mbOldPath <- getEnv "PATH"
+          setEnv "PATH" (takeDirectory npmPath <> (searchPathSeparator : fromMaybe "" mbOldPath)) True
+          callProcess npmPath ["run", "test", "--ci", "--all", "--scripts-prepend-node-path"]
 
 addTestDependencies :: FilePath -> FilePath -> IO ()
 addTestDependencies packageJsonFile extraDepsFile = do
     packageJson <- readJsonFile packageJsonFile
     extraDeps <- readJsonFile extraDepsFile
     let newPackageJson = Aeson.lodashMerge packageJson extraDeps
-    Aeson.encodeFile packageJsonFile newPackageJson
-  where
-    readJsonFile :: FilePath -> IO Aeson.Value
-    readJsonFile path = do
-        -- Read file strictly to avoid lock being held when we subsequently write to it.
-        mbContent <- Aeson.decodeFileStrict' path
-        case mbContent of
-            Nothing -> fail ("Could not decode JSON object from " <> path)
-            Just val -> return val
+    BSL.writeFile packageJsonFile (Aeson.encode newPackageJson)
+
+readJsonFile :: FilePath -> IO Aeson.Value
+readJsonFile path = do
+    -- Read file strictly to avoid lock being held when we subsequently write to it.
+    content <- BSL.fromStrict <$> BS.readFile path
+    case Aeson.decode content of
+        Nothing -> error ("Could not decode JSON object from " <> path)
+        Just val -> return val
+
+extractTarGz :: FilePath -> FilePath -> IO ()
+extractTarGz targz outDir = do
+    runConduitRes
+        $ Conduit.sourceFile targz
+        .| Zlib.ungzip
+        .| Tar.untar (restoreFile (\a b -> fail (T.unpack $ a <> b)) outDir)
+
+setupNpmEnv :: FilePath -> [(TsLibrary, FilePath)] -> IO ()
+setupNpmEnv uiDir libs = do
+  forM_ libs $ \(tsLib, path) -> do
+    let name = tsLibraryName tsLib
+    let uiLibPath = uiDir </> name
+    extractTarGz path uiLibPath
+    patchTsDependencies uiDir $ uiLibPath </> "package.json"
+
+-- | Overwrite dependencies to our TypeScript libraries to point to local file dependencies in the
+-- 'ui' directory in the specified package.json file.
+patchTsDependencies :: FilePath -> FilePath -> IO ()
+patchTsDependencies uiDir packageJsonFile = do
+  packageJson0 <- readJsonFile packageJsonFile
+  case packageJson0 of
+    Aeson.Object packageJson ->
+      case HMS.lookup "dependencies" packageJson of
+        Just (Aeson.Object dependencies) -> do
+          let depNames = HMS.keys dependencies
+          -- patch dependencies to point to local files if they are present in the package.json
+          let patchedDeps =
+                HMS.fromList
+                  ([ ( "@daml.js/create-daml-app"
+                     , Aeson.String $
+                       T.pack $
+                       "file:" <> "./daml.js/create-daml-app-0.1.0")
+                   | "@daml.js/create-daml-app" `elem` depNames
+                   ] ++
+                   [ (depName, Aeson.String $ T.pack $ "file:" <> libRelPath)
+                   | tsLib <- allTsLibraries
+                   , let libName = tsLibraryName tsLib
+                   , let libPath = uiDir </> libName
+                   , let libRelPath =
+                           makeRelative (takeDirectory packageJsonFile) libPath
+                   , let depName = T.replace "-" "/" $ T.pack $ "@" <> libName
+                   , depName `elem` depNames
+                   ]) `HMS.union`
+                dependencies
+          let newPackageJson =
+                Aeson.Object $
+                HMS.insert "dependencies" (Aeson.Object patchedDeps) packageJson
+          -- Make sure we have write permissions before writing
+          p <- getPermissions packageJsonFile
+          setPermissions packageJsonFile (setOwnerWritable True p)
+          BSL.writeFile packageJsonFile (Aeson.encode newPackageJson)
+        Nothing -> pure () -- Nothing to patch
+        _otherwise -> error $ "malformed package.json:" <> show packageJson
+    _otherwise -> error $ "malformed package.json:" <> show packageJson0
 
 data TsLibrary
     = DamlLedger
@@ -216,34 +298,11 @@ data TsLibrary
     | DamlTypes
     deriving (Bounded, Enum)
 
-newtype Workspaces = Workspaces [FilePath]
+allTsLibraries :: [TsLibrary]
+allTsLibraries = [minBound .. maxBound]
 
 tsLibraryName :: TsLibrary -> String
 tsLibraryName = \case
     DamlLedger -> "daml-ledger"
     DamlReact -> "daml-react"
     DamlTypes -> "daml-types"
-
--- NOTE(MH): In some tests we need our TS libraries like `@daml/types` in
--- scope. We achieve this by putting a `package.json` file further up in the
--- directory tree. This file sets up a yarn workspace that includes the TS
--- libraries via the `resolutions` field.
-setupYarnEnv :: FilePath -> Workspaces -> [(TsLibrary, FilePath)] -> IO ()
-setupYarnEnv rootDir (Workspaces workspaces) tsLibs = do
-    forM_  tsLibs $ \(tsLib, libLocation) -> do
-        let name = tsLibraryName tsLib
-        removePathForcibly (rootDir </> name)
-        runConduitRes
-            $ Conduit.sourceFile libLocation
-            .| Zlib.ungzip
-            .| Tar.untar (restoreFile (\a b -> fail (T.unpack $ a <> b)) (rootDir </> name))
-    Aeson.encodeFile (rootDir </> "package.json") $ Aeson.object
-        [ "private" Aeson..= True
-        , "workspaces" Aeson..= workspaces
-        , "resolutions" Aeson..= Aeson.object
-            [ pkgName Aeson..= ("file:./" ++ name)
-            | (tsLib, _) <- tsLibs
-            , let name = tsLibraryName tsLib
-            , let pkgName = "@" <> T.replace "-" "/"  (T.pack name)
-            ]
-        ]
