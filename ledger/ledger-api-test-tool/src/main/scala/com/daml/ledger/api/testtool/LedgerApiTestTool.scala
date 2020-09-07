@@ -174,9 +174,9 @@ object LedgerApiTestTool {
     new LedgerTestCasesRunner(
       LedgerSessionConfiguration(
         config.participants,
-        config.shuffleParticipants,
         config.tlsConfig,
         config.partyAllocation,
+        config.shuffleParticipants,
       ),
       cases.toVector,
       identifierSuffix,
