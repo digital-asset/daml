@@ -870,8 +870,6 @@ private[lf] object SBuiltin {
     */
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      if (args.get(0).isInstanceOf[STextMap])
-        throw new Error(args.toString)
       args.get(1) match {
         case SBool(true) =>
           ()
