@@ -44,7 +44,7 @@ private[infrastructure] final class ParticipantSessionManager(
 object ParticipantSessionManager {
   private type SessionParts = (ParticipantSession, ManagedChannel, EventLoopGroup)
 
-  private val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
+  private val logger = LoggerFactory.getLogger(classOf[ParticipantSessionManager])
 
   def apply(configs: immutable.Seq[ParticipantSessionConfiguration])(
       implicit executionContext: ExecutionContext
