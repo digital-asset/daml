@@ -3,6 +3,7 @@
 
 package com.daml.lf.speedy
 package svalue
+
 import com.daml.lf.speedy.SError.SErrorCrash
 
 import scala.collection.JavaConverters._
@@ -52,13 +53,13 @@ private[lf] object Equality {
           val xKeys = xMap.keys.toSeq.sorted
           val yKeys = yMap.keys.toSeq.sorted
           push(
-            new Interlace(xKeys.iterator.map(SText), xKeys.iterator.map(xMap)),
-            new Interlace(yKeys.iterator.map(SText), yKeys.iterator.map(yMap)),
+            new InterlacedIterator(xKeys.iterator.map(SText), xKeys.iterator.map(xMap)),
+            new InterlacedIterator(yKeys.iterator.map(SText), yKeys.iterator.map(yMap)),
           )
         case (SGenMap(xMap), SGenMap(yMap)) =>
           push(
-            new Interlace(xMap.keys.iterator, xMap.values.iterator),
-            new Interlace(yMap.keys.iterator, yMap.values.iterator),
+            new InterlacedIterator(xMap.keys.iterator, xMap.values.iterator),
+            new InterlacedIterator(yMap.keys.iterator, yMap.values.iterator),
           )
         case (SStruct(_, xs), SStruct(_, ys)) =>
           push(xs.iterator().asScala, ys.iterator().asScala)
@@ -80,23 +81,6 @@ private[lf] object Equality {
     }
 
     success
-  }
-
-  // Assume the two iterators have the same size.
-  private[this] final class Interlace[X](iterLeft: Iterator[X], iterRight: Iterator[X])
-      extends Iterator[X] {
-    private[this] var left = true
-
-    override def hasNext: Boolean = iterRight.hasNext
-
-    override def next(): X =
-      if (left) {
-        left = false
-        iterLeft.next()
-      } else {
-        left = true
-        iterRight.next()
-      }
   }
 
 }
