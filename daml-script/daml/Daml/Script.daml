@@ -8,6 +8,7 @@ module Daml.Script
   , submitMustFail
   , query
   , queryContractId
+  , queryKey
   , PartyIdHint (..)
   , ParticipantName (..)
   , PartyDetails(..)
@@ -125,6 +126,16 @@ queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   tplId = templateTypeRep @t
   cid = coerceContractId c
   continue = pure . fmap (fromSome . fromAnyTemplate)
+  
+-- | Query for the contract with the given contract key.
+--
+-- Returns `None` if there is no active party that the party is a stakeholder on.
+-- This is semantically equivalent to calling `query` and filtering on the client
+-- side. Indeed, the current implementation does just that.
+queryKey : forall t k . (Eq k, Template t, HasKey t k) => Party -> k -> Script (Optional (ContractId t, t))
+queryKey p k = do
+  cs <- query @t p
+  return (find (\c -> key c._2 == k) cs) 
 
 data SetTimePayload a = SetTimePayload
   with
