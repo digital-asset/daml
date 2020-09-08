@@ -1,7 +1,7 @@
 sdk-version: __VERSION__
 name: quickstart
 source: daml
-init-script: Setup:initialize
+init-script: Main:initialize
 parties:
   - Alice
   - Bob
