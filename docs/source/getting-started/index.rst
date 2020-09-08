@@ -141,3 +141,5 @@ Just switch to the window where you are logged in as yourself - the network shou
 Play around more with the app at your leisure: create new users and start following more users.
 Observe when a user becomes visible to others - this will be important to understanding DAML's privacy model later.
 When you're ready, let's move on to the :doc:`architecture of our app <app-architecture>`.
+
+.. tip:: Congratulations on completing the first part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your first of 3 getting started badges <https://discuss.daml.com/badges/125/it-works>`_! You can get the next one by :doc:`implementing your first feature </getting-started/first-feature>`.
