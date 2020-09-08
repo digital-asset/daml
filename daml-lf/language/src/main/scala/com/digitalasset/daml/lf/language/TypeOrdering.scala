@@ -45,7 +45,7 @@ object TypeOrdering extends Ordering[Type] {
         case (Ast.TNat(n1), Ast.TNat(n2)) =>
           diff = n1 compareTo n2
         case (Ast.TStruct(xs), Ast.TStruct(ys)) =>
-          compareNames(xs.names, ys.names)
+          compareNamesLexicographically(xs.names, ys.names)
           push(xs.values, ys.values)
         case (Ast.TApp(x1, x2), Ast.TApp(y1, y2)) =>
           push(Iterator(x1, x2), Iterator(y1, y2))
