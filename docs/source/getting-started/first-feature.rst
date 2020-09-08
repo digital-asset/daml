@@ -74,14 +74,14 @@ Since we have changed our DAML code, we also need to rerun the TypeScript code g
 Open a new terminal and run the following commands::
 
   daml build
-  daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
+  daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o ui/daml.js
 
 The result is an up-to-date TypeScript interface to our DAML model, in particular to the new ``Message`` template and ``SendMessage`` choice.
 
 To make sure that Yarn picks up the newly generated JavaScript code,
 we have to run the following command in the ``ui`` directory::
 
-  yarn install --force --frozen-lockfile
+  npm install --force --frozen-lockfile
 
 Once that command finishes, you have to close Visual Studio Code
 and restart it by running ``daml studio`` from the root directory of
@@ -197,7 +197,7 @@ Then in the root ``create-daml-app`` folder run ``daml start``.
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost.
 
-If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yarn start`` command, which will start the UI.
+If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``npm start`` command, which will start the UI.
 Once you've done all these changes you should see the same login page as before at http://localhost:3000.
 
    .. figure:: images/create-daml-app-login-screen.png
@@ -232,4 +232,5 @@ Next Steps
 We've gone through the process of setting up a full-stack DAML app and implementing a useful feature end to end.
 As the next step we encourage you to really dig into the fundamentals of DAML and understand its core concepts such as parties, signatories, observers, and controllers.
 You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/learn/fundamental-concepts>`_.
+
 After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.

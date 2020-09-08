@@ -560,7 +560,6 @@ genrule(
         "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml",
         "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml",
         "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml",
-        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml",
         "//daml-script/daml:daml-script.dar",
     ],
     outs = ["quickstart-model.dar"],
@@ -571,7 +570,6 @@ genrule(
       cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
       cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
       cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml) $$TMP_DIR/daml/
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -657,9 +655,6 @@ daml_test(
     name = "quickstart-daml-test",
     srcs = glob(
         include = ["source/app-dev/bindings-java/quickstart/template-root/daml/**/*.daml"],
-        # excluding Setup.daml, because it doesn't contain any scenarios,
-        # and we cannot conveniently add daml-script as a dependency for daml_test
-        exclude = ["source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml"],
     ),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -677,6 +672,7 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-test",
     srcs = glob(["source/daml/intro/daml/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_build_test(

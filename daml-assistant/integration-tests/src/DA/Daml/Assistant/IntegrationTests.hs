@@ -552,7 +552,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
               callCommandSilent $ unwords
                     [ "daml script"
                     , "--dar .daml/dist/quickstart-0.0.1.dar"
-                    , "--script-name Setup:initialize"
+                    , "--script-name Main:initialize"
                     , "--static-time"
                     , "--ledger-host localhost"
                     , "--ledger-port", show sandboxPort

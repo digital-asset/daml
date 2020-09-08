@@ -87,11 +87,10 @@ patches we backport to the 1.0 release branch).
    >
    > [adoptopenjdk]: https://adoptopenjdk.net
    >
-   > [node], [yarn] and [VS Code] installers all add to PATH by default so
-   > those are just download > next > next installations.
+   > [node] and [VS Code] installers add to PATH by default so those are just
+   > download > next > next installations.
    >
    > [node]: https://nodejs.org/en/
-   > [yarn]: https://classic.yarnpkg.com/en/docs/install/
    > [VS Code]: https://code.visualstudio.com
    >
    > All of the commands mentioned in this document can be run from a simple
@@ -101,8 +100,6 @@ patches we backport to the 1.0 release branch).
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
     - [Node.js](https://nodejs.org/en/download/)
       - Just the bare install; no need to build C dependencies.
-    - [Yarn](https://classic.yarnpkg.com/en/docs/install/)
-      - Install Node.js first.
 
 1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.
@@ -131,9 +128,9 @@ patches we backport to the 1.0 release branch).
 
     1. In a new terminal, from the `ui` folder:
 
-       1. `yarn install`
+       1. `npm install`
 
-       1. `yarn start`
+       1. `npm start`
 
     1. Open two browser windows (you want to see them simultaneously ideally) at `localhost:3000`.
 
@@ -147,7 +144,7 @@ patches we backport to the 1.0 release branch).
        the list of users `Bob` is following. Verify in the other
        browser window that `Bob` shows up in `Alice`’s network.
 
-    1. Kill the `daml start` process and the `yarn start` process.
+    1. Kill the `daml start` process and the `npm start` process.
 
     1. Open the your first feature section of the GSG, e.g., from
        https://docs.daml.com/$VERSION/getting-started/first-feature.html
@@ -165,7 +162,7 @@ patches we backport to the 1.0 release branch).
 
     1. Run `daml build` then `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js` from the project root.
 
-    1. From the `ui` directory run `yarn install --force --frozen-lockfile`.
+    1. From the `ui` directory run `npm install --force --frozen-lockfile`.
 
     1. Run `code .` from the project root directory (the extension is
        already installed, no need to use `daml studio`).
@@ -179,7 +176,7 @@ patches we backport to the 1.0 release branch).
 
     1. Run `daml start` from the project root directory.
 
-    1. In a separate terminal, run `yarn start` from the `ui` directory.
+    1. In a separate terminal, run `npm start` from the `ui` directory.
 
     1. As before, open two browser windows at `localhost:3000` and log
        in as `Alice` and `Bob`.
@@ -199,7 +196,7 @@ patches we backport to the 1.0 release branch).
     1. Verify that `Bob` has received the message in the other window.
 
     1. You can now close both browser windows and both running processes (`daml
-       start` and `yarn start`).
+       start` and `npm start`).
 
     1. Don't forget to run this on the other platform! E.g. if you just ran
        through on Linux or macOS, you still need to run on Windows, and vice
@@ -226,7 +223,7 @@ patches we backport to the 1.0 release branch).
     1. In 3 separate terminals (since each command blocks), run:
 
        1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
-       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
+       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
        1. `daml codegen java && mvn compile exec:java@run-quickstart`
 
        > Note: It takes some time for our artifacts to be available on Maven

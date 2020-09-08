@@ -5,12 +5,13 @@
 module Native where
 
 -- NATIVE_TEST_BEGIN
+import Daml.Script
 import DA.Time
 import DA.Date
 
-native_test = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+native_test = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   let
     my_int = -123
     my_dec = 0.001 : Decimal
@@ -43,13 +44,13 @@ template CashBalance
   where
     signatory accountant
 
-cash_balance_test = scenario do
-  accountant <- getParty "Bob"
-  alice <- getParty "Alice"
-  bob <- getParty "Bank of Bob"
+cash_balance_test = script do
+  accountant <- allocateParty "Bob"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bank of Bob"
 
   submit accountant do
-    create CashBalance with
+    createCmd CashBalance with
       accountant
       currency = "USD"
       amount = 100.0

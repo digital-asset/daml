@@ -32,12 +32,13 @@ DAML_TYPES="$(rlocation "$TEST_WORKSPACE/$7")"
 DAML_LEDGER="$(rlocation "$TEST_WORKSPACE/$8")"
 DAML_REACT="$(rlocation "$TEST_WORKSPACE/$9")"
 MESSAGING_PATCH="$(rlocation "$TEST_WORKSPACE/${10}")"
-YARN="$(rlocation "$TEST_WORKSPACE/${11}")"
-PATCH="$(rlocation "$TEST_WORKSPACE/${12}")"
-TEST_DEPS="$(rlocation "$TEST_WORKSPACE/${13}")"
-TEST_TS="$(rlocation "$TEST_WORKSPACE/${14}")"
-CODEGEN_OUTPUT="$(canonicalize_rlocation "${15}")"
-export DAR_PATH="$(canonicalize_rlocation "${16}")"
+NPM="$(rlocation "$TEST_WORKSPACE/${11}")"
+NODE="$(rlocation "$TEST_WORKSPACE/${12}")"
+PATCH="$(rlocation "$TEST_WORKSPACE/${13}")"
+TEST_DEPS="$(rlocation "$TEST_WORKSPACE/${14}")"
+TEST_TS="$(rlocation "$TEST_WORKSPACE/${15}")"
+CODEGEN_OUTPUT="$(canonicalize_rlocation "${16}")"
+export DAR_PATH="$(canonicalize_rlocation "${17}")"
 
 "$RUNNER" \
   --daml "$DAML" \
@@ -45,7 +46,8 @@ export DAR_PATH="$(canonicalize_rlocation "${16}")"
   --daml-ledger "$DAML_LEDGER" \
   --daml-react "$DAML_REACT" \
   --messaging-patch "$MESSAGING_PATCH" \
-  --yarn "$YARN" \
+  --npm "$NPM" \
+  --node "$NODE" \
   --patch "$PATCH" \
   --test-deps "$TEST_DEPS" \
   --test-ts "$TEST_TS" \

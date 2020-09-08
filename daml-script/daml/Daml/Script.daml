@@ -134,7 +134,8 @@ data SetTimePayload a = SetTimePayload
 
 -- | Set the time via the time service.
 --
--- This is only supported in static time mode when running over the gRPC API.
+-- This is only supported in static time mode when running over the gRPC API
+-- and in DAML Studio.
 --
 -- Note that the ledger time service does not support going backwards in time.
 -- However, you can go back in time in DAML Studio.

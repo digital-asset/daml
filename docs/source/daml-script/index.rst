@@ -18,7 +18,7 @@ e.g., your UI or :doc:`DAML triggers </triggers/index>`.
 DAML Script addresses this problem by providing you with an API with
 the simplicity of DAML scenarios and all the benefits such as being
 able to reuse your DAML types and logic while running against an actual
-ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-results>`.
+ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-script-results>`.
 This means that you can use it to test automation logic, your
 UI but also for :ref:`ledger initialization
 <script-ledger-initialization>` where scenarios cannot be used (with

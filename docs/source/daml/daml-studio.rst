@@ -97,7 +97,7 @@ You can `hover`_ over most symbols in the code to display additional information
 
 .. _hover: https://code.visualstudio.com/docs/editor/editingevolved#_hover
 
-.. _scenario-results:
+.. _scenario-script-results:
 
 Scenario and DAML Script results
 ================================

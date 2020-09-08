@@ -5,6 +5,7 @@
 module Parties where
 
 import DA.Time
+import Daml.Script
 
 data Cash = Cash with
   currency : Text
@@ -22,27 +23,27 @@ template SimpleIou
 -- SIMPLE_IOU_END
 
 -- SIMPLE_IOU_SCENARIO_BEGIN
-simple_iou_test = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+simple_iou_test = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
   -- Alice and Bob enter into a trade.
   -- Alice transfers the payment as a SimpleIou.
   iou <- submit alice do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = alice
       owner = bob
       cash = Cash with
         amount = 100.0
         currency = "USD"
 
-  pass (days 1)
+  passTime (days 1)
   -- Bob delivers the goods.
 
-  pass (minutes 10)
+  passTime (minutes 10)
   -- Alice just deletes the payment again.
   submit alice do
-    archive iou
+    archiveCmd iou
 -- SIMPLE_IOU_SCENARIO_END
 
 -- IOU_BEGIN
@@ -176,14 +177,14 @@ template NonTransitive
 -- NON_TRANSITIVE_END
 
 -- IOU_SCENARIO_BEGIN
-iou_test = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+iou_test = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
   -- Alice and Bob enter into a trade.
   -- Alice wants to give Bob an Iou, but she can't without Bob's authority.
   submitMustFail alice do
-    create Iou with
+    createCmd Iou with
       issuer = alice
       owner = bob
       cash = Cash with
@@ -192,7 +193,7 @@ iou_test = scenario do
 
   -- She can issue herself an Iou.
   iou <- submit alice do
-    create Iou with
+    createCmd Iou with
       issuer = alice
       owner = alice
       cash = Cash with
@@ -201,13 +202,13 @@ iou_test = scenario do
 
   -- However, she can't transfer it to Bob.
   submitMustFail alice do
-    exercise iou Transfer with
+    exerciseCmd iou Transfer with
       newOwner = bob
 -- IOU_SCENARIO_END
 
 -- IOU_PROPOSAL_SCENARIO_BEGIN
   iouProposal <- submit alice do
-    create IouProposal with
+    createCmd IouProposal with
       iou = Iou with
         issuer = alice
         owner = bob
@@ -216,15 +217,15 @@ iou_test = scenario do
           currency = "USD"
 
   submit bob do
-    exercise iouProposal IouProposal_Accept
+    exerciseCmd iouProposal IouProposal_Accept
 -- IOU_PROPOSAL_SCENARIO_END
 
 -- IOU_TRANSFER_SCENARIO_BEGIN
-  charlie <- getParty "Charlie"
+  charlie <- allocateParty "Charlie"
 
   -- Alice issues an Iou using a transfer proposal.
   tpab <- submit alice do
-    create IouTransferProposal with
+    createCmd IouTransferProposal with
       newOwner = bob
       iou = Iou with
         issuer = alice
@@ -235,53 +236,53 @@ iou_test = scenario do
 
   -- Bob accepts the transfer from Alice.
   iou2 <- submit bob do
-    exercise tpab IouTransferProposal_Accept
+    exerciseCmd tpab IouTransferProposal_Accept
 
   -- Bob offers Charlie a transfer.
   tpbc <- submit bob do
-    exercise iou2 ProposeTransfer with
+    exerciseCmd iou2 ProposeTransfer with
       newOwner = charlie
 
   -- Charlie accepts the transfer from Bob.
   submit charlie do
-    exercise tpbc IouTransferProposal_Accept
+    exerciseCmd tpbc IouTransferProposal_Accept
 -- IOU_TRANSFER_SCENARIO_END
 
 -- SENDER_SCENARIO_BEGIN
   -- Bob allows Alice to send him Ious.
   sab <- submit bob do
-    create IouSender with
+    createCmd IouSender with
       sender = alice
       receiver = bob
 
   -- Charlie allows Bob to send him Ious.
   sbc <- submit charlie do
-    create IouSender with
+    createCmd IouSender with
       sender = bob
       receiver = charlie
 
   -- Alice can now send the Iou she issued herself earlier.
   iou4 <- submit alice do
-    exercise sab Send_Iou with
+    exerciseCmd sab Send_Iou with
       iouCid = iou
 
   -- Bob sends it on to Charlie.
   submit bob do
-    exercise sbc Send_Iou with
+    exerciseCmd sbc Send_Iou with
       iouCid = iou4
 -- SENDER_SCENARIO_END
 
 -- NON_TRANSITIVE_SCENARIO_BEGIN
   nt1 <- submit alice do
-    create NonTransitive with
+    createCmd NonTransitive with
       partyA = alice
       partyB = bob
   nt2 <- submit alice do
-    create NonTransitive with
+    createCmd NonTransitive with
       partyA = alice
       partyB = bob
 
   submitMustFail bob do
-    exercise nt1 TryB with
+    exerciseCmd nt1 TryB with
       other = nt2
 -- NON_TRANSITIVE_SCENARIO_END
