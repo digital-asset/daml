@@ -4,6 +4,7 @@ module DA.Test.Daml2jsUtils (
     TsLibrary (..),
     Workspaces (..),
     allTsLibraries,
+    tsLibraryName,
     setupYarnEnv,
     ) where
 
