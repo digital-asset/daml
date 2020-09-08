@@ -147,7 +147,7 @@ In this section, you will run the quickstart application and get introduced to t
 
 #. Open a new terminal window and navigate to your project directory, ``quickstart``.
 
-#. To initialize the ledger with some parties and contracts we use :doc:`DAML Script </daml-script/index>` by running ``daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --static-time``
+#. To initialize the ledger with some parties and contracts we use :doc:`DAML Script </daml-script/index>` by running ``daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --static-time``
 
    .. _quickstart-navigator:
 

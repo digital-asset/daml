@@ -4,37 +4,43 @@
 
 module Main where
 
+import Daml.Script
 import Iou
 import IouTrade()
 
-setup : Scenario IouCid
-setup = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  usBank <- getParty "USD_Bank"
-  eurBank <- getParty "EUR_Bank"
+initialize : Script ()
+initialize = do
+  -- allocate parties
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  usBank <- allocatePartyWithHint "USD_Bank" (PartyIdHint "USD_Bank")
+  eurBank <- allocatePartyWithHint "EUR_Bank" (PartyIdHint "EUR_Bank")
 
   -- Banks issue IOU transfers.
-  iouTransferAliceCid <- submit eurBank do
-    iouCid <- create Iou with
+  iouEurBankCid <- submit eurBank do
+    createCmd Iou with
       issuer = eurBank
       owner = eurBank
       currency = "EUR"
       amount = 100.0
       observers = []
-    exercise iouCid Iou_Transfer with newOwner = alice
 
-  iouTransferBobCid <- submit usBank do
-    iouCid <- create Iou with
+  iouTransferAliceCid <- submit eurBank do
+    exerciseCmd iouEurBankCid Iou_Transfer with newOwner = alice
+
+  iouUsBankCid <- submit usBank do
+    createCmd Iou with
       issuer = usBank
       owner = usBank
       currency = "USD"
       amount = 110.0
       observers = []
-    exercise iouCid Iou_Transfer with newOwner = bob
+
+  iouTransferBobCid <- submit usBank do
+    exerciseCmd iouUsBankCid Iou_Transfer with newOwner = bob
 
   -- Bob and Alice accept.
-  submit alice do
-    exercise iouTransferAliceCid IouTransfer_Accept
-  submit bob do
-    exercise iouTransferBobCid IouTransfer_Accept
+  submit alice do exerciseCmd iouTransferAliceCid IouTransfer_Accept
+  submit bob do exerciseCmd iouTransferBobCid IouTransfer_Accept
+
+  pure ()
