@@ -170,9 +170,9 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
     const state = useDamlState();
     useEffect(() => {
       setResult({contracts: [], loading: true});
-      const query = queryFactory ? queryFactory() : undefined;
+      const query = queryFactory ? [queryFactory()] : [];
       console.debug(`mount useStreamQuery(${template.templateId}, ...)`, query);
-      const stream = state.ledger.streamQuery(template, query);
+      const stream = state.ledger.streamQueries(template, query);
       stream.on('live', () => setResult(result => ({...result, loading: false})));
       stream.on('change', contracts => setResult(result => ({...result, contracts})));
       stream.on('close', closeEvent => {
@@ -195,8 +195,8 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
       setResult({contract: null, loading: true});
       const key = keyFactory();
       console.debug(`mount useStreamFetchByKey(${template.templateId}, ...)`, key);
-      const stream = state.ledger.streamFetchByKey(template, key);
-      stream.on('change', contract => setResult(result => ({...result, contract})));
+      const stream = state.ledger.streamFetchByKeys(template, [key]);
+      stream.on('change', contracts => setResult(result => ({...result, contract: contracts[0]})));
       stream.on('close', closeEvent => {
         console.error('useStreamFetchByKey: web socket closed', closeEvent);
         setResult(result => ({...result, loading: true}));

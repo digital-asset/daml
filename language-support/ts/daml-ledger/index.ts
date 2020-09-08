@@ -5,6 +5,7 @@ import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
 import { EventEmitter } from 'events';
 import WebSocket from 'isomorphic-ws';
+import _ from 'lodash';
 
 /**
  * A newly created contract.
@@ -122,6 +123,15 @@ async function decodeArchiveResponse<T extends object, K, I extends string>(
  */
 function isRecordWith<Field extends string>(field: Field, x: unknown): x is Record<Field, unknown> {
   return typeof x === 'object' && x !== null && field in x;
+}
+
+/** @internal
+ * exported for testing only
+ */
+export function assert(b: boolean, m: string): void {
+  if (!b) {
+    throw m;
+  }
 }
 
 /**
@@ -492,6 +502,7 @@ class Ledger {
    * Also, `change` must never change its arguments.
    */
   private streamSubmit<T extends object, K, I extends string, State>(
+    callerName: string,
     template: Template<T, K, I>,
     endpoint: string,
     request: unknown,
@@ -534,11 +545,11 @@ class Ledger {
           }
         }
       } else if (isRecordWith('warnings', json)) {
-        console.warn('Ledger.streamQuery warnings', json);
+        console.warn(`Ledger.${callerName} warnings`, json);
       } else if (isRecordWith('errors', json)) {
-        console.error('Ledger.streamQuery errors', json);
+        console.error(`Ledger.${callerName} errors`, json);
       } else {
-        console.error('Ledger.streamQuery unknown message', json);
+        console.error(`Ledger.${callerName} unknown message`, json);
       }
     };
     const onClose = ({ code, reason }: { code: number; reason: string }): void => {
@@ -581,19 +592,40 @@ class Ledger {
    * https://docs.daml.com/json-api/search-query-language.html for a description of the query
    * language.
    *
+   * @deprecated Prefer `streamQueries`.
+   *
    * @param template The contract template to match contracts against.
    * @param query The query to match contracts agains.
    *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
    * @typeparam I The contract id type.
+   *
    */
   streamQuery<T extends object, K, I extends string>(
     template: Template<T, K, I>,
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    const request = {templateIds: [template.templateId], query};
-    const reconnectRequest = (): object[] => [request];
+    if (query === undefined) {
+      return this.streamQueryCommon(template, [], "streamQuery");
+    } else {
+      return this.streamQueryCommon(template, [query], "streamQuery");
+    }
+  }
+
+  /**
+   * @internal
+   *
+   */
+  private streamQueryCommon<T extends object, K, I extends string>(
+    template: Template<T, K, I>,
+    queries: Query<T>[],
+    name: string,
+  ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
+    const request = queries.length == 0 ?
+        [{templateIds: [template.templateId]}]
+        : queries.map(q => ({templateIds: [template.templateId], query: q}));
+    const reconnectRequest = (): object[] => request;
     const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]): CreateEvent<T, K, I>[] => {
       const archiveEvents: Set<ContractId<T>> = new Set();
       const createEvents: CreateEvent<T, K, I>[] = [];
@@ -608,35 +640,62 @@ class Ledger {
         .concat(createEvents)
         .filter(contract => !archiveEvents.has(contract.contractId));
     };
-    return this.streamSubmit(template, 'v1/stream/query', request, reconnectRequest, [], change);
+    return this.streamSubmit(name, template, 'v1/stream/query', request, reconnectRequest, [], change);
   }
 
   /**
-   * Retrieve a consolidated stream of events for a given template and contract key.
+   * Retrieve a consolidated stream of events for a given template and queries.
    *
-   * Same as [[streamQuery]], but instead of a query, match contracts by contract key.
+   * If the given list is empty, the accumulated state is the set of all active
+   * contracts for the given template. Otherwise, the accumulated state is the
+   * set of all contracts that match at least one of the given queries.
+   *
+   * See https://docs.daml.com/json-api/search-query-language.html for a
+   * description of the query language.
+   *
+   * @param template The contract template to match contracts against.
+   * @param query A query to match contracts against.
    *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
    * @typeparam I The contract id type.
    */
+  streamQueries<T extends object, K, I extends string>(
+    template: Template<T, K, I>,
+    queries: Query<T>[],
+  ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
+    return this.streamQueryCommon(template, queries, "streamQueries");
+  }
+
+  /**
+   * Retrieve a consolidated stream of events for a given template and contract key.
+   *
+   * The accumulated state is either the current active contract for the given
+   * key, or null if there is no active contract for the given key.
+   *
+   * @deprecated Prefer `streamFetchByKeys`.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   *
+   */
   streamFetchByKey<T extends object, K, I extends string>(
     template: Template<T, K, I>,
     key: K,
   ): Stream<T, K, I, CreateEvent<T, K, I> | null> {
+    // Note: this implmeentation is deliberately not unified with that of
+    // `streamFetchByKeys`, because doing so would add the requirement that the
+    // given key be in output format, whereas existing implementation supports
+    // input format.
     let lastContractId: ContractId<T> | null = null;
     const request = [{templateId: template.templateId, key}];
     const reconnectRequest = (): object[] => [{...request[0], 'contractIdAtOffset': lastContractId}]
     const change = (contract: CreateEvent<T, K, I> | null, events: readonly Event<T, K, I>[]): CreateEvent<T, K, I> | null => {
-      // NOTE(MH, #4564): We're very lenient here. We should not see a create
-      // event when `contract` is currently not null. We should also only see
-      // archive events when `contract` is currently not null and the contract
-      // ids match. However, the JSON API does not provied these guarantees yet
-      // but we're working on them.
       for (const event of events) {
         if ('created' in event) {
           contract = event.created;
-        } else { // i.e. 'archived' in event
+        } else { // i.e. 'archived' event
           if (contract && contract.contractId === event.archived.contractId) {
             contract = null;
           }
@@ -645,7 +704,98 @@ class Ledger {
       lastContractId = contract ? contract.contractId : null
       return contract;
     }
-    return this.streamSubmit(template, 'v1/stream/fetch', request, reconnectRequest, null, change);
+    return this.streamSubmit("streamFetchByKey", template, 'v1/stream/fetch', request, reconnectRequest, null, change);
+  }
+
+  /**
+   * @internal
+   *
+   * Returns the same API as [[streamSubmit]] but does not, in fact, establish
+   * any socket connection. Instead, this is a stream that always has the given
+   * value as its accumulated state.
+   */
+  private constantStream<T extends object, K, I extends string, V>(
+    value: V,
+  ): Stream<T, K, I, V> {
+    function on(t: 'live', l: (v: V) => void): void;
+    function on(t: 'change', l: (v: V, events: readonly Event<T, K, I>[]) => void): void;
+    function on(t: 'close', l: (e: StreamCloseEvent) => void): void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function on(type: any, listener: any): any {
+        if (type === 'live') {
+          listener(value);
+        }
+        if (type === 'change') {
+          listener(value, []);
+        }
+    }
+    function off(t: 'live', l: (v: V) => void): void;
+    function off(t: 'change', l: (v: V, events: readonly Event<T, K, I>[]) => void): void;
+    function off(t: 'close', l: (e: StreamCloseEvent) => void): void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
+    function off(_t: any, _l: any): any {}
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return { on, off, close: (): void => {} };
+  }
+
+  /**
+   * Retrieve a consolidated stream of events for a list of keys and a single
+   * template.
+   *
+   * The accumulated state is an array of the same length as the given list of
+   * keys, with positional correspondence. Each element in the array represents
+   * the current contract for the given key, or is explicitly null if there is
+   * currently no active contract matching that key.
+   *
+   * Note: the given `key` objects will be compared for (deep) equality with
+   * the values returned by the API. As such, they have to be given in the
+   * "output" format of the API, including the values of
+   * `encodeDecimalAsString` and `encodeInt64AsString`. See [the JSON API docs
+   * for details](https://docs.daml.com/json-api/lf-value-specification.html).
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   */
+  streamFetchByKeys<T extends object, K, I extends string>(
+    template: Template<T, K, I>,
+    keys: K[],
+  ): Stream<T, K, I, (CreateEvent<T, K, I> | null)[]> {
+    // We support zero-length key so clients can more easily manage a dynamic
+    // list, without having to special-case 0-length on their side.
+    if (keys.length == 0) {
+      return this.constantStream([]);
+    }
+    const lastContractIds: (ContractId<T> | null)[] = Array(keys.length).fill(null);
+    const keysCopy = _.cloneDeep(keys);
+    const initState: (CreateEvent<T, K, I> | null)[] = Array(keys.length).fill(null);
+    const request = keys.map(k => ({templateId: template.templateId, key: k}));
+    const reconnectRequest = (): object[] => request.map((r, idx) => ({...r, 'contractIdAtOffset': lastContractIds[idx]}));
+    const change = (state: (CreateEvent<T, K, I> | null)[], events: readonly Event<T, K, I>[]): (CreateEvent<T, K, I> | null)[] => {
+      const newState: (CreateEvent<T, K, I> | null)[] = Array.from(state);
+      for (const event of events) {
+        if ('created' in event) {
+          const k = event.created.key;
+          keysCopy.forEach((requestKey, idx) => {
+            if (_.isEqual(requestKey, k)) {
+              newState[idx] = event.created;
+            }
+          });
+        } else { // i.e. 'archived' in event
+          const id: ContractId<T> = event.archived.contractId;
+          newState.forEach((contract, idx) => {
+            if (contract && contract.contractId === id) {
+              newState[idx] = null;
+            }
+          });
+        }
+      }
+      newState.forEach((c, idx) => {
+        lastContractIds[idx] = c ? c.contractId : null;
+      });
+      return newState;
+    }
+    return this.streamSubmit("streamFetchByKeys", template, 'v1/stream/fetch', request, reconnectRequest, initState, change);
   }
 }
 

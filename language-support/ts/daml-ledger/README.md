@@ -54,10 +54,21 @@ of that template visible for the submitting party are returned.
 
 `streamQuery`
 -------------
-Retrieve a consolidated stream of events for a given template and query. The accumulated state is
-the current set of active contracts matching the query. An event can be a `CreateEvent` or an
-`ArchiveEvent`. When no `query` argument is given, all events visible to the submitting party are
-returned.
+
+> Deprecated: prefer `streamQueries`.
+
+Retrieve a consolidated stream of events for a given template and optional
+query. The accumulated state is the current set of active contracts matching
+the query if one was given; if the function was called without a query
+argument, or the query argument was `undefined`, the accumulated state will
+instead contain all of the active contracts for the given template.
+
+`streamQueries`
+---------------
+Retrieve a consolidated stream of events for a given template and queries. The
+accumulated state is the current set of active contracts matching at least one
+of the given queries, or all contracts for the given template if no query is
+given.
 
 `fetch`
 -------
@@ -69,11 +80,32 @@ Fetch a contract identified by its contract key.
 
 `streamFetchByKey`
 ------------------
-Retrieve a consolidated stream of `CreateEvent`'s for a given template and contract key.
 
+> Deprecated: prefer `streamFetchByKeys`.
+
+Retrieve a consolidated stream of `CreateEvent`'s for a given template and
+contract key. The accumulated state is either the `CreateEvent` for the active
+contract matching the given key, or null if there is no currently-active
+contract for the given key.
+
+`streamFetchByKeys`
+-------------------
+Retrieve a consolidated stream of `CreateEvent`'s for a given template and
+contract keys. The accumulated state is a vector of the same length as the
+given vector of keys, where each element is the CreateEvent for the current
+active contract of the corresponding key (element-wise), or null if there is no
+current active contract for that key.
+
+Note: the given `key` objects will be compared for (deep) equality with the
+values returned by the API. As such, they have to be given in the "output"
+format of the JSON API. See the [JSON API docs] for details.
+
+[JSON API docs]: https://docs.daml.com/json-api/lf-value-specification.html
 
 ## Source
+
 https://github.com/digital-asset/daml/tree/master/language-support/ts/daml-ledger
 
 ## License
+
 [Apache-2.0](https://github.com/digital-asset/daml/blob/master/LICENSE)

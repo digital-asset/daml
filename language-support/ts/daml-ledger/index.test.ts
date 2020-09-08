@@ -3,6 +3,7 @@
 
 import { Template, Choice, ContractId } from "@daml/types";
 import Ledger, {CreateEvent} from "./index";
+import {assert} from "./index";
 import { Event } from "./index";
 import * as jtv from "@mojotech/json-type-validation";
 import type { EventEmitter } from 'events';
@@ -74,7 +75,8 @@ const Foo: Template<Foo, string, "foo-id"> = {
 };
 
 const fooCreateEvent = (
-  coid: number
+  coid: number,
+  key?: string,
 ): CreateEvent<Foo, string, "foo-id"> => {
   return {
     templateId: "foo-id",
@@ -82,7 +84,7 @@ const fooCreateEvent = (
     signatories: [],
     observers: [],
     agreementText: "fooAgreement",
-    key: fooKey,
+    key: key || fooKey,
     payload: {key: fooKey},
   };
 };
@@ -111,7 +113,14 @@ beforeEach(() => {
   mockFunctions.forEach(f => f.mockClear());
 });
 
-describe("streamQuery", () => {
+describe("internals", () => {
+  test("assert throws as expected", () => {
+    assert(true, "not thrown");
+    expect(() => assert(false, "throws")).toThrow();
+  });
+});
+
+describe("streamSubmit", () => {
   test("receive unknown message", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQuery(Foo);
@@ -124,7 +133,7 @@ describe("streamQuery", () => {
 
     mockInstance.serverOpen();
     expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockSend).toHaveBeenLastCalledWith({templateIds: [Foo.templateId]});
+    expect(mockSend).toHaveBeenLastCalledWith([{templateIds: [Foo.templateId]}]);
     const restoreConsole = mockConsole();
     mockInstance.serverSend('mickey mouse');
     expect(console.error).toHaveBeenCalledWith("Ledger.streamQuery unknown message", "mickey mouse");
@@ -133,34 +142,22 @@ describe("streamQuery", () => {
 
   test("receive warnings", () => {
     const ledger = new Ledger(mockOptions);
-    const stream = ledger.streamQuery(Foo);
+    const stream = ledger.streamQueries(Foo, []);
     stream.on("change", mockChange);
     const restoreConsole = mockConsole();
     mockInstance.serverSend({ warnings: ["oh oh"] });
-    expect(console.warn).toHaveBeenCalledWith("Ledger.streamQuery warnings", {"warnings": ["oh oh"]});
+    expect(console.warn).toHaveBeenCalledWith("Ledger.streamQueries warnings", {"warnings": ["oh oh"]});
     restoreConsole();
   });
 
   test("receive errors", () => {
     const ledger = new Ledger(mockOptions);
-    const stream = ledger.streamQuery(Foo);
+    const stream = ledger.streamFetchByKey(Foo, fooKey);
     stream.on("change", mockChange);
     const restoreConsole = mockConsole();
     mockInstance.serverSend({ errors: ["not good!"] });
-    expect(console.error).toHaveBeenCalledWith("Ledger.streamQuery errors", { errors: ["not good!"] });
+    expect(console.error).toHaveBeenCalledWith("Ledger.streamFetchByKey errors", { errors: ["not good!"] });
     restoreConsole();
-  });
-
-  test("receive live event", () => {
-    const ledger = new Ledger(mockOptions);
-    const stream = ledger.streamQuery(Foo);
-    stream.on("live", mockLive);
-    stream.on("change", state => mockChange(state));
-    mockInstance.serverSend({ events: [fooEvent(1)], offset: '3' });
-    expect(mockLive).toHaveBeenCalledTimes(1);
-    expect(mockLive).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
-    expect(mockChange).toHaveBeenCalledTimes(1);
-    expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)])
   });
 
   test("receive null offset", () => {
@@ -205,6 +202,36 @@ describe("streamQuery", () => {
     expect(mockChange).toHaveBeenCalledTimes(0);
   });
 
+  test("stop listening to a stream", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    const count1 = jest.fn();
+    const count2 = jest.fn();
+    stream.on("change", count1);
+    stream.on("change", count2);
+    mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
+    expect(count1).toHaveBeenCalledTimes(1);
+    expect(count2).toHaveBeenCalledTimes(1);
+    stream.off("change", count1)
+    mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
+    expect(count1).toHaveBeenCalledTimes(1);
+    expect(count2).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("streamQuery", () => {
+  test("receive live event", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    stream.on("live", mockLive);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1)], offset: '3' });
+    expect(mockLive).toHaveBeenCalledTimes(1);
+    expect(mockLive).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)])
+  });
+
   test("receive one event", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQuery(Foo);
@@ -220,7 +247,7 @@ describe("streamQuery", () => {
     stream.on("change", state => mockChange(state));
     mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
     expect(mockChange).toHaveBeenCalledTimes(1);
-    expect(mockChange).toHaveBeenCalledWith([1, 2, 3].map(fooCreateEvent));
+    expect(mockChange).toHaveBeenCalledWith([1, 2, 3].map(cid => fooCreateEvent(cid)));
   });
 
   test("drop matching created and archived events", () => {
@@ -235,21 +262,50 @@ describe("streamQuery", () => {
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(2)]);
   });
+});
 
-  test("stop lisetning to a stream", () => {
+describe("streamQueries", () => {
+  test("receive live event", () => {
     const ledger = new Ledger(mockOptions);
-    const stream = ledger.streamQuery(Foo);
-    const count1 = jest.fn();
-    const count2 = jest.fn();
-    stream.on("change", count1);
-    stream.on("change", count2);
+    const stream = ledger.streamQueries(Foo, []);
+    stream.on("live", mockLive);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1)], offset: '3' });
+    expect(mockLive).toHaveBeenCalledTimes(1);
+    expect(mockLive).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)])
+  });
+
+  test("receive one event", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQueries(Foo, []);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1)] });
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
+  });
+
+  test("receive several events", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQueries(Foo, []);
+    stream.on("change", state => mockChange(state));
     mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
-    expect(count1).toHaveBeenCalledTimes(1);
-    expect(count2).toHaveBeenCalledTimes(1);
-    stream.off("change", count1)
-    mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
-    expect(count1).toHaveBeenCalledTimes(1);
-    expect(count2).toHaveBeenCalledTimes(2);
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenCalledWith([1, 2, 3].map(cid => fooCreateEvent(cid)));
+  });
+
+  test("drop matching created and archived events", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQueries(Foo, []);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1), fooEvent(2)] });
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(1), fooCreateEvent(2)]);
+    mockChange.mockClear();
+    mockInstance.serverSend({ events: [fooArchiveEvent(1)]});
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(2)]);
   });
 });
 
@@ -293,40 +349,73 @@ describe("streamFetchByKey", () => {
     expect(mockChange).toHaveBeenCalledWith(null);
   });
 
-  test("reconnect on close", async () => {
-    const reconnectThreshold = 200;
-    const ledger = new Ledger({...mockOptions, reconnectThreshold: reconnectThreshold} );
-    const stream = ledger.streamFetchByKey(Foo, fooKey);
-    stream.on("live", mockLive);
-    stream.on("close", mockClose);
-    //send live event, but no contract yet.
-    mockInstance.serverSend({events: [], offset: '3'});
-    await new Promise(resolve => setTimeout(resolve, reconnectThreshold));
-    mockConstructor.mockClear();
-    mockInstance.serverClose({code: 1, reason: 'test close'});
-    expect(mockConstructor).toHaveBeenCalled();
-    mockInstance.serverOpen();
-    expect(mockSend).toHaveBeenCalledTimes(2)
-    expect(mockSend).toHaveBeenNthCalledWith(1, {'offset': '3'});
-    expect(mockSend).toHaveBeenNthCalledWith(2, [{'key': 'fooKey', 'templateId': 'foo-id', 'contractIdAtOffset': null}]);
+});
 
-    //send live event and set the last contract id.
-    mockInstance.serverSend({events: [fooEvent(1)], offset: '4'});
-    await new Promise(resolve => setTimeout(resolve, reconnectThreshold));
-    mockConstructor.mockClear();
-    mockInstance.serverClose({code: 1, reason: 'second test close'});
-    expect(mockConstructor).toHaveBeenCalled();
-    mockSend.mockClear();
-    mockInstance.serverOpen();
-    expect(mockSend).toHaveBeenCalledTimes(2);
-    expect(mockSend).toHaveBeenNthCalledWith(1, {'offset': '4'});
-    expect(mockSend).toHaveBeenNthCalledWith(2, [{'key': 'fooKey', 'templateId': 'foo-id', 'contractIdAtOffset': '1'}]);
-    mockSend.mockClear();
-    mockConstructor.mockClear();
+describe("streamFetchByKeys", () => {
+  test("receive one event", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamFetchByKeys(Foo, [fooKey]);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1)] });
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(1)]);
+  });
 
-    // check that the client doesn't try to reconnect again.  it should only reconnect if it
-    // received an event confirming the stream is live again, i.e. {events: [], offset: '3'}
-    mockInstance.serverClose({code: 1, reason: 'test close'});
-    expect(mockConstructor).not.toHaveBeenCalled();
+  test("receive several events", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamFetchByKeys(Foo, [fooKey]);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1), fooEvent(2), fooEvent(3)] });
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(3)]);
+  });
+
+  test("drop matching created and archived events", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamFetchByKeys(Foo, [fooKey]);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1)] });
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(1)]);
+    mockChange.mockClear();
+    mockInstance.serverSend({ events: [fooArchiveEvent(1)] });
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenCalledWith([null]);
+  });
+
+  test("watch multiple keys", () => {
+    const create = (cid: number, key: string): Event<Foo> => ({created: fooCreateEvent(cid, key)});
+    const archive = fooArchiveEvent;
+    const send = (events: Event<Foo>[]): void => mockInstance.serverSend({events});
+    const expectCids = (expected: (number | null)[]): void => expect(mockChange) .toHaveBeenCalledWith( expected.map((cid: number | null, idx) => cid ? fooCreateEvent(cid, 'key' + (idx + 1)) : null));
+
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamFetchByKeys(Foo, ['key1', 'key2']);
+    stream.on("change", state => mockChange(state));
+
+    send([create(1, 'key1')]);
+    expectCids([1, null]);
+
+    send([create(2, 'key2')]);
+    expectCids([1, 2]);
+
+    send([archive(1), create(3, 'key1')]);
+    expectCids([3, 2]);
+
+    send([archive(2), archive(3), create(4, 'key2')]);
+    expectCids([null, 4]);
+  });
+
+  test("watch zero keys", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamFetchByKeys(Foo, []);
+    stream.close();
+    const change = jest.fn();
+    stream.on("change", state => change(state));
+    expect(change).toHaveBeenCalledTimes(1);
+    expect(change).toHaveBeenCalledWith([]);
+    mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
+    expect(change).toHaveBeenCalledWith([]);
+    expect(change).toHaveBeenCalledTimes(1);
   });
 });
