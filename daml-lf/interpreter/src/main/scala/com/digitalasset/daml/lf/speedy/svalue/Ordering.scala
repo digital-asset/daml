@@ -40,6 +40,7 @@ object Ordering extends scala.math.Ordering[SValue] {
     def step(tuple: (SValue, SValue)) =
       tuple match {
         case (SUnit, SUnit) =>
+          ()
         case (SBool(x), SBool(y)) =>
           diff = x compareTo y
         case (SInt64(x), SInt64(y)) =>
@@ -53,7 +54,7 @@ object Ordering extends scala.math.Ordering[SValue] {
         case (STimestamp(x), STimestamp(y)) =>
           diff = x compareTo y
         case (SParty(x), SParty(y)) =>
-          // party are ASCII, so UTF16 comparison matches UTF8 comparison.
+          // parties are ASCII, so UTF16 comparison matches UTF8 comparison.
           diff = x compareTo y
         case (SContractId(x), SContractId(y)) =>
           diff = compareCid(x, y)
@@ -62,8 +63,8 @@ object Ordering extends scala.math.Ordering[SValue] {
         case (SRecord(_, _, xs), SRecord(_, _, ys)) =>
           push(xs.iterator().asScala, ys.iterator().asScala)
         case (SVariant(_, _, xRank, x), SVariant(_, _, yRank, y)) =>
-          push(Iterator.single(x), Iterator.single(y))
           diff = xRank compareTo yRank
+          push(Iterator.single(x), Iterator.single(y))
         case (SList(xs), SList(ys)) =>
           push(xs.iterator, ys.iterator)
         case (SOptional(xOpt), SOptional(yOpt)) =>
@@ -83,12 +84,15 @@ object Ordering extends scala.math.Ordering[SValue] {
         case (SStruct(_, xs), SStruct(_, ys)) =>
           push(xs.iterator().asScala, ys.iterator().asScala)
         case (SAny(xType, x), SAny(yType, y)) =>
-          push(Iterator.single(x), Iterator.single(y))
           diff = TypeOrdering.compare(xType, yType)
+          push(Iterator.single(x), Iterator.single(y))
         case (STypeRep(xType), STypeRep(yType)) =>
           diff = TypeOrdering.compare(xType, yType)
-        case _ =>
+        case (_: SPAP, _: SPAP) =>
           throw SError.SErrorCrash("functions are not comparable")
+        // We should never hit this case at runtime.
+        case _ =>
+          throw SError.SErrorCrash("BUG: comparison of incomparable values")
       }
 
     while (diff == 0 && stackX.nonEmpty) {
