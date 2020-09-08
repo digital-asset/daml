@@ -30,7 +30,7 @@ object TypeOrdering extends Ordering[Type] {
     }
 
     @inline
-    def compareNames(xs: Iterator[Ref.Name], ys: Iterator[Ref.Name]): Unit = {
+    def compareNamesLexicographically(xs: Iterator[Ref.Name], ys: Iterator[Ref.Name]): Unit = {
       while (diff == 0 && xs.hasNext && ys.hasNext) diff = xs.next() compare ys.next()
       if (diff == 0) diff = xs.hasNext compare ys.hasNext
     }
