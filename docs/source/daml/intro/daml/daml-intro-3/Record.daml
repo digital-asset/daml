@@ -4,6 +4,8 @@
 
 module Record where
 
+import Daml.Script
+
 -- RECORD_TEST_BEGIN
 data MyRecord = MyRecord with
   my_txt : Text
@@ -25,7 +27,7 @@ data Nested = Nested with
   my_record : MyRecord
   my_kv : KeyValue Text Int
 
-record_test = scenario do
+record_test = script do
   let
     my_record = MyRecord with
       my_txt = "Text"
@@ -73,7 +75,7 @@ data MyContainer a = MyContainer with
   contents : a
     deriving (Eq)
 
-eq_test = scenario do
+eq_test = script do
   let
     eq_record = EqRecord with
       my_txt = "Text"
@@ -116,10 +118,10 @@ template CashBalance
   where
     signatory accountant
 
-cash_balance_test = scenario do
-  accountant <- getParty "Bob"
-  owner <- getParty "Alice"
-  bank_party <- getParty "Bank"
+cash_balance_test = script do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
   let
     bank = Bank with
       party = bank_party
@@ -134,14 +136,15 @@ cash_balance_test = scenario do
       amount = 100.0
 
   submit accountant do
-    create CashBalance with
+    createCmd CashBalance with
       accountant
       cash
       account
+  pure ()
 -- CASH_BALANCE_END
 
 -- MANIPULATION_BEGIN
-manipulation_demo = scenario do
+manipulation_demo = script do
   let
     eq_record = EqRecord with
       my_txt = "Text"

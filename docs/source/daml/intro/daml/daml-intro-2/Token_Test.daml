@@ -4,6 +4,8 @@
 
 module Token_Test where
 
+import Daml.Script
+
 -- The Token template from section 1
 template Token
   with
@@ -11,88 +13,88 @@ template Token
   where
     signatory owner
 
--- Scenarios are specified as top-level variables using `scenario do`. `do` always
+-- DAML Scripts are specified as top-level variables of type `Script a`. `do` always
 -- introduces a block.
-token_test = scenario do
+token_test = do
 
-  -- The `getParty` function allows the specification of parties in a `scenario` context.
+  -- The `allocateParty` function allocates a new party.
   -- The `<-` notation _binds_ the result to a variable.
-  alice <- getParty "Alice"
+  alice <- allocateParty "Alice"
 
   -- The `submit` keyword allows a party to submit a transaction to the ledger.
   -- Bob and Alice can self-issue tokens as their authority is available to sign the
   -- Tokens within the transaction submitted by them.
   submit alice do
-    create Token with owner = alice
+    createCmd Token with owner = alice
 
-  bob <- getParty "Bob"
+  bob <- allocateParty "Bob"
   bobToken <- submit bob do
-    create Token with owner = bob
+    createCmd Token with owner = bob
 
-  -- If a single statement in a scenario fails, the whole scenario fails at that point.
-  -- To test failure of more than one submission in a single scenario, we need a different
+  -- If a single statement in a Script fails, the whole Script fails at that point.
+  -- To test failure of more than one submission in a single Script, we need a different
   -- keyword `submitMustFail`, which succeeds when the submitted transaction fails.
   -- Alice and Bob cannot issue Tokens to each other, as neither has the authority to put
   -- the other's signature on the Token.
   submitMustFail alice do
-    create Token with owner = bob
+    createCmd Token with owner = bob
   submitMustFail bob do
-    create Token with owner = alice
+    createCmd Token with owner = alice
 
   -- `archive` is symmetric to `create`. Bob and Alice can't archive each other's
   -- Tokens, but they can archive their own.
   submitMustFail alice do
-    archive bobToken
+    archiveCmd bobToken
 
   submit bob do
-    archive bobToken
+    archiveCmd bobToken
 
 -- TOKEN_TEST_1_BEGIN
-token_test_1 = scenario do
-  alice <- getParty "Alice"
+token_test_1 = script do
+  alice <- allocateParty "Alice"
   submit alice do
-    create Token with owner = alice
+    createCmd Token with owner = alice
 -- TOKEN_TEST_1_END
 
 {-
 -- FAILURE_TEST_1_BEGIN
-failing_test_1 = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+failing_test_1 = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   submit alice do
-    create Token with owner = bob
+    createCmd Token with owner = bob
   submit bob do
-    create Token with owner = alice
+    createCmd Token with owner = alice
 -- FAILURE_TEST_1_END
 -}
 
 -- TOKEN_TEST_2_BEGIN
-token_test_2 = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+token_test_2 = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
   submitMustFail alice do
-    create Token with owner = bob
+    createCmd Token with owner = bob
   submitMustFail bob do
-    create Token with owner = alice
+    createCmd Token with owner = alice
 
   submit alice do
-    create Token with owner = alice
+    createCmd Token with owner = alice
   submit bob do
-    create Token with owner = bob
+    createCmd Token with owner = bob
 -- TOKEN_TEST_2_END
 
 -- TOKEN_TEST_3_BEGIN
-token_test_3 = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+token_test_3 = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
   alice_token <- submit alice do
-    create Token with owner = alice
+    createCmd Token with owner = alice
 
   submitMustFail bob do
-    archive alice_token
+    archiveCmd alice_token
 
   submit alice do
-    archive alice_token
+    archiveCmd alice_token
 -- TOKEN_TEST_3_END

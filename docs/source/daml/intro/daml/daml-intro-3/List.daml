@@ -6,8 +6,9 @@ module List where
 
 -- LIST_TEST_BEGIN
 import DA.List
+import Daml.Script
 
-list_test = scenario do
+list_test = script do
   let
     empty : [Int] = []
     one = [1]

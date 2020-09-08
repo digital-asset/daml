@@ -82,6 +82,13 @@ import only the selected names:
 
   import DA.List (sortOn, groupOn)
 
+If your module contains any DAML Scripts, you need to import the
+corresponding functionality:
+
+.. code-block:: daml
+
+  import Daml.Script
+
 Project overview
 ----------------
 
@@ -93,10 +100,10 @@ The project both changes and adds to the ``Iou`` model presented in :doc:`6_Part
   With the ``Iou`` model, an ``issuer`` could end up owing cash to anyone as transfers were authorized by just ``owner`` and ``newOwner``. In this project, only parties having an ``AssetHolder`` contract can end up owning assets. This allows the ``issuer`` to determine which parties may own their assets.
 - The ``Trade`` template adds a swap of two assets to the model.
 
-Composed choices and scenarios
+Composed choices and scripts
 ------------------------------
 
-This project showcases how you can put the ``Update`` and ``Scenario`` actions you learnt about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
+This project showcases how you can put the ``Update`` and ``Script`` actions you learnt about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
 
 - Two create actions in case of ``Split``
 - One create and one archive action in case of ``Merge``
@@ -115,7 +122,7 @@ Taking transaction composition a step further, the ``Trade_Settle`` choice on ``
   :start-after: -- TRADE_SETTLE_BEGIN
   :end-before: -- TRADE_SETTLE_END
 
-The resulting transaction, with its two nested levels of consequences, can be seen in the ``test_trade`` scenario in ``Test.Intro.Asset.Trade``:
+The resulting transaction, with its two nested levels of consequences, can be seen in the ``test_trade`` script in ``Test.Intro.Asset.Trade``:
 
 .. code-block:: none
 
@@ -178,14 +185,14 @@ The resulting transaction, with its two nested levels of consequences, can be se
               with
                 issuer = 'EUR_Bank'; owner = 'Alice'; symbol = "EUR"; quantity = 90.0; observers = []
 
-Similar to choices, you can see how the scenarios in this project are built up from each other:
+Similar to choices, you can see how the scripts in this project are built up from each other:
 
 .. literalinclude:: daml/daml-intro-7/daml/Test/Intro/Asset/Role.daml
   :language: daml
   :start-after: -- TEST_ISSUANCE_BEGIN
   :end-before: -- TEST_ISSUANCE_END
 
-In the above, the ``test_issuance`` scenario in ``Test.Intro.Asset.Role`` uses the output of the ``setupRoles`` scenario in the same module.
+In the above, the ``test_issuance`` script in ``Test.Intro.Asset.Role`` uses the output of the ``setupRoles`` script in the same module.
 
 The same line shows a new kind of pattern matching. Rather than writing ``setupResults <- setupRoles`` and then accessing the components of ``setupResults`` using ``_1``, ``_2``, etc., you can give them names. It's equivalent to writing
 
@@ -204,8 +211,8 @@ DAML's execution model
 
 DAML's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
 
-1. A party submits a transaction. Remember, a transaction is just a list of actions.
-2. The transaction is interpreted, meaning the ``Update`` corresponding to each action is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.).
+1. A party submits a list of ``Commands``.
+2. The transaction is interpreted, meaning the ``Update`` corresponding to each command is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.).
 3. The views of the transaction that parties get to see (see :ref:`privacy`) are calculated in a process called *blinding*, or *projecting*.
 4. The blinded views are distributed to the parties.
 5. The transaction is *validated* based on the blinded views and a consensus protocol depending on the underlying infrastructure.
@@ -268,14 +275,14 @@ The consequences contain, next to some ``fetch`` actions, two ``exercise`` actio
 
 Each of the two involved ``TransferApproval`` contracts is signed by a different ``issuer``, which see the action on "their" contract. So the EUR_Bank sees the ``TransferApproval_Transfer`` action for the EUR ``Asset`` and the USD_Bank sees the ``TransferApproval_Transfer`` action for the USD ``Asset``.
 
-Some DAML ledgers, like the scenario runner and the Sandbox, work on the principle of "data minimization", meaning nothing more than the above information is distributed. That is, the "projection" of the overall transaction that gets distributed to EUR_Bank in step 4 of :ref:`execution_model` would consist only of the ``TransferApproval_Transfer`` and its consequences.
+Some DAML ledgers, like the script runner and the Sandbox, work on the principle of "data minimization", meaning nothing more than the above information is distributed. That is, the "projection" of the overall transaction that gets distributed to EUR_Bank in step 4 of :ref:`execution_model` would consist only of the ``TransferApproval_Transfer`` and its consequences.
 
 Other implementations, in particular those on public blockchains, may have weaker privacy constraints.
 
 Divulgence
 ~~~~~~~~~~
 
-Note that principle 2. of the privacy model means that sometimes parties see contracts that they are not signatories or observers on. If you look at the final ledger state of the ``test_trade`` scenario, for example, you may notice that both Alice and Bob now see both assets, as indicated by the Xs in their respective columns:
+Note that principle 2. of the privacy model means that sometimes parties see contracts that they are not signatories or observers on. If you look at the final ledger state of the ``test_trade`` script, for example, you may notice that both Alice and Bob now see both assets, as indicated by the Xs in their respective columns:
 
 .. figure:: images/7_Composing/divulgence.png
 

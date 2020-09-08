@@ -103,7 +103,7 @@ Use role contracts for ongoing authorization
 
 Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in DAML through relationship or role contracts.
 
-Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the scenario above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
+Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the script above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
 
 .. literalinclude:: daml/daml-intro-6/Parties.daml
   :language: daml
@@ -155,7 +155,7 @@ The authorizers of transactions are:
 An authorization example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The final transaction in the scenario of the source file for this section is authorized as follows, ignoring fetches:
+The final transaction in the script of the source file for this section is authorized as follows, ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.
 - The root transaction has a single action, which is to exercise ``Send_Iou`` on a ``IouSender`` contract with Bob as ``sender`` and Charlie as ``receiver``. Since the controller of that choice is the ``sender``, Bob is the required authorizer.
