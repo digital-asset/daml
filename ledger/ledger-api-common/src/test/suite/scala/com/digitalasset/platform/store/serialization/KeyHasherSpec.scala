@@ -457,7 +457,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
       )
 
       val textMaps = List[Value](
-        ValueTextMap(SortedLookupList.empty),
+        ValueTextMap(SortedLookupList.Empty),
         ValueTextMap(ImmArray("a" -> ValueFalse)),
         ValueTextMap(ImmArray("a" -> ValueFalse)),
         ValueTextMap(ImmArray("b" -> ValueFalse)),

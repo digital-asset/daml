@@ -4,6 +4,7 @@
 package com.daml.lf.data
 
 import ScalazEqual.{equalBy, orderBy}
+import com.daml.lf.data.ImmArray.ImmArraySeq
 
 import scala.language.higherKinds
 import scalaz.{Applicative, Equal, Order, Traverse}
@@ -48,34 +49,34 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
 
 object SortedLookupList extends SortedLookupListInstances {
 
-  def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
-    entries.toSeq
-      .groupBy(_._1)
-      .collectFirst {
-        case (k, l) if l.size > 1 => s"key $k duplicated when trying to build map"
-      }
-      .toLeft(new SortedLookupList(entries.toSeq.sortBy(_._1)(Utf8.Ordering).toImmArray))
+  private[this] val EntryOrdering: Ordering[(String, _)] = {
+    case ((key1, _), (key2, _)) => Utf8.Ordering.compare(key1, key2)
   }
 
-  def fromOrderedImmArray[X](
-      entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
-    entries
-      .map(_._1)
-      .toSeq
-      .sliding(2)
-      .collectFirst {
-        case Seq(k1, k2) if Utf8.Ordering.gteq(k1, k2) => s"the list $entries is not sorted by key"
-      }
-      .toLeft(new SortedLookupList(entries))
-  }
+  private[this] def nonOrderedEntry[X](entries: ImmArray[(String, X)]): Option[(String, X)] =
+    (entries.iterator zip entries.iterator.drop(1)).collectFirst {
+      case (entry1, entry2) if EntryOrdering.gteq(entry1, entry2) => entry2
+    }
+
+  def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] =
+    nonOrderedEntry(entries.toSeq.sorted(EntryOrdering).toImmArray) match {
+      case None => Right(new SortedLookupList(entries))
+      case Some((key, _)) => Left(s"key $key duplicated when trying to build map")
+    }
+
+  def fromOrderedImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] =
+    nonOrderedEntry(entries) match {
+      case None => Right(new SortedLookupList(entries))
+      case Some(_) => Left(s"the entries $entries is not sorted by key")
+    }
 
   def fromOrderedIterator[X](entries: Iterator[(String, X)]): Either[String, SortedLookupList[X]] =
     fromOrderedImmArray(entries.to[ImmArray])
 
   def apply[X](entries: Map[String, X]): SortedLookupList[X] =
-    new SortedLookupList(ImmArray(entries.toSeq.sortBy(_._1)))
+    new SortedLookupList[X](entries.to[ImmArraySeq].sorted(EntryOrdering).toImmArray)
 
-  def empty[X]: SortedLookupList[X] = new SortedLookupList(ImmArray.empty)
+  def Empty: SortedLookupList[Nothing] = new SortedLookupList(ImmArray.empty)
 
   implicit def `SLL Order instance`[X: Order]: Order[SortedLookupList[X]] =
     orderBy(_.toImmArray, true)
