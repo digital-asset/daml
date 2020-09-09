@@ -67,7 +67,7 @@ object SortedLookupList extends SortedLookupListInstances {
   def fromOrderedImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] =
     nonOrderedEntry(entries) match {
       case None => Right(new SortedLookupList(entries))
-      case Some(_) => Left(s"the entries $entries is not sorted by key")
+      case Some(_) => Left(s"the entries $entries are not sorted by key")
     }
 
   def apply[X](entries: Map[String, X]): SortedLookupList[X] =
