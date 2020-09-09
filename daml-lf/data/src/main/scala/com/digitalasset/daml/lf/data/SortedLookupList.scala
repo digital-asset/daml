@@ -58,11 +58,13 @@ object SortedLookupList extends SortedLookupListInstances {
       case (entry1, entry2) if EntryOrdering.gteq(entry1, entry2) => entry2
     }
 
-  def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] =
-    nonOrderedEntry(entries.toSeq.sorted(EntryOrdering).toImmArray) match {
+  def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
+    val sortedEntries = entries.toSeq.sorted(EntryOrdering).toImmArray
+    nonOrderedEntry(sortedEntries) match {
       case None => Right(new SortedLookupList(entries))
       case Some((key, _)) => Left(s"key $key duplicated when trying to build map")
     }
+  }
 
   def fromOrderedImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] =
     nonOrderedEntry(entries) match {
