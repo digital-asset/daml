@@ -70,9 +70,6 @@ object SortedLookupList extends SortedLookupListInstances {
       case Some(_) => Left(s"the entries $entries is not sorted by key")
     }
 
-  def fromOrderedIterator[X](entries: Iterator[(String, X)]): Either[String, SortedLookupList[X]] =
-    fromOrderedImmArray(entries.to[ImmArray])
-
   def apply[X](entries: Map[String, X]): SortedLookupList[X] =
     new SortedLookupList[X](entries.to[ImmArraySeq].sorted(EntryOrdering).toImmArray)
 
