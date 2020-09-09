@@ -61,7 +61,7 @@ object SortedLookupList extends SortedLookupListInstances {
   def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
     val sortedEntries = entries.toSeq.sorted(EntryOrdering).toImmArray
     nonOrderedEntry(sortedEntries) match {
-      case None => Right(new SortedLookupList(entries))
+      case None => Right(new SortedLookupList(sortedEntries))
       case Some((key, _)) => Left(s"key $key duplicated when trying to build map")
     }
   }
