@@ -868,6 +868,7 @@ includePathTests damlc = testGroup "include-path"
     ]
 
 multiPackageTests :: FilePath -> TestTree
+multiPackageTests damlc | isWindows = testGroup "multi-package (skipped)" []
 multiPackageTests damlc = testGroup "multi-package"
     [ testCaseSteps "IDE in root directory" $ \step -> withTempDir $ \dir -> do
           step "build a"
