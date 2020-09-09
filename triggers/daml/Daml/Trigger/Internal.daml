@@ -18,8 +18,9 @@ module Daml.Trigger.Internal
   ) where
 
 import DA.Action.State
-import DA.Next.Map (Map)
-import qualified DA.Next.Map as Map
+import DA.Map (Map)
+import qualified DA.Map as Map
+import DA.Optional (fromOptional)
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 
@@ -30,9 +31,15 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 
 -- This will change to a Map once we have proper maps in DAML-LF
 data ACS = ACS
-  { activeContracts : [(AnyContractId, AnyTemplate)]
+  { activeContracts : Map TemplateTypeRep [(AnyContractId, AnyTemplate)]
   , pendingContracts : Map CommandId [AnyContractId]
   }
+
+instance Ord TemplateTypeRep where
+  compare = error "TODO SC templatetyperep placeholder"
+
+instance Ord CommandId where
+  compare = error "TODO SC commandid placeholder"
 
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
 -- Its main feature is that you can call `emitCommands` to
@@ -45,15 +52,30 @@ newtype TriggerA a = TriggerA (State TriggerAState a)
 addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
 addCommands m (Commands cid cmds) = Map.insert cid cmds m
 
+adjust : forall k v. Ord k => k -> (Optional v -> Optional v) -> Map k v -> Map k v
+adjust k f m =
+  let orig = Map.lookup k m
+  in case (orig, f orig) of
+       (None, None) -> m
+       (_, Some v) -> Map.insert k v m
+       (Some _, None) -> Map.delete k m
+
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
-insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
+insertTpl cid tpl acs = acs { activeContracts = adjust cid.templateId addct acs.activeContracts }
+  where addct ol = Some $ (cid, tpl) :: fromOptional [] ol
 
 deleteTpl : AnyContractId -> ACS -> ACS
-deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') acs.activeContracts }
+deleteTpl cid acs = acs { activeContracts = adjust cid.templateId rmct acs.activeContracts }
+  where rmct ol = do
+          l <- ol
+          case filter (\(cid', _) -> cid /= cid') l of
+            [] -> None
+            nel -> Some nel
 
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid acs = do
-  (_, tpl) <- find ((cid ==) . fst) $ acs.activeContracts
+  tacs <- Map.lookup cid.templateId acs.activeContracts
+  (_, tpl) <- find ((cid ==) . fst) tacs
   fromAnyTemplate tpl
 
 applyEvent : Event -> ACS -> ACS
