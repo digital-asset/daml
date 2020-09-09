@@ -13,7 +13,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
-import scala.collection.immutable.HashMap
 
 private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) {
 
@@ -121,20 +120,22 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
             SValue.SList(ls.map((value: Value[ContractId]) => go(elemType, value, newNesting)))
 
           // textMap
-          case (TTextMap(elemType), ValueTextMap(map)) =>
-            type O[_] = HashMap[String, SValue]
-            SValue.STextMap(
-              map.iterator
-                .map { case (k, v) => k -> go(elemType, v, newNesting) }
-                .to[O])
+          case (TTextMap(elemType), ValueTextMap(entries)) =>
+            SValue.SGenMap(
+              isTextMap = true,
+              entries = entries.iterator.map {
+                case (k, v) => SValue.SText(k) -> go(elemType, v, newNesting)
+              }
+            )
 
           // genMap
           case (TGenMap(keyType, valueType), ValueGenMap(entries)) =>
-            SValue.SGenMap(entries.iterator.map {
-              case (k, v) =>
-                go(keyType, k, newNesting) ->
-                  go(valueType, v, newNesting)
-            })
+            SValue.SGenMap(
+              isTextMap = false,
+              entries = entries.iterator.map {
+                case (k, v) => go(keyType, k, newNesting) -> go(valueType, v, newNesting)
+              }
+            )
 
           // variants
           case (TTyConApp(typeVariantId, tyConArgs), ValueVariant(mbId, constructorName, val0)) =>

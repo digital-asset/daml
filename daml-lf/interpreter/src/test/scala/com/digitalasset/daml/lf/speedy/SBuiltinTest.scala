@@ -17,7 +17,6 @@ import com.daml.lf.value.Value
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
-import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
 
@@ -793,7 +792,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "TEXTMAP_EMPTY" - {
       "produces a map" in {
-        eval(e"TEXTMAP_EMPTY @Int64") shouldBe Right(STextMap(HashMap.empty))
+        eval(e"TEXTMAP_EMPTY @Int64") shouldBe Right(SValue.SValue.EmptyTextMap)
       }
     }
 
@@ -801,16 +800,26 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "inserts as expected" in {
         eval(e"${buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)}") shouldBe
-          Right(STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+          Right(
+            SGenMap(
+              true,
+              SText("a") -> SInt64(1),
+              SText("b") -> SInt64(2),
+              SText("c") -> SInt64(3)))
       }
 
       "replaces already present key" in {
         val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
 
         eval(e"$map") shouldBe
-          Right(STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+          Right(
+            SGenMap(
+              true,
+              SText("a") -> SInt64(1),
+              SText("b") -> SInt64(2),
+              SText("c") -> SInt64(3)))
         eval(e"""TEXTMAP_INSERT @Int64 "b" 4 $map""") shouldBe Right(
-          STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(4), "c" -> SInt64(3))),
+          SGenMap(true, SText("a") -> SInt64(1), SText("b") -> SInt64(4), SText("c") -> SInt64(3)),
         )
       }
     }
@@ -834,15 +843,15 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "deletes existing key" in {
         eval(e"""TEXTMAP_DELETE @Int64 "a" $map""") shouldBe Right(
-          STextMap(HashMap("b" -> SInt64(2), "c" -> SInt64(3))),
+          SGenMap(true, SText("b") -> SInt64(2), SText("c") -> SInt64(3)),
         )
         eval(e"""TEXTMAP_DELETE @Int64 "b" $map""") shouldBe Right(
-          STextMap(HashMap("a" -> SInt64(1), "c" -> SInt64(3))),
+          SGenMap(true, SText("a") -> SInt64(1), SText("c") -> SInt64(3)),
         )
       }
       "does nothing with non-existing key" in {
         eval(e"""TEXTMAP_DELETE @Int64 "d" $map""") shouldBe Right(
-          STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))),
+          SGenMap(true, SText("a") -> SInt64(1), SText("b") -> SInt64(2), SText("c") -> SInt64(3)),
         )
       }
     }
@@ -917,7 +926,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "GENMAP_EMPTY" - {
       "produces an empty GenMap" in {
-        eval(e"GENMAP_EMPTY @Text @Int64") shouldBe Right(SGenMap.Empty)
+        eval(e"GENMAP_EMPTY @Text @Int64") shouldBe Right(SGenMap(false))
       }
     }
 
@@ -930,20 +939,14 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       "inserts as expected" in {
         val e = e"$map"
         eval(e) shouldBe Right(
-          SGenMap(
-            SText("a") -> SInt64(1),
-            SText("b") -> SInt64(2),
-            SText("c") -> SInt64(3),
+          SGenMap(false, SText("a") -> SInt64(1), SText("b") -> SInt64(2), SText("c") -> SInt64(3),
           ),
         )
       }
 
       "replaces already present key" in {
         eval(e"""$builtin @Text @Int64 "b" 4 $map""") shouldBe Right(
-          SGenMap(
-            SText("a") -> SInt64(1),
-            SText("b") -> SInt64(4),
-            SText("c") -> SInt64(3),
+          SGenMap(false, SText("a") -> SInt64(1), SText("b") -> SInt64(4), SText("c") -> SInt64(3),
           ),
         )
       }
@@ -986,16 +989,17 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "deletes existing key" in {
         eval(e"""$builtin @Text @Int64 "a" $map""") shouldBe Right(
-          SGenMap(SText("b") -> SInt64(2), SText("c") -> SInt64(3)),
+          SGenMap(false, SText("b") -> SInt64(2), SText("c") -> SInt64(3)),
         )
         eval(e"""$builtin @Text @Int64 "b" $map""") shouldBe Right(
-          SGenMap(SText("a") -> SInt64(1), SText("c") -> SInt64(3)),
+          SGenMap(false, SText("a") -> SInt64(1), SText("c") -> SInt64(3)),
         )
       }
 
       "does nothing with non-existing key" in {
         eval(e"""$builtin @Text @Int64 "d" $map""") shouldBe Right(
           SGenMap(
+            false,
             SText("a") -> SInt64(1),
             SText("b") -> SInt64(2),
             SText("c") -> SInt64(3),

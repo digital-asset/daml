@@ -57,7 +57,8 @@ object SortedLookupList extends SortedLookupListInstances {
       .toLeft(new SortedLookupList(entries.toSeq.sortBy(_._1)(Utf8.Ordering).toImmArray))
   }
 
-  def fromSortedImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
+  def fromOrderedImmArray[X](
+      entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
     entries
       .map(_._1)
       .toSeq
@@ -67,6 +68,9 @@ object SortedLookupList extends SortedLookupListInstances {
       }
       .toLeft(new SortedLookupList(entries))
   }
+
+  def fromOrderedIterator[X](entries: Iterator[(String, X)]): Either[String, SortedLookupList[X]] =
+    fromOrderedImmArray(entries.to[ImmArray])
 
   def apply[X](entries: Map[String, X]): SortedLookupList[X] =
     new SortedLookupList(ImmArray(entries.toSeq.sortBy(_._1)))
