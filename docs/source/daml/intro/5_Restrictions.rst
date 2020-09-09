@@ -162,7 +162,10 @@ Any DAML ledger knows how to perform actions of type ``Update a``. Only some kno
 ``Script`` and ``Update`` as it represents a list of independent
 commands sent to the ledger. You can still use ``do`` blocks but if
 you have more than one command in a single ``do`` block you need to
-enable an extension at the beginning of your file. ``Applicative`` is
+enable the ``ApplicativeDo`` extension at the beginning of your file.
+In addition to that, the last statement in such a ``do`` block must be of the form
+``return expr`` or ``pure expr``.
+``Applicative`` is
 a more restricted version of ``Action`` that enforces that there are
 no dependencies between commands. If you do have dependencies between
 commands, you can always wrap it in a choice in a helper template and
