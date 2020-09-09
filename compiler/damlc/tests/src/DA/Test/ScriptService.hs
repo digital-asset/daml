@@ -497,7 +497,7 @@ main =
                   matchRegex r "Tried to allocate a party that already exists:  alice"
                 expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists:  bob"
-            , testCase "lookup and fetch" $ do
+            , testCase "queryContractId/Key" $ do
                 rs <-
                   runScripts
                     scriptService
@@ -509,6 +509,8 @@ main =
                     , "    owner : Party"
                     , "    observer : Party"
                     , "  where"
+                    , "    key (owner, observer) : (Party, Party)"
+                    , "    maintainer key._1"
                     , "    signatory owner"
                     , "    observer observer"
                     , "template Divulger"
@@ -522,7 +524,7 @@ main =
                     , "      with cid : ContractId T"
                     , "      controller sig"
                     , "      do fetch cid"
-                    , "testQueryContractId = do"
+                    , "testQueryContract = do"
                     , "  p1 <- allocateParty \"p1\""
                     , "  p2 <- allocateParty \"p2\""
                     , "  onlyP1 <- submit p1 $ createCmd (T p1 p1)"
@@ -530,19 +532,29 @@ main =
                     , "  divulger <- submit p2 $ createCmd (Divulger p2 p1)"
                     , "  optOnlyP1 <- queryContractId p1 onlyP1"
                     , "  optOnlyP1 === Some (T p1 p1)"
+                    , "  optOnlyP1 <- queryContractKey @T p1 (p1, p1)"
+                    , "  optOnlyP1 === Some (onlyP1, T p1 p1)"
                     , "  optOnlyP1 <- queryContractId p2 onlyP1"
                     , "  optOnlyP1 === None"
+                    , "  optBoth <- queryContractKey @T p1 (p1, p2)"
+                    , "  optBoth === Some (both, T p1 p2)"
+                    , "  optOnlyP1 <- queryContractKey @T p2 (p1, p1)"
+                    , "  optOnlyP1 === None"
+                    , "  optBoth <- queryContractKey @T p2 (p1, p2)"
+                    , "  optBoth === Some (both, T p1 p2)"
                     , "  optBoth <- queryContractId p1 both"
                     , "  optBoth === Some (T p1 p2)"
                     , "  optBoth <- queryContractId p2 both"
                     , "  optBoth === Some (T p1 p2)"
-                    -- Divulged contracts should not be returned in lookups
+                    -- Divulged contracts should not be returned in queries
                     , "  submit p1 $ exerciseCmd divulger (Divulge onlyP1)"
                     , "  optOnlyP1 <- queryContractId p2 onlyP1"
                     , "  optOnlyP1 === None"
+                    , "  optOnlyP1 <- queryContractKey @T p2 (p1, p1)"
+                    , "  optOnlyP1 === None"
                     , "  pure ()"
                     ]
-                expectScriptSuccess rs (vr "testQueryContractId") $ \r ->
+                expectScriptSuccess rs (vr "testQueryContract") $ \r ->
                   matchRegex r "Active contracts:  #2:0, #0:0, #1:0",
               testCase "trace" $ do
                 rs <-
