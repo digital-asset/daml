@@ -111,8 +111,8 @@ tests =
           forM_ [file | file <- genFiles, takeFileName file == "package.json"] (patchTsDependencies uiDir)
         withCurrentDirectory uiDir $ do
           patchTsDependencies uiDir "package.json"
-          step "Install UI dependencies again, forcing rebuild of generated code"
-          callCommandSilent "npm-cli.js install --force --frozen-lockfile"
+          step "Install UI dependencies again to incorporate the changes"
+          callCommandSilent "npm-cli.js install --frozen-lockfile"
           step "Run linter again"
           callCommandSilent "npm-cli.js run-script lint -- --max-warnings 0"
           step "Build the new UI"
