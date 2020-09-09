@@ -80,7 +80,8 @@ data CommandsF a
 -- If you enable the `ApplicativeDo` extension by adding
 -- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
 -- use `do`-notation but the individual commands must not depend
--- on each other.
+-- on each other and the last statement in a `do` block
+-- must be of the form ``return expr`` or ``pure expr``.
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
 
