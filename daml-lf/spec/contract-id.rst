@@ -186,7 +186,7 @@ Derivation of contract ID discriminator
 
 The discriminator for the created contract ID is given as follows::
 
-  discriminator = HMAC(nodeSeed, submissionTime ∥ nₛ ∥ stackholders) 
+  discriminator = HMAC(nodeSeed, submissionTime ∥ nₛ ∥ stakeholders) 
 
 where
 
@@ -195,7 +195,7 @@ where
   a 64 bytes big-endian integer;
 * ``nₛ`` is the number of stakeholder's of the contract encoded as a
   32 bits big-endian integer;
-* ``stackholders`` is the concatenation of the stakeholders IDs sorted
+* ``stakeholders`` is the concatenation of the stakeholders IDs sorted
   lexicographically. IDs of stakeholder are interpreted as their
   US-ASCII encoding prefixed with there size encoded as a 32 bits
   big-endian integer.
