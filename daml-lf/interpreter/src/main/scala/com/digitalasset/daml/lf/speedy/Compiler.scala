@@ -453,6 +453,7 @@ private[lf] final case class Compiler(
           case BGenMapDelete => SBGenMapDelete
           case BGenMapKeys => SBGenMapKeys
           case BGenMapValues => SBGenMapValues
+          case BGenMapToList => SBGenMapToList
           case BGenMapSize => SBGenMapSize
 
           // Unstable Text Primitives

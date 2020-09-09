@@ -487,6 +487,7 @@ encodeBuiltinExpr = \case
     BEGenMapSize -> builtin P.BuiltinFunctionGENMAP_SIZE
     BEGenMapKeys -> builtin P.BuiltinFunctionGENMAP_KEYS
     BEGenMapValues -> builtin P.BuiltinFunctionGENMAP_VALUES
+    BEGenMapToList -> builtin P.BuiltinFunctionGENMAP_TO_LIST
 
     BETimestampToUnixMicroseconds -> builtin P.BuiltinFunctionTIMESTAMP_TO_UNIX_MICROSECONDS
     BEUnixMicrosecondsToTimestamp -> builtin P.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP

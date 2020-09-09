@@ -308,6 +308,7 @@ data BuiltinExpr
   | BEGenMapDelete               -- :: ∀ a b. a -> GenMap a b -> GenMap a b
   | BEGenMapKeys                 -- :: ∀ a b. GenMap a b -> List a
   | BEGenMapValues               -- :: ∀ a b. GenMap a b -> List b
+  | BEGenMapToList               -- :: ∀ a b. GenMap a b -> List ⟨key: a, value: b⟩
   | BEGenMapSize                 -- :: ∀ a b. GenMap a b -> Int64
 
   -- Text operations

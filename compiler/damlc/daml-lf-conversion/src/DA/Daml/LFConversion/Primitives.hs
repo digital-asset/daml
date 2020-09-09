@@ -158,7 +158,7 @@ convertPrim _ "BETextMapLookup" (TText :-> TTextMap a1 :-> TOptional a2) | a1 ==
   EBuiltin BETextMapLookup `ETyApp` a1
 convertPrim _ "BETextMapDelete" (TText :-> TTextMap a1 :-> TTextMap a2) | a1 == a2 =
   EBuiltin BETextMapDelete `ETyApp` a1
-convertPrim _ "BETextMapToList" (TTextMap a1 :-> TList (TTextMapEntry a2)) | a1 == a2  =
+convertPrim _ "BETextMapToList" (TTextMap a1 :-> TList (TGenMapEntry TText a2)) | a1 == a2  =
   EBuiltin BETextMapToList `ETyApp` a1
 convertPrim _ "BETextMapSize" (TTextMap a :-> TInt64) =
   EBuiltin BETextMapSize `ETyApp` a

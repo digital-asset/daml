@@ -261,6 +261,7 @@ instance Pretty BuiltinExpr where
     BEGenMapSize -> "GENMAP_SIZE"
     BEGenMapKeys -> "GENMAP_KEYS"
     BEGenMapValues -> "GENMAP_VALUES"
+    BEGenMapToList -> "GENMAP_TO_LIST"
     BEEqualList -> "EQUAL_LIST"
     BEAppendText -> "APPEND_TEXT"
     BETimestamp ts -> text (timestampToText ts)

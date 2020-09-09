@@ -365,6 +365,7 @@ object Ast {
   final case object BGenMapDelete extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> GenMap a b
   final case object BGenMapKeys extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [a]
   final case object BGenMapValues extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [b]
+  final case object BGenMapToList extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [Struct("key":a, "value":b)]
   final case object BGenMapSize extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> Int64
 
   // Text functions

@@ -244,6 +244,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "GENMAP_DELETE" -> BGenMapDelete,
     "GENMAP_KEYS" -> BGenMapKeys,
     "GENMAP_VALUES" -> BGenMapValues,
+    "GENMAP_TO_LIST" -> BGenMapToList,
     "GENMAP_SIZE" -> BGenMapSize,
     "EXPLODE_TEXT" -> BExplodeText,
     "IMPLODE_TEXT" -> BImplodeText,

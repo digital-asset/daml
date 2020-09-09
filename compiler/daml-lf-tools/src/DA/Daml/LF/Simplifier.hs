@@ -139,6 +139,7 @@ safetyStep = \case
       BEGenMapDelete      -> Safe 1 -- crash if key invalid
       BEGenMapKeys        -> Safe 1
       BEGenMapValues      -> Safe 1
+      BEGenMapToList      -> Safe 1
       BEGenMapSize        -> Safe 1
       BEEqualList         -> Safe 2 -- expects 3, 2-safe
       BEExplodeText       -> Safe 1

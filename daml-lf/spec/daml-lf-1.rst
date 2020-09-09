@@ -3849,6 +3849,24 @@ ordered by keys according to the comparison function ``LESS``.
 
   [*Available in versions >= 1.dev*]
 
+* ``GENMAP_TO_LIST : ∀ α. ∀ β.  'GenMap' α β → ⟨ key: α, value: β  ⟩``
+
+  Converts to a list of key/value pairs. The output list is guaranteed to be
+   sorted according to the ordering of its keys.
+
+  [*Available in versions >= 1.dev*]
+
+  Formally the builtin function ``GENMAP_VALUES`` semantics is defined
+  by the following rules. ::
+
+    —————————————————————————————————————————————————————————————————————— EvGenMapListEmpty
+      𝕆('GENMAP_TO_LIST' @σ @τ 〚〛) = 'Ok' (Nil @⟨ key: α, value: β  ⟩)
+
+      𝕆('GENMAP_TO_LIST' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛) = 'Ok' wₗ
+    —————————————————————————————————————————————————————————————————————— EvGenMapListNonEmpty
+      𝕆('GENMAP_TO_LIST' @σ @τ 〚v₀ ↦ w₀; v₁ ↦ w₁; … ; vₙ ↦ wₙ〛) =
+        'Ok' (Cons @⟨ key: α, value: β⟩ ⟨ key = v₀ , value =  w₀ ⟩ wₗ)
+
 Type Representation function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -4377,7 +4395,7 @@ The deserialization process will reject any DAML-LF 1.7 (or earlier)
 program using the builtin type ``GENMAP`` or the functions
 ``GENMAP_EMPTY``, ``GENMAP_INSERT``, ``GENMAP_LOOKUP``,
 ``GENMAP_DELETE``, ``GENMAP_KEYS``, ``GENMAP_VALUES``,
-``GENMAP_SIZE``.
+``GENMAP_TO_LIST``, ``GENMAP_SIZE``.
 
 
 .. Local Variables:

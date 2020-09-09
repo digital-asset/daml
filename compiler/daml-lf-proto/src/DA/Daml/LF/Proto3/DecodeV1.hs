@@ -429,6 +429,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionGENMAP_DELETE     -> BEGenMapDelete
   LF1.BuiltinFunctionGENMAP_KEYS       -> BEGenMapKeys
   LF1.BuiltinFunctionGENMAP_VALUES     -> BEGenMapValues
+  LF1.BuiltinFunctionGENMAP_TO_LIST    -> BEGenMapToList
   LF1.BuiltinFunctionGENMAP_SIZE       -> BEGenMapSize
 
   LF1.BuiltinFunctionEXPLODE_TEXT -> BEExplodeText

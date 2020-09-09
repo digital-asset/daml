@@ -1411,6 +1411,7 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(GENMAP_DELETE, BGenMapDelete, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_KEYS, BGenMapKeys, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_VALUES, BGenMapValues, minVersion = genMap),
+      BuiltinFunctionInfo(GENMAP_TO_LIST, BGenMapToList, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_SIZE, BGenMapSize, minVersion = genMap),
       BuiltinFunctionInfo(APPEND_TEXT, BAppendText),
       BuiltinFunctionInfo(ERROR, BError),

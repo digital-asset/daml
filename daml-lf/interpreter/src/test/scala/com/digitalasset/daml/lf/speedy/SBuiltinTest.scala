@@ -876,16 +876,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           Right(
             SList(
               FrontStack(
-                mapEntry("cover", SInt64(8)),
-                mapEntry("enter", SInt64(7)),
-                mapEntry("favor", SInt64(9)),
-                mapEntry("first", SInt64(3)),
-                mapEntry("patch", SInt64(4)),
-                mapEntry("ranch", SInt64(2)),
-                mapEntry("slant", SInt64(0)),
-                mapEntry("sweat", SInt64(6)),
-                mapEntry("trend", SInt64(5)),
-                mapEntry("visit", SInt64(1)),
+                textMapEntry("cover", SInt64(8)),
+                textMapEntry("enter", SInt64(7)),
+                textMapEntry("favor", SInt64(9)),
+                textMapEntry("first", SInt64(3)),
+                textMapEntry("patch", SInt64(4)),
+                textMapEntry("ranch", SInt64(2)),
+                textMapEntry("slant", SInt64(0)),
+                textMapEntry("sweat", SInt64(6)),
+                textMapEntry("trend", SInt64(5)),
+                textMapEntry("visit", SInt64(1)),
               ),
             ),
           )
@@ -1044,6 +1044,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       "returns the values in order" in {
         eval(e"GENMAP_VALUES @Text @Int64 ${buildMap("Int64", words: _*)}") shouldBe
           Right(SList(FrontStack(sortedWords.map { case (_, v) => SInt64(v.toLong) })))
+      }
+    }
+
+    "GENMAP_TO_LIST" - {
+
+      "returns the values in order" in {
+        eval(e"GENMAP_TO_LIST @Text @Int64 ${buildMap("Int64", words: _*)}") shouldBe
+          Right(SList(FrontStack(sortedWords.map {
+            case (k, v) => mapEntry(SText(k), SInt64(v.toLong))
+          })))
       }
     }
 
@@ -1430,11 +1440,14 @@ object SBuiltinTest {
     if (xs.isEmpty) "(Nil @Int64)"
     else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
 
-  private val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
+  private[this] val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
 
-  private def mapEntry(k: String, v: SValue) = {
+  private def textMapEntry(k: String, v: SValue) =
+    mapEntry(SText(k), v)
+
+  private def mapEntry(k: SValue, v: SValue) = {
     val args = new util.ArrayList[SValue](2)
-    args.add(SText(k))
+    args.add(k)
     args.add(v)
     SStruct(entryFields, args)
   }

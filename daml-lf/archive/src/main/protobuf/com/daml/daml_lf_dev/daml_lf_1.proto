@@ -457,6 +457,7 @@ enum BuiltinFunction {
   GENMAP_DELETE = 127; // *Available in versions >= 1.dev*
   GENMAP_KEYS = 128; // *Available in versions >= 1.dev*
   GENMAP_VALUES = 129; // *Available in versions >= 1.dev*
+  GENMAP_TO_LIST = 137; // *Available in versions >= 1.dev*
   GENMAP_SIZE = 130; // *Available in versions >= 1.dev*
 
   EXPLODE_TEXT = 23;
@@ -550,7 +551,7 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  // Next id is 137. 136 is TO_TEXT_CONTRACT_ID.
+  // Next id is 138. 137 is GENMAP_TO_LIST.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
