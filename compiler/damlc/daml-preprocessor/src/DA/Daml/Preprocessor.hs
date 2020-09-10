@@ -124,15 +124,15 @@ checkImports x =
 -- See issue #7207.
 checkVariantUnitConstructors :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkVariantUnitConstructors (GHC.L _ m) =
-    [ (ss, message tyNameStr conNameStr)
+    [ let tyNameStr = GHC.occNameString (GHC.rdrNameOcc (GHC.unLoc ltyName))
+          conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
+      in (ss, message tyNameStr conNameStr)
     | GHC.L ss (GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn}) <- GHC.hsmodDecls m
     , GHC.HsDataDefn{dd_cons=cons} <- [dataDefn]
     , length cons > 1
     , GHC.L _ con <- cons
     , GHC.PrefixCon [GHC.L _ (GHC.HsTupleTy _ _ [])] <- [GHC.con_args con]
     , GHC.L _ conName <- GHC.getConNames con
-    , let tyNameStr = GHC.occNameString (GHC.rdrNameOcc (GHC.unLoc ltyName))
-    , let conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
     ]
   where
     message tyNameStr conNameStr = unwords
