@@ -63,7 +63,7 @@ damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedSource -> IdePreprocessedSourc
 damlPreprocessor mbUnitId x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = checkUnitVariantConstructors x
+        { preprocWarnings = checkVariantUnitConstructors x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
@@ -122,8 +122,8 @@ checkImports x =
 
 -- | Emit a warning if a variant constructor has a single argument of unit type '()'.
 -- See issue #7207.
-checkUnitVariantConstructors :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkUnitVariantConstructors (GHC.L _ m) =
+checkVariantUnitConstructors :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkVariantUnitConstructors (GHC.L _ m) =
     [ (ss, message tyNameStr conNameStr)
     | GHC.L ss (GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn}) <- GHC.hsmodDecls m
     , GHC.HsDataDefn{dd_cons=cons} <- [dataDefn]
