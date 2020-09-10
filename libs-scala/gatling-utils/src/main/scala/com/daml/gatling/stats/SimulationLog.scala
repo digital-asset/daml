@@ -179,7 +179,7 @@ object SimulationLog {
             .map(ds => failed.durations.size.toDouble / ds.size * 100)
             .getOrElse(0.0)).formatted,
         "=" * lineLength
-      ).mkString("\n")
+      ).mkString(System.lineSeparator)
 
     lazy val all = successful |+| failed
   }
