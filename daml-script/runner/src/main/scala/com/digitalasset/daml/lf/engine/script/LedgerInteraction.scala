@@ -785,7 +785,7 @@ class JsonLedgerClient(
       headers = List(Authorization(OAuth2BearerToken(token.value)))
     )
     for {
-      () <- validateTokenParty(party, "queryContractKey")
+      _ <- validateTokenParty(party, "queryContractKey")
       resp <- Http().singleRequest(req)
       fetchResponse <- if (resp.status.isSuccess) {
         Unmarshal(resp.entity).to[JsonLedgerClient.FetchResponse]
