@@ -84,6 +84,7 @@ object SimulationLog {
       durations: Seq[Int],
       start: Option[Timestamp],
       end: Option[Timestamp]) {
+
     def count: Int = durations.size
     def mean: Option[Double] = durations.nonEmptyOpt.map(ds => ds.sum.toDouble / ds.size)
     def geometricMean: Option[Double] =
