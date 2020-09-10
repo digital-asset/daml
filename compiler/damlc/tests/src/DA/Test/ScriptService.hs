@@ -570,6 +570,24 @@ main =
                     , "  \"logClient1\"\n"
                     , "  \"logLedger\"\n"
                     , "  \"logClient2\""
+                    ],
+              testCase "catch" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import Daml.Script"
+                    , "import DA.Assert"
+                    , "testCatch = do"
+                    , "  x <- catch (\\_ -> abort \"throw\") (\\err -> pure $ \"caught: \" <> err)"
+                    , "  x === \"caught: throw\""
+                    , "  x <- catch (\\_ -> pure \"nothrow\") (const $ pure \"caught\")"
+                    , "  x === \"nothrow\""
+                    , "  pure 42"
+                    ]
+                expectScriptSuccess rs (vr "testCatch") $ \r ->
+                  matchRegex r $ T.concat
+                    [ "Return value: 42"
                     ]
             ]
   where

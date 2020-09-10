@@ -281,3 +281,10 @@ jsonQueryContractId p = do
   submit p do archiveCmd cid
   optR <- queryContractId p cid
   optR === None
+
+testCatch : Script Int = do
+  x <- catch (\_ -> abort "throw") (\err -> pure $ "caught: " <> err)
+  x === "caught: throw"
+  x <- catch (\_ -> pure "nothrow") (\err -> pure $ "caught: " <> err)
+  x === "nothrow"
+  pure 42

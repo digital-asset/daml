@@ -12,6 +12,7 @@ import com.typesafe.scalalogging.StrictLogging
 import java.time.Clock
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 import scalaz.{Applicative, Traverse, \/-}
 import scalaz.std.either._
 import scalaz.std.list._
@@ -681,6 +682,21 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                   case _ =>
                     Future.failed(
                       new ConverterException(s"Expected record with 4 fields but got $v"))
+                }
+              }
+              case SVariant(_, "Catch", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 2 => {
+                    val tryExpr = vals.get(0)
+                    val catchExpr = vals.get(1)
+                    run(SEApp(SEValue(tryExpr), Array(SEValue(SUnit)))).transformWith {
+                      case Success(v) => run(SEValue(v))
+                      case Failure(DamlEUserError(err)) =>
+                        run(SEApp(SEValue(catchExpr), Array(SEValue(SText(err))))).flatMap(x => run(SEValue(x)))
+                      case Failure(err) => Future.failed(err)
+                    }
+                  }
+                  case _ => Future.failed(new ConverterException(s"Expected record with 2 fields but got $v"))
                 }
               }
               case _ =>

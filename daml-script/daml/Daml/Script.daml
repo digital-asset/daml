@@ -28,6 +28,7 @@ module Daml.Script
   , passTime
   , sleep
   , script
+  , catch
   ) where
 
 import DA.Functor
@@ -95,7 +96,18 @@ data ScriptF a
   | GetTime (Time -> a)
   | SetTime (SetTimePayload a)
   | Sleep (SleepRec a)
+  | Catch (CatchPayload a)
   deriving Functor
+
+data CatchPayload a = CatchPayload
+  { try : () -> Free ScriptF (a, ())
+  , handle : Text -> Free ScriptF (a, ())
+  } deriving Functor
+
+catch : (() -> Script a) -> (Text -> Script a) -> Script a
+catch try handle = lift $ Free $ Catch CatchPayload with
+  try = \() -> runScript (fmap pure (try ())) ()
+  handle = \err -> runScript (fmap pure (handle err)) ()
 
 data QueryACS a = QueryACS
   { party : Party

@@ -424,6 +424,22 @@ case class TestLookupFetch(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestCatch(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testCatch"))
+  def runTests(): Unit = {
+    runner.genericTest(
+      "testCatch",
+      scriptId,
+      None, {
+        // We test with assertions in the test
+        case SInt64(i) => TestRunner.assertEqual(i, 42, "foobar")
+        case v => Left(s"Expected SUnit but got $v")
+      }
+    )
+  }
+}
+
 object SingleParticipant {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
@@ -528,6 +544,7 @@ object SingleParticipant {
         val devRunner =
           new TestRunner(participantParams, devDar, config.wallclockTime, config.rootCa)
         if (!config.auth) {
+          TestCatch(dar, runner).runTests()
           TestLookupFetch(dar, runner).runTests()
           TraceOrder(dar, runner).runTests()
           Test0(dar, runner).runTests()
