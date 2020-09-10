@@ -70,12 +70,11 @@ filegroup(
 )
 
 genrule(
-    name = "daml-trigger-rst-docs",
+    name = "daml-trigger-json-docs",
     srcs = glob(["**/*.daml"]) + [
-        ":daml-trigger-rst-template.rst",
         "//daml-script/daml:daml-script",
     ],
-    outs = ["daml-trigger.rst"],
+    outs = ["daml-trigger.json"],
     cmd = """
           TMP_DIR=$$(mktemp -d)
           mkdir -p $$TMP_DIR/daml/Daml/Trigger
@@ -95,15 +94,14 @@ dependencies:
   - daml-script.dar
 EOF
         DAMLC=$$PWD/$(location //compiler/damlc)
-        TEMPLATE=$$PWD/$(location :daml-trigger-rst-template.rst)
-        RST=$$PWD/$(location :daml-trigger.rst)
+        JSON=$$PWD/$(location :daml-trigger.json)
         cd $$TMP_DIR
         $$DAMLC init
         $$DAMLC -- docs \
             --combine \
-            --output=$$RST \
-            --format=Rst \
-            --template=$$TEMPLATE \
+            --output=$$JSON \
+            --format=Json \
+            --package-name=daml-trigger \
             $$TMP_DIR/daml/Daml/Trigger.daml \
             $$TMP_DIR/daml/Daml/Trigger/Assert.daml \
             $$TMP_DIR/daml/Daml/Trigger/LowLevel.daml
@@ -113,5 +111,39 @@ EOF
         ghc = ghc_version,
     ),
     tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-trigger-docs",
+    srcs = [
+        ":daml-trigger.json",
+        ":daml-trigger-rst-template.rst",
+        ":daml-trigger-index-template.rst",
+        ":daml-trigger-hoogle-template.txt",
+    ],
+    outs = [
+        "daml-trigger-rst.tar.gz",
+        "daml-trigger-hoogle.txt",
+        "daml-trigger-anchors.json",
+    ],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=daml-trigger-rst \
+            --input-format=json \\
+            --format=Rst \
+            --template=$(location :daml-trigger-rst-template.rst) \
+            --index-template=$(location :daml-trigger-index-template.rst) \\
+            --hoogle-template=$(location :daml-trigger-hoogle-template.txt) \\
+            --base-url=https://docs.daml.com/triggers/api/ \\
+            --output-hoogle=$(location :daml-trigger-hoogle.txt) \\
+            --output-anchor=$(location :daml-trigger-anchors.json) \\
+            $(location :daml-trigger.json)
+        $(execpath //bazel_tools/sh:mktgz) $(location :daml-trigger-rst.tar.gz) daml-trigger-rst
+    """,
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "//compiler/damlc",
+    ],
     visibility = ["//visibility:public"],
 )

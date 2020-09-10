@@ -7,7 +7,7 @@ DAML Script
 .. toctree::
    :hidden:
 
-   daml-script-docs
+   api/index
 
 DAML scenarios provide a simple way for testing DAML models
 and getting quick feedback in DAML studio. However, scenarios are run

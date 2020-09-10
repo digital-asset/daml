@@ -63,17 +63,52 @@ filegroup(
 )
 
 genrule(
-    name = "daml-script-rst-docs",
-    srcs = glob(["**/*.daml"]) + [":daml-script-rst-template.rst"],
-    outs = ["daml-script.rst"],
+    name = "daml-script-docs",
+    srcs = [
+        ":daml-script.json",
+        ":daml-script-rst-template.rst",
+        ":daml-script-index-template.rst",
+        ":daml-script-hoogle-template.txt",
+    ],
+    outs = [
+        "daml-script-rst.tar.gz",
+        "daml-script-hoogle.txt",
+        "daml-script-anchors.json",
+    ],
     cmd = """
         $(location //compiler/damlc) -- docs \
-            --combine \
-            --output=$(location :daml-script.rst) \
+            --output=daml-script-rst \
+            --input-format=json \\
             --format=Rst \
             --template=$(location :daml-script-rst-template.rst) \
+            --index-template=$(location :daml-script-index-template.rst) \\
+            --hoogle-template=$(location :daml-script-hoogle-template.txt) \\
+            --base-url=https://docs.daml.com/daml-script/api/ \\
+            --output-hoogle=$(location :daml-script-hoogle.txt) \\
+            --output-anchor=$(location :daml-script-anchors.json) \\
+            $(location :daml-script.json)
+        $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-rst.tar.gz) daml-script-rst
+    """,
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "//compiler/damlc",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-script-json-docs",
+    srcs = glob(["**/*.daml"]),
+    outs = ["daml-script.json"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml-script \
+            --format=Json \
             $(location Daml/Script.daml)
     """,
-    tools = ["//compiler/damlc"],
+    tools = [
+        "//compiler/damlc",
+    ],
     visibility = ["//visibility:public"],
 )
