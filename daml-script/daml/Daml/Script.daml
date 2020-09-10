@@ -8,6 +8,7 @@ module Daml.Script
   , submitMustFail
   , query
   , queryContractId
+  , queryContractKey
   , PartyIdHint (..)
   , ParticipantName (..)
   , PartyDetails(..)
@@ -90,6 +91,7 @@ data ScriptF a
   | SubmitMustFail (SubmitMustFailCmd a)
   | Query (QueryACS a)
   | QueryContractId (QueryContractIdPayload a)
+  | QueryContractKey (QueryContractKeyPayload a)
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
   | GetTime (Time -> a)
@@ -126,6 +128,24 @@ queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   tplId = templateTypeRep @t
   cid = coerceContractId c
   continue = pure . fmap (fromSome . fromAnyTemplate)
+
+data QueryContractKeyPayload a = QueryContractKeyPayload
+  { party : Party
+  , tplId : TemplateTypeRep
+  , key : AnyContractKey
+  , continue : Optional (ContractId (), AnyTemplate) -> a
+  } deriving Functor
+
+-- Returns `None` if there is no active contract with the given key that
+-- the party is a stakeholder on.
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractKey : forall t k. TemplateKey t k => Party -> k -> Script (Optional (ContractId t, t))
+queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
+  party = p
+  tplId = templateTypeRep @t
+  key = toAnyContractKey @t k
+  continue = pure . fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
 
 data SetTimePayload a = SetTimePayload
   with

@@ -24,6 +24,7 @@ import scala.util.{Failure, Success}
 import scalaz.{-\/, \/-}
 import scalaz.std.either._
 import scalaz.std.list._
+import scalaz.syntax.equal._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
@@ -45,6 +46,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.jwt.domain.Jwt
@@ -124,6 +126,10 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
 
+  def queryContractKey(party: SParty, templateId: Identifier, key: SValue)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
+
   def submit(
       party: SParty,
       commands: List[ScriptLedgerClient.Command],
@@ -165,6 +171,14 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
+    queryWithKey(party, templateId).map(_.map(_._1))
+  }
+
+  // Helper shared by query, queryContractId and queryContractKey
+  private def queryWithKey(party: SParty, templateId: Identifier)(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
+    : Future[Seq[(ScriptLedgerClient.ActiveContract, Option[Value[ContractId]])]] = {
     val filter = TransactionFilter(
       List((party.value, Filters(Some(InclusiveFilters(Seq(toApiIdentifier(templateId))))))).toMap)
     val acsResponses =
@@ -178,6 +192,12 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
             case Left(err) => throw new ConverterException(err.toString)
             case Right(argument) => argument
           }
+          val key: Option[Value[ContractId]] = createdEvent.contractKey.map { key =>
+            ValueValidator.validateValue(key) match {
+              case Left(err) => throw new ConverterException(err.toString)
+              case Right(argument) => argument
+            }
+          }
           val cid =
             ContractId
               .fromString(createdEvent.contractId)
@@ -185,7 +205,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
                 err => throw new ConverterException(err),
                 identity
               )
-          ScriptLedgerClient.ActiveContract(templateId, cid, argument)
+          (ScriptLedgerClient.ActiveContract(templateId, cid, argument), key)
         })))
   }
 
@@ -197,6 +217,17 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       activeContracts <- query(party, templateId)
     } yield {
       activeContracts.find(c => c.contractId == cid)
+    }
+  }
+
+  override def queryContractKey(party: SParty, templateId: Identifier, key: SValue)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+    // We cannot do better than a linear search over query here.
+    for {
+      activeContracts <- queryWithKey(party, templateId)
+    } yield {
+      activeContracts.collectFirst({ case (c, Some(k)) if k === key.toValue => c })
     }
   }
 
@@ -414,6 +445,20 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         // and the contract not being active.
         Future.successful(None)
     }
+  }
+
+  override def queryContractKey(party: SParty, templateId: Identifier, key: SValue)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+    GlobalKey
+      .build(templateId, key.toValue)
+      .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
+      .flatMap { gkey =>
+        scenarioRunner.ledger.ledgerData.activeKeys.get(gkey) match {
+          case None => Future.successful(None)
+          case Some(cid) => queryContractId(party, templateId, cid)
+        }
+      }
   }
 
   // Translate from a ledger command to an Update expression
@@ -728,6 +773,38 @@ class JsonLedgerClient(
       })
     }
   }
+  override def queryContractKey(party: SParty, templateId: Identifier, key: SValue)(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
+    val req = HttpRequest(
+      method = HttpMethods.POST,
+      uri = uri.withPath(uri.path./("v1")./("fetch")),
+      entity = HttpEntity(
+        ContentTypes.`application/json`,
+        JsonLedgerClient.FetchKeyArgs(templateId, key.toValue).toJson.prettyPrint),
+      headers = List(Authorization(OAuth2BearerToken(token.value)))
+    )
+    for {
+      _ <- validateTokenParty(party, "queryContractKey")
+      resp <- Http().singleRequest(req)
+      fetchResponse <- if (resp.status.isSuccess) {
+        Unmarshal(resp.entity).to[JsonLedgerClient.FetchResponse]
+      } else {
+        getResponseDataBytes(resp).flatMap {
+          case body => Future.failed(new RuntimeException(s"Failed to query ledger: $resp, $body"))
+        }
+      }
+    } yield {
+      val ctx = templateId.qualifiedName
+      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
+      fetchResponse.result.map(r => {
+        val payload = r.payload.convertTo[Value[ContractId]](
+          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
+        val cid = ContractId.assertFromString(r.contractId)
+        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
+      })
+    }
+  }
   override def submit(
       party: SParty,
       commands: List[ScriptLedgerClient.Command],
@@ -964,6 +1041,7 @@ object JsonLedgerClient {
   final case class QueryResponse(results: List[ActiveContract])
   final case class ActiveContract(contractId: String, payload: JsValue)
   final case class FetchArgs(contractId: ContractId)
+  final case class FetchKeyArgs(templateId: Identifier, key: Value[ContractId])
   final case class FetchResponse(result: Option[ActiveContract])
 
   final case class CreateArgs(templateId: Identifier, payload: JsValue)
@@ -1011,6 +1089,10 @@ object JsonLedgerClient {
     }
     implicit val fetchWriter: JsonWriter[FetchArgs] = args =>
       JsObject("contractId" -> args.contractId.coid.toString.toJson)
+    implicit val fetchKeyWriter: JsonWriter[FetchKeyArgs] = args =>
+      JsObject(
+        "templateId" -> args.templateId.toJson,
+        "key" -> LfValueCodec.apiValueToJsValue(args.key))
     implicit val fetchReader: RootJsonReader[FetchResponse] = v =>
       v.asJsObject.getFields("result") match {
         case Seq(JsNull) => FetchResponse(None)

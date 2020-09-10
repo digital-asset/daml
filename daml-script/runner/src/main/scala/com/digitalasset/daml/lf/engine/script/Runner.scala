@@ -683,6 +683,26 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       new ConverterException(s"Expected record with 4 fields but got $v"))
                 }
               }
+              case SVariant(_, "QueryContractKey", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 4 => {
+                    val continue = vals.get(3)
+                    for {
+                      party <- Converter.toFuture(Converter.toParty(vals.get(0)))
+                      tplId <- Converter.toFuture(Converter.typeRepToIdentifier(vals.get(1)))
+                      key <- Converter.toFuture(Converter.toAnyContractKey(vals.get(2)))
+                      client <- Converter.toFuture(clients.getPartyParticipant(Party(party.value)))
+                      optR <- client.queryContractKey(party, tplId, key.key)
+                      optR <- Converter.toFuture(
+                        optR.traverse(Converter.fromCreated(valueTranslator, _)))
+                      v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 4 fields but got $v"))
+                }
+              }
               case _ =>
                 Future.failed(
                   new ConverterException(s"Expected Submit, Query or AllocParty but got $v"))
