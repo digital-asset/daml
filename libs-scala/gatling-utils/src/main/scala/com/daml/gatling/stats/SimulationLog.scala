@@ -239,8 +239,7 @@ object SimulationLog {
       fileContent
         .split('\n')
         .map(_.trim.split('\t').toSeq)
-        .filterNot(_.isEmpty)
-        .map { case rowType +: fields => rowType -> fields }
+        .collect { case rowType +: fields => rowType -> fields }
         .toList
         .groupBy(_._1)
         .mapValues(_.map(_._2))
