@@ -108,6 +108,11 @@ data QueryACS a = QueryACS
 query : forall t. Template t => Party -> Script [(ContractId t, t)]
 query p = lift $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
 
+-- | Query the set of active contracts of the template
+-- that are visible to the given party and match the given predicate.
+queryFor : Template c => Party -> (c -> Bool) -> Script [(ContractId c, c)]
+queryFor p f = filter (\(_, c) -> f c) <$> query p
+
 data QueryContractIdPayload a = QueryContractIdPayload
   { party : Party
   , tplId : TemplateTypeRep
