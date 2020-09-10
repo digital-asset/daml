@@ -63,7 +63,7 @@ damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedSource -> IdePreprocessedSourc
 damlPreprocessor mbUnitId x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = []
+        { preprocWarnings = checkVariantUnitConstructors x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
@@ -120,8 +120,29 @@ checkImports x =
     [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
     | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isInternal m]
 
--- | Emit a warning if a record constructor name does not match the record type name.
--- See issue #4718. This ought to be moved into 'checkDataTypes' before too long.
+-- | Emit a warning if a variant constructor has a single argument of unit type '()'.
+-- See issue #7207.
+checkVariantUnitConstructors :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkVariantUnitConstructors (GHC.L _ m) =
+    [ let tyNameStr = GHC.occNameString (GHC.rdrNameOcc (GHC.unLoc ltyName))
+          conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
+      in (ss, message tyNameStr conNameStr)
+    | GHC.L ss (GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn}) <- GHC.hsmodDecls m
+    , GHC.HsDataDefn{dd_cons=cons} <- [dataDefn]
+    , length cons > 1
+    , GHC.L _ con <- cons
+    , GHC.PrefixCon [GHC.L _ (GHC.HsTupleTy _ _ [])] <- [GHC.con_args con]
+    , GHC.L _ conName <- GHC.getConNames con
+    ]
+  where
+    message tyNameStr conNameStr = unwords
+      [ "Variant type", tyNameStr, "constructor", conNameStr
+      , "has a single argument of type (). The argument will not be"
+      , "preserved when importing this package via data-dependencies."
+      , "Possible solution: Remove the constructor's argument." ]
+
+-- | Emit an error if a record constructor name does not match the record type name.
+-- See issue #4718.
 checkRecordConstructor :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
   where
