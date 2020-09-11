@@ -7,6 +7,7 @@ module Daml.Trigger.Internal
   , TriggerA (..)
   , addCommands
   , insertTpl
+  , groupActiveContracts
   , deleteTpl
   , lookupTpl
   , applyEvent
@@ -63,6 +64,10 @@ adjust k f m =
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
 insertTpl cid tpl acs = acs { activeContracts = adjust cid.templateId addct acs.activeContracts }
   where addct ol = Some $ (cid, tpl) :: fromOptional [] ol
+
+groupActiveContracts : [(AnyContractId, AnyTemplate)] -> Map TemplateTypeRep [(AnyContractId, AnyTemplate)]
+groupActiveContracts = foldr (\v@(cid, _) -> adjust cid.templateId (addct v)) Map.empty
+  where addct v ol = Some $ v :: fromOptional [] ol
 
 deleteTpl : AnyContractId -> ACS -> ACS
 deleteTpl cid acs = acs { activeContracts = adjust cid.templateId rmct acs.activeContracts }

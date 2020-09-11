@@ -34,8 +34,8 @@ module Daml.Trigger
 
 import DA.Action
 import DA.Action.State
-import DA.Next.Map (Map)
-import qualified DA.Next.Map as Map
+import DA.Map (Map)
+import qualified DA.Map as Map
 import DA.Optional
 
 import Daml.Trigger.Internal
@@ -50,7 +50,10 @@ getTemplates = getContracts
 
 -- | Extract the contracts of a given template from the ACS.
 getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
-getContracts (ACS tpls pending) = mapOptional fromAny $ filter (\(cid, _) -> not $ cid `elem` allPending) tpls
+getContracts (ACS tpls pending) = mapOptional fromAny
+                                $ filter (\(cid, _) -> not $ cid `elem` allPending)
+                                $ fromOptional []
+                                $ Map.lookup (templateTypeRep @a) tpls
   where
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
     allPending = concatMap snd $ Map.toList pending
@@ -175,7 +178,7 @@ runTrigger userTrigger = LowLevel.Trigger
   }
   where
     initialState party time (ActiveContracts createdEvents) =
-      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS [] Map.empty) createdEvents
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS Map.empty Map.empty) createdEvents
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty 0
       in runRule userTrigger.rule time state
