@@ -62,7 +62,7 @@ Now to exercise the new choice in a script:
 
 You exercise choices using the ``exercise`` function, which takes a ``ContractId a``, and a value of type ``c``, where ``c`` is a choice on template ``a``. Since ``c`` is just a record, you can also just fill in the choice parameters using the ``with`` syntax you are already familiar with.
 
-``exerciseCmd`` returns an ``Commands r`` where ``r`` is the return
+``exerciseCmd`` returns a ``Commands r`` where ``r`` is the return
 type specified on the choice, allowing the new ``ContractId Contact``
 to be stored in the variable ``new_contactCid``. Just like for
 ``createCmd`` and ``create``, there is also ``exerciseCmd`` and
