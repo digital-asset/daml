@@ -13,7 +13,7 @@ import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Struct, Time}
+import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -377,9 +377,9 @@ object Converter {
     go(initialFreeAp, allEventResults, List())
   }
 
-  def toParty(v: SValue): Either[String, SParty] =
+  def toParty(v: SValue): Either[String, Ref.Party] =
     v match {
-      case p @ SParty(_) => Right(p)
+      case SParty(p) => Right(p)
       case _ => Left(s"Expected SParty but got $v")
     }
 
