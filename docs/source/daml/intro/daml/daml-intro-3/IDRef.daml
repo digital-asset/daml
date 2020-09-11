@@ -75,3 +75,4 @@ id_ref_test = do
   Some balance <- queryContractId accountant balanceCid
   optAccount <- queryContractId accountant balance.account
   optAccount === None
+-- ID_REF_TEST_END

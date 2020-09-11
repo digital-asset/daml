@@ -189,13 +189,13 @@ new endpoint, it will resume normal operation.
 Dealing with time
 *****************
 
-The DAML language contains a function :ref:`getTime <daml-ref-gettime>` which returns a rough estimate of “current time” called _Ledger Time_. The notion of time comes with a lot of problems in a distributed setting: different participants might run  different clocks, there may be latencies due to calculation and network, clocks may drift against each other over time, etc.
+The DAML language contains a function :ref:`getTime <daml-ref-gettime>` which returns a rough estimate of “current time” called *Ledger Time*. The notion of time comes with a lot of problems in a distributed setting: different participants might run different clocks, there may be latencies due to calculation and network, clocks may drift against each other over time, etc.
 
 In order to provide a useful notion of time in DAML without incurring severe performance or liveness penalties, DAML has two notions of time: *Ledger Time* and *Record Time*:
 
 - As part of command interpretation, each transaction is automatically assigned a *Ledger Time* by the participant server.
 - All calls to ``getTime`` within a transaction return the *Ledger Time* assigned to that transaction.
-- *Ledger Time* is chosen (and validated) to respect cCusal Monotonicity: The Create action on a contract _c_ always precedes all other actions on _c_ in Ledger Time.
+- *Ledger Time* is chosen (and validated) to respect cCusal Monotonicity: The Create action on a contract *c* always precedes all other actions on *c* in Ledger Time.
 - As part of the commit/synchronization protocol of the underlying infrastructure, every transaction is assigned a *Record Time*, which can be thought of as the infrastructures "system time". It's the best available notion of "real time", but the only guarantees on it are the guarantees the underlying infrastructure can give. It is also not known at interpretation time.
 - *Ledger Time* is kept close to "real time" by bounding it against *Record Time*. Transactions where *Ledger* and *Record Time* are too far apart are rejected.
 
