@@ -168,7 +168,7 @@ object Main extends StrictLogging {
 
     Future
       .fromTry {
-        app.RunLikeGatling.runWith(sys, configBuilder.build, None)
+        app.CustomRunner.runWith(sys, configBuilder.build, None)
       }
       .map {
         case (a, f) =>

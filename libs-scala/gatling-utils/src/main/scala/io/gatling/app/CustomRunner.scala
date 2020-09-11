@@ -14,7 +14,7 @@ import io.gatling.core.scenario.Simulation
 
 import scala.util.Try
 
-object RunLikeGatling extends StrictLogging {
+object CustomRunner extends StrictLogging {
 
   // Copies the io.gatling.app.Gatling start method, which is Copyright 2011-2019
   // GatlingCorp (https://gatling.io) under the Apache 2.0 license (http://www.apache.org/licenses/LICENSE-2.0)
