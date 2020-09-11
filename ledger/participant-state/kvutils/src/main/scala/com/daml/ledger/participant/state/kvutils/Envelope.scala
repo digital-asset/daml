@@ -132,7 +132,7 @@ object Envelope {
       case msg => Left(s"Expected state value, got ${msg.getClass}")
     }
 
-  private def compress(payload: ByteString): ByteString = {
+  private[kvutils] def compress(payload: ByteString): ByteString = {
     val out = ByteString.newOutput
     val gzipOut = new GZIPOutputStream(out)
     gzipOut.write(payload.toByteArray)
@@ -140,9 +140,11 @@ object Envelope {
     out.toByteString
   }
 
-  private def decompress(payload: ByteString): ByteString = {
+  private[kvutils] def decompress(payload: ByteString): ByteString = {
     val gzipIn = new GZIPInputStream(payload.newInput)
-    ByteString.readFrom(gzipIn)
+    val decompressed = ByteString.readFrom(gzipIn)
+    gzipIn.close()
+    decompressed
   }
 
   private def parseMessageSafe[T](callParser: () => T): Either[String, T] =
