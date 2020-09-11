@@ -5,7 +5,7 @@
 module PendingSet where
 
 import DA.Foldable (mapA_)
-import DA.Next.Map (Map)
+import DA.Map (Map)
 import Daml.Trigger
 
 template Foo
