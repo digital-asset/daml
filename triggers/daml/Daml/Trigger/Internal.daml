@@ -21,6 +21,7 @@ module Daml.Trigger.Internal
 import DA.Action.State
 import DA.Map (Map)
 import qualified DA.Map as Map
+import qualified DA.Next.Map as NMap
 import DA.Optional (fromOptional)
 
 import Daml.Trigger.LowLevel hiding (Trigger)
@@ -33,14 +34,11 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 -- This will change to a Map once we have proper maps in DAML-LF
 data ACS = ACS
   { activeContracts : Map TemplateTypeRep [(AnyContractId, AnyTemplate)]
-  , pendingContracts : Map CommandId [AnyContractId]
+  , pendingContracts : NMap.Map CommandId [AnyContractId]
   }
 
 instance Ord TemplateTypeRep where
   compare = error "TODO SC templatetyperep placeholder"
-
-instance Ord CommandId where
-  compare = error "TODO SC commandid placeholder"
 
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
 -- Its main feature is that you can call `emitCommands` to
@@ -50,8 +48,8 @@ newtype TriggerA a = TriggerA (State TriggerAState a)
 
 -- Internal API
 
-addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
-addCommands m (Commands cid cmds) = Map.insert cid cmds m
+addCommands : NMap.Map CommandId [Command] -> Commands -> NMap.Map CommandId [Command]
+addCommands m (Commands cid cmds) = NMap.insert cid cmds m
 
 adjust : forall k v. Ord k => k -> (Optional v -> Optional v) -> Map k v -> Map k v
 adjust k f m =
@@ -92,7 +90,7 @@ applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
 runRule
-  : (Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ())
+  : (Party -> ACS -> Time -> NMap.Map CommandId [Command] -> s -> TriggerA ())
   -> Time
   -> TriggerState s
   -> (TriggerState s, [Commands])
@@ -111,14 +109,14 @@ runTriggerA (TriggerA f) s =
   in (a, s' { emittedCommands = reverse s'.emittedCommands })
 
 data TriggerAState = TriggerAState
-  { commandsInFlight : Map CommandId [Command]
+  { commandsInFlight : NMap.Map CommandId [Command]
   -- This is not modified during a run (new commands end up in emittedCommands)
   -- but for simplicity we keep it in TriggerAState instead of layering a
   -- Reader on top of it.
   -- This will be used for dedupCreateCmd/dedupExerciseCmd helpers.
   , emittedCommands : [Commands]
   -- ^ Emitted commands in reverse because I can’t be bothered to implement a dlist.
-  , pendingContracts : Map CommandId [AnyContractId]
+  , pendingContracts : NMap.Map CommandId [AnyContractId]
   -- ^ Map from command ids to the contract ids marked pending by that command.
   , nextCommandId : Int
   -- ^ Command id used for the next submit
@@ -128,6 +126,6 @@ data TriggerState s = TriggerState
   { acs : ACS
   , party : Party
   , userState : s
-  , commandsInFlight : Map CommandId [Command]
+  , commandsInFlight : NMap.Map CommandId [Command]
   , nextCommandId : Int
   }

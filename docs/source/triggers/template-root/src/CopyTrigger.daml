@@ -5,7 +5,7 @@
 module CopyTrigger where
 
 import DA.List hiding (dedup)
-import DA.Map (Map)
+import DA.Next.Map (Map)
 
 import Daml.Trigger
 

@@ -4,7 +4,7 @@
 
 module Retry where
 
-import DA.Map (Map)
+import DA.Next.Map (Map)
 
 import Daml.Trigger
 

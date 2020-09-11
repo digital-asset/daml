@@ -5,7 +5,7 @@
 module MaxInboundMessageTest where
 
 import DA.Action
-import DA.Map (Map)
+import DA.Next.Map (Map)
 import Daml.Trigger
 
 maxInboundMessageSizeTrigger : Trigger ()
