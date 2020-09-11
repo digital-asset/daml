@@ -55,7 +55,7 @@ We can see this in action. When a DAR file gets deployed to a ledger, not all me
 #. Open a second terminal and run ``daml ledger fetch-dar --host localhost --port 6865 --main-package-id "887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625" -o assets_ledger.dar``, making sure to replace the hash with the appropriate one.
 #. Run ``daml damlc inspect-dar assets_ledger.dar``
 
-You'll notice two things. Firstly, a lot of the dependencies have lost their names, they are now only identifyable by hash. We could of course also create a second project ``7_Composing-1.0.0`` with completely different contents so even when name and version are avaialble, package hash is the only safe identifier.
+You'll notice two things. Firstly, a lot of the dependencies have lost their names, they are now only identifiable by hash. We could of course also create a second project ``7_Composing-1.0.0`` with completely different contents so even when name and version are available, package hash is the only safe identifier.
 
 That's why over the Ledger API, all types, like templates and records are identified by the triple ``(entity name, module name, package hash)``. Your client application should know the package hashes it wants to interact with. To aid that, ``inspect-dar`` also provides a machine-readable format for the information it emits: ``daml damlc inspect-dar --json assets_ledger.dar``. The ``main_package_id`` field in the resulting JSON payload is the package hash of our project.
 
@@ -100,7 +100,7 @@ Any ``Asset`` contract from any future version will depend on all old versions. 
 
 An ``Asset`` in version N depends only on its own package, not on anything that came before.
 
-The second measure has to do with keeping it easy to distinguish versions and avoid name collisions. As described above, we can always distinguish an ``Asset`` from version 1 from an ``Asset`` from version 2 by looking at the module. If we used the same module names, we would have to mitigate module name collisions as described in :ref:`module_collisions`, and use the package hash to distinguish verisons on the Ledger API. It's easily possible, but less comfortable during development.
+The second measure has to do with keeping it easy to distinguish versions and avoid name collisions. As described above, we can always distinguish an ``Asset`` from version 1 from an ``Asset`` from version 2 by looking at the module. If we used the same module names, we would have to mitigate module name collisions as described in :ref:`module_collisions`, and use the package hash to distinguish versions on the Ledger API. It's easily possible, but less comfortable during development.
 
 Anatomy of an Upgrade
 ---------------------
@@ -113,7 +113,7 @@ For this chapter we will make the following choices:
 
 - The upgrade is agreed per issuer/owner relationship.
 - Once the upgrade is mutually agreed, it's forward only. There are no rollbacks or backwards compatibility.
-- Agreeing to the upgrade upgrades the ``AssetHolder`` contract, preventing the owner from generating new v1 ``TransferApprovals``, and the issuer issuing new v1 assets. Ie after accepting the upgrade, the total pool of v1 assets the owner can ever hold is limite by existing ``Asset`` and ``TransferApproval`` contracts. They can no longer start new v1 ``Trade`` workflows as they can't get the ``TransferApprovals``. This incentivizes the ``owner`` to upgrade their V1 ``Asset``\ s to V2 in bulk.
+- Agreeing to the upgrade upgrades the ``AssetHolder`` contract, preventing the owner from generating new v1 ``TransferApprovals``, and the issuer issuing new v1 assets. Ie after accepting the upgrade, the total pool of v1 assets the owner can ever hold is limited by existing ``Asset`` and ``TransferApproval`` contracts. They can no longer start new v1 ``Trade`` workflows as they can't get the ``TransferApprovals``. This incentivizes the ``owner`` to upgrade their V1 ``Asset``\ s to V2 in bulk.
 - ``Trade``, ``TransferProposal`` and ``TransferApproval`` contracts can not be upgraded. They have to be cancelled.
 - The *completion* of the upgrade has to be mutually agreed between issuer and owner to make sure neither can leave contract in v1 lying around.
 
@@ -124,13 +124,13 @@ All of this is encoded in the ``Intro.Asset.Upgrade.V2`` module of the upgrade p
 
 The ``issuer`` initiates an upgrade by creating ``UpgradeInvite``, the ``owner`` uses ``Accept_Invite`` followed by ``UpgradeContracts`` to perform the upgrade, and finally indicates completion with an ``UpgradeConfirmation``. The ``issuer`` then signs this off using ``CompleteUpgrade``.
 
-You'll notice that the model doesn't enforce that no V1 contracts remain. That's because it can't. Other than contract keys, DAML has no non-existence query functionality so you can't assert that no V1 contracts exist. But that's not really a problem. Because both parties need to sign off that the upgrade is complete, you can only leave V1 contarcts active and still complete the upgrade if both parties agree to this. And in that case, they could just re-establish a V1 ``AssetHolder`` contract so such a safe-guard would achieve nothing. The constraint that no V1 contracts should remain has to be enforced byt he stakeholders because it's in their interest.
+You'll notice that the model doesn't enforce that no V1 contracts remain. That's because it can't. Other than contract keys, DAML has no non-existence query functionality so you can't assert that no V1 contracts exist. But that's not really a problem. Because both parties need to sign off that the upgrade is complete, you can only leave V1 contracts active and still complete the upgrade if both parties agree to this. And in that case, they could just re-establish a V1 ``AssetHolder`` contract so such a safe-guard would achieve nothing. The constraint that no V1 contracts should remain has to be enforced byt he stakeholders because it's in their interest.
 
 Because all we are doing is changing the data type of ``Asset``, the actual "upgrade" is encapsulated in just three small snippets of code:
 
 #. The top-level function ``mapAssetV1ToV2`` which takes a V1 ``Asset`` and maps it to a V2 ``Asset`` by wrapping the ``owner`` in a list.
 #. The locally defined function ``upgradeAsset`` which checks preconditions on a V1 ``Asset`` and then uses ``archive``, ``mapAssetV1ToV2`` and ``create`` to substitute a V1 ``Asset`` contract with a V2 contract.
-#. A ``mapA`` statment, which performs ``upgradeAsset`` on a list of ``ContractId Asset``.
+#. A ``mapA`` statement, which performs ``upgradeAsset`` on a list of ``ContractId Asset``.
 
 You'll learn more about functions and ``mapA`` in :doc:`9_Functional101`.
 
@@ -150,13 +150,13 @@ The entry point for the upgrade is script ``Test.Intro.Asset.Upgrade.V1Setup.tes
   :start-after: -- RUN_COMPLETE_UPGRADE_BEGIN
   :end-before: -- RUN_COMPLETE_UPGRADE_END
 
-We won't go in depth into each of the steps in this chapter, but here are the steps performed, in line with the "Anatomy" abovve:
+We won't go in depth into each of the steps in this chapter, but here are the steps performed, in line with the "Anatomy" above:
 
 #. In ``initiateUpgrade`` the ``issuer`` of the upgrade checks for V1 ``AssetHolder`` and  ``AssetHolderInvite``, and creates corresponding ``UpgradeInvite`` or V2  ``AssetHolderInvite``.
 #. In ``acceptUpgrade`` the ``owner`` matches up V1 ``AssetHolder`` contracts with ``UpgradeInvite`` contracts, and calls the ``Accept_Upgrade`` choice for each pair.
 #. In ``performUpgrade`` the ``owner`` tidies up by upgrading all V1 ``Asset`` contracts and cancelling all ``TransferApproval`` and ``TransferProposal`` contracts.
 #. In ``ownerCheckUpgradeComplete`` the ``owner`` checks whether they think the upgrade for the given relationship is complete.
-#. In ``confirmComplation`` the ``owner`` creates the ``UpgradeConfirmation`` contract for each ``Upgrade`` contract.
+#. In ``confirmCompletion`` the ``owner`` creates the ``UpgradeConfirmation`` contract for each ``Upgrade`` contract.
 #. In ``issuerCheckUpgradeComplete`` the ``issuer`` checks whether they think the upgrade is complete.
 #. In ``completeUpgrade`` the ``issuer`` matches up ``Upgrade`` with ``UpgradeConfirmation`` contracts and completes the process.
 
@@ -167,4 +167,4 @@ This concludes this introduction to upgrades. If you want to learn more, you can
 Next up
 -------
 
-Both the V2 ``Asset`` model as well as the upgrade process itself involves considerably more complex control flow and data handling than previous models. In :doc:`9_Functional101` you'll learn how to write more advanced logic: control flow, folds, common typeclasses, custom functions, and the Standard Library. We'll be using the same projects so don't delete your Chapter 7 and 8 fodlers just yet.
+Both the V2 ``Asset`` model as well as the upgrade process itself involves considerably more complex control flow and data handling than previous models. In :doc:`9_Functional101` you'll learn how to write more advanced logic: control flow, folds, common typeclasses, custom functions, and the Standard Library. We'll be using the same projects so don't delete your Chapter 7 and 8 folders just yet.
