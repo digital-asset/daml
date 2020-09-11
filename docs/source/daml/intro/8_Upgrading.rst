@@ -104,21 +104,15 @@ The second measure has to do with keeping it easy to distinguish versions and av
 Anatomy of an Upgrade
 ---------------------
 
-A general DAML model does not have a central party which can unilaterally change the rules. The Chapter 7 model is a good example of this. The ``AssetHolder`` and ``Asset`` contracts are signed by both ``issuer`` and ``owner``. The two parties have agreed on the rules governing ``Asset`` contracts, and if those rules are to be changed, it needs mutual agreement.
+A general DAML model does not have a central party which can unilaterally change the rules. The Chapter 7 model is a good example of this. The ``AssetHolder`` and ``Asset`` contracts are signed by both ``issuer`` and ``owner``. The two parties have agreed on the rules governing ``Asset`` contracts, and if those rules are to be changed, it needs mutual agreement. However, it's not quite as simple as getting everyone's agreement and then upgrading the world. Issuers and owners are in a many-to-many relationship and not everyone may want to upgrade at the same time. Given DAML's privacy model, it may even be the case that parties don't know about each other's involvement in the application at all. 
 
-There may also not be a fixed set of involved parties. In the case of the Chapter 7 model, there may be any number of issuers and owners. It may not be realistic for all issuers and owners to upgrade at the same time.
+From the above, we can see that for any upgrade, one has to determine the right "unit" of upgrade. It has to be small enough that it's feasible to get the needed stakeholder agreement. Granularity of upgrades has to be balanced with complexity and compatibility though. A possible design would be to say that individual contracts can be upgraded and downgraded again, and that the V2 model should offer full backwards compatibility in the sense that everywhere a V2 contract can be used, a V1 contract will also work. It's possible to do that, but would require the V2 model to depend on V1, and adds a lot of complexity.
 
-The issuers and owners are in a many-to-many relationship so a single issuer or owner may not be able to upgrade all their contracts at the same time, either.
+For this chapter we will make the following choices:
 
-Version 1 owners can not receive Assets from Version 2 owners so it may be in the interest of an owner to be able to move individual Assets back and forth between v1 and v2. 
-
-From all this we see that the _unit_ of contracts that needs to be upgraded at a time, and whether upgrades are one-way only depends a lot on the application and what the participants want. In this example, the upgrade will have the following characteristics:
-
-- The upgrade is agreed between individual pairs of issuer/owner
-- Once the upgrade is mutually agreed, it's forward only
-- The upgrade works on individual contracts
-- Agreeing to the upgrade upgrades the ``AssetHolder`` contract, preventing the owner from generating new v1 ``TransferApprovals``, and the issuer issuing new v1 assets. Ie after accepting the upgrade, the total pool of v1 assets the owner can ever hold is limite by existing ``Asset`` and ``TransferApproval`` contracts.
--  Once mutually agreed, the owner can upgrade ``Asset`` contracts one by one, thus settling any open business in v1 as needed
+- The upgrade is agreed per issuer/owner relationship.
+- Once the upgrade is mutually agreed, it's forward only. There are no rollbacks or backwards compatibility.
+- Agreeing to the upgrade upgrades the ``AssetHolder`` contract, preventing the owner from generating new v1 ``TransferApprovals``, and the issuer issuing new v1 assets. Ie after accepting the upgrade, the total pool of v1 assets the owner can ever hold is limite by existing ``Asset`` and ``TransferApproval`` contracts. They can no longer start new v1 ``Trade`` workflows as they can't get the ``TransferApprovals``. This incentivezes the ``owner`` to upgrae their V1 ``Asset``s to V2 in bulk.
 - ``Trade``, ``TransferProposal`` and ``TransferApproval`` contracts can not be upgraded. They have to be cancelled.
 - The _completion_ of the upgrade has to be mutually agreed between issuer and owner to make sure neither can leave contract in v1 lying around.
 
@@ -126,6 +120,18 @@ All of this is encoded in the ``Intro.Asset.Upgrade.V2`` module of the upgrade p
 
 .. literalinclude:: daml/daml-intro-8-upgrade/daml/Intro/Asset/Upgrade/V2.daml
   :language: daml
+
+The ``issuer`` initiates an upgrade by creating ``UpgradeInvite``, the ``owner`` uses ``Accept_Invite`` followed by ``UpgradeContracts`` to perform the upgrade, and finally indicates completion with an ``UpgradeConfirmation``. The ``issuer`` then signs this off using ``CompleteUpgrade``.
+
+You'll notice that the model doesn't enforce that no V1 contracts remain. That's because it can't. Other than contract keys, DAML has no non-existence query functionality so you can't assert that no V1 contracts exist. But that's not really a problem. Because both parties need to sign off that the upgrade is complete, you can only leave V1 contarcts active and still complete the upgrade if both parties agree to this. And in that case, they could just re-establish a V1 ``AssetHolder`` contract so such a safe-guard would achieve nothing. The constraint that no V1 contracts should remain has to be enforced byt he stakeholders because it's in their interest.
+
+Because all we are doing is changing the data type of ``Asset``, the actual "upgrade" is encapsulated in just three small snippets of code:
+
+#. The top-level function ``mapAssetV1ToV2`` which takes a V1 ``Asset`` and maps it to a V2 ``Asset`` by wrapping the ``owner`` in a list.
+#. The locally defined function ``upgradeAsset`` which checks preconditions on a V1 ``Asset`` and then uses ``archive``, ``mapAssetV1ToV2`` and ``create`` to substitute a V1 ``Asset`` contract with a V2 contract.
+#. A `mapA` statment, which performs ``upgradeAsset`` on a list of ``ContractId Asset``.
+
+You'll learn more about functions and ``mapA`` in :doc:`9_Functional101`.
 
 And that's really it. The upgrade model could be extended using rollback capabilities or similar, but the complexity of upgrades is less in the upgrade contracts than in actually performing the upgrade.
 
@@ -154,6 +160,8 @@ We won't go in depth into each of the steps in this chapter, but here are the st
 #. In ``completeUpgrade`` the ``issuer`` matches up ``Upgrade`` with ``UpgradeConfirmation`` contracts and completes the process.
 
 In a soon to come Chapter 10 of the introduction to DAML you'll learn why the Scripts are structured the way they are, and how to use them to test beyond the IDE.
+
+This concludes this introduction to upgrades. If you want to learn more, you can also check out the standalone docs pages on upgrading: :doc:`/daml/upgrades/index`.
 
 Next up
 -------
