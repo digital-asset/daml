@@ -68,6 +68,12 @@ object FutureOf {
 
     def filter(p: A => Boolean)(implicit ec: ExecutionContext[EC]): Future[EC, A] =
       self.removeExecutionContext filter p
+
+    def andThen[U](pf: Try[A] PartialFunction U)(implicit ec: ExecutionContext[EC]): Future[EC, A] =
+      self.removeExecutionContext andThen pf
+
+    def onComplete[U](f: Try[A] => U)(implicit ec: ExecutionContext[EC]): Unit =
+      self.removeExecutionContext onComplete f
   }
 
   /** Operations that don't refer to an ExecutionContext. */
