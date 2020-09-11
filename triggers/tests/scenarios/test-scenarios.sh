@@ -31,13 +31,10 @@ dependencies:
   - daml-prim
   - daml-trigger.dar
   - daml-script.dar
-build-options: [--target=1.dev]
+build-options: ["--target", "1.dev"]
 EOF
 cp -L $DAML_SOURCE $TMP_DIR/daml/
 cp -L $DAML_TRIGGERS_DAR $TMP_DIR/daml-trigger.dar
 cp -L $DAML_SCRIPT_DAR $TMP_DIR/daml-script.dar
 
-# We need to run build to create the package database.
-# See https://github.com/digital-asset/daml/issues/3436
-$DAMLC init --project-root=$TMP_DIR
 $DAMLC test --project-root=$TMP_DIR
