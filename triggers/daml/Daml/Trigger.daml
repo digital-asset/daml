@@ -179,7 +179,7 @@ runTrigger userTrigger = LowLevel.Trigger
   }
   where
     initialState party time (ActiveContracts createdEvents) =
-      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS GMap.empty Map.empty) createdEvents
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty 0
       in runRule userTrigger.rule time state
