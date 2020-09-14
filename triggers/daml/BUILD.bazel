@@ -39,7 +39,9 @@ dependencies:
   - daml-script.dar
 build-options: {build_options}
 EOF
-          $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
+          $(location //compiler/damlc) build --project-root $$TMP_DIR \
+              --cpp $$PWD/$(location @stackage-exe//hpp) \
+              -o $$PWD/$@
           rm -rf $$TMP_DIR
         """.format(
             build_options = str([
@@ -53,7 +55,10 @@ EOF
             sdk = sdk_version,
             ghc = ghc_version,
         ),
-        tools = ["//compiler/damlc"],
+        tools = [
+            "//compiler/damlc",
+            "@stackage-exe//hpp",
+        ],
         visibility = ["//visibility:public"],
     )
     for lf_version in DAML_LF_VERSIONS + [""]
