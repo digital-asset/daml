@@ -33,6 +33,7 @@ da_scala_library(
         "//ledger-service/jwt",
         "//libs-scala/gatling-utils",
         "//libs-scala/scala-utils",
+        "//libs-scala/postgresql-testing",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_fasterxml_jackson_core_jackson_databind",
         "@maven//:com_github_scopt_scopt_2_12",
@@ -47,6 +48,8 @@ da_scala_library(
         "@maven//:io_gatling_gatling_http_client",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -91,6 +94,8 @@ da_scala_binary(
         "@maven//:io_gatling_gatling_http_client",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
