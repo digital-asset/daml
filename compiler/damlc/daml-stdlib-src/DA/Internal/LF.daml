@@ -251,4 +251,12 @@ data TypeRep = TypeRep Opaque
 #ifdef DAML_TYPE_REP
 instance Eq TypeRep where
   (==) = primitive @"BEEqual"
+
+#ifdef DAML_GENERIC_COMPARISON
+instance Ord TypeRep where
+  (<=) = primitive @"BELessEq"
+  (>=) = primitive @"BEGreaterEq"
+  (<) = primitive @"BELess"
+  (>) = primitive @"BEGreater"
+#endif -- DAML_GENERIC_COMPARISON
 #endif

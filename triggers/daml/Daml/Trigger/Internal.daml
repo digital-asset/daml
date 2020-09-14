@@ -37,9 +37,6 @@ data ACS = ACS
   , pendingContracts : NMap.Map CommandId [AnyContractId]
   }
 
-instance Ord TemplateTypeRep where
-  compare = error "TODO SC templatetyperep placeholder"
-
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
