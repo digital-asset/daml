@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 package script
 
 import io.grpc.StatusRuntimeException
@@ -133,16 +134,16 @@ object Converter {
     }
   }
 
-  def toCreateCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
+  def toCreateCommand(v: SValue): Either[String, command.Command] =
     v match {
       // template argument, continuation
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
         } yield
-          ScriptLedgerClient.CreateCommand(
+          command.CreateCommand(
             templateId = anyTemplate.ty,
-            argument = anyTemplate.arg
+            argument = anyTemplate.arg.toValue
           )
       }
       case _ => Left(s"Expected Create but got $v")
@@ -154,7 +155,7 @@ object Converter {
       case _ => Left(s"Expected ContractId but got $v")
     }
 
-  def toExerciseCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
+  def toExerciseCommand(v: SValue): Either[String, command.Command] =
     v match {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 => {
@@ -163,17 +164,17 @@ object Converter {
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
         } yield
-          ScriptLedgerClient.ExerciseCommand(
+          command.ExerciseCommand(
             templateId = tplId,
             contractId = cid,
-            choice = anyChoice.name,
-            argument = anyChoice.arg,
+            choiceId = anyChoice.name,
+            argument = anyChoice.arg.toValue,
           )
       }
       case _ => Left(s"Expected Exercise but got $v")
     }
 
-  def toExerciseByKeyCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
+  def toExerciseByKeyCommand(v: SValue): Either[String, command.Command] =
     v match {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 => {
@@ -182,28 +183,28 @@ object Converter {
           anyKey <- toAnyContractKey(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
         } yield
-          ScriptLedgerClient.ExerciseByKeyCommand(
+          command.ExerciseByKeyCommand(
             templateId = tplId,
-            key = anyKey.key,
-            choice = anyChoice.name,
-            argument = anyChoice.arg,
+            contractKey = anyKey.key.toValue,
+            choiceId = anyChoice.name,
+            argument = anyChoice.arg.toValue,
           )
       }
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
 
-  def toCreateAndExerciseCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
+  def toCreateAndExerciseCommand(v: SValue): Either[String, command.Command] =
     v match {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
           anyChoice <- toAnyChoice(vals.get(1))
         } yield
-          ScriptLedgerClient.CreateAndExerciseCommand(
+          command.CreateAndExerciseCommand(
             templateId = anyTemplate.ty,
-            template = anyTemplate.arg,
-            choice = anyChoice.name,
-            argument = anyChoice.arg,
+            createArgument = anyTemplate.arg.toValue,
+            choiceId = anyChoice.name,
+            choiceArgument = anyChoice.arg.toValue,
           )
       }
       case _ => Left(s"Expected CreateAndExercise but got $v")
@@ -245,10 +246,9 @@ object Converter {
   def toCommands(
       compiledPackages: CompiledPackages,
       freeAp: SValue,
-  ): Either[String, List[ScriptLedgerClient.Command]] = {
+  ): Either[String, List[command.Command]] = {
     @tailrec
-    def iter(v: SValue, commands: List[ScriptLedgerClient.Command])
-      : Either[String, List[ScriptLedgerClient.Command]] = {
+    def iter(v: SValue, commands: List[command.Command]): Either[String, List[command.Command]] = {
       v match {
         case SVariant(_, "PureA", _, _) => Right(commands.reverse)
         case SVariant(_, "Ap", _, v) =>

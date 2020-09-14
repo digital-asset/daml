@@ -41,7 +41,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.{ScenarioRunner, TraceLog}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{PartialTransaction, SExpr, SValue}
+import com.daml.lf.speedy.{PartialTransaction, SValue}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -79,27 +79,6 @@ object ScriptTimeMode {
 
 object ScriptLedgerClient {
 
-  sealed trait Command
-  final case class CreateCommand(templateId: Identifier, argument: SValue) extends Command
-  final case class ExerciseCommand(
-      templateId: Identifier,
-      contractId: ContractId,
-      choice: ChoiceName,
-      argument: SValue)
-      extends Command
-  final case class ExerciseByKeyCommand(
-      templateId: Identifier,
-      key: SValue,
-      choice: ChoiceName,
-      argument: SValue)
-      extends Command
-  final case class CreateAndExerciseCommand(
-      templateId: Identifier,
-      template: SValue,
-      choice: ChoiceName,
-      argument: SValue)
-      extends Command
-
   sealed trait CommandResult
   final case class CreateResult(contractId: ContractId) extends CommandResult
   final case class ExerciseResult(
@@ -130,15 +109,14 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
 
-  def submit(
-      party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
-      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
+  def submit(party: Ref.Party, commands: List[command.Command], optLocation: Option[Location])(
+      implicit ec: ExecutionContext,
+      mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
   def submitMustFail(
       party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
+      commands: List[command.Command],
       optLocation: Option[Location])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Either[Unit, Unit]]
@@ -233,7 +211,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
 
   override def submit(
       party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
+      commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
     val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
@@ -272,7 +250,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
 
   override def submitMustFail(
       party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
+      commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
     submit(party, commands, optLocation).map({
       case Right(_) => Left(())
@@ -322,22 +300,22 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     } yield ()
   }
 
-  private def toCommand(command: ScriptLedgerClient.Command): Either[String, Command] =
-    command match {
-      case ScriptLedgerClient.CreateCommand(templateId, argument) =>
+  private def toCommand(cmd: command.Command): Either[String, Command] =
+    cmd match {
+      case command.CreateCommand(templateId, argument) =>
         for {
-          arg <- lfValueToApiRecord(true, argument.toValue)
+          arg <- lfValueToApiRecord(true, argument)
         } yield Command().withCreate(CreateCommand(Some(toApiIdentifier(templateId)), Some(arg)))
-      case ScriptLedgerClient.ExerciseCommand(templateId, contractId, choice, argument) =>
+      case command.ExerciseCommand(templateId, contractId, choice, argument) =>
         for {
-          arg <- lfValueToApiValue(true, argument.toValue)
+          arg <- lfValueToApiValue(true, argument)
         } yield
           Command().withExercise(
             ExerciseCommand(Some(toApiIdentifier(templateId)), contractId.coid, choice, Some(arg)))
-      case ScriptLedgerClient.ExerciseByKeyCommand(templateId, key, choice, argument) =>
+      case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {
-          key <- lfValueToApiValue(true, key.toValue)
-          argument <- lfValueToApiValue(true, argument.toValue)
+          key <- lfValueToApiValue(true, key)
+          argument <- lfValueToApiValue(true, argument)
         } yield
           Command().withExerciseByKey(
             ExerciseByKeyCommand(
@@ -345,10 +323,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
               Some(key),
               choice,
               Some(argument)))
-      case ScriptLedgerClient.CreateAndExerciseCommand(templateId, template, choice, argument) =>
+      case command.CreateAndExerciseCommand(templateId, template, choice, argument) =>
         for {
-          template <- lfValueToApiRecord(true, template.toValue)
-          argument <- lfValueToApiValue(true, argument.toValue)
+          template <- lfValueToApiRecord(true, template)
+          argument <- lfValueToApiValue(true, argument)
         } yield
           Command().withCreateAndExercise(
             CreateAndExerciseCommand(
@@ -392,6 +370,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   }
 
   val traceLog = new ArrayBufferTraceLog()
+
+  private[this] val preprocessor = new engine.preprocessing.CommandPreprocessor(compiledPackages)
 
   private val txSeeding =
     speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"script-service"))
@@ -461,36 +441,10 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       }
   }
 
-  // Translate from a ledger command to an Update expression
-  // corresponding to the same command.
-  private def translateCommand(cmd: ScriptLedgerClient.Command): speedy.Command = {
-    // Ledger commands like create or exercise look pretty complicated in
-    // SExpr. Therefore we express them in the high-level AST and compile them
-    // to a function that we apply to the arguments.
-    cmd match {
-      case ScriptLedgerClient.CreateCommand(tplId, arg) =>
-        speedy.Command.Create(tplId, arg)
-      case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, arg) =>
-        speedy.Command.Exercise(tplId, SContractId(cid), choice, arg)
-      case ScriptLedgerClient.CreateAndExerciseCommand(tplId, tpl, choice, arg) =>
-        speedy.Command.CreateAndExercise(tplId, tpl, choice, arg)
-      case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, arg) =>
-        speedy.Command.ExerciseByKey(tplId, key, choice, arg)
-    }
-  }
-
-  // Translate a list of commands submitted by the given party
-  // into an expression corresponding to a scenario commit of the same
-  // commands of type `Scenario ()`.
-  private def translateCommands(commands: List[ScriptLedgerClient.Command]): SExpr = {
-    val cmds: ImmArray[speedy.Command] = ImmArray(commands.map(translateCommand(_)))
-    compiledPackages.compiler.unsafeCompile(cmds)
-  }
-
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
       party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
+      commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
     // Clear state at the beginning like in SBSBeginCommit for scenarios.
@@ -498,7 +452,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     machine.returnValue = null
     machine.localContracts = Map.empty
     machine.globalDiscriminators = Set.empty
-    val translated = translateCommands(commands)
+    val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to[ImmArray])._1
+    val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
     machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
     machine.committers = Set(party)
     var result: Seq[ScriptLedgerClient.CommandResult] = null
@@ -579,7 +534,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
 
   override def submit(
       party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
+      commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
     unsafeSubmit(party, commands, optLocation).map {
@@ -595,7 +550,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
 
   override def submitMustFail(
       party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
+      commands: List[command.Command],
       optLocation: Option[Location])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Either[Unit, Unit]] = {
@@ -807,22 +762,22 @@ class JsonLedgerClient(
   }
   override def submit(
       party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
+      commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
       () <- validateTokenParty(party, "submit a command")
       result <- commands match {
         case Nil => Future { Right(List()) }
-        case command :: Nil =>
-          command match {
-            case ScriptLedgerClient.CreateCommand(tplId, argument) =>
+        case cmd :: Nil =>
+          cmd match {
+            case command.CreateCommand(tplId, argument) =>
               create(tplId, argument)
-            case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, argument) =>
+            case command.ExerciseCommand(tplId, cid, choice, argument) =>
               exercise(tplId, cid, choice, argument)
-            case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, argument) =>
+            case command.ExerciseByKeyCommand(tplId, key, choice, argument) =>
               exerciseByKey(tplId, key, choice, argument)
-            case ScriptLedgerClient.CreateAndExerciseCommand(tplId, template, choice, argument) =>
+            case command.CreateAndExerciseCommand(tplId, template, choice, argument) =>
               createAndExercise(tplId, template, choice, argument)
           }
         case _ =>
@@ -834,7 +789,7 @@ class JsonLedgerClient(
   }
   override def submitMustFail(
       party: Ref.Party,
-      commands: List[ScriptLedgerClient.Command],
+      commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
     submit(party, commands, optLocation).map({
       case Right(_) => Left(())
@@ -905,9 +860,9 @@ class JsonLedgerClient(
     }
   }
 
-  private def create(tplId: Identifier, argument: SValue)
+  private def create(tplId: Identifier, argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
-    val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
+    val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[JsonLedgerClient.CreateArgs, JsonLedgerClient.CreateResponse](
       "create",
       JsonLedgerClient.CreateArgs(tplId, jsonArgument))
@@ -921,14 +876,14 @@ class JsonLedgerClient(
       tplId: Identifier,
       contractId: ContractId,
       choice: ChoiceName,
-      argument: SValue)
+      argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
       .choices(choice)
-    val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
+    val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[JsonLedgerClient.ExerciseArgs, JsonLedgerClient.ExerciseResponse](
       "exercise",
       JsonLedgerClient.ExerciseArgs(tplId, contractId, choice, jsonArgument))
@@ -943,15 +898,19 @@ class JsonLedgerClient(
       })
   }
 
-  private def exerciseByKey(tplId: Identifier, key: SValue, choice: ChoiceName, argument: SValue)
+  private def exerciseByKey(
+      tplId: Identifier,
+      key: Value[ContractId],
+      choice: ChoiceName,
+      argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
       .choices(choice)
-    val jsonKey = LfValueCodec.apiValueToJsValue(key.toValue)
-    val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
+    val jsonKey = LfValueCodec.apiValueToJsValue(key)
+    val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[JsonLedgerClient.ExerciseByKeyArgs, JsonLedgerClient.ExerciseResponse](
       "exercise",
       JsonLedgerClient
@@ -968,17 +927,17 @@ class JsonLedgerClient(
 
   private def createAndExercise(
       tplId: Identifier,
-      template: SValue,
+      template: Value[ContractId],
       choice: ChoiceName,
-      argument: SValue)
+      argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
       .choices(choice)
-    val jsonTemplate = LfValueCodec.apiValueToJsValue(template.toValue)
-    val jsonArgument = LfValueCodec.apiValueToJsValue(argument.toValue)
+    val jsonTemplate = LfValueCodec.apiValueToJsValue(template)
+    val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[
       JsonLedgerClient.CreateAndExerciseArgs,
       JsonLedgerClient.CreateAndExerciseResponse](
