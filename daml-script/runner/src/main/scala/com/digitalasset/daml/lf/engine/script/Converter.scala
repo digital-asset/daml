@@ -244,35 +244,36 @@ object Converter {
   // Walk over the free applicative and extract the list of commands
   def toCommands(
       compiledPackages: CompiledPackages,
-      freeAp: SValue): Either[String, List[ScriptLedgerClient.Command]] = {
+      freeAp: SValue,
+  ): Either[String, List[ScriptLedgerClient.Command]] = {
     @tailrec
     def iter(v: SValue, commands: List[ScriptLedgerClient.Command])
       : Either[String, List[ScriptLedgerClient.Command]] = {
       v match {
-        case SVariant(_, "PureA", _, _) => Right(commands)
+        case SVariant(_, "PureA", _, _) => Right(commands.reverse)
         case SVariant(_, "Ap", _, v) =>
           toApFields(compiledPackages, v) match {
             case Right((SVariant(_, "Create", _, create), v)) =>
               // This can’t be a for-comprehension since it trips up tailrec optimization.
               toCreateCommand(create) match {
                 case Left(err) => Left(err)
-                case Right(r) => iter(v, commands ++ Seq(r))
+                case Right(r) => iter(v, r :: commands)
               }
             case Right((SVariant(_, "Exercise", _, exercise), v)) =>
               // This can’t be a for-comprehension since it trips up tailrec optimization.
               toExerciseCommand(exercise) match {
                 case Left(err) => Left(err)
-                case Right(r) => iter(v, commands ++ Seq(r))
+                case Right(r) => iter(v, r :: commands)
               }
             case Right((SVariant(_, "ExerciseByKey", _, exerciseByKey), v)) =>
               toExerciseByKeyCommand(exerciseByKey) match {
                 case Left(err) => Left(err)
-                case Right(r) => iter(v, commands ++ Seq(r))
+                case Right(r) => iter(v, r :: commands)
               }
             case Right((SVariant(_, "CreateAndExercise", _, createAndExercise), v)) =>
               toCreateAndExerciseCommand(createAndExercise) match {
                 case Left(err) => Left(err)
-                case Right(r) => iter(v, commands ++ Seq(r))
+                case Right(r) => iter(v, r :: commands)
               }
             case Right((fb, _)) =>
               Left(s"Expected Create, Exercise ExerciseByKey or CreateAndExercise but got $fb")
