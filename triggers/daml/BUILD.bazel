@@ -45,9 +45,6 @@ EOF
           rm -rf $$TMP_DIR
         """.format(
             build_options = str([
-                "--ghc-option",
-                "-Werror",
-            ] + [
                 "--target",
                 lf_version,
             ] if lf_version else []),
