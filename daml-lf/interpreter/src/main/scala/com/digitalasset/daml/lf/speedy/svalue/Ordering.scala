@@ -69,14 +69,7 @@ object Ordering extends scala.math.Ordering[SValue] {
           push(xs.iterator, ys.iterator)
         case (SOptional(xOpt), SOptional(yOpt)) =>
           push(xOpt.iterator, yOpt.iterator)
-        case (STextMap(xMap), STextMap(yMap)) =>
-          val xKeys = xMap.keys.toSeq.sorted
-          val yKeys = yMap.keys.toSeq.sorted
-          push(
-            new InterlacedIterator(xKeys.iterator.map(SText), xKeys.iterator.map(xMap)),
-            new InterlacedIterator(yKeys.iterator.map(SText), yKeys.iterator.map(yMap)),
-          )
-        case (SGenMap(xMap), SGenMap(yMap)) =>
+        case (SGenMap(_, xMap), SGenMap(_, yMap)) =>
           push(
             new InterlacedIterator(xMap.keys.iterator, xMap.values.iterator),
             new InterlacedIterator(yMap.keys.iterator, yMap.values.iterator),

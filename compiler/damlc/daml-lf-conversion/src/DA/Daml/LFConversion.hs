@@ -189,12 +189,10 @@ envLookupAlias x = MS.lookup x . envAliases
 
 -- | Bind a type var without shadowing its LF name.
 envBindTypeVar :: Var -> Env -> (TypeVarName, Env)
-envBindTypeVar x env = try 1 (TypeVarName (prefix <> suffix))
+envBindTypeVar x env = try 1 (TypeVarName occName)
     where
-        prefix = getOccText x
-        suffix = "_" <> T.pack (show (varUnique x))
-            -- NOTE: Workaround for #3777. Remove suffix once issue fixed.
-        nameFor i = TypeVarName (prefix <> T.pack (show i) <> suffix)
+        occName = getOccText x
+        nameFor i = TypeVarName (occName <> T.pack (show i))
 
         try :: Int -> TypeVarName -> (TypeVarName, Env)
         try !i name =

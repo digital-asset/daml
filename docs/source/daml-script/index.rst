@@ -7,7 +7,7 @@ DAML Script
 .. toctree::
    :hidden:
 
-   daml-script-docs
+   api/index
 
 DAML scenarios provide a simple way for testing DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
@@ -99,7 +99,9 @@ scenarios. However, ``Commands`` requires that the individual commands
 do not depend on each other. This matches the restriction on the
 Ledger API where a transaction consists of a list of commands.  Using
 ``ApplicativeDo`` we can still use ``do``-notation as long as we
-respect this. In ``Commands`` we use ``createCmd`` instead of
+respect this and the last statement in the ``do``-block is of the form
+``return expr`` or ``pure expr``.
+In ``Commands`` we use ``createCmd`` instead of
 ``create`` and ``exerciseCmd`` instead of ``exercise``.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml

@@ -254,11 +254,29 @@ genrule(
 ) if not is_windows else None
 
 genrule(
+    name = "hoogle_db",
+    srcs = [
+        "//compiler/damlc:daml-base-hoogle.txt",
+        "//daml-script/daml:daml-script-hoogle.txt",
+        "//triggers/daml:daml-trigger-hoogle.txt",
+    ],
+    outs = ["hoogle_db.tar.gz"],
+    cmd = """
+    mkdir hoogle
+    cp -L $(location //compiler/damlc:daml-base-hoogle.txt) hoogle/
+    cp -L $(location //daml-script/daml:daml-script-hoogle.txt) hoogle/
+    cp -L $(location //triggers/daml:daml-trigger-hoogle.txt) hoogle/
+    $(execpath //bazel_tools/sh:mktgz) $@ hoogle
+  """,
+    tools = ["//bazel_tools/sh:mktgz"],
+)
+
+genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
-        "//triggers/daml:daml-trigger-rst-docs",
-        "//daml-script/daml:daml-script-rst-docs",
+        "//triggers/daml:daml-trigger-rst.tar.gz",
+        "//daml-script/daml:daml-script-rst.tar.gz",
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
@@ -274,10 +292,16 @@ genrule(
             -C source/daml/stdlib
 
         # Copy in daml-trigger documentation
-        cp -rL $(location //triggers/daml:daml-trigger-rst-docs) source/triggers/trigger-docs.rst
+        mkdir -p source/triggers/api/
+        tar xf $(location //triggers/daml:daml-trigger-rst.tar.gz) \\
+            --strip-components 1 \\
+            -C source/triggers/api/
 
         # Copy in daml-script documentation
-        cp -rL $(location //daml-script/daml:daml-script-rst-docs) source/daml-script/daml-script-docs.rst
+        mkdir -p source/daml-script/api/
+        tar xf $(location //daml-script/daml:daml-script-rst.tar.gz) \\
+            --strip-components 1 \\
+            -C source/daml-script/api/
 
         # Copy in Protobufs
         cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
@@ -362,7 +386,7 @@ genrule(
     ]) + [
         ":sources",
         ":theme",
-        "//compiler/damlc:daml-base-hoogle.txt",
+        ":hoogle_db.tar.gz",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
@@ -443,8 +467,7 @@ genrule(
         tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html/cheat-sheet
 
         # Copy in hoogle DB
-        mkdir -p html/hoogle_db
-        cp -rL ../$(location //compiler/damlc:daml-base-hoogle.txt) html/hoogle_db/base.txt
+        cp -L ../$(location :hoogle_db.tar.gz) html/hoogle_db.tar.gz
 
         ../$(execpath //bazel_tools/sh:mktgz) ../$@ html
         """.format(sdk = sdk_version),

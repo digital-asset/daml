@@ -281,3 +281,15 @@ jsonQueryContractId p = do
   submit p do archiveCmd cid
   optR <- queryContractId p cid
   optR === None
+
+testQueryContractKey : Script () = do
+  p <- allocateParty "p"
+  jsonQueryContractKey p
+
+jsonQueryContractKey p = do
+  cid <- submit p do createCmd (WithKey p)
+  optR <- queryContractKey @WithKey p p
+  optR === Some (cid, WithKey p)
+  submit p do archiveCmd cid
+  optR <- queryContractKey @WithKey p p
+  optR === None

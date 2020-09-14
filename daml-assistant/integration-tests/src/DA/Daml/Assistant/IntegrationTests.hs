@@ -157,8 +157,10 @@ packagingTests = testGroup "packaging"
           ]
         writeFileUTF8 (tmpDir </> "proj" </> "A.daml") $ unlines
           [ "module A where"
-          , "import Main (Asset)"
-          , "type X = Asset"
+          , "import Daml.Script"
+          , "import Main"
+          , "f = setup >> allocateParty \"foobar\""
+          -- This also checks that we get the same Script type within an SDK version.
           ]
         withCurrentDirectory (tmpDir </> "proj") $ callCommandSilent "daml build"
      , testCase "DAML Script --input-file and --output-file" $ withTempDir $ \projDir -> do

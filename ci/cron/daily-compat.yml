@@ -69,7 +69,7 @@ jobs:
           artifactName: 'Bazel Compatibility Logs'
       - template: ../daily_tell_slack.yml
 
-  - job: performance_report
+  - job: perf_speedy
     timeoutInMinutes: 120
     pool:
       name: "linux-pool"
@@ -84,22 +84,35 @@ jobs:
           IS_FORK: $(System.PullRequest.IsFork)
           # to upload to the bazel cache
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
       - bash: |
           set -euo pipefail
           eval "$(dev-env/bin/dade assist)"
+          source $(bash_lib)
+
           BASELINE="cebc26af88efef4a7c81c62b0c14353f829b755e"
           TEST_SHA=$(cat ci/cron/perf/test_sha)
           OUT="$(Build.StagingDirectory)/perf-results.json"
+
+          START=$(date -u +%Y%m%d_%H%M%SZ)
+
           if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
               # no changes, all good
-              ci/cron/perf/compare.sh $BASELINE > $OUT
-              cat $(Build.StagingDirectory)/perf-results.json
+              ci/cron/perf/compare.sh $BASELINE > "$OUT"
+              cat "$OUT"
           else
               # the tests have changed, we need to figure out what to do with
               # the baseline.
-              echo "Baseline no longer valid, needs manual correction." > $OUT
+              echo "Baseline no longer valid, needs manual correction." > "$OUT"
           fi
+
+          save_gcp_data "$GCRED" "$OUT" gs://daml-data/perf/speedy/$START.json
+
         displayName: measure perf
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ../daily_tell_slack.yml
         parameters:
           success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'

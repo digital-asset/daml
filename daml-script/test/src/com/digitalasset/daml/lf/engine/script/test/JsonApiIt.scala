@@ -369,5 +369,18 @@ final class JsonApiIt
         assert(result == SUnit)
       }
     }
+    "queryContractKey" in {
+      // fresh party to avoid key collisions with other tests
+      val party = "jsonQueryContractKey"
+      for {
+        clients <- getClients(parties = List(party))
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonQueryContractKey"),
+          inputValue = Some(JsString(party)))
+      } yield {
+        assert(result == SUnit)
+      }
+    }
   }
 }

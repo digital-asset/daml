@@ -813,3 +813,5 @@ gsg.html -> /getting-started/installation.html
 getting-started/quickstart.html -> /getting-started/index.html
 app-dev/authentication.html -> /app-dev/authorization.html
 daml/intro/2_Scenario.html -> /daml/intro/2_DamlScript.html
+daml-script/daml-script-docs.html -> /daml-script/api/index.html
+triggers/trigger-docs.html -> /triggers/api/index.html

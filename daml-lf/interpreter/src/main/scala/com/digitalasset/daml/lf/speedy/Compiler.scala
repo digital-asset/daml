@@ -371,7 +371,7 @@ private[lf] final case class Compiler(
       case BGreaterEqNumeric => SBGreaterEqNumeric
       case BEqualNumeric => SBEqualNumeric
 
-      case BTextMapEmpty => SEValue.EmptyMap
+      case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
       case _ =>
         SEBuiltin(bf match {
@@ -440,11 +440,11 @@ private[lf] final case class Compiler(
 
           // TextMap
 
-          case BTextMapInsert => SBTextMapInsert
-          case BTextMapLookup => SBTextMapLookup
-          case BTextMapDelete => SBTextMapDelete
-          case BTextMapToList => SBTextMapToList
-          case BTextMapSize => SBTextMapSize
+          case BTextMapInsert => SBGenMapInsert
+          case BTextMapLookup => SBGenMapLookup
+          case BTextMapDelete => SBGenMapDelete
+          case BTextMapToList => SBGenMapToList
+          case BTextMapSize => SBGenMapSize
 
           // GenMap
 
@@ -1179,9 +1179,8 @@ private[lf] final case class Compiler(
         case _: SPrimLit | STNat(_) | STypeRep(_) =>
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
-        case STextMap(map) => map.values.foreach(goV)
-        case SGenMap(values) =>
-          values.foreach {
+        case SGenMap(_, entries) =>
+          entries.foreach {
             case (k, v) =>
               goV(k)
               goV(v)

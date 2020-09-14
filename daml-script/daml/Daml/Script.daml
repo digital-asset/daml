@@ -8,6 +8,7 @@ module Daml.Script
   , submitMustFail
   , query
   , queryContractId
+  , queryContractKey
   , PartyIdHint (..)
   , ParticipantName (..)
   , PartyDetails(..)
@@ -80,7 +81,8 @@ data CommandsF a
 -- If you enable the `ApplicativeDo` extension by adding
 -- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
 -- use `do`-notation but the individual commands must not depend
--- on each other.
+-- on each other and the last statement in a `do` block
+-- must be of the form ``return expr`` or ``pure expr``.
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
 
@@ -89,6 +91,7 @@ data ScriptF a
   | SubmitMustFail (SubmitMustFailCmd a)
   | Query (QueryACS a)
   | QueryContractId (QueryContractIdPayload a)
+  | QueryContractKey (QueryContractKeyPayload a)
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
   | GetTime (Time -> a)
@@ -125,6 +128,24 @@ queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   tplId = templateTypeRep @t
   cid = coerceContractId c
   continue = pure . fmap (fromSome . fromAnyTemplate)
+
+data QueryContractKeyPayload a = QueryContractKeyPayload
+  { party : Party
+  , tplId : TemplateTypeRep
+  , key : AnyContractKey
+  , continue : Optional (ContractId (), AnyTemplate) -> a
+  } deriving Functor
+
+-- Returns `None` if there is no active contract with the given key that
+-- the party is a stakeholder on.
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractKey : forall t k. TemplateKey t k => Party -> k -> Script (Optional (ContractId t, t))
+queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
+  party = p
+  tplId = templateTypeRep @t
+  key = toAnyContractKey @t k
+  continue = pure . fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
 
 data SetTimePayload a = SetTimePayload
   with
@@ -294,14 +315,19 @@ instance HasSubmit Script Commands where
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
-newtype Script a = Script { runScript : () -> (Free ScriptF (a, ())) }
--- We use an inlined StateT () to separate evaluation of something of type Script from execution and to ensure
--- proper sequencing of evaluation. This is mainly so that `debug` does something
--- slightly more sensible.
+data Script a = Script with
+    runScript : () -> (Free ScriptF (a, ()))
+    -- We use an inlined StateT () to separate evaluation of
+    -- something of type Script from execution and to ensure
+    -- proper sequencing of evaluation. This is mainly so that `debug` does something
+    -- slightly more sensible.
+    dummy : ()
+    -- Dummy field to make sure damlc does not consider this an old-style
+    -- typeclass.
   deriving Functor
 
 instance CanAbort Script where
-  abort s = Script (\_ -> error s)
+  abort s = Script (\_ -> error s) ()
 
 instance ActionFail Script where
   fail = abort
@@ -334,22 +360,28 @@ archiveCmd : Choice t Archive () => ContractId t -> Commands ()
 archiveCmd cid = exerciseCmd cid Archive
 
 instance Applicative Script where
-    pure a = Script $ \ s -> return (a, s)
+    pure a = Script (\s -> return (a, s)) ()
 
-    Script mf <*> Script mx = Script $ \ s -> do
+    Script mf _ <*> Script mx _ = Script with
+      runScript = \ s -> do
         (f, s') <- mf s
         (x, s'') <- mx s'
         return (f x, s'')
+      dummy = ()
 
 instance Action Script where
-    m >>= k  = Script $ \ s -> do
+    m >>= k  = Script with
+      runScript = \ s -> do
         (a, s') <- runScript m s
         runScript (k a) s'
+      dummy = ()
 
 lift : Free ScriptF a -> Script a
-lift m = Script $ \s -> do
-  a <- m
-  pure (a, s)
+lift m = Script with
+  runScript = \s -> do
+    a <- m
+    pure (a, s)
+  dummy = ()
 
 -- | Convenience helper to declare you are writing a Script.
 --

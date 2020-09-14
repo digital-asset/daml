@@ -162,7 +162,7 @@ patches we backport to the 1.0 release branch).
 
     1. Run `daml build` then `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js` from the project root.
 
-    1. From the `ui` directory run `npm install --force --frozen-lockfile`.
+    1. From the `ui` directory run `npm install --frozen-lockfile`.
 
     1. Run `code .` from the project root directory (the extension is
        already installed, no need to use `daml studio`).
