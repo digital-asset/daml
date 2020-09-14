@@ -41,6 +41,7 @@ genrule(
     name = "templates-tarball",
     srcs = glob(
         [
+            "default-gitattributes",
             "default-gitignore",
             "default-dlint-yaml",
             "skeleton/**",
@@ -68,6 +69,7 @@ genrule(
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             # use default .gitignore and .dlint.yaml if they don't exist in the template
+            cp -n $$SRC/default-gitattributes $$OUT/$$d/.gitattributes
             cp -n $$SRC/default-gitignore $$OUT/$$d/.gitignore
             cp -n $$SRC/default-dlint-yaml $$OUT/$$d/.dlint.yaml
             # We avoid introducing infix syntax in the GSG so we disable
