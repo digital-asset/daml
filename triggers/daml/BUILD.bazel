@@ -96,6 +96,7 @@ dependencies:
   - daml-script.dar
 EOF
         DAMLC=$$PWD/$(location //compiler/damlc)
+        TOOLCPP=$$PWD/$(location @stackage-exe//hpp)
         JSON=$$PWD/$(location :daml-trigger.json)
         cd $$TMP_DIR
         $$DAMLC init
@@ -103,6 +104,7 @@ EOF
             --combine \
             --output=$$JSON \
             --format=Json \
+            --cpp $$TOOLCPP \
             --package-name=daml-trigger \
             $$TMP_DIR/daml/Daml/Trigger.daml \
             $$TMP_DIR/daml/Daml/Trigger/Assert.daml \
@@ -112,7 +114,10 @@ EOF
         sdk = sdk_version,
         ghc = ghc_version,
     ),
-    tools = ["//compiler/damlc"],
+    tools = [
+        "//compiler/damlc",
+        "@stackage-exe//hpp",
+    ],
     visibility = ["//visibility:public"],
 )
 
