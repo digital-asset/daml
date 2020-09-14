@@ -1,0 +1,3 @@
+# This tells GitHub to highlight DAML files as if they were Haskell. It's not
+# perfect, but it's better than no syntax highlighting at all.
+*.daml linguist-language=Haskell
