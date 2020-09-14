@@ -712,10 +712,14 @@ jobs:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       pr.branch: $[ variables['System.PullRequest.SourceBranch'] ]
     steps:
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash_lib
       - bash: |
           set -euo pipefail
 
           eval "$(./dev-env/bin/dade-assist)"
+          source $(bash_lib)
 
           REPORT=$(mktemp)
           cat >$REPORT <<END
@@ -772,22 +776,14 @@ jobs:
           cat $REPORT | jq '.'
           REPORT_GZ=$(mktemp)
           cat $REPORT | gzip -9 > $REPORT_GZ
-          GCS_KEY=$(mktemp)
-          cleanup() {
-              rm -rf $GCS_KEY
-          }
-          trap cleanup EXIT
           # Application credentials will not be set for forks. We give up on
           # tracking those for now. "Not set" in Azure world means set to the
           # expression Azure would otherwise substitute, i.e. the literal value
           # of the string in the `env:` block below.
-          if [[ "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT:1:${#GOOGLE_APPLICATION_CREDENTIALS_CONTENT}-1}" != '(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)' ]]; then
-              echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-              gcloud auth activate-service-account --key-file=$GCS_KEY
-              BOTO_CONFIG=/dev/null gsutil cp $REPORT_GZ gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz
+          if [[ "${GCRED:1:${#GCRED}-1}" != '(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)' ]]; then
+              save_gcp_data "$GCRED" "$REPORT_GZ" "gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz"
           else
-              echo "Could not save build data: no credentials. Data was:"
-              cat $REPORT
+              echo "Could not save build data: no credentials."
           fi
 
           # Linux, macOS and Windows are always required and should always
@@ -806,7 +802,7 @@ jobs:
               exit 1
           fi
         env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
           # Commit message is always set
           COMMIT_MSG: $(Build.SourceVersionMessage)
           # Because these variables are always set (in the variables block),
