@@ -723,8 +723,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
       result <- stepToValue().fold(Future.failed, Future.successful)
       expr <- result match {
-        // Unwrap Script newtype and apply to ()
-        case SRecord(_, _, vals) if vals.size == 1 => {
+        // Unwrap Script type and apply to ()
+        // For backwards-compatibility we support the 1 and the 2-field versions.
+        case SRecord(_, _, vals) if vals.size == 1 || vals.size == 2 => {
           vals.get(0) match {
             case SPAP(_, _, _) =>
               Future(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))

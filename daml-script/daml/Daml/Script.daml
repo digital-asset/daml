@@ -315,14 +315,19 @@ instance HasSubmit Script Commands where
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
-newtype Script a = Script { runScript : () -> (Free ScriptF (a, ())) }
--- We use an inlined StateT () to separate evaluation of something of type Script from execution and to ensure
--- proper sequencing of evaluation. This is mainly so that `debug` does something
--- slightly more sensible.
+data Script a = Script with
+    runScript : () -> (Free ScriptF (a, ()))
+    -- We use an inlined StateT () to separate evaluation of
+    -- something of type Script from execution and to ensure
+    -- proper sequencing of evaluation. This is mainly so that `debug` does something
+    -- slightly more sensible.
+    dummy : ()
+    -- Dummy field to make sure damlc does not consider this an old-style
+    -- typeclass.
   deriving Functor
 
 instance CanAbort Script where
-  abort s = Script (\_ -> error s)
+  abort s = Script (\_ -> error s) ()
 
 instance ActionFail Script where
   fail = abort
@@ -355,22 +360,28 @@ archiveCmd : Choice t Archive () => ContractId t -> Commands ()
 archiveCmd cid = exerciseCmd cid Archive
 
 instance Applicative Script where
-    pure a = Script $ \ s -> return (a, s)
+    pure a = Script (\s -> return (a, s)) ()
 
-    Script mf <*> Script mx = Script $ \ s -> do
+    Script mf _ <*> Script mx _ = Script with
+      runScript = \ s -> do
         (f, s') <- mf s
         (x, s'') <- mx s'
         return (f x, s'')
+      dummy = ()
 
 instance Action Script where
-    m >>= k  = Script $ \ s -> do
+    m >>= k  = Script with
+      runScript = \ s -> do
         (a, s') <- runScript m s
         runScript (k a) s'
+      dummy = ()
 
 lift : Free ScriptF a -> Script a
-lift m = Script $ \s -> do
-  a <- m
-  pure (a, s)
+lift m = Script with
+  runScript = \s -> do
+    a <- m
+    pure (a, s)
+  dummy = ()
 
 -- | Convenience helper to declare you are writing a Script.
 --
