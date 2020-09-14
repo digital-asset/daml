@@ -34,7 +34,7 @@
 -- @INFO range=308:8-308:20; Evaluate
 -- @INFO range=311:10-311:22; Evaluate
 -- @INFO range=315:12-315:19; Evaluate
-
+-- @ERROR range=382:0-382:16; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
 
 module PreludeTest where
 
@@ -377,3 +377,8 @@ testDiv = scenario do
 testDayOfWeek = scenario do
     assert $ dayOfWeek (date 1900 Jan 01) == Monday
     assert $ dayOfWeek (date 2018 Jan 17) == Wednesday
+    assert $ dayOfWeek (date 2020 Feb 29) == Saturday
+
+testDateOverflow = scenario do
+    pure $ date 2100 Feb 29
+      -- 2100 is not a leap year!
