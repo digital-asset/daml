@@ -32,7 +32,7 @@ The auth middleware provides a few endpoints (the names don’t matter
 all that much, they just need to be fixed once).
 
 1. /auth The trigger service, will contact this endpoint with a set of
-   claims. If the user has already authenticade and is authorized for
+   claims. If the user has already authenticated and is authorized for
    those claims, it will return an access token (an opaque
    blob to the trigger service) for at least those claims and a
    refresh token (another opaque blob). If not, it will return an
