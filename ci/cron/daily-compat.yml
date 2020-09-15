@@ -23,101 +23,100 @@ schedules:
   always: true
 
 jobs:
-  /*
-  - job: compatibility_ts_libs
-    timeoutInMinutes: 60
-    pool:
-      name: linux-pool
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-      - template: ../compatibility_ts_libs.yml
-      - template: ../daily_tell_slack.yml
+#  - job: compatibility_ts_libs
+#    timeoutInMinutes: 60
+#    pool:
+#      name: linux-pool
+#      demands: assignment -equals default
+#    steps:
+#      - checkout: self
+#      - template: ../compatibility_ts_libs.yml
+#      - template: ../daily_tell_slack.yml
+#
+#  - job: compatibility
+#    dependsOn: compatibility_ts_libs
+#    timeoutInMinutes: 720
+#    strategy:
+#      matrix:
+#        linux:
+#          pool: linux-pool
+#        macos:
+#          pool: macOS-pool
+#    pool:
+#      name: $(pool)
+#      ${{ if eq(variables['pool'], 'linux-pool') }}:
+#        demands: assignment -equals default
+#    steps:
+#      - checkout: self
+#      - ${{ if eq(variables['pool'], 'macos-pool') }}:
+#        - template: ../clear-shared-segments-macos.yml
+#      - template: ../compatibility.yml
+#      - template: ../daily_tell_slack.yml
+#
+#  - job: compatibility_windows
+#    dependsOn: compatibility_ts_libs
+#    timeoutInMinutes: 720
+#    pool:
+#      name: windows-pool
+#      demands: assignment -equals default
+#    steps:
+#      - checkout: self
+#      - template: ../compatibility-windows.yml
+#      - task: PublishBuildArtifacts@1
+#        condition: succeededOrFailed()
+#        inputs:
+#          pathtoPublish: '$(Build.StagingDirectory)'
+#          artifactName: 'Bazel Compatibility Logs'
+#      - template: ../daily_tell_slack.yml
+#
+#  - job: perf_speedy
+#    timeoutInMinutes: 120
+#    pool:
+#      name: "linux-pool"
+#      demands: assignment -equals default
+#    steps:
+#      - checkout: self
+#      - bash: ci/dev-env-install.sh
+#        displayName: 'Build/Install the Developer Environment'
+#      - bash: ci/configure-bazel.sh
+#        displayName: 'Configure Bazel for root workspace'
+#        env:
+#          IS_FORK: $(System.PullRequest.IsFork)
+#          # to upload to the bazel cache
+#          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+#      - template: ../bash-lib.yml
+#        parameters:
+#          var_name: bash_lib
+#      - bash: |
+#          set -euo pipefail
+#          eval "$(dev-env/bin/dade assist)"
+#          source $(bash_lib)
+#
+#          BASELINE="cebc26af88efef4a7c81c62b0c14353f829b755e"
+#          TEST_SHA=$(cat ci/cron/perf/test_sha)
+#          OUT="$(Build.StagingDirectory)/perf-results.json"
+#
+#          START=$(date -u +%Y%m%d_%H%M%SZ)
+#
+#          if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
+#              # no changes, all good
+#              ci/cron/perf/compare.sh $BASELINE > "$OUT"
+#              cat "$OUT"
+#          else
+#              # the tests have changed, we need to figure out what to do with
+#              # the baseline.
+#              echo "Baseline no longer valid, needs manual correction." > "$OUT"
+#          fi
+#
+#          save_gcp_data "$GCRED" "$OUT" gs://daml-data/perf/speedy/$START.json
+#
+#        displayName: measure perf
+#        env:
+#          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+#      - template: ../daily_tell_slack.yml
+#        parameters:
+#          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'
 
-  - job: compatibility
-    dependsOn: compatibility_ts_libs
-    timeoutInMinutes: 720
-    strategy:
-      matrix:
-        linux:
-          pool: linux-pool
-        macos:
-          pool: macOS-pool
-    pool:
-      name: $(pool)
-      ${{ if eq(variables['pool'], 'linux-pool') }}:
-        demands: assignment -equals default
-    steps:
-      - checkout: self
-      - ${{ if eq(variables['pool'], 'macos-pool') }}:
-        - template: ../clear-shared-segments-macos.yml
-      - template: ../compatibility.yml
-      - template: ../daily_tell_slack.yml
-
-  - job: compatibility_windows
-    dependsOn: compatibility_ts_libs
-    timeoutInMinutes: 720
-    pool:
-      name: windows-pool
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-      - template: ../compatibility-windows.yml
-      - task: PublishBuildArtifacts@1
-        condition: succeededOrFailed()
-        inputs:
-          pathtoPublish: '$(Build.StagingDirectory)'
-          artifactName: 'Bazel Compatibility Logs'
-      - template: ../daily_tell_slack.yml
-
-  - job: perf_speedy
-    timeoutInMinutes: 120
-    pool:
-      name: "linux-pool"
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel for root workspace'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
-          source $(bash_lib)
-
-          BASELINE="cebc26af88efef4a7c81c62b0c14353f829b755e"
-          TEST_SHA=$(cat ci/cron/perf/test_sha)
-          OUT="$(Build.StagingDirectory)/perf-results.json"
-
-          START=$(date -u +%Y%m%d_%H%M%SZ)
-
-          if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
-              # no changes, all good
-              ci/cron/perf/compare.sh $BASELINE > "$OUT"
-              cat "$OUT"
-          else
-              # the tests have changed, we need to figure out what to do with
-              # the baseline.
-              echo "Baseline no longer valid, needs manual correction." > "$OUT"
-          fi
-
-          save_gcp_data "$GCRED" "$OUT" gs://daml-data/perf/speedy/$START.json
-
-        displayName: measure perf
-        env:
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../daily_tell_slack.yml
-        parameters:
-          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'
-  */
   - job: perf_http_json
     timeoutInMinutes: 120
     pool:
