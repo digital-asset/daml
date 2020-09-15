@@ -1,0 +1,84 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.scalautil.concurrent
+
+import scala.{concurrent => sc}
+
+import org.scalatest.{WordSpec, Matchers}
+import shapeless.test.illTyped
+
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+class ExecutionContextSpec extends WordSpec with Matchers {
+  import ExecutionContextSpec._
+
+  // In these tests, you can think of the type argument to `theEC` as being like
+  // the EC on a Future whose ExecutionContext lookup behavior you are wondering
+  // about; the implicit resolution behaves the same.
+
+  "importing only untyped" should {
+    import TestImplicits.untyped
+
+    "disallow lookup" in {
+      illTyped("theEC[Animal]", "could not find implicit value.*")
+    }
+
+    "disallow lookup, even of Any" in {
+      illTyped("theEC[Any]", "could not find implicit value.*")
+    }
+
+    "allow lookup only for untyped" in {
+      implicitly[sc.ExecutionContext] should ===(untyped)
+    }
+  }
+
+  "importing supertype and subtype" should {
+    import TestImplicits.{animal1, Elephant}
+
+    "always prefer the subtype" in {
+      theEC[Any] should ===(Elephant)
+      theEC[Animal] should ===(Elephant)
+      theEC[Elephant] should ===(Elephant)
+    }
+
+    "refuse to resolve a separate subtype" in {
+      illTyped("theEC[Cat]", "could not find implicit value.*")
+    }
+  }
+
+  "importing everything" should {
+    import TestImplicits._
+
+    "always prefer Nothing" in {
+      theEC[Any] should ===(nothing)
+      theEC[Animal] should ===(nothing)
+    }
+  }
+}
+
+object ExecutionContextSpec {
+  def theEC[EC](implicit ec: ExecutionContext[EC]): ec.type = ec
+
+  def fakeEC[EC](name: String): ExecutionContext[EC] =
+    ExecutionContext(new sc.ExecutionContext {
+      override def toString = s"<the $name fakeEC>"
+      override def execute(runnable: Runnable) = sys.error("never use this")
+      override def reportFailure(cause: Throwable) = sys.error("could never have failed")
+    })
+
+  sealed trait Animal
+  sealed trait Elephant extends Animal
+  sealed trait Cat extends Animal
+  sealed trait Tabby extends Cat
+
+  object TestImplicits {
+    implicit val untyped: sc.ExecutionContext = fakeEC[Any]("untyped")
+    implicit val any: ExecutionContext[Any] = fakeEC[Any]("any")
+    implicit val animal1: ExecutionContext[Animal] = fakeEC("animal1")
+    implicit val animal2: ExecutionContext[Animal] = fakeEC("animal2")
+    implicit val Elephant: ExecutionContext[Elephant] = fakeEC("Elephant")
+    implicit val Cat: ExecutionContext[Cat] = fakeEC("Cat")
+    implicit val Tabby: ExecutionContext[Tabby] = fakeEC("Tabby")
+    implicit val nothing: ExecutionContext[Nothing] = fakeEC("Nothing")
+  }
+}

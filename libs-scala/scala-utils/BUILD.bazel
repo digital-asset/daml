@@ -35,6 +35,7 @@ da_scala_test(
     deps = [
         ":scala-utils",
         "//libs-scala/scalatest-utils",
+        "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
