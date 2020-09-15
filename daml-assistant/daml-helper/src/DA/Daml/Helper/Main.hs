@@ -64,6 +64,7 @@ data Command
       { sandboxPortM :: Maybe SandboxPortSpec
       , openBrowser :: OpenBrowser
       , startNavigator :: Maybe StartNavigator
+      , navigatorPortM :: Maybe NavigatorPort
       , jsonApiCfg :: JsonApiConfig
       , onStartM :: Maybe String
       , waitForSignal :: WaitForSignal
@@ -155,6 +156,7 @@ commandParser = subparser $ fold
         <$> optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
         <*> optional navigatorFlag
+        <*> optional (NavigatorPort <$> option auto (long "navigator-port" <> metavar "PORT_NUM" <> help "Port number for navigator (default is 7500)."))
         <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
@@ -372,6 +374,7 @@ runCommand = \case
         runStart
             sandboxPortM
             startNavigator
+            navigatorPortM
             jsonApiCfg
             openBrowser
             onStartM
