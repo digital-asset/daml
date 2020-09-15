@@ -48,6 +48,7 @@ object FutureOf {
   implicit def `future is any type`[A]: sc.Future[A] === Future[Any, A] =
     Instance subst [Lambda[`t[+_]` => sc.Future[A] === t[A]], Any] Leibniz.refl
 
+  /** A [[sc.Future]] converts to our [[Future]] with any choice of EC type. */
   implicit def `future is any`[A](sf: sc.Future[A]): Future[Any, A] =
     `future is any type`(sf)
 
@@ -56,8 +57,9 @@ object FutureOf {
       Instance.subst[Lambda[`t[+_]` => sc.Future <~> t], R](implicitly[sc.Future <~> sc.Future]))
 
   /** Common methods like `map` and `flatMap` are not provided directly; instead,
-    * import the appropriate Scalaz syntax for these.  Only exotic
-    * Future-specific combinators are provided.
+    * import the appropriate Scalaz syntax for these; `scalaz.syntax.bind._`
+    * will give you `map`, `flatMap`, and most other common choices.  Only
+    * exotic Future-specific combinators are provided here.
     */
   implicit final class Ops[EC, A](private val self: Future[EC, A]) extends AnyVal {
     def collect[B](pf: A PartialFunction B)(implicit ec: ExecutionContext[EC]): Future[EC, B] =
@@ -85,6 +87,10 @@ object FutureOf {
     def changeExecutionContext[NEC]: Future[NEC, A] =
       swapExecutionContext[Nothing, NEC].to(self)
 
+    /** The "unsafe" conversion to Future.  Does nothing itself, but removes
+      * the control on which [[sc.ExecutionContext]] is used for later
+      * operations.
+      */
     def removeExecutionContext: sc.Future[A] =
       self.changeExecutionContext[Any].asScala
 
@@ -92,7 +98,12 @@ object FutureOf {
   }
 
   /** Operations safe if the Future is set to any ExecutionContext. */
-  implicit final class AnyOps[A](private val self: Future[Any, A]) extends AnyVal {
+  implicit final class AnyOps[+A](private val self: Future[Any, A]) extends AnyVal {
+
+    /** The "safe" conversion to Future.  `EC = Any` already means "use any
+      * ExecutionContext", so there is little harm in restating that by
+      * referring directly to [[sc.Future]].
+      */
     def asScala: sc.Future[A] = `future is any type`[A].flip(self)
   }
 }
