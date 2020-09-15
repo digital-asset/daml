@@ -31,11 +31,15 @@ da_scala_library(
 da_scala_test(
     name = "test",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    scalacopts = scalacopts,
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = scalacopts + ["-P:silencer:checkUnused"],
     deps = [
         ":scala-utils",
         "//libs-scala/scalatest-utils",
         "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

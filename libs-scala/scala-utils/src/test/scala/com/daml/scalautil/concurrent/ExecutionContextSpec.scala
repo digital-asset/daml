@@ -5,10 +5,12 @@ package com.daml.scalautil.concurrent
 
 import scala.{concurrent => sc}
 
+import com.github.ghik.silencer.silent
 import org.scalatest.{WordSpec, Matchers}
 import shapeless.test.illTyped
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+@silent("Unused import")
 class ExecutionContextSpec extends WordSpec with Matchers {
   import ExecutionContextSpec._
 
@@ -54,6 +56,37 @@ class ExecutionContextSpec extends WordSpec with Matchers {
       theEC[Animal] should ===(nothing)
     }
   }
+
+  "importing two types with LUB, one lower in hierarchy" should {
+    import TestImplicits.{Elephant, Tabby}
+
+    "consider neither more specific" in {
+      illTyped("theEC[Animal]", "ambiguous implicit values.*")
+    }
+  }
+
+  "importing a type and a related singleton type" should {
+    import TestImplicits.{Tabby, chiefMouserEC}
+
+    "prefer the singleton" in {
+      theEC[Tabby] should ===(chiefMouserEC)
+      theEC[ChiefMouser.type] should ===(chiefMouserEC)
+    }
+  }
+
+  "using intersections" should {
+    import TestImplicits.{Elephant, Cat, cryptozoology}
+
+    "prefer the intersection" in {
+      theEC[Elephant] should ===(cryptozoology)
+      theEC[Cat] should ===(cryptozoology)
+    }
+
+    "be symmetric" in {
+      theEC[Elephant with Cat] should ===(cryptozoology)
+      theEC[Cat with Elephant] should ===(cryptozoology)
+    }
+  }
 }
 
 object ExecutionContextSpec {
@@ -70,6 +103,7 @@ object ExecutionContextSpec {
   sealed trait Elephant extends Animal
   sealed trait Cat extends Animal
   sealed trait Tabby extends Cat
+  val ChiefMouser: Tabby = new Tabby {}
 
   object TestImplicits {
     implicit val untyped: sc.ExecutionContext = fakeEC[Any]("untyped")
@@ -78,7 +112,9 @@ object ExecutionContextSpec {
     implicit val animal2: ExecutionContext[Animal] = fakeEC("animal2")
     implicit val Elephant: ExecutionContext[Elephant] = fakeEC("Elephant")
     implicit val Cat: ExecutionContext[Cat] = fakeEC("Cat")
+    implicit val cryptozoology: ExecutionContext[Elephant with Cat] = fakeEC("cryptozoology")
     implicit val Tabby: ExecutionContext[Tabby] = fakeEC("Tabby")
+    implicit val chiefMouserEC: ExecutionContext[ChiefMouser.type] = fakeEC("chiefMouserEC")
     implicit val nothing: ExecutionContext[Nothing] = fakeEC("Nothing")
   }
 }
