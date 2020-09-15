@@ -172,7 +172,7 @@ jobs:
 
           tar -zcvf ${OUT}.tgz ${OUT}
 
-          save_gcp_data "$GCRED" "$OUT.tgz" "gs://http-json/perf/${REPORT_ID}.tgz"
+          save_gcp_data "$GCRED" "$OUT.tgz" "gs://daml-data/perf/http-json/${REPORT_ID}.tgz"
 
         displayName: measure http-json performance
         env:
