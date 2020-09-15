@@ -38,7 +38,9 @@ class FutureSpec extends WordSpec with Matchers {
 
   "a well-typed future" should {
     "not lose its type to conversion" in {
-      illTyped("someCatFuture: sc.Future[Int]", "type mismatch.*found.*scalautil.concurrent.Future.*required: scala.concurrent.Future.*")
+      illTyped(
+        "someCatFuture: sc.Future[Int]",
+        "type mismatch.*found.*scalautil.concurrent.Future.*required: scala.concurrent.Future.*")
     }
   }
 
@@ -51,21 +53,25 @@ class FutureSpec extends WordSpec with Matchers {
 
     "disallow mixing in flatMap" in {
       import scalaz.syntax.bind._, TestImplicits.Elephant
-      illTyped("someElephantFuture flatMap (_ => someCatFuture)", "type mismatch.*found.*Cat.*required.*Elephant.*")
+      illTyped(
+        "someElephantFuture flatMap (_ => someCatFuture)",
+        "type mismatch.*found.*Cat.*required.*Elephant.*")
     }
 
     "allow mixing in flatMap if requirement changed first" in {
       import scalaz.syntax.bind._, TestImplicits.Cat
-      def example = someElephantFuture
-        .changeExecutionContext[Cat]
-      .flatMap(_ => someCatFuture)
+      def example =
+        someElephantFuture
+          .changeExecutionContext[Cat]
+          .flatMap(_ => someCatFuture)
     }
 
     "continue a chain after requirements tightened" in {
       import scalaz.syntax.bind._, TestImplicits.cryptozoology
-      def example = someElephantFuture
-        .require[Elephant with Cat]
-.flatMap(_ => someCatFuture)
+      def example =
+        someElephantFuture
+          .require[Elephant with Cat]
+          .flatMap(_ => someCatFuture)
     }
 
     "disallow require on unrelated types" in {
@@ -73,4 +79,3 @@ class FutureSpec extends WordSpec with Matchers {
     }
   }
 }
- 
