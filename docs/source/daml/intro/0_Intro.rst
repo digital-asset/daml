@@ -21,7 +21,7 @@ Next: :doc:`1_Token`.
   :hidden:
 
   1_Token
-  2_Scenario
+  2_DamlScript
   3_Data
   4_Transformations
   5_Restrictions

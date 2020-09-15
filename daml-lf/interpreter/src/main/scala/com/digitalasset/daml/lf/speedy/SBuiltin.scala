@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.{keyFieldName, maintainersFieldName}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -19,7 +20,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.transaction.{Node, GlobalKey, GlobalKeyWithMaintainers}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
@@ -492,73 +493,14 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBTextMapInsert extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(2) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              STextMap(map.updated(key, args.get(1)))
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapInsert, expected Text got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapInsert, expected TextMap got $x")
-      }
-    }
-  }
-
-  final case object SBTextMapLookup extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(1) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              SOptional(map.get(key))
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapLookup, expected Text get $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapLookup, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapDelete extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(1) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              STextMap(map - key)
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapDelete, expected Text get $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapDelete, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapToList extends SBuiltinPure(1) {
+  final case object SBGenMapToList extends SBuiltinPure(1) {
 
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case map: STextMap =>
-          SValue.toList(map)
+        case SGenMap(_, entries) =>
+          SValue.toList(entries)
         case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapToList, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapSize extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case STextMap(map) =>
-          SInt64(map.size.toLong)
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapSize, expected TextMap get $x")
+          throw SErrorCrash(s"type mismatch SBGenMapToList, expected GenMap get $x")
       }
     }
   }
@@ -566,10 +508,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapInsert extends SBuiltinPure(3) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(2) match {
-        case SGenMap(map) =>
+        case SGenMap(isTextMap, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SGenMap(map.updated(key, args.get(1)))
+          SGenMap(isTextMap, entries.updated(key, args.get(1)))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapInsert, expected GenMap got $x")
       }
@@ -579,10 +521,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapLookup extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(1) match {
-        case SGenMap(value) =>
+        case SGenMap(_, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SOptional(value.get(key))
+          SOptional(entries.get(key))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapLookup, expected GenMap get $x")
       }
@@ -592,10 +534,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapDelete extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(1) match {
-        case SGenMap(value) =>
+        case SGenMap(isTextMap, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SGenMap(value - key)
+          SGenMap(isTextMap, entries - key)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapDelete, expected GenMap get $x")
       }
@@ -605,8 +547,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapKeys extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SList(ImmArray(value.keys) ++: FrontStack.empty)
+        case SGenMap(_, entries) =>
+          SList(ImmArray(entries.keys) ++: FrontStack.empty)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapKeys, expected GenMap get $x")
       }
@@ -616,8 +558,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapValues extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SList(ImmArray(value.values) ++: FrontStack.empty)
+        case SGenMap(_, entries) =>
+          SList(ImmArray(entries.values) ++: FrontStack.empty)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapValues, expected GenMap get $x")
       }
@@ -627,8 +569,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapSize extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SInt64(value.size.toLong)
+        case SGenMap(_, entries) =>
+          SInt64(entries.size.toLong)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapSize, expected GenMap get $x")
       }
@@ -815,12 +757,16 @@ private[lf] object SBuiltin {
     }
   }
 
+  // SBStructCon sorts the field after evaluation of its arguments to preserve
+  // evaluation order of unordered fields.
   /** $tcon[fields] :: a -> b -> ... -> Struct */
-  final case class SBStructCon(fields: ImmArray[Name])
-      extends SBuiltinPure(fields.length)
-      with SomeArrayEquals {
+  final case class SBStructCon(inputFieldsOrder: Struct[Int])
+      extends SBuiltinPure(inputFieldsOrder.size) {
+    private[this] val fieldNames = inputFieldsOrder.mapValues(_ => ())
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      SStruct(fields, args)
+      val sortedFields = new util.ArrayList[SValue](inputFieldsOrder.size)
+      inputFieldsOrder.values.foreach(i => sortedFields.add(args.get(i)))
+      SStruct(fieldNames, sortedFields)
     }
   }
 
@@ -829,7 +775,7 @@ private[lf] object SBuiltin {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
         case SStruct(fields, values) =>
-          values.get(fields.indexWhere(_ == field))
+          values.get(fields.indexOf(field))
         case v =>
           crash(s"StructProj on non-struct: $v")
       }
@@ -842,7 +788,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SStruct(fields, values) =>
           val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
-          values2.set(fields.indexWhere(_ == field), args.get(1))
+          values2.set(fields.indexOf(field), args.get(1))
           SStruct(fields, values2)
         case v =>
           crash(s"StructUpd on non-struct: $v")
@@ -865,8 +811,6 @@ private[lf] object SBuiltin {
     */
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      if (args.get(0).isInstanceOf[STextMap])
-        throw new Error(args.toString)
       args.get(1) match {
         case SBool(true) =>
           ()
@@ -1637,16 +1581,21 @@ private[lf] object SBuiltin {
         crash(s"value not a list of parties or party: $v")
     }
 
+  private[this] val keyWithMaintainersStructFields: Struct[Unit] =
+    Struct.assertFromNameSeq(List(keyFieldName, maintainersFieldName))
+
+  private[this] val keyIdx = keyWithMaintainersStructFields.indexOf(keyFieldName)
+  private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(maintainersFieldName)
+
   private[this] def extractKeyWithMaintainers(
       v: SValue,
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
-      case SStruct(flds, vals)
-          if flds.length == 2 && flds(0) == Ast.keyFieldName && flds(1) == Ast.maintainersFieldName =>
+      case SStruct(_, vals) =>
         rightOrCrash(
           for {
             keyVal <- vals
-              .get(0)
+              .get(keyIdx)
               .toValue
               .ensureNoCid
               .left
@@ -1654,7 +1603,7 @@ private[lf] object SBuiltin {
           } yield
             Node.KeyWithMaintainers(
               key = keyVal,
-              maintainers = extractParties(vals.get(1))
+              maintainers = extractParties(vals.get(maintainerIdx))
             ))
       case _ => crash(s"Invalid key with maintainers: $v")
     }

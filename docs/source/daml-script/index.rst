@@ -7,7 +7,7 @@ DAML Script
 .. toctree::
    :hidden:
 
-   daml-script-docs
+   api/index
 
 DAML scenarios provide a simple way for testing DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
@@ -18,7 +18,7 @@ e.g., your UI or :doc:`DAML triggers </triggers/index>`.
 DAML Script addresses this problem by providing you with an API with
 the simplicity of DAML scenarios and all the benefits such as being
 able to reuse your DAML types and logic while running against an actual
-ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-results>`.
+ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-script-results>`.
 This means that you can use it to test automation logic, your
 UI but also for :ref:`ledger initialization
 <script-ledger-initialization>` where scenarios cannot be used (with
@@ -99,7 +99,9 @@ scenarios. However, ``Commands`` requires that the individual commands
 do not depend on each other. This matches the restriction on the
 Ledger API where a transaction consists of a list of commands.  Using
 ``ApplicativeDo`` we can still use ``do``-notation as long as we
-respect this. In ``Commands`` we use ``createCmd`` instead of
+respect this and the last statement in the ``do``-block is of the form
+``return expr`` or ``pure expr``.
+In ``Commands`` we use ``createCmd`` instead of
 ``create`` and ``exerciseCmd`` instead of ``exercise``.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml

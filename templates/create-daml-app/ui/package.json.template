@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@daml.js/__PROJECT_NAME__": "file:../daml.js/__PROJECT_NAME__-0.1.0",
+    "@daml.js/__PROJECT_NAME__": "file:daml.js/__PROJECT_NAME__-0.1.0",
     "@daml/ledger": "__VERSION__",
     "@daml/react": "__VERSION__",
     "@daml/types": "__VERSION__",

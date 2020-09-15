@@ -36,7 +36,7 @@ const UI_PORT = 3000;
 let sandbox: ChildProcess | undefined = undefined;
 let jsonApi: ChildProcess | undefined = undefined;
 
-// `yarn start` process
+// `npm start` process
 let uiProc: ChildProcess | undefined = undefined;
 
 // Chrome browser that we run in headless mode
@@ -104,6 +104,8 @@ const killTree = async (p: ChildProcess) => {
 
 const detached = process.platform != "win32";
 
+const npmExeName = process.platform == "win32" ? "npm" : "npm-cli.js";
+
 // Start the DAML and UI processes before the tests begin.
 // To reduce test times, we reuse the same processes between all the tests.
 // This means we need to use a different set of parties and a new browser page for each test.
@@ -155,12 +157,15 @@ beforeAll(async () => {
   );
   await waitOn({ resources: [`file:../${JSON_API_PORT_FILE_NAME}`] });
 
-  uiProc = spawn("yarn", ["start"], {
+
+  uiProc =
+    spawn(npmExeName, ["start"], {
     env: { ...process.env, BROWSER: "none" },
     stdio: "inherit",
     shell: true,
     detached: detached,
   });
+
   await waitOn({ resources: [`tcp:localhost:${UI_PORT}`] });
 
   // Launch a single browser for all tests.

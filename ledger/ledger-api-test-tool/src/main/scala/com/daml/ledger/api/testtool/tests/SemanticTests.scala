@@ -67,30 +67,35 @@ final class SemanticTests extends LedgerTestSuite {
     case Participants(Participant(alpha, payer, owner1), Participant(beta, owner2)) =>
       // This test create a contract and then concurrently archives it several times
       // through two different participants
-      val contracts = 10 // Number of contracts to create
+      val creates = 2 // Number of contracts to create
       val archives = 10 // Number of concurrent archives per contract
-      Future
-        .traverse((1 to contracts).toList)(c =>
-          for {
-            shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
-            _ <- synchronize(alpha, beta)
-            results <- Future.traverse((1 to archives).toList)(i =>
-              i % 2 match {
-                case 0 =>
+      // Each created contract is archived in parallel,
+      // Next contract is created only when previous one is archived
+      (1 to creates).foldLeft(Future(())) { (f, c) =>
+        f.flatMap(
+          _ =>
+            for {
+              shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
+              _ <- synchronize(alpha, beta)
+              results <- Future.traverse(1 to archives) {
+                case i if i % 2 == 0 =>
                   alpha
                     .exercise(owner1, shared.exerciseSharedContract_Consume1)
                     .transform(Success(_))
-                case 1 =>
+                case _ =>
                   beta
                     .exercise(owner2, shared.exerciseSharedContract_Consume2)
                     .transform(Success(_))
-            })
-          } yield {
-            assertLength(s"Contract $c successful archives", 1, results.filter(_.isSuccess))
-            assertLength(s"Contract $c failed archives", archives - 1, results.filter(_.isFailure))
-            ()
-        })
-        .map(_ => ())
+              }
+            } yield {
+              assertLength(s"Contract $c successful archives", 1, results.filter(_.isSuccess))
+              assertLength(
+                s"Contract $c failed archives",
+                archives - 1,
+                results.filter(_.isFailure))
+              ()
+          })
+      }
   })
 
   test(

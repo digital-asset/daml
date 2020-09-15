@@ -1087,7 +1087,9 @@ getDFunSig LF.DefValue {..} = do
             dfhField <- getPromotedText symbolTy <|> getFieldArg valName
             guard (not $ T.null dfhField)
             Just DFunHeadHasField {..}
-        else Just DFunHeadNormal {..}
+        else do
+          guard (not $ isIP dfhName)
+          Just DFunHeadNormal {..}
     let dfsSuper = getSuperclassReferences dvalBody
     pure $ DFunSig {..}
   where
@@ -1111,6 +1113,15 @@ getDFunSig LF.DefValue {..} = do
     isHasField LF.Qualified{..} =
         qualModule == LF.ModuleName ["DA", "Internal", "Record"]
         && qualObject == LF.TypeSynName ["HasField"]
+
+    -- | Is this an implicit parameters instance?
+    -- Those need to be filtered out since
+    -- 1: They are not regular instances anyway and shouldn’t be made available.
+    -- 2: They are not unique so this actually breaks compilation.
+    isIP :: LF.Qualified LF.TypeSynName -> Bool
+    isIP LF.Qualified{..} =
+        qualModule == LF.ModuleName ["GHC", "Classes"]
+        && qualObject == LF.TypeSynName ["IP"]
 
     -- | Get the first arg of HasField (the name of the field) from
     -- the name of the binding.

@@ -8,7 +8,7 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data.{FrontStack, ImmArray}
+import com.daml.lf.data.{FrontStack, ImmArray, Struct}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
@@ -117,7 +117,7 @@ class SpeedyTest extends WordSpec with Matchers {
         SOptional(
           Some(
             SStruct(
-              ImmArray(n"x1", n"x2"),
+              Struct.assertFromNameSeq(List(n"x1", n"x2")),
               ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
             ),
           ),

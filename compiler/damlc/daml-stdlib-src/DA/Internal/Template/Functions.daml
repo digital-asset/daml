@@ -253,6 +253,10 @@ templateTypeRep = TemplateTypeRep (_templateTypeRep ([] : [t]))
 instance Eq TemplateTypeRep where
   TemplateTypeRep a == TemplateTypeRep b = a == b
 
+#ifdef DAML_GENERIC_COMPARISON
+deriving instance Ord TemplateTypeRep
+#endif
+
 #ifdef DAML_ANY_TYPE
 
 -- | Wrap the template in `AnyTemplate`.

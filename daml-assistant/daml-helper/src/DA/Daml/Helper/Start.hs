@@ -177,6 +177,7 @@ withOptsFromProjectConfig fieldName cliOpts projectConfig = do
 runStart
     :: Maybe SandboxPortSpec
     -> Maybe StartNavigator
+    -> NavigatorPort
     -> JsonApiConfig
     -> OpenBrowser
     -> Maybe String
@@ -190,6 +191,7 @@ runStart
 runStart
   sandboxPortM
   mbStartNavigator
+  navigatorPort
   (JsonApiConfig mbJsonApiPort)
   (OpenBrowser shouldOpenBrowser)
   onStartM
@@ -248,7 +250,6 @@ runStart
                   void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
 
     where
-        navigatorPort = NavigatorPort 7500
         defaultSandboxPort = SpecifiedPort (SandboxPort 6865)
         withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator

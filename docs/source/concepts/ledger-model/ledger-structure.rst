@@ -55,7 +55,7 @@ Formally, an **action** is one of the following:
 
    #. An exercise **kind**, which is either **consuming** or
       **non-consuming**. Once consumed, a contract cannot be used again
-      (for example, the painter should not be able to accept the
+      (for example, Alice should not be able to accept the painter's
       offer twice). Contracts exercised in a non-consuming fashion
       can be reused.
 
@@ -66,12 +66,12 @@ Formally, an **action** is one of the following:
       gives rise to the hierarchical structure.
       The exercise action is the **parent action** of its consequences.
 
-#. a **Fetch** action on a contract, which demonstrates that the contract exists and is in force at the time of
+#. a **Fetch** action on a contract, which demonstrates that the contract exists and is active at the time of
    fetching.
    The action also contains **actors**, the parties who fetch the contract.
    A **Fetch** behaves like a non-consuming exercise with no consequences, and can be repeated.
 
-#. a **Key assertion**, which records the assertion that the given :doc:`contract key </daml/reference/contract-keys>` is not assigned to any unconsumed contract on the ledger.
+#. a **Key assertion**, which records the assertion that the given :doc:`contract key </daml/reference/contract-keys>` is **not** assigned to any unconsumed contract on the ledger.
 
 An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
 Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
@@ -88,9 +88,9 @@ underlying type of parties.
 ::
 
    Action       ::= 'Create' contract
-                    | 'Exercise' party* contract Kind Transaction
-                    | 'Fetch' party* contract
-                    | 'NoSuchKey' key
+                  | 'Exercise' party* contract Kind Transaction
+                  | 'Fetch' party* contract
+                  | 'NoSuchKey' key
    Transaction  ::= Action*
    Kind         ::= 'Consuming' | 'NonConsuming'
 
@@ -148,7 +148,7 @@ Iou obligor owner
   An IOU token from an obligor to an owner
   (for simplicity, the token is of unit amount).
 
-In practice, multiple IOU contracts would exist between the same `obligor` and
+In practice, multiple IOU contracts can exist between the same `obligor` and
 `owner`, in which case each contract should have a unique identifier. However,
 in this section, each contract only appears once, allowing us to drop the notion 
 of identifiers for simplicity reasons.

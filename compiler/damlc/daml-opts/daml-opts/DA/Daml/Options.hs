@@ -28,7 +28,7 @@ import Control.Concurrent.Extra
 import Control.Monad.Extra
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.IORef
-import Data.List
+import Data.List.Extra
 import Data.Maybe (fromMaybe)
 import DynFlags (parseDynamicFilePragma)
 import qualified Data.Map.Strict as Map
@@ -460,7 +460,7 @@ checkDFlags Options {..} dflags@DynFlags {..}
 expandSdkPackages :: LF.Version -> [FilePath] -> IO [FilePath]
 expandSdkPackages lfVersion dars = do
     mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    mapM (expand mbSdkPath) dars
+    mapM (expand mbSdkPath) (nubOrd $ concatMap addDep dars)
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
     sdkSuffix = "-" <> LF.renderVersion lfVersion
@@ -470,6 +470,14 @@ expandSdkPackages lfVersion dars = do
             Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
       | otherwise = pure fp
+    -- For `dependencies` you need to specify all transitive dependencies.
+    -- However, for the packages in the SDK that is an implementation detail
+    -- so we automagically insert `daml-script` if you’ve specified `daml-trigger`.
+    addDep fp
+      | isSdkPackage fp = fp : Map.findWithDefault [] fp sdkDependencies
+      | otherwise = [fp]
+    sdkDependencies = Map.fromList
+      [ ("daml-trigger", ["daml-script"]) ]
 
 
 mkPackageFlag :: UnitId -> PackageFlag

@@ -11,9 +11,8 @@ Goals
 * Allows ordering contract IDs and make DAML semantics depend on this
   order, e.g., for comparison builtin and maps using IDs as keys.
 * Eliminate all contract ID translations for central committer ledger
-* Allows ledgers to store arbitrary information about the contract and
-  the creating transaction in the contract ID if necessary.
-
+* Allows ledgers to store information about the contract and the
+  creating transaction in the contract ID if necessary.
 
 Requirements
 ^^^^^^^^^^^^
@@ -84,7 +83,7 @@ In a transaction we distinguish two kinds of contract IDs:
 Note that local contract IDs correspond to the ID of output contracts
 together with those contracts that have been created and archived in
 the transaction. On the other hand, global contract IDs do not
-reference only IDs of some contracts that have been previously
+only reference IDs of some contracts that have been previously
 persisted on the ledger, but also any arbitrary contract IDs that the
 submitter has referenced in its submission.
 
@@ -159,7 +158,7 @@ From the submission, a so-called *transaction seed* is derived as follows::
 where
 
 * ``submissionSeed`` is the submission seed;
-* ``participandId`` is US-ASCII encoding of the participant ID
+* ``participantId`` is US-ASCII encoding of the participant ID
   prefixed with is size encoded as a 32 bits big-endian integer;
 * ``submissionTime`` is the submission time in micro second encoded as
   a 64 bytes big-endian integer;
@@ -173,6 +172,11 @@ computed from the initial seed as follows::
 
   rootSeedᵢ = deriveSeed(transactionSeed, i)
 
+where
+
+* ``i`` is the 0-based index of the root node as a 64 bytes big-endian
+  integer;
+
 Derivation of seeds for the children of exercise nodes
 ------------------------------------------------------
 
@@ -181,12 +185,18 @@ children are derived as follows::
 
   childSeedᵢ = deriveSeed(nodeSeed, i)
 
+where
+
+* ``i`` is the 0-based index of the child node as a 64 bytes big-endian
+  integer;
+
+
 Derivation of contract ID discriminator
 ---------------------------------------
 
 The discriminator for the created contract ID is given as follows::
 
-  discriminator = HMAC(nodeSeed, submissionTime ∥ nₛ ∥ stackholders) 
+  discriminator = HMAC(nodeSeed, submissionTime ∥ nₛ ∥ stakeholders) 
 
 where
 
@@ -195,7 +205,7 @@ where
   a 64 bytes big-endian integer;
 * ``nₛ`` is the number of stakeholder's of the contract encoded as a
   32 bits big-endian integer;
-* ``stackholders`` is the concatenation of the stakeholders IDs sorted
+* ``stakeholders`` is the concatenation of the stakeholders IDs sorted
   lexicographically. IDs of stakeholder are interpreted as their
   US-ASCII encoding prefixed with there size encoded as a 32 bits
   big-endian integer.

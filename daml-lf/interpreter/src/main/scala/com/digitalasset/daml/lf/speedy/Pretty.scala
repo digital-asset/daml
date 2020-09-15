@@ -407,7 +407,7 @@ private[lf] object Pretty {
           char('}')
       case ValueStruct(fs) =>
         char('{') &
-          fill(text(", "), fs.toList.map {
+          fill(text(", "), fs.toImmArray.toSeq.map {
             case (k, v) => text(k) & char('=') & prettyValue(true)(v)
           }) &
           char('}')

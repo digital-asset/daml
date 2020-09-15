@@ -587,24 +587,27 @@ private[lf] object Speedy {
           case V.ValueRecord(None, _) =>
             crash("SValue.fromValue: record missing identifier")
           case V.ValueStruct(fs) =>
-            val values = new util.ArrayList[SValue](fs.length)
-            val names = fs.map {
-              case (k, v) =>
-                values.add(go(v))
-                k
+            val values = new util.ArrayList[SValue](fs.size)
+            val fieldNames = fs.mapValues { v =>
+              values.add(go(v))
+              ()
             }
-            SStruct(names, values)
+            SStruct(fieldNames, values)
           case V.ValueVariant(None, _variant @ _, _value @ _) =>
             crash("SValue.fromValue: variant without identifier")
           case V.ValueEnum(None, constructor @ _) =>
             crash("SValue.fromValue: enum without identifier")
           case V.ValueOptional(mbV) =>
             SOptional(mbV.map(go))
-          case V.ValueTextMap(map) =>
-            STextMap(map.mapValue(go).toHashMap)
+          case V.ValueTextMap(entries) =>
+            SGenMap(
+              isTextMap = true,
+              entries = entries.iterator.map { case (k, v) => SText(k) -> go(v) }
+            )
           case V.ValueGenMap(entries) =>
             SGenMap(
-              entries.iterator.map { case (k, v) => go(k) -> go(v) }
+              isTextMap = false,
+              entries = entries.iterator.map { case (k, v) => go(k) -> go(v) }
             )
           case V.ValueVariant(Some(id), variant, arg) =>
             compiledPackages.getPackage(id.packageId) match {
@@ -948,8 +951,8 @@ private[lf] object Speedy {
           }
         }
       case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
-            _) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) | SAny(_, _) |
-          STypeRep(_) | STNat(_) | _: SPAP | SToken =>
+            _) | SStruct(_, _) | SGenMap(_, _) | SRecord(_, _, _) | SAny(_, _) | STypeRep(_) |
+          STNat(_) | _: SPAP | SToken =>
         crash("Match on non-matchable value")
     }
 

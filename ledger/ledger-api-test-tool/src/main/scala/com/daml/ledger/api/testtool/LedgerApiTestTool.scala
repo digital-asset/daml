@@ -51,14 +51,14 @@ object LedgerApiTestTool {
     println()
     Tests.PerformanceTestsKeys.foreach(println(_))
   }
-  private def printAvailableTestSuites(): Unit = {
+  private def printAvailableTestSuites(testSuites: Vector[LedgerTestSuite]): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
-    printListOfTests(Tests.all)(_.name)
+    printListOfTests(testSuites)(_.name)
   }
 
-  private def printAvailableTests(): Unit = {
+  private def printAvailableTests(testSuites: Vector[LedgerTestSuite]): Unit = {
     println("Listing all tests. Run with --list to only see test suites.")
-    printListOfTests(Tests.all.flatMap(_.tests))(_.name)
+    printListOfTests(testSuites.flatMap(_.tests))(_.name)
   }
 
   private def extractResources(resources: Seq[String]): Unit = {
@@ -83,13 +83,26 @@ object LedgerApiTestTool {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
+    val allTests: Vector[LedgerTestSuite] = Tests.all(config)
+    val allTestCaseNames: Set[String] =
+      (allTests ++ Tests.retired).flatMap(_.tests).map(_.name).toSet
+    val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
+      allTestCaseNames.exists(_.startsWith(prefix)))
+    if (missingTests.nonEmpty) {
+      println("The following exclusion or inclusion does not match any test:")
+      missingTests.foreach { testName =>
+        println(s"  - $testName")
+      }
+      sys.exit(64)
+    }
+
     if (config.listTestSuites) {
-      printAvailableTestSuites()
+      printAvailableTestSuites(allTests)
       sys.exit(0)
     }
 
     if (config.listTests) {
-      printAvailableTests()
+      printAvailableTests(allTests)
       sys.exit(0)
     }
 
@@ -101,18 +114,6 @@ object LedgerApiTestTool {
     if (config.participants.isEmpty) {
       println("No participant to test, exiting.")
       sys.exit(0)
-    }
-
-    val allTestCaseNames: Set[String] =
-      (Tests.all ++ Tests.retired).flatMap(_.tests).map(_.name).toSet
-    val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
-      allTestCaseNames.exists(_.startsWith(prefix)))
-    if (missingTests.nonEmpty) {
-      println("The following exclusion or inclusion does not match any test:")
-      missingTests.foreach { testName =>
-        println(s"  - $testName")
-      }
-      sys.exit(64)
     }
 
     val performanceTestsToRun =
@@ -130,7 +131,7 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
-    val allCases = Tests.all.flatMap(_.tests)
+    val allCases = allTests.flatMap(_.tests)
     val retiredCases = Tests.retired.flatMap(_.tests)
 
     val includedTests =
@@ -171,11 +172,11 @@ object LedgerApiTestTool {
       cases: Iterable[LedgerTestCase],
       concurrencyOverride: Option[Int] = None): LedgerTestCasesRunner =
     new LedgerTestCasesRunner(
-      LedgerSessionConfiguration(
+      new LedgerSessionConfiguration(
         config.participants,
-        config.shuffleParticipants,
         config.tlsConfig,
         config.partyAllocation,
+        config.shuffleParticipants,
       ),
       cases.toVector,
       identifierSuffix,

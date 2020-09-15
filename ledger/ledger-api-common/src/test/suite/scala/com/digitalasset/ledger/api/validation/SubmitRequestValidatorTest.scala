@@ -589,7 +589,7 @@ class SubmitRequestValidatorTest
     "validating map values" should {
       "convert empty maps" in {
         val input = Value(Sum.Map(ApiMap(List.empty)))
-        val expected = Lf.ValueTextMap(SortedLookupList.empty)
+        val expected = Lf.ValueTextMap(SortedLookupList.Empty)
         validateValue(input) shouldEqual Right(expected)
       }
 

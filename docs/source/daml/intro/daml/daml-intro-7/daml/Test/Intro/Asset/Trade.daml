@@ -4,41 +4,43 @@
 
 module Test.Intro.Asset.Trade where
 
+import Daml.Script
+
 import Intro.Asset
 import Intro.Asset.Role
 import Intro.Asset.Trade
 
 import Test.Intro.Asset.Role
 
-tradeSetup = scenario do
+tradeSetup = do
   (setupResult@(alice, bob, usdbank, usdha, usdhb), usdCid) <- test_issuance
-  eurbank <- getParty "EUR_Bank"
+  eurbank <- allocateParty "EUR_Bank"
 
   eurhia <- submit eurbank do
-    create AssetHolderInvite with
+    createCmd AssetHolderInvite with
       issuer = eurbank
       owner = alice
 
   eurhib <- submit eurbank do
-    create AssetHolderInvite with
+    createCmd AssetHolderInvite with
       issuer = eurbank
       owner = bob
 
   eurha <- submit alice do
-    exercise eurhia AssetHolderInvite_Accept
+    exerciseCmd eurhia AssetHolderInvite_Accept
 
   eurhb <- submit bob do
-    exercise eurhib AssetHolderInvite_Accept
+    exerciseCmd eurhib AssetHolderInvite_Accept
 
   eurCid <- submit eurbank do
-    exercise eurhb Issue_Asset with
+    exerciseCmd eurhb Issue_Asset with
       symbol = "EUR"
       quantity = 90.0
 
   return (alice, bob, usdbank, eurbank, usdha, usdhb, eurha, eurhb, usdCid, eurCid)
 
 
-test_trade = scenario do
+test_trade = do
   (alice, bob, usdbank, eurbank, usdha, usdhb, eurha, eurhb, usdCid, eurCid) <- tradeSetup
 
   -- Alice wants to swap her 100 USD for Bob's 90 EUR
@@ -53,36 +55,34 @@ test_trade = scenario do
       observers = []
 -- SET_OBSERVER_BEGIN
   usdCid <- submit alice do
-    exercise usdCid SetObservers with
+    exerciseCmd usdCid SetObservers with
       newObservers = [bob]
 -- SET_OBSERVER_END
   eurtaCid <- submit alice do
-    exercise eurha Preapprove_Transfer with
+    exerciseCmd eurha Preapprove_Transfer with
       asset = eur
 
-  -- Now she can create the trade
+  -- Now she can createCmd the trade
+  Some usd <- queryContractId alice usdCid
   tradeCid <- submit alice do
-    usd <- fetch usdCid
-    create Trade with
+    createCmd Trade with
       baseAssetCid = usdCid
       baseAsset = usd
       quoteApprovalCid = eurtaCid
       quoteAsset = eur
 
   -- Bob accepts by supplying a transfer approval for the uas and his eur.
+  Some usd <- queryContractId bob usdCid
   usdtaCid <- submit bob do
-    usd <- fetch usdCid
-    exercise usdhb Preapprove_Transfer with
+    exerciseCmd usdhb Preapprove_Transfer with
       asset = usd
   (usdCid, eurCid) <- submit bob do
-    exercise tradeCid Trade_Settle with
+    exerciseCmd tradeCid Trade_Settle with
       quoteAssetCid = eurCid
       baseApprovalCid = usdtaCid
 
-  submit eurbank do
-    eur <- fetch eurCid
-    assert (eur.owner == alice)
+  Some eur <- queryContractId eurbank eurCid
+  assert (eur.owner == alice)
 
-  submit usdbank do
-    usd <- fetch usdCid
-    assert (usd.owner == bob)
+  Some usd <- queryContractId usdbank usdCid
+  assert (usd.owner == bob)

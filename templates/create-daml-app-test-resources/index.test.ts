@@ -19,7 +19,7 @@ const UI_PORT = 3000;
 // `daml start` process
 let startProc: ChildProcess | undefined = undefined;
 
-// `yarn start` process
+// `npm start` process
 let uiProc: ChildProcess | undefined = undefined;
 
 // Chrome browser that we run in headless mode
@@ -79,12 +79,12 @@ beforeAll(async () => {
 
   await waitOn({resources: [`file:${jsonApiPortFilePath}`]});
 
-  // Run `yarn start` in another shell.
+  // Run `npm start` in another shell.
   // Disable automatically opening a browser using the env var described here:
   // https://github.com/facebook/create-react-app/issues/873#issuecomment-266318338
   const env = {...process.env, BROWSER: 'none'};
-  uiProc = spawn('yarn', ['start'], { env, stdio: 'inherit', detached: true});
-  // Note(kill-yarn-start): The `detached` flag starts the process in a new process group.
+  uiProc = spawn('npm-cli.js', ['run-script', 'start'], { env, stdio: 'inherit', detached: true});
+  // Note(kill-npm-start): The `detached` flag starts the process in a new process group.
   // This allows us to kill the process with all its descendents after the tests finish,
   // following https://azimi.me/2014/12/31/kill-child_process-node-js.html.
 
@@ -104,9 +104,9 @@ afterAll(async () => {
     startProc.kill('SIGTERM');
   }
 
-  // Kill the `yarn start` process including all its descendents.
+  // Kill the `npm start` process including all its descendents.
   // The `-` indicates to kill all processes in the process group.
-  // See Note(kill-yarn-start).
+  // See Note(kill-npm-start).
   // TODO: Test this on Windows.
   if (uiProc) {
     process.kill(-uiProc.pid)

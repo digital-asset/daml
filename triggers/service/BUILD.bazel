@@ -152,6 +152,7 @@ genrule(
     srcs =
         glob(["test-model/*.daml"]) + [
             "//triggers/daml:daml-trigger.dar",
+            "//daml-script/daml:daml-script.dar",
         ],
     outs = ["test-model.dar"],
     cmd = """
@@ -162,6 +163,7 @@ genrule(
       cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
       cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: test-model
@@ -171,6 +173,7 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - daml-trigger.dar
+  - daml-script.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location test-model.dar)
       rm -rf $$TMP_DIR

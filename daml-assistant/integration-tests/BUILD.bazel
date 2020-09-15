@@ -179,6 +179,7 @@ da_haskell_library(
         "tagged",
         "tasty",
         "tasty-hunit",
+        "unordered-containers",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -194,8 +195,14 @@ da_haskell_test(
     name = "create-daml-app-tests",
     timeout = "long",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
-    args = ["$(location //:yarn)"],
-    data = ["//:yarn"],
+    args = [
+        "$(location @nodejs//:npm_bin)",
+        "$(location @nodejs//:node_bin)",
+    ],
+    data = [
+        "@nodejs//:node_bin",
+        "@nodejs//:npm_bin",
+    ],
     hackage_deps = ["base"],
     main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
     # Exclusive until we stop hardcoding port numbers in index.test.ts
@@ -208,11 +215,15 @@ da_haskell_test(
     timeout = "long",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
     args = [
-        "$(location //:yarn)",
+        "$(location @nodejs//:npm_bin)",
+        "$(location @nodejs//:node_bin)",
         "--project-name",
         "not-create-daml-app",
     ],
-    data = ["//:yarn"],
+    data = [
+        "@nodejs//:node_bin",
+        "@nodejs//:npm_bin",
+    ],
     hackage_deps = ["base"],
     main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
     # Exclusive until we stop hardcoding port numbers in index.test.ts

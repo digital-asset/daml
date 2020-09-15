@@ -9,11 +9,13 @@ sh_test(
         sdk_version,
         "$(rootpath //compiler/damlc)",
         "$(rootpath //triggers/daml:daml-trigger.dar)",
+        "$(rootpath //daml-script/daml:daml-script.dar)",
         "$(rootpath Rule.daml)",
     ],
     data = [
         "Rule.daml",
         "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
         "//triggers/daml:daml-trigger.dar",
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],

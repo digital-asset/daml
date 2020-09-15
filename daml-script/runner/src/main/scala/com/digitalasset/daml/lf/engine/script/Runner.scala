@@ -391,7 +391,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                           .toCommands(extendedCompiledPackages, freeAp))
                       client <- Converter.toFuture(
                         clients
-                          .getPartyParticipant(Party(party.value)))
+                          .getPartyParticipant(Party(party)))
                       commitLocation <- if (vals.size == 3) {
                         Future(None)
                       } else {
@@ -459,7 +459,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                           .toCommands(extendedCompiledPackages, freeAp))
                       client <- Converter.toFuture(
                         clients
-                          .getPartyParticipant(Party(party.value)))
+                          .getPartyParticipant(Party(party)))
                       commitLocation <- if (vals.size == 3) {
                         Future(None)
                       } else {
@@ -494,7 +494,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                           .typeRepToIdentifier(vals.get(1)))
                       client <- Converter.toFuture(
                         clients
-                          .getPartyParticipant(Party(party.value)))
+                          .getPartyParticipant(Party(party)))
                       acs <- client.query(party, tplId)
                       res <- Converter.toFuture(
                         FrontStack(acs)
@@ -544,11 +544,10 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                           }
                           case Some(participant) =>
                             clients =
-                              clients.copy(
-                                party_participants = clients.party_participants + (Party(
-                                  party.value) -> participant))
+                              clients.copy(party_participants = clients.party_participants + (Party(
+                                party) -> participant))
                         }
-                        run(SEApp(SEValue(continue), Array(SEValue(party))))
+                        run(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
                       }
                     } yield v
                   }
@@ -671,10 +670,30 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       party <- Converter.toFuture(Converter.toParty(vals.get(0)))
                       tplId <- Converter.toFuture(Converter.typeRepToIdentifier(vals.get(1)))
                       cid <- Converter.toFuture(Converter.toContractId(vals.get(2)))
-                      client <- Converter.toFuture(clients.getPartyParticipant(Party(party.value)))
+                      client <- Converter.toFuture(clients.getPartyParticipant(Party(party)))
                       optR <- client.queryContractId(party, tplId, cid)
                       optR <- Converter.toFuture(
                         optR.traverse(Converter.fromContract(valueTranslator, _)))
+                      v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 4 fields but got $v"))
+                }
+              }
+              case SVariant(_, "QueryContractKey", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 4 => {
+                    val continue = vals.get(3)
+                    for {
+                      party <- Converter.toFuture(Converter.toParty(vals.get(0)))
+                      tplId <- Converter.toFuture(Converter.typeRepToIdentifier(vals.get(1)))
+                      key <- Converter.toFuture(Converter.toAnyContractKey(vals.get(2)))
+                      client <- Converter.toFuture(clients.getPartyParticipant(Party(party)))
+                      optR <- client.queryContractKey(party, tplId, key.key)
+                      optR <- Converter.toFuture(
+                        optR.traverse(Converter.fromCreated(valueTranslator, _)))
                       v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
                     } yield v
                   }
@@ -704,8 +723,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
       result <- stepToValue().fold(Future.failed, Future.successful)
       expr <- result match {
-        // Unwrap Script newtype and apply to ()
-        case SRecord(_, _, vals) if vals.size == 1 => {
+        // Unwrap Script type and apply to ()
+        // For backwards-compatibility we support the 1 and the 2-field versions.
+        case SRecord(_, _, vals) if vals.size == 1 || vals.size == 2 => {
           vals.get(0) match {
             case SPAP(_, _, _) =>
               Future(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))

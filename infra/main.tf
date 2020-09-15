@@ -19,7 +19,7 @@ provider "google-beta" {
 }
 
 provider "secret" {
-  version = "1.1"
+  version = "~>1.1"
 }
 
 provider "template" {

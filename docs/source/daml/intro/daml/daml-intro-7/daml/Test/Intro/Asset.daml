@@ -1,28 +1,27 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
-
 module Test.Intro.Asset where
+
+import Daml.Script
 
 import Intro.Asset
 import Intro.Asset.Role
 
 import Test.Intro.Asset.Role
 
-test_asset = scenario do
+test_asset = do
   ((alice, bob, bank, aha, ahb), assetCid) <- test_issuance
 
   tp <- submit alice do
-    exercise assetCid ProposeTransfer with
+    exerciseCmd assetCid ProposeTransfer with
       newOwner = bob
 
   assetCid <- submit bob do
-    exercise ahb Accept_Transfer with
+    exerciseCmd ahb Accept_Transfer with
       transferProposalCid = tp
 
-  submit bank do
-    asset <- fetch assetCid
-    assert (asset == Asset with
+  Some asset <- queryContractId bank assetCid
+  assert (asset == Asset with
       issuer = bank
       owner = bob
       symbol = "USD"
@@ -30,45 +29,43 @@ test_asset = scenario do
       observers = []
         )
 
-test_split = scenario do
+test_split = do
   (setupResult@(alice, bob, bank, _, _), assetCid) <- test_issuance
 
   submitMustFail alice do
-    exercise assetCid Split with
+    exerciseCmd assetCid Split with
       splitQuantity = -30.0
 
   submitMustFail alice do
-    exercise assetCid Split with
+    exerciseCmd assetCid Split with
       splitQuantity = 0.0
 
   submitMustFail alice do
-    exercise assetCid Split with
+    exerciseCmd assetCid Split with
       splitQuantity = 101.0
 
   splitResult <- submit alice do
-    exercise assetCid Split with
+    exerciseCmd assetCid Split with
       splitQuantity = 30.0
 
-  submit bank do
-    splitAsset <- fetch splitResult.splitAsset
-    remainder <- fetch splitResult.remainder
+  Some splitAsset <- queryContractId bank splitResult.splitAsset
+  Some remainder <- queryContractId bank splitResult.remainder
 
-    assert (splitAsset.quantity == 30.0)
-    assert (remainder.quantity == 70.0)
+  assert (splitAsset.quantity == 30.0)
+  assert (remainder.quantity == 70.0)
 
   return (setupResult, splitResult)
 
-test_merge = scenario do
+test_merge = do
   ((alice, bob, bank, _, _), splitResult) <- test_split
 
   submitMustFail alice do
-    exercise splitResult.splitAsset Merge with
+    exerciseCmd splitResult.splitAsset Merge with
       otherCid = splitResult.splitAsset
 
   assetCid <- submit alice do
-    exercise splitResult.splitAsset Merge with
+    exerciseCmd splitResult.splitAsset Merge with
       otherCid = splitResult.remainder
 
-  submit bank do
-    asset <- fetch assetCid
-    assert (asset.quantity == 100.0)
+  Some asset <- queryContractId bank assetCid
+  assert (asset.quantity == 100.0)

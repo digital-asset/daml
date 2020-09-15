@@ -3,11 +3,10 @@
 
 package com.daml.lf.engine.trigger.test
 
-import java.io.File
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
-import com.daml.bazeltools.BazelRunfiles._
+import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand, _}
@@ -31,6 +30,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   self: Suite =>
@@ -58,7 +58,9 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
         )
     } yield client
 
-  override protected def darFile = new File(rlocation("triggers/tests/acs.dar"))
+  override protected def darFile =
+    Try(requiredResource("triggers/tests/acs.dar"))
+      .getOrElse(requiredResource("triggers/tests/acs-1.dev.dar"))
 
   protected val dar = DarReader().readArchiveFromFile(darFile).get.map {
     case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)

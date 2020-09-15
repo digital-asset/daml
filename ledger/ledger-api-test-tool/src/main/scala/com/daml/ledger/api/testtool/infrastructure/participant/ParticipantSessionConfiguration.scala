@@ -11,4 +11,6 @@ private[testtool] final case class ParticipantSessionConfiguration(
     port: Int,
     ssl: Option[TlsConfiguration],
     partyAllocation: PartyAllocationConfiguration,
-)
+) {
+  val address: String = s"$host:$port"
+}

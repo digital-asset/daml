@@ -88,7 +88,7 @@ private[benchmark] final class Adapter(
       case Value.ValueGenMap(entries) =>
         Value.ValueGenMap(entries.map { case (k, v) => adapt(k) -> adapt(v) })
       case Value.ValueStruct(fields) =>
-        Value.ValueStruct(fields.map { case (f, v) => f -> adapt(v) })
+        Value.ValueStruct(fields.mapValues(adapt))
       case _: Value.ValueCidlessLeaf | _: Value.ValueContractId[ContractId] =>
         value
     }

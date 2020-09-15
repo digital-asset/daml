@@ -61,7 +61,7 @@ object ApiValueToLfValueConverterTest {
       case _: V.ValueCidlessLeaf | V.ValueContractId(_) => fa
       case r @ V.ValueRecord(_, fields) => r copy (fields = fields map (_ rightMap go))
       case v @ V.ValueVariant(_, _, value) => v copy (value = go(value))
-      case s @ V.ValueStruct(fields) => s copy (fields = fields map (_ rightMap go))
+      case s @ V.ValueStruct(fields) => s copy (fields = fields mapValues go)
       case V.ValueList(fs) => V.ValueList(fs map go)
       case V.ValueOptional(o) => V.ValueOptional(o map go)
       case V.ValueTextMap(m) => V.ValueTextMap(m mapValue go)
