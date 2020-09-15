@@ -52,6 +52,11 @@ object FutureOf {
   implicit def `future is any`[A](sf: sc.Future[A]): Future[Any, A] =
     `future is any type`(sf)
 
+  private[this] def unsubstF[Arr[_, + _], A, B](f: A Arr Future[Nothing, B]): A Arr sc.Future[B] = {
+    type K[T[+ _]] = (A Arr T[B]) => A Arr sc.Future[B]
+    (Instance subst [K, Nothing] identity)(f)
+  }
+
   def swapExecutionContext[L, R]: Future[L, ?] <~> Future[R, ?] =
     Instance.subst[Lambda[`t[+_]` => t <~> Future[R, ?]], L](
       Instance.subst[Lambda[`t[+_]` => sc.Future <~> t], R](implicitly[sc.Future <~> sc.Future]))
@@ -61,9 +66,28 @@ object FutureOf {
     * will give you `map`, `flatMap`, and most other common choices.  Only
     * exotic Future-specific combinators are provided here.
     */
-  implicit final class Ops[EC, A](private val self: Future[EC, A]) extends AnyVal {
+  implicit final class Ops[-EC, +A](private val self: Future[EC, A]) extends AnyVal {
+
+    /** `.require[NEC]` is a friendly alias for `: Future[NEC, A]`. */
+    def require[NEC <: EC]: Future[NEC, A] = self
+
+    def transform[B](f: Try[A] => Try[B])(implicit ec: ExecutionContext[EC]): Future[EC, B] =
+      self.removeExecutionContext transform f
+
+    // The rule of thumb is "EC determines what happens next". So `recoverWith`
+    // doesn't let the Future returned by pf control what EC it uses to *call* pf,
+    // because that happens "before".  Same with `transformWith` By contrast,
+    // zipWith's f gets called "after" the two futures feeding it arguments, so
+    // we allow both futures control over the EC used to invoke f.
+
+    def transformWith[LEC <: EC, B](f: Try[A] => Future[LEC, B])(
+        implicit ec: ExecutionContext[EC]): Future[LEC, B] =
+      self.removeExecutionContext transformWith unsubstF(f)
+
     def collect[B](pf: A PartialFunction B)(implicit ec: ExecutionContext[EC]): Future[EC, B] =
       self.removeExecutionContext collect pf
+
+    def failed: Future[EC, Throwable] = self.removeExecutionContext.failed
 
     def fallbackTo[LEC <: EC, B >: A](that: Future[LEC, B]): Future[LEC, B] =
       self.removeExecutionContext fallbackTo that.removeExecutionContext
@@ -71,18 +95,40 @@ object FutureOf {
     def filter(p: A => Boolean)(implicit ec: ExecutionContext[EC]): Future[EC, A] =
       self.removeExecutionContext filter p
 
+    def withFilter(p: A => Boolean)(implicit ec: ExecutionContext[EC]): Future[EC, A] =
+      self.removeExecutionContext withFilter p
+
+    def recover[B >: A](pf: Throwable PartialFunction B)(
+        implicit ec: ExecutionContext[EC]): Future[EC, B] =
+      self.removeExecutionContext recover pf
+
+    def recoverWith[LEC <: EC, B >: A](pf: Throwable PartialFunction Future[LEC, B])(
+        implicit ec: ExecutionContext[EC]): Future[EC, B] =
+      self.removeExecutionContext recoverWith unsubstF(pf)
+
+    def transform[B](s: A => B, f: Throwable => Throwable)(
+        implicit ec: ExecutionContext[EC]): Future[EC, B] =
+      self.removeExecutionContext transform (s, f)
+
+    def foreach[U](f: A => U)(implicit ec: ExecutionContext[EC]): Unit =
+      self.removeExecutionContext foreach f
+
     def andThen[U](pf: Try[A] PartialFunction U)(implicit ec: ExecutionContext[EC]): Future[EC, A] =
       self.removeExecutionContext andThen pf
 
     def onComplete[U](f: Try[A] => U)(implicit ec: ExecutionContext[EC]): Unit =
       self.removeExecutionContext onComplete f
+
+    def zip[LEC <: EC, B](that: Future[LEC, B]): Future[LEC, (A, B)] =
+      self.removeExecutionContext zip that.removeExecutionContext
   }
 
   /** Operations that don't refer to an ExecutionContext. */
-  implicit final class NonEcOps[A](private val self: Future[Nothing, A]) extends AnyVal {
+  implicit final class NonEcOps[+A](private val self: Future[Nothing, A]) extends AnyVal {
 
     /** Switch execution contexts for later operations.  This is not necessary if
-      * `NEC <: EC`, as the future will simply widen in those cases.
+      * `NEC <: EC`, as the future will simply widen in those cases, or you can
+      * use `require` instead, which implies more safety.
       */
     def changeExecutionContext[NEC]: Future[NEC, A] =
       swapExecutionContext[Nothing, NEC].to(self)
@@ -93,6 +139,8 @@ object FutureOf {
       */
     def removeExecutionContext: sc.Future[A] =
       self.changeExecutionContext[Any].asScala
+
+    def isCompleted: Boolean = self.removeExecutionContext.isCompleted
 
     def value: Option[Try[A]] = self.removeExecutionContext.value
   }
