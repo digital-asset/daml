@@ -195,7 +195,7 @@ In order to provide a useful notion of time in DAML without incurring severe per
 
 - As part of command interpretation, each transaction is automatically assigned a *Ledger Time* by the participant server.
 - All calls to ``getTime`` within a transaction return the *Ledger Time* assigned to that transaction.
-- *Ledger Time* is chosen (and validated) to respect cCusal Monotonicity: The Create action on a contract *c* always precedes all other actions on *c* in Ledger Time.
+- *Ledger Time* is chosen (and validated) to respect Causal Monotonicity: The Create action on a contract *c* always precedes all other actions on *c* in Ledger Time.
 - As part of the commit/synchronization protocol of the underlying infrastructure, every transaction is assigned a *Record Time*, which can be thought of as the infrastructures "system time". It's the best available notion of "real time", but the only guarantees on it are the guarantees the underlying infrastructure can give. It is also not known at interpretation time.
 - *Ledger Time* is kept close to "real time" by bounding it against *Record Time*. Transactions where *Ledger* and *Record Time* are too far apart are rejected.
 
