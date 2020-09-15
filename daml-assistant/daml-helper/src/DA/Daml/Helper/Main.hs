@@ -64,7 +64,7 @@ data Command
       { sandboxPortM :: Maybe SandboxPortSpec
       , openBrowser :: OpenBrowser
       , startNavigator :: Maybe StartNavigator
-      , navigatorPortM :: Maybe NavigatorPort
+      , navigatorPort :: NavigatorPort
       , jsonApiCfg :: JsonApiConfig
       , onStartM :: Maybe String
       , waitForSignal :: WaitForSignal
@@ -156,7 +156,7 @@ commandParser = subparser $ fold
         <$> optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
         <*> optional navigatorFlag
-        <*> optional (NavigatorPort <$> option auto (long "navigator-port" <> metavar "PORT_NUM" <> help "Port number for navigator (default is 7500)."))
+        <*> navigatorPortOption
         <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
@@ -183,6 +183,13 @@ commandParser = subparser $ fold
                 s -> Left ("Expected \"yes\", \"true\", \"no\", \"false\" or \"auto\" but got " <> show s)
             -- To make things less confusing, we do not mention yes, no and auto here.
             helpText = "Start navigator as part of daml start. Can be set to true or false. Defaults to true."
+
+    navigatorPortOption = NavigatorPort <$> option auto
+        (long "navigator-port"
+        <> metavar "PORT_NUM"
+        <> value 7500
+        <> help "Port number for navigator (default is 7500).")
+
     deployCmdInfo = mconcat
         [ progDesc $ concat
               [ "Deploy the current DAML project to a remote DAML ledger. "
@@ -374,7 +381,7 @@ runCommand = \case
         runStart
             sandboxPortM
             startNavigator
-            navigatorPortM
+            navigatorPort
             jsonApiCfg
             openBrowser
             onStartM
