@@ -69,25 +69,24 @@ final class SemanticTests extends LedgerTestSuite {
       // through two different participants
       val creates = 2 // Number of contracts to create
       val archives = 10 // Number of concurrent archives per contract
-      // Each created contract is archived in parallel, next contract
-      // is created only when previous is archived
-      (1 to creates).toList.foldLeft(Future(())) { (f, c) =>
+      // Each created contract is archived in parallel,
+      // Next contract is created only when previous one is archived
+      (1 to creates).foldLeft(Future(())) { (f, c) =>
         f.flatMap(
           _ =>
             for {
               shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
               _ <- synchronize(alpha, beta)
-              results <- Future.traverse((1 to archives).toList)(i =>
-                i % 2 match {
-                  case 0 =>
-                    alpha
-                      .exercise(owner1, shared.exerciseSharedContract_Consume1)
-                      .transform(Success(_))
-                  case 1 =>
-                    beta
-                      .exercise(owner2, shared.exerciseSharedContract_Consume2)
-                      .transform(Success(_))
-              })
+              results <- Future.traverse(1 to archives) {
+                case i if i % 2 == 0 =>
+                  alpha
+                    .exercise(owner1, shared.exerciseSharedContract_Consume1)
+                    .transform(Success(_))
+                case _ =>
+                  beta
+                    .exercise(owner2, shared.exerciseSharedContract_Consume2)
+                    .transform(Success(_))
+              }
             } yield {
               assertLength(s"Contract $c successful archives", 1, results.filter(_.isSuccess))
               assertLength(
