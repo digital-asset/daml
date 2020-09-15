@@ -76,7 +76,7 @@ object FutureOf {
 
     // The rule of thumb is "EC determines what happens next". So `recoverWith`
     // doesn't let the Future returned by pf control what EC it uses to *call* pf,
-    // because that happens "before".  Same with `transformWith` By contrast,
+    // because that happens "before".  Same with `transformWith`.  By contrast,
     // zipWith's f gets called "after" the two futures feeding it arguments, so
     // we allow both futures control over the EC used to invoke f.
 
@@ -119,8 +119,16 @@ object FutureOf {
     def onComplete[U](f: Try[A] => U)(implicit ec: ExecutionContext[EC]): Unit =
       self.removeExecutionContext onComplete f
 
-    def zip[LEC <: EC, B](that: Future[LEC, B]): Future[LEC, (A, B)] =
-      self.removeExecutionContext zip that.removeExecutionContext
+    def zip[LEC <: EC, B](that: Future[LEC, B]): Future[LEC, (A, B)] = {
+      type K[T[+ _]] = (T[A], T[B]) => T[(A, B)]
+      Instance.subst[K, LEC](_ zip _)(self, that)
+    }
+
+    def zipWith[LEC <: EC, B, C](that: Future[LEC, B])(f: (A, B) => C)(
+        implicit ec: ExecutionContext[LEC]): Future[LEC, C] = {
+      type K[T[+ _]] = (T[A], T[B]) => T[C]
+      Instance.subst[K, LEC](_.zipWith(_)(f))(self, that)
+    }
   }
 
   /** Operations that don't refer to an ExecutionContext. */
