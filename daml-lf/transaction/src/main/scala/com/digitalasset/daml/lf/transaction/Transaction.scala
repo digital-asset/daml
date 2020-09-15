@@ -466,6 +466,42 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
           Node.GenNode.foreach3(f1, f2, f3)(node)
       }
   }
+
+  // crashes if transaction's keys contain contract Ids.
+  @throws[IllegalArgumentException]
+  def duplicatedContractKeys(tx: VersionedTransaction[NodeId, Value.ContractId]): Set[GlobalKey] = {
+
+    import GlobalKey.{assertBuild => globalKey}
+
+    case class State(active: Set[GlobalKey], duplicates: Set[GlobalKey]) {
+      def created(key: GlobalKey): State =
+        if (active(key)) copy(duplicates = duplicates + key) else copy(active = active + key)
+      def consumed(key: GlobalKey): State =
+        if (active(key)) copy(active = active - key) else this
+      def referenced(key: GlobalKey): State =
+        if (active(key)) this else copy(active = active + key)
+    }
+
+    tx.fold(State(Set.empty, Set.empty)) {
+        case (state, (_, node)) =>
+          node match {
+            case Node.NodeCreate(_, c, _, _, _, Some(key)) =>
+              state.created(globalKey(c.template, key.key.value))
+            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key)) =>
+              state.consumed(globalKey(tmplId, key.key.value))
+            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key)) =>
+              state.referenced(globalKey(tmplId, key.key.value))
+            case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key)) =>
+              state.referenced(globalKey(tmplId, key.key.value))
+            case Node.NodeLookupByKey(tmplId, _, key, Some(_)) =>
+              state.referenced(globalKey(tmplId, key.key.value))
+            case _ =>
+              state
+          }
+      }
+      .duplicates
+  }
+
 }
 
 object Transaction {
