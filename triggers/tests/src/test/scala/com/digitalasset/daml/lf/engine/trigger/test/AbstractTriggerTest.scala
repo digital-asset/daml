@@ -30,6 +30,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   self: Suite =>
@@ -58,8 +59,8 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
     } yield client
 
   override protected def darFile =
-    try requiredResource("triggers/tests/acs.dar")
-    catch { case _: IllegalStateException => requiredResource("triggers/tests/acs-1.dev.dar") }
+    Try(requiredResource("triggers/tests/acs.dar"))
+      .getOrElse(requiredResource("triggers/tests/acs-1.dev.dar"))
 
   protected val dar = DarReader().readArchiveFromFile(darFile).get.map {
     case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
