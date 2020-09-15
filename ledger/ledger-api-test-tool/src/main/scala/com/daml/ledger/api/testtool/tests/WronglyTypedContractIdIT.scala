@@ -27,15 +27,15 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         }
     })
 
-  test("WTFetchFails", "Fetching of the wrong type fails", allocate(TwoParties))(implicit ec => {
-    case Participants(Participant(ledger, owner, delegate)) =>
+  test("WTFetchFails", "Fetching of the wrong type fails", allocate(SingleParty))(implicit ec => {
+    case Participants(Participant(ledger, party)) =>
       for {
-        dummy <- ledger.create(owner, Dummy(owner))
+        dummy <- ledger.create(party, Dummy(party))
         fakeDelegated = dummy.asInstanceOf[Primitive.ContractId[Delegated]]
-        delegation <- ledger.create(owner, Delegation(owner, delegate))
+        delegation <- ledger.create(party, Delegation(party, party))
 
         fetchFailure <- ledger
-          .exercise(owner, delegation.exerciseFetchDelegated(_, fakeDelegated))
+          .exercise(party, delegation.exerciseFetchDelegated(_, fakeDelegated))
           .failed
       } yield {
         assertGrpcError(fetchFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")

@@ -12,6 +12,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.{keyFieldName, maintainersFieldName}
+import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -21,6 +22,7 @@ import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
+import com.daml.lf.scenario.ScenarioLedger
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
@@ -852,8 +854,18 @@ private[lf] object SBuiltin {
       val obs = extractParties(args.get(3))
       val key = extractOptionalKeyWithMaintainers(args.get(4))
 
+      // TODO: refact/share the following 7 lines which occurs a number of times
+      val contextActors = machine.ptx.context.exeContext match {
+        case Some(ctx) =>
+          ctx.actingParties union ctx.signatories
+        case None =>
+          machine.committers
+      }
+      val auth = Authorize(contextActors)
+
       val (coid, newPtx) = machine.ptx
         .insertCreate(
+          auth = auth,
           coinst =
             V.ContractInst(template = templateId, arg = createArgValue, agreementText = agreement),
           optLocation = machine.lastLocation,
@@ -911,8 +923,17 @@ private[lf] object SBuiltin {
 
       val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
 
+      val contextActors = machine.ptx.context.exeContext match {
+        case Some(ctx) =>
+          ctx.actingParties union ctx.signatories
+        case None =>
+          machine.committers
+      }
+      val auth = Authorize(contextActors)
+
       machine.ptx = machine.ptx
         .beginExercises(
+          auth = auth,
           targetId = coid,
           templateId = templateId,
           choiceId = choiceId,
@@ -1029,8 +1050,10 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
+      val auth = Authorize(contextActors)
 
       machine.ptx = machine.ptx.insertFetch(
+        auth,
         coid,
         templateId,
         machine.lastLocation,
@@ -1113,7 +1136,17 @@ private[lf] object SBuiltin {
           }
         case _ => crash(s"Non option value when inserting lookup node")
       }
+
+      val contextActors = machine.ptx.context.exeContext match {
+        case Some(ctx) =>
+          ctx.actingParties union ctx.signatories
+        case None =>
+          machine.committers
+      }
+      val auth = Authorize(contextActors)
+
       machine.ptx = machine.ptx.insertLookup(
+        auth,
         templateId,
         machine.lastLocation,
         Node.KeyWithMaintainers(
@@ -1553,6 +1586,8 @@ private[lf] object SBuiltin {
     */
   private[this] def checkAborted(ptx: PartialTransaction): Unit =
     ptx.aborted match {
+      case Some(Tx.AuthErrorsDuringExecution(fas)) =>
+        throw ScenarioErrorCommitError(ScenarioLedger.CommitError.FailedAuthorizations(fas))
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
       case Some(Tx.EndExerciseInRootContext) =>

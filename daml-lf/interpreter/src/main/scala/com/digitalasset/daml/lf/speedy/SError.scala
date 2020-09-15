@@ -117,8 +117,8 @@ object SError {
   ) extends SErrorScenario
 
   /** The commit of the transaction failed due to authorization errors. */
-  final case class ScenarioErrorCommitError(commitError: ScenarioLedger.CommitError)
-      extends SErrorScenario
+  final case class ScenarioErrorCommitError(commitError: ScenarioLedger.CommitError) //TODO: Rename. This error is not just for scenarios, but for all authorization errors.
+      extends SErrorDamlException
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
   final case class ScenarioErrorMustFailSucceeded(tx: Tx.Transaction) extends SErrorScenario

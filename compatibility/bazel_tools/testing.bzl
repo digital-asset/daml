@@ -98,6 +98,31 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "1.3.0-snapshot.20200617.4484.0.7e0a6848",
+        "platform_ranges": [
+            {
+                "start": "0.0.0",  #fix to first snapshot after now
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/7400
+                    "WronglyTypedContractIdIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.3.0-snapshot.20200623.4546.0.4f68cfc4",
+        "end": "1.6.0-snapshot.20200915.5208.0.09014dc6",
+        "platform_ranges": [
+            {
+                "start": "0.0.0",  #fix to first snapshot after now
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/7400
+                    "WronglyTypedContractIdIT:WTFetchFails",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
