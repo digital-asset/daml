@@ -20,10 +20,12 @@ module Daml.Trigger.Internal
   ) where
 
 import DA.Action.State
-import qualified DA.Map as GMap
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+import qualified DA.Map as GMap
 import DA.Optional (fromOptional)
+#endif
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 
