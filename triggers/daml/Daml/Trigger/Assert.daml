@@ -37,7 +37,7 @@ buildACS : Party -> ACSBuilder -> Script ACS
 buildACS party (ACSBuilder fetches) = do
   activeContracts <- sequence (fetches party)
   pure ACS
-    { activeContracts = activeContracts
+    { activeContracts = groupActiveContracts activeContracts
     , pendingContracts = Map.empty
     }
 
