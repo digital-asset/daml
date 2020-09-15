@@ -160,7 +160,7 @@ jobs:
 
           START=$(date -u +%Y%m%d_%H%M%SZ)
           REPORT_ID="http_json_perf_results_${START}"
-          OUT="$(Build.StagingDirectory)/${REPORT_ID}
+          OUT="$(Build.StagingDirectory)/${REPORT_ID}"
 
           for scenario in $SCENARIOS; do
             bazel run //ledger-service/http-json-perf:http-json-perf-binary -- \
