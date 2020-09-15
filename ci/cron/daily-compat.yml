@@ -23,6 +23,7 @@ schedules:
   always: true
 
 jobs:
+  /*
   - job: compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
@@ -116,7 +117,7 @@ jobs:
       - template: ../daily_tell_slack.yml
         parameters:
           success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'
-
+  */
   - job: perf_http_json
     timeoutInMinutes: 120
     pool:
