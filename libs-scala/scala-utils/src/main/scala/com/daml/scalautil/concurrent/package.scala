@@ -55,6 +55,11 @@ import scalaz.Id.Id
   *
   * You should always be able to remove the substring `Of.Instance.T` from any
   * inferred type; we strongly suggest doing this for clarity.
+  *
+  * Demonstrations of the typing behavior can be found in FutureSpec and
+  * ExecutionContextSpec.  This library has no interesting runtime
+  * characteristics; you should think of it as exactly like `scala.concurrent`
+  * in that regard.
   */
 package object concurrent {
 
