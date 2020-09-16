@@ -71,7 +71,7 @@ adjust k f m =
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 insertTpl cid tpl acs = acs { activeContracts = adjust cid.templateId addct acs.activeContracts }
-  where addct ol = Some $ (cid, tpl) :: fromOptional [] ol
+  where addct = Some . GMap.insert cid tpl . fromOptional mempty
 #else
 insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
 #endif
@@ -88,22 +88,20 @@ groupActiveContracts a = a
 deleteTpl : AnyContractId -> ACS -> ACS
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 deleteTpl cid acs = acs { activeContracts = adjust cid.templateId rmct acs.activeContracts }
-  where rmct ol = do
-          l <- ol
-          case filter (\(cid', _) -> cid /= cid') l of
-            [] -> None
-            nel -> Some nel
+  where rmct om = do
+          m <- om
+          let m' = GMap.delete cid m
+          if GMap.null m' then None else Some m'
 #else
 deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') acs.activeContracts }
 #endif
 
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid acs = do
-  (_, tpl) <- find ((cid ==) . fst)
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-    =<< GMap.lookup cid.templateId acs.activeContracts
+  tpl <- GMap.lookup cid =<< GMap.lookup cid.templateId acs.activeContracts
 #else
-    acs.activeContracts
+  (_, tpl) <- find ((cid ==) . fst) acs.activeContracts
 #endif
   fromAnyTemplate tpl
 

@@ -1,5 +1,6 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Daml.Trigger.LowLevel
@@ -44,6 +45,10 @@ data AnyContractId = AnyContractId
   { templateId : TemplateTypeRep
   , contractId : ContractId ()
   } deriving Eq
+
+#ifdef DAML_GENERIC_COMPARISON
+deriving instance Ord AnyContractId
+#endif
 
 -- We can’t derive the Show instance since TemplateTypeRep does not have a Show instance
 -- but it is useful for debugging so we add one that omits the type.
