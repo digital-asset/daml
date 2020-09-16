@@ -71,7 +71,12 @@ patches we backport to the 1.0 release branch).
    > Linux, you can use Remmina.
    >
    > Remmina notes: when creating an RDP connection, you may want to specify custom
-   > resolution. The default setting is to `use client resolution`.
+   > resolution. The default setting is to `use client resolution`. You may notice a
+   > failure due to color depth settings. You can adjust those in the settings panel
+   > right below the resolution settings.
+   >
+   > The ad-hoc machines take a bit of time to be available after being reported as
+   > created, so be patient for a bit if your first connection attempt(s) fail.
    >
    > The first thing you should do is install Firefox, because Internet
    > Explorer is a pain. Open IE, go to Internet Options (gear icon in the top
@@ -292,8 +297,8 @@ patches we backport to the 1.0 release branch).
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the scenario result appears within 30 seconds.
-   1. Add `+` at the end of line 23 after `"Alice"` and verify that you get an
-      error.
+   1. Add `+` at the end of line 25 after `(PartIdHint "Alice")` and verify that
+      you get an error on line 26.
 
 1. On your PR, add the comment:
 
