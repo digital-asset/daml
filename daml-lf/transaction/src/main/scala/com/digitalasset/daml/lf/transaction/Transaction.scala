@@ -477,9 +477,9 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
       def created(key: GlobalKey): State =
         if (active(key)) copy(duplicates = duplicates + key) else copy(active = active + key)
       def consumed(key: GlobalKey): State =
-        if (active(key)) copy(active = active - key) else this
+        copy(active = active - key)
       def referenced(key: GlobalKey): State =
-        if (active(key)) this else copy(active = active + key)
+        copy(active = active + key)
     }
 
     tx.fold(State(Set.empty, Set.empty)) {
