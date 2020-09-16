@@ -150,11 +150,8 @@ jobs:
            com.daml.http.perf.scenario.SyncQueryVariableAcs \
           "
 
-          DAR=/var/tmp/quickstart-model.dar
-
           bazel build //docs:quickstart-model
-          # sandbox cannot open a dar via bazel symlink, copy it into /var/tmp
-          cp -vf ./bazel-bin/docs/quickstart-model.dar ${DAR}
+          DAR="${PWD}/bazel-bin/docs/quickstart-model.dar"
 
           JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
 
