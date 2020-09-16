@@ -32,3 +32,21 @@ resource "google_storage_bucket_iam_member" "data" {
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.writer.email}"
 }
+
+// allow read access for appr team, as requested by Moritz
+variable "appr" {
+  description = "Application Runtime team members"
+  default = [
+    "user:andreas.herrmann@digitalasset.com",
+    "user:gary.verhaegen@digitalasset.com",
+    "user:leonid.shlyapnikov@digitalasset.com",
+    "user:moritz.kiefer@digitalasset.com",
+    "user:stephen.compall@digitalasset.com",
+  ]
+}
+resource "google_storage_bucket_iam_member" "appr" {
+  count  = "${length(var.appr)}"
+  bucket = "${google_storage_bucket.data.name}"
+  role   = "roles/storage.objectViewer"
+  member = "${var.appr[count.index]}"
+}
