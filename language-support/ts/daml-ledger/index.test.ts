@@ -52,6 +52,10 @@ jest.mock('isomorphic-ws', () => class {
     mockSend(JSON.parse(message));
   }
 
+  close(): void {
+    mockClose();
+  }
+
   serverOpen(): void {
     this.eventEmitter.emit('open');
   }
@@ -171,14 +175,14 @@ describe("streamSubmit", () => {
     expect(mockChange).not.toHaveBeenCalled();
   });
 
-  test("reconnect on close", async () => {
+  test("reconnect on server close", async () => {
     const reconnectThreshold = 200;
     const ledger = new Ledger({...mockOptions, reconnectThreshold: reconnectThreshold});
     const stream = ledger.streamQuery(Foo);
     stream.on("live", mockLive);
     stream.on("close", mockClose);
     mockInstance.serverSend({events: [], offset: '3'});
-    await new Promise(resolve => setTimeout(resolve, reconnectThreshold));
+    await new Promise(resolve => setTimeout(resolve, reconnectThreshold * 2));
     mockConstructor.mockClear();
     mockInstance.serverClose({code: 1, reason: 'test close'});
     expect(mockConstructor).toHaveBeenCalled();
@@ -191,6 +195,15 @@ describe("streamSubmit", () => {
     // check that the client doesn't try to reconnect again.  it should only reconnect if it
     // received an event confirming the stream is live again, i.e. {events: [], offset: '3'}
     mockInstance.serverClose({code: 1, reason: 'test close'});
+    expect(mockConstructor).not.toHaveBeenCalled();
+  });
+
+  test("do not reconnect on client close", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    expect(mockConstructor).toHaveBeenCalled();
+    mockConstructor.mockClear();
+    stream.close();
     expect(mockConstructor).not.toHaveBeenCalled();
   });
 

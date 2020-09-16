@@ -516,8 +516,9 @@ class Ledger {
     let lastOffset: undefined | null | string = undefined;
     let state = init;
     let isReconnecting: boolean = false;
+    let streamClosed: boolean = false;
     const emitter = new EventEmitter();
-    const onOpen = (): void => {
+    const onWsOpen = (): void => {
       if (isReconnecting) {
           // the JSON API server can't handle null offsets, even though it sends them out under
           // special conditions when there are no transactions yet. Not sending the `offset` message
@@ -529,7 +530,7 @@ class Ledger {
       }
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onMessage = (event: { data: any } ): void => {
+    const onWsMessage = (event: { data: any } ): void => {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
@@ -552,33 +553,53 @@ class Ledger {
         console.error(`Ledger.${callerName} unknown message`, json);
       }
     };
-    const onClose = ({ code, reason }: { code: number; reason: string }): void => {
-      emitter.emit('close', {code, reason});
-      const now = new Date().getTime();
-      // we try to reconnect if we could connect previously and we were live for at least
-      // 'reconnectThreshold'.
-      if (lastOffset !== undefined && isLiveSince !== undefined && now - isLiveSince >= this.reconnectThreshold) {
-        isLiveSince = undefined;
-        isReconnecting = true;
-        ws = new WebSocket(this.wsBaseUrl + endpoint, protocols);
-        ws.addEventListener('open', onOpen);
-        ws.addEventListener('message', onMessage);
-        ws.addEventListener('close', onClose);
-      }
+    const closeStream = (status: { code: number; reason: string }): void => {
+      streamClosed = true;
+      emitter.emit('close', status);
+      emitter.removeAllListeners();
     };
-    ws.addEventListener('open', onOpen);
-    ws.addEventListener('message', onMessage);
+    const onWsClose = (): void => {
+      if (streamClosed === false) {
+        const now = new Date().getTime();
+        // we want to try and keep the stream open, so we try to reconnect
+        // the underlying ws
+        if (lastOffset !== undefined && isLiveSince !== undefined && now - isLiveSince >= this.reconnectThreshold) {
+          isLiveSince = undefined;
+          isReconnecting = true;
+          ws = new WebSocket(this.wsBaseUrl + endpoint, protocols);
+          ws.addEventListener('open', onWsOpen);
+          ws.addEventListener('message', onWsMessage);
+          ws.addEventListener('close', onWsClose);
+        } else {
+          // ws has closed too quickly / never managed to connect: we give up
+          closeStream({code: 4001, reason: 'ws connection failed'});
+        }
+      } // no else: if the stream is closed we don't need to keep a ws
+    };
+    ws.addEventListener('open', onWsOpen);
+    ws.addEventListener('message', onWsMessage);
     // NOTE(MH): We ignore the 'error' event since it is always followed by a
     // 'close' event, which we need to handle anyway.
-    ws.addEventListener('close', onClose);
-    // TODO(MH): Make types stricter.
+    ws.addEventListener('close', onWsClose);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const on = (type: string, listener: any): void => void emitter.on(type, listener);
+    const on = (type: string, listener: any): void => {
+      if (streamClosed === false) {
+        void emitter.on(type, listener);
+      } else {
+        console.error("Trying to add a listener to a closed stream.");
+      }
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const off = (type: string, listener: any): void => void emitter.off(type, listener);
+    const off = (type: string, listener: any): void => {
+      if (streamClosed === false) {
+        void emitter.off(type, listener);
+      } else {
+        console.error("Trying to remove a listener from a closed stream.");
+      }
+    };
     const close = (): void => {
-      emitter.removeAllListeners();
       ws.close();
+      closeStream({code: 4000, reason: "called .close()"});
     };
     return {on, off, close};
   }
