@@ -5,6 +5,20 @@ package com.daml.lf
 
 import com.daml.lf.transaction.VersionTimeline
 
+/**
+  * [[VersionRange]] represents a range of versions of
+  * [[com.daml.lf.language.LanguageVersion]],
+  * [[com.daml.lf.transaction.TransactionVersion]], or
+  * [[com.daml.lf.value.ValueVersion]].
+  *
+  * The order of versions is specified by [[VersionTimeline]].
+  *
+  * @param min the minimal version included in the range.
+  * @param max the maximla version included in the range.
+  * @tparam V either [[com.daml.lf.language.LanguageVersion]],
+  *   [[com.daml.lf.transaction.TransactionVersion]], or
+  *   [[com.daml.lf.value.ValueVersion]].
+  */
 final case class VersionRange[V](
     min: V,
     max: V,
@@ -19,8 +33,11 @@ final case class VersionRange[V](
       max = minVersion(this.max, that.max)
     )
 
+  def isEmpty: Boolean =
+    max precedes min
+
   def nonEmpty: Boolean =
-    !(max precedes min)
+    !isEmpty
 
   def contains(v: V): Boolean =
     !((max precedes v) || (v precedes min))
