@@ -162,44 +162,19 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     } yield (tx, meta)
 
   def replay(
+      submitter: Party,
       tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    import scalaz.std.option._
-    import scalaz.syntax.traverse.ToTraverseOps
-
-    //reinterpret
+  ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      requiredAuthorizers <- tx.roots
-        .traverse(nid => tx.nodes.get(nid).map(_.requiredAuthorizers)) match {
-        case None => ResultError(ValidationError(s"invalid roots for transaction $tx"))
-        case Some(nodes) => ResultDone(nodes)
-      }
-
-      // We must be able to validate empty transactions, hence use an option
-      submittersOpt <- requiredAuthorizers.foldLeft[Result[Option[Set[Party]]]](ResultDone(None)) {
-        case (ResultDone(None), authorizers2) => ResultDone(Some(authorizers2))
-        case (ResultDone(Some(authorizers1)), authorizers2) if authorizers1 == authorizers2 =>
-          ResultDone(Some(authorizers2))
-        case _ =>
-          ResultError(ValidationError(s"Transaction's roots have different authorizers: $tx"))
-      }
-
-      _ <- if (submittersOpt.exists(_.size != 1))
-        ResultError(ValidationError(s"Transaction's roots do not have exactly one authorizer: $tx"))
-      else ResultDone.Unit
-
-      // For empty transactions, use an empty set of submitters
-      submitters = submittersOpt.getOrElse(Set.empty)
-
       commandsWithCids <- preprocessor.translateTransactionRoots(tx.transaction)
       (commands, globalCids) = commandsWithCids
       result <- interpretCommands(
         validating = true,
-        submitters = submitters,
+        submitters = Set(submitter),
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -208,7 +183,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       )
 
     } yield result
-  }
 
   /**
     * Check if the given transaction is a valid result of some single-submitter command.
@@ -226,6 +200,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
     */
   def validate(
+      submitter: Party,
       tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
@@ -234,7 +209,14 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
   ): Result[Unit] = {
     //reinterpret
     for {
-      result <- replay(tx, ledgerEffectiveTime, participantId, submissionTime, submissionSeed)
+      result <- replay(
+        submitter,
+        tx,
+        ledgerEffectiveTime,
+        participantId,
+        submissionTime,
+        submissionSeed,
+      )
       (rtx, _) = result
       validationResult <- if (tx.transaction isReplayedBy rtx.transaction) {
         ResultDone.Unit

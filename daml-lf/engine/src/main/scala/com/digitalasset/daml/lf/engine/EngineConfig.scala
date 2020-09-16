@@ -57,18 +57,4 @@ object EngineConfig {
   // accept all language and transaction versions supported by SDK_1_x plus development versions.
   lazy val Dev: EngineConfig = toDev(Stable)
 
-  // Legacy configuration, to be used by sandbox classic only
-  @deprecated("SandboxClassicStable is to be used by sandbox classic only", since = "1.5.0")
-  lazy val SandboxClassicStable: EngineConfig =
-    Stable.copy(
-      allowedLanguageVersions =
-        Stable.allowedLanguageVersions.copy(min = LV(LV.Major.V1, LV.Minor.Stable("0"))),
-      allowedInputTransactionVersions = Stable.allowedInputTransactionVersions.copy(
-        min = TransactionVersions.acceptedVersions.head),
-    )
-
-  // Legacy configuration, to be used by sandbox classic only
-  @deprecated("SandboxClassicDev is to be used by sandbox classic only", since = "1.5.0")
-  lazy val SandboxClassicDev = toDev(SandboxClassicStable)
-
 }

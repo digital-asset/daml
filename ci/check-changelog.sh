@@ -18,7 +18,7 @@ contains_changelog () {
 
 is_dependabot_pr() {
     local key gpg_dir
-    if [ "1" = "$(git rev-list ${1:-origin/master}.. | wc -l)" ] && [ "dependabot[bot]" = "$(git show -s --format=%an)" ]; then
+    if [ "1" = "$(git rev-list $1.. | wc -l)" ] && [ "dependabot[bot]" = "$(git show -s --format=%an)" ]; then
         key=$(mktemp)
         cat > $key <<DEPENDABOT
 -----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -49,7 +49,7 @@ DEPENDABOT
 }
 
 has_a_changelog() {
-    for sha in $(git rev-list ${1:-origin/master}..); do
+    for sha in $(git rev-list $1..); do
         if contains_changelog $sha; then
             echo "Commit $sha contains a changelog entry."
             return 0
@@ -67,4 +67,6 @@ to your commit message.
     return 1
 }
 
-has_a_changelog $1 || is_dependabot_pr $1
+BASE=${1:-origin/master}
+
+has_a_changelog $BASE || is_dependabot_pr $BASE

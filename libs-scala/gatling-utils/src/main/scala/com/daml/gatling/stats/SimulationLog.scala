@@ -12,10 +12,10 @@ import scalaz._
 import Scalaz._
 
 import scala.collection.immutable.ListMap
+
 import com.daml.gatling.stats.util.NonEmptySyntax._
 import com.daml.gatling.stats.util.ReadFileSyntax._
 import com.daml.gatling.stats.OutputFormattingHelpers._
-
 import SimulationLog._
 
 case class SimulationLog(simulation: String, scenarios: List[ScenarioStats]) {
@@ -155,7 +155,12 @@ object SimulationLog {
         all.durations.nonEmptyOpt.map(ds => count.toDouble / ds.size * 100).getOrElse(0.0))
     }
 
-    def formatted(title: String): String =
+    def formatted(
+        title: String,
+        bracket1millis: Int = 5000,
+        bracket2millis: Int = 30000
+    ): String = {
+      require(bracket1millis < bracket2millis)
       List(
         "=" * lineLength,
         subtitle(title),
@@ -170,9 +175,9 @@ object SimulationLog {
         attribute(_.percentile(0.999)).formatted("response time 99.9th percentile"),
         attribute(_.requestsPerSecond).formatted("Mean requests/second"),
         subtitle("Response time distribution"),
-        durationGroup(None, 5000.some).formatted,
-        durationGroup(5000.some, 30000.some).formatted,
-        durationGroup(30000.some, None).formatted,
+        durationGroup(None, bracket1millis.some).formatted,
+        durationGroup(bracket1millis.some, bracket2millis.some).formatted,
+        durationGroup(bracket2millis.some, None).formatted,
         StatGroup(
           "failed",
           failed.durations.size,
@@ -181,6 +186,7 @@ object SimulationLog {
             .getOrElse(0.0)).formatted,
         "=" * lineLength
       ).mkString(System.lineSeparator)
+    }
 
     lazy val all = successful |+| failed
   }

@@ -7,7 +7,6 @@ import java.io.File
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.gatling.stats.SimulationLog.ScenarioStats
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.withHttpService
@@ -20,9 +19,9 @@ import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation
 import scalaz.std.scalaFuture._
+import scalaz.std.string._
 import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
-import scalaz.std.string._
 
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
@@ -184,20 +183,10 @@ object Main extends StrictLogging {
     val logPath = new File(dir, "simulation.log")
     val simulationLog = SimulationLog.fromFile(logPath)
     simulationLog.foreach { x =>
-      x.writeSummary(dir)
-      logger.info(s"Report\n${formatReport(x.scenarios)}")
+      x.writeSummaryCsv(dir)
+      val summary = x.writeSummaryText(dir)
+      logger.info(s"Report\n$summary")
     }
     simulationLog.map(_ => ())
-  }
-
-  private def formatReport(scenarios: List[ScenarioStats]): String = {
-    val buf = new StringBuffer()
-    scenarios.foreach { x =>
-      x.requestsByType.foreach {
-        case (name, stats) =>
-          buf.append(stats.formatted(name))
-      }
-    }
-    buf.toString
   }
 }

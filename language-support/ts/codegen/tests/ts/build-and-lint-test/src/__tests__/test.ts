@@ -331,7 +331,12 @@ test("multi-{key,query} stream", async () => {
     await ledger.archiveByKey(buildAndLint.Main.Counter, {_1: ALICE_PARTY, _2: t});
   }
   function sleep(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  async function close<T extends object, K, I extends string, State>(s: Stream<T, K, I, State>): Promise<void> {
+    const p = pEvent(s, 'close');
+    s.close();
+    await p;
   }
   // Add support for comparison queries
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -364,6 +369,9 @@ test("multi-{key,query} stream", async () => {
   await create("included");
 
   await sleep(500);
+
+  await close(q);
+  await close(ks);
 
   expect(queryResult).toMatchObject(
     [[[{"payload": {"c": "0", "t": "included"}}],
