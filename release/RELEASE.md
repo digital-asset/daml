@@ -122,7 +122,7 @@ patches we backport to the 1.0 release branch).
 
        1. `daml build`
 
-       1. `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js`
+       1. `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o ui/daml.js`
 
        1. `daml start`
 
