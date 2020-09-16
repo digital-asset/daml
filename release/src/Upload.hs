@@ -376,7 +376,7 @@ uploadRetryPolicy = limitRetriesByCumulativeDelay (60 * 1000 * 1000) (exponentia
 -- The status of the staging repository can take a number of minutes to change it's
 -- status to closed.
 checkStatusRetryPolicy :: RetryPolicy
-checkStatusRetryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (constantDelay (15 * 1000 * 1000))
+checkStatusRetryPolicy = limitRetriesByCumulativeDelay (10 * 60 * 1000 * 1000) (constantDelay (15 * 1000 * 1000))
 
 handleStatusRequest :: (MonadIO m) => Request -> Manager -> m Bool
 handleStatusRequest request manager = do
