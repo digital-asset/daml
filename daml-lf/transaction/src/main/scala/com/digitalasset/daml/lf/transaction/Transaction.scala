@@ -279,6 +279,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 
   def nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]]
+
   def roots: ImmArray[Nid]
 
   /**
@@ -418,6 +419,18 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
     )
     acc
   }
+
+  final def guessSubmitter: Either[String, Party] =
+    roots.map(nodes(_).requiredAuthorizers) match {
+      case ImmArray() =>
+        Left(s"Empty transaction")
+      case ImmArrayCons(head, _) if head.size != 1 =>
+        Left(s"Transaction's roots do not have exactly one authorizer: $this")
+      case ImmArrayCons(head, tail) if tail.toSeq.exists(_ != head) =>
+        Left(s"Transaction's roots have different authorizers: $this")
+      case ImmArrayCons(head, _) =>
+        Right(head.head)
+    }
 
 }
 

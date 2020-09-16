@@ -468,8 +468,9 @@ class EngineTest
 
     "be validated" in {
       val Right((tx, meta)) = interpretResult
+      val Right(submitter) = tx.guessSubmitter
       val validated = engine
-        .validate(tx, let, participant, meta.submissionTime, submissionSeed)
+        .validate(submitter, tx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -521,6 +522,7 @@ class EngineTest
               .consume(lookupContract, lookupPackage, lookupKey)
         }
     val Right((tx, txMeta)) = interpretResult
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       val Right((rtx, _)) = engine
@@ -546,7 +548,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let, participant, let, submissionSeed)
+        .validate(submitter, tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -625,6 +627,7 @@ class EngineTest
               .consume(lookupContract, lookupPackage, lookupKey)
         }
     val Right((tx, txMeta)) = result
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       val submitResult = engine
@@ -646,7 +649,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let, participant, let, submissionSeed)
+        .validate(submitter, tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -712,6 +715,7 @@ class EngineTest
         }
 
     val Right((tx, txMeta)) = interpretResult
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       tx.roots should have length 2
@@ -732,7 +736,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let, participant, let, submissionSeed)
+        .validate(submitter, tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -1536,9 +1540,12 @@ class EngineTest
 
     "be validable in whole" in {
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
-        engine
-          .validate(tx, let, participant, metaData.submissionTime, submissionSeed)
-          .consume(_ => None, lookupPackage, _ => None)
+        for {
+          submitter <- tx.guessSubmitter.left.map(ValidationError)
+          res <- engine
+            .validate(submitter, tx, let, participant, metaData.submissionTime, submissionSeed)
+            .consume(_ => None, lookupPackage, _ => None)
+        } yield res
 
       run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
       run(3).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())

@@ -227,6 +227,7 @@ private[kvutils] class TransactionCommitter(
 
         engine
           .validate(
+            transactionEntry.submitter,
             SubmittedTransaction(transactionEntry.transaction),
             transactionEntry.ledgerEffectiveTime,
             commitContext.getParticipantId,
