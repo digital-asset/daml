@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.scalautil.concurrent
+package com.daml.concurrent
 
 import scala.{concurrent => sc}
 
@@ -40,7 +40,7 @@ class FutureSpec extends WordSpec with Matchers {
     "not lose its type to conversion" in {
       illTyped(
         "someCatFuture: sc.Future[Int]",
-        "type mismatch.*found.*scalautil.concurrent.Future.*required: scala.concurrent.Future.*")
+        "type mismatch.*found.*daml.concurrent.Future.*required: scala.concurrent.Future.*")
     }
   }
 

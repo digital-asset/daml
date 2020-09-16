@@ -13,24 +13,32 @@ scalacopts = lf_scalacopts + [
 ]
 
 da_scala_library(
-    name = "scala-utils",
+    name = "concurrent",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
     scalacopts = scalacopts,
-    tags = ["maven_coordinates=com.daml:scala-utils:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:concurrent:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 da_scala_test(
     name = "test",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    scalacopts = scalacopts,
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = scalacopts + ["-P:silencer:checkUnused"],
     deps = [
-        ":scala-utils",
-        "//libs-scala/scalatest-utils",
+        ":concurrent",
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

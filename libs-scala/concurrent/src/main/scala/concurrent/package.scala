@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.scalautil
+package com.daml
 
 import scala.util.Try
 import scala.{concurrent => sc}
@@ -43,11 +43,11 @@ import scalaz.Id.Id
   * alias rather than renaming each individual class you import.  For example,
   *
   * {{{
-  *   import com.daml.scalautil.concurrent._
+  *   import com.daml.concurrent._
   *   import scala.{concurrent => sc}
   *   // OR
   *   import scala.concurrent._
-  *   import com.daml.scalautil.{concurrent => dc}
+  *   import com.daml.{concurrent => dc}
   * }}}
   *
   * The exact name isn't important, but you should pick a short one that is
@@ -75,7 +75,7 @@ package object concurrent {
   type ExecutionContext[+P] = ExecutionContextOf.Instance.T[P]
 }
 
-// keeping the companions with the same-named type aliases
+// keeping the companions with the same-named type aliases in same file
 package concurrent {
 
   object Future {
