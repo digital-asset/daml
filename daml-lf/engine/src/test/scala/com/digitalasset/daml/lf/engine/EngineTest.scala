@@ -468,7 +468,7 @@ class EngineTest
 
     "be validated" in {
       val Right((tx, meta)) = interpretResult
-      val Right(submitter) = tx.submitter
+      val Right(submitter) = tx.guessSubmitter
       val validated = engine
         .validate(submitter, tx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -522,7 +522,7 @@ class EngineTest
               .consume(lookupContract, lookupPackage, lookupKey)
         }
     val Right((tx, txMeta)) = interpretResult
-    val Right(submitter) = tx.submitter
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       val Right((rtx, _)) = engine
@@ -627,7 +627,7 @@ class EngineTest
               .consume(lookupContract, lookupPackage, lookupKey)
         }
     val Right((tx, txMeta)) = result
-    val Right(submitter) = tx.submitter
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       val submitResult = engine
@@ -715,7 +715,7 @@ class EngineTest
         }
 
     val Right((tx, txMeta)) = interpretResult
-    val Right(submitter) = tx.submitter
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       tx.roots should have length 2
@@ -1541,7 +1541,7 @@ class EngineTest
     "be validable in whole" in {
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         for {
-          submitter <- tx.submitter.left.map(ValidationError)
+          submitter <- tx.guessSubmitter.left.map(ValidationError)
           res <- engine
             .validate(submitter, tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(_ => None, lookupPackage, _ => None)

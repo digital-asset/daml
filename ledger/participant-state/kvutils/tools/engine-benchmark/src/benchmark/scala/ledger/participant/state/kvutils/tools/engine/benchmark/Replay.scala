@@ -34,6 +34,7 @@ import scala.collection.JavaConverters._
 final case class TxEntry(
     tx: SubmittedTransaction,
     participantId: ParticipantId,
+    submitter: Ref.Party,
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
@@ -83,7 +84,7 @@ class Replay {
   def bench(): Unit = {
     val result = engine
       .replay(
-        benchmark.transaction.tx.submitter.toOption.get,
+        benchmark.transaction.submitter,
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
         benchmark.transaction.participantId,
@@ -118,7 +119,7 @@ class Replay {
     // before running the bench, we validate the transaction first to be sure everything is fine.
     val result = engine
       .validate(
-        benchmark.transaction.tx.submitter.toOption.get,
+        benchmark.transaction.submitter,
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
         benchmark.transaction.participantId,
@@ -176,6 +177,7 @@ object Replay {
           TxEntry(
             tx = tx,
             participantId = participantId,
+            submitter = Ref.Party.assertFromString(entry.getSubmitterInfo.getSubmitter),
             ledgerTime = parseTimestamp(entry.getLedgerEffectiveTime),
             submissionTime = parseTimestamp(entry.getSubmissionTime),
             submissionSeed = parseHash(entry.getSubmissionSeed)
