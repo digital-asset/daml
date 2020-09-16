@@ -1,4 +1,4 @@
-# 1. Gatling Scenario
+# 1. Gatling Scenarios
 
 ## 1.1. Prerequisites
 All current Gatling scenarios require `quickstart-0.0.1.dar` with IOU example.
