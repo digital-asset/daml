@@ -57,7 +57,7 @@ getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
 getContracts (ACS tpls pending) = mapOptional fromAny
                                 $ filter (\(cid, _) -> not $ cid `elem` allPending)
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-                                $ fromOptional []
+                                $ optional [] GMap.toList
                                 $ GMap.lookup (templateTypeRep @a)
 #endif
                                   tpls
