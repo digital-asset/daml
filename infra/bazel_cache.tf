@@ -15,7 +15,7 @@ module "bazel_cache" {
   name                 = "${local.bazel_cache_name}"
   project              = "${local.project}"
   region               = "${local.region}"
-  ssl_certificate      = "${local.ssl_certificate}"
+  ssl_certificate      = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/bazel-cache"
   cache_retention_days = 60
 }
 
