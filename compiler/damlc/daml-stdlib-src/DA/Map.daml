@@ -53,6 +53,7 @@ module DA.Map
     , filterWithKey
     , delete
     , insert
+    , alter
     , union
     , merge
     , keys
@@ -156,6 +157,26 @@ delete = primitive @"BEGenMapDelete"
 -- supplied value.
 insert : Ord k => k -> v -> Map k v -> Map k v
 insert = primitive @"BEGenMapInsert"
+
+-- | Update the value in `m` at `k` with `f`, inserting or deleting as
+-- required.  `f` will be called with either the value at `k`, or `None`
+-- if absent; `f` can return `Some` with a new value to be inserted in
+-- `m` (replacing the old value if there was one), or `None` to remove
+-- any `k` association `m` may have.
+--
+-- Some implications of this behavior:
+--
+--   alter identity k = identity
+--   alter g k . alter f k = alter (g . f) k
+--   alter (\_ -> Some v) k = insert k v
+--   alter (\_ -> None) = delete
+alter : Ord k => (Optional v -> Optional v) -> k -> Map k v -> Map k v
+alter f k m =
+  let orig = lookup k m
+  in case (orig, f orig) of
+       (None, None) -> m
+       (_, Some v) -> insert k v m
+       (Some _, None) -> delete k m
 
 -- | The union of two maps, preferring the first map when equal
 -- keys are encountered.
