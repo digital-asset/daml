@@ -165,6 +165,7 @@ insert = primitive @"BEGenMapInsert"
 -- any `k` association `m` may have.
 --
 -- Some implications of this behavior:
+--
 --   alter identity k = identity
 --   alter g k . alter f k = alter (g . f) k
 --   alter (\_ -> Some v) k = insert k v
