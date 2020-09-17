@@ -13,9 +13,10 @@ import com.daml.http.HttpServiceTestFixture.withHttpService
 import com.daml.http.domain.LedgerId
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
-import com.daml.http.{EndpointsCompanion, HttpService}
+import com.daml.http.{EndpointsCompanion, HttpService, JdbcConfig}
 import com.daml.jwt.domain.Jwt
 import com.daml.scalautil.Statement.discard
+import com.daml.testing.postgresql.PostgresDatabase
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation
 import scalaz.std.scalaFuture._
@@ -120,17 +121,44 @@ object Main extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext
   ): Future[ExitCode] =
-    withHttpService(ledgerId.unwrap, config.dars, None, None) { (uri, _, _, _) =>
-      runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
-        .flatMap {
-          case (exitCode, dir) =>
-            toFuture(generateReport(dir))
-              .map { _ =>
-                logger.info(s"Report directory: ${dir.getAbsolutePath}")
-                exitCode
-              }
-        }: Future[ExitCode]
+    withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
+      withHttpService(ledgerId.unwrap, config.dars, jsonApiJdbcConfig, None) { (uri, _, _, _) =>
+        runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
+          .flatMap {
+            case (exitCode, dir) =>
+              toFuture(generateReport(dir))
+                .map { _ =>
+                  logger.info(s"Report directory: ${dir.getAbsolutePath}")
+                  exitCode
+                }
+          }: Future[ExitCode]
+      }
     }
+
+  private def withJsonApiJdbcConfig[A](jsonApiQueryStoreEnabled: Boolean)(
+      fn: Option[JdbcConfig] => Future[A]
+  )(
+      implicit ec: ExecutionContext
+  ): Future[A] =
+    if (jsonApiQueryStoreEnabled) {
+      for {
+        dbInstance <- Future.successful(new PostgresRunner())
+        dbConfig <- toFuture(dbInstance.start())
+        jsonApiDbConfig <- Future.successful(jsonApiJdbcConfig(dbConfig))
+        a <- fn(Some(jsonApiDbConfig))
+        _ <- Future.successful(dbInstance.stop()) // TODO: use something like `lf.data.TryOps.Bracket.bracket`
+      } yield a
+    } else {
+      fn(None)
+    }
+
+  private def jsonApiJdbcConfig(c: PostgresDatabase): JdbcConfig =
+    JdbcConfig(
+      driver = "org.postgresql.Driver",
+      url = c.url,
+      user = "test",
+      password = "",
+      createSchema = true)
 
   private def resolveSimulationClass(str: String): Throwable \/ Class[_ <: Simulation] = {
     try {
