@@ -1110,7 +1110,7 @@ class EngineTest
     val fetcher2TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(party)),
       (Some[Name]("obs"), ValueParty(alice)),
-      (Some[Name]("fetcher"), ValueParty(party)),
+      (Some[Name]("fetcher"), ValueParty(clara)),
     )
 
     def makeContract[Cid <: ContractId](
@@ -1183,8 +1183,8 @@ class EngineTest
 
     "not propagate the parent's signatories nor actors when not stakeholders" in {
 
-      val Right((tx, _)) = runExample(fetcher2Cid, party)
-      txFetchActors(tx.transaction) shouldBe Set()
+      val Right((tx, _)) = runExample(fetcher2Cid, clara)
+      txFetchActors(tx.transaction) shouldBe Set(clara)
     }
 
     "be retained when reinterpreting single fetch nodes" in {
@@ -1209,7 +1209,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      runExample(fetcher2Cid, party).map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+      runExample(fetcher2Cid, clara).map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
     }
   }
 
@@ -1257,7 +1257,7 @@ class EngineTest
 
       val reinterpreted =
         engine
-          .reinterpret(Set.empty, fetchNode, None, let, let)
+          .reinterpret(Set(alice), fetchNode, None, let, let)
           .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe 'right
@@ -1342,7 +1342,7 @@ class EngineTest
         Engine
           .DevEngine()
           .reinterpret(
-            Set.empty,
+            Set(alice),
             lookupNode,
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
@@ -1371,7 +1371,7 @@ class EngineTest
       val Right((reinterpreted, _)) =
         Engine
           .DevEngine()
-          .reinterpret(Set.empty, lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
+          .reinterpret(Set(alice), lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
           .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
@@ -1512,7 +1512,7 @@ class EngineTest
       ValueRecord(
         Some(forkableTemplateId),
         ImmArray(
-          (Some[Name]("party"), ValueParty(alice)),
+          (Some[Name]("party"), ValueParty(party)),
           (Some[Name]("parent"), ValueOptional(None)))
       )
 

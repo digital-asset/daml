@@ -87,6 +87,7 @@ object ScenarioLedger {
       transaction: CommittedTransaction,
       blindingInfo: BlindingInfo,
       failedAuthorizations: FailedAuthorizations,
+      //TODO: Remove failedauthorizations. We no longer have a separate post-execution auth-check
   )
 
   object RichTransaction {
@@ -104,8 +105,6 @@ object ScenarioLedger {
         transactionId: LedgerString,
         submittedTransaction: SubmittedTransaction,
     ): RichTransaction = {
-      val failedAuthorizations =
-        AuthorizingTransaction.checkAuthFailures(Authorize(Set(committer)), submittedTransaction)
       val blindingInfo =
         BlindingTransaction.calculateBlindingInfo(submittedTransaction)
       new RichTransaction(
@@ -114,7 +113,7 @@ object ScenarioLedger {
         transactionId = transactionId,
         transaction = Tx.commitTransaction(submittedTransaction),
         blindingInfo = blindingInfo,
-        failedAuthorizations = failedAuthorizations,
+        failedAuthorizations = Map(),
       )
     }
 

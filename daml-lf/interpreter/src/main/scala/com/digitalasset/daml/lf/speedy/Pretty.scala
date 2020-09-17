@@ -41,6 +41,12 @@ private[lf] object Pretty {
 
   def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
     ex match {
+      case ScenarioErrorCommitError(ScenarioLedger.CommitError.FailedAuthorizations(fas)) =>
+        text(authorizationErrors(fas))
+      case ScenarioErrorCommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
+        (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
+          "for template",
+        ) & prettyIdentifier(gk.gk.templateId))
       case DamlEArithmeticError(message) =>
         text(message)
       case DamlEUserError(message) =>
@@ -133,12 +139,6 @@ private[lf] object Pretty {
           comma + space,
           stakeholders.map(prettyParty),
         ) + char('.')
-      case ScenarioErrorCommitError(ScenarioLedger.CommitError.FailedAuthorizations(fas)) =>
-        (text("due to failed authorizations:") / prettyFailedAuthorizations(fas)).nested(4)
-      case ScenarioErrorCommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
-        (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
-          "for template",
-        ) & prettyIdentifier(gk.gk.templateId))
 
       case ScenarioErrorMustFailSucceeded(tx @ _) =>
         // TODO(JM): Further info needed. Location annotations?
@@ -153,87 +153,34 @@ private[lf] object Pretty {
         text(s"Cannot serialize the transaction: $msg")
     })
 
-  def prettyFailedAuthorizations(fas: FailedAuthorizations): Doc =
-    intercalate(
-      comma + space,
-      fas.toSeq.map {
-        // FIXME(JM): pretty-print all the parameters.
-        case (
-            nodeId,
-            FailedAuthorization
-              .CreateMissingAuthorization(templateId @ _, optLoc @ _, authorizing, required),
-            ) =>
-          str(nodeId) & text(": missing authorization for create, authorizing parties:") &
-            intercalate(comma + space, authorizing.map(prettyParty)) +
-              text(", at least all of the following parties need to authorize:") &
-            intercalate(comma + space, required.map(prettyParty))
+  private def authorizationErrors(failures: Map[NodeId, FailedAuthorization]): String = {
+    failures
+      .map {
+        case (id, failure) =>
+          failure match {
+            case nc: FailedAuthorization.NoControllers =>
+              s"node $id (${nc.templateId}) has no controllers"
+            case am: FailedAuthorization.ActorMismatch =>
+              s"node $id (${am.templateId}) controllers don't match given actors ${am.givenActors.mkString(",")}"
+            case ma: FailedAuthorization.CreateMissingAuthorization =>
+              s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
+                .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
+            case ma: FailedAuthorization.FetchMissingAuthorization =>
+              s"node $id requires one of the stakeholders ${ma.stakeholders} of the fetched contract to be an authorizer, but authorizers were ${ma.authorizingParties}"
+            case ma: FailedAuthorization.ExerciseMissingAuthorization =>
+              s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
+                .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
+            case ns: FailedAuthorization.NoSignatories =>
+              s"node $id (${ns.templateId}) has no signatories"
+            case nlbk: FailedAuthorization.LookupByKeyMissingAuthorization =>
+              s"node $id (${nlbk.templateId}) requires authorizers ${nlbk.maintainers} for lookup by key, but it only has ${nlbk.authorizingParties}"
+            case mns: FailedAuthorization.MaintainersNotSubsetOfSignatories =>
+              s"node $id (${mns.templateId}) has maintainers ${mns.maintainers} which are not a subset of the signatories ${mns.signatories}"
 
-        case (
-            nodeId,
-            FailedAuthorization.MaintainersNotSubsetOfSignatories(
-              templateId @ _,
-              optLoc @ _,
-              signatories,
-              maintainers,
-            ),
-            ) =>
-          str(nodeId) & text(": all the maintainers:") &
-            intercalate(comma + space, maintainers.map(prettyParty)) +
-              text(", need to be signatories:") &
-            intercalate(comma + space, signatories.map(prettyParty))
-
-        case (
-            nodeId,
-            FailedAuthorization
-              .FetchMissingAuthorization(templateId @ _, optLoc @ _, authorizing, stakeholders),
-            ) =>
-          str(nodeId) & text(": missing authorization for fetch, authorizing parties:") &
-            intercalate(comma + space, authorizing.map(prettyParty)) +
-              text(", at least one of the following parties need to authorize:") &
-            intercalate(comma + space, stakeholders.map(prettyParty))
-
-        case (
-            nodeId,
-            FailedAuthorization.ExerciseMissingAuthorization(
-              templateId @ _,
-              choiceId @ _,
-              optLoc @ _,
-              authorizing,
-              required,
-            ),
-            ) =>
-          str(nodeId) & text(": missing authorization for exercise, authorizing parties:") &
-            intercalate(comma + space, authorizing.map(prettyParty)) +
-              text(", exactly the following parties need to authorize::") &
-            intercalate(comma + space, required.map(prettyParty))
-
-        case (
-            nodeId,
-            FailedAuthorization.ActorMismatch(templateId @ _, choiceId @ _, optLoc @ _, actors)) =>
-          str(nodeId) + text(": actor mismatch, given actors:") &
-            intercalate(comma + space, actors.map(prettyParty))
-
-        case (nodeId, FailedAuthorization.NoSignatories(templateId, optLoc @ _)) =>
-          str(nodeId) + text(s": $templateId missing signatories")
-
-        case (nodeId, FailedAuthorization.NoControllers(templateId, choiceId, optLoc @ _)) =>
-          str(nodeId) + text(s": $templateId $choiceId missing controllers")
-
-        case (
-            nodeId,
-            FailedAuthorization.LookupByKeyMissingAuthorization(
-              templateId @ _,
-              optLoc @ _,
-              maintainers,
-              authorizingParties,
-            ),
-            ) =>
-          str(nodeId) + text(": missing authorization for lookup by key, authorizing parties:") &
-            intercalate(comma + space, authorizingParties.map(prettyParty)) +
-              text(" are not a superset of maintainers:") &
-            intercalate(comma + space, maintainers.map(prettyParty))
-      },
-    )
+          }
+      }
+      .mkString(";")
+  }
 
   def prettyValueRef(ref: ValueRef): Doc =
     text(ref.qualifiedName.toString + "@" + ref.packageId)
