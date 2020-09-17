@@ -1,12 +1,10 @@
 # 1. Gatling Scenarios
 
 ## 1.1. Prerequisites
-All current Gatling scenarios require `quickstart-0.0.1.dar` with IOU example.
+All current Gatling scenarios require `quickstart-model.dar` with IOU example. You can build one using:
 ```
-$ daml new quickstart-java --template quickstart-java
-$ cd quickstart-java/
-$ daml build
-$ ls ./.daml/dist/quickstart-0.0.1.dar
+bazel build //docs:quickstart-model
+ls "${PWD}/bazel-bin/docs/quickstart-model.dar"
 ```
 
 ## 1.2. List of Scenarios
@@ -30,7 +28,7 @@ $ bazel run //ledger-service/http-json-perf:http-json-perf-binary -- --help
 ```
 $ bazel run //ledger-service/http-json-perf:http-json-perf-binary -- \
 --scenario=com.daml.http.perf.scenario.CreateCommand \
---dars=<QUICKSTART_JAVA_HOME>/.daml/dist/quickstart-0.0.1.dar \
+--dars="${PWD}/bazel-bin/docs/quickstart-model.dar" \
 --reports-dir=/home/leos/tmp/results/ \
 --jwt="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
 ```

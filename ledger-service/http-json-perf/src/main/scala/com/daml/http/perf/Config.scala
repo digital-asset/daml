@@ -19,7 +19,7 @@ private[perf] final case class Config[+S](
     jwt: Jwt,
     reportsDir: File,
     maxDuration: Option[FiniteDuration],
-    sandboxPersistence: Boolean
+    queryStoreIndex: Boolean,
 ) {
   override def toString: String =
     s"Config(" +
@@ -28,7 +28,7 @@ private[perf] final case class Config[+S](
       s", jwt=..." + // don't print the JWT
       s", reportsDir=${reportsDir: File}" +
       s", maxDuration=${this.maxDuration: Option[FiniteDuration]}" +
-      s", sandboxPersistence=${this.sandboxPersistence: Boolean}" +
+      s", queryStoreIndex=${this.queryStoreIndex: Boolean}" +
       ")"
 }
 
@@ -40,7 +40,7 @@ private[perf] object Config {
       jwt = Jwt(""),
       reportsDir = new File(""),
       maxDuration = None,
-      sandboxPersistence = false)
+      queryStoreIndex = false)
 
   implicit val configInstance: Traverse[Config] = new Traverse[Config] {
     override def traverseImpl[G[_]: Applicative, A, B](fa: Config[A])(
@@ -78,10 +78,10 @@ private[perf] object Config {
         .validate(validateJwt)
         .text("JWT token to use when connecting to JSON API.")
 
-      opt[Boolean]("sandbox-persistence")
-        .action((x, c) => c.copy(sandboxPersistence = x))
-        .required()
-        .text("Enable or disable sandbox persistence.")
+      opt[Boolean]("query-store-index")
+        .action((x, c) => c.copy(queryStoreIndex = x))
+        .optional()
+        .text("Enables JSON API query store index. Default is false, disabled.")
 
       opt[File]("reports-dir")
         .action((x, c) => c.copy(reportsDir = x))
