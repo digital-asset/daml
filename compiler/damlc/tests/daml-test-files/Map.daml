@@ -61,9 +61,9 @@ testAlter = scenario do
       m1 = fromList l1
       extras = [(3, "bbb"), (5, "d"), (0, "e")]
   (l1 <> extras) `forA_` \(k, v) -> do
-    m1 === M.alter k identity m1
-    M.insert k v m1 === M.alter k (const (Some v)) m1
-    M.delete k m1 === M.alter k (const None) m1
+    m1 === M.alter identity k m1
+    M.insert k v m1 === M.alter (const (Some v)) k m1
+    M.delete k m1 === M.alter (const None) k m1
 
 testMerge = scenario do
   let m1 = fromList [(1, "bb"), (2, "dd"), (3, "aa"), (4, "cc"), (6, "ee")]

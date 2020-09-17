@@ -165,12 +165,12 @@ insert = primitive @"BEGenMapInsert"
 -- any 'k' association 'm' may have.
 --
 -- Some implications of this behavior:
---   alter k identity = identity
---   alter k g . alter k f = alter k (g . f)
---   alter k (\_ -> Some v) = insert k v
---   alter k (\_ -> None) = delete k
-alter : Ord k => k -> (Optional v -> Optional v) -> Map k v -> Map k v
-alter k f m =
+--   alter identity k = identity
+--   alter g k . alter f k = alter (g . f) k
+--   alter (\_ -> Some v) k = insert k v
+--   alter (\_ -> None) = delete
+alter : Ord k => (Optional v -> Optional v) -> k -> Map k v -> Map k v
+alter f k m =
   let orig = lookup k m
   in case (orig, f orig) of
        (None, None) -> m
