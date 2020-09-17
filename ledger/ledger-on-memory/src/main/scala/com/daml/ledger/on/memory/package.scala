@@ -17,4 +17,6 @@ package object memory {
       zeroIndex = StartIndex,
       headAtInitialization = StartIndex,
     )
+
+  private[memory] val RunnerName = "In-Memory Ledger"
 }
