@@ -15,7 +15,7 @@ module "nix_cache" {
   name                 = "${local.nix_cache_name}"
   project              = "${local.project}"
   region               = "${local.region}"
-  ssl_certificate      = "${local.ssl_certificate}"
+  ssl_certificate      = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/nix-cache"
   cache_retention_days = 360
 }
 
