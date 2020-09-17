@@ -158,11 +158,11 @@ delete = primitive @"BEGenMapDelete"
 insert : Ord k => k -> v -> Map k v -> Map k v
 insert = primitive @"BEGenMapInsert"
 
--- | Update the value in 'm' at 'k' with 'f', inserting or deleting as
--- required.  'f' will be called with either the value at 'k', or `None`
--- if absent; 'f' can return `Some` with a new value to be inserted in
--- 'm' (replacing the old value if there was one), or `None` to remove
--- any 'k' association 'm' may have.
+-- | Update the value in `m` at `k` with `f`, inserting or deleting as
+-- required.  `f` will be called with either the value at `k`, or `None`
+-- if absent; `f` can return `Some` with a new value to be inserted in
+-- `m` (replacing the old value if there was one), or `None` to remove
+-- any `k` association `m` may have.
 --
 -- Some implications of this behavior:
 --   alter identity k = identity
