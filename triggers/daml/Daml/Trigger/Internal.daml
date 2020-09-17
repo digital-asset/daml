@@ -76,8 +76,8 @@ insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContract
 #endif
 
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-groupActiveContracts : [(AnyContractId, AnyTemplate)]
-                    -> GMap.Map TemplateTypeRep (GMap.Map AnyContractId AnyTemplate)
+groupActiveContracts :
+  [(AnyContractId, AnyTemplate)] -> GMap.Map TemplateTypeRep (GMap.Map AnyContractId AnyTemplate)
 groupActiveContracts = foldr (\v@(cid, _) -> alter (addct v) cid.templateId) GMap.empty
   where addct (cid, tpl) = Some . GMap.insert cid tpl . fromOptional mempty
 #else
