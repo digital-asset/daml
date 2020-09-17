@@ -58,8 +58,8 @@ addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
 addCommands m (Commands cid cmds) = Map.insert cid cmds m
 
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-alter : forall k v. Ord k => k -> (Optional v -> Optional v) -> GMap.Map k v -> GMap.Map k v
-alter k f m =
+alter : forall k v. Ord k => (Optional v -> Optional v) -> k -> GMap.Map k v -> GMap.Map k v
+alter f k m =
   let orig = GMap.lookup k m
   in case (orig, f orig) of
        (None, None) -> m
@@ -69,7 +69,7 @@ alter k f m =
 
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-insertTpl cid tpl acs = acs { activeContracts = alter cid.templateId addct acs.activeContracts }
+insertTpl cid tpl acs = acs { activeContracts = alter addct cid.templateId acs.activeContracts }
   where addct = Some . GMap.insert cid tpl . fromOptional mempty
 #else
 insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
@@ -78,7 +78,7 @@ insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContract
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 groupActiveContracts : [(AnyContractId, AnyTemplate)]
                     -> GMap.Map TemplateTypeRep (GMap.Map AnyContractId AnyTemplate)
-groupActiveContracts = foldr (\v@(cid, _) -> alter cid.templateId (addct v)) GMap.empty
+groupActiveContracts = foldr (\v@(cid, _) -> alter (addct v) cid.templateId) GMap.empty
   where addct (cid, tpl) = Some . GMap.insert cid tpl . fromOptional mempty
 #else
 groupActiveContracts : forall a. a -> a
@@ -87,7 +87,7 @@ groupActiveContracts a = a
 
 deleteTpl : AnyContractId -> ACS -> ACS
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-deleteTpl cid acs = acs { activeContracts = alter cid.templateId rmct acs.activeContracts }
+deleteTpl cid acs = acs { activeContracts = alter rmct cid.templateId acs.activeContracts }
   where rmct om = do
           m <- om
           let m' = GMap.delete cid m
