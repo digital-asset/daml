@@ -39,11 +39,10 @@ data ACS = ACS
   { activeContracts :
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
       GMap.Map TemplateTypeRep
-         (GMap.Map
+        (GMap.Map AnyContractId AnyTemplate)
 #else
-      [] ((,)
+      [(AnyContractId, AnyTemplate)]
 #endif
-            AnyContractId AnyTemplate)
   , pendingContracts : Map CommandId [AnyContractId]
   }
 
