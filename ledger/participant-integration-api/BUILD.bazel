@@ -15,6 +15,7 @@ compile_deps = [
     "//daml-lf/transaction",
     "//daml-lf/transaction:transaction_java_proto",
     "//daml-lf/transaction:value_java_proto",
+    "//daml-lf/validation",
     "//language-support/scala/bindings",
     "//ledger-api/rs-grpc-akka",
     "//ledger-api/rs-grpc-bridge",

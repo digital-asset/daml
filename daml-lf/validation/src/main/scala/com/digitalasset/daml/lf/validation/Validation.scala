@@ -15,6 +15,13 @@ object Validation {
       case e: ValidationError => Left(e)
     }
 
+  def checkPackages(pkgs: Map[PackageId, Package]): Either[ValidationError, Unit] =
+    runSafely {
+      val world = new World(pkgs)
+      pkgs.keys.foreach(pkgId =>
+        unsafeCheckPackage(world, pkgId, world.lookupPackage(NoContext, pkgId)))
+    }
+
   def checkPackage(
       pkgs: PartialFunction[PackageId, Package],
       pkgId: PackageId
