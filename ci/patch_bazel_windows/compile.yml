@@ -17,8 +17,9 @@ jobs:
       CACHE_KEY="$(find ci/patch_bazel_windows -type f -print0 | sort -z | xargs -r0 md5sum | md5sum | awk '{print $1}')"
       TARGET="patch_bazel_windows/bazel-$CACHE_KEY.zip"
       TARGET_URL="https://daml-binaries.da-ext.net/$TARGET"
+      STATUS="$(curl -Is "$TARGET_URL" | head -1 | awk '{print $2}')"
 
-      if [ "200" = "$(curl -Is "$TARGET_URL" | head -1 | awk '{print $2}')" ]; then
+      if [ "200" = "$STATUS" ]; then
           SHOULD_RUN=false
       else
           SHOULD_RUN=true
