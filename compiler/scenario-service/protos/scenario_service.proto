@@ -476,7 +476,7 @@ message FailedAuthorization {
 }
 
 message FailedAuthorizations {
-  repeated FailedAuthorization failed_authorizations = 1;
+  repeated FailedAuthorization failed_authorizations = 1; //at most one now
 }
 
 message GlobalKey {
@@ -498,7 +498,7 @@ message Transaction {
   repeated NodeId nodes = 4;
 
   // If non-empty, the transaction failed due to these failed authorizations.
-  FailedAuthorizations failed_authorizations = 6;
+  FailedAuthorizations failed_authorizations = 6; //this is always empty now
 }
 
 message ContractInstance {

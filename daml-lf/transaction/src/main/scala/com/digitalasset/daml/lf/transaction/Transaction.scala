@@ -7,7 +7,7 @@ package transaction
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.ledger.FailedAuthorizations
+import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.GenTransaction.WithTxValue
 import com.daml.lf.value.Value
 import scalaz.Equal
@@ -576,6 +576,9 @@ object Transaction {
       consumedBy: transaction.NodeId)
       extends TransactionError
 
-  final case class AuthErrorsDuringExecution(fail: FailedAuthorizations) extends TransactionError
+  final case class AuthFailureDuringExecution(
+      nid: transaction.NodeId,
+      fa: FailedAuthorization
+  ) extends TransactionError
 
 }

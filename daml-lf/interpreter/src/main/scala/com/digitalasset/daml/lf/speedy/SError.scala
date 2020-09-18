@@ -7,7 +7,7 @@ import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
-import com.daml.lf.ledger.FailedAuthorizations
+import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
 import com.daml.lf.value.{Value, ValueVersion}
 import com.daml.lf.value.Value.ContractId
@@ -100,7 +100,8 @@ object SError {
 
   /** There was an authorization failure during execution. */
   final case class DamlEFailedAuthorization(
-      errors: FailedAuthorizations,
+      nid: NodeId,
+      fa: FailedAuthorization,
   ) extends SErrorDamlException
 
   /** A fetch or exercise was being made against a contract that has not

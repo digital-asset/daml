@@ -441,9 +441,8 @@ private[lf] case class PartialTransaction(
   private def noteAuthFails(nid: NodeId, fails: List[FailedAuthorization]): PartialTransaction = {
     fails match {
       case Nil => this
-      case fa1 :: _ => // take just the first failure
-        val fas = Map(nid -> fa1)
-        noteAbort(Tx.AuthErrorsDuringExecution(fas))
+      case fa :: _ => // take just the first failure //TODO: dont compute all!
+        noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
     }
   }
 
