@@ -12,6 +12,10 @@ resource "google_storage_bucket" "binaries" {
 
   # Use a normal region since the storage_class is regional
   location = "${local.region}"
+
+  versioning {
+    enabled = true
+  }
 }
 
 resource "google_storage_bucket_acl" "binaries" {
@@ -26,11 +30,18 @@ resource "google_storage_bucket_acl" "binaries" {
 }
 
 // allow rw access for CI writer (see writer.tf)
-resource "google_storage_bucket_iam_member" "binaries-ci-rw" {
+resource "google_storage_bucket_iam_member" "binaries-ci-create" {
   bucket = "${google_storage_bucket.binaries.name}"
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.writer.email}"
+}
+resource "google_storage_bucket_iam_member" "binaries-ci-read" {
+  bucket = "${google_storage_bucket.binaries.name}"
+
+  # https://cloud.google.com/storage/docs/access-control/iam-roles
+  role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.writer.email}"
 }
 
