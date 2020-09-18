@@ -20,7 +20,8 @@ import com.daml.ledger.participant.state.index.v2.{
   LedgerEndService
 }
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.lf.archive.{Dar, DarReader}
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.validation.Validation
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
@@ -79,6 +80,15 @@ private[apiserver] final class ApiPackageManagementService private (
       .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
 
+  private[this] val darReader = DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+
+  def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
+    for {
+      dar <- darReader.readArchive("package-upload", stream)
+      packages <- Try(dar.all.iterator.map(Decode.decodeArchive).toMap)
+      _ <- Validation.checkPackages(packages).toTry
+    } yield dar
+
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
     val submissionId =
       if (request.submissionId.isEmpty)
@@ -86,15 +96,13 @@ private[apiserver] final class ApiPackageManagementService private (
       else
         SubmissionId.assertFromString(request.submissionId)
 
+    val stream = new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray))
+
     val response = for {
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-        .readArchive(
-          "package-upload",
-          new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray)))
-        .fold(
-          err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
-          Future.successful
-        )
+      dar <- decodeAndValidate(stream).fold(
+        err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
+        Future.successful
+      )
       _ <- synchronousResponse.submitAndWait(submissionId, dar)(executionContext, materializer)
     } yield {
       for (archive <- dar.all) {

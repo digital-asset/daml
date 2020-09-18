@@ -15,7 +15,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class AkkaExecutionSequencerPool(
     poolName: String,
     actorCount: Int = AkkaExecutionSequencerPool.defaultActorCount,
-    terminationTimeout: FiniteDuration = 30.seconds,
+    terminationTimeout: FiniteDuration = 180.seconds,
 )(implicit system: ActorSystem)
     extends ExecutionSequencerFactory {
   require(actorCount > 0)
