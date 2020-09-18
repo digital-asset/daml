@@ -7,10 +7,11 @@ import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
+import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
 import com.daml.lf.value.{Value, ValueVersion}
-import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.value.Value.ContractId
+import com.daml.lf.scenario.ScenarioLedger
 
 object SError {
 
@@ -97,6 +98,12 @@ object SError {
       actual: ValueVersion,
   ) extends SErrorDamlException
 
+  /** There was an authorization failure during execution. */
+  final case class DamlEFailedAuthorization(
+      nid: NodeId,
+      fa: FailedAuthorization,
+  ) extends SErrorDamlException
+
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'. */
   final case class ScenarioErrorContractNotVisible(
@@ -116,9 +123,9 @@ object SError {
       stakeholders: Set[Party],
   ) extends SErrorScenario
 
-  /** The commit of the transaction failed due to authorization errors. */
-  final case class ScenarioErrorCommitError(commitError: ScenarioLedger.CommitError) //TODO: Rename. This error is not just for scenarios, but for all authorization errors.
-      extends SErrorDamlException
+  /** The transaction failed due to a commit error */
+  final case class ScenarioErrorCommitError(commitError: ScenarioLedger.CommitError)
+      extends SErrorScenario
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
   final case class ScenarioErrorMustFailSucceeded(tx: Tx.Transaction) extends SErrorScenario

@@ -558,8 +558,7 @@ class EngineTest
     }
 
     "events are collected" in {
-      val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(tx, Set(party))
+      val blindingInfo = Blinding.blind(tx)
       val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
@@ -659,8 +658,7 @@ class EngineTest
     }
 
     "events are collected" in {
-      val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(tx, Set(alice))
+      val blindingInfo = Blinding.blind(tx)
       val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains alice)
       partyEvents.size shouldBe 1
@@ -951,8 +949,7 @@ class EngineTest
       (rtx.transaction isReplayedBy tx.transaction) shouldBe true
     }
 
-    val Right(blindingInfo) =
-      Blinding.checkAuthorizationAndBlind(tx, Set(bob))
+    val blindingInfo = Blinding.blind(tx)
 
     "reinterpret to the same result" in {
 
@@ -1036,8 +1033,7 @@ class EngineTest
           )
           .consume(lookupContract, lookupPackage, lookupKey)
       val Seq(_, noid1) = tx.transaction.nodes.keys.toSeq.sortBy(_.index)
-      val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(tx, Set(bob))
+      val blindingInfo = Blinding.blind(tx)
       val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
       val partyEvents = events.filter(_.witnesses contains bob)
       partyEvents.roots.length shouldBe 1

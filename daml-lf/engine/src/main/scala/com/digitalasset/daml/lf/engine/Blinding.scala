@@ -16,30 +16,16 @@ object Blinding {
 
   /**
     * Given a transaction provide concise information on visibility
-    * for all stakeholders returns error if the transaction is not
-    * well-authorized.
+    * for all stakeholders
     *
     * We keep this in Engine since it needs the packages and your
     * typical engine already has a way to look those up and we do not
     * want to reinvent the wheel.
     *
     *  @param tx transaction to be blinded
-    *  @param initialAuthorizers set of parties claimed to be authorizers of the transaction
-    */
-  def checkAuthorizationAndBlind( //TODO: remove this method. Authorization now performed when transaction is constructed
-      tx: Transaction.Transaction,
-      initialAuthorizers: Set[Party],
-  ): Either[AuthorizationError, BlindingInfo] = {
-    val _ = initialAuthorizers
-    Right(blind(tx))
-  }
-
-  /**
-    * Like checkAuthorizationAndBlind, but does not authorize the transaction, just blinds it.
     */
   def blind(tx: Transaction.Transaction): BlindingInfo =
-    BlindingTransaction
-      .calculateBlindingInfo(tx)
+    BlindingTransaction.calculateBlindingInfo(tx)
 
   /** Returns the part of the transaction which has to be divulged to the given party.
     *

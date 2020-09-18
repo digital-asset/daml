@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{
-  Blinding,
   Engine,
   Result,
   ResultDone,
@@ -53,8 +52,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
         (for {
           result <- submission
           (updateTx, meta) = result
-          _ <- Blinding
-            .checkAuthorizationAndBlind(updateTx, Set(commands.submitter))
         } yield {
           val interpretationTimeNanos = System.nanoTime() - start
           CommandExecutionResult(

@@ -41,12 +41,8 @@ private[lf] object Pretty {
 
   def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
     ex match {
-      case ScenarioErrorCommitError(ScenarioLedger.CommitError.FailedAuthorizations(fas)) =>
-        text(authorizationErrors(fas))
-      case ScenarioErrorCommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
-        (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
-          "for template",
-        ) & prettyIdentifier(gk.gk.templateId))
+      case DamlEFailedAuthorization(nid, fa) =>
+        text(prettyFailedAuthorization(nid, fa))
       case DamlEArithmeticError(message) =>
         text(message)
       case DamlEUserError(message) =>
@@ -140,6 +136,11 @@ private[lf] object Pretty {
           stakeholders.map(prettyParty),
         ) + char('.')
 
+      case ScenarioErrorCommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
+        (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
+          "for template",
+        ) & prettyIdentifier(gk.gk.templateId))
+
       case ScenarioErrorMustFailSucceeded(tx @ _) =>
         // TODO(JM): Further info needed. Location annotations?
         text("due to a mustfailAt that succeeded.")
@@ -153,33 +154,27 @@ private[lf] object Pretty {
         text(s"Cannot serialize the transaction: $msg")
     })
 
-  private def authorizationErrors(failures: Map[NodeId, FailedAuthorization]): String = {
-    failures
-      .map {
-        case (id, failure) =>
-          failure match {
-            case nc: FailedAuthorization.NoControllers =>
-              s"node $id (${nc.templateId}) has no controllers"
-            case am: FailedAuthorization.ActorMismatch =>
-              s"node $id (${am.templateId}) controllers don't match given actors ${am.givenActors.mkString(",")}"
-            case ma: FailedAuthorization.CreateMissingAuthorization =>
-              s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
-                .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
-            case ma: FailedAuthorization.FetchMissingAuthorization =>
-              s"node $id requires one of the stakeholders ${ma.stakeholders} of the fetched contract to be an authorizer, but authorizers were ${ma.authorizingParties}"
-            case ma: FailedAuthorization.ExerciseMissingAuthorization =>
-              s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
-                .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
-            case ns: FailedAuthorization.NoSignatories =>
-              s"node $id (${ns.templateId}) has no signatories"
-            case nlbk: FailedAuthorization.LookupByKeyMissingAuthorization =>
-              s"node $id (${nlbk.templateId}) requires authorizers ${nlbk.maintainers} for lookup by key, but it only has ${nlbk.authorizingParties}"
-            case mns: FailedAuthorization.MaintainersNotSubsetOfSignatories =>
-              s"node $id (${mns.templateId}) has maintainers ${mns.maintainers} which are not a subset of the signatories ${mns.signatories}"
-
-          }
-      }
-      .mkString(";")
+  private def prettyFailedAuthorization(id: NodeId, failure: FailedAuthorization): String = {
+    failure match {
+      case nc: FailedAuthorization.NoControllers =>
+        s"node $id (${nc.templateId}) has no controllers"
+      case am: FailedAuthorization.ActorMismatch =>
+        s"node $id (${am.templateId}) controllers don't match given actors ${am.givenActors.mkString(",")}"
+      case ma: FailedAuthorization.CreateMissingAuthorization =>
+        s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
+          .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
+      case ma: FailedAuthorization.FetchMissingAuthorization =>
+        s"node $id requires one of the stakeholders ${ma.stakeholders} of the fetched contract to be an authorizer, but authorizers were ${ma.authorizingParties}"
+      case ma: FailedAuthorization.ExerciseMissingAuthorization =>
+        s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
+          .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
+      case ns: FailedAuthorization.NoSignatories =>
+        s"node $id (${ns.templateId}) has no signatories"
+      case nlbk: FailedAuthorization.LookupByKeyMissingAuthorization =>
+        s"node $id (${nlbk.templateId}) requires authorizers ${nlbk.maintainers} for lookup by key, but it only has ${nlbk.authorizingParties}"
+      case mns: FailedAuthorization.MaintainersNotSubsetOfSignatories =>
+        s"node $id (${mns.templateId}) has maintainers ${mns.maintainers} which are not a subset of the signatories ${mns.signatories}"
+    }
   }
 
   def prettyValueRef(ref: ValueRef): Doc =
