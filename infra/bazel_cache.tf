@@ -20,11 +20,18 @@ module "bazel_cache" {
 }
 
 // allow rw access for CI writer (see writer.tf)
-resource "google_storage_bucket_iam_member" "bazel_cache_writer" {
+resource "google_storage_bucket_iam_member" "bazel_cache_writer_create" {
   bucket = "${module.bazel_cache.bucket_name}"
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.writer.email}"
+}
+resource "google_storage_bucket_iam_member" "bazel_cache_writer_read" {
+  bucket = "${module.bazel_cache.bucket_name}"
+
+  # https://cloud.google.com/storage/docs/access-control/iam-roles
+  role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.writer.email}"
 }
 

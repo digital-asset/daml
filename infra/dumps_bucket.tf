@@ -33,10 +33,17 @@ resource "google_storage_bucket_acl" "dumps" {
 }
 
 # allow rw access for CI writer (see writer.tf)
-resource "google_storage_bucket_iam_member" "dumps" {
+resource "google_storage_bucket_iam_member" "dumps_create" {
   bucket = "${google_storage_bucket.dumps.name}"
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.writer.email}"
+}
+resource "google_storage_bucket_iam_member" "dumps_read" {
+  bucket = "${google_storage_bucket.dumps.name}"
+
+  # https://cloud.google.com/storage/docs/access-control/iam-roles
+  role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.writer.email}"
 }
