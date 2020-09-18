@@ -24,10 +24,13 @@ object LoadDarFunction extends App {
         case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
       }.toMap
 
-    val stacktracing: Compiler.StackTraceMode = Compiler.NoStackTrace
+    val compilerConfig =
+      Compiler.Config.Default.copy(
+        stacktracing = Compiler.NoStackTrace
+      )
 
     val compiledPackages: CompiledPackages =
-      PureCompiledPackages(packagesMap, stacktracing).right.get
+      PureCompiledPackages(packagesMap, compilerConfig).right.get
 
     def function(argValue: Long): Long = {
       val expr: SExpr = {

@@ -19,9 +19,12 @@ object Explore extends App {
 
 object PlaySpeedy {
 
+  private[this] val compilerConfig =
+    Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
+
   def main(args0: List[String]) = {
     val config: Config = parseArgs(args0)
-    val compiler: Compiler = Compiler(Map.empty, Compiler.FullStackTrace, Compiler.NoProfile)
+    val compiler: Compiler = new Compiler(Map.empty, compilerConfig)
 
     val names: List[String] = config.names match {
       case Nil => examples.toList.map(_._1)
@@ -62,7 +65,7 @@ object PlaySpeedy {
   }
 
   private val noPackages =
-    data.assertRight(PureCompiledPackages(Map.empty, Compiler.NoStackTrace, Compiler.NoProfile))
+    PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
 
   def runMachine(name: String, machine: Machine, expected: Int): Unit = {
 

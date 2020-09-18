@@ -172,6 +172,9 @@ object Script {
 }
 
 object Runner {
+
+  private val compilerConfig = Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
+
   val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
   private def connectApiParameters(
       params: ApiParameters,
@@ -245,7 +248,7 @@ object Runner {
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap).right.get
+    val compiledPackages = data.assertRight(PureCompiledPackages(darMap, Runner.compilerConfig))
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
@@ -284,7 +287,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
         SEMakeClo(Array(), 1, SELocA(0))
     }
-    new CompiledPackages(Compiler.FullStackTrace, Compiler.NoProfile) {
+    new CompiledPackages(Runner.compilerConfig) {
       override def getPackage(pkgId: PackageId): Option[Package] =
         compiledPackages.getPackage(pkgId)
       override def getDefinition(dref: SDefinitionRef): Option[SExpr] =

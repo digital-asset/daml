@@ -104,8 +104,7 @@ class OrderingSpec
     }
   }
 
-  private val noPackages =
-    PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile)
+  private[this] val noPackages = PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
 
   private def translatePrimValue(v: Value[Value.ContractId]) = {
     val machine = Speedy.Machine.fromPureSExpr(noPackages, SEImportValue(v))

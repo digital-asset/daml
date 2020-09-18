@@ -47,6 +47,20 @@ private[lf] object Compiler {
   case object NoPackageValidation extends PackageValidationMode
   case object FullPackageValidation extends PackageValidationMode
 
+  private[lf] case class Config(
+      packageValidation: PackageValidationMode,
+      profiling: ProfilingMode,
+      stacktracing: StackTraceMode,
+  )
+
+  object Config {
+    val Default = Config(
+      packageValidation = FullPackageValidation,
+      profiling = NoProfile,
+      stacktracing = NoStackTrace,
+    )
+  }
+
   private val SEGetTime = SEBuiltin(SBGetTime)
 
   private def SBCompareNumeric(b: SBuiltinPure) =
@@ -71,15 +85,13 @@ private[lf] object Compiler {
     */
   def compilePackages(
       packages: Map[PackageId, Package],
-      stacktracing: StackTraceMode,
-      profiling: ProfilingMode,
-      validation: PackageValidationMode = FullPackageValidation,
+      compilerConfig: Compiler.Config,
   ): Either[String, Map[SDefinitionRef, SExpr]] = {
-    val compiler = Compiler(packages, stacktracing, profiling)
+    val compiler = new Compiler(packages, compilerConfig)
     try {
       Right(
         packages.keys.foldLeft(Map.empty[SDefinitionRef, SExpr])(
-          _ ++ compiler.unsafeCompilePackage(_, validation))
+          _ ++ compiler.unsafeCompilePackage(_))
       )
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
@@ -90,17 +102,16 @@ private[lf] object Compiler {
 
 }
 
-private[lf] final case class Compiler(
+private[lf] final class Compiler(
     packages: PackageId PartialFunction Package,
-    stacktracing: Compiler.StackTraceMode,
-    profiling: Compiler.ProfilingMode,
+    config: Compiler.Config
 ) {
 
   import Compiler._
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
   private[this] def maybeSELocation(loc: Location, sexp: SExpr): SExpr = {
-    stacktracing match {
+    config.stacktracing match {
       case NoStackTrace => sexp
       case FullStackTrace => SELocation(loc, sexp)
     }
@@ -157,7 +168,7 @@ private[lf] final case class Compiler(
   private[this] var env = Env()
 
   private[this] val withLabel: (Profile.Label, SExpr) => SExpr =
-    profiling match {
+    config.profiling match {
       case NoProfile => { (_, expr) =>
         expr
       }

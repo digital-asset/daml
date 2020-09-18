@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.data.assertRight
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
@@ -50,8 +51,8 @@ object Context {
   def newContext(lfVerion: LanguageVersion): Context =
     new Context(contextCounter.incrementAndGet(), lfVerion)
 
-  private def assert[X](either: Either[String, X]): X =
-    either.fold(e => throw new ParseError(e), identity)
+  private val compilerConfig =
+    Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
 }
 
 class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion) {
@@ -119,8 +120,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         // if any change we recompile everything
         extPackages --= unloadPackages
         extPackages ++= newPackages
-        extDefns =
-          assert(Compiler.compilePackages(extPackages, Compiler.FullStackTrace, Compiler.NoProfile))
+        extDefns = assertRight(Compiler.compilePackages(extPackages, compilerConfig))
         modDefns = HashMap.empty
         modules.values
       } else {
@@ -129,11 +129,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       }
 
     val pkgs = allPackages
-    val compiler = Compiler(pkgs, Compiler.FullStackTrace, Compiler.NoProfile)
+    val compiler = new Compiler(pkgs, compilerConfig)
 
     modulesToCompile.foreach { mod =>
       if (!omitValidation)
-        assert(Validation.checkModule(pkgs, homePackageId, mod.name).left.map(_.pretty))
+        assertRight(Validation.checkModule(pkgs, homePackageId, mod.name).left.map(_.pretty))
       modDefns += mod.name -> mod.definitions.flatMap {
         case (defName, defn) =>
           compiler
@@ -154,8 +154,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     val defns = this.defns
-    val compiledPackages =
-      PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
+    val compiledPackages = PureCompiledPackages(allPackages, defns, compilerConfig)
     for {
       defn <- defns.get(LfDefRef(identifier))
     } yield
@@ -173,7 +172,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       name: String,
   ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] = {
     buildMachine(
-      Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
+      Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name)),
     ).map { machine =>
       ScenarioRunner(machine).run() match {
         case Right((diff @ _, steps @ _, ledger, value)) =>
@@ -190,8 +189,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer)
     : Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
     val defns = this.defns
-    val compiledPackages =
-      PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
+    val compiledPackages = PureCompiledPackages(allPackages, defns, compilerConfig)
     val expectedScriptId = DottedName.assertFromString("Daml.Script")
     val Some(scriptPackageId) = allPackages.collectFirst {
       case (pkgId, pkg) if pkg.modules contains expectedScriptId => pkgId

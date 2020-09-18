@@ -11,6 +11,7 @@ import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.{FrontStack, ImmArray, Struct}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
@@ -303,6 +304,7 @@ class SpeedyTest extends WordSpec with Matchers {
       } ;
     }
   """)
+
   "record update" should {
     "use SBRecUpd for single update" in {
       val p_1_0 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_0")))
@@ -315,6 +317,14 @@ class SpeedyTest extends WordSpec with Matchers {
               Array(SELocS(1), SEValue(SInt64(1))))))
 
     }
+
+    /*
+    Some(SELabelClosure(LfDefRef(-pkgId-:M:p_1_0),
+        SELet1General(SEVal(LfDefRef(-pkgId-:M:origin)),SEAppAtomicSaturatedBuiltin(SBRecUpd(-pkgId-:M:Point,0),[SELocS(1),SEValue(SInt64(1))])))) did not equal
+    Some(SELet1General(SEVal(LfDefRef(-pkgId-:M:origin)),SEAppAtomicSaturatedBuiltin(SBRecUpd(-pkgId-:M:Point,0),[SELocS(1),SEValue(SInt64(1))])))
+
+
+     */
 
     "produce expected output for single update" in {
       eval(e"M:p_1_0", recUpdPkgs) shouldEqual
@@ -428,10 +438,16 @@ object SpeedyTest {
       case Goodbye(err) => Left(err)
     }
   }
+  private val noPackages =
+    PureCompiledPackages(
+      Map.empty,
+      Map.empty,
+      Compiler.Config.Default
+        .copy(profiling = Compiler.FullProfile, stacktracing = Compiler.FullStackTrace)
+    )
 
   private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
-    val packages = PureCompiledPackages(Map.empty, profiling = Compiler.FullProfile).right.get
-    val machine = Speedy.Machine.fromPureExpr(packages, e)
+    val machine = Speedy.Machine.fromPureExpr(noPackages, e)
     machine.run()
     machine.profile.events
   }
@@ -446,7 +462,8 @@ object SpeedyTest {
   private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
     Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId)
-    PureCompiledPackages(rawPkgs).right.get
+    data.assertRight(
+      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace)))
   }
 
   private def intList(xs: Long*): String =
