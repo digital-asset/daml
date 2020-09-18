@@ -578,7 +578,7 @@ object Transaction {
 
   final case class AuthFailureDuringExecution(
       nid: transaction.NodeId,
-      fa: FailedAuthorization
+      fa: FailedAuthorization,
   ) extends TransactionError
 
 }

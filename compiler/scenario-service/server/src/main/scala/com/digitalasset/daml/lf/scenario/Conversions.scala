@@ -224,7 +224,8 @@ final class Conversions(
 
   def convertFailedAuthorization(
       nodeId: NodeId,
-      fa: FailedAuthorization): proto.FailedAuthorizations = {
+      fa: FailedAuthorization,
+  ): proto.FailedAuthorizations = {
     val builder = proto.FailedAuthorizations.newBuilder
     builder.addFailedAuthorizations {
       val faBuilder = proto.FailedAuthorization.newBuilder

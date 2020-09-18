@@ -67,7 +67,7 @@ private[kvutils] class TransactionCommitter(
     "validate_ledger_time" -> validateLedgerTime,
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
-    "authorize_and_blind" -> authorizeAndBlind
+    "blind" -> blind
   )
 
   // -------------------------------------------------------------------------------
@@ -249,7 +249,7 @@ private[kvutils] class TransactionCommitter(
       })
 
   /** Validate the submission's conformance to the DAML model */
-  private def authorizeAndBlind: Step = //TODO: rename. no authorization here any more!
+  private def blind: Step =
     (commitContext, transactionEntry) => {
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
       buildFinalResult(commitContext, transactionEntry, blindingInfo)
