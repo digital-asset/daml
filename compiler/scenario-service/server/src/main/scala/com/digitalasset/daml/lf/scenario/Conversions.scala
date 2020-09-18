@@ -376,7 +376,7 @@ final class Conversions(
       .setEffectiveAt(rtx.effectiveAt.micros)
       .addAllRoots(rtx.transaction.roots.map(convertNodeId(rtx.transactionId, _)).toSeq.asJava)
       .addAllNodes(rtx.transaction.nodes.keys.map(convertNodeId(rtx.transactionId, _)).asJava)
-      .setFailedAuthorizations(convertFailedAuthorizations(rtx.failedAuthorizations))
+      .setFailedAuthorizations(convertFailedAuthorizations(Map.empty))
       .build
   }
 
