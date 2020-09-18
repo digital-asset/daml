@@ -43,6 +43,10 @@ private[lf] object Compiler {
   case object NoStackTrace extends StackTraceMode
   case object FullStackTrace extends StackTraceMode
 
+  sealed abstract class PackageValidationMode extends Product with Serializable
+  case object NoPackageValidation extends PackageValidationMode
+  case object FullPackageValidation extends PackageValidationMode
+
   private val SEGetTime = SEBuiltin(SBGetTime)
 
   private def SBCompareNumeric(b: SBuiltinPure) =
@@ -69,7 +73,7 @@ private[lf] object Compiler {
       packages: Map[PackageId, Package],
       stacktracing: StackTraceMode,
       profiling: ProfilingMode,
-      validation: Boolean = true,
+      validation: PackageValidationMode = FullPackageValidation,
   ): Either[String, Map[SDefinitionRef, SExpr]] = {
     val compiler = Compiler(packages, stacktracing, profiling)
     try {
@@ -237,20 +241,23 @@ private[lf] final case class Compiler(
   @throws[ValidationError]
   def unsafeCompilePackage(
       pkgId: PackageId,
-      validation: Boolean = true,
+      packageValidationMode: PackageValidationMode = FullPackageValidation,
   ): Iterable[(SDefinitionRef, SExpr)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()
 
-    if (validation)
-      Validation.checkPackage(packages, pkgId).left.foreach {
-        case EUnknownDefinition(_, LEPackage(pkgId_)) =>
-          logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
-          throw PackageNotFound(pkgId_)
-        case e =>
-          throw e
-      }
+    packageValidationMode match {
+      case Compiler.NoPackageValidation =>
+      case Compiler.FullPackageValidation =>
+        Validation.checkPackage(packages, pkgId).left.foreach {
+          case EUnknownDefinition(_, LEPackage(pkgId_)) =>
+            logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
+            throw PackageNotFound(pkgId_)
+          case e =>
+            throw e
+        }
+    }
 
     val t1 = Time.Timestamp.now()
 
