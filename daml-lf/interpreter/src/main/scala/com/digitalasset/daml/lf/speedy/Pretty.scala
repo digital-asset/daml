@@ -41,12 +41,8 @@ private[lf] object Pretty {
 
   def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
     ex match {
-      case ScenarioErrorCommitError(ScenarioLedger.CommitError.FailedAuthorizations(fas)) =>
+      case DamlEFailedAuthorization(fas) =>
         text(authorizationErrors(fas))
-      case ScenarioErrorCommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
-        (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
-          "for template",
-        ) & prettyIdentifier(gk.gk.templateId))
       case DamlEArithmeticError(message) =>
         text(message)
       case DamlEUserError(message) =>
@@ -139,6 +135,11 @@ private[lf] object Pretty {
           comma + space,
           stakeholders.map(prettyParty),
         ) + char('.')
+
+      case ScenarioErrorCommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
+        (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
+          "for template",
+        ) & prettyIdentifier(gk.gk.templateId))
 
       case ScenarioErrorMustFailSucceeded(tx @ _) =>
         // TODO(JM): Further info needed. Location annotations?

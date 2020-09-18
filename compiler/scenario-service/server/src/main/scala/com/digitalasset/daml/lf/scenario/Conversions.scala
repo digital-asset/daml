@@ -109,6 +109,13 @@ final class Conversions(
             .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
             .build,
         )
+      case SError.DamlEFailedAuthorization(fas) =>
+        builder.setScenarioCommitError(
+          proto.CommitError.newBuilder
+            .setFailedAuthorizations(convertFailedAuthorizations(fas))
+            .build
+        )
+
       case SError.ScenarioErrorContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScenarioContractNotEffective(
           proto.ScenarioError.ContractNotEffective.newBuilder
@@ -180,8 +187,6 @@ final class Conversions(
     commitError match {
       case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
         builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
-      case ScenarioLedger.CommitError.FailedAuthorizations(fas) =>
-        builder.setFailedAuthorizations(convertFailedAuthorizations(fas))
     }
     builder.build
   }

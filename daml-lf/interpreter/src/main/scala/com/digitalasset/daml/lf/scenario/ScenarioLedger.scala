@@ -224,9 +224,6 @@ object ScenarioLedger {
 
   sealed trait CommitError
   object CommitError {
-    final case class FailedAuthorizations(
-        errors: ledger.FailedAuthorizations,
-    ) extends CommitError
     final case class UniqueKeyViolation(
         error: ScenarioLedger.UniqueKeyViolation,
     ) extends CommitError
