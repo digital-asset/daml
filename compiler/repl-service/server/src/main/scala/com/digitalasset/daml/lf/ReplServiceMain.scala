@@ -167,6 +167,12 @@ object ReplServiceMain extends App {
 
 }
 
+object ReplService {
+  private val compilerConfig = Compiler.Config.Default.copy(
+    stacktracing = Compiler.FullStackTrace
+  )
+}
+
 class ReplService(
     val clients: Participants[ScriptLedgerClient],
     timeMode: ScriptTimeMode,
@@ -182,6 +188,8 @@ class ReplService(
   implicit val esf_ = esf
   implicit val mat_ = mat
 
+  import ReplService._
+
   private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
   override def loadPackage(
@@ -189,11 +197,8 @@ class ReplService(
       respObs: StreamObserver[LoadPackageResponse]): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     packages = packages + (pkgId -> pkg)
-    compiledDefinitions = compiledDefinitions ++ Compiler(
-      packages,
-      Compiler.FullStackTrace,
-      Compiler.NoProfile)
-      .unsafeCompilePackage(pkgId)
+    compiledDefinitions = compiledDefinitions ++
+      new Compiler(packages, compilerConfig).unsafeCompilePackage(pkgId)
     respObs.onNext(LoadPackageResponse.newBuilder.build)
     respObs.onCompleted()
   }
@@ -228,14 +233,14 @@ class ReplService(
     }
 
     val allPkgs = packages + (homePackageId -> pkg)
-    val defs = Compiler(allPkgs, Compiler.FullStackTrace, Compiler.NoProfile)
-      .unsafeCompilePackage(homePackageId)
+    val defs =
+      new Compiler(allPkgs, compilerConfig).unsafeCompilePackage(homePackageId)
     val compiledPackages =
       PureCompiledPackages(
         allPkgs,
         compiledDefinitions ++ defs,
-        Compiler.FullStackTrace,
-        Compiler.NoProfile)
+        compilerConfig,
+      )
     val runner =
       new Runner(compiledPackages, Script.Action(scriptExpr, ScriptIds(scriptPackageId)), timeMode)
     runner

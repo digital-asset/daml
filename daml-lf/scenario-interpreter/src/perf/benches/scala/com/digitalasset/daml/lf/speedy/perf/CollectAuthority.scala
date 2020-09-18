@@ -45,11 +45,15 @@ class CollectAuthorityState {
     val packagesMap = packages.all.map {
       case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
     }.toMap
-    val stacktracing = Compiler.NoStackTrace
+
+    val compilerConfig =
+      Compiler.Config.Default.copy(
+        stacktracing = Compiler.NoStackTrace
+      )
 
     // NOTE(MH): We use a static seed to get reproducible runs.
     val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("scenario-perf"))
-    val compiledPackages = PureCompiledPackages(packagesMap, stacktracing).right.get
+    val compiledPackages = PureCompiledPackages(packagesMap, Map.empty, compilerConfig)
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(

@@ -428,10 +428,14 @@ object SpeedyTest {
       case Goodbye(err) => Left(err)
     }
   }
+  private val noPackages =
+    PureCompiledPackages(
+      Map.empty,
+      Map.empty,
+      Compiler.Config.Default.copy(profiling = Compiler.FullProfile))
 
   private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
-    val packages = PureCompiledPackages(Map.empty, profiling = Compiler.FullProfile).right.get
-    val machine = Speedy.Machine.fromPureExpr(packages, e)
+    val machine = Speedy.Machine.fromPureExpr(noPackages, e)
     machine.run()
     machine.profile.events
   }

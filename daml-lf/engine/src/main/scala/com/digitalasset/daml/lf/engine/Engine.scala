@@ -52,14 +52,18 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
 
   private[this] val compiledPackages =
     ConcurrentCompiledPackages(
-      allowedLanguageVersions = config.allowedLanguageVersions,
-      packageValidation =
-        if (config.packageValidation) speedy.Compiler.FullPackageValidation
-        else speedy.Compiler.NoPackageValidation,
-      stackTraceMode =
-        if (config.stackTraceMode) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace,
-      profilingMode =
-        if (config.profileDir.isDefined) speedy.Compiler.FullProfile else speedy.Compiler.NoProfile,
+      config.allowedLanguageVersions,
+      speedy.Compiler.Config(
+        packageValidation =
+          if (config.packageValidation) speedy.Compiler.FullPackageValidation
+          else speedy.Compiler.NoPackageValidation,
+        stacktracing =
+          if (config.stackTraceMode) speedy.Compiler.FullStackTrace
+          else speedy.Compiler.NoStackTrace,
+        profiling =
+          if (config.profileDir.isDefined) speedy.Compiler.FullProfile
+          else speedy.Compiler.NoProfile,
+      )
     )
 
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)

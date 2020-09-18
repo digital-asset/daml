@@ -80,7 +80,7 @@ object PlaySpeedy {
     println(s"Compiling packages... ${config.stacktracing}")
     val compiledPackages: CompiledPackages = PureCompiledPackages(
       packagesMap,
-      config.stacktracing
+      Compiler.Config.Default.copy(stacktracing = config.stacktracing)
     ) match {
       case Right(x) => x
       case Left(x) =>

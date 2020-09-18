@@ -20,10 +20,11 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
   */
 private[lf] final class ConcurrentCompiledPackages(
     allowedLanguageVersions: VersionRange[LanguageVersion],
-    packageValidationMode: speedy.Compiler.PackageValidationMode,
-    stackTraceMode: speedy.Compiler.StackTraceMode,
-    profilingMode: Compiler.ProfilingMode,
-) extends MutableCompiledPackages(allowedLanguageVersions, stackTraceMode, profilingMode) {
+    compilerConfig: Compiler.Config,
+) extends MutableCompiledPackages(
+      allowedLanguageVersions: VersionRange[LanguageVersion],
+      compilerConfig,
+    ) {
   private[this] val _packages: ConcurrentMap[PackageId, Package] =
     new ConcurrentHashMap().asScala
   private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
@@ -88,9 +89,8 @@ private[lf] final class ConcurrentCompiledPackages(
           if (!_packages.contains(pkgId)) {
             // Compile the speedy definitions for this package.
             val defns =
-              speedy
-                .Compiler(packages orElse state.packages, stackTraceMode, profilingMode)
-                .unsafeCompilePackage(pkgId, packageValidationMode)
+              new speedy.Compiler(packages orElse state.packages, compilerConfig)
+                .unsafeCompilePackage(pkgId)
             defns.foreach {
               case (defnId, defn) => _defns.put(defnId, defn)
             }
@@ -129,15 +129,12 @@ private[lf] final class ConcurrentCompiledPackages(
 object ConcurrentCompiledPackages {
   def apply(
       allowedLanguageVersions: VersionRange[LanguageVersion],
-      packageValidation: Compiler.PackageValidationMode = Compiler.FullPackageValidation,
-      stackTraceMode: speedy.Compiler.StackTraceMode = Compiler.NoStackTrace,
-      profilingMode: Compiler.ProfilingMode = Compiler.NoProfile,
+      compilerConfig: Compiler.Config = Compiler.Config.Default,
   ): ConcurrentCompiledPackages =
     new ConcurrentCompiledPackages(
       allowedLanguageVersions,
-      packageValidation,
-      stackTraceMode,
-      profilingMode)
+      compilerConfig,
+    )
 
   private case class AddPackageState(
       packages: Map[PackageId, Package], // the packages we're currently compiling

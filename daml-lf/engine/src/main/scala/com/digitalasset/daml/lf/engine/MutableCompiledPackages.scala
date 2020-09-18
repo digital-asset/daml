@@ -14,9 +14,8 @@ import com.daml.lf.speedy.Compiler
   */
 abstract class MutableCompiledPackages(
     allowedLanguageVersions: VersionRange[LanguageVersion],
-    stackTraceMode: speedy.Compiler.StackTraceMode,
-    profilingMode: Compiler.ProfilingMode,
-) extends CompiledPackages(stackTraceMode, profilingMode) {
+    compilerConfig: Compiler.Config,
+) extends CompiledPackages(compilerConfig) {
 
   /** Add a new package and compile it to internal form. If package
     * depends on another package the call may return with [[ResultNeedPackage]].

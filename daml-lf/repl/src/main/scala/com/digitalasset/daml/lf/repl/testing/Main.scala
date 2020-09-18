@@ -172,13 +172,18 @@ object Repl {
       quit: Boolean
   )
 
+  private[this] val compilerConfig =
+    Compiler.Config.Default.copy(
+      stacktracing = Compiler.FullStackTrace
+    )
+
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
       devMode: Boolean,
       profiling: Compiler.ProfilingMode,
   ) {
     val (compiledPackages, compileTime) = time {
-      PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get
+      PureCompiledPackages(packages, compilerConfig.copy(profiling = profiling)).right.get
     }
     System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
 
@@ -425,8 +430,7 @@ object Repl {
   }
 
   def speedyCompile(state: State, args: Seq[String]): Unit = {
-    val defs = assertRight(
-      Compiler.compilePackages(state.packages, Compiler.FullStackTrace, Compiler.NoProfile))
+    val defs = assertRight(Compiler.compilePackages(state.packages, compilerConfig))
     defs.get(idToRef(state, args(0))) match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list."); usage
