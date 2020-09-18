@@ -65,7 +65,7 @@ object PlaySpeedy {
   }
 
   private val noPackages =
-    PureCompiledPackages(Map.empty, Map.empty, compilerConfig)
+    PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
 
   def runMachine(name: String, machine: Machine, expected: Int): Unit = {
 
