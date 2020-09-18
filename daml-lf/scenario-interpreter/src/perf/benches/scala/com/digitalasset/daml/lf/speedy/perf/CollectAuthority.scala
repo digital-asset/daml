@@ -53,7 +53,7 @@ class CollectAuthorityState {
 
     // NOTE(MH): We use a static seed to get reproducible runs.
     val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("scenario-perf"))
-    val compiledPackages = PureCompiledPackages(packagesMap, Map.empty, compilerConfig)
+    val compiledPackages = data.assertRight(PureCompiledPackages(packagesMap, compilerConfig))
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(
