@@ -20,6 +20,7 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
   */
 private[lf] final class ConcurrentCompiledPackages(
     allowedLanguageVersions: VersionRange[LanguageVersion],
+    packageValidationMode: speedy.Compiler.PackageValidationMode,
     stackTraceMode: speedy.Compiler.StackTraceMode,
     profilingMode: Compiler.ProfilingMode,
 ) extends MutableCompiledPackages(allowedLanguageVersions, stackTraceMode, profilingMode) {
@@ -89,7 +90,7 @@ private[lf] final class ConcurrentCompiledPackages(
             val defns =
               speedy
                 .Compiler(packages orElse state.packages, stackTraceMode, profilingMode)
-                .unsafeCompilePackage(pkgId)
+                .unsafeCompilePackage(pkgId, packageValidationMode)
             defns.foreach {
               case (defnId, defn) => _defns.put(defnId, defn)
             }
@@ -128,10 +129,15 @@ private[lf] final class ConcurrentCompiledPackages(
 object ConcurrentCompiledPackages {
   def apply(
       allowedLanguageVersions: VersionRange[LanguageVersion],
+      packageValidation: Compiler.PackageValidationMode = Compiler.FullPackageValidation,
       stackTraceMode: speedy.Compiler.StackTraceMode = Compiler.NoStackTrace,
       profilingMode: Compiler.ProfilingMode = Compiler.NoProfile,
   ): ConcurrentCompiledPackages =
-    new ConcurrentCompiledPackages(allowedLanguageVersions, stackTraceMode, profilingMode)
+    new ConcurrentCompiledPackages(
+      allowedLanguageVersions,
+      packageValidation,
+      stackTraceMode,
+      profilingMode)
 
   private case class AddPackageState(
       packages: Map[PackageId, Package], // the packages we're currently compiling

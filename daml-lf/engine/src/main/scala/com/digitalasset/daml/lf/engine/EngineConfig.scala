@@ -13,6 +13,7 @@ final case class EngineConfig(
     allowedLanguageVersions: VersionRange[LV],
     allowedInputTransactionVersions: VersionRange[TV],
     allowedOutputTransactionVersions: VersionRange[TV],
+    packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
 ) {
