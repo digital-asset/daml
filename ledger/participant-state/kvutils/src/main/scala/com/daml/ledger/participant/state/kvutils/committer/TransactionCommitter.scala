@@ -249,20 +249,11 @@ private[kvutils] class TransactionCommitter(
       })
 
   /** Validate the submission's conformance to the DAML model */
-  private def authorizeAndBlind: Step =
-    (commitContext, transactionEntry) =>
-      Blinding
-        .checkAuthorizationAndBlind(
-          transactionEntry.transaction,
-          initialAuthorizers = Set(transactionEntry.submitter),
-        )
-        .fold(
-          error =>
-            reject(
-              commitContext.getRecordTime,
-              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(error.msg))),
-          blindingInfo => buildFinalResult(commitContext, transactionEntry, blindingInfo)
-      )
+  private def authorizeAndBlind: Step = //TODO: rename. no authorization here any more!
+    (commitContext, transactionEntry) => {
+      val blindingInfo = Blinding.blind(transactionEntry.transaction)
+      buildFinalResult(commitContext, transactionEntry, blindingInfo)
+    }
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
     val damlState = commitContext.inputs
