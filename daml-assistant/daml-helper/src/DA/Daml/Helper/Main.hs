@@ -359,8 +359,8 @@ commandParser = subparser $ fold
     timeoutOption = option auto $ mconcat
         [ long "timeout"
         , metavar "INT"
-        , value 30
-        , help "Timeout of gRPC operations in seconds. Defaults to 30s. Must be > 0."
+        , value 60
+        , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
         ]
 
 runCommand :: Command -> IO ()
