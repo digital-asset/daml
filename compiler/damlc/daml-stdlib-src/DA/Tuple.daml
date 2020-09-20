@@ -56,3 +56,8 @@ curry3 f a b c = f (a,b,c)
 -- | Converts a curried function to a function on a triple.
 uncurry3 : (a -> b -> c -> d) -> ((a, b, c) -> d)
 uncurry3 f ~(a,b,c) = f a b c
+
+instance Functor ((,,) a b) where
+  fmap f (x, y, z) = (x, y, f z)
+  v <$ (x, y, _) = (x, y, v)
+  
