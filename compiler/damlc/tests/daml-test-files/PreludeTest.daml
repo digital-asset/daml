@@ -139,6 +139,7 @@ testFmap = scenario do
   [] === (T.length <$> [])
   Right 2 === fmap T.length (Right "10" : Either Text Text)
   Left "a" === fmap (+10) (Left "a")
+  (1, 3) === fmap T.length (1, "abc")
 
 testOptional = scenario do
   Some 11 === fmap (+10) (Some 1)

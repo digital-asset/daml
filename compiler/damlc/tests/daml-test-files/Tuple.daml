@@ -6,6 +6,7 @@ module Tuple where
 
 import DA.Tuple
 import DA.Assert
+import DA.Text qualified as T
 
 testFirst = scenario do
   (12, "abc") === first (*4) (3, "abc")
@@ -29,3 +30,24 @@ testTuple = scenario do
 f : Int -> [Int]
 f 0 = []
 f i = i :: f (i-1)
+
+testDupe = scenario do
+  ("a", "a") === dupe "a"
+
+testFst3 = scenario do
+  1 === fst3 (1, "A", True)
+
+testSnd3 = scenario do
+  "A" === snd3 (1, "A", True)
+
+testThd3 = scenario do
+  True === thd3 (1, "A", True)
+
+testCurry3 = scenario do
+    assert $ 123 == curry3 (\(x, y, z) -> x + y + z) 20 3 100
+
+testUncurry3 = scenario do
+    assert $ 123 == uncurry3 (\x y z -> x + y + z) (20, 3, 100)
+
+testFmap3 = scenario do
+  (1, True, 3) === fmap T.length (1, True, "abc")
