@@ -172,34 +172,33 @@ object Repl {
       quit: Boolean
   )
 
-  private[this] val compilerConfig =
-    Compiler.Config.Default.copy(
-      stacktracing = Compiler.FullStackTrace
-    )
-
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
       devMode: Boolean,
       profiling: Compiler.ProfilingMode,
   ) {
-    val (compiledPackages, compileTime) = time {
-      PureCompiledPackages(packages, compilerConfig.copy(profiling = profiling)).right.get
-    }
-    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
 
-    private val seed = nextSeed()
-
-    val (inputValueVersion, outputTransactionVersions) =
+    val (inputValueVersion, outputTransactionVersions, compilerConfig) =
       if (devMode)
         (
           value.ValueVersions.DevOutputVersions,
-          transaction.TransactionVersions.DevOutputVersions
+          transaction.TransactionVersions.DevOutputVersions,
+          Compiler.Config.Dev,
         )
       else
         (
           value.ValueVersions.StableOutputVersions,
           transaction.TransactionVersions.StableOutputVersions,
+          Compiler.Config.Default,
         )
+
+    val (compiledPackages, compileTime) = time {
+      PureCompiledPackages(packages, compilerConfig.copy(profiling = profiling)).right.get
+    }
+
+    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
+
+    private val seed = nextSeed()
 
     def run(expr: Expr): (
         Speedy.Machine,
@@ -430,7 +429,8 @@ object Repl {
   }
 
   def speedyCompile(state: State, args: Seq[String]): Unit = {
-    val defs = assertRight(Compiler.compilePackages(state.packages, compilerConfig))
+    val defs = assertRight(
+      Compiler.compilePackages(state.packages, state.scenarioRunner.compilerConfig))
     defs.get(idToRef(state, args(0))) match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list."); usage

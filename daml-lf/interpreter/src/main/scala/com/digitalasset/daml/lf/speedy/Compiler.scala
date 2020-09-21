@@ -7,10 +7,12 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Anf.flattenToAnf
+import com.daml.lf.transaction.VersionTimeline
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
@@ -47,7 +49,8 @@ private[lf] object Compiler {
   case object NoPackageValidation extends PackageValidationMode
   case object FullPackageValidation extends PackageValidationMode
 
-  private[lf] case class Config(
+  case class Config(
+      allowedLanguageVersions: VersionRange[LanguageVersion],
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
@@ -55,6 +58,13 @@ private[lf] object Compiler {
 
   object Config {
     val Default = Config(
+      allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
+      packageValidation = FullPackageValidation,
+      profiling = NoProfile,
+      stacktracing = NoStackTrace,
+    )
+    val Dev = Config(
+      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
@@ -252,13 +262,21 @@ private[lf] final class Compiler(
   @throws[ValidationError]
   def unsafeCompilePackage(
       pkgId: PackageId,
-      packageValidationMode: PackageValidationMode = FullPackageValidation,
   ): Iterable[(SDefinitionRef, SExpr)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()
 
-    packageValidationMode match {
+    packages.lift(pkgId) match {
+      case Some(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+        throw CompilationError(
+          s"Disallowed language version in package $pkgId: " +
+            s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
+        )
+      case _ =>
+    }
+
+    config.packageValidation match {
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
         Validation.checkPackage(packages, pkgId).left.foreach {

@@ -53,7 +53,6 @@ class EngineTest
     with BazelRunfiles {
 
   import EngineTest._
-  import EngineConfig.Dev.allowedLanguageVersions
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
@@ -140,7 +139,7 @@ class EngineTest
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine.DevEngine()
   val preprocessor =
-    new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
+    new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.toCompilerConfig))
 
   "valid data variant identifier" should {
     "found and return the argument types" in {
@@ -394,7 +393,7 @@ class EngineTest
         loadPackage("daml-lf/tests/Optional.dar")
 
       val translator =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.toCompilerConfig))
 
       val id = Identifier(optionalPkgId, "Optional:Rec")
       val someValue =
@@ -419,7 +418,7 @@ class EngineTest
 
     "returns correct error when resuming" in {
       val translator =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.toCompilerConfig))
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord =
         ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
