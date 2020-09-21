@@ -14,7 +14,7 @@ import com.daml.lf.transaction.VersionTimeline
   * The order of versions is specified by [[VersionTimeline]].
   *
   * @param min the minimal version included in the range.
-  * @param max the maximla version included in the range.
+  * @param max the maximal version included in the range.
   * @tparam V either [[com.daml.lf.language.LanguageVersion]],
   *   [[com.daml.lf.transaction.TransactionVersion]], or
   *   [[com.daml.lf.value.ValueVersion]].

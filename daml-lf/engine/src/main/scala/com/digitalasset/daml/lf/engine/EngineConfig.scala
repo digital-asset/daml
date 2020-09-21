@@ -27,7 +27,7 @@ import com.daml.lf.value.ValueVersion
   *     included in this range
   *
   * @param allowedOutputTransactionVersions The range of output
-  *     transactions the engine is allowed to produces. The Engine
+  *     transactions the engine is allowed to produce. The Engine
   *     will always use the lowest possible version from this range to
   *     encode the output transaction, and fails if such version does
   *     not exist.
@@ -37,7 +37,7 @@ import com.daml.lf.value.ValueVersion
   *
   * @param profileDir The optional specifies the directory where to
   *     save the output of the DAML scenario profiler. The profiler is
-  *     disable if the option is empty.
+  *     disabled if the option is empty.
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[LV],
