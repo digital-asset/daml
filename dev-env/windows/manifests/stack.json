@@ -1,11 +1,11 @@
 {
   "homepage": "https://docs.haskellstack.org/en/stable/README/",
-  "version": "2.3.1",
+  "version": "2.3.3",
   "bin": "stack.exe",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/commercialhaskell/stack/releases/download/v2.3.1/stack-2.3.1-windows-x86_64.zip",
-      "hash": "4790975b189d2a511e2e9fa6416d9d2d869763f7ae93e522afac7c2edae279c2"
+      "url": "https://github.com/commercialhaskell/stack/releases/download/v2.3.3/stack-2.3.3-windows-x86_64.zip",
+      "hash": "fb14dfea14cc0562a2e7c78f2c92be0f7b6119f1b3c2265f5e623b7149309802"
     }
   }
 }
