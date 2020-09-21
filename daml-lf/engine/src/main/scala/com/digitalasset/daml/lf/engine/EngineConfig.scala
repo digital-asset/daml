@@ -67,7 +67,7 @@ final case class EngineConfig(
       TransactionVersions.assignValueVersion(allowedOutputTransactionVersions.max),
     )
 
-  private[lf] def toCompilerConfig: Compiler.Config =
+  private[lf] def getCompilerConfig: Compiler.Config =
     speedy.Compiler.Config(
       allowedLanguageVersions,
       packageValidation =

@@ -50,7 +50,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
-  private[this] val compiledPackages = ConcurrentCompiledPackages(config.toCompilerConfig)
+  private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
 

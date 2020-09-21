@@ -139,7 +139,7 @@ class EngineTest
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine.DevEngine()
   val preprocessor =
-    new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.toCompilerConfig))
+    new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
 
   "valid data variant identifier" should {
     "found and return the argument types" in {
@@ -393,7 +393,7 @@ class EngineTest
         loadPackage("daml-lf/tests/Optional.dar")
 
       val translator =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.toCompilerConfig))
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
 
       val id = Identifier(optionalPkgId, "Optional:Rec")
       val someValue =
@@ -418,7 +418,7 @@ class EngineTest
 
     "returns correct error when resuming" in {
       val translator =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.toCompilerConfig))
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord =
         ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
