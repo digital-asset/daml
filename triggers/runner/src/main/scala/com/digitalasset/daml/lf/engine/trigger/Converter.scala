@@ -67,7 +67,7 @@ case class TriggerIds(val triggerPackageId: PackageId) {
 case class AnyContractId(templateId: Identifier, contractId: ContractId)
 
 object Converter {
-  import com.daml.script.converter.Converter._
+  import com.daml.script.converter.Converter._, Implicits._
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
     lfValueToApiRecord(true, v.toValue)
@@ -296,26 +296,17 @@ object Converter {
     )
   }
 
-  private def toFiniteDuration(value: SValue): Either[String, FiniteDuration] = {
-    value match {
-      case SRecord(_, _, values) if values.size() == 1 =>
-        values.get(0) match {
-          case SInt64(microseconds) =>
-            Right(FiniteDuration(microseconds, MICROSECONDS))
-          case _ =>
-            Left(s"Expected RelTime but got $value.")
-        }
-      case _ =>
-        Left(s"Expected RelTime but got $value.")
-    }
-  }
+  private def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =
+    value expect ("RelTime", {
+      case SRecord(_, _, JavaList(SInt64(microseconds))) =>
+        FiniteDuration(microseconds, MICROSECONDS)
+    })
 
-  private def toCommandId(v: SValue): Either[String, String] = {
+  private def toCommandId(v: SValue): Either[String, String] =
     v match {
-      case SRecord(_, _, vals) if vals.size == 1 => toText(vals.get(0))
+      case SRecord(_, _, JavaList(elem)) => toText(elem)
       case _ => Left(s"Expected CommandId but got $v")
     }
-  }
 
   private def toIdentifier(v: SValue): Either[String, Identifier] = {
     v match {

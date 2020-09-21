@@ -38,6 +38,8 @@ import com.daml.ledger.api.v1.value
 class ConverterException(message: String) extends RuntimeException(message)
 
 private[daml] object Converter {
+  import Implicits._
+
   type ErrorOr[+A] = Either[String, A]
 
   private val DA_INTERNAL_ANY_PKGID =
@@ -48,15 +50,10 @@ private[daml] object Converter {
       QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
 
   def toContractId(v: SValue): ErrorOr[ContractId] =
-    v match {
-      case SContractId(cid) => Right(cid)
-      case _ => Left(s"Expected ContractId but got $v")
-    }
+    v expect ("ContractId", { case SContractId(cid) => cid })
 
-  def toText(v: SValue): ErrorOr[String] = v match {
-    case SText(s) => Right(s)
-    case v => Left(s"Expected SText but got $v")
-  }
+  def toText(v: SValue): ErrorOr[String] =
+    v expect ("SText", { case SText(s) => s })
 
   // Helper to make constructing an SRecord more convenient
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
@@ -69,5 +66,15 @@ private[daml] object Converter {
   object JavaList {
     def unapplySeq[A](jl: util.List[A]): Some[Seq[A]] =
       Some(jl.asScala)
+  }
+
+  object Implicits {
+    implicit final class `intoOr and expect`[A](private val self: A) extends AnyVal {
+      def intoOr[R, L](pf: A PartialFunction R)(orElse: => L): Either[L, R] =
+        pf.lift(self) toRight orElse
+
+      def expect[R](name: String, pf: A PartialFunction R): ErrorOr[R] =
+        self.intoOr(pf)(s"Expected $name but got $self")
+    }
   }
 }
