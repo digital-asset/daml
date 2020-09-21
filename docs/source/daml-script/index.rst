@@ -235,15 +235,44 @@ translated to DAML script but there are a few things to keep in mind:
 #. Instead of specifying a ``scenario`` field in your ``daml.yaml``,
    you need to specify an ``init-script`` field. The initialization
    script is specified via ``Module:identifier`` for both fields.
-#. DAML script only supports the commands available on the ledger API
-   so you cannot call functions like ``fetch`` directly. This is
-   intentional. Your initialization scripts should not be able to
-   create transactions that a ledger client would not be able to
-   create. If you want to call methods not exposed via the Ledger API,
-   you can create a new template with a single choice
-   and call that via ``createAndExercise``.
-#. You need to replace calls to ``getParty x`` by
-   ``allocatePartyWithHint x (PartyIdHint x)``.
+#. In DAML script, ``submit`` and ``submitMustFail`` are limited to
+   the functionality provided by the ledger API: A list of independent
+   commands consisting of ``createCmd``, ``exerciseCmd``,
+   ``createAndExerciseCmd`` and ``exerciseByKeyCmd``. There are two
+   issues you might run into when migrating an existing scenario:
+
+   #. Your commands depend on each other, e.g., you use the result of
+      a ``create`` within a following command in the same
+      ``submit``. In this case, you have two options: If it is not
+      important that they are part of the translation, simply split
+      them into multiple calls to ``submit``. If you do need them to
+      be within the same transaction, you can move the logic to a
+      choice and call that using ``createAndExerciseCmd``.
+
+   #. You use something that is not part of the 4 ledger API command
+      types, e.g., ``fetch``. For ``fetch`` and ``fetchByKey``, you
+      can instead use ``queryContractId`` and ``queryContractKey``
+      with the caveat that they do not run within the same
+      transaction. Other types of ``Update`` statements can be moved
+      to a choice that you call via ``createAndExerciseCmd``.
+#. Instead of Scenario’s ``getParty``, DAML Script provides you with
+   ``allocateParty`` and ``allocatePartyWithHint``. There are a few
+   important differences:
+
+   #. Allocating a party always gives you back a new party (or
+      fails). If you have multiple calls to ``getParty`` with the same
+      string and expect to get back the same party, you should instead
+      allocate the party once at the beginning and pass it along to
+      the rest of the code.
+
+   #. If you want to allocate a party with a specific party id, you
+      can use ``allocatePartyWithHint x (PartyIdHint x)``. Note that
+      while this is supported in DAML Studio and DAML on SQL, other
+      ledgers can behave differently and ignore the party id hint or
+      interpret it another way. Try not to rely on any specific
+      party id.
+#. Instead of ``pass`` and ``passToDate``, DAML Script provides
+   ``passTime`` and ``setTime``.
 
 .. _daml-script-distributed:
 
