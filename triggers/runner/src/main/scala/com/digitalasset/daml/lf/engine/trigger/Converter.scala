@@ -5,12 +5,9 @@ package com.daml.lf
 package engine
 package trigger
 
-import java.util
-
-import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.{FrontStack, ImmArray}
+import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
@@ -69,22 +66,8 @@ case class TriggerIds(val triggerPackageId: PackageId) {
 
 case class AnyContractId(templateId: Identifier, contractId: ContractId)
 
-class ConverterException(message: String) extends RuntimeException(message)
-
 object Converter {
-  private val DA_INTERNAL_ANY_PKGID =
-    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
-  private def daInternalAny(s: String): Identifier =
-    Identifier(
-      DA_INTERNAL_ANY_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
-
-  // Helper to make constructing an SRecord more convenient
-  private def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-    val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to[ImmArray]
-    val args = new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
-    SRecord(ty, fieldNames, args)
-  }
+  import com.daml.script.converter.Converter._
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
     lfValueToApiRecord(true, v.toValue)
@@ -327,13 +310,6 @@ object Converter {
     }
   }
 
-  private def toText(v: SValue): Either[String, String] = {
-    v match {
-      case SText(t) => Right(t)
-      case _ => Left(s"Expected Text but got $v")
-    }
-  }
-
   private def toCommandId(v: SValue): Either[String, String] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 => toText(vals.get(0))
@@ -375,13 +351,6 @@ object Converter {
     v match {
       case SList(tpls) => tpls.traverse(toRegisteredTemplate(_)).map(_.toImmArray.toSeq)
       case _ => Left(s"Expected list of RegisteredTemplate but got $v")
-    }
-  }
-
-  private def toContractId(v: SValue): Either[String, ContractId] = {
-    v match {
-      case SContractId(cid: ContractId) => Right(cid)
-      case _ => Left(s"Expected ContractId but got $v")
     }
   }
 

@@ -42,6 +42,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.script.converter.ConverterException
 
 import com.google.protobuf.empty.Empty
 

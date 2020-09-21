@@ -67,6 +67,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiValue,
   toApiIdentifier
 }
+import com.daml.script.converter.ConverterException
 
 // We have our own type for time modes since TimeProviderType
 // allows for more stuff that doesn’t make sense in DAML Script.

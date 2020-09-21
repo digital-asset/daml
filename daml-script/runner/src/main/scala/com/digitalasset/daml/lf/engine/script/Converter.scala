@@ -6,15 +6,13 @@ package engine
 package script
 
 import io.grpc.StatusRuntimeException
-import java.util
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
+import com.daml.lf.data.{Ref, Struct, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -30,6 +28,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.CompiledPackages
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.v1.value
+import com.daml.script.converter.ConverterException
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -56,26 +55,19 @@ object ScriptIds {
   }
 }
 
-class ConverterException(message: String) extends RuntimeException(message)
-
 case class AnyTemplate(ty: Identifier, arg: SValue)
 case class AnyChoice(name: ChoiceName, arg: SValue)
 case class AnyContractKey(key: SValue)
 
 object Converter {
+  import com.daml.script.converter.Converter._
+
   private val DA_TYPES_PKGID =
     PackageId.assertFromString("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
   private def daTypes(s: String): Identifier =
     Identifier(
       DA_TYPES_PKGID,
       QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)))
-
-  private val DA_INTERNAL_ANY_PKGID =
-    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
-  private def daInternalAny(s: String): Identifier =
-    Identifier(
-      DA_INTERNAL_ANY_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
 
   def toFuture[T](s: Either[String, T]): Future[T] = s match {
     case Left(err) => Future.failed(new ConverterException(err))
@@ -147,12 +139,6 @@ object Converter {
           )
       }
       case _ => Left(s"Expected Create but got $v")
-    }
-
-  def toContractId(v: SValue): Either[String, ContractId] =
-    v match {
-      case SContractId(cid: ContractId) => Right(cid)
-      case _ => Left(s"Expected ContractId but got $v")
     }
 
   def toExerciseCommand(v: SValue): Either[String, command.Command] =
@@ -390,11 +376,6 @@ object Converter {
       case _ => Left(s"Expected STimestamp but got $v")
     }
 
-  def toText(v: SValue): Either[String, String] = v match {
-    case SText(s) => Right(s)
-    case v => Left(s"Expected SText but got $v")
-  }
-
   def toInt(v: SValue): Either[String, Int] = v match {
     case SInt64(n) => Right(n.toInt)
     case v => Left(s"Expected SInt64 but got $v")
@@ -444,14 +425,6 @@ object Converter {
         }
       case _ => Left(s"Expected SList but got $v")
     }
-
-  // Helper to construct a record
-  def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-    val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to[ImmArray]
-    val args =
-      new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
-    SRecord(ty, fieldNames, args)
-  }
 
   def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
     for {
