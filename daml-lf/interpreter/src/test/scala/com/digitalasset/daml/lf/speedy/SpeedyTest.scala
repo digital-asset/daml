@@ -318,14 +318,6 @@ class SpeedyTest extends WordSpec with Matchers {
 
     }
 
-    /*
-    Some(SELabelClosure(LfDefRef(-pkgId-:M:p_1_0),
-        SELet1General(SEVal(LfDefRef(-pkgId-:M:origin)),SEAppAtomicSaturatedBuiltin(SBRecUpd(-pkgId-:M:Point,0),[SELocS(1),SEValue(SInt64(1))])))) did not equal
-    Some(SELet1General(SEVal(LfDefRef(-pkgId-:M:origin)),SEAppAtomicSaturatedBuiltin(SBRecUpd(-pkgId-:M:Point,0),[SELocS(1),SEValue(SInt64(1))])))
-
-
-     */
-
     "produce expected output for single update" in {
       eval(e"M:p_1_0", recUpdPkgs) shouldEqual
         Right(

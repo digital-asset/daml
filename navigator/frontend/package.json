@@ -90,6 +90,7 @@
     "**/apollo-client": "~1.4.0",
     "**/elliptic": "^6.5.3",
     "**/resize-img": "^2.0.0",
-    "**/jpeg-js": "^0.4.1"
+    "**/jpeg-js": "^0.4.1",
+    "**/selfsigned": "^1.10.8"
   }
 }
