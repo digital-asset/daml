@@ -266,7 +266,7 @@ translated to DAML script but there are a few things to keep in mind:
       the rest of the code.
 
    #. If you want to allocate a party with a specific party id, you
-      can use ``allocatePartyWithHint x (PartyIdHint x)``. Note that
+      can use ``allocatePartyWithHint x (PartyIdHint x)`` as a replacement for `getParty x`. Note that
       while this is supported in DAML Studio and DAML for PostgreSQL, other
       ledgers can behave differently and ignore the party id hint or
       interpret it another way. Try to not rely on any specific
