@@ -244,7 +244,7 @@ translated to DAML script but there are a few things to keep in mind:
    #. Your commands depend on each other, e.g., you use the result of
       a ``create`` within a following command in the same
       ``submit``. In this case, you have two options: If it is not
-      important that they are part of the translation, simply split
+      important that they are part of a single transaction, split
       them into multiple calls to ``submit``. If you do need them to
       be within the same transaction, you can move the logic to a
       choice and call that using ``createAndExerciseCmd``.
@@ -269,7 +269,7 @@ translated to DAML script but there are a few things to keep in mind:
       can use ``allocatePartyWithHint x (PartyIdHint x)``. Note that
       while this is supported in DAML Studio and DAML on SQL, other
       ledgers can behave differently and ignore the party id hint or
-      interpret it another way. Try not to rely on any specific
+      interpret it another way. Try to not rely on any specific
       party id.
 #. Instead of ``pass`` and ``passToDate``, DAML Script provides
    ``passTime`` and ``setTime``.
