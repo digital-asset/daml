@@ -45,6 +45,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.VersionTimeline
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
@@ -173,7 +174,16 @@ object Script {
 
 object Runner {
 
-  private val compilerConfig = Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
+  private val compilerConfig = {
+    import Compiler._
+    Config(
+      // FIXME: Should probably not include 1.dev by default.
+      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      packageValidation = FullPackageValidation,
+      profiling = NoProfile,
+      stacktracing = FullStackTrace,
+    )
+  }
 
   val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
   private def connectApiParameters(
