@@ -624,22 +624,6 @@ final class Conversions(
             )
             .build,
         )
-      case V.ValueStruct(fields) =>
-        builder.setTuple(
-          proto.Tuple.newBuilder
-            .addAllFields(
-              fields.iterator
-                .map { field =>
-                  proto.Field.newBuilder
-                    .setLabel(field._1)
-                    .setValue(convertValue(field._2))
-                    .build
-                }
-                .toSeq
-                .asJava,
-            )
-            .build,
-        )
       case V.ValueVariant(tycon, variant, value) =>
         val vbuilder = proto.Variant.newBuilder
         tycon.foreach(x => vbuilder.setVariantId(convertIdentifier(x)))

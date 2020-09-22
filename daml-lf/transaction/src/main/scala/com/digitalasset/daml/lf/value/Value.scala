@@ -51,8 +51,6 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
         val newNesting = nesting + 1
 
         v match {
-          case tpl: ValueStruct[Cid] =>
-            go(exceededNesting, errs :+ s"contains struct $tpl", vs)
           case ValueRecord(_, flds) =>
             if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
@@ -156,8 +154,6 @@ object Value extends CidContainer1[Value] {
           ValueRecord(id, fs.map({
             case (lbl, value) => (lbl, go(value))
           }))
-        case ValueStruct(fs) =>
-          ValueStruct(fs.mapValues(go))
         case ValueVariant(id, variant, value) =>
           ValueVariant(id, variant, go(value))
         case x: ValueCidlessLeaf => x
@@ -180,8 +176,6 @@ object Value extends CidContainer1[Value] {
           f(coid)
         case ValueRecord(id @ _, fs) =>
           fs.foreach { case (_, value) => go(value) }
-        case ValueStruct(fs) =>
-          fs.values.foreach(go)
         case ValueVariant(id @ _, variant @ _, value) =>
           go(value)
         case _: ValueCidlessLeaf =>
@@ -280,10 +274,6 @@ object Value extends CidContainer1[Value] {
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
   final case class ValueTextMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
   final case class ValueGenMap[+Cid](entries: ImmArray[(Value[Cid], Value[Cid])]) extends Value[Cid]
-  // this is present here just because we need it in some internal code --
-  // specifically the scenario interpreter converts committed values to values and
-  // currently those can be structs, although we should probably ban that.
-  final case class ValueStruct[+Cid](fields: Struct[Value[Cid]]) extends Value[Cid]
 
   /** The data constructors of a variant or enum, if defined. */
   type LookupVariantEnum = Identifier => Option[ImmArray[Name]]
@@ -496,7 +486,6 @@ private final class `Value Order instance`[Cid: Order](Scope: Value.LookupVarian
           ctorOrder(idA, idB, a, b)
       })
     case ValueRecord(_, a) => (140, k { case ValueRecord(_, b) => _2.T.subst(a) ?|? _2.T.subst(b) })
-    case ValueStruct(a) => (150, k { case ValueStruct(b) => a ?|? b })
     case ValueVariant(idA, conA, a) =>
       (160, k {
         case ValueVariant(idB, conB, b) =>
@@ -571,10 +560,6 @@ private final class `Value Equal instance`[Cid: Equal] extends Equal[Value[Cid]]
       case ValueOptional(value) => {
         case ValueOptional(value2) =>
           value === value2
-      }
-      case ValueStruct(fields) => {
-        case ValueStruct(fields2) =>
-          fields === fields2
       }
       case ValueTextMap(map1) => {
         case ValueTextMap(map2) =>

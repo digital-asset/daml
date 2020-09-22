@@ -347,12 +347,6 @@ private[lf] object Pretty {
               text("<no-label>") & char('=') & prettyValue(true)(v)
           }) &
           char('}')
-      case ValueStruct(fs) =>
-        char('{') &
-          fill(text(", "), fs.toImmArray.toSeq.map {
-            case (k, v) => text(k) & char('=') & prettyValue(true)(v)
-          }) &
-          char('}')
       case ValueVariant(mbId, variant, value) =>
         (mbId match {
           case None => text("")

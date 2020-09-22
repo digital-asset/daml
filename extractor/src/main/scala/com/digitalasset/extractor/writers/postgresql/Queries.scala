@@ -305,9 +305,6 @@ object Queries {
           Fragment("?::jsonb", toJsonString(value))
         case V.ValueGenMap(entries) =>
           Fragment("?::jsonb", toJsonString(entries))
-        case struct @ V.ValueStruct(_) =>
-          throw new IllegalArgumentException(
-            s"struct should not be present in contract, as raw structs are not serializable: $struct")
       }
     }
   }

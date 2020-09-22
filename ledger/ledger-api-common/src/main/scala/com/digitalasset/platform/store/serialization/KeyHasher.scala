@@ -116,10 +116,6 @@ object KeyHasher extends KeyHasher {
         val z1 = op(z, HashTokenCollectionBegin(entries.length))
         val z2 = entries.foldLeft[T](z1) { case (t, (k, v)) => foldLeft(k, foldLeft(v, t, op), op) }
         op(z2, HashTokenCollectionEnd())
-
-      // Struct: should never be encountered
-      case ValueStruct(_) =>
-        sys.error("Hashing of struct values is not supported")
     }
   }
 

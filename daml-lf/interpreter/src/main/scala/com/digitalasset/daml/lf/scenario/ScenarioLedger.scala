@@ -311,8 +311,6 @@ object ScenarioLedger {
           fs.foreach {
             case (_, v) => collect(v)
           }
-        case ValueStruct(fs) =>
-          fs.values.foreach(collect)
         case ValueVariant(_, _, arg) => collect(arg)
         case _: ValueEnum => ()
         case ValueList(vs) =>
