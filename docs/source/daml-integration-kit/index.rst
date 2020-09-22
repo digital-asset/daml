@@ -4,7 +4,7 @@
 DAML Integration Kit
 ####################
 
-DAML Triggers are currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`. It comprises the components needed to build your own :ref:`DAML Drivers <ecosystem-architecture>`.
+The DAML Integration Kit is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`. It comprises the components needed to build your own :ref:`DAML Drivers <ecosystem-architecture>`.
 
 .. toctree::
    :hidden:
