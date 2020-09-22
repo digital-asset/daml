@@ -4,7 +4,7 @@
 Portability, Compatibility, and Support Durations
 =================================================
 
-The DAML Ecosystem offers a number of forward and backward compatibility guarantee aiming to give the Ecosystem as a whole the following properties. See :ref:`ecosystem-architecture` for the terms used here and how they fit together.
+The DAML Ecosystem offers a number of forward and backward compatibility guarantees aiming to give the Ecosystem as a whole the following properties. See :ref:`ecosystem-architecture` for the terms used here and how they fit together.
 
 Portability
 
