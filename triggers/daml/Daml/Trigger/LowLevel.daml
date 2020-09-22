@@ -244,3 +244,21 @@ data Commands = Commands
   { commandId : CommandId
   , commands : [Command]
   }
+
+data FC f a = FC (forall r. (a -> r) -> (f r -> r) -> r)
+
+runFC : FC f a -> (a -> r) -> (f r -> r) -> r
+runFC (FC fa) = fa
+
+instance Functor (FC f) where
+  fmap f (FC fa) = FC (\br -> fa (br . f))
+
+instance Applicative (FC f) where
+  pure a = FC (\ar -> const (ar a))
+  FC ff <*> FC fa = FC (\br roll -> ff (\f -> fa (br . f) roll) roll)
+
+instance Action (FC f) where
+  FC fa >>= f = FC (\br roll -> fa (\a -> runFC (f a) br roll) roll)
+
+liftFC : Functor f => f a -> FC f a
+liftFC fa = FC (\ar roll -> roll (fmap ar fa))
