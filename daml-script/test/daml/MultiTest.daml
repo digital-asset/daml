@@ -41,7 +41,7 @@ partyIdHintTest = do
   bob <- allocatePartyWithHintOn "bob" (PartyIdHint "bob") (ParticipantName "two")
   pure (alice, bob)
 
-listKnownPartiesTest : Script ([PartyDetails], [PartyDetails])
+listKnownPartiesTest : Script ([(Optional Text, Bool)], [(Optional Text, Bool)])
 listKnownPartiesTest = do
   parties1 <- listKnownPartiesOn (ParticipantName "one")
   parties2 <- listKnownPartiesOn (ParticipantName "two")
@@ -49,4 +49,9 @@ listKnownPartiesTest = do
   p2 <- allocatePartyOn "p2" (ParticipantName "two")
   parties1' <- listKnownPartiesOn (ParticipantName "one")
   parties2' <- listKnownPartiesOn (ParticipantName "two")
-  pure (sortOn displayName (parties1' \\ parties1), sortOn displayName (parties2' \\ parties2))
+  pure
+    ( map toTuple $ sortOn displayName (parties1' \\ parties1)
+    , map toTuple $ sortOn displayName (parties2' \\ parties2)
+    )
+ where
+  toTuple PartyDetails{..} = (displayName, isLocal)
