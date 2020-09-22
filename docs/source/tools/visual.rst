@@ -4,6 +4,8 @@
 Visualizing DAML Contracts
 ##########################
 
+Visualizing DAML Contracts is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
+
 You can generate visual graphs for the contracts in your DAML project. To do this:
 
 1. Install `Graphviz <http://www.graphviz.org/download/>`_.

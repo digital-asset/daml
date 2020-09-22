@@ -22,7 +22,7 @@ import qualified Data.Set as Set
 cmd :: Int -> (CmdArgs -> a) -> Mod CommandFields a
 cmd numProcessors f = command "docs" $
         info (helper <*> (f <$> documentation numProcessors)) $
-        progDesc "Generate documentation for the given DAML program."
+        progDesc "Early Access (Labs). Generate documentation for the given DAML program."
         <> fullDesc
 
 documentation :: Int -> Parser CmdArgs

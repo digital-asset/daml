@@ -224,14 +224,14 @@ cmdInspect =
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
-    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar (early access)" <> fullDesc
+    command "visual" $ info (helper <*> cmd) $ progDesc "Early Access (Labs). Generate visual from dar" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> dotFileOpt
       vis a b = Command Visual Nothing $ execVisual a b
 
 cmdVisualWeb :: Mod CommandFields Command
 cmdVisualWeb =
-    command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar (early access)" <> fullDesc
+    command "visual-web" $ info (helper <*> cmd) $ progDesc "Early Access (Labs). Generate D3-Web Visual from dar" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> htmlOutFile <*> openBrowser
       vis a b browser = Command Visual Nothing $ execVisualHtml a b browser
@@ -408,7 +408,7 @@ cmdDocTest :: Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
     command "doctest" $
     info (helper <*> cmd) $
-    progDesc "doc tests" <> fullDesc
+    progDesc "Early Access (Labs). doc tests" <> fullDesc
   where
     cmd = execDocTest
         <$> optionsParser numProcessors (EnableScenarioService True) optPackageName

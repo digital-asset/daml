@@ -1,0 +1,84 @@
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
+Releases and Versioning
+=======================
+
+.. _versioning:
+
+Versioning
+----------
+
+All DAML components follow `Semantic Versioning <https://semver.org/>`_. In short, this means that there is a well defined "public API" changes or breakages to which are indicated by the version number.
+
+Given a version number MAJOR.MINOR.PATCH, increment the:
+
+#. MAJOR version when you make incompatible API changes,
+#. MINOR version when you add functionality in a backwards compatible manner, and
+#. PATCH version when you make backwards compatible bug fixes.
+
+DAML's "public API" is laid out in the :doc:`overview`.
+
+Cadence
+-------
+
+Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain SDK and integration components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
+
+Stable versions are released once a month. See :ref:`release_process` below for the usual schedule. This schedule is a guide, not a guarantee, and additional releases may be made, or releases may be delayed for skipped entirely. 
+
+No more than one major version is released every six months, barring exceptional circumstances.
+
+.. _release_process:
+
+Process
+-------
+
+Weekly snapshot and monthly stable releases follow a regular process and schedule. The process is documented `in the DAML repository <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md>`_ so only the schedule for monthly releases is covered here.
+
+Selecting a Release Candidate
+
+  This is done by the DAML Core engineering teams on the **first Monday of every month**.
+
+  The monthly releases are time-based, not scope-based. Furthermore, DAML development is fully HEAD-based so both the repository and every snapshot are intended to be in a fully releasable state at every point. The release process therefore starts with "selecting a Release Candidate". Typically the Snapshot from the preceding Wednesday is selected as the Release Candidate.
+
+Release Note and Candidate Review
+
+  After selecting the Release Candidate, Release Notes are written and reviewed with a particular view towards unintended changes and violations of :ref:`Semantic Versioning <versioning>`.
+
+Release Candidate Refinement
+
+  If issues surface in the initial review, the issues are resolved and different Snapshot is selected as the Release Candidate.
+
+Release Candidate Announcement
+
+  Barring delays due to issues during initial review, the Release Candidate is announced publicly with accompanying  Release Notes on **the Thursday following the first Monday of every Month**.
+
+Communications, Testing and Feedback
+
+  In the days following the announcement, the release is presented and discussed with both commercial and community users. It is also put through its paces by integrating it in `project:DABL <https://projectdabl.com>`_ and several ledger integrations. 
+
+Release Candidate Refinement II
+
+  Depending on feedback and test results, new Release Candidates may be issued iteratively. Depending on the severity of changes from Release Candidate to Release Candidate, the testing period is extended more or less.
+
+Release
+
+  Assuming the release is not postponed due to extended test periods or newly discovered issues in the Release Candidate, the release is declared stable and given a regular version number on **the second Wednesday after the first Monday of the Month**.
+
+.. figure:: release-timeline.png
+  
+  The release process timeline illustrated by example of September 2020.
+
+.. _release-notes:
+
+Release Notes
+-------------
+
+Release notes for each release are published on the `Release Notes section of the DAML Driven blog <https://daml.com/release-notes/>`_.
+
+.. _roadmap:
+
+Roadmap
+-------
+
+Once a month Digital Asset publishes a community update to accompany the announcement of the release candidate for the next release. The community update contains a section outlining the next priorities for development. You can find community updates on the `DAML Driven Blog <https://daml.com/daml-driven>`_, or subscribe to the mailing list or social media profiles on `https://daml.com/ <https://daml.com/>`_ to stay up to date.

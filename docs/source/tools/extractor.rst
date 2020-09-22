@@ -4,6 +4,8 @@
 Extractor
 #########
 
+The Extractor is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
+
 Introduction
 ************
 
