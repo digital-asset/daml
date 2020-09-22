@@ -147,6 +147,9 @@ Libraries
    * - :doc:`The DAML Script Library </daml-script/api/index>`
      - Stable
      -
+   * - :doc:`The DAML Trigger Library </triggers/api/index>`
+     - Stable
+     -
    
 .. _dev-tools:
 
@@ -184,7 +187,10 @@ Developer Tools
      - Stable
      - 
    * - ``daml deploy`` :doc:`helper command and associated CLI </deploy/generic_ledger>` (``daml deploy --help``)
+     - Stable
      -
+   * - Assistant commands to start Runtime Components: ``daml json-api`, ``daml trigger``, ``daml trigger-service``, and ``daml extractor``.
+     - See :ref:`runtime-components`.
      -
    * - **DAML Projects**
      -
@@ -210,12 +216,6 @@ Developer Tools
    * - ``daml codegen`` assistant commands
      - See :ref:`libraries`.
      -
-   * - **Dev-Time Runtime Components**
-     -
-     -
-   * - ``daml json-api`, ``daml trigger``, ``daml trigger-service``, and ``daml extractor`` assistant commands.
-     - See :ref:`runtime-components`.
-     -
    * - **Sandbox Development Ledger**
      -
      -
@@ -229,8 +229,8 @@ Developer Tools
      - Stable
      -
    * - DAML Sandbox Classic and associated CLIs ``daml sandbox-classic``, ``daml start --sandbox-classic``
-     - Stable
-     - 2020-04-01
+     - Stable, Deprecated
+     - 2020-04-09
    * - **DAML Compiler**
      -
      -
@@ -243,13 +243,16 @@ Developer Tools
    * - DAML Language Server (``daml damlc ide``)
      - Stable
      -
-   * - Compilation and packaging (``daml damlc package`` and ``daml damlc build``)
+   * - Compilation and packaging (``daml damlc build``)
      - Stable
      -
+   * - Legacy packaging command (``daml damlc package``)
+     - Stable, Deprecated
+     - 2020-10-14
    * - In-memory Scenario/Script testing (``daml damlc test``)
      - Stable
      -
-   * - DAR File inspection (``daml damlc inspect-dar``)
+   * - DAR File inspection (``daml damlc inspect-dar``). The exact output is only covered by :ref:`semantic versioning <versioning>` when used with the ``--json`` flag.
      - Stable
      -
    * - DAR File validation (``daml damlc validate-dar``)

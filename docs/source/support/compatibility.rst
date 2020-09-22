@@ -4,7 +4,7 @@
 Portability, Compatibility, and Support Durations
 =================================================
 
-The DAML Ecosystem offers a number of forward, backward, and sideways compatibility guarantee aiming to give the Ecosystem as a whole the following properties. See :ref:`ecosystem-architecture` for the terms used here and how they fit together.
+The DAML Ecosystem offers a number of forward and backward compatibility guarantee aiming to give the Ecosystem as a whole the following properties. See :ref:`ecosystem-architecture` for the terms used here and how they fit together.
 
 Portability
 
@@ -25,7 +25,7 @@ Portability and Stability of DAML Applications are achieved by intermediating th
 
 Specifically, if a DAML Application is built against Ledger API version X.Y.Z and a Participant Node exposes Ledger API version X.Y2.Z2, the application is guaranteed to work as long as Y2.Z2 >= Y.Z.
 
-Currently, the Ledger API version is the same as the version of the DAML Drivers, as everything gets released together as per :doc:`releases`, and there has been no need for the versions to diverge yet. This will likely change at the latest when one part of the ecosystem moves to version 2.X.
+Currently, the latest Ledger API version is the same as the latest SDK, as everything gets released together as per :doc:`releases`, and there has been no need for the versions to diverge yet. This will likely change at the latest when one part of the ecosystem moves to version 2.X. Every DAML Driver advertises which Ledger API version it exposes.
 
 As a concrete example, DAML for Postgres 1.4.0 exposes Ledger API version 1.4.0 and DAML for VMware Blockchain 1.0 exposes Ledger API version 1.6.0. So any application that runs on DAML for Postgres 1.4.0 will also run on DAML for VMware Blockchain 1.0, thus demonstrating both portability and stability.
 
@@ -44,7 +44,7 @@ Upgrades from one minor version of a stable DAML Network or Participant nodes ar
 SDK, Runtime Component, and Library Compatibility
 -------------------------------------------------
 
-As long as a major Ledger API version is supported, there will be supported versions of SDK, Runtime Components, and Libraries able to target those versions. This has the obvious caveat that new features may not be available with old Ledger API versions.
+As long as a major Ledger API version is supported, there will be supported versions of SDK, Runtime Components, and Libraries able to target all minor versions of that major version. This has the obvious caveat that new features may not be available with old Ledger API versions.
 
 For example, an application built and compiled with SDK, Libraries and Runtime Components 1.4.0 against Ledger API 1.4.0, it still be compiled using SDK 1.6.0 and be run against Ledger API 1.4.0 using 1.6.0 libraries and runtime components. 
 
