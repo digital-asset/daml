@@ -23,7 +23,6 @@ import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-
 import com.daml.lf.engine.script.{
   Runner,
   Script,
@@ -32,6 +31,7 @@ import com.daml.lf.engine.script.{
   IdeClient,
   Participants
 }
+import com.daml.lf.transaction.VersionTimeline
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -52,7 +52,12 @@ object Context {
     new Context(contextCounter.incrementAndGet(), lfVerion)
 
   private val compilerConfig =
-    Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
+    Compiler.Config(
+      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      packageValidation = Compiler.FullPackageValidation,
+      profiling = Compiler.NoProfile,
+      stacktracing = Compiler.FullStackTrace,
+    )
 }
 
 class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion) {
