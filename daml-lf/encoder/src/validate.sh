@@ -28,5 +28,6 @@ fi
 
 DAML_LF_REPL=$(rlocation "$TEST_WORKSPACE/$1")
 FILE=$(rlocation "$TEST_WORKSPACE/$2")
+shift 2
 
-$DAML_LF_REPL validate "$FILE"
+$DAML_LF_REPL $* validate "$FILE"

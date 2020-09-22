@@ -32,9 +32,7 @@ sealed trait SValue {
       case SBool(x) => V.ValueBool(x)
       case SUnit => V.ValueUnit
       case SDate(x) => V.ValueDate(x)
-      case SStruct(fields, svalues) =>
-        val valuesIterator = svalues.iterator()
-        V.ValueStruct(fields.mapValues(_ => valuesIterator.next().toValue))
+
       case SRecord(id, fields, svalues) =>
         V.ValueRecord(
           Some(id),
@@ -61,6 +59,8 @@ sealed trait SValue {
         V.ValueGenMap(ImmArray(entries.map { case (k, v) => k.toValue -> v.toValue }))
       case SContractId(coid) =>
         V.ValueContractId(coid)
+      case SStruct(_, _) =>
+        throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAny")
       case STypeRep(_) =>

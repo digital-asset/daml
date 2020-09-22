@@ -82,9 +82,6 @@ private[lf] object ValueVersions
                 go(maxVV(minGenMap, currentVersion), newValues)
               case ValueEnum(_, _) =>
                 go(maxVV(minEnum, currentVersion), values)
-              // structs are a no-no
-              case ValueStruct(fields) =>
-                Left(s"Got struct when trying to assign version. Fields: $fields")
             }
         }
       }

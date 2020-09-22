@@ -64,7 +64,6 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       apiMapToJsValue(textMap)
     case genMap: V.ValueGenMap[Cid] =>
       apiGenMapToJsValue(genMap)
-    case _: V.ValueStruct[Cid] => serializationError("impossible! structs are not serializable")
   }
 
   @throws[SerializationException]

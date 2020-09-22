@@ -73,7 +73,6 @@ object ApiCodecVerbose {
       JsObject(propType -> JsString(tagOptional), propValue -> apiValueToJsValue(v))
     case v: Model.ApiMap => apiTextMapToJsValue(v)
     case v: Model.ApiGenMap => apiGenMapToJsValue(v)
-    case _: Model.ApiImpossible => serializationError("impossible! structs are not serializable")
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =

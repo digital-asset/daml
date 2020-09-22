@@ -221,8 +221,6 @@ object Hash {
         case Value.ValueGenMap(_) =>
           error("Hashing of generic map not implemented")
         // Struct: should never be encountered
-        case Value.ValueStruct(_) =>
-          error("Hashing of struct values is not supported")
       }
   }
 
