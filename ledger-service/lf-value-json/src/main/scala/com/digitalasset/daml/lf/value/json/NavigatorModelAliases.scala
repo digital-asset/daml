@@ -77,7 +77,6 @@ trait NavigatorModelAliases[Cid] {
   type ApiOptional = OfCid[V.ValueOptional]
   type ApiMap = OfCid[V.ValueTextMap]
   type ApiGenMap = OfCid[V.ValueGenMap]
-  type ApiImpossible = OfCid[V.ValueStruct]
 }
 
 object NavigatorModelAliases extends NavigatorModelAliases[String]

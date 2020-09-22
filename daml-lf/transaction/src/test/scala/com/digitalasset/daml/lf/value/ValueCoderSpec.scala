@@ -173,14 +173,6 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "don't struct" in {
-      val fields = List(Ref.Name.assertFromString("foo") -> ValueInt64(42))
-      val struct = ValueStruct(Struct.assertFromSeq(fields))
-      val res =
-        ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, defaultValueVersion, struct)
-      res.left.get.errorMessage should include("serializable")
-    }
-
     "do unit" in {
       val recovered = ValueCoder.decodeValue(
         ValueCoder.CidDecoder,

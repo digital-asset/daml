@@ -252,7 +252,6 @@ object Pretty {
             PrettyField("value", argument(value))
           )
       }: _*)
-    case _: model.ApiImpossible => sys.error("impossible! structs are not serializable")
   }
 
   /** Outputs an object in YAML format */

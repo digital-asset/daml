@@ -4,7 +4,7 @@
 package com.daml.lf
 package value
 
-import data.{Bytes, FrontStack, ImmArray, Ref, Struct}
+import data.{Bytes, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
 import test.ValueGenerators.{coidGen, idGen, nameGen}
@@ -31,8 +31,6 @@ class ValueSpec
   import ValueSpec._
 
   "serialize" - {
-    val emptyStruct = ValueStruct(Struct.Empty)
-    val emptyStructError = "contains struct ValueStruct(Struct())"
     val exceedsNesting = (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing]](ValueInt64(42)) {
       case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
@@ -41,25 +39,12 @@ class ValueSpec
       case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
 
-    "rejects struct" in {
-      emptyStruct.serializable shouldBe ImmArray(emptyStructError)
-    }
-
-    "rejects nested struct" in {
-      ValueList(FrontStack(emptyStruct)).serializable shouldBe ImmArray(emptyStructError)
-    }
-
     "rejects excessive nesting" in {
       exceedsNesting.serializable shouldBe ImmArray(exceedsNestingError)
     }
 
     "accepts just right nesting" in {
       matchesNesting.serializable shouldBe ImmArray.empty
-    }
-
-    "outputs both error messages, without duplication" in {
-      ValueList(FrontStack(exceedsNesting, ValueStruct(Struct.Empty), exceedsNesting)).serializable shouldBe
-        ImmArray(exceedsNestingError, emptyStructError)
     }
   }
 
