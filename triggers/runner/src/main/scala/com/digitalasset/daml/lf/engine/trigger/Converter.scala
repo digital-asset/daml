@@ -30,6 +30,8 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiValue,
   toApiIdentifier
 }
+import scalaz.std.either._
+import scalaz.syntax.bind._
 
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
@@ -308,53 +310,40 @@ object Converter {
       case _ => Left(s"Expected CommandId but got $v")
     }
 
-  private def toIdentifier(v: SValue): Either[String, Identifier] = {
-    v match {
-      case STypeRep(TTyCon(id)) => Right(id)
-      case _ => Left(s"Expected STypeRep but got $v")
-    }
-  }
+  private def toIdentifier(v: SValue): Either[String, Identifier] =
+    v expect ("STypeRep", {
+      case STypeRep(TTyCon(id)) => id
+    })
 
-  private def extractTemplateId(v: SValue): Either[String, Identifier] = {
-    v match {
-      case SRecord(templateId, _, _) => Right(templateId)
-      case _ => Left(s"Expected contract value but got $v")
-    }
-  }
+  private def extractTemplateId(v: SValue): Either[String, Identifier] =
+    v expect ("contract value", {
+      case SRecord(templateId, _, _) => templateId
+    })
 
-  private def toTemplateTypeRep(v: SValue): Either[String, Identifier] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 1 => {
-        toIdentifier(vals.get(0))
-      }
-      case _ => Left(s"Expected TemplateTypeRep but got $v")
-    }
-  }
+  private def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
+    v.expect("TemplateTypeRep", {
+      case SRecord(_, _, JavaList(id)) =>
+        toIdentifier(id)
+      }).join
 
-  private def toRegisteredTemplate(v: SValue): Either[String, Identifier] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 1 => toTemplateTypeRep(vals.get(0))
-      case _ => Left(s"Expected RegisteredTemplate but got $v")
-    }
-  }
+  private def toRegisteredTemplate(v: SValue): Either[String, Identifier] =
+    v.expect("RegisteredTemplate", {
+      case SRecord(_, _, JavaList(sttr)) => toTemplateTypeRep(sttr)
+    }).join
 
-  private def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] = {
-    v match {
-      case SList(tpls) => tpls.traverse(toRegisteredTemplate(_)).map(_.toImmArray.toSeq)
-      case _ => Left(s"Expected list of RegisteredTemplate but got $v")
-    }
-  }
+  private def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] =
+    v.expect("list of RegisteredTemplate", {
+      case SList(tpls) => tpls.traverse(toRegisteredTemplate).map(_.toImmArray.toSeq)
+    }).join
 
-  private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 2 =>
+  private def toAnyContractId(v: SValue): Either[String, AnyContractId] =
+    v.expect("AnyContractId", {
+      case SRecord(_, _, JavaList(stid, scid)) =>
         for {
-          templateId <- toTemplateTypeRep(vals.get(0))
-          contractId <- toContractId(vals.get(1))
+          templateId <- toTemplateTypeRep(stid)
+          contractId <- toContractId(scid)
         } yield AnyContractId(templateId, contractId)
-      case _ => Left(s"Expected AnyContractId but got $v")
-    }
-  }
+    }).join
 
   private def toAnyTemplate(v: SValue): Either[String, SValue] = {
     v match {
@@ -434,49 +423,43 @@ object Converter {
     }
   }
 
-  private def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 3 => {
+  private def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] =
+    v.expect ("ExerciseByKeyCommand", {
+      case SRecord(_, _, JavaList(stplId, skeyVal, schoiceVal)) =>
         for {
-          tplId <- toTemplateTypeRep(vals.get(0))
-          keyVal <- toAnyContractKey(vals.get(1))
+          tplId <- toTemplateTypeRep(stplId)
+          keyVal <- toAnyContractKey(skeyVal)
           keyArg <- toLedgerValue(keyVal)
-          choiceVal <- toAnyChoice(vals.get(2))
+          choiceVal <- toAnyChoice(schoiceVal)
           choiceName <- extractChoiceName(choiceVal)
           choiceArg <- toLedgerValue(choiceVal)
-        } yield {
+        } yield
           ExerciseByKeyCommand(
             Some(toApiIdentifier(tplId)),
             Some(keyArg),
             choiceName,
             Some(choiceArg)
           )
-        }
-      }
-    }
-  }
+      }).join
 
-  private def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 2 => {
+  private def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] =
+    v.expect("CreateAndExerciseCommand", {
+      case SRecord(_, _, JavaList(stpl, schoiceVal)) =>
         for {
-          tpl <- toAnyTemplate(vals.get(0))
+          tpl <- toAnyTemplate(stpl)
           templateId <- extractTemplateId(tpl)
           templateArg <- toLedgerRecord(tpl)
-          choiceVal <- toAnyChoice(vals.get(1))
+          choiceVal <- toAnyChoice(schoiceVal)
           choiceName <- extractChoiceName(choiceVal)
           choiceArg <- toLedgerValue(choiceVal)
-        } yield {
+        } yield
           CreateAndExerciseCommand(
             Some(toApiIdentifier(templateId)),
             Some(templateArg),
             choiceName,
             Some(choiceArg)
           )
-        }
-      }
-    }
-  }
+      }).join
 
   private def toCommand(v: SValue): Either[String, Command] = {
     v match {
@@ -500,19 +483,15 @@ object Converter {
     }
   }
 
-  private def toCommands(v: SValue): Either[String, (String, Seq[Command])] = {
+  private def toCommands(v: SValue): Either[String, (String, Seq[Command])] =
     for {
-      values <- v match {
-        case SRecord(_, _, values) if values.size == 2 => Right(values)
-        case _ => Left(s"Expected Commands but got $v")
-      }
-      commandId <- toCommandId(values.get(0))
-      commands <- values.get(1) match {
-        case SList(cmdValues) => cmdValues.traverse(toCommand)
-        case _ => Left(s"Expected List but got ${values.get(1)}")
-      }
+      rContents <- v expect ("Commands", {
+        case SRecord(_, _, JavaList(scmdId, SList(cmdValues))) => (scmdId, cmdValues)
+      })
+      (scmdId, cmdValues) = rContents
+      commandId <- toCommandId(scmdId)
+      commands <- cmdValues.traverse(toCommand)
     } yield (commandId, commands.toImmArray.toSeq)
-  }
 
   private def fromACS(
       valueTranslator: preprocessing.ValueTranslator,
