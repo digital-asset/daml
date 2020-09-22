@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.trigger
+package com.daml.lf
+package engine.trigger
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
@@ -22,7 +23,6 @@ import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.{
   ConcurrentCompiledPackages,
-  EngineConfig,
   MutableCompiledPackages,
   Result,
   ResultDone,
@@ -61,7 +61,7 @@ class Server(
   // When running with a persistent store we also write the encoded packages so we can recover
   // our state after the service shuts down or crashes.
   val compiledPackages: MutableCompiledPackages =
-    ConcurrentCompiledPackages(EngineConfig.Dev.allowedLanguageVersions)
+    ConcurrentCompiledPackages(speedy.Compiler.Config.Dev)
 
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory

@@ -7,7 +7,8 @@ package engine
 import java.nio.file.Path
 
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.{TransactionVersions, TransactionVersion}
+import com.daml.lf.speedy.Compiler
+import com.daml.lf.transaction.{TransactionVersions, TransactionVersion, VersionTimeline}
 import com.daml.lf.value.ValueVersion
 
 /**
@@ -66,6 +67,26 @@ final case class EngineConfig(
       TransactionVersions.assignValueVersion(allowedOutputTransactionVersions.max),
     )
 
+  private[lf] def getCompilerConfig: Compiler.Config =
+    speedy.Compiler.Config(
+      allowedLanguageVersions,
+      packageValidation =
+        if (packageValidation)
+          speedy.Compiler.FullPackageValidation
+        else
+          speedy.Compiler.NoPackageValidation,
+      stacktracing =
+        if (stackTraceMode)
+          speedy.Compiler.FullStackTrace
+        else
+          speedy.Compiler.NoStackTrace,
+      profiling =
+        if (profileDir.isDefined)
+          speedy.Compiler.FullProfile
+        else
+          speedy.Compiler.NoProfile,
+    )
+
 }
 
 object EngineConfig {
@@ -76,10 +97,7 @@ object EngineConfig {
     * language and transaction.
     */
   val Lenient: EngineConfig = new EngineConfig(
-    allowedLanguageVersions = VersionRange(
-      LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Stable("6")),
-      LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Stable("8")),
-    ),
+    allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
     allowedInputTransactionVersions =
       VersionRange(TransactionVersion("10"), TransactionVersion("10")),
     allowedOutputTransactionVersions =
@@ -97,7 +115,7 @@ object EngineConfig {
     )
 
   /**
-    * Recommanded production configuration.
+    * Recommended production configuration.
     */
   def Stable: EngineConfig = Lenient
 
