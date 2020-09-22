@@ -120,7 +120,7 @@ Libraries
    * - **Node.js Ledger API Bindings**
      -
      -
-   * - ``@digital-asset/binings-js`` :doc:`Node.js library </app-dev/bindings-js>`
+   * - ``@digital-asset/bindings-js`` :doc:`Node.js library </app-dev/bindings-js>`
      - Stable
      - 
    * - **JavaScript Client Libraries**
