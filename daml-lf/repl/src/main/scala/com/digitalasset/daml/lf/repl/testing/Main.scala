@@ -17,11 +17,12 @@ import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion => LV}
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
+import com.daml.lf.transaction.VersionTimeline
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -37,71 +38,71 @@ object Main extends App {
   val out = new PrintStream(System.out, true, "UTF-8")
   System.setOut(out)
 
-  def usage(): Unit = {
+  def usage(): Unit =
     println(
       """
-     |usage: daml-lf-speedy COMMAND ARGS...
-     |
-     |commands:
-     |  repl [file]             Run the interactive repl. Load the given packages if any.
-     |  test <name> [file]      Load given packages and run the named scenario with verbose output.
-     |  testAll [file]          Load the given packages and run all scenarios.
-     |  profile <name> [infile] [outfile]  Run the name scenario and write a profile in speedscope.app format
-     |  validate [file]         Load the given packages and validate them.
-     |  [file]                  Same as 'repl' when all given files exist.
+        |usage: daml-lf-speedy COMMAND ARGS...
+        |
+        |commands:
+        |  repl [file]             Run the interactive repl. Load the given packages if any.
+        |  test <name> [file]      Load given packages and run the named scenario with verbose output.
+        |  testAll [file]          Load the given packages and run all scenarios.
+        |  profile <name> [infile] [outfile]  Run the name scenario and write a profile in speedscope.app format
+        |  validate [file]         Load the given packages and validate them.
+        |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
 
+  val (replArgs, compilerConfig) = args.toList match {
+    case "--dev" :: rest =>
+      rest -> Repl.devCompilerConfig
+    case list =>
+      list -> Repl.defaultCompilerConfig
   }
-
-  def defaultCommand(possibleFile: String): Unit =
-    if (!Paths.get(possibleFile).toFile.isFile) {
+  replArgs match {
+    case "-h" :: _ | "--help" :: _ =>
+      usage()
+    case List("repl", file) =>
+      Repl.repl(compilerConfig, file)
+    case List("testAll", file) =>
+      if (!Repl.testAll(compilerConfig, file)._1) System.exit(1)
+    case List("test", id, file) =>
+      if (!Repl.test(compilerConfig, id, file)._1) System.exit(1)
+    case List("profile", scenarioId, inputFile, outputFile) =>
+      if (!Repl.profile(compilerConfig, scenarioId, inputFile, Paths.get(outputFile))._1)
+        System.exit(1)
+    case List("validate", file) =>
+      if (!Repl.validate(compilerConfig, file)._1) System.exit(1)
+    case List(possibleFile) if Paths.get(possibleFile).toFile.isFile =>
+      Repl.repl(compilerConfig, possibleFile)
+    case _ =>
       usage()
       System.exit(1)
-    } else
-      Repl.repl(possibleFile)
-
-  if (args.isEmpty) {
-    usage()
-    System.exit(1)
-  } else {
-    var replArgs = args.toList
-    var devMode = false
-    replArgs match {
-      case "--dev" :: rest =>
-        replArgs = rest
-        devMode = true
-      case _ => ()
-    }
-    replArgs match {
-      case "-h" :: _ => usage()
-      case "--help" :: _ => usage()
-      case List("repl", file) => Repl.repl(file)
-      case List("testAll", file) =>
-        if (!Repl.testAll(devMode, file)._1) System.exit(1)
-      case List("test", id, file) =>
-        if (!Repl.test(devMode, id, file)._1) System.exit(1)
-      case List("profile", scenarioId, inputFile, outputFile) =>
-        if (!Repl.profile(devMode, scenarioId, inputFile, Paths.get(outputFile))._1) System.exit(1)
-      case List("validate", file) =>
-        if (!Repl.validate(devMode, file)._1) System.exit(1)
-      case List(possibleFile) =>
-        defaultCommand(possibleFile)
-      case _ =>
-        usage()
-        System.exit(1)
-    }
   }
 }
 
 // The DAML-LF Read-Eval-Print-Loop
 object Repl {
 
+  val defaultCompilerConfig: Compiler.Config =
+    Compiler.Config(
+      allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
+      packageValidation = Compiler.FullPackageValidation,
+      profiling = Compiler.NoProfile,
+      stacktracing = Compiler.FullStackTrace,
+    )
+
+  val devCompilerConfig: Compiler.Config =
+    defaultCompilerConfig.copy(
+      allowedLanguageVersions = VersionTimeline.devLanguageVersions
+    )
+
   private val nextSeed =
     // We use a static seed to get reproducible run
     crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
 
-  def repl(): Unit = repl(initialState())
-  def repl(darFile: String): Unit = repl(load(darFile) getOrElse initialState())
+  def repl(compilerConfig: Compiler.Config, darFile: String): Unit =
+    repl(load(compilerConfig, darFile) getOrElse initialState(compilerConfig))
+
   def repl(state0: State): Unit = {
     var state = state0
     state.history.load
@@ -118,7 +119,8 @@ object Repl {
   }
 
   private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
-    def fMap(f: State => (Boolean, State)): (Boolean, State) =
+
+    def chain(f: State => (Boolean, State)): (Boolean, State) =
       x match {
         case (true, state) => f(state)
         case _ => x
@@ -131,23 +133,29 @@ object Repl {
       }
   }
 
-  def testAll(devMode: Boolean, file: String): (Boolean, State) =
-    load(file, devMode) fMap cmdValidate fMap cmdTestAll
+  def testAll(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
+    load(compilerConfig, file) chain
+      cmdValidate chain
+      cmdTestAll
 
-  def test(devMode: Boolean, id: String, file: String): (Boolean, State) =
-    load(file, devMode) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
+  def test(compilerConfig: Compiler.Config, id: String, file: String): (Boolean, State) =
+    load(compilerConfig, file) chain
+      cmdValidate chain
+      (x => invokeScenario(x, Seq(id)))
 
   def profile(
-      devMode: Boolean,
+      compilerConfig: Compiler.Config,
       scenarioId: String,
       inputFile: String,
       outputFile: Path,
   ): (Boolean, State) =
-    load(inputFile, devMode, Compiler.FullProfile) fMap cmdValidate fMap (state =>
-      cmdProfile(state, scenarioId, outputFile))
+    load(compilerConfig.copy(profiling = Compiler.FullProfile), inputFile) chain
+      cmdValidate chain
+      (state => cmdProfile(state, scenarioId, outputFile))
 
-  def validate(devMode: Boolean, file: String): (Boolean, State) =
-    load(file, devMode) fMap cmdValidate
+  def validate(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
+    load(compilerConfig, file) chain
+      cmdValidate
 
   def cmdValidate(state: State): (Boolean, State) = {
     val (validationResults, validationTime) = time(
@@ -170,35 +178,33 @@ object Repl {
       reader: LineReader,
       history: History,
       quit: Boolean
-  )
+  ) {
+    def compilerConfig: Compiler.Config = scenarioRunner.compilerConfig
+  }
 
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
-      devMode: Boolean,
-      profiling: Compiler.ProfilingMode,
+      compilerConfig: Compiler.Config,
   ) {
 
-    val (inputValueVersion, outputTransactionVersions, compilerConfig) =
-      if (devMode)
+    val (compiledPackages, compileTime) =
+      time(data.assertRight(PureCompiledPackages(packages, compilerConfig)))
+
+    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
+
+    private val seed = nextSeed()
+
+    val (inputValueVersion, outputTransactionVersions) =
+      if (compilerConfig.allowedLanguageVersions.contains(LV(LV.Major.V1, LV.Minor.Dev)))
         (
           value.ValueVersions.DevOutputVersions,
           transaction.TransactionVersions.DevOutputVersions,
-          Compiler.Config.Dev,
         )
       else
         (
           value.ValueVersions.StableOutputVersions,
           transaction.TransactionVersions.StableOutputVersions,
-          Compiler.Config.Default,
         )
-
-    val (compiledPackages, compileTime) = time {
-      PureCompiledPackages(packages, compilerConfig.copy(profiling = profiling)).right.get
-    }
-
-    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
-
-    private val seed = nextSeed()
 
     def run(expr: Expr): (
         Speedy.Machine,
@@ -219,9 +225,9 @@ object Repl {
 
   final val commands = ListMap(
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
-    ":reset" -> Command("reset the REPL.", (_, _) => initialState()),
+    ":reset" -> Command("reset the REPL.", (_, _) => initialState(defaultCompilerConfig)),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
-    ":speedy" -> Command("compile given expression to speedy and print it", (s, args) => {
+    ":speedy" -> Command("compile given expression to speedy and print it", { (s, args) =>
       speedyCompile(s, args); s
     }),
     ":quit" -> Command("quit the REPL.", (s, _) => s.copy(quit = true)),
@@ -233,7 +239,7 @@ object Repl {
     }),
     ":devmode" -> Command(
       "switch in devMode. This reset the state of REPL.",
-      (_, _) => initialState(devMode = true)),
+      (_, _) => initialState(devCompilerConfig)),
     ":validate" -> Command("validate all the packages", (s, _) => { cmdValidate(s); s }),
   )
   final val commandCompleter = new ArgumentCompleter(new StringsCompleter(commands.keys.asJava))
@@ -253,15 +259,12 @@ object Repl {
     cmpl
   }
 
-  def initialState(
-      devMode: Boolean = false,
-      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
-  ): State =
+  def initialState(compilerCompiler: Compiler.Config): State =
     rebuildReader(
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty, devMode, profiling),
+        ScenarioRunnerHelper(Map.empty, compilerCompiler),
         reader = null,
         history = new DefaultHistory(),
         quit = false
@@ -393,11 +396,10 @@ object Repl {
 
   // Load DAML-LF packages from a set of files.
   def load(
+      compilerConfig: Compiler.Config,
       darFile: String,
-      devMode: Boolean = false,
-      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
   ): (Boolean, State) = {
-    val state = initialState(devMode, profiling)
+    val state = initialState(compilerConfig)
     try {
       val (packagesMap, loadingTime) = time {
         val packages =
@@ -416,7 +418,7 @@ object Repl {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap, devMode, profiling)
+          scenarioRunner = ScenarioRunnerHelper(packagesMap, compilerConfig)
         ))
     } catch {
       case ex: Throwable => {
@@ -442,7 +444,7 @@ object Repl {
   implicit val parserParameters: parser.ParserParameters[Repl.this.type] =
     parser.ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-dummy-"),
-      languageVersion = LanguageVersion.defaultV1,
+      languageVersion = LV.defaultV1,
     )
 
   // Invoke the given top-level function with given arguments.
