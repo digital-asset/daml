@@ -3,69 +3,464 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import java.util.UUID
+
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlPackageUploadEntry
-import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
-import com.daml.lf.engine.Engine
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.ledger.participant.state.kvutils.committer.PackageCommitter._
+import com.daml.lf.archive.Decode
+import com.daml.lf.archive.testing.Encode
+import com.daml.lf.data.Ref
+import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.language.Ast
 import com.daml.metrics.Metrics
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{Matchers, WordSpec}
+import com.google.protobuf.ByteString
+import org.scalatest.{Matchers, ParallelTestExecution, WordSpec}
 
-class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
-  private val metrics = new Metrics(new MetricRegistry)
-  private val anEmptyResult = DamlPackageUploadEntry.newBuilder
-    .setSubmissionId("an ID")
-    .setParticipantId("a participant")
+import scala.collection.JavaConverters._
 
-  "buildLogEntry" should {
+class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecution {
+
+  import com.daml.lf.testing.parser.Implicits._
+
+  private[this] def encodePackage[P](pkg: Ast.Package) =
+    Encode.encodeArchive(
+      defaultParserParameters.defaultPackageId -> pkg,
+      defaultParserParameters.languageVersion,
+    )
+
+  private[this] val archive1 =
+    encodePackage(p"""
+        metadata ( 'Color' : '0.0.1' )
+
+        module Color {
+          enum Primary = Red | Blue | Green ;
+        }
+      """)
+  private[this] val (pkgId1, pkg1) = Decode.decodeArchive(archive1)
+  private[this] val archive2 =
+    encodePackage(
+      p"""
+        metadata ( 'DamlZ' : '0.0.1' )
+
+        module DamlZ {
+          variant Either a b = Left : a | Right : b ;
+        }
+      """
+    )
+  private[this] val (pkgId2, pkg2) = Decode.decodeArchive(archive2)
+  private[this] val archive3 =
+    encodePackage(
+      p"""
+        metadata ( 'Quantum' : '0.0.1' )
+
+        module Chromodynamics {
+          record Charge = { value: '${pkgId1}':Color:Primary } ;
+        }
+      """
+    )
+  private[this] val (pkgId3, _) = Decode.decodeArchive(archive3)
+
+  private[this] val archive4 =
+    encodePackage(
+      p"""
+        metadata ( 'IllTyped' : '0.0.1' )
+
+        module Wrong {
+          val i: Numeric 10 = 1;  // 1 is an Int64 is not a Numeric
+        }
+      """
+    )
+
+  private[this] val participantId = Ref.ParticipantId.assertFromString("participant")
+
+  private[this] class CommitterWrapper(
+      validationMode: ValidationMode,
+      preloadingMode: PreloadingMode,
+  ) {
+    val metrics = new Metrics(new MetricRegistry)
+    var engine: Engine = _
+    var packageCommitter: PackageCommitter = _
+    var state = Map.empty[DamlStateKey, DamlStateValue]
+    restart()
+
+    // simulate restart of the participant node
+    def restart() = this.synchronized {
+      engine = new Engine(EngineConfig.Dev.copy(packageValidation = false))
+      packageCommitter = new PackageCommitter(engine, metrics, validationMode, preloadingMode)
+    }
+
+    def submit(submission: DamlSubmission) = {
+      val result @ (log2, output1) =
+        packageCommitter.run(
+          Some(com.daml.lf.data.Time.Timestamp.now()),
+          submission,
+          participantId,
+          wrapMap(state))
+      if (log2.hasPackageUploadRejectionEntry)
+        assert(output1.isEmpty)
+      else
+        state ++= output1
+      result
+    }
+  }
+
+  private[this] def buildSubmission(archives: DamlLf.Archive*) =
+    DamlSubmission
+      .newBuilder()
+      .setPackageUploadEntry(
+        DamlPackageUploadEntry
+          .newBuilder()
+          .setSubmissionId(UUID.randomUUID().toString)
+          .setParticipantId(participantId)
+          .addAllArchives(archives.asJava)
+      )
+      .build()
+
+  private[this] def wrapMap[K, V](m: Map[K, V]): Map[K, Option[V]] = new Map[K, Option[V]] {
+    override def +[V1 >: Option[V]](kv: (K, V1)): Map[K, V1] = ???
+    override def get(key: K): Option[Option[V]] = Some(m.get(key))
+    override def iterator: Iterator[(K, Option[V])] = ???
+    override def -(key: K): Map[K, Option[V]] = ???
+  }
+
+  private[this] val emptyState = wrapMap(Map.empty[DamlStateKey, DamlStateValue])
+
+  private[this] def details(rejection: DamlPackageUploadRejectionEntry) = {
+    import DamlPackageUploadRejectionEntry.ReasonCase._
+    rejection.getReasonCase match {
+      case PARTICIPANT_NOT_AUTHORIZED =>
+        rejection.getParticipantNotAuthorized.getDetails
+      case DUPLICATE_SUBMISSION =>
+        rejection.getDuplicateSubmission.getDetails
+      case INVALID_PACKAGE =>
+        rejection.getInvalidPackage.getDetails
+      case REASON_NOT_SET =>
+        ""
+    }
+  }
+
+  private[this] def shouldFailWith(
+      output: (DamlLogEntry, _),
+      reason: DamlPackageUploadRejectionEntry.ReasonCase,
+      msg: String = "",
+  ) = {
+    output._1.hasPackageUploadRejectionEntry shouldBe true
+    output._1.getPackageUploadRejectionEntry.getReasonCase shouldBe reason
+    details(output._1.getPackageUploadRejectionEntry) should include(msg)
+  }
+
+  private[this] def shouldSucceed(output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue])) = {
+    output._1.hasPackageUploadRejectionEntry shouldBe false
+    output._2 shouldBe 'nonEmpty
+  }
+
+  private[this] def shouldSucceedWith(
+      output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]),
+      committedPackages: Set[Ref.PackageId]) = {
+    shouldSucceed(output)
+    val archives = output._1.getPackageUploadEntry.getArchivesList
+    archives.size() shouldBe committedPackages.size
+    archives.iterator().asScala.map(_.getHash).toSet shouldBe committedPackages.toSet[String]
+  }
+
+  s"PackageCommitter" should {
+    def newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.No)
+
+    // Don't need to run those tests for all instance of PackageCommitter.
     "set record time in log entry if record time is available" in {
-      val instance = new PackageCommitter(mock[Engine], metrics)
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
-
-      val actual = instance.buildLogEntry(context, anEmptyResult)
-
-      actual match {
-        case StepContinue(_) => fail
-        case StepStop(actualLogEntry) =>
-          actualLogEntry.hasRecordTime shouldBe true
-          actualLogEntry.getRecordTime shouldBe buildTimestamp(theRecordTime)
-      }
+      val submission1 = buildSubmission(archive1)
+      val output = newCommitter.packageCommitter.run(
+        Some(theRecordTime),
+        submission1,
+        participantId,
+        emptyState)
+      shouldSucceed(output)
+      output._1.hasRecordTime shouldBe true
+      output._1.getRecordTime shouldBe buildTimestamp(theRecordTime)
     }
 
     "skip setting record time in log entry when it is not available" in {
-      val instance = new PackageCommitter(mock[Engine], metrics)
-      val context = new FakeCommitContext(recordTime = None)
-
-      val actual = instance.buildLogEntry(context, anEmptyResult)
-
-      actual match {
-        case StepContinue(_) => fail
-        case StepStop(actualLogEntry) =>
-          actualLogEntry.hasRecordTime shouldBe false
-      }
+      val submission1 = buildSubmission(archive1)
+      val output = newCommitter.packageCommitter.run(None, submission1, participantId, emptyState)
+      shouldSucceed(output)
+      output._1.hasRecordTime shouldBe false
     }
+
+    "filter out known packages" in {
+      val committer = newCommitter
+
+      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
+      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set.empty)
+      shouldSucceedWith(committer.submit(buildSubmission(archive1, archive2)), Set(pkgId2))
+      shouldSucceedWith(committer.submit(buildSubmission(archive1, archive2)), Set.empty)
+    }
+  }
+
+  private[this] def lenientValidationTests(newCommitter: => CommitterWrapper) = {
+
+    import DamlPackageUploadRejectionEntry.ReasonCase._
+
+    "accept proper submissions" in {
+      shouldSucceedWith(newCommitter.submit(buildSubmission(archive1)), Set(pkgId1))
+      shouldSucceedWith(
+        newCommitter.submit(buildSubmission(archive1, archive2)),
+        Set(pkgId1, pkgId2),
+      )
+    }
+
+    "reject non authorize submissions" in {
+      val committer = newCommitter
+
+      val submission1 = buildSubmission(archive1)
+      val output = committer.packageCommitter.run(
+        None,
+        submission1,
+        Ref.ParticipantId.assertFromString("authorizedParticipant"),
+        emptyState,
+      )
+      shouldFailWith(output, PARTICIPANT_NOT_AUTHORIZED)
+    }
+
+    "reject double submissions" in {
+      val committer = newCommitter
+
+      val submission = buildSubmission(archive1)
+      shouldSucceed(committer.submit(submission))
+
+      shouldFailWith(committer.submit(submission), DUPLICATE_SUBMISSION)
+    }
+
+    "reject empty submissions" in
+      shouldFailWith(
+        newCommitter.submit(buildSubmission()),
+        INVALID_PACKAGE,
+        "No archives in submission",
+      )
+
+    "reject submissions containing repeated packages" in {
+      val committer = newCommitter
+      val submission1 = buildSubmission(archive1, archive2, archive1, archive3)
+
+      // when archive1 is unknown
+      shouldFailWith(
+        committer.submit(submission1),
+        INVALID_PACKAGE,
+        s"${pkgId1} appears more than once",
+      )
+
+      // when archive1 is known
+      shouldSucceed(committer.submit(buildSubmission(archive1, archive2, archive3)))
+      shouldFailWith(
+        committer.submit(submission1),
+        INVALID_PACKAGE,
+        s"${pkgId1} appears more than once",
+      )
+    }
+
+    "reject submissions containing different packages with same hash" in {
+      val committer = newCommitter
+      val archive = archive2.toBuilder.setHash(pkgId1).build()
+      val submission1 = buildSubmission(archive1, archive)
+
+      // when archive1 and archive2 are unknown
+      shouldFailWith(
+        committer.submit(submission1),
+        INVALID_PACKAGE,
+        s"${pkgId1} appears more than once",
+      )
+
+      // when archive1 and archive2 are known
+      shouldSucceed(committer.submit(buildSubmission(archive1, archive2, archive3)))
+      shouldFailWith(
+        committer.submit(submission1),
+        INVALID_PACKAGE,
+        s"${pkgId1} appears more than once",
+      )
+    }
+
+    "reject submissions containing a non valid package IDs" in {
+      val committer = newCommitter
+      val archive = archive2.toBuilder.setHash("This is not a valid Package ID !").build()
+      val submission = buildSubmission(archive1, archive, archive3)
+
+      //when archive2 is unknown
+      shouldFailWith(
+        newCommitter.submit(submission),
+        INVALID_PACKAGE,
+        "Invalid hash: non expected character",
+      )
+
+      // when archive2 is known
+      shouldSucceed(committer.submit(buildSubmission(archive2)))
+      committer.engine.preloadPackage(pkgId2, pkg2)
+      shouldFailWith(newCommitter.submit(submission), INVALID_PACKAGE)
+    }
+
+    "reject submissions containing empty archives" in {
+      val committer = newCommitter
+      val archive = archive2.toBuilder.setPayload(ByteString.EMPTY).build()
+      val submission = buildSubmission(archive1, archive, archive3)
+
+      //when archive2 is unknown
+      shouldFailWith(committer.submit(submission), INVALID_PACKAGE, pkgId2)
+
+      // when archive2 is known
+      shouldSucceed(committer.submit(buildSubmission(archive2)))
+      committer.engine.preloadPackage(pkgId2, pkg2)
+      shouldFailWith(committer.submit(submission), INVALID_PACKAGE)
+    }
+
+  }
+
+  private[this] def strictValidationTests(newCommitter: => CommitterWrapper) = {
+
+    import DamlPackageUploadRejectionEntry.ReasonCase._
+
+    "reject submissions containing packages with improper hashes" in {
+      val committer = newCommitter
+      val archive = archive3.toBuilder.setHash(pkgId2).build()
+      val submission = buildSubmission(archive1, archive, archive3)
+
+      //when archive2 is unknown
+      shouldFailWith(
+        committer.submit(submission),
+        INVALID_PACKAGE,
+        s"Mismatching hashes! Expected $pkgId3 but got $pkgId2",
+      )
+
+      // when archive2 is known
+      shouldSucceed(committer.submit(buildSubmission(archive2)))
+      committer.engine.preloadPackage(pkgId2, pkg2)
+      shouldFailWith(
+        committer.submit(submission),
+        INVALID_PACKAGE,
+        s"Mismatching hashes! Expected $pkgId3 but got $pkgId2",
+      )
+    }
+
+    "reject submissions containing missing dependencies" in {
+      val committer = newCommitter
+      val submission = buildSubmission(archive2, archive3)
+
+      // when the dependencies are unknown
+      shouldFailWith(
+        committer.submit(submission),
+        INVALID_PACKAGE,
+        s"the missing dependencies are {'$pkgId1'}",
+      )
+
+      // when the dependencies are known
+      shouldSucceed(committer.submit(buildSubmission(archive1)))
+      committer.engine.preloadPackage(pkgId1, pkg1)
+      shouldFailWith(
+        committer.submit(submission),
+        INVALID_PACKAGE,
+        s"the missing dependencies are {'$pkgId1'}",
+      )
+    }
+
+    "reject submissions containing ill typed packages" in {
+      val committer = newCommitter
+      val submission = buildSubmission(archive1, archive4, archive3)
+
+      shouldFailWith(committer.submit(submission), INVALID_PACKAGE, "type mismatch")
+    }
+
+  }
+
+  s"PackageCommitter with ${ValidationMode.Lenient} validation" should {
+    def newCommitter = new CommitterWrapper(ValidationMode.Lenient, PreloadingMode.No)
+    lenientValidationTests(newCommitter)
+  }
+
+  s"PackageCommitter with ${ValidationMode.Strict} validation" should {
+    def newCommitter = new CommitterWrapper(ValidationMode.Strict, PreloadingMode.No)
+    lenientValidationTests(newCommitter)
+    strictValidationTests(newCommitter)
+  }
+
+  s"PackageCommitter with ${PreloadingMode.No} preloading" should {
+    "not preload the engine with packages" in {
+      val committer = new CommitterWrapper(ValidationMode.No, PreloadingMode.No)
+      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
+      Thread.sleep(1000)
+      committer.engine.compiledPackages().packageIds shouldBe 'empty
+    }
+  }
+
+  s"PackageCommitter with ${PreloadingMode.Asynchronous} preloading" should {
+    def newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.Asynchronous)
+
+    def waitWhile(cond: => Boolean) =
+      // wait up to 16s
+      Iterator.iterate(16L)(_ * 2).takeWhile(_ <= 8192 && cond).foreach(Thread.sleep)
+
+    "preload the engine with packages" in {
+      val committer = newCommitter
+      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
+      waitWhile(committer.engine.compiledPackages().packageIds.isEmpty)
+      committer.engine.compiledPackages().packageIds shouldBe Set(pkgId1)
+    }
+
+    "preload the engine with packages already in the ledger" in {
+      val committer = newCommitter
+      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
+      committer.restart()
+      shouldSucceedWith(committer.submit(buildSubmission(archive1, archive3)), Set(pkgId3))
+      waitWhile(committer.engine.compiledPackages().packageIds.size < 2)
+      committer.engine.compiledPackages().packageIds shouldBe Set(pkgId1, pkgId3)
+    }
+  }
+
+  s"PackageCommitter with ${PreloadingMode.Synchronous} preloading" should {
+    val newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.Synchronous)
+
+    "preload the engine with packages" in {
+      val committer = newCommitter
+      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
+      committer.engine.compiledPackages().packageIds shouldBe Set(pkgId1)
+    }
+
+    "preload the engine with packages already in the ledger" in {
+      val committer = newCommitter
+      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
+      committer.restart()
+      shouldSucceedWith(committer.submit(buildSubmission(archive1, archive3)), Set(pkgId3))
+      committer.engine.compiledPackages().packageIds shouldBe Set(pkgId1, pkgId3)
+    }
+  }
+
+  "buildLogEntry" should {
+
+    val anEmptyResult = DamlPackageUploadEntry.newBuilder
+      .setSubmissionId("an ID")
+      .setParticipantId("a participant") -> Map.empty[Ref.PackageId, Ast.Package]
+
+    def newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.No)
+
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val instance = new PackageCommitter(mock[Engine], metrics)
       val context = new FakeCommitContext(recordTime = None)
 
-      instance.buildLogEntry(context, anEmptyResult)
+      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 
       context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
         actual.hasPackageUploadRejectionEntry shouldBe true
-        actual.getPackageUploadRejectionEntry.getSubmissionId shouldBe anEmptyResult.getSubmissionId
-        actual.getPackageUploadRejectionEntry.getParticipantId shouldBe anEmptyResult.getParticipantId
+        actual.getPackageUploadRejectionEntry.getSubmissionId shouldBe anEmptyResult._1.getSubmissionId
+        actual.getPackageUploadRejectionEntry.getParticipantId shouldBe anEmptyResult._1.getParticipantId
       }
     }
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val instance = new PackageCommitter(mock[Engine], metrics)
       val context = new FakeCommitContext(recordTime = Some(theRecordTime))
 
-      instance.buildLogEntry(context, anEmptyResult)
+      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty

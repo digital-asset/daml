@@ -206,7 +206,7 @@ class CommitterSpec
     override protected val committerName: String = "test"
 
     override protected def steps: Iterable[(StepInfo, Step)] =
-      Iterable(("result", (_, _) => StepStop[Int](aLogEntry)))
+      Iterable(("result", (_, _) => StepStop(aLogEntry)))
 
     override protected def init(ctx: CommitContext, submission: DamlKvutils.DamlSubmission): Int = 0
 
