@@ -42,8 +42,10 @@ Run the following command in your terminal::
 Verifying the changes
 =====================
 
-In order for the changes to take effect you will need to restart the terminal,
-by closing the Terminal program and starting it again.
+In order for the changes to take effect you will need to restart your computer, or, if you're using
+the Terminal app, you need to quit the Terminal app (Command+Q in the Terminal window) and
+reopen it. Afterward, please follow the instructions below to verify that everything was set
+up correctly.
 
 Please verify the JAVA_HOME variable by running::
 
@@ -59,9 +61,9 @@ Next, please verify the PATH variable by running::
 You should see a series of paths which includes the path to the DAML SDK,
 which is something like ``/Users/your_username/.daml/bin``.
 
-If you do not see the changes, you may be using ``bash`` as the default shell in your
-Terminal program. Please try these instructions again, but replace the ``~/.zprofile``
-with ``~/.bash_profile`` in the commands above.
+If you do not see the changes, you may be using ``bash`` as your default shell instead of ``zsh``.
+Please try these instructions again, but replace the ``~/.zprofile`` with ``~/.bash_profile`` in
+the commands above.
 
 Linux
 *****
@@ -85,8 +87,8 @@ Run the following command::
 Verifying the changes
 =====================
 
-In order for the changes to take effect you will need to restart the terminal,
-by closing the terminal program and starting it again.
+In order for the changes to take effect you will need to restart your computer. After the restart,
+please follow the instructions below to verify that everything was set up correctly.
 
 Please verify the JAVA_HOME variable by running::
 
