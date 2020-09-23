@@ -239,6 +239,7 @@ private[lf] final class Compiler(
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
         compileCreate(identifier) ::
+          compileFetch(identifier) ::
           tmpl.choices.toList.map {
           case (cname, choice) =>
             compileChoice(identifier, tmpl, cname, choice)
@@ -651,7 +652,7 @@ private[lf] final class Compiler(
       case UpdateBlock(bindings, body) =>
         compileBlock(bindings, body)
       case UpdateFetch(tmplId, coidE) =>
-        compileFetch(tmplId, compile(coidE))
+        SEApp(SEVal(FetchDefRef(tmplId)), Array(compile(coidE)))
       case UpdateEmbedExpr(_, e) =>
         compileEmbedExpr(e)
       case UpdateCreate(tmplId, arg) =>
@@ -1314,8 +1315,8 @@ private[lf] final class Compiler(
     goBody(0, 0, 0)(expr0)
     expr0
   }
-  @inline
-  private[this] def compileFetch(tmplId: Identifier, coid: SExpr): SExpr = {
+
+  private[this] def compileFetch(tmplId: Identifier): (SDefinitionRef, SExpr) = {
     // FIXME(JM): Lift to top-level?
     // Translates 'fetch <coid>' into
     // let coid = <coidE>
@@ -1324,35 +1325,39 @@ private[lf] final class Compiler(
     //       _ = $insertFetch coid <signatories> <observers>
     //   in arg
     val tmpl = lookupTemplate(tmplId)
-    withEnv { _ =>
-      env = env.incrPos // token
-      env = env.addExprVar(tmpl.param) // argument
-      val signatories = compile(tmpl.signatories)
-      val observers = compile(tmpl.observers)
-      val key = tmpl.key match {
-        case None => SEValue.None
-        case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
-      }
-      SELet(coid) in
-        withLabel(
-          s"fetch @${tmplId.qualifiedName}",
-          SEAbs(1) {
-            SELet(
-              SBUFetch(tmplId)(
-                SEVar(2), /* coid */
-                SEVar(1) /* token */
-              ),
-              SBUInsertFetchNode(tmplId, byKey = false)(
-                SEVar(3), /* coid */
-                signatories,
-                observers,
-                key,
-                SEVar(2) /* token */
-              ),
-            ) in SEVar(2) /* fetch result */
+    FetchDefRef(tmplId) ->
+      validate(
+        closureConvert(
+          Map.empty,
+          withEnv { _ =>
+            env = env.incrPos // token
+            env = env.addExprVar(tmpl.param) // argument
+            val signatories = compile(tmpl.signatories)
+            val observers = compile(tmpl.observers)
+            val key = tmpl.key match {
+              case None => SEValue.None
+              case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
+            }
+            withLabel(
+              s"fetch @${tmplId.qualifiedName}",
+              SEAbs(2) {
+                SELet(
+                  SBUFetch(tmplId)(
+                    SEVar(2), /* coid */
+                    SEVar(1) /* token */
+                  ),
+                  SBUInsertFetchNode(tmplId, byKey = false)(
+                    SEVar(3), /* coid */
+                    signatories,
+                    observers,
+                    key,
+                    SEVar(2) /* token */
+                  ),
+                ) in SEVar(2) /* fetch result */
+              }
+            )
           }
-        )
-    }
+        ))
   }
 
   private[this] def compileCreate(tmplId: Identifier): (SDefinitionRef, SExpr) = {
@@ -1612,7 +1617,7 @@ private[lf] final class Compiler(
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       compileExerciseByKey(templateId, SEValue(contractKey), choiceId, None, SEValue(argument))
     case Command.Fetch(templateId, coid) =>
-      compileFetch(templateId, SEValue(coid))
+      SEApp(SEVal(FetchDefRef(templateId)), Array(SEValue(coid)))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
       compileCreateAndExercise(
         templateId,
