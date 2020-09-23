@@ -273,7 +273,10 @@ object Value extends CidContainer1[Value] {
   case object ValueUnit extends ValueCidlessLeaf
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
   final case class ValueTextMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
-  final case class ValueGenMap[+Cid](entries: ImmArray[(Value[Cid], Value[Cid])]) extends Value[Cid]
+  final case class ValueGenMap[+Cid](entries: ImmArray[(Value[Cid], Value[Cid])])
+      extends Value[Cid] {
+    override def toString: String = entries.iterator.mkString("ValueGenMap(", ",", ")")
+  }
 
   /** The data constructors of a variant or enum, if defined. */
   type LookupVariantEnum = Identifier => Option[ImmArray[Name]]
