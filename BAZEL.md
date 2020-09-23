@@ -300,6 +300,12 @@ Bazel command (`run`, `test`, etc.). If applicable, you can also define Bazel
 command-line flags or command-line flags to the executable. Click on "Apply",
 or "OK" to add the run configuration.
 
+#### Attaching sources to scala library
+
+If you do not have the scala library sources linked (you only see the decompiled
+ sources only), you can attach it manually by selecting the `Choose sources...` 
+ button on the yellow bar at the top, and selecting `scala-library...-src.jar`. 
+
 ### Known Issues
 
 #### Missing folders in project tree
