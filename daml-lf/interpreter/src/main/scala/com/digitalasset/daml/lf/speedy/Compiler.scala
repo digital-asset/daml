@@ -248,13 +248,13 @@ private[lf] final class Compiler(
             builder += compileChoice(identifier, tmpl, cname, choice)
         }
 
-        lookupTemplate(identifier).key.foreach { tmplKey =>
+        tmpl.key.foreach { tmplKey =>
           builder += compileFetchByKey(identifier, tmpl, tmplKey)
           builder += compileLookupByKey(identifier, tmplKey)
-//          tmpl.choices.toList.foreach {
-//            case (cname, choice) =>
-//              builder += compileChoiceByKey(identifier, tmpl, tmplKey, cname, choice)
-//          }
+         tmpl.choices.toList.foreach {
+            case (cname, choice) =>
+              builder += compileChoiceByKey(identifier, tmpl, tmplKey, cname, choice)
+          }
         }
 
         builder.result()
@@ -676,7 +676,6 @@ private[lf] final class Compiler(
           contractId = compile(cidE),
           choiceId = chId,
           optActors = actorsE.map(compile),
-          byKey = false,
           argument = compile(argE),
         )
       case UpdateGetTime =>
@@ -898,9 +897,9 @@ private[lf] final class Compiler(
       choice: TemplateChoice,
   ): (ChoiceDefRef, SExpr) =
     // Compiles a choice into:
-    // SomeTemplate$SomeChoice = \<byKey flag> <actors> <cid> <choice arg> <token> ->
+    // SomeTemplate$SomeChoice = \<actors> <cid> <choiceArg> <token> ->
     //   let targ = fetch <cid>
-    //       _ = $beginExercise[tmplId, chId] <choice arg> <cid> <actors> <byKey flag> sigs obs ctrls mbKey <token>
+    //       _ = $beginExercise[tmplId, chId] <choiceArg> <cid> <actors> <byKey flag> sigs obs ctrls mbKey <token>
     //       result = <updateE>
     //       _ = $endExercise[tmplId]
     //   in result
@@ -909,17 +908,14 @@ private[lf] final class Compiler(
         closureConvert(
           Map.empty,
           withEnv { _ =>
-            env = env.incrPos // <byKey flag>
-            env = env.incrPos // <actors>
+            env = env.incrPos /* <actors> */
             val selfBinderPos = env.position
-            env = env.incrPos // <cid>
+            env = env.incrPos /* <cid> */
             val choiceArgumentPos = env.position
             env = env.incrPos // <choice argument>
-            env = env.incrPos // <token>
-
+            env = env.incrPos /* <token> */
             // <template argument>
             env = env.addExprVar(tmpl.param)
-
             val signatories = compile(tmpl.signatories)
             val observers = compile(tmpl.observers)
             // now allow access to the choice argument
@@ -930,35 +926,133 @@ private[lf] final class Compiler(
               case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
             }
             env = env.incrPos // beginExercise's ()
-
             // allow access to the self contract id
             env = env.addExprVar(choice.selfBinder, selfBinderPos)
             val update = compile(choice.update)
+
             withLabel(
               s"exercise @${tmplId.qualifiedName} ${cname}",
-              SEAbs(5) {
+              SEAbs(4) {
                 SELet(
-                  // stack: <byKey flag> <actors> <cid> <choice arg> <token>
+                  // stack: <actors> <cid> <choiceArg> <token>
+                  // <tmplArg> =
                   SBUFetch(tmplId)(SEVar(3) /* <cid> */, SEVar(1) /* <token> */ ),
-                  // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg>
-                  SBUBeginExercise(tmplId, choice.name, choice.consuming)(
-                    SEVar(3), // <choice arg>
-                    SEVar(4), // <cid>
-                    SEVar(5), // <actors>
-                    SEVar(6), // <byKey flag>
+                  // stack: <actors> <cid> <choiceArg> <token> <tmplArg>
+                  // _ =
+                  SBUBeginExercise(tmplId, choice.name, choice.consuming, false)(
+                    SEVar(3), /* <choiceArg> */
+                    SEVar(4), /* <cid> */
+                    SEVar(5), /* <actors> */
                     signatories,
                     observers,
                     controllers,
                     mbKey,
-                    SEVar(2),
+                    SEVar(2), /* <token> */
                   ),
-                  // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> ()
-                  SEApp(update, Array(SEVar(3))),
-                  // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value>
-                  SBUEndExercise(tmplId)(SEVar(4), SEVar(1)),
+                  // stack: <actors> <cid> <choiceArg> <token> <tmplArg> ()
+                  // <ret value> =
+                  SEApp(update, Array(SEVar(3) /* <token> */ )),
+                  // stack: <actors> <cid> <choiceArg> <token> <tmplArg> () <ret value>
+                  // _ =
+                  SBUEndExercise(tmplId)(
+                    SEVar(4) /* <token> */,
+                    SEVar(1), /* <retValue>*/
+                  ),
                 ) in
-                  // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
-                  SEVar(2)
+                  // stack: <actors> <cid> <choiceArg> <token> <tmplArg> () <ret value> ()
+                  SEVar(2) /* <retValue>*/
+              }
+            )
+          },
+        ),
+      )
+
+  /** Compile a choice into a top-level function for exercising that choice */
+  private[this] def compileChoiceByKey(
+                                   tmplId: TypeConName,
+                                   tmpl: Template,
+                                   tmplKey :TemplateKey,
+                                   cname: ChoiceName,
+                                   choice: TemplateChoice,
+                                 ): (ChoiceByKeyDefRef, SExpr) =
+  // Compiles a choice into:
+  // SomeTemplate$SomeChoice = \<byKey flag> <actors> <cid> <choiceArg> <token> ->
+  //   let targ = fetch <cid>
+  //       _ = $beginExercise[tmplId, chId] <choiceArg> <cid> <actors> <byKey flag> sigs obs ctrls mbKey <token>
+  //       result = <updateE>
+  //       _ = $endExercise[tmplId]
+  //   in result
+    ChoiceByKeyDefRef(tmplId, cname) ->
+      validate(
+        closureConvert(
+          Map.empty,
+          withEnv { _ =>
+            env = env.incrPos /* <actors> */
+            env = env.incrPos /* <key> */
+            val choiceArgumentPos = env.position
+            env = env.incrPos /* <choiceArg> */
+            env = env.incrPos /* <token> */
+            env = env.incrPos //  <keyWithM>
+            val selfBinderPos = env.position
+            env = env.incrPos /* <cid> */
+            env = env.addExprVar(tmpl.param) /* <tmplArg> */
+            val signatories = compile(tmpl.signatories)
+            val observers = compile(tmpl.observers)
+            // now allow access to the choice argument
+            env = env.addExprVar(choice.argBinder._1, choiceArgumentPos)
+            val controllers = compile(choice.controllers)
+            val mbKey: SExpr = tmpl.key match {
+              case None => SEValue.None
+              case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
+            }
+            env = env.incrPos // beginExercise's ()
+            // allow access to the self contract id
+            env = env.addExprVar(choice.selfBinder, selfBinderPos)
+            val update = compile(choice.update)
+          
+            withLabel(
+              s"exercise @${tmplId.qualifiedName} ${cname}",
+              SEAbs(4) {
+                SELet(
+                  // stack: <actors> <key> <choiceArg> <token>
+                  // <keyWithM> =
+                  SBStructCon(keyWithMaintainersStruct)(
+                    SEVar(3), // key
+                    SEApp(compile(tmplKey.maintainers), Array(SEVar(3) /* key */ )),
+                  ),
+                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> 
+                  // <cid> =
+                  SBUFetchKey(tmplId)(
+                    SEVar(1), /* <keyWithM> */
+                    SEVar(2) /* <token> */
+                  ),
+                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid>
+                  // <tmplArg> =
+                  SBUFetch(tmplId)(SEVar(1) /* <cid> */, SEVar(3) /* <token> */ ),
+                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg> 
+                  // _ =
+                  SBUBeginExercise(tmplId, choice.name, choice.consuming, true)(
+                    SEVar(5), /* <choiceArg> */
+                    SEVar(2), /* <cid> */
+                    SEVar(7), /* <actors> */
+                    signatories,
+                    observers,
+                    controllers,
+                    mbKey,
+                    SEVar(4), /* <token> */
+                  ),
+                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg> ()
+                  // <ret value> =
+                  SEApp(update, Array(SEVar(5) /* <token> */ )),
+                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg> () <retValue>
+                  // _ =
+                  SBUEndExercise(tmplId)(
+                    SEVar(6), /* <token> */
+                    SEVar(1), /* <retValue> */
+                  ),
+                ) in
+                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg> () <retValue> ()
+                  SEVar(2)  /* <retValue>*/
               }
             )
           },
@@ -980,14 +1074,6 @@ private[lf] final class Compiler(
     lookupPackage(tycon.packageId).modules
       .get(tycon.qualifiedName.module)
       .flatMap(mod => mod.definitions.get(tycon.qualifiedName.name))
-
-  private[this] def lookupTemplate(tycon: TypeConName): Template =
-    lookupDefinition(tycon)
-      .flatMap {
-        case DDataType(_, _, DataRecord(_, tmpl)) => tmpl
-        case _ => None
-      }
-      .getOrElse(throw CompilationError(s"template $tycon not found"))
 
   private[this] def lookupVariantDefinition(tycon: TypeConName): Option[DataVariant] =
     lookupDefinition(tycon).flatMap {
@@ -1424,7 +1510,6 @@ private[lf] final class Compiler(
       // actors are only present when compiling old LF update expressions;
       // they are computed from the controllers in newer versions
       optActors: Option[SExpr],
-      byKey: Boolean,
       argument: SExpr,
   ): SExpr =
     // Translates 'A does exercise cid Choice with <params>'
@@ -1437,55 +1522,30 @@ private[lf] final class Compiler(
       }
       SEApp(
         SEVal(ChoiceDefRef(tmplId, choiceId)),
-        Array(SEValue.bool(byKey), actors, contractId, argument))
+        Array(actors, contractId, argument))
     }
 
   private[this] def compileExerciseByKey(
-      tmplId: Identifier,
-      key: SExpr,
-      choiceId: ChoiceName,
-      // actors are either the singleton set of submitter of an exercise command,
-      // or the acting parties of an exercise node
-      // of a transaction under reconstruction for validation
-      optActors: Option[SExpr],
-      argument: SExpr,
-  ): SExpr = {
-    // Translates 'exerciseByKey Foo <key> <choiceName> <optActors> <argument>' into:
-    // let key = <key>
-    // let maintainers = keyMaintainers key
-    // in \token ->
-    //    let coid = $fetchKey key maintainers token
-    //        exerciseResult = exercise coid coid <optActors> <argument> token
-    //    in exerciseResult
-    val template = lookupTemplate(tmplId)
+                                     tmplId: Identifier,
+                                     key: SExpr,
+                                     choiceId: ChoiceName,
+                                     // actors are only present when compiling old LF update expressions;
+                                     // they are computed from the controllers in newer versions
+                                     optActors: Option[SExpr],
+                                     argument: SExpr,
+                                   ): SExpr =
+  // Translates 'A does exercise cid Choice with <params>'
+  // into:
+  // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
     withEnv { _ =>
-      val tmplKey = template.key.getOrElse(
-        throw CompilationError(s"Expecting to find key for template ${tmplId}, but couldn't"),
-      )
-      SELet(encodeKeyWithMaintainers(key, tmplKey)) in {
-        env = env.incrPos // key with maintainers
-        withLabel(
-          s"exerciseByKey @${tmplId.qualifiedName} ${choiceId}",
-          SEAbs(1) {
-            env = env.incrPos // token
-            SELet(
-              SBUFetchKey(tmplId)(SEVar(2), SEVar(1)),
-              SEApp(
-                compileExercise(
-                  tmplId = tmplId,
-                  contractId = SEVar(1),
-                  choiceId = choiceId,
-                  byKey = true,
-                  optActors = optActors,
-                  argument = argument),
-                Array(SEVar(2)),
-              ),
-            ) in SEVar(1)
-          }
-        )
+      val actors: SExpr = optActors match {
+        case None => SEValue.None
+        case Some(actors) => SEApp(SEBuiltin(SBSome), Array(actors))
       }
+      SEApp(
+        SEVal(ChoiceByKeyDefRef(tmplId, choiceId)),
+        Array(actors, key, argument))
     }
-  }
 
   private[this] def compileCreateAndExercise(
       tmplId: Identifier,
@@ -1506,7 +1566,6 @@ private[lf] final class Compiler(
                 contractId = SEVar(1),
                 choiceId = choiceId,
                 optActors = None,
-                byKey = false,
                 argument = SEValue(choiceArg),
               ),
               Array(SEVar(2)),
@@ -1633,7 +1692,6 @@ private[lf] final class Compiler(
         contractId = SEValue(contractId),
         choiceId = choiceId,
         optActors = None,
-        byKey = false,
         argument = SEValue(argument),
       )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
