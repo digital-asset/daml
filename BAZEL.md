@@ -300,6 +300,12 @@ Bazel command (`run`, `test`, etc.). If applicable, you can also define Bazel
 command-line flags or command-line flags to the executable. Click on "Apply",
 or "OK" to add the run configuration.
 
+#### Attaching sources to scala library
+
+If you do not have the Scala library sources linked (you only see the decompiled
+ sources), you can attach it manually by selecting the `Choose sources...` 
+ button on the yellow bar at the top, and selecting `scala-library...-src.jar`. 
+
 ### Known Issues
 
 #### Missing folders in project tree
@@ -1006,4 +1012,3 @@ poisoned Nix cache. To clear that run through the following steps:
 ### Working in environments with low or intermittent connectivity
 
 Bazel tries to leverage the remote cache to speed up the build process but this can turn out to work against you if you are working in an environment with low or intermittent connectivity. To disable fetching from the remote cache in such scenario, you can use the `--noremote_accept_cached` option.
-

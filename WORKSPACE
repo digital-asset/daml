@@ -706,14 +706,17 @@ load(
 )
 
 # note some dependencies in bazel-jvm-deps.bzl (e.g. silencer_plugin) refer to the current scala version:
-scala_repositories((
-    "2.12.11",
-    {
-        "scala_compiler": "e901937dbeeae1715b231a7cfcd547a10d5bbf0dfb9d52d2886eae18b4d62ab6",
-        "scala_library": "dbfe77a3fc7a16c0c7cb6cb2b91fecec5438f2803112a744cb1b187926a138be",
-        "scala_reflect": "5f9e156aeba45ef2c4d24b303405db259082739015190b3b334811843bd90d6a",
-    },
-))
+scala_repositories(
+    (
+        "2.12.11",
+        {
+            "scala_compiler": "e901937dbeeae1715b231a7cfcd547a10d5bbf0dfb9d52d2886eae18b4d62ab6",
+            "scala_library": "dbfe77a3fc7a16c0c7cb6cb2b91fecec5438f2803112a744cb1b187926a138be",
+            "scala_reflect": "5f9e156aeba45ef2c4d24b303405db259082739015190b3b334811843bd90d6a",
+        },
+    ),
+    fetch_sources = True,
+)
 
 load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
 

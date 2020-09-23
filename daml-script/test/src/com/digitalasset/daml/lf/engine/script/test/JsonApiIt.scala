@@ -80,7 +80,7 @@ trait JsonApiFixture
   protected val secret: String = "secret"
 
   // We have to use a different actorsystem for the JSON API since package reloading
-  // blocks everything so it will timeout as sandbox cannot make progres simultaneously.
+  // blocks everything so it will timeout as sandbox cannot make progress simultaneously.
   private val jsonApiActorSystem: ActorSystem = ActorSystem("json-api")
   private val jsonApiMaterializer: Materializer = Materializer(system)
   private val jsonApiExecutionSequencerFactory: ExecutionSequencerFactory =

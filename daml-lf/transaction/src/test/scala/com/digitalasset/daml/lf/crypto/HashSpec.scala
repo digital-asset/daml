@@ -185,7 +185,7 @@ class HashSpec extends WordSpec with Matchers {
       hash1 should !==(hash2)
     }
 
-    "not produce collision in Map keys" in {
+    "not produce collision in TextMap keys" in {
       def textMap(elements: (String, Long)*) =
         VA.map(VA.int64).inj(SortedLookupList(elements.toMap))
       val value1 = textMap("A" -> 0, "B" -> 0)
@@ -199,11 +199,39 @@ class HashSpec extends WordSpec with Matchers {
       hash1 should !==(hash2)
     }
 
-    "not produce collision in Map values" in {
+    "not produce collision in TextMap values" in {
       def textMap(elements: (String, Long)*) =
         VA.map(VA.int64).inj(SortedLookupList(elements.toMap))
       val value1 = textMap("A" -> 0, "B" -> 0)
       val value2 = textMap("A" -> 0, "B" -> 1)
+
+      val tid = defRef("module", "name")
+
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
+
+      hash1 should !==(hash2)
+    }
+
+    "not produce collision in GenMap keys" in {
+      def genMap(elements: (String, Long)*) =
+        VA.genMap(VA.text, VA.int64).inj(elements.toMap)
+      val value1 = genMap("A" -> 0, "B" -> 0)
+      val value2 = genMap("A" -> 0, "C" -> 0)
+
+      val tid = defRef("module", "name")
+
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
+
+      hash1 should !==(hash2)
+    }
+
+    "not produce collision in GenMap values" in {
+      def genMap(elements: (String, Long)*) =
+        VA.genMap(VA.text, VA.int64).inj(elements.toMap)
+      val value1 = genMap("A" -> 0, "B" -> 0)
+      val value2 = genMap("A" -> 0, "B" -> 1)
 
       val tid = defRef("module", "name")
 
@@ -405,7 +433,7 @@ class HashSpec extends WordSpec with Matchers {
       val textMaps = List[V](
         textMap(),
         textMap("a" -> false),
-        textMap("a" -> false),
+        textMap("a" -> true),
         textMap("b" -> false),
         textMap("a" -> false, "b" -> false),
         textMap("a" -> true, "b" -> false),
@@ -413,12 +441,26 @@ class HashSpec extends WordSpec with Matchers {
         textMap("a" -> false, "c" -> false),
       )
 
+      def genMap(entries: (String, Boolean)*) =
+        VA.genMap(VA.text, VA.bool).inj(entries.toMap)
+
+      val genMaps = List[V](
+        genMap(),
+        genMap("a" -> false),
+        genMap("a" -> true),
+        genMap("b" -> false),
+        genMap("a" -> false, "b" -> false),
+        genMap("a" -> true, "b" -> false),
+        genMap("a" -> false, "b" -> true),
+        genMap("a" -> false, "c" -> false),
+      )
+
       val optionals =
         List(None, Some(false), Some(true)).map(VA.optional(VA.bool).inj(_)) ++
           List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj(_))
 
       val testCases: List[V] =
-        units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ enums ++ records0 ++ records2 ++ variants
+        units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
 
       val expectedOut =
         """ValueUnit
@@ -497,8 +539,8 @@ class HashSpec extends WordSpec with Matchers {
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueTextMap(SortedLookupList((a,ValueBool(false))))
           | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
-          |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
+          |ValueTextMap(SortedLookupList((a,ValueBool(true))))
+          | 23c43da46c9b2cdc82d54385808ae5b3ffe3606ae516231d2869fea82067c204
           |ValueTextMap(SortedLookupList((b,ValueBool(false))))
           | b0c45256eea6bf29c0390e82ce89efe2974db7af5dad8f14d25dad6a92cf3faf
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(false))))
@@ -508,6 +550,22 @@ class HashSpec extends WordSpec with Matchers {
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(true))))
           | da9ab333c3de358c2e5aead8a9ced5cbe5dda7fc454ade82180596120c5abdc6
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
+          | 5ac45cbc29a66cd2f10dad87daf37dbb5fa905f5647586fc5f2eafca5d349bac
+          |ValueGenMap()
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          |ValueGenMap((ValueText(a),ValueBool(false)))
+          | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
+          |ValueGenMap((ValueText(a),ValueBool(true)))
+          | 23c43da46c9b2cdc82d54385808ae5b3ffe3606ae516231d2869fea82067c204
+          |ValueGenMap((ValueText(b),ValueBool(false)))
+          | b0c45256eea6bf29c0390e82ce89efe2974db7af5dad8f14d25dad6a92cf3faf
+          |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(b),ValueBool(false)))
+          | 132fba96cd6130c57d63f8eb2b9a245deaa8a618c4cb9793af32f1190624e6bd
+          |ValueGenMap((ValueText(a),ValueBool(true)),(ValueText(b),ValueBool(false)))
+          | 954d9283d02236a4f1cd6d1cdf8f8c8a0ced4fc18f14a8380574c4d09485ec60
+          |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(b),ValueBool(true)))
+          | da9ab333c3de358c2e5aead8a9ced5cbe5dda7fc454ade82180596120c5abdc6
+          |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(c),ValueBool(false)))
           | 5ac45cbc29a66cd2f10dad87daf37dbb5fa905f5647586fc5f2eafca5d349bac
           |ValueEnum(Some(pkgId:Mod:Color),Red)
           | 048b20422b487b8eeba059a219589ad477e5f11eb769c7fea658b63f1bb1d405

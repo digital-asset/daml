@@ -149,20 +149,30 @@ checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
     getRecordError :: GHC.LHsDecl GHC.GhcPs -> Maybe (GHC.SrcSpan, String)
     getRecordError (GHC.L ss decl)
         | GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn} <- decl
-        , GHC.HsDataDefn{dd_cons=[con]} <- dataDefn
-        , GHC.RecCon{} <- GHC.con_args (GHC.unLoc con)
+        , GHC.HsDataDefn{dd_ND=nd, dd_cons=[con]} <- dataDefn
+        , isNewType nd || isRecCon (GHC.con_args (GHC.unLoc con))
         , GHC.L _ tyName <- ltyName
         , [GHC.L _ conName] <- GHC.getConNames (GHC.unLoc con)
         , let tyNameStr = GHC.occNameString (GHC.rdrNameOcc tyName)
         , let conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
         , tyNameStr /= conNameStr
-        = Just (ss, message tyNameStr conNameStr)
+        = Just (ss, message nd tyNameStr conNameStr)
 
         | otherwise
         = Nothing
 
-    message tyNameStr conNameStr = unwords
-        [ "Record type", tyNameStr, "has constructor", conNameStr
+    isNewType :: GHC.NewOrData -> Bool
+    isNewType = (GHC.NewType ==)
+
+    isRecCon :: GHC.HsConDeclDetails GHC.GhcPs -> Bool
+    isRecCon = \case
+        GHC.RecCon{} -> True
+        _ -> False
+
+    message :: GHC.NewOrData -> String -> String -> String
+    message nd tyNameStr conNameStr = unwords
+        [ if isNewType nd then "Newtype" else "Record type"
+        , tyNameStr, "has constructor", conNameStr
         , "with different name."
         , "Possible solution: Change the constructor name to", tyNameStr ]
 
