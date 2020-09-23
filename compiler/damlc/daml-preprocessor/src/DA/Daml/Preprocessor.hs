@@ -156,7 +156,7 @@ checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
         , let tyNameStr = GHC.occNameString (GHC.rdrNameOcc tyName)
         , let conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
         , tyNameStr /= conNameStr
-        = Just (ss, message tyNameStr conNameStr)
+        = Just (ss, message nd tyNameStr conNameStr)
 
         | otherwise
         = Nothing
@@ -169,8 +169,10 @@ checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
         GHC.RecCon{} -> True
         _ -> False
 
-    message tyNameStr conNameStr = unwords
-        [ "Record type", tyNameStr, "has constructor", conNameStr
+    message :: GHC.NewOrData -> String -> String -> String
+    message nd tyNameStr conNameStr = unwords
+        [ if isNewType nd then "Newtype" else "Record type"
+        , tyNameStr, "has constructor", conNameStr
         , "with different name."
         , "Possible solution: Change the constructor name to", tyNameStr ]
 
