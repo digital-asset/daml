@@ -238,12 +238,14 @@ private[lf] final class Compiler(
         List(ref -> withLabel(ref, unsafeCompile(body)))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
-        compileCreate(identifier) ::
-          compileFetch(identifier) ::
-          tmpl.choices.toList.map {
-          case (cname, choice) =>
-            compileChoice(identifier, tmpl, cname, choice)
-        }
+        compileFetchByKey(identifier).toList ++ (
+          compileCreate(identifier) ::
+            compileFetch(identifier) ::
+            tmpl.choices.toList.map {
+            case (cname, choice) =>
+              compileChoice(identifier, tmpl, cname, choice)
+          }
+        )
 
       case _ =>
         List()
@@ -671,7 +673,7 @@ private[lf] final class Compiler(
       case UpdateLookupByKey(retrieveByKey) =>
         compileLookupByKey(retrieveByKey.templateId, compile(retrieveByKey.key))
       case UpdateFetchByKey(retrieveByKey) =>
-        compileFetchByKey(retrieveByKey.templateId, compile(retrieveByKey.key))
+        SEApp(SEVal(FetchByKeyDefRef(retrieveByKey.templateId)), Array(compile(retrieveByKey.key)))
     }
 
   @tailrec
@@ -1550,7 +1552,7 @@ private[lf] final class Compiler(
     Struct.assertFromSeq(List(contractIdFieldName, contractFieldName).zipWithIndex)
 
   @inline
-  private[this] def compileFetchByKey(templateId: TypeConName, key: SExpr) = {
+  private[this] def compileFetchByKey(templateId: TypeConName): Option[(SDefinitionRef, SExpr)] = {
     // Translates 'fetchByKey Foo <key>' into:
     // let keyWithMaintainers = {key: <key>, maintainers: <key maintainers> <key>}
     // in \token ->
@@ -1559,47 +1561,57 @@ private[lf] final class Compiler(
     //        _ = $insertFetch coid <signatories> <observers> Some(keyWithMaintainers)
     //    in { contractId: ContractId Foo, contract: Foo }
     val template = lookupTemplate(templateId)
-    withEnv { _ =>
-      val keyTemplate = template.key.getOrElse(
-        throw CompilationError(
-          s"Expecting to find key for template ${templateId}, but couldn't",
-        ),
-      )
-      SELet(encodeKeyWithMaintainers(key, keyTemplate)) in {
-        env = env.incrPos // key with maintainers
-        withLabel(
-          s"fetchByKey @${templateId.qualifiedName}",
-          SEAbs(1) {
-            env = env.incrPos // token
-            env = env.addExprVar(template.param)
-            // TODO should we evaluate this before we even construct
-            // the update expression? this might be better for the user
-            val signatories = compile(template.signatories)
-            val observers = compile(template.observers)
-            SELet(
-              SBUFetchKey(templateId)(
-                SEVar(2), // key with maintainers
-                SEVar(1) // token
-              ),
-              SBUFetch(templateId)(
-                SEVar(1), /* coid */
-                SEVar(2) /* token */
-              ),
-              SBUInsertFetchNode(templateId, byKey = true)(
-                SEVar(2), // coid
-                signatories,
-                observers,
-                SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
-                SEVar(3) // token
-              ),
-            ) in SBStructCon(fetchByKeyResultStruct)(
-              SEVar(3), // contract id
-              SEVar(2) // contract
-            )
-          }
-        )
-      }
-    }
+    template.key.map(
+      keyTemplate =>
+        FetchByKeyDefRef(templateId) ->
+          validate(closureConvert(
+            Map.empty,
+            withEnv { _ =>
+              withLabel(
+                s"fetchByKey @${templateId.qualifiedName}",
+                SEAbs(2) {
+                  env = env.incrPos // key
+                  env = env.incrPos // token
+                  env = env.addExprVar(template.param)
+                  // TODO should we evaluate this before we even construct
+                  // the update expression? this might be better for the user
+                  val signatories = compile(template.signatories)
+                  val observers = compile(template.observers)
+                  SELet(
+                    // key with maintainer =
+                    SBStructCon(keyWithMaintainersStruct)(
+                      SEVar(2), // key
+                      SEApp(compile(keyTemplate.maintainers), Array(SEVar(2) /* key */ )),
+                    ),
+                    // coid =
+                    SBUFetchKey(templateId)(
+                      SEVar(1), // key with maintainers
+                      SEVar(2) // token
+                    ),
+                    // contact =
+                    SBUFetch(templateId)(
+                      SEVar(1), // coid
+                      SEVar(3) // token
+                    ),
+                    // _ =
+                    SBUInsertFetchNode(templateId, byKey = true)(
+                      SEVar(2), // coid
+                      signatories,
+                      observers,
+                      SEApp(
+                        SEBuiltin(SBSome),
+                        Array(SEVar(3)) // key with maintainer
+                      ),
+                      SEVar(4) // token
+                    ),
+                  ) in SBStructCon(fetchByKeyResultStruct)(
+                    SEVar(3), // coid
+                    SEVar(2) // contract
+                  )
+                }
+              )
+            }
+          )))
   }
 
   private[this] def compileCommand(cmd: Command): SExpr = cmd match {
