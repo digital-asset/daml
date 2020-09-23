@@ -2,11 +2,13 @@
 -- All rights reserved.
 
 -- @ERROR range=10:0-10:13; Record type X has constructor Y with different name. Possible solution: Change the constructor name to X
-
 -- @ERROR range=12:0-12:26; Record type A has constructor B with different name. Possible solution: Change the constructor name to A
+-- @ERROR range=14:0-14:17; Record type C has constructor D with different name. Possible solution: Change the constructor name to C
 
 module RecordConstructorCheck where
 
 data X = Y {}
 
 newtype A = B { b : Bool }
+
+newtype C = D Int
