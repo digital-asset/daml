@@ -22,11 +22,27 @@ DAML's "public API" is laid out in the :doc:`overview`.
 Cadence
 -------
 
-Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain SDK and integration components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
+Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain SDK, Libraries, Runtime Components, and Integration Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
 
 Stable versions are released once a month. See :ref:`release_process` below for the usual schedule. This schedule is a guide, not a guarantee, and additional releases may be made, or releases may be delayed for skipped entirely. 
 
 No more than one major version is released every six months, barring exceptional circumstances.
+
+Individual DAML Drivers follow their own release cadence, using already released Integration Components as a dependency.
+
+.. _release-notes:
+
+Release Notes
+-------------
+
+Release notes for each release are published on the `Release Notes section of the DAML Driven blog <https://daml.com/release-notes/>`_.
+
+.. _roadmap:
+
+Roadmap
+-------
+
+Once a month Digital Asset publishes a community update to accompany the announcement of the release candidate for the next release. The community update contains a section outlining the next priorities for development. You can find community updates on the `DAML Driven Blog <https://daml.com/daml-driven>`_, or subscribe to the mailing list or social media profiles on `https://daml.com/ <https://daml.com/>`_ to stay up to date.
 
 .. _release_process:
 
@@ -68,17 +84,3 @@ Release
 .. figure:: release-timeline.png
   
   The release process timeline illustrated by example of September 2020.
-
-.. _release-notes:
-
-Release Notes
--------------
-
-Release notes for each release are published on the `Release Notes section of the DAML Driven blog <https://daml.com/release-notes/>`_.
-
-.. _roadmap:
-
-Roadmap
--------
-
-Once a month Digital Asset publishes a community update to accompany the announcement of the release candidate for the next release. The community update contains a section outlining the next priorities for development. You can find community updates on the `DAML Driven Blog <https://daml.com/daml-driven>`_, or subscribe to the mailing list or social media profiles on `https://daml.com/ <https://daml.com/>`_ to stay up to date.

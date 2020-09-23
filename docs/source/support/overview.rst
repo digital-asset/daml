@@ -26,12 +26,17 @@ A high level view of the architecture of a DAML application or solution is helpf
 DAML Networks
 .............
 
-At the bottom of every DAML Application is a DAML Network, a distributed, or possibly centralized persistence infrastructure together with DAML Drivers. DAML Drivers enable the persistence infrastructure to act as a consensus, messaging, and in some cases persistence layer for DAML Applications. Most DAML Drivers will have a public API, but there are no _uniform_ public APIs on DAML Drivers. A good example is the command line interface of `DAML for Postgres <https://github.com/digital-asset/daml/blob/master/ledger/daml-on-sql/README.rst>`_. It's a public interface, but specific to the Postgres driver.
+At the bottom of every DAML Application is a DAML Network, a distributed, or possibly centralized persistence infrastructure together with DAML Drivers. DAML Drivers enable the persistence infrastructure to act as a consensus, messaging, and in some cases persistence layer for DAML Applications. Most DAML Drivers will have a public API, but there are no _uniform_ public APIs on DAML Drivers. This does not harm application portability since applications only interact with DAML Networks through the Participant Node. A good example of a public API of a DAML Driver is the command line interface of `DAML for Postgres <https://github.com/digital-asset/daml/blob/master/ledger/daml-on-sql/README.rst>`_. It's a public interface, but specific to the Postgres driver.
 
 Participant Nodes
 .................
 
 On top of, or integrated into the DAML Drivers sits a Participant Node, that has the primary purpose of exposing the DAML Ledger API. In the case of _integrated_ DAML Drivers, the Participant Node usually interacts with the DAML Drivers through solution-specific APIs. In this case, Participant Nodes can only communicate with DAML Drivers of one DAML Network. In the case of _interoperable_ DAML Drivers, the Participant Node communicates with the DAML Drivers through the uniform `Canton Protocol <https://www.canton.io/docs/stable/user-manual/index.html>`_. The Canton Protocol is versioned and has some cross-version compatibility guarantees, but is not a public API. See Participant nodes may have public APIs like monitoring and logging, command line interfaces or similar, but the only _uniform_ public API exposed by all Participant Nodes is the Ledger API.
+
+Integration Components
+......................
+
+DAML Drivers and Participant Nodes share a lot of components between infrastructures. These shared components, which are used to build a DAML integration with an underlying infrastructure, are called the Integration Components, or sometimes the :doc:`/daml-integration-kit/index`.
 
 Ledger API
 ..........

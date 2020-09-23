@@ -19,15 +19,29 @@ Ledger API
    * - :doc:`Ledger API specification </app-dev/grpc/proto-docs>` including all semantics of >= DAML-LF 1.6
      - Stable
      -   
-   * - CLI and test names of :doc:`/tools/ledger-api-test-tool/index`
-     - Beta
-     -
    * - `Numbered (ie non-dev) Versions of Proto definitions distributed via GitHub Releases <protobufs_>`_
      - Stable
      - 
    * - `Dev Versions of Proto definitions distributed via GitHub Releases <protobufs_>`_
      - Alpha
      - 
+
+Integration Components
+----------------------
+
+.. list-table::
+   :widths: 80 10 10
+   :header-rows: 1
+
+   * - Component/Feature
+     - Status
+     - Deprecated on
+   * - :doc:`Integration Kit Components </daml-integration-kit/index>`
+     - Labs
+     -
+   * - CLI and test names of :doc:`/tools/ledger-api-test-tool/index`
+     - Beta
+     -
 
 .. _runtime-components:
 
@@ -88,11 +102,11 @@ Libraries
      -
      -
    * - ``daml codegen scala`` :doc:`CLI and generated code </app-dev/bindings-scala/index>`
-     - Stable
-     - 
+     - Stable, Deprecated
+     - 2020-10-14
    * - ``bindings-scala_2.12`` :doc:`library and its public API </app-dev/bindings-scala/index>`
-     - Stable
-     - 
+     - Stable, Deprecated
+     - 2020-10-14
    * - **Java Ledger API Bindings**
      - 
      -
@@ -102,9 +116,12 @@ Libraries
    * - ``bindings-java`` :doc:`library and its public API </app-dev/bindings-java/index>`.
      - Stable
      -
-   * - ``bindings-rxjava`` :doc:`library and its public API </app-dev/bindings-java/index>`.
+   * - ``bindings-rxjava`` :doc:`library and its public API </app-dev/bindings-java/index>` *excluding* the reactive components in package ``com.daml.ledger.rxjava.components``.
      - Stable
      -
+   * - Java Reactive Components in the ``com.daml.ledger.rxjava.components`` package of ``bindings-rxjava``.
+     - Stable, Deprecated
+     - 2020-10-14
    * - Maven artifact ``daml-lf-1.6-archive-java-proto``
      - Stable
      -
@@ -121,8 +138,8 @@ Libraries
      -
      -
    * - ``@digital-asset/bindings-js`` :doc:`Node.js library </app-dev/bindings-js>`
-     - Stable
-     - 
+     - Stable, Deprecated
+     - 2020-10-14
    * - **JavaScript Client Libraries**
      -
      -
