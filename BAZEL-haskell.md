@@ -153,7 +153,7 @@ The packages are pinned by the Stackage snapshot, in this case a
 `local_snapshot` and in the lock-file defined by `stack_snapshot_json`. If you
 wish to update packages, then you need to change the `packages` and
 `local_snapshot` attributes accordingly and afterwards execute the following
-command to update the lock-file:
+command on Unix and Windows to update the lock-files:
 ```
 bazel run @stackage-unpinned//:pin
 ```
