@@ -33,28 +33,37 @@ Run the following command in your terminal::
 
         echo 'export JAVA_HOME="$(/usr/libexec/java_home)"' >> ~/.zprofile
 
-In order for the changes to take effect you will need to restart your computer. Note that if you will be setting up the
-``PATH`` variable as well you can restart your computer after you're done with all the changes. Upon restarting check that
-the ``JAVA_HOME`` variable is set::
-
-        echo $JAVA_HOME
-
-The result should be the path to the JDK installation, something like this::
-
-        /Library/Java/JavaVirtualMachines/jdk_version_number/Contents/Home
-
 Setting the PATH variable
 =========================
 Run the following command in your terminal::
 
-        echo 'export PATH="~/.daml/bin:$PATH"' >> ~/.zprofile
+        echo 'export PATH="$HOME/.daml/bin:$PATH"' >> ~/.zprofile
 
-In order for the changes to take effect you will need to restart your computer. Upon restarting check the ``PATH`` variable and make sure that
-the changes have been applied::
+Verifying the changes
+=====================
+
+In order for the changes to take effect you will need to restart your computer, or, if you're using
+the macOS Terminal app, you only need to quit the Terminal app (Command+Q in the Terminal window) and
+reopen it. Afterward, please follow the instructions below to verify that everything was set
+up correctly.
+
+Please verify the JAVA_HOME variable by running::
+
+        echo $JAVA_HOME
+
+You should see the path to the JDK installation, which is something like
+``/Library/Java/JavaVirtualMachines/jdk_version_number/Contents/Home``.
+
+Next, please verify the PATH variable by running::
 
         echo $PATH
 
-You should see ``~/.daml/bin`` in the output.
+You should see a series of paths which includes the path to the DAML SDK,
+which is something like ``/Users/your_username/.daml/bin``.
+
+If you do not see the changes, you may be using ``bash`` as your default shell instead of ``zsh``.
+Please try these instructions again, but replace the ``~/.zprofile`` with ``~/.bash_profile`` in
+the commands above.
 
 Linux
 *****
@@ -68,28 +77,29 @@ make sure to change the ``java-version`` with the actual folder found on your co
 
         echo "export JAVA_HOME=/usr/lib/jvm/java-version" >> ~/.bash_profile
 
-In order for the changes to take effect you will need to restart your computer. Note that if you will be setting up the
-``PATH`` variable as well you can restart your computer after you're done with all the changes. Upon restarting check that
-the ``JAVA_HOME`` variable is set::
-
-        echo $JAVA_HOME
-
-The result should be the path to the JDK installation::
-
-        /usr/lib/jvm/java-version
-
 Setting the PATH variable
 =========================
 
 Run the following command::
 
-        echo 'export PATH="~/.daml/bin:$PATH"' >> ~/.bash_profile
+        echo 'export PATH="$HOME/.daml/bin:$PATH"' >> ~/.bash_profile
 
-Save the file before closing.
+Verifying the changes
+=====================
 
-In order for the changes to take effect you will need to restart your computer. Upon restarting check the ``PATH`` variable and make sure that
-the changes have been applied::
+In order for the changes to take effect you will need to restart your computer. After the restart,
+please follow the instructions below to verify that everything was set up correctly.
+
+Please verify the JAVA_HOME variable by running::
+
+        echo $JAVA_HOME
+
+You should see the path you gave for the JDK installation, which is something like
+``/usr/lib/jvm/java-version``.
+
+Next, please verify the PATH variable by running::
 
         echo $PATH
 
-You should see ``~/.daml/bin`` in the output.
+You should see a series of paths which includes the path to the DAML SDK,
+which is something like ``/home/your_username/.daml/bin``.
