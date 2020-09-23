@@ -4,13 +4,13 @@
 
 module NewtypePolymorphic where
 
-newtype T a = MkT a
+newtype T a = T a
 
 mkT : a -> T a
-mkT x = MkT x
+mkT x = T x
 
 unT : T a -> a
-unT (MkT x) = x
+unT (T x) = x
 
 main = scenario do
   assert (unT (mkT 1) == 1)
