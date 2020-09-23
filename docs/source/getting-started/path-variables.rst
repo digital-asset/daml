@@ -43,7 +43,7 @@ Verifying the changes
 =====================
 
 In order for the changes to take effect you will need to restart your computer, or, if you're using
-the Terminal app, you need to quit the Terminal app (Command+Q in the Terminal window) and
+the macOS Terminal app, you only need to quit the Terminal app (Command+Q in the Terminal window) and
 reopen it. Afterward, please follow the instructions below to verify that everything was set
 up correctly.
 
