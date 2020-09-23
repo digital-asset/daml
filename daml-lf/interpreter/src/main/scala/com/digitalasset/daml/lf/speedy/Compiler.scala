@@ -889,7 +889,6 @@ private[lf] final class Compiler(
   private[this] def translateKeyWithMaintainers(tmplKey: TemplateKey): SExpr =
     encodeKeyWithMaintainers(compile(tmplKey.body), tmplKey)
 
-  /** Compile a choice into a top-level function for exercising that choice */
   private[this] def compileChoice(
       tmplId: TypeConName,
       tmpl: Template,
@@ -939,7 +938,7 @@ private[lf] final class Compiler(
                   SBUFetch(tmplId)(SEVar(3) /* <cid> */, SEVar(1) /* <token> */ ),
                   // stack: <actors> <cid> <choiceArg> <token> <tmplArg>
                   // _ =
-                  SBUBeginExercise(tmplId, choice.name, choice.consuming, false)(
+                  SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = false)(
                     SEVar(3), /* <choiceArg> */
                     SEVar(4), /* <cid> */
                     SEVar(5), /* <actors> */
@@ -956,11 +955,11 @@ private[lf] final class Compiler(
                   // _ =
                   SBUEndExercise(tmplId)(
                     SEVar(4), /* <token> */
-                    SEVar(1) /* <retValue>*/
+                    SEVar(1) /* <retValue> */
                   )
                 ) in
                   // stack: <actors> <cid> <choiceArg> <token> <tmplArg> () <ret value> ()
-                  SEVar(2) /* <retValue>*/
+                  SEVar(2) /* <retValue> */
               }
             )
           },
@@ -1031,7 +1030,7 @@ private[lf] final class Compiler(
                   SBUFetch(tmplId)(SEVar(1) /* <cid> */, SEVar(3) /* <token> */ ),
                   // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg>
                   // _ =
-                  SBUBeginExercise(tmplId, choice.name, choice.consuming, true)(
+                  SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = true)(
                     SEVar(5), /* <choiceArg> */
                     SEVar(2), /* <cid> */
                     SEVar(7), /* <actors> */
@@ -1052,7 +1051,7 @@ private[lf] final class Compiler(
                   ),
                 ) in
                   // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg> () <retValue> ()
-                  SEVar(2) /* <retValue>*/
+                  SEVar(2) /* <retValue> */
               }
             )
           },
