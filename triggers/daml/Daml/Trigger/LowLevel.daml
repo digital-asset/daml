@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Daml.Trigger.LowLevel
   ( Message(..)
@@ -246,6 +247,7 @@ data Commands = Commands
   }
 
 data FC f a = FC (forall r. (a -> r) -> (f r -> r) -> r)
+type Free = FC
 
 runFC : FC f a -> (a -> r) -> (f r -> r) -> r
 runFC (FC fa) = fa
@@ -262,3 +264,40 @@ instance Action (FC f) where
 
 liftFC : Functor f => f a -> FC f a
 liftFC fa = FC (\ar roll -> roll (fmap ar fa))
+
+lowerFC : Action f => FC f a -> f a
+lowerFC (FC fa) = fa pure join
+
+data TriggerF s a =
+  GetTime (Time -> a)
+  | GetMessage (Message -> a)
+  | GetS (s -> a)
+  | SetS (s, () -> a)
+  | Submit ([Commands], () -> a)
+  deriving Functor
+
+type ActionTrigger s = Free (TriggerF s)
+
+instance HasTime (ActionTrigger s) where
+  getTime : ActionTrigger s Time
+  getTime = liftFC (GetTime identity)
+
+getMessage : ActionTrigger s Message
+getMessage = liftFC (GetMessage identity)
+
+getS : ActionTrigger s s
+getS = liftFC (GetS identity)
+
+setS : s -> ActionTrigger s ()
+setS s = liftFC (SetS (s, identity))
+
+submitCommands : [Commands] -> ActionTrigger s ()
+submitCommands cmds = liftFC (Submit (cmds, identity))
+
+type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
+
+forwardPort : TriggerUpdate s -> ActionTrigger s ()
+forwardPort f = do
+  (s, cmds) <- f <$> getTime <*> getMessage <*> getS
+  setS s
+  submitCommands cmds
