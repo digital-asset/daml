@@ -450,6 +450,7 @@ object SExpr {
   final case class CreateDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class FetchDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class FetchByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class LookupByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
 
   //
   // List builtins (equalList) are implemented as recursive

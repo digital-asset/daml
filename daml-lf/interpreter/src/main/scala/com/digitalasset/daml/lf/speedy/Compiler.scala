@@ -238,15 +238,18 @@ private[lf] final class Compiler(
         List(ref -> withLabel(ref, unsafeCompile(body)))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
-        compileFetchByKey(identifier).toList ++ (
-          compileCreate(identifier) ::
-            compileFetch(identifier) ::
-            tmpl.choices.toList.map {
-            case (cname, choice) =>
-              compileChoice(identifier, tmpl, cname, choice)
-          }
-        )
+        val builder = List.newBuilder[(SDefinitionRef, SExpr)]
 
+        builder += compileCreate(identifier)
+        builder += compileFetch(identifier)
+        compileFetchByKey(identifier).foreach(builder += _)
+        compileLookupByKey(identifier).foreach(builder += _)
+        tmpl.choices.toList.foreach {
+          case (cname, choice) =>
+            builder += compileChoice(identifier, tmpl, cname, choice)
+        }
+
+        builder.result()
       case _ =>
         List()
     }
@@ -670,10 +673,10 @@ private[lf] final class Compiler(
         )
       case UpdateGetTime =>
         SEGetTime
-      case UpdateLookupByKey(retrieveByKey) =>
-        compileLookupByKey(retrieveByKey.templateId, compile(retrieveByKey.key))
-      case UpdateFetchByKey(retrieveByKey) =>
-        SEApp(SEVal(FetchByKeyDefRef(retrieveByKey.templateId)), Array(compile(retrieveByKey.key)))
+      case UpdateLookupByKey(RetrieveByKey(templateId, key)) =>
+        SEApp(SEVal(LookupByKeyDefRef(templateId)), Array(compile(key)))
+      case UpdateFetchByKey(RetrieveByKey(templateId, key)) =>
+        SEApp(SEVal(FetchByKeyDefRef(templateId)), Array(compile(key)))
     }
 
   @tailrec
@@ -1511,7 +1514,8 @@ private[lf] final class Compiler(
       )
     }
 
-  private[this] def compileLookupByKey(templateId: Identifier, key: SExpr): SExpr = {
+  private[this] def compileLookupByKey(
+      templateId: Identifier): Option[(LookupByKeyDefRef, SExpr)] = {
     // Translates 'lookupByKey Foo <key>' into:
     // let keyWithMaintainers = {key: <key>, maintainers: <key maintainers> <key>}
     // in \token ->
@@ -1519,33 +1523,37 @@ private[lf] final class Compiler(
     //        _ = $insertLookup Foo keyWithMaintainers
     //    in mbContractId
     val template = lookupTemplate(templateId)
-    withEnv { _ =>
-      val templateKey = template.key.getOrElse(
-        throw CompilationError(
-          s"Expecting to find key for template ${templateId}, but couldn't",
-        ),
-      )
-      SELet(encodeKeyWithMaintainers(key, templateKey)) in {
-        env = env.incrPos // keyWithM
-        withLabel(
-          s"lookupByKey @${templateId.qualifiedName}",
-          SEAbs(1) {
-            env = env.incrPos // token
-            SELet(
-              SBULookupKey(templateId)(
-                SEVar(2), // key with maintainers
-                SEVar(1) // token
-              ),
-              SBUInsertLookupNode(templateId)(
-                SEVar(3), // key with maintainers
-                SEVar(1), // mb contract id
-                SEVar(2) // token
-              ),
-            ) in SEVar(2) // mb contract id
-          }
-        )
-      }
-    }
+    template.key.map(
+      templateKey =>
+        LookupByKeyDefRef(templateId) ->
+          validate(closureConvert(
+            Map.empty,
+            withEnv { _ =>
+              withLabel(
+                s"lookupByKey @${templateId.qualifiedName}",
+                SEAbs(2) {
+                  env = env.incrPos // key
+                  env = env.incrPos // token
+                  SELet(
+                    // key with maintainer =
+                    SBStructCon(keyWithMaintainersStruct)(
+                      SEVar(2), // key
+                      SEApp(compile(templateKey.maintainers), Array(SEVar(2) /* key */ )),
+                    ),
+                    SBULookupKey(templateId)(
+                      SEVar(1), // key with maintainers
+                      SEVar(2) // token
+                    ),
+                    SBUInsertLookupNode(templateId)(
+                      SEVar(2), // key with maintainers
+                      SEVar(1), // mb contract id
+                      SEVar(3) // token
+                    ),
+                  ) in SEVar(2) // mb contract id
+                }
+              )
+            }
+          )))
   }
 
   private[this] val fetchByKeyResultStruct: Struct[Int] =
@@ -1638,7 +1646,7 @@ private[lf] final class Compiler(
         choiceArg,
       )
     case Command.LookupByKey(templateId, contractKey) =>
-      compileLookupByKey(templateId, SEValue(contractKey))
+      SEApp(SEVal(LookupByKeyDefRef(templateId)), Array(SEValue(contractKey)))
   }
 
   @inline
