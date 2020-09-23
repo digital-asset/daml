@@ -9,6 +9,7 @@ import java.nio.file.Paths
 import java.util.zip.ZipEntry
 
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.daml.lf.validation.Validation
@@ -66,13 +67,10 @@ private[daml] object DamlLfEncoder extends App {
             Ref.PackageVersion.assertFromString("1.0.0")))
       } else None
 
-    val pkgs =
-      Map(
-        pkgId ->
-          Ast.Package(modules, Set.empty[Ref.PackageId], parserParameters.languageVersion, metadata)
-      )
+    val pkg = Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
+    val pkgs = Map(pkgId -> pkg)
 
-    Validation.checkPackage(pkgs, pkgId).left.foreach(e => error(e.pretty))
+    Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))
 
     encodeArchive(pkgId -> pkgs(pkgId), parserParameters.languageVersion)
   }

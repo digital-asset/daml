@@ -488,20 +488,36 @@ object Ast {
   // Definitions
   //
 
-  sealed abstract class Definition extends Product with Serializable
+  sealed abstract class GenDefinition[+E] extends Product with Serializable
 
-  final case class DTypeSyn(params: ImmArray[(TypeVarName, Kind)], typ: Type) extends Definition
+  final case class DTypeSyn(params: ImmArray[(TypeVarName, Kind)], typ: Type)
+      extends GenDefinition[Nothing]
   final case class DDataType(
       serializable: Boolean,
       params: ImmArray[(TypeVarName, Kind)],
       cons: DataCons)
-      extends Definition
-  final case class DValue(
+      extends GenDefinition[Nothing]
+  final case class GenDValue[E](
       typ: Type,
       noPartyLiterals: Boolean,
-      body: Expr,
+      body: E,
       isTest: Boolean
-  ) extends Definition
+  ) extends GenDefinition[E]
+
+  class GenDValueCompanion[E] {
+    def apply(typ: Type, noPartyLiterals: Boolean, body: E, isTest: Boolean): GenDValue[E] =
+      new GenDValue(typ, noPartyLiterals, body, isTest)
+
+    def unapply(arg: GenDValue[E]): Option[(Type, Boolean, E, Boolean)] =
+      GenDValue.unapply(arg)
+  }
+
+  type DValue = GenDValue[Expr]
+  object DValue extends GenDValueCompanion[Expr]
+  object DValueSignature extends GenDValueCompanion[Unit]
+
+  type Definition = GenDefinition[Expr]
+  type DefinitionSignature = GenDefinition[Unit]
 
   // Data constructor in data type definition.
   sealed abstract class DataCons extends Product with Serializable
@@ -514,40 +530,54 @@ object Ast {
     lazy val constructorRank: Map[EnumConName, Int] = constructors.iterator.zipWithIndex.toMap
   }
 
-  case class TemplateKey(
+  case class GenTemplateKey[E](
       typ: Type,
-      body: Expr,
+      body: E,
       // function from key type to [Party]
-      maintainers: Expr,
+      maintainers: E,
   )
 
-  case class Template private (
+  sealed class GenTemplateKeyCompanion[E] {
+    def apply(typ: Type, body: E, maintainers: E): GenTemplateKey[E] =
+      new GenTemplateKey(typ, body, maintainers)
+
+    def unapply(arg: GenTemplateKey[E]): Option[(Type, E, E)] =
+      GenTemplateKey.unapply(arg)
+  }
+
+  type TemplateKey = GenTemplateKey[Expr]
+  object TemplateKey extends GenTemplateKeyCompanion[Expr]
+
+  type TemplateKeySignature = GenTemplateKey[Unit]
+  object TemplateKeySignature extends GenTemplateKeyCompanion[Unit]
+
+  case class GenTemplate[E] private[Ast] (
       param: ExprVarName, // Binder for template argument.
-      precond: Expr, // Template creation precondition.
-      signatories: Expr, // Parties agreeing to the contract.
-      agreementText: Expr, // Text the parties agree to.
-      choices: Map[ChoiceName, TemplateChoice], // Choices available in the template.
-      observers: Expr, // Observers of the contract.
-      key: Option[TemplateKey]
-  )
+      precond: E, // Template creation precondition.
+      signatories: E, // Parties agreeing to the contract.
+      agreementText: E, // Text the parties agree to.
+      choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
+      observers: E, // Observers of the contract.
+      key: Option[GenTemplateKey[E]]
+  ) extends NoCopy
 
-  object Template {
+  sealed class GenTemplateCompanion[E] {
 
     def apply(
         param: ExprVarName,
-        precond: Expr,
-        signatories: Expr,
-        agreementText: Expr,
-        choices: Traversable[(ChoiceName, TemplateChoice)],
-        observers: Expr,
-        key: Option[TemplateKey]
-    ): Template = {
+        precond: E,
+        signatories: E,
+        agreementText: E,
+        choices: Traversable[(ChoiceName, GenTemplateChoice[E])],
+        observers: E,
+        key: Option[GenTemplateKey[E]]
+    ): GenTemplate[E] = {
 
       findDuplicate(choices).foreach { choiceName =>
         throw PackageError(s"collision on choice name $choiceName")
       }
 
-      new Template(
+      new GenTemplate[E](
         param,
         precond,
         signatories,
@@ -557,17 +587,69 @@ object Ast {
         key,
       )
     }
+
+    def apply(arg: GenTemplate[E]): Option[(
+        ExprVarName,
+        E,
+        E,
+        E,
+        Map[ChoiceName, GenTemplateChoice[E]],
+        E,
+        Option[GenTemplateKey[E]],
+    )] = GenTemplate.unapply(arg)
+
+    def unapply(arg: GenTemplate[E]): Option[
+      (
+          ExprVarName,
+          E,
+          E,
+          E,
+          Map[ChoiceName, GenTemplateChoice[E]],
+          E,
+          Option[GenTemplateKey[E]]
+      )
+    ] =
+      GenTemplate.unapply(arg)
   }
 
-  case class TemplateChoice(
+  type Template = GenTemplate[Expr]
+  object Template extends GenTemplateCompanion[Expr]
+
+  type TemplateSignature = GenTemplate[Unit]
+  object TemplateSignature extends GenTemplateCompanion[Unit]
+
+  case class GenTemplateChoice[E](
       name: ChoiceName, // Name of the choice.
       consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
-      controllers: Expr, // Parties that can exercise the choice.
+      controllers: E, // Parties that can exercise the choice.
       selfBinder: ExprVarName, // Self ContractId binder.
       argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
-      update: Expr // The choice follow-up.
+      update: E // The choice follow-up.
   )
+
+  sealed class GenTemplateChoiceCompanion[E] {
+    def apply(
+        name: ChoiceName,
+        consuming: Boolean,
+        controllers: E,
+        selfBinder: ExprVarName,
+        argBinder: (ExprVarName, Type),
+        returnType: Type,
+        update: E
+    ): GenTemplateChoice[E] =
+      new GenTemplateChoice(name, consuming, controllers, selfBinder, argBinder, returnType, update)
+
+    def unapply(arg: GenTemplateChoice[E])
+      : Option[(ChoiceName, Boolean, E, ExprVarName, (ExprVarName, Type), Type, E)] =
+      GenTemplateChoice.unapply(arg)
+  }
+
+  type TemplateChoice = GenTemplateChoice[Expr]
+  object TemplateChoice extends GenTemplateChoiceCompanion[Expr]
+
+  type TemplateChoiceSignature = GenTemplateChoice[Unit]
+  object TemplateChoiceSignature extends GenTemplateChoiceCompanion[Unit]
 
   case class FeatureFlags(
       forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
@@ -594,24 +676,24 @@ object Ast {
   // Modules and packages
   //
 
-  case class Module private (
+  case class GenModule[E] private[Ast] (
       name: ModuleName,
-      definitions: Map[DottedName, Definition],
-      templates: Map[DottedName, Template],
+      definitions: Map[DottedName, GenDefinition[E]],
+      templates: Map[DottedName, GenTemplate[E]],
       featureFlags: FeatureFlags
-  )
+  ) extends NoCopy
 
   private def findDuplicate[Key, Value](xs: Traversable[(Key, Value)]) =
     xs.groupBy(_._1).collectFirst { case (key, values) if values.size > 1 => key }
 
-  object Module {
+  sealed class GenModuleCompanion[E] {
 
     def apply(
         name: ModuleName,
-        definitions: Iterable[(DottedName, Definition)],
-        templates: Iterable[(DottedName, Template)],
+        definitions: Iterable[(DottedName, GenDefinition[E])],
+        templates: Iterable[(DottedName, GenTemplate[E])],
         featureFlags: FeatureFlags
-    ): Module = {
+    ): GenModule[E] = {
 
       findDuplicate(definitions).foreach { defName =>
         throw PackageError(s"Collision on definition name ${defName.toString}")
@@ -621,47 +703,97 @@ object Ast {
         throw PackageError(s"Collision on template name ${templName.toString}")
       }
 
-      new Module(name, definitions.toMap, templates.toMap, featureFlags)
+      new GenModule(name, definitions.toMap, templates.toMap, featureFlags)
     }
+
+    def unapply(arg: GenModule[E]): Option[(
+        ModuleName,
+        Map[DottedName, GenDefinition[E]],
+        Map[DottedName, GenTemplate[E]],
+        FeatureFlags)] =
+      GenModule.unapply(arg)
   }
+
+  type Module = GenModule[Expr]
+  object Module extends GenModuleCompanion[Expr]
+
+  type ModuleSignature = GenModule[Unit]
+  object ModuleSignature extends GenModuleCompanion[Unit]
 
   case class PackageMetadata(name: PackageName, version: PackageVersion)
 
-  case class Package(
-      modules: Map[ModuleName, Module],
+  case class GenPackage[E](
+      modules: Map[ModuleName, GenModule[E]],
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
       metadata: Option[PackageMetadata],
   ) {
-    def lookupModule(modName: ModuleName): Either[String, Module] =
+    def lookupModule(modName: ModuleName): Either[String, GenModule[E]] =
       modules.get(modName).toRight(s"Could not find module ${modName.toString}")
-    def lookupDefinition(identifier: QualifiedName): Either[String, Definition] =
+    def lookupDefinition(identifier: QualifiedName): Either[String, GenDefinition[E]] =
       lookupModule(identifier.module).flatMap(_.definitions
         .get(identifier.name)
         .toRight(
           s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"))
-    def lookupTemplate(identifier: QualifiedName): Either[String, Template] =
+    def lookupTemplate(identifier: QualifiedName): Either[String, GenTemplate[E]] =
       lookupModule(identifier.module).flatMap(_.templates
         .get(identifier.name)
         .toRight(
           s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"))
   }
 
-  object Package {
+  sealed class GenPackageCompanion[E] {
 
     def apply(
-        modules: Traversable[Module],
+        modules: Traversable[GenModule[E]],
         directDeps: Traversable[PackageId],
         languageVersion: LanguageVersion,
         metadata: Option[PackageMetadata],
-    ): Package = {
+    ): GenPackage[E] = {
       val modulesWithNames = modules.map(m => m.name -> m)
       findDuplicate(modulesWithNames).foreach { modName =>
         throw PackageError(s"Collision on module name ${modName.toString}")
       }
-      Package(modulesWithNames.toMap, directDeps.toSet, languageVersion, metadata)
+      this(modulesWithNames.toMap, directDeps.toSet, languageVersion, metadata)
     }
+
+    def apply(
+        modules: Map[ModuleName, GenModule[E]],
+        directDeps: Set[PackageId],
+        languageVersion: LanguageVersion,
+        metadata: Option[PackageMetadata],
+    ) =
+      GenPackage(
+        modules: Map[ModuleName, GenModule[E]],
+        directDeps: Set[PackageId],
+        languageVersion: LanguageVersion,
+        metadata: Option[PackageMetadata],
+      )
+
+    def unapply(arg: GenPackage[E]): Option[(
+        Map[ModuleName, GenModule[E]],
+        Set[PackageId],
+        LanguageVersion,
+        Option[PackageMetadata]
+    )] =
+      GenPackage.unapply(arg)
   }
+
+  type Package = GenPackage[Expr]
+  object Package extends GenPackageCompanion[Expr]
+
+  // [PackageSignature] is a version of the AST that does not contain
+  // LF expression. This should save memory in the [CompiledPackages]
+  // where those expressions once compiled into Speedy Expression
+  // become useless.
+  // Here the term "Signature" refers to all the type information of
+  // all the (serializable or not) data of a given package including
+  // values and type synonyms. This contrasts with the term
+  // "Interface" we conventional use to speak only about all the
+  // types of the serializable data of a package. See for instance
+  // [InterfaceReader]
+  type PackageSignature = GenPackage[Unit]
+  object PackageSignature extends GenPackageCompanion[Unit]
 
   val keyFieldName = Name.assertFromString("key")
   val valueFieldName = Name.assertFromString("value")

@@ -21,9 +21,11 @@ private[daml] class AstRewriter(
     pkg.copy(modules = pkg.modules.transform((_, x) => apply(x)))
 
   def apply(module: Module): Module =
-    module.copy(
+    Module(
+      name = module.name,
       definitions = module.definitions.transform((_, x) => apply(x)),
       templates = module.templates.transform((_, x) => apply(x)),
+      featureFlags = module.featureFlags,
     )
 
   def apply(identifier: Identifier): Identifier =
