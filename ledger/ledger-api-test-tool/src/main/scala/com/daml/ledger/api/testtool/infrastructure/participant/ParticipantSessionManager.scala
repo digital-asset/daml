@@ -69,9 +69,10 @@ object ParticipantSessionManager {
     }
     channelBuilder.maxInboundMessageSize(10000000)
     val channel = channelBuilder.build()
-    logger.info(s"Connected to participant at ${config.address}.")
-    ParticipantSession(config, channel).map(session =>
-      new Session(config, session, channel, eventLoopGroup))
+    ParticipantSession(config, channel).map { session =>
+      logger.info(s"Connected to participant at ${config.address}.")
+      new Session(config, session, channel, eventLoopGroup)
+    }
   }
 
   private final class Session(
