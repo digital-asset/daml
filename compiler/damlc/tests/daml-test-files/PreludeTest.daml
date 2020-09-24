@@ -17,25 +17,25 @@
 -- @INFO range=118:12-118:37; Use &&
 -- @INFO range=120:12-120:36; Use &&
 -- @INFO range=121:11-121:27; Use &&
--- @INFO range=156:11-156:35; Use isNone
--- @INFO range=156:20-156:34; Use $>
--- @INFO range=162:9-162:55; Evaluate
--- @INFO range=163:9-163:58; Evaluate
--- @INFO range=176:16-176:35; Use ++
--- @INFO range=180:8-180:21; Redundant flip
--- @INFO range=181:14-181:37; Redundant flip
--- @INFO range=207:12-207:52; Evaluate
--- @INFO range=219:9-219:28; Take on a non-positive
--- @INFO range=225:9-225:28; Drop on a non-positive
--- @INFO range=291:27-291:38; Use zip
--- @INFO range=292:37-292:48; Use zip
--- @INFO range=296:37-296:50; Use zip3
--- @INFO range=297:52-297:65; Use zip3
--- @INFO range=309:8-309:20; Evaluate
--- @INFO range=312:10-312:22; Evaluate
--- @INFO range=316:12-316:19; Evaluate
--- @ERROR range=383:0-383:16; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
--- @ERROR range=387:0-387:17; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
+-- @INFO range=157:11-156:35; Use isNone
+-- @INFO range=157:20-156:34; Use $>
+-- @INFO range=163:9-162:55; Evaluate
+-- @INFO range=164:9-163:58; Evaluate
+-- @INFO range=177:16-176:35; Use ++
+-- @INFO range=181:8-180:21; Redundant flip
+-- @INFO range=182:14-181:37; Redundant flip
+-- @INFO range=208:12-207:52; Evaluate
+-- @INFO range=220:9-219:28; Take on a non-positive
+-- @INFO range=226:9-225:28; Drop on a non-positive
+-- @INFO range=292:27-291:38; Use zip
+-- @INFO range=293:37-292:48; Use zip
+-- @INFO range=297:37-296:50; Use zip3
+-- @INFO range=298:52-297:65; Use zip3
+-- @INFO range=310:8-309:20; Evaluate
+-- @INFO range=313:10-312:22; Evaluate
+-- @INFO range=317:12-316:19; Evaluate
+-- @ERROR range=384:0-383:16; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
+-- @ERROR range=388:0-387:17; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
 
 module PreludeTest where
 
