@@ -357,69 +357,47 @@ object Converter {
   // toAnyChoice and toAnyContractKey are identical right now
   // but there is no resaon why they have to be, so we
   // use two different methods.
-  private def toAnyChoice(v: SValue): Either[String, SValue] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 2 =>
-        vals.get(0) match {
-          case SAny(_, v) => Right(v)
-          case v => Left(s"Expected Any but got $v")
-        }
-      case _ => Left(s"Expected AnyChoice but got $v")
-    }
-  }
+  private def toAnyChoice(v: SValue): Either[String, SValue] =
+    v expect ("AnyChoice", {
+      case SRecord(_, _, JavaList(SAny(_, v), _)) => v
+    })
 
-  private def toAnyContractKey(v: SValue): Either[String, SValue] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 2 =>
-        vals.get(0) match {
-          case SAny(_, v) => Right(v)
-          case v => Left(s"Expected Any but got $v")
-        }
-      case _ => Left(s"Expected AnyContractKey but got $v")
-    }
-  }
+  private def toAnyContractKey(v: SValue): Either[String, SValue] =
+    v expect ("AnyContractKey", {
+      case SRecord(_, _, JavaList(SAny(_, v), _)) => v
+    })
 
-  private def extractChoiceName(v: SValue): Either[String, String] = {
-    v match {
-      case SRecord(ty, _, _) => {
-        Right(ty.qualifiedName.name.toString)
-      }
-      case _ => Left(s"Expected choice value but got $v")
-    }
-  }
+  private def extractChoiceName(v: SValue): Either[String, String] =
+    v expect ("choice value", {
+      case SRecord(ty, _, _) =>
+        ty.qualifiedName.name.toString
+    })
 
-  private def toCreate(v: SValue): Either[String, CreateCommand] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 1 => {
+  private def toCreate(v: SValue): Either[String, CreateCommand] =
+    v expectE ("CreateCommand", {
+      case SRecord(_, _, JavaList(sTpl)) =>
         for {
-          tpl <- toAnyTemplate(vals.get(0))
+          tpl <- toAnyTemplate(sTpl)
           templateId <- extractTemplateId(tpl)
           templateArg <- toLedgerRecord(tpl)
         } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
-      }
-      case _ => Left(s"Expected CreateCommand but got $v")
-    }
-  }
+    })
 
-  private def toExercise(v: SValue): Either[String, ExerciseCommand] = {
-    v match {
-      case SRecord(_, _, vals) if vals.size == 2 => {
+  private def toExercise(v: SValue): Either[String, ExerciseCommand] =
+    v expectE ("ExerciseCommand", {
+      case SRecord(_, _, JavaList(sAnyContractId, sChoiceVal)) =>
         for {
-          anyContractId <- toAnyContractId(vals.get(0))
-          choiceVal <- toAnyChoice(vals.get(1))
+          anyContractId <- toAnyContractId(sAnyContractId)
+          choiceVal <- toAnyChoice(sChoiceVal)
           choiceName <- extractChoiceName(choiceVal)
           choiceArg <- toLedgerValue(choiceVal)
-        } yield {
+        } yield
           ExerciseCommand(
             Some(toApiIdentifier(anyContractId.templateId)),
             anyContractId.contractId.coid,
             choiceName,
             Some(choiceArg))
-        }
-      }
-      case _ => Left(s"Expected ExerciseCommand but got $v")
-    }
-  }
+    })
 
   private def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] =
     v expectE ("ExerciseByKeyCommand", {
