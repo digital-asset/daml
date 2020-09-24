@@ -4,7 +4,7 @@
 Trigger Service
 ###############
 
-The Trigger Service is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`. The documentation here at this time is limited to basic usage. As more features become available the documentation will be updated to include them. We welcome feedback about the Trigger Service on our `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_ or `on our forum <https://discuss.daml.com>`_, or on `on Slack <https://slack.daml.com>`_.
+The Trigger Service is currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`. At this time, the documentation is limited to basic usage. As more features become available the documentation will be updated to include them. We welcome feedback about the Trigger Service on our `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_ or `on our forum <https://discuss.daml.com>`_, or on `on Slack <https://slack.daml.com>`_.
 
 The `DAML triggers <../triggers/index.html#running-a-daml-trigger>`_ documentation shows a simple method using the ``daml trigger`` command to arrange for the execution of a single trigger. Using this method, a dedicated process is launched to host the trigger.
 

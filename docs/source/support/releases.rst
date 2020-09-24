@@ -9,7 +9,7 @@ Releases and Versioning
 Versioning
 ----------
 
-All DAML components follow `Semantic Versioning <https://semver.org/>`_. In short, this means that there is a well defined "public API" changes or breakages to which are indicated by the version number.
+All DAML components follow `Semantic Versioning <https://semver.org/>`_. In short, this means that there is a well defined "public API", changes or breakages to which are indicated by the version number.
 
 Given a version number MAJOR.MINOR.PATCH, increment the:
 
@@ -53,11 +53,11 @@ Weekly snapshot and monthly stable releases follow a regular process and schedul
 
 Selecting a Release Candidate
 
-  This is done by the DAML Core engineering teams on the **first Monday of every month**.
+  This is done by the DAML core engineering teams on the **first Monday of every month**.
 
   The monthly releases are time-based, not scope-based. Furthermore, DAML development is fully HEAD-based so both the repository and every snapshot are intended to be in a fully releasable state at every point. The release process therefore starts with "selecting a Release Candidate". Typically the Snapshot from the preceding Wednesday is selected as the Release Candidate.
 
-Release Note and Candidate Review
+Release Notes and Candidate Review
 
   After selecting the Release Candidate, Release Notes are written and reviewed with a particular view towards unintended changes and violations of :ref:`Semantic Versioning <versioning>`.
 

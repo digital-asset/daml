@@ -32,14 +32,14 @@ Deprecation
 
 In addition to being labelled Early Access, features and components can also be labelled "Deprecated". Deprecation follows a deprecation cycle laid out in the table below. The date of deprecation is documented in :doc:`overview`.
 
-Deprecated feature scan be relied upon during the deprecation cycle to the same degree as their non-deprecated counterparts, but building on deprecated features may hinder an upgrade to new DAML versions following the deprecation cycle.
+Deprecated features can be relied upon during the deprecation cycle to the same degree as their non-deprecated counterparts, but building on deprecated features may hinder an upgrade to new DAML versions following the deprecation cycle.
 
 .. _status_definitions:
 
 Comparison of Statuses
 ----------------------
 
-The below table gives a concise overview of the labels used for DAML features and components.
+The table below gives a concise overview of the labels used for DAML features and components.
 
 .. list-table:: Feature Maturities
    :widths: 10 20 20 20 20

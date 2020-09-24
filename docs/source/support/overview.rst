@@ -31,7 +31,7 @@ At the bottom of every DAML Application is a DAML Network, a distributed, or pos
 Participant Nodes
 .................
 
-On top of, or integrated into the DAML Drivers sits a Participant Node, that has the primary purpose of exposing the DAML Ledger API. In the case of _integrated_ DAML Drivers, the Participant Node usually interacts with the DAML Drivers through solution-specific APIs. In this case, Participant Nodes can only communicate with DAML Drivers of one DAML Network. In the case of _interoperable_ DAML Drivers, the Participant Node communicates with the DAML Drivers through the uniform `Canton Protocol <https://www.canton.io/docs/stable/user-manual/index.html>`_. The Canton Protocol is versioned and has some cross-version compatibility guarantees, but is not a public API. See Participant nodes may have public APIs like monitoring and logging, command line interfaces or similar, but the only _uniform_ public API exposed by all Participant Nodes is the Ledger API.
+On top of, or integrated into the DAML Drivers sits a Participant Node, that has the primary purpose of exposing the DAML Ledger API. In the case of _integrated_ DAML Drivers, the Participant Node usually interacts with the DAML Drivers through solution-specific APIs. In this case, Participant Nodes can only communicate with DAML Drivers of one DAML Network. In the case of _interoperable_ DAML Drivers, the Participant Node communicates with the DAML Drivers through the uniform `Canton Protocol <https://www.canton.io/docs/stable/user-manual/index.html>`_. The Canton Protocol is versioned and has some cross-version compatibility guarantees, but is not a public API. So Participant nodes may have public APIs like monitoring and logging, command line interfaces or similar, but the only _uniform_ public API exposed by all Participant Nodes is the Ledger API.
 
 Integration Components
 ......................
@@ -57,7 +57,7 @@ Libraries naturally provide public APIs in their target language, be it DAML, or
 Generated Code
 ..............
 
-The developer tools in the SDK allow the generation of code for some languages. This generated code has public APIs, but is not independently versioned, but depends on the SDK version and source of the generated code, like a DAML package. In this case, the version of the SDK used covers changes to the public API of the generated code.
+The developer tools in the SDK allow the generation of code for some languages from a DAML Model. This generated code has public APIs, but is not independently versioned, but depends on the SDK version and source of the generated code, like a DAML package. In this case, the version of the SDK used covers changes to the public API of the generated code.
 
 SDK
 ...

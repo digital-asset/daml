@@ -10,7 +10,7 @@ You can query contracts, transactions, events, or commands in any way you'd like
 
 The Navigator database is implemented on top of `SQLite <https://sqlite.org/index.html>`_. SQLite understands most of the standard SQL language. For information on how to compose SELECT statements, see to the SQLite `SELECT syntax specification <https://www.sqlite.org/lang_select.html>`_.
 
-To run queries,use the ``sql`` Navigator Console command. Take a look at the examples below to see how you might use this command.
+To run queries, use the ``sql`` Navigator Console command. Take a look at the examples below to see how you might use this command.
 
 .. contents:: On this page:
   :local:
