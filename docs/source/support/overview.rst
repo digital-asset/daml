@@ -36,7 +36,7 @@ On top of, or integrated into the DAML Drivers sits a Participant Node, that has
 Integration Components
 ......................
 
-DAML Drivers and Participant Nodes share a lot of components between infrastructures. These shared components, which are used to build a DAML integration with an underlying infrastructure, are called the Integration Components, or sometimes the :doc:`/daml-integration-kit/index`.
+DAML Drivers and Participant Nodes share a lot of components between underlying DLTs or Databases. These shared components are called the Integration Components, or sometimes the :doc:`/daml-integration-kit/index`.
 
 Ledger API
 ..........
