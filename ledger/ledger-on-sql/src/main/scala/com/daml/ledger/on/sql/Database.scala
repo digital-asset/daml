@@ -34,15 +34,13 @@ final class Database(
   def inReadTransaction[T](name: String)(
       body: ReadQueries => Future[Reader, T]
   ): Future[Reader, T] =
-    inTransaction(name, readerConnectionPool)(connection =>
-      Future[Reader](body(new TimedQueries(queries(connection), metrics))).join)
+    inTransaction(name, readerConnectionPool)(queries => Future[Reader](body(queries)).join)
 
   def inWriteTransaction[T](name: String)(body: Queries => Future[Writer, T]): Future[Writer, T] =
-    inTransaction(name, writerConnectionPool)(connection =>
-      Future[Writer](body(new TimedQueries(queries(connection), metrics))).join)
+    inTransaction(name, writerConnectionPool)(queries => Future[Writer](body(queries)).join)
 
   private def inTransaction[X, T](name: String, connectionPool: DataSource)(
-      body: Connection => Future[X, T],
+      body: Queries => Future[X, T],
   )(implicit executionContext: ExecutionContext[X]): Future[X, T] = {
     val connection = try {
       Timed.value(
@@ -54,7 +52,7 @@ final class Database(
     }
     Timed.future(
       metrics.daml.ledger.database.transactions.run(name), {
-        body(connection)
+        body(new TimedQueries(queries(connection), metrics))
           .andThen {
             case Success(_) => connection.commit()
             case Failure(_) => connection.rollback()
