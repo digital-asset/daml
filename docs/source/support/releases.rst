@@ -11,11 +11,11 @@ Versioning
 
 All DAML components follow `Semantic Versioning <https://semver.org/>`_. In short, this means that there is a well defined "public API", changes or breakages to which are indicated by the version number.
 
-Given a version number MAJOR.MINOR.PATCH, increment the:
+Stable releases have versions MAJOR.MINOR.PATCH. Segments of the version are incremented according to the following rules:
 
-#. MAJOR version when you make incompatible API changes,
-#. MINOR version when you add functionality in a backwards compatible manner, and
-#. PATCH version when you make backwards compatible bug fixes.
+#. MAJOR version when there are incompatible API changes,
+#. MINOR version when functionality is added in a backwards compatible manner, and
+#. PATCH version when there are only backwards compatible bug fixes.
 
 DAML's "public API" is laid out in the :doc:`overview`.
 
