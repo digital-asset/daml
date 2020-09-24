@@ -55,19 +55,19 @@ Selecting a Release Candidate
 
   This is done by the DAML core engineering teams on the **first Monday of every month**.
 
-  The monthly releases are time-based, not scope-based. Furthermore, DAML development is fully HEAD-based so both the repository and every snapshot are intended to be in a fully releasable state at every point. The release process therefore starts with "selecting a Release Candidate". Typically the Snapshot from the preceding Wednesday is selected as the Release Candidate.
+  The monthly releases are time-based, not scope-based. Furthermore, DAML development is fully HEAD-based so both the repository and every snapshot are intended to be in a fully releasable state at every point. The release process therefore starts with "selecting a release candidate". Typically the Snapshot from the preceding Wednesday is selected as the release candidate.
 
 Release Notes and Candidate Review
 
-  After selecting the Release Candidate, Release Notes are written and reviewed with a particular view towards unintended changes and violations of :ref:`Semantic Versioning <versioning>`.
+  After selecting the release candidate, Release Notes are written and reviewed with a particular view towards unintended changes and violations of :ref:`Semantic Versioning <versioning>`.
 
 Release Candidate Refinement
 
-  If issues surface in the initial review, the issues are resolved and different Snapshot is selected as the Release Candidate.
+  If issues surface in the initial review, the issues are resolved and different Snapshot is selected as the release candidate.
 
 Release Candidate Announcement
 
-  Barring delays due to issues during initial review, the Release Candidate is announced publicly with accompanying  Release Notes on **the Thursday following the first Monday of every Month**.
+  Barring delays due to issues during initial review, the release candidate is announced publicly with accompanying  Release Notes on **the Thursday following the first Monday of every Month**.
 
 Communications, Testing and Feedback
 
@@ -75,11 +75,11 @@ Communications, Testing and Feedback
 
 Release Candidate Refinement II
 
-  Depending on feedback and test results, new Release Candidates may be issued iteratively. Depending on the severity of changes from Release Candidate to Release Candidate, the testing period is extended more or less.
+  Depending on feedback and test results, new release candidates may be issued iteratively. Depending on the severity of changes from release candidate to release candidate, the testing period is extended more or less.
 
 Release
 
-  Assuming the release is not postponed due to extended test periods or newly discovered issues in the Release Candidate, the release is declared stable and given a regular version number on **the second Wednesday after the first Monday of the Month**.
+  Assuming the release is not postponed due to extended test periods or newly discovered issues in the release candidate, the release is declared stable and given a regular version number on **the second Wednesday after the first Monday of the Month**.
 
 .. figure:: release-timeline.png
   
