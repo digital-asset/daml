@@ -502,7 +502,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     import scalaz.std.scalaFuture._, scalaz.std.list._
     import JdbcLedgerDaoSuite._
 
-    val trials = 10
+    val trials = 1000
     val trialData = Gen
       .listOfN(
         trials,
