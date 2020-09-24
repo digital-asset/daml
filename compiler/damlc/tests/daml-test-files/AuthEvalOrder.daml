@@ -14,23 +14,19 @@ template TheContract
 -- In the badly-authorized t2, the auth failure prevent the error from being reached.
 
 -- @ERROR Aborted: t1 finished with no authorization failure
-t1 : Scenario ()
-t1 = scenario do
+t1_create_success = scenario do
   ivy <- getParty "Ivy-t1"
   submit ivy $ do
     create (TheContract with party = ivy)
-    let x = error "t1 finished with no authorization failure"
-    return ()
+    abort "t1 finished with no authorization failure"
 
 -- @ERROR failed due to a missing authorization from 'Ivy-t2'
-t2 : Scenario ()
-t2 = scenario do
+t2_create_badlyAuthorized = scenario do
   mach <- getParty "Mach-t1"
   ivy <- getParty "Ivy-t2"
   submit mach $ do
     create (TheContract with party = ivy)
-    let x = error "t2 Finished"
-    return ()
+    abort "t2 Finished"
 
 template TheContractBuilder
   with
@@ -38,7 +34,6 @@ template TheContractBuilder
     p2 : Party
   where
     signatory p1
-    observer p2
     controller p2 can
       TheChoice : ContractId TheContract
         with party : Party
@@ -50,8 +45,7 @@ template TheContractBuilder
 -- Only in the well-authorized case will execution reach the `error` function.
 
 -- @ERROR Aborted: t3 finished with no authorization failure
-t3 : Scenario ()
-t3 = scenario do
+t3_createViaExerice_success = scenario do
   ivy <- getParty "Ivy-t3"
   mach <- getParty "Mach-t3"
   builder <-
@@ -59,12 +53,10 @@ t3 = scenario do
       create (TheContractBuilder with p1 = ivy; p2 = mach)
   submit mach $ do
     exercise builder TheChoice with party = ivy
-    let x = error "t3 finished with no authorization failure"
-    return ()
+    abort "t3 finished with no authorization failure"
 
 -- @ERROR failed due to a missing authorization from 'Ivy-t4'
-t4 : Scenario ()
-t4 = scenario do
+t4_createViaExerice_badlyAuthorized = scenario do
   ivy <- getParty "Ivy-t4"
   mach <- getParty "Mach-t4"
   builder <-
@@ -72,5 +64,4 @@ t4 = scenario do
       create (TheContractBuilder with p1 = mach; p2 = mach)
   submit mach $ do
     exercise builder TheChoice with party = ivy
-    let x = error "t4 finished with no authorization failure"
-    return ()
+    abort "t4 finished with no authorization failure"
