@@ -361,7 +361,7 @@ cmdInit numProcessors =
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
     command "package" $ info (helper <*> cmd) $
-       progDesc "Compile the DAML program into a DAML Archive (DAR)"
+       progDesc "Compile the DAML program into a DAR (deprecated)"
     <> fullDesc
   where
     cmd = execPackage
@@ -674,6 +674,17 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
   Command Package (Just projectOpts) effect
   where
     effect = withProjectRoot' projectOpts $ \relativize -> do
+      hPutStrLn stderr $ unlines
+        [ "WARNING: The comannd"
+        , ""
+        , "    daml damlc package"
+        , ""
+        , "is deprecated. Please use"
+        , ""
+        , "    daml build"
+        , ""
+        , "instead."
+        ]
       loggerH <- getLogger opts "package"
       filePath <- relativize filePath
       withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
