@@ -30,8 +30,6 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiValue,
   toApiIdentifier
 }
-import scalaz.std.either._
-import scalaz.syntax.bind._
 
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
@@ -321,29 +319,29 @@ object Converter {
     })
 
   private def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
-    v.expect("TemplateTypeRep", {
+    v expectE ("TemplateTypeRep", {
       case SRecord(_, _, JavaList(id)) =>
         toIdentifier(id)
-      }).join
+    })
 
   private def toRegisteredTemplate(v: SValue): Either[String, Identifier] =
-    v.expect("RegisteredTemplate", {
+    v expectE ("RegisteredTemplate", {
       case SRecord(_, _, JavaList(sttr)) => toTemplateTypeRep(sttr)
-    }).join
+    })
 
   private def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] =
-    v.expect("list of RegisteredTemplate", {
+    v expectE ("list of RegisteredTemplate", {
       case SList(tpls) => tpls.traverse(toRegisteredTemplate).map(_.toImmArray.toSeq)
-    }).join
+    })
 
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] =
-    v.expect("AnyContractId", {
+    v expectE ("AnyContractId", {
       case SRecord(_, _, JavaList(stid, scid)) =>
         for {
           templateId <- toTemplateTypeRep(stid)
           contractId <- toContractId(scid)
         } yield AnyContractId(templateId, contractId)
-    }).join
+    })
 
   private def toAnyTemplate(v: SValue): Either[String, SValue] = {
     v match {
@@ -424,7 +422,7 @@ object Converter {
   }
 
   private def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] =
-    v.expect ("ExerciseByKeyCommand", {
+    v expectE ("ExerciseByKeyCommand", {
       case SRecord(_, _, JavaList(stplId, skeyVal, schoiceVal)) =>
         for {
           tplId <- toTemplateTypeRep(stplId)
@@ -440,10 +438,10 @@ object Converter {
             choiceName,
             Some(choiceArg)
           )
-      }).join
+    })
 
   private def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] =
-    v.expect("CreateAndExerciseCommand", {
+    v expectE ("CreateAndExerciseCommand", {
       case SRecord(_, _, JavaList(stpl, schoiceVal)) =>
         for {
           tpl <- toAnyTemplate(stpl)
@@ -459,7 +457,7 @@ object Converter {
             choiceName,
             Some(choiceArg)
           )
-      }).join
+    })
 
   private def toCommand(v: SValue): Either[String, Command] = {
     v match {

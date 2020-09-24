@@ -13,6 +13,8 @@ import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
  */
+import scalaz.syntax.bind._
+import scalaz.std.either._
 import com.daml.lf.data.{ImmArray, Ref /*, Struct, Time*/}
 import Ref._
 /*
@@ -75,6 +77,9 @@ private[daml] object Converter {
 
       def expect[R](name: String, pf: A PartialFunction R): ErrorOr[R] =
         self.intoOr(pf)(s"Expected $name but got $self")
+
+      def expectE[R](name: String, pf: A PartialFunction ErrorOr[R]): ErrorOr[R] =
+        self.expect(name, pf).join
     }
   }
 }
