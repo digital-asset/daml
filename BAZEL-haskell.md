@@ -158,6 +158,11 @@ command on Unix and Windows to update the lock-files:
 bazel run @stackage-unpinned//:pin
 ```
 
+You can use the ad-hoc Windows machines as described in the [release
+documentation][windows-ad-hoc] to get access to a Windows machine.
+
+[windows-ad-hoc]: ./release/RELEASE.md#tips-for-windows-testing-in-an-ad-hoc-machine
+
 The `flags` attribute can be used to override default Cabal flags. The `tools`
 attribute defines Bazel targets for known Cabal tools, e.g. `alex`, `happy`, or
 `c2hs`. Finally, the `deps` attribute can be used to define additional
