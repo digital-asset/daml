@@ -6,6 +6,8 @@
 Scala bindings
 ##############
 
+The Scala bindings are deprecated as of 2020-10-14.
+
 This page provides a basic Scala programmer's introduction to working with DAML Ledgers,
 using the Scala programming language and the **Ledger API**.
 
