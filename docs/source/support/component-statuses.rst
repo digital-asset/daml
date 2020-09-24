@@ -257,9 +257,6 @@ Developer Tools
    * - ``daml damlc`` CLI
      - Stable
      -
-   * - DAML Language Server (``daml damlc ide``)
-     - Stable
-     -
    * - Compilation and packaging (``daml damlc build``)
      - Stable
      -
@@ -280,6 +277,9 @@ Developer Tools
      -
    * - DAML REPL (``daml damlc repl``)
      - See DAML REPL heading below
+     -
+   * - DAML Language Server CLI (``daml damlc ide``)
+     - Labs
      -
    * - DAML Documentation Generation (``daml damlc docs``)
      - Labs
