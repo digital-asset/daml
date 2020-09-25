@@ -16,7 +16,7 @@ This gives an executable DAML assistant called `daml-head` in your path.
 Next, instantiate the `create-daml-app` template as follows:
 
 ```
-daml-head new create-daml-app
+daml-head new create-daml-app --template create-daml-app
 cd create-daml-app
 ```
 
