@@ -1,4 +1,7 @@
 daml 1.2
+
+-- | Hello World
+
 module DamlHasVersion(T, main) where
 
 import DA.Functor
