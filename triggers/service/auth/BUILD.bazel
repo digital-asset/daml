@@ -11,8 +11,41 @@ load(
 scalacopts = []
 
 da_scala_library(
+    name = "oauth-middleware",
+    srcs = glob(["src/main/scala/com/daml/oauth/middleware/**/*.scala"]),
+    scalacopts = scalacopts,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":oauth-test-server",  # TODO[AH] Extract OAuth2 request/response types
+        "//libs-scala/ports",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_http_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
+        "@maven//:com_typesafe_akka_akka_parsing_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_binary(
+    name = "oauth-middleware-binary",
+    main_class = "com.daml.oauth.middleware.Main",
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":oauth-middleware",
+    ],
+)
+
+da_scala_library(
     name = "oauth-test-server",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(["src/main/scala/com/daml/oauth/server/**/*.scala"]),
     scalacopts = scalacopts,
     visibility = ["//visibility:public"],
     deps = [
@@ -45,8 +78,8 @@ da_scala_binary(
 )
 
 da_scala_test(
-    name = "tests",
-    srcs = glob(["src/test/scala/**/*.scala"]),
+    name = "server-tests",
+    srcs = glob(["src/test/scala/com/daml/oauth/server/**/*.scala"]),
     scalacopts = scalacopts,
     deps = [
         ":oauth-test-server",
@@ -64,5 +97,24 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "middleware-tests",
+    srcs = glob(["src/test/scala/com/daml/oauth/middleware/**/*.scala"]),
+    scalacopts = scalacopts,
+    deps = [
+        ":oauth-middleware",
+        ":oauth-test-server",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_parsing_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     ],
 )
