@@ -28,15 +28,15 @@ class ValueSpec extends WordSpec with Matchers with GeneratorDrivenPropertyCheck
     "encode Numeric without exponents" in {
       import com.daml.ledger.client.binding.{Primitive => P}
       import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
-      Value.encode(BigDecimal.exact("0.0000000000001"): P.Numeric) shouldBe VSum
-        .Numeric("0.0000000000001")
+      import com.daml.ledger.api.v1.value.{Value => RpcValue}
+      Value.encode(BigDecimal.exact("0.0000000000001"): P.Numeric) shouldBe RpcValue(
+        VSum.Numeric("0.0000000000001"))
     }
     "fail to decode Numeric with exponent" in {
       import com.daml.ledger.client.binding.{Primitive => P}
       import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
-      an[IllegalArgumentException] should be thrownBy Value
-        .Decoder[P.Numeric]
-        .read(VSum.Numeric("1E-13"))
+      import com.daml.ledger.api.v1.value.{Value => RpcValue}
+      Value.decode[P.Numeric](RpcValue(VSum.Numeric("1E-13"))) shouldBe None
     }
   }
 }

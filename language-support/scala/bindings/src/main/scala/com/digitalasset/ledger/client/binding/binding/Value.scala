@@ -77,7 +77,7 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
 
   implicit override val valueNumeric: Value[P.Numeric] =
     fromArgumentValueFuns(
-      _.numeric map lf.Numeric.assertFromString,
+      _.numeric flatMap (lf.Numeric.fromString(_).toOption.map(BigDecimal(_))),
       bd => VSum.Numeric(lf.Numeric.toString(bd.bigDecimal)))
 
   implicit override val valueParty: Value[P.Party] =
