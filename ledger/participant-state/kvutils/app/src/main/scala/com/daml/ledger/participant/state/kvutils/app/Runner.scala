@@ -114,7 +114,10 @@ final class Runner[T <: ReadWriteService, Extra](
               .acquire()
             readService = new TimedReadService(ledger, metrics)
             writeService = new TimedWriteService(ledger, metrics)
-            healthChecks = new HealthChecks("write" -> writeService)
+            healthChecks = new HealthChecks(
+              "read" -> readService,
+              "write" -> writeService,
+            )
             _ <- Resource.fromFuture(
               Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
             _ <- new StandaloneIndexerServer(

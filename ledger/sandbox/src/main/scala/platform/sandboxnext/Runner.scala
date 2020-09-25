@@ -149,7 +149,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
                 readService = new TimedReadService(ledger, metrics)
                 writeService = new TimedWriteService(ledger, metrics)
-                healthChecks = new HealthChecks("write" -> writeService)
+                healthChecks = new HealthChecks(
+                  "read" -> readService,
+                  "write" -> writeService,
+                )
                 ledgerId <- ResourceOwner.forFuture(() =>
                   readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
                 _ <- if (isReset) {
