@@ -499,7 +499,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   it should "fall back to limit-based query with consistent results" in {
     import org.scalacheck.Gen
-    import org.scalatest.exceptions.TestFailedException
     import scalaz.std.scalaFuture._, scalaz.std.list._
     import JdbcLedgerDaoSuite._
 
@@ -514,7 +513,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     trialData
       .traverseFM {
         case (boolSeq, cp) =>
-          val trial = for {
+          for {
             from <- ledgerDao.lookupLedgerEnd()
             commands <- storeSync(boolSeq map (if (_) cp.makeMatching() else cp.makeNonMatching()))
             matchingOffsets = commands zip boolSeq collect {
@@ -542,24 +541,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                     s"\n    code path: ${cp.label}"
                 })
             }
-          import scala.util.{Success, Failure}
-          trial transform (_ fold ({
-            case ae: TestFailedException =>
-              Success(Left((ae, boolSeq count identity, cp.label)))
-            case e => Failure(e)
-          }, a => Success(Right(a))))
       }
-      .map { results: List[Either[(TestFailedException, Int, String), org.scalatest.Assertion]] =>
-        val grouped: Map[(Int, String), List[TestFailedException]] = results.collect {case Left(failure) => failure}
-          .groupBy{case (_, freq, codePath) => (freq, codePath)}
-          .transform((_, vs) => vs map (_._1))
-        def reportParameters(freq: Int, codePath: String): String =
-          "\n  Random parameters:" +
-            s"\n    actual frequency: $freq/$txSeqLength" +
-            s"\n    code path: $codePath"
-        if (grouped.isEmpty) succeed
-        else
-      }
+      .map(_.foldLeft(succeed)((_, r) => r))
   }
 
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
