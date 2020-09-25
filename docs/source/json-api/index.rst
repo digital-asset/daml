@@ -20,7 +20,6 @@ complicating concerns including, but not limited to:
 - inspecting transactions,
 - asynchronous submit/completion workflows,
 - temporal queries (e.g. active contracts *as of a certain time*), and
-- ledger metaprogramming (e.g. retrieving packages and templates).
 
 For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
