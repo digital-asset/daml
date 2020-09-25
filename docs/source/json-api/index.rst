@@ -69,6 +69,26 @@ This will start the JSON API on port 7575 and connect it to a ledger running on 
 
 .. note:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
 
+Standalone JAR
+--------------
+
+The ``daml json-api`` command is great during development since it is
+included with the SDK and integrates with ``daml start`` and other
+commands. Once you are ready to deploy your application, you can
+download the standalone JAR from `Github releases
+<https://github.com/digital-asset/daml/releases>`_. It is much smaller
+than the whole SDK and easier to deploy since it only requires a JVM
+but no other dependencies and no installation process. The JAR accepts
+exactly the same command line parameters as ``daml json-api``, so to
+start the standalone JAR, you can use the following command:
+
+.. code-block:: shell
+
+    java -jar http-json-1.5.0.jar --ledger-host localhost --ledger-port 6865 --http-port 7575
+
+Replace the version number ``1.5.0`` by the version of the SDK you are
+using.
+
 With Query Store
 ------------------
 
