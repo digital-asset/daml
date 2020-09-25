@@ -9,7 +9,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.ledger.CheckAuthorizationMode
+import com.daml.lf.ledger.{Authorize, CheckAuthorizationMode}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -269,6 +269,20 @@ private[lf] object Speedy {
       }
       s.result()
     }
+
+    private[lf] def contextActors: Set[Party] =
+      this.ptx.context.exeContext match {
+        case Some(ctx) =>
+          ctx.actingParties union ctx.signatories
+        case None =>
+          this.committers
+      }
+
+    private[lf] def auth: Option[Authorize] =
+      this.checkAuthorization match {
+        case CheckAuthorizationMode.On => Some(Authorize(this.contextActors))
+        case CheckAuthorizationMode.Off => None
+      }
 
     def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
       coid match {
