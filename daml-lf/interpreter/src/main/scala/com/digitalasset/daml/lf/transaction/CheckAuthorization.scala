@@ -23,8 +23,7 @@ private[lf] object CheckAuthorization {
       List(failWith)
   }
 
-  private[lf] def authorizeCreate(
-      create: NodeCreate[_, _],
+  private[lf] def authorizeCreate(create: NodeCreate[_, _])(
       auth: Authorize,
   ): List[FailedAuthorization] = {
     authorize(
@@ -56,9 +55,8 @@ private[lf] object CheckAuthorization {
       })
   }
 
-  private[lf] def authorizeFetch(
-      fetch: NodeFetch[_, _],
-      auth: Authorize,
+  private[lf] def authorizeFetch(fetch: NodeFetch[_, _])(
+      auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
       passIf = fetch.stakeholders.intersect(auth.authParties).nonEmpty,
@@ -71,8 +69,7 @@ private[lf] object CheckAuthorization {
     )
   }
 
-  private[lf] def authorizeLookupByKey(
-      lbk: NodeLookupByKey[_, _],
+  private[lf] def authorizeLookupByKey(lbk: NodeLookupByKey[_, _])(
       auth: Authorize,
   ): List[FailedAuthorization] = {
     authorize(
@@ -86,8 +83,7 @@ private[lf] object CheckAuthorization {
     )
   }
 
-  private[lf] def authorizeExercise(
-      ex: ExercisesContext,
+  private[lf] def authorizeExercise(ex: ExercisesContext)(
       auth: Authorize,
   ): List[FailedAuthorization] = {
     val controllersDifferFromActors = ex.controllers != ex.actingParties
