@@ -12,7 +12,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.{keyFieldName, maintainersFieldName}
-import com.daml.lf.ledger.Authorize
+import com.daml.lf.ledger.{Authorize, CheckAuthorizationMode}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -860,7 +860,10 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
-      val auth = if (machine.checkAuthorization) Some(Authorize(contextActors)) else None
+      val auth = machine.checkAuthorization match {
+        case CheckAuthorizationMode.On => Some(Authorize(contextActors))
+        case CheckAuthorizationMode.Off => None
+      }
 
       val (coid, newPtx) = machine.ptx
         .insertCreate(
@@ -928,7 +931,10 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
-      val auth = if (machine.checkAuthorization) Some(Authorize(contextActors)) else None
+      val auth = machine.checkAuthorization match {
+        case CheckAuthorizationMode.On => Some(Authorize(contextActors))
+        case CheckAuthorizationMode.Off => None
+      }
 
       machine.ptx = machine.ptx
         .beginExercises(
@@ -1049,7 +1055,10 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
-      val auth = if (machine.checkAuthorization) Some(Authorize(contextActors)) else None
+      val auth = machine.checkAuthorization match {
+        case CheckAuthorizationMode.On => Some(Authorize(contextActors))
+        case CheckAuthorizationMode.Off => None
+      }
 
       machine.ptx = machine.ptx.insertFetch(
         auth,
@@ -1142,7 +1151,10 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
-      val auth = if (machine.checkAuthorization) Some(Authorize(contextActors)) else None
+      val auth = machine.checkAuthorization match {
+        case CheckAuthorizationMode.On => Some(Authorize(contextActors))
+        case CheckAuthorizationMode.Off => None
+      }
 
       machine.ptx = machine.ptx.insertLookup(
         auth,

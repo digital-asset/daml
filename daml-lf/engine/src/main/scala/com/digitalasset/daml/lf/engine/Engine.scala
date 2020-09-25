@@ -8,6 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
+import com.daml.lf.ledger.CheckAuthorizationMode
 import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
@@ -138,7 +139,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-      checkAuthorization: Boolean = true,
+      checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commandWithCids <- preprocessor.translateNode(node)
@@ -269,7 +270,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
-      checkAuthorization: Boolean = true,
+      checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)

@@ -9,6 +9,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.ledger.CheckAuthorizationMode
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -107,7 +108,7 @@ private[lf] object Speedy {
        */
       val validating: Boolean,
       /* Controls if authorization checks are performed during evaluation */
-      val checkAuthorization: Boolean,
+      val checkAuthorization: CheckAuthorizationMode,
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -662,7 +663,7 @@ private[lf] object Speedy {
         inputValueVersions: VersionRange[ValueVersion],
         outputTransactionVersions: VersionRange[TransactionVersion],
         validating: Boolean = false,
-        checkAuthorization: Boolean = true,
+        checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
         onLedger: Boolean = true,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine =
