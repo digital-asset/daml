@@ -135,7 +135,7 @@ token.  You can use an arbitrary secret here. The default "header" is fine.  Und
       }
     }
 
-The value of the ``ledgerId`` field has to match the ``ledgerId` of your underlying DAML Ledger.
+The value of the ``ledgerId`` field has to match the ``ledgerId`` of your underlying DAML Ledger.
 For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
