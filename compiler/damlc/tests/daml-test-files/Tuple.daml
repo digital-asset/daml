@@ -29,3 +29,21 @@ testTuple = scenario do
 f : Int -> [Int]
 f 0 = []
 f i = i :: f (i-1)
+
+testDupe = scenario do
+  ("a", "a") === dupe "a"
+
+testFst3 = scenario do
+  1 === fst3 (1, "A", True)
+
+testSnd3 = scenario do
+  "A" === snd3 (1, "A", True)
+
+testThd3 = scenario do
+  True === thd3 (1, "A", True)
+
+testCurry3 = scenario do
+    assert $ 123 == curry3 (\(x, y, z) -> x + y + z) 20 3 100
+
+testUncurry3 = scenario do
+    assert $ 123 == uncurry3 (\x y z -> x + y + z) (20, 3, 100)
