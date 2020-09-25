@@ -8,7 +8,7 @@ import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 import scala.language.higherKinds
 
-object ValueGen {
+private[binding] object ValueGen {
 
   private[binding] sealed abstract class Exists[F[_]] {
     type T

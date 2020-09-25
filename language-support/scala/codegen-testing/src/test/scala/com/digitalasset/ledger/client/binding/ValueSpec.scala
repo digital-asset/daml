@@ -28,7 +28,7 @@ class ValueSpec extends WordSpec with Matchers with GeneratorDrivenPropertyCheck
     "encode Numeric without exponents" in {
       import com.daml.ledger.client.binding.{Primitive => P}
       import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
-      Value.Encoder[P.Numeric].write(BigDecimal.exact("0.0000000000001"): P.Numeric) shouldBe VSum
+      Value.encode(BigDecimal.exact("0.0000000000001"): P.Numeric) shouldBe VSum
         .Numeric("0.0000000000001")
     }
     "fail to decode Numeric with exponent" in {
