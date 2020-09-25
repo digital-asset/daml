@@ -1,7 +1,5 @@
 # <a name="module-damlhasversion-70304"></a>Module DamlHasVersion
 
-HAS_DAML_VERSION_HEADER
-
 Testing the daml version header.
 
 ## Templates

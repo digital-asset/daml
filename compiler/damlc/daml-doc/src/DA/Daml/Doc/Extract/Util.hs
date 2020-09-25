@@ -34,18 +34,18 @@ tyVarText arg = case arg of
 moduleDocToText :: HsDocString -> DocText
 moduleDocToText = docToText' . removeVersionHeaderAnnotation . T.pack . unpackHDS
 
--- | Remove the HAS_DAML_VERSION_HEADER annotation inserted by our patched ghc parser.
-removeVersionHeaderAnnotation :: Text -> Text
-removeVersionHeaderAnnotation doc =
-case T.stripPrefix "HAS_DAML_VERSION_HEADER" doc of
-    Just doc' -> T.stripStart doc'
-    Nothing -> doc
-
 -- | Converts and trims the bytestring of a doc. decl to Text.
 docToText :: HsDocString -> DocText
 docToText = docToText' . T.pack . unpackHDS
 
-docToText' :: Text -> DocText
+-- | Remove the HAS_DAML_VERSION_HEADER annotation inserted by our patched ghc parser.
+removeVersionHeaderAnnotation :: T.Text -> T.Text
+removeVersionHeaderAnnotation doc =
+    case T.stripPrefix "HAS_DAML_VERSION_HEADER" doc of
+        Just doc' -> T.stripStart doc'
+        Nothing -> doc
+
+docToText' :: T.Text -> DocText
 docToText' = DocText . T.strip . T.unlines . go . T.lines
   where
     -- For a haddock comment of the form
