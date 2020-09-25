@@ -15,7 +15,7 @@ In this section you will test the ``Token`` model from :doc:`1_Token` using the 
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``daml-intro-2`` by running ``daml new daml-intro-2 --template=daml-intro-2``
+  Remember that you can load all the code for this section into a folder called ``daml-intro-2`` by running ``daml new daml-intro-2 --template daml-intro-2``
 
 .. script_basics:
 
