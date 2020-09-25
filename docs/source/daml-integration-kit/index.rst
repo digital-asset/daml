@@ -1,8 +1,10 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Integration Kit - ALPHA
-############################
+DAML Integration Kit
+####################
+
+The DAML Integration Kit is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`. It comprises the components needed to build your own :ref:`DAML Drivers <ecosystem-architecture>`.
 
 .. toctree::
    :hidden:
@@ -228,7 +230,7 @@ Library infrastructure overview
 
 To help you implement your server and validator, we provide the following
 four Scala libraries as part of the DAML SDK. Changes
-to them are explained as part of the :doc:`/support/release-notes`.
+to them are explained as part of the :ref:`release-notes`.
 
 As explained in :ref:`integration-kit_writing_code`,
 this section is best read jointly with the code in

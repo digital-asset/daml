@@ -16,7 +16,7 @@ The model in this section is not a single DAML file, but a DAML project consisti
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``7_Composing`` by running ``daml new 7_Composing daml-intro-7``
+  Remember that you can load all the code for this section into a folder called ``7_Composing`` by running ``daml new 7_Composing --template daml-intro-7``
 
 DAML projects
 -------------

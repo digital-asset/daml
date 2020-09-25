@@ -24,6 +24,8 @@ Windows 10
 
 Download and run the installer_, which will install DAML and set up your PATH.
 
+.. _mac-linux-sdk:
+
 Mac and Linux
 =============
 

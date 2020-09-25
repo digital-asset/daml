@@ -16,7 +16,7 @@ Introduction
 ************
 
 The :doc:`Ledger API </app-dev/ledger-api>` is used to request changes to the ledger (e.g., "*Alice
-wants to exercise choice X on contract Y*), or to read data from the ledger (e.g., "*Alice wants to
+wants to exercise choice X on contract Y*"), or to read data from the ledger (e.g., "*Alice wants to
 see all active contracts*").
 
 What requests are valid is defined by :ref:`integrity <da-model-integrity>` and :ref:`privacy <da-model-privacy>` parts the :ref:`DAML Ledger Model <da-ledgers>`.

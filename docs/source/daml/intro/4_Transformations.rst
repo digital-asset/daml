@@ -12,7 +12,7 @@ In this section you will learn about how to define simple data transformations u
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``4_Transformations`` by running ``daml new 4_Transformations daml-intro-4``
+  Remember that you can load all the code for this section into a folder called ``4_Transformations`` by running ``daml new 4_Transformations --template daml-intro-4``
 
 Choices as methods
 ------------------

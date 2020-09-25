@@ -165,7 +165,7 @@ object Arguments {
         .children(hostname, port)
 
       cmd("console")
-        .text("start the console (early access)")
+        .text("Early Access (Labs). Start the console")
         .action(
           (_, arguments) =>
             arguments.copy(
@@ -176,7 +176,7 @@ object Arguments {
         .children(hostname, port)
 
       cmd("dump-graphql-schema")
-        .text("Dumps the full GraphQL schema to stdout")
+        .text("Early Access (Labs). Dumps the full GraphQL schema to stdout")
         .action((_, arguments) => arguments.copy(command = DumpGraphQLSchema))
 
       cmd("create-config")

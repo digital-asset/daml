@@ -4,6 +4,8 @@
 Navigator Console
 #################
 
+The Navigator Console is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
+
 .. toctree::
   :hidden:
 

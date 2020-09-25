@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import com.daml.ledger.api.testtool.infrastructure.LedgerServices
+import com.daml.ledger.api.testtool.infrastructure.{Errors, LedgerServices}
 import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndRequest
 import com.daml.timer.RetryStrategy
@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Failure
+import scala.util.control.NonFatal
 
 private[infrastructure] final class ParticipantSession private (
     config: ParticipantSessionConfiguration,
@@ -56,11 +58,22 @@ object ParticipantSession {
   )(implicit executionContext: ExecutionContext): Future[ParticipantSession] = {
     val services = new LedgerServices(channel)
     for {
-      ledgerId <- RetryStrategy.exponentialBackoff(10, 10.millis) { (attempt, wait) =>
-        logger.debug(
-          s"Fetching ledgerId to create context (attempt #$attempt, next one in $wait)...")
-        services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
-      }
+      // Keep retrying for about a minute.
+      ledgerId <- RetryStrategy
+        .exponentialBackoff(10, 100.millis) { (attempt, wait) =>
+          services.identity
+            .getLedgerIdentity(new GetLedgerIdentityRequest)
+            .map(_.ledgerId)
+            .andThen {
+              case Failure(_) =>
+                logger.info(
+                  s"Could not connect to the participant (attempt #$attempt). Trying again in $wait...")
+            }
+        }
+        .recoverWith {
+          case NonFatal(exception) =>
+            Future.failed(new Errors.ParticipantConnectionException(config.address, exception))
+        }
     } yield new ParticipantSession(config, services, ledgerId)
   }
 }

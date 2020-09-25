@@ -112,8 +112,9 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Support and updates
+   :caption: DAML Ecosystem
 
+   support/overview
+   support/releases
+   support/compatibility
    support/support
-   support/release-notes
-   Roadmap <support/roadmap>

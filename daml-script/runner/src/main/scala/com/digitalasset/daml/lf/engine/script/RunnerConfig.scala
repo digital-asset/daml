@@ -108,7 +108,7 @@ object RunnerConfig {
       .action { (_, c) =>
         c.copy(jsonApi = true)
       }
-      .text("Run DAML Script via the HTTP JSON API instead of via gRPC (experimental).")
+      .text("Run DAML Script via the HTTP JSON API instead of via gRPC.")
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))

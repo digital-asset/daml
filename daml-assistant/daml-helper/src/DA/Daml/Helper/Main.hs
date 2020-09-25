@@ -13,6 +13,7 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO
+import System.Process (showCommandForUser)
 import System.Process.Typed
 import Text.Read (readMaybe)
 
@@ -54,7 +55,7 @@ data Command
         , logbackConfig :: FilePath
         , shutdownStdinClose :: Bool
         }
-    | New { targetFolder :: FilePath, templateNameM :: Maybe String }
+    | New { targetFolder :: FilePath, appTemplate :: AppTemplate }
     | CreateDamlApp { targetFolder :: FilePath }
     -- ^ CreateDamlApp is sufficiently special that in addition to
     -- `daml new foobar create-daml-app` we also make `daml create-daml-app foobar` work.
@@ -82,6 +83,11 @@ data Command
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
+
+data AppTemplate
+  = AppTemplateDefault
+  | AppTemplateViaOption String
+  | AppTemplateViaArgument String
 
 data Lang = Java | Scala | JavaScript
 
@@ -131,18 +137,18 @@ commandParser = subparser $ fold
         <*> stdinCloseOpt
 
     newCmd =
-        let tplOpts :: HasMetavar a => Mod a String
-            tplOpts =
-                metavar "TEMPLATE" <>
-                help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")
+        let templateHelpStr = "Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")"
+            appTemplateFlag = asum
+              [ AppTemplateViaOption
+                  <$> strOption (long "template" <> metavar "TEMPLATE" <> help templateHelpStr)
+              , AppTemplateViaArgument <$> argument str (metavar "TEMPLATE_ARG" <> help ("Deprecated. " <> templateHelpStr))
+              , pure AppTemplateDefault
+              ]
         in asum
         [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
         , New
             <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-            <*> optional
-                  (strOption (long "template" <> tplOpts) <|>
-                   argument str tplOpts
-                  )
+            <*> appTemplateFlag
         ]
 
     createDamlAppCmd =
@@ -165,7 +171,7 @@ commandParser = subparser $ fold
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
         <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
-        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Run with Sandbox Classic."))
+        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic."))
 
     navigatorFlag =
         -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
@@ -372,7 +378,22 @@ runCommand = \case
     RunPlatformJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runPlatformJar args logbackConfig
-    New {..} -> runNew targetFolder templateNameM
+    New {..} -> do
+        templateNameM <- case appTemplate of
+            AppTemplateDefault -> pure Nothing
+            AppTemplateViaOption templateName -> pure (Just templateName)
+            AppTemplateViaArgument templateName -> do
+                hPutStrLn stderr $ unlines
+                    [ "WARNING: Specifying the template via"
+                    , ""
+                    , "    " <> showCommandForUser "daml" ["new", targetFolder, templateName]
+                    , ""
+                    , "is deprecated. The recommended way of specifying the template is"
+                    , ""
+                    , "    " <> showCommandForUser "daml" ["new", targetFolder, "--template", templateName]
+                    ]
+                pure (Just templateName)
+        runNew targetFolder templateNameM
     CreateDamlApp{..} -> runNew targetFolder (Just "create-daml-app")
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates

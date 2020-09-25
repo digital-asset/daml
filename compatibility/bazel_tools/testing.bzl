@@ -102,7 +102,7 @@ excluded_test_tool_tests = [
         "end": "1.3.0-snapshot.20200617.4484.0.7e0a6848",
         "platform_ranges": [
             {
-                "start": "0.0.0",  #fix to first snapshot after now
+                "start": "1.6.0-snapshot.20200922.5258.0.cd4a06db",
                 "exclusions": [
                     # See https://github.com/digital-asset/daml/pull/7400
                     "WronglyTypedContractIdIT",
@@ -115,7 +115,7 @@ excluded_test_tool_tests = [
         "end": "1.6.0-snapshot.20200915.5208.0.09014dc6",
         "platform_ranges": [
             {
-                "start": "0.0.0",  #fix to first snapshot after now
+                "start": "1.6.0-snapshot.20200922.5258.0.cd4a06db",
                 "exclusions": [
                     # See https://github.com/digital-asset/daml/pull/7400
                     "WronglyTypedContractIdIT:WTFetchFails",

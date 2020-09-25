@@ -153,10 +153,15 @@ The packages are pinned by the Stackage snapshot, in this case a
 `local_snapshot` and in the lock-file defined by `stack_snapshot_json`. If you
 wish to update packages, then you need to change the `packages` and
 `local_snapshot` attributes accordingly and afterwards execute the following
-command to update the lock-file:
+command on Unix and Windows to update the lock-files:
 ```
 bazel run @stackage-unpinned//:pin
 ```
+
+You can use the ad-hoc Windows machines as described in the [release
+documentation][windows-ad-hoc] to get access to a Windows machine.
+
+[windows-ad-hoc]: ./release/RELEASE.md#tips-for-windows-testing-in-an-ad-hoc-machine
 
 The `flags` attribute can be used to override default Cabal flags. The `tools`
 attribute defines Bazel targets for known Cabal tools, e.g. `alex`, `happy`, or

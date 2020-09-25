@@ -9,8 +9,7 @@ DAML Triggers - Off-Ledger Automation in DAML
 
    api/index
 
-**WARNING:** DAML Triggers are an early access feature that is actively
-being designed and is *subject to breaking changes*.
+DAML Triggers are currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 We welcome feedback about DAML triggers on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_,
 `our forum <https://discuss.daml.com>`_, or `on Slack <https://slack.daml.com>`_.
@@ -90,7 +89,8 @@ library to the ``dependencies`` field in ``daml.yaml``.
 In addition to that you also need to import the ``Daml.Trigger``
 module.
 
-DAML triggers automatically track the active contract set and the
+DAML triggers automatically track the active contract set (ACS), i.e., the set of contracts
+that have been created and have not been archived, and the
 commands in flight for you. In addition to that, they allow you to
 have user-defined state that is updated based on new transactions and
 command completions. For our copy trigger, the ACS is sufficient, so
@@ -271,8 +271,13 @@ read the token from the file ``token.jwt``.
 When not to use DAML triggers
 =============================
 
+DAML Triggers are not suited for automation that needs to interact
+with services or data outside of the ledger. For those cases, you can
+write a ledger client using the :doc:`JavaScript bindings
+</app-dev/bindings-ts/index>` running against the HTTP JSON API or the
+:doc:`Java bindings</app-dev/bindings-java/index>` running against the
+gRPC Ledger API.
+
 DAML triggers deliberately only allow you to express automation that
 listens for ledger events and reacts to them by sending commands to
-the ledger. If your automation needs to interact with data outside of
-the ledger then DAML triggers are not the right tool. For this case,
-you can use the HTTP JSON API.
+the ledger.

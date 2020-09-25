@@ -264,19 +264,19 @@ patches we backport to the 1.0 release branch).
 
     1. Open `daml/Main.daml`.
 
-    1. Click on `Scenario results` above `setup` and wait for the scenario
+    1. Click on `Script results` above `setup` and wait for the script
        results to appear.
 
-    1. Add `+` at the end of line 12, after `"Alice"` and confirm you get an
-       error in line 13.
+    1. Add `+` at the end of line 14, after `"Alice")` and confirm you get an
+       error in line 15.
 
-    1. Add `1` after the `+` and confirm you get an error in line 12.
+    1. Add `1` after the `+` and confirm you get an error in line 14.
 
-    1. Delete the `+1` and the `e` in `Alice` and verify that the scenario
-       results are updated to the misspelled name.
+    1. Delete the `+1` and the `e` in the second `"Alice"` and verify
+       that the script results are updated to the misspelled name.
 
-    1. Right click on `eurBank` in line 18 and verify that "Go to Definition"
-       takes you to the definition in line 15.
+    1. Right click on `eurBank` in line 20 and verify that "Go to Definition"
+       takes you to the definition in line 17.
 
     1. Close all files.
 
