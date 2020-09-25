@@ -72,7 +72,7 @@ This will start the JSON API on port 7575 and connect it to a ledger running on 
 With Query Store
 ------------------
 
-To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is save to reinitialize the database at any time.
+To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is safe to reinitialize the database at any time.
 
 To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
 
@@ -135,7 +135,7 @@ token.  You can use an arbitrary secret here. The default "header" is fine.  Und
       }
     }
 
-The value of the ``ledgerId`` field has to match the ``ledgerId` of your underlying DAML Ledger.
+The value of the ``ledgerId`` field has to match the ``ledgerId`` of your underlying DAML Ledger.
 For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
