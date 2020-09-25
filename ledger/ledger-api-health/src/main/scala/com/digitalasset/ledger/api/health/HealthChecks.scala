@@ -5,7 +5,7 @@ package com.daml.ledger.api.health
 
 import com.daml.ledger.api.health.HealthChecks._
 
-class HealthChecks(private val components: Components) {
+class HealthChecks(components: Components) {
   def this(components: Component*) = this(components.toMap)
 
   def hasComponent(componentName: ComponentName): Boolean =
@@ -16,6 +16,9 @@ class HealthChecks(private val components: Components) {
       case None => components.forall(_._2.currentHealth() == Healthy)
       case Some(name) => components(name).currentHealth() == Healthy
     }
+
+  def +(component: Component) =
+    new HealthChecks(this.components + component)
 }
 
 object HealthChecks {

@@ -16,6 +16,7 @@ import com.daml.caching
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
@@ -148,6 +149,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
                 readService = new TimedReadService(ledger, metrics)
                 writeService = new TimedWriteService(ledger, metrics)
+                healthChecks = new HealthChecks("write" -> writeService)
                 ledgerId <- ResourceOwner.forFuture(() =>
                   readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
                 _ <- if (isReset) {
@@ -213,6 +215,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   ledgerConfig = config.ledgerConfig,
                   optWriteService = Some(writeService),
                   authService = authService,
+                  healthChecks = healthChecks,
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
                   otherServices = List(resetService),
