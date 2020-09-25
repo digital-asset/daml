@@ -72,7 +72,7 @@ This will start the JSON API on port 7575 and connect it to a ledger running on 
 With Query Store
 ------------------
 
-To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is save to reinitialize the database at any time.
+To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is safe to reinitialize the database at any time.
 
 To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
 
