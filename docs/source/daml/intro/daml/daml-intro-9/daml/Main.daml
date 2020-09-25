@@ -123,21 +123,21 @@ typeError b p = if b
 -}
 
 -- S_OR_T_BEGIN
-sOrT b p = if b
-  then do
-    create S with p
-    return ()
-  else do
-    create T with p
-    return ()
-
-sOrT2 b p = if b
+sOrT1 b p = if b
   then do
     cid <- create S with p
     return (Left cid)
   else do
     cid <- create T with p
     return (Right cid)
+
+sOrT2 b p = if b
+  then do
+    create S with p
+    return ()
+  else do
+    create T with p
+    return ()
 -- S_OR_T_END
 
 -- VOID_BEGIN
