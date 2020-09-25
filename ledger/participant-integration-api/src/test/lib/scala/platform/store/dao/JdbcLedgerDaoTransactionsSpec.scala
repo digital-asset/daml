@@ -537,7 +537,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 throw ae modifyMessage (_ map { msg: String =>
                   msg +
                     "\n  Random parameters:" +
-                    s"\n    actual frequency: ${boolSeq.count(identity).toDouble} / ${boolSeq.size.toDouble}" +
+                    s"\n    actual frequency: ${boolSeq.count(identity)}/$txSeqLength" +
                     s"\n    code path: ${cp.label}"
                 })
             }
