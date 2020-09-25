@@ -29,3 +29,4 @@ Next: :doc:`1_Token`.
   7_Composing
   8_Upgrading
   9_Functional101
+  10_StdLib

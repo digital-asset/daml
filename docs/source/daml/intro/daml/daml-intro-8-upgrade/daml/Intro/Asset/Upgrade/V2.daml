@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module Intro.Asset.Upgrade.V2 where
 
 import qualified Intro.Asset as AssetV1
@@ -25,11 +28,13 @@ template UpgradeInvite
             issuer
             owner = [owner]
 
+-- MAP_ASSET_BEGIN
 mapAssetV1ToV2 : AssetV1.Asset -> AssetV2.Asset
 mapAssetV1ToV2 (AssetV1.Asset with .. ) = 
   AssetV2.Asset with 
   owner = [owner]
   ..
+-- MAP_ASSET_END
 
 template Upgrade
   with
@@ -38,13 +43,15 @@ template Upgrade
   where
     signatory issuer, owner
 
+-- UPGRADE_CONTRACTS_BEGIN
     controller owner can
       UpgradeContracts
         : [ContractId AssetV2.Asset]
         with
           assetCids : [ContractId AssetV1.Asset]
         do
-          let upgradeAsset cid = do
+          let 
+            upgradeAsset cid = do
               asset <- fetch cid
               assertMsg 
                 ("Asset " <> show asset <> " cannot be upgraded using " <> show this)
@@ -52,7 +59,8 @@ template Upgrade
               archive cid
               create (mapAssetV1ToV2 asset)
           mapA upgradeAsset assetCids
-    
+-- UPGRADE_CONTRACTS_END
+
     controller issuer can
       CompleteUpgrade
         : ()
