@@ -7,6 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
 import com.daml.ledger.api.v1.{value => rpcvalue}
 import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.lf.{data => lf}
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 
@@ -75,7 +76,9 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
   }
 
   implicit override val valueNumeric: Value[P.Numeric] =
-    fromArgumentValueFuns(_.numeric map BigDecimal.exact, bd => VSum.Numeric(bd.toString))
+    fromArgumentValueFuns(
+      _.numeric map lf.Numeric.assertFromString,
+      bd => VSum.Numeric(lf.Numeric.toString(bd.bigDecimal)))
 
   implicit override val valueParty: Value[P.Party] =
     Party.subst(fromArgumentValueFuns(_.party, VSum.Party))
