@@ -14,8 +14,15 @@ import Control.Applicative ((<|>))
 
 -- | Apply HIDE and MOVE annotations.
 applyAnnotations :: [ModuleDoc] -> [ModuleDoc]
-applyAnnotations = applyMove . applyHide
-
+applyAnnotations = applyMove . applyHide -- . map removeVersionHeaderAnnotation
+{-
+-- | Remove the HAS_DAML_VERSION_HEADER annotation inserted by our patched ghc parser.
+removeVersionHeaderAnnotation :: ModuleDoc -> ModuleDoc
+removeVersionHeaderAnnotation md@ModuleDoc{..} =
+    case T.stripPrefix "HAS_DAML_VERSION_HEADER" (unDocText md_descr) of
+        Just rest -> md { md_descr = DocText rest }
+        Nothing -> md
+-}
 -- | Apply the MOVE annotation, which moves all the docs from one
 -- module to another.
 applyMove :: [ModuleDoc] -> [ModuleDoc]
