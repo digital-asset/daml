@@ -79,7 +79,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
     * If left undefined, no discriminator will be generated.
     *
-    * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
+    * This method does perform authorization checks
     *
     * The resulting transaction is annotated with packages required to validate it.
     */
@@ -138,6 +138,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
+      checkAuthorization: Boolean = true,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commandWithCids <- preprocessor.translateNode(node)
@@ -150,7 +151,8 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
-        globalCids,
+        globalCids = globalCids,
+        checkAuthorization = checkAuthorization,
       )
       (tx, meta) = result
     } yield (tx, meta)
@@ -267,6 +269,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
+      checkAuthorization: Boolean = true,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
@@ -282,6 +285,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         inputValueVersions = config.allowedInputValueVersions,
         outputTransactionVersions = config.allowedOutputTransactionVersions,
         validating = validating,
+        checkAuthorization = checkAuthorization,
       )
       interpretLoop(machine, ledgerTime)
     }

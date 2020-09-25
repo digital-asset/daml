@@ -112,7 +112,6 @@ private[lf] object PartialTransaction {
       controllers: Set[Party],
       nodeId: NodeId,
       parent: Context,
-      auth: Authorize,
   )
 
   def initial(
@@ -257,7 +256,7 @@ private[lf] case class PartialTransaction(
     * contract instance.
     */
   def insertCreate(
-      auth: Authorize,
+      auth: Option[Authorize],
       coinst: Value.ContractInst[Value[Value.ContractId]],
       optLocation: Option[Location],
       signatories: Set[Party],
@@ -289,7 +288,7 @@ private[lf] case class PartialTransaction(
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
         nodeSeeds = nodeSeeds :+ (nid -> nodeSeed),
-      ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(createNode, auth))
+      ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(createNode), auth)
 
       // if we have a contract key being added, include it in the list of
       // active keys
@@ -305,7 +304,7 @@ private[lf] case class PartialTransaction(
   private[this] def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
-      auth: Authorize,
+      auth: Option[Authorize],
       coid: Value.ContractId,
       templateId: TypeConName,
       optLocation: Option[Location],
@@ -329,11 +328,11 @@ private[lf] case class PartialTransaction(
       coid,
       templateId,
       insertLeafNode(node, byKey)
-    ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node, auth))
+    ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
   }
 
   def insertLookup(
-      auth: Authorize,
+      auth: Option[Authorize],
       templateId: TypeConName,
       optLocation: Option[Location],
       key: Node.KeyWithMaintainers[Value[Nothing]],
@@ -342,11 +341,11 @@ private[lf] case class PartialTransaction(
     val nid = NodeId(nextNodeIdx)
     val node = Node.NodeLookupByKey(templateId, optLocation, key, result)
     insertLeafNode(node, byKey = true)
-      .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node, auth))
+      .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
   }
 
   def beginExercises(
-      auth: Authorize,
+      auth: Option[Authorize],
       targetId: Value.ContractId,
       templateId: TypeConName,
       choiceId: ChoiceName,
@@ -383,7 +382,6 @@ private[lf] case class PartialTransaction(
           controllers = controllers,
           nodeId = nid,
           parent = context,
-          auth = auth,
         )
 
       Right(
@@ -403,7 +401,7 @@ private[lf] case class PartialTransaction(
               case _ => keys
             },
           ),
-        ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(ec, auth))
+        ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(ec), auth)
       )
     }
   }
@@ -438,11 +436,19 @@ private[lf] case class PartialTransaction(
     }
 
   /** Note that the transaction building failed due to an authorization failure */
-  private def noteAuthFails(nid: NodeId, fails: List[FailedAuthorization]): PartialTransaction = {
-    fails match {
-      case Nil => this
-      case fa :: _ => // take just the first failure //TODO: dont compute all!
-        noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
+  private def noteAuthFails(
+      nid: NodeId,
+      f: Authorize => List[FailedAuthorization],
+      authM: Option[Authorize],
+  ): PartialTransaction = {
+    authM match {
+      case None => this // authorization checking is disabled
+      case Some(auth) =>
+        f(auth) match {
+          case Nil => this
+          case fa :: _ => // take just the first failure //TODO: dont compute all!
+            noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
+        }
     }
   }
 

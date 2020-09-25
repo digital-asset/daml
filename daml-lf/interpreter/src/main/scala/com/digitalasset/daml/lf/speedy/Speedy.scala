@@ -106,6 +106,8 @@ private[lf] object Speedy {
        * it. If this is false, the committers must be a singleton set.
        */
       val validating: Boolean,
+      /* Controls if authorization checks are performed during evaluation */
+      val checkAuthorization: Boolean,
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -660,6 +662,7 @@ private[lf] object Speedy {
         inputValueVersions: VersionRange[ValueVersion],
         outputTransactionVersions: VersionRange[TransactionVersion],
         validating: Boolean = false,
+        checkAuthorization: Boolean = true,
         onLedger: Boolean = true,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine =
@@ -667,6 +670,7 @@ private[lf] object Speedy {
         inputValueVersions = inputValueVersions,
         outputTransactionVersions = outputTransactionVersions,
         validating = validating,
+        checkAuthorization = checkAuthorization,
         ctrl = expr,
         returnValue = null,
         frame = null,

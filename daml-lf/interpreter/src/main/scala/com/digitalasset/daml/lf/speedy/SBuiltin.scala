@@ -860,7 +860,7 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
-      val auth = Authorize(contextActors)
+      val auth = if (machine.checkAuthorization) Some(Authorize(contextActors)) else None
 
       val (coid, newPtx) = machine.ptx
         .insertCreate(
@@ -928,7 +928,7 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
-      val auth = Authorize(contextActors)
+      val auth = if (machine.checkAuthorization) Some(Authorize(contextActors)) else None
 
       machine.ptx = machine.ptx
         .beginExercises(
@@ -1049,7 +1049,7 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
-      val auth = Authorize(contextActors)
+      val auth = if (machine.checkAuthorization) Some(Authorize(contextActors)) else None
 
       machine.ptx = machine.ptx.insertFetch(
         auth,
@@ -1142,7 +1142,7 @@ private[lf] object SBuiltin {
         case None =>
           machine.committers
       }
-      val auth = Authorize(contextActors)
+      val auth = if (machine.checkAuthorization) Some(Authorize(contextActors)) else None
 
       machine.ptx = machine.ptx.insertLookup(
         auth,
