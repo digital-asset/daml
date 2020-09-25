@@ -68,7 +68,7 @@ runNew targetFolder templateNameM = do
                 [ "Template name " <> projectName <> " was given as project name."
                 , "Please specify a project name separately, for example:"
                 , ""
-                , "    " <> showCommandForUser "daml" ["new", "myproject", projectName]
+                , "    " <> showCommandForUser "daml" ["new", "myproject", "--template", projectName]
                 , ""
                 ]
             exitFailure
