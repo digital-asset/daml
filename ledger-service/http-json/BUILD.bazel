@@ -64,6 +64,7 @@ da_scala_library(
 da_scala_binary(
     name = "http-json-binary",
     main_class = "com.daml.http.Main",
+    resources = [":src/main/resources/logback.xml"],
     scalacopts = hj_scalacopts,
     tags = [
         "maven_coordinates=com.daml:http-json-deploy:__VERSION__",
@@ -203,4 +204,4 @@ da_scala_test(
     ],
 )
 
-exports_files(["release/json-api-logback.xml"])
+exports_files(["src/main/resources/logback.xml"])

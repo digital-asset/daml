@@ -67,8 +67,7 @@ beforeAll(async () => {
     ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
      '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
-    ['-Dakka.http.server.request-timeout=60s',
-     '-Dlogback.configurationFile=' + getEnv("JSON_API_LOGBACK")],
+    ['-Dakka.http.server.request-timeout=60s'],
   )
   await waitOn({resources: [`file:${JSON_API_PORT_FILE}`]})
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
