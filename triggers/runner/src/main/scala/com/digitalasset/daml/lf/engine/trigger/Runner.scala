@@ -29,7 +29,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event._
@@ -42,6 +42,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.script.converter.Converter.{JavaList, unrollFree}
 import com.daml.script.converter.ConverterException
 
 import com.google.protobuf.empty.Empty
@@ -218,18 +219,14 @@ class Runner(
 
   private[this] def logger = ContextualizedLogger get getClass
 
+  import Runner.DaTypesTuple2
+
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
   // the new state
   private def handleStepResult(v: SValue, submit: SubmitRequest => Unit): SValue =
     v match {
-      case SRecord(recordId, _, values)
-          if recordId.qualifiedName ==
-            QualifiedName(
-              DottedName.assertFromString("DA.Types"),
-              DottedName.assertFromString("Tuple2")) => {
-        val newState = values.get(0)
-        val commandVal = values.get(1)
+      case SRecord(Identifier(_, DaTypesTuple2), _, JavaList(newState, commandVal, _*)) => {
         logger.debug(s"New state: $newState")
         commandVal match {
           case SList(transactions) =>
@@ -237,24 +234,8 @@ class Runner(
             for (commands <- transactions) {
               converter.toCommands(commands) match {
                 case Left(err) => throw new ConverterException(err)
-                case Right((commandId, commands)) => {
-                  if (usedCommandIds.contains(commandId)) {
-                    throw new RuntimeException(s"Duplicate command id: $commandId")
-                  }
-                  usedCommandIds += commandId
-                  val commandUUID = UUID.randomUUID
-                  commandIdMap += (commandUUID -> commandId)
-                  val commandsArg = Commands(
-                    ledgerId = client.ledgerId.unwrap,
-                    applicationId = applicationId.unwrap,
-                    commandId = commandUUID.toString,
-                    party = party,
-                    commands = commands
-                  )
-                  logger.debug(
-                    s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
-                  submit(SubmitRequest(commands = Some(commandsArg)))
-                }
+                case Right((commandId, commands)) =>
+                  handleCommands(commandId, commands, submit)
               }
             }
           case _ => {}
@@ -265,6 +246,28 @@ class Runner(
         throw new RuntimeException(s"Expected Tuple2 but got $v")
       }
     }
+
+  @throws[RuntimeException]
+  private def handleCommands[Z](
+      commandId: String,
+      commands: Seq[Command],
+      submit: SubmitRequest => Z): Z = {
+    if (usedCommandIds.contains(commandId)) {
+      throw new RuntimeException(s"Duplicate command id: $commandId")
+    }
+    usedCommandIds += commandId
+    val commandUUID = UUID.randomUUID
+    commandIdMap += (commandUUID -> commandId)
+    val commandsArg = Commands(
+      ledgerId = client.ledgerId.unwrap,
+      applicationId = applicationId.unwrap,
+      commandId = commandUUID.toString,
+      party = party,
+      commands = commands
+    )
+    logger.debug(s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
+    submit(SubmitRequest(commands = Some(commandsArg)))
+  }
 
   // This function produces a pair of a source of trigger messages
   // and a function to call in the event of a command submission
@@ -497,6 +500,9 @@ object Runner extends StrictLogging {
       case _ => throw new RuntimeException(s"Unexpected TimeProviderType: $ty")
     }
   }
+
+  private val DaTypesTuple2 =
+    QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))
 
   // Convience wrapper that creates the runner and runs the trigger.
   def run(
