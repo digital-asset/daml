@@ -22,6 +22,7 @@ import com.daml.lf.{CompiledPackages, PureCompiledPackages}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
+import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
@@ -219,7 +220,7 @@ class Runner(
 
   private[this] def logger = ContextualizedLogger get getClass
 
-  import Runner.DaTypesTuple2
+  import Runner.{DaTypesTuple2, DamlTuple2, DamlFun}
 
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
@@ -267,6 +268,58 @@ class Runner(
     )
     logger.debug(s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
     submit(SubmitRequest(commands = Some(commandsArg)))
+  }
+
+  // Handles the value of update.
+  /*TODO SC private*/
+  def handleStepFreeResult(
+      clientTime: Timestamp,
+      messageVal: SValue,
+      v: SValue,
+      state: SValue,
+      submit: SubmitRequest => Unit): SValue = {
+    def evaluate(se: SExpr) = {
+      val machine: Speedy.Machine = // TODO SC pull up
+        Speedy.Machine.fromPureSExpr(compiledPackages, se, onLedger = false)
+      // Evaluate it.
+      machine.setExpressionToEvaluate(se)
+      Machine.stepToValue(machine)
+    }
+    def go(v: SValue, state: SValue): SValue =
+      unrollFree(v) match {
+        case Right(Right(vvv @ (variant, vv))) =>
+          vvv.match2 {
+            case "GetTime" /*(Time -> a)*/ => {
+              case DamlFun(timeA) => go(evaluate(makeAppD(timeA, STimestamp(clientTime))), state)
+            }
+            case "GetMessage" /*(Message -> a)*/ => {
+              case DamlFun(messageA) => go(evaluate(makeAppD(messageA, messageVal)), state)
+            }
+            case "GetS" /*(s -> a)*/ => {
+              case DamlFun(sa) => go(evaluate(makeAppD(sa, state)), state)
+            }
+            case "SetS" /*(s, () -> a)*/ => {
+              case DamlTuple2(newState, DamlFun(unitA)) =>
+                go(evaluate(makeAppD(unitA, SUnit)), newState)
+            }
+            case "Submit" /*([Commands], () -> a)*/ => {
+              case DamlTuple2(SList(transactions), DamlFun(unitA)) =>
+                for (commands <- transactions)
+                  converter.toCommands(commands) match {
+                    case Left(err) => throw new ConverterException(err)
+                    case Right((commandId, commands)) =>
+                      handleCommands(commandId, commands, submit)
+                  }
+                go(evaluate(makeAppD(unitA, SUnit)), state)
+            }
+            case _ => {
+              case _ => state
+            } // unrecognized constructors terminate early
+          }(fallback = throw new RuntimeException(s"invalid contents for $variant: $vv"))
+        case Right(Left(_)) => state
+        case Left(e) => throw new RuntimeException(e)
+      }
+    go(v = v, state = state)
   }
 
   // This function produces a pair of a source of trigger messages
@@ -446,6 +499,8 @@ class Runner(
     SEApp(func, values.map(SEValue(_)))
   }
 
+  private[this] def makeAppD(func: SValue, values: SValue*) = makeApp(SEValue(func), values.toArray)
+
   // Query the ACS. This allows you to separate the initialization of
   // the initial state from the first run.
   def queryACS()(
@@ -503,6 +558,18 @@ object Runner extends StrictLogging {
 
   private val DaTypesTuple2 =
     QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))
+
+  private object DamlTuple2 {
+    def unapply(v: SRecord): Option[(SValue, SValue)] = v match {
+      case SRecord(Identifier(_, DaTypesTuple2), _, JavaList(fst, snd)) =>
+        Some((fst, snd))
+      case _ => None
+    }
+  }
+
+  private object DamlFun {
+    def unapply(v: SPAP): Some[SPAP] = Some(v)
+  }
 
   // Convience wrapper that creates the runner and runs the trigger.
   def run(
