@@ -21,7 +21,9 @@ import Ref._
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
+ */
 import com.daml.lf.language.Ast
+/*
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
@@ -64,6 +66,16 @@ private[daml] object Converter {
       new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
     SRecord(ty, fieldNames, args)
   }
+
+  /** Unpack one step of a Pure/Roll-style free monad representation,
+    * with the assumption that `f` is a variant type.
+    */
+  def unrollFree(v: SValue): ErrorOr[SValue Either (Ast.VariantConName, SValue)] =
+    v expect ("Free with variant or Pure", {
+      case SVariant(_, "Free", _, v) => Left(v)
+      case SVariant(_, "Pure", _, SVariant(_, variant, _, vv)) =>
+        Right((variant, vv))
+    })
 
   object JavaList {
     def unapplySeq[A](jl: util.List[A]): Some[Seq[A]] =

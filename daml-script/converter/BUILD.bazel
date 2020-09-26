@@ -23,7 +23,7 @@ da_scala_library(
         # "//daml-lf/engine",
         # "//daml-lf/interface",
         "//daml-lf/interpreter",
-        # "//daml-lf/language",
+        "//daml-lf/language",
         # "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
