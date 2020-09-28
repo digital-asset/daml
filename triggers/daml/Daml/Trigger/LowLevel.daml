@@ -37,6 +37,7 @@ module Daml.Trigger.LowLevel
   , RelTime(..)
   ) where
 
+import DA.Foldable (mapA_)
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
 
@@ -281,23 +282,27 @@ data TriggerF s a =
   | Submit ([Commands], () -> a)
   deriving Functor
 
-type ActionTrigger s = Free (TriggerF s)
+newtype ActionTrigger s a = ActionTrigger { runActionTrigger : Free (TriggerF s) a }
+  deriving (Functor, Applicative, Action)
+
+liftAT : TriggerF s a -> ActionTrigger s a
+liftAT = ActionTrigger . liftFC
 
 instance HasTime (ActionTrigger s) where
   getTime : ActionTrigger s Time
-  getTime = liftFC (GetTime identity)
+  getTime = liftAT (GetTime identity)
 
 getMessage : ActionTrigger s Message
-getMessage = liftFC (GetMessage identity)
+getMessage = liftAT (GetMessage identity)
 
 getS : ActionTrigger s s
-getS = liftFC (GetS identity)
+getS = liftAT (GetS identity)
 
 setS : s -> ActionTrigger s ()
-setS s = liftFC (SetS (s, identity))
+setS s = liftAT (SetS (s, identity))
 
 submitCommands : [Commands] -> ActionTrigger s ()
-submitCommands cmds = liftFC (Submit (cmds, identity))
+submitCommands cmds = liftAT (Submit (cmds, identity))
 
 type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
 
