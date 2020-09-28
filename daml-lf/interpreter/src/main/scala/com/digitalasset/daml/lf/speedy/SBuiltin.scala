@@ -886,13 +886,14 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       choiceId: ChoiceName,
       consuming: Boolean,
-  ) extends SBuiltin(9) {
+      byKey: Boolean,
+  ) extends SBuiltin(8) {
 
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      checkToken(args.get(8))
+      checkToken(args.get(7))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
@@ -902,15 +903,13 @@ private[lf] object SBuiltin {
         case SOptional(optValue) => optValue.map(extractParties)
         case v => crash(s"expect optional parties, got: $v")
       }
-      val byKey = args.get(3) match {
-        case SBool(b) => b
-        case v => crash(s"expect boolean flag, got: $v")
-      }
-      val sigs = extractParties(args.get(4))
-      val obs = extractParties(args.get(5))
-      val ctrls = extractParties(args.get(6))
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
+      val sigs = extractParties(args.get(3))
+      val obs = extractParties(args.get(4))
+      val ctrls = extractParties(args.get(5))
+
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
       val auth = machine.auth
+
       machine.ptx = machine.ptx
         .beginExercises(
           auth = auth,

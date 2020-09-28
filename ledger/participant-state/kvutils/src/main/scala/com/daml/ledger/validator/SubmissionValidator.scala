@@ -330,42 +330,6 @@ object SubmissionValidator {
     )
   }
 
-  @deprecated("To be removed in v1.6.", since = "v1.5")
-  def create_v1_4[LogResult](
-      ledgerStateAccess: LedgerStateAccess.v1_4[LogResult],
-      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
-      checkForMissingInputs: Boolean = false,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
-      engine: Engine,
-      metrics: Metrics,
-  ): SubmissionValidator[LogResult] =
-    new_v1_4(
-      ledgerStateAccess,
-      processSubmission(new KeyValueCommitting(engine, metrics, inStaticTimeMode = false)),
-      allocateNextLogEntryId,
-      checkForMissingInputs,
-      stateValueCache,
-      metrics,
-    )
-
-  @deprecated("To be removed in v1.6.", since = "v1.5")
-  private[validator] def new_v1_4[LogResult](
-      ledgerStateAccess: LedgerStateAccess.v1_4[LogResult],
-      processSubmission: SubmissionValidator.ProcessSubmission,
-      allocateLogEntryId: () => DamlLogEntryId,
-      checkForMissingInputs: Boolean,
-      stateValueCache: Cache[Bytes, DamlStateValue],
-      metrics: Metrics,
-  ): SubmissionValidator[LogResult] =
-    new SubmissionValidator(
-      ledgerStateAccess.modernize(),
-      processSubmission,
-      allocateLogEntryId,
-      checkForMissingInputs,
-      stateValueCache,
-      metrics,
-    )
-
   // Internal method to enable proper command dedup in sandbox with static time mode
   private[daml] def createForTimeMode[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
