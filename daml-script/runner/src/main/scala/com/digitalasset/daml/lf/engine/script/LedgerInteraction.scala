@@ -388,6 +388,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
     traceLog = traceLog,
   )
+  val onLedger = machine.withOnLedger("IdeClient")(identity)
   val scenarioRunner = ScenarioRunner(machine)
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
@@ -448,14 +449,14 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       optLocation: Option[Location])(implicit ec: ExecutionContext)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
     // Clear state at the beginning like in SBSBeginCommit for scenarios.
-    machine.commitLocation = optLocation
     machine.returnValue = null
-    machine.localContracts = Map.empty
-    machine.globalDiscriminators = Set.empty
+    onLedger.commitLocation = optLocation
+    onLedger.localContracts = Map.empty
+    onLedger.globalDiscriminators = Set.empty
     val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to[ImmArray])._1
     val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
     machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
-    machine.committers = Set(party)
+    onLedger.committers = Set(party)
     var result: Seq[ScriptLedgerClient.CommandResult] = null
     while (result == null) {
       machine.run() match {
@@ -464,8 +465,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
           scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).toTry.get
         case SResultFinalValue(SUnit) =>
-          machine.ptx.finish(
-            machine.outputTransactionVersions,
+          onLedger.ptx.finish(
+            onLedger.outputTransactionVersions,
             machine.compiledPackages.packageLanguageVersion) match {
             case PartialTransaction.CompleteTransaction(tx) =>
               val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
@@ -485,7 +486,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
               ScenarioLedger.commitTransaction(
                 committer = party,
                 effectiveAt = scenarioRunner.ledger.currentTime,
-                optLocation = machine.commitLocation,
+                optLocation = onLedger.commitLocation,
                 tx = tx,
                 l = scenarioRunner.ledger
               ) match {

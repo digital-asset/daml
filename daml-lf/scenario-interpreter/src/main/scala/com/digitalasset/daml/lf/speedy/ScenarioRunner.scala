@@ -29,6 +29,7 @@ final case class ScenarioRunner(
     machine: Speedy.Machine,
     partyNameMangler: (String => String) = identity) {
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+  val onLedger = machine.withOnLedger("ScenarioRunner")(identity)
 
   import scala.util.{Try, Success, Failure}
 
@@ -121,13 +122,13 @@ final case class ScenarioRunner(
         .commitTransaction(
           committer = committer,
           effectiveAt = ledger.currentTime,
-          optLocation = machine.commitLocation,
+          optLocation = onLedger.commitLocation,
           tx = tx,
           l = ledger)
         .isRight) {
       throw SRunnerException(ScenarioErrorMustFailSucceeded(tx))
     }
-    ledger = ledger.insertAssertMustFail(committer, machine.commitLocation)
+    ledger = ledger.insertAssertMustFail(committer, onLedger.commitLocation)
   }
 
   private def commit(
@@ -141,7 +142,7 @@ final case class ScenarioRunner(
     ScenarioLedger.commitTransaction(
       committer = committer,
       effectiveAt = ledger.currentTime,
-      optLocation = machine.commitLocation,
+      optLocation = onLedger.commitLocation,
       tx = tx,
       l = ledger
     ) match {

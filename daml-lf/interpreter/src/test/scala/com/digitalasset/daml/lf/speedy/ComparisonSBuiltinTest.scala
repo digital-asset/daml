@@ -654,7 +654,7 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
         None)
     )
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SExpr.SEApp(sexpr, contractIds), false)
+      Speedy.Machine.fromPureSExpr(compiledPackages, SExpr.SEApp(sexpr, contractIds))
     try {
       machine.run() match {
         case SResult.SResultFinalValue(v) => Right(v)

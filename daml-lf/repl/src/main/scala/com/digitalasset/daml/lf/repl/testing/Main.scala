@@ -471,7 +471,7 @@ object Repl {
             val startTime = System.nanoTime()
             val valueOpt = machine.run match {
               case SResultError(err) =>
-                println(prettyError(err, machine.ptx).render(128))
+                println(prettyError(err).render(128))
                 None
               case SResultFinalValue(v) =>
                 Some(v)
@@ -519,15 +519,17 @@ object Repl {
       .map { expr =>
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        errOrLedger match {
-          case Left((err, ledger @ _)) =>
-            println(prettyError(err, machine.ptx).render(128))
-            (false, state)
-          case Right((diff @ _, steps @ _, ledger, value @ _)) =>
-            // NOTE(JM): cannot print this, output used in tests.
-            //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
-            println(prettyLedger(ledger).render(128))
-            (true, state)
+        machine.withOnLedger("invokeScenario") { onLedger =>
+          errOrLedger match {
+            case Left((err, ledger @ _)) =>
+              println(prettyError(err, onLedger.ptx).render(128))
+              (false, state)
+            case Right((diff @ _, steps @ _, ledger, value @ _)) =>
+              // NOTE(JM): cannot print this, output used in tests.
+              //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
+              println(prettyLedger(ledger).render(128))
+              (true, state)
+          }
         }
       }
       .getOrElse((false, state))
@@ -552,18 +554,20 @@ object Repl {
       case (name, body) =>
         print(name + ": ")
         val (machine, errOrLedger) = state.scenarioRunner.run(body)
-        errOrLedger match {
-          case Left((err, ledger @ _)) =>
-            println(
-              "failed at " +
-                prettyLoc(machine.lastLocation).render(128) +
-                ": " + prettyError(err, machine.ptx).render(128))
-            failures += 1
-          case Right((diff, steps, ledger @ _, value @ _)) =>
-            successes += 1
-            totalTime += diff
-            totalSteps += steps
-            println(s"ok in ${diff.formatted("%.2f")}ms, $steps steps")
+        machine.withOnLedger("cmdTestAll") { onLedger =>
+          errOrLedger match {
+            case Left((err, ledger @ _)) =>
+              println(
+                "failed at " +
+                  prettyLoc(machine.lastLocation).render(128) +
+                  ": " + prettyError(err, onLedger.ptx).render(128))
+              failures += 1
+            case Right((diff, steps, ledger @ _, value @ _)) =>
+              successes += 1
+              totalTime += diff
+              totalSteps += steps
+              println(s"ok in ${diff.formatted("%.2f")}ms, $steps steps")
+          }
         }
     }
     println(
@@ -582,15 +586,17 @@ object Repl {
         println("Collecting profile...")
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        errOrLedger match {
-          case Left((err, ledger @ _)) =>
-            println(prettyError(err, machine.ptx).render(128))
-            (false, state)
-          case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
-            println("Writing profile...")
-            machine.profile.name = scenarioId
-            machine.profile.writeSpeedscopeJson(outputFile)
-            (true, state)
+        machine.withOnLedger("cmdProfile") { onLedger =>
+          errOrLedger match {
+            case Left((err, ledger @ _)) =>
+              println(prettyError(err, onLedger.ptx).render(128))
+              (false, state)
+            case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
+              println("Writing profile...")
+              machine.profile.name = scenarioId
+              machine.profile.writeSpeedscopeJson(outputFile)
+              (true, state)
+          }
         }
       }
       .getOrElse((false, state))
