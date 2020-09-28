@@ -301,14 +301,13 @@ class Runner(
               case DamlTuple2(newState, DamlFun(unitA)) =>
                 go(evaluate(makeAppD(unitA, SUnit)), newState)
             }
-            case "Submit" /*([Commands], () -> a)*/ => {
-              case DamlTuple2(SList(transactions), DamlFun(unitA)) =>
-                for (commands <- transactions)
-                  converter.toCommands(commands) match {
-                    case Left(err) => throw new ConverterException(err)
-                    case Right((commandId, commands)) =>
-                      handleCommands(commandId, commands, submit)
-                  }
+            case "Submit" /*((Text, [Command]), () -> a)*/ => {
+              case DamlTuple2(commands, DamlFun(unitA)) =>
+                converter.toCommands(commands) match {
+                  case Left(err) => throw new ConverterException(err)
+                  case Right((commandId, commands)) =>
+                    handleCommands(commandId, commands, submit)
+                }
                 go(evaluate(makeAppD(unitA, SUnit)), state)
             }
             case _ => {

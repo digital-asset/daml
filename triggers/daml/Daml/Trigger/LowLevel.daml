@@ -280,7 +280,7 @@ data TriggerF s a =
   | GetMessage (Message -> a)
   | GetS (s -> a)
   | SetS (s, () -> a)
-  | Submit ([Commands], () -> a)
+  | Submit (Commands, () -> a)
   deriving Functor
 
 newtype ActionTrigger s a = ActionTrigger { runActionTrigger : Free (TriggerF s) a }
@@ -302,7 +302,7 @@ getS = liftAT (GetS identity)
 setS : s -> ActionTrigger s ()
 setS s = liftAT (SetS (s, identity))
 
-submitCommands : [Commands] -> ActionTrigger s ()
+submitCommands : Commands -> ActionTrigger s ()
 submitCommands cmds = liftAT (Submit (cmds, identity))
 
 type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
@@ -311,4 +311,4 @@ forwardPort : TriggerUpdate s -> Free (TriggerF s) ()
 forwardPort f = runActionTrigger do
   (s, cmds) <- f <$> getTime <*> getMessage <*> getS
   setS s
-  submitCommands cmds
+  mapA_ submitCommands cmds
