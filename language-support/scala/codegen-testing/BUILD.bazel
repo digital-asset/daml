@@ -36,7 +36,7 @@ testing_utils = [
     "src/test/scala/com/digitalasset/scalatest/CustomMatcher.scala",
     "src/test/scala/com/digitalasset/ledger/client/binding/encoding/LfTypeEncodingSpec.scala",
     "src/test/scala/com/digitalasset/ledger/client/binding/EncodingTestUtil.scala",
-    "src/test/scala/com/digitalasset/ledger/client/binding/ValueSpec.scala",
+    "src/test/scala/com/digitalasset/ledger/client/binding/ValueGen.scala",
 ]
 
 da_scala_library(
