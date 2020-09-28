@@ -123,7 +123,7 @@ typeError b p = if b
 -}
 
 -- S_OR_T_BEGIN
-sOrT1 b p = if b
+ifThenSElseT1 b p = if b
   then do
     cid <- create S with p
     return (Left cid)
@@ -131,7 +131,7 @@ sOrT1 b p = if b
     cid <- create T with p
     return (Right cid)
 
-sOrT2 b p = if b
+ifThenSElseT2 b p = if b
   then do
     create S with p
     return ()
@@ -141,7 +141,7 @@ sOrT2 b p = if b
 -- S_OR_T_END
 
 -- VOID_BEGIN
-sOrT3 b p = if b
+ifThenSElseT3 b p = if b
   then void (create S with p)
   else void (create T with p)
 -- VOID_END

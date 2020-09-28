@@ -26,13 +26,11 @@ The previous chapters of this introduction to DAML have mostly covered the struc
 
 When comparing DAML to Haskell it's worth noting:
 
-
-- DAML has a ``with`` syntax for records that is not present in Haskell
-- DAML supports Haskell's curly brace record notation
-- DAML doesn't support Haskell's more advanced type system features
-- Actions in DAML are called Monads in Haskell
-- Other standard typeclasses like Functors, Applicative Functors, Foldable, Traversable, MonadFail, etc.
-- How to translate procedural code into functional code.
+-   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". DAML by contrast is strict. Expressions are fully evaluated, which means it it not possible to work with infinite data structures.
+- DAML has a ``with`` syntax for records, and dot syntax for record field access, neither of which present in Haskell. But DAML supports Haskell's curly brace record notation.
+- DAML has a number of Haskell compiler extensions active by default.
+- DAML doesn't support all features of Haskell's type system. For example, there are no existential types of GADTs.
+- Actions, called Monads in Haskell.
 
 Functions
 ---------

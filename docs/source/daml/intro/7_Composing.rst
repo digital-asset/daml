@@ -30,7 +30,7 @@ You can start a new project with a skeleton structure using ``daml new project_n
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
-You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim``, and ``daml-stdlib`` gives access to the DAML Standard Library.
+You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` as it contains internals of compiler and DAML Runtime. ``daml-stdlib`` gives access to the DAML Standard Library, and ``daml-script`` contains the types and standard library for DAML Script.
 
 You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. More on all of this in :doc:`8_Upgrading`.
 
