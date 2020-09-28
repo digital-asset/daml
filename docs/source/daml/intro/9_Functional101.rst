@@ -7,7 +7,7 @@
 In this chapter, we will use both the Asset, as well as the Upgrade models from Chapter 8 to learn more about expressing complex logic in a functional language like DAML. You'll learn about
 
 - Function signatures and functions
-- Advanced control flow (``if``...else``, folds, recursion, ``when``)
+- Advanced control flow (``if...else``, folds, recursion, ``when``)
 
 If you no longer have your projects set up, please follow the setup instructions in :doc:`8_Upgrading` to get hold of the code for this chapter.
 
@@ -16,7 +16,7 @@ If you no longer have your projects set up, please follow the setup instructions
 The Haskell Connection
 ----------------------
 
-THe previous chapters of this introduction to DAML have mostly covered the structure of templates, and their connection to the :doc:`DAML Ledger Model </concepts/ledger-model/index>`. The logic of what happened within the ``do`` blocks of choices of scripts has been kept relatively simple. In this chapter, we will dive deeper into DAML's expression language, the part that allows you to write logic inside those ``do`` blocks. But we can only scratch the surface here. DAML borrows a lot of its language from `Haskell <https://www.haskell.org>`__. If you want to dive deeper, or learn about specific aspects of the language you can refer to standard literature on Haskell. Some recommendations:
+The previous chapters of this introduction to DAML have mostly covered the structure of templates, and their connection to the :doc:`DAML Ledger Model </concepts/ledger-model/index>`. The logic of what happens within the ``do`` blocks of choices has been kept relatively simple. In this chapter, we will dive deeper into DAML's expression language, the part that allows you to write logic inside those ``do`` blocks. But we can only scratch the surface here. DAML borrows a lot of its language from `Haskell <https://www.haskell.org>`__. If you want to dive deeper, or learn about specific aspects of the language you can refer to standard literature on Haskell. Some recommendations:
 
 - `Finding Success and Failure in Haskell (Julie Maronuki, Chris Martin) <https://joyofhaskell.com/>`__
 - `Haskell Programming from first principles (Christopher Allen, Julie Moronuki) <http://haskellbook.com/>`__
@@ -24,18 +24,20 @@ THe previous chapters of this introduction to DAML have mostly covered the struc
 - `Programming in Haskell (Graham Hutton) <http://www.cs.nott.ac.uk/~pszgmh/pih.html>`__
 - `Real World Haskell (Bryan O'Sullivan, Don Stewart, John Goerzen) <http://book.realworldhaskell.org/>`__
 
-Topics that might be worth exploring are:
+When comparing DAML to Haskell it's worth noting:
 
 
-- Haskell's type system. The major difference to DAML is DAML's ``with`` syntax for records, though DAML does also support Haskell's curly brace record notation. Other than that, DAML simply doesn't support many of Haskell's more advanced type system features.
-- Actions, called Monads in Haskell
+- DAML has a ``with`` syntax for records that is not present in Haskell
+- DAML supports Haskell's curly brace record notation
+- DAML doesn't support Haskell's more advanced type system features
+- Actions in DAML are called Monads in Haskell
 - Other standard typeclasses like Functors, Applicative Functors, Foldable, Traversable, MonadFail, etc.
 - How to translate procedural code into functional code.
 
 Functions
 ---------
 
-In :doc:`3_Data` you learnt about one half of DAML's type system: Data types. It's now time to learn about the other, which is Function types. Function types in DAML can be spotted by looking for ``->`` which can be read as "maps to".
+In :doc:`3_Data` you learnt about one half of DAML's type system: Data types. It's now time to learn about the other, which are Function types. Function types in DAML can be spotted by looking for ``->`` which can be read as "maps to".
 
 For example, the function signature ``Int -> Int`` maps an integer to another integer. There are many such functions, but one would be:
 
@@ -72,7 +74,7 @@ There are two interesting things going on here:
 Function Application
 ....................
 
-Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is right associative, meaning this is equivalent to ``a -> (a -> a)``. Using the "maps to" way of reading ``->`` we get "a maps to a function that maps a to a``.
+Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is right associative, meaning ``a -> a -> a`` is equivalent to ``a -> (a -> a)``. Using the "maps to" way of reading ``->`` we get "a maps to a function that maps a to a``.
 
 And this is indeed what happens. We can define a different version of ``increment`` by *partially applying* ``add``:
 
@@ -88,7 +90,7 @@ So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we g
 Infix Functions
 ...............
 
-Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to make use it as a normal function, and wrap a normal function in backticks to make it infix:
+Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function, and wrap a normal function in backticks to make it infix:
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -114,11 +116,11 @@ Type Constraints
 
 The ``Additive a =>`` part of the signature of ``add`` is a type constraint on the type parameter ``a``. ``Additive`` here is a typeclass. You already met typeclasses like ``Eq`` and ``Show`` in :doc:`3_Data`. The ``Additive`` typeclass says that you can add a thing. Ie there is a function ``(+) : a -> a -> a``. Now the way to read the full signature of ``add`` is "Given that a has an instance for the Additive typeclass, a maps to a function which maps a to a".
 
-Typeclasses in DAML are bit like interfaces in other languages. To be able to add two things using the ``+`` function, those things need to expose the ``+`` interface.
+Typeclasses in DAML are a bit like interfaces in other languages. To be able to add two things using the ``+`` function, those things need to expose the ``+`` interface.
 
 Unlike interfaces, typeclasses can have multiple type parameters. A good example, which also demonstrates the use of multiple constraints at the same time, is the signature of the ``exercise`` function:
 
-.. code-block::daml
+.. code-block:: daml
 
   exercise : (Template t, Choice t c r) => ContractId t -> c -> Update r
 
@@ -129,7 +131,7 @@ That's quite a mouthful, and does require one to know what *meaning* the typecla
 Pattern Matching in Arguments
 .............................
 
-You met pattern matching in :doc:`3_Data`, using ``case`` statements. It can be convenient to already do the pattern matching at the level of function arguments. Think about implementing the function ``uncurry``:
+You met pattern matching in :doc:`3_Data`, using ``case`` statements which is one way of pattern matching. However, it can also be convenient to do the pattern matching at the level of function arguments. Think about implementing the function ``uncurry``:
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -143,7 +145,7 @@ You met pattern matching in :doc:`3_Data`, using ``case`` statements. It can be 
   :start-after: -- UNCURRY_BEGIN
   :end-before: -- UNCURRY_END
 
-Using function pattern matching is clearly the most elegant here. We never need the tuple as a whole, just its members. Any pattern matching you can do in ``case`` you can also do at function level, and the compiler warns you if you are not exhaustive.
+Using function pattern matching is clearly the most elegant here. We never need the tuple as a whole, just its members. Any pattern matching you can do in ``case`` you can also do at the function level, and the compiler helpfully warns you if you did not cover all cases, which is called "non-exhaustive".
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -152,7 +154,8 @@ Using function pattern matching is clearly the most elegant here. We never need 
 
 The above will give you a warning: 
 
-  .. code-block::none
+  .. code-block:: none
+  
     warning:
       Pattern match(es) are non-exhaustive
       In an equation for ‘fromSome’: Patterns not matched: None
@@ -189,7 +192,7 @@ More commonly, it makes sense to define functions locally, inside a ``let`` clau
 
 You can see that the function signature is inferred from the context here. If you look closely (or hover over the function in the IDE), you'll see that it has signature 
 
-.. code-block::daml
+.. code-block:: daml
 
     upgradeAsset : ContractId AssetV1.Asset -> Update (ContractId AssetV2.Asset)
 
@@ -226,7 +229,7 @@ Chapter 5 also showed a seemingly self-explanatory ``if..else`` statement, but d
 
 If you write this function in the IDE, you'll get a warning from the linter:
 
-.. code-block::none
+.. code-block:: none
 
     Suggestion: Use if
     Found:
@@ -283,7 +286,7 @@ If we need functions that can return two (or more) types of things we need to en
 Branching in Actions
 ~~~~~~~~~~~~~~~~~~~~
 
-The most common case where this becomes important is inside ``do`` blocks. Say we want to create contract if a condition is met, or we want to create a contract of one type in one case, and of another type in another case. Let's say we have two template types and want to write a function that creates an ``S`` if a condition is met, and a ``T`` otherwise.
+The most common case where this becomes important is inside ``do`` blocks. Say we want to create a contract of one type in one case, and of another type in another case. Let's say we have two template types and want to write a function that creates an ``S`` if a condition is met, and a ``T`` otherwise.
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -307,7 +310,7 @@ We have two options:
   :start-after: -- S_OR_T_BEGIN
   :end-before: -- S_OR_T_END
 
-The former is so common that there is a utility function in ``DA.Action`` to get rid of the return type: ``void : Functor f => f a -> f ()``.
+The latter is so common that there is a utility function in ``DA.Action`` to get rid of the return type: ``void : Functor f => f a -> f ()``.
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -335,7 +338,7 @@ You've already seen this in use in Chapter 8:
   :start-after: -- RUN_COMPLETE_UPGRADE_BEGIN
   :end-before: -- RUN_COMPLETE_UPGRADE_END
 
-With ``case``, ``if..else``, ``void`` and ``when``, you can express all branching. However, one additional feature you may want to learn is guards. They are not covered here, but can help avoid deeply nested ``if..else`` blocks. Here just one example. The Haskell sources at the beginning of the chapter cover this topic in more depth.
+With ``case``, ``if..else``, ``void`` and ``when``, you can express all branching. However, one additional feature you may want to learn is guards. They are not covered here, but can help avoid deeply nested ``if..else`` blocks. Here's just one example. The Haskell sources at the beginning of the chapter cover this topic in more depth.
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -373,14 +376,14 @@ A more general loop looks like this:
 
 The only real difference is that the iterator is explicit in the former, and implicit in the latter.
 
-In both cases, state is being mutated: ``result`` in the former, ``state`` in the latter. Values in DAML are immutable, so it needs to work differently. The answer are folds and recursion.
+In both cases, state is being mutated: ``result`` in the former, ``state`` in the latter. Values in DAML are immutable, so it needs to work differently. In DAML we will do this with folds and recursion.
 
 Folds
 ~~~~~
 
-Folds correspond to looping with an explicit iterator: ``for`` and ``forEach`` loops in procedural languages. The most common iterator is a list, as is the case in the ``sum`` function above. For such cases, DAML has the ``foldl`` function. The ``l`` stands for "left" and means the list is processed form the left. There is also a corresponding ``foldr`` which processes from the right.
+Folds correspond to looping with an explicit iterator: ``for`` and ``forEach`` loops in procedural languages. The most common iterator is a list, as is the case in the ``sum`` function above. For such cases, DAML has the ``foldl`` function. The ``l`` stands for "left" and means the list is processed from the left. There is also a corresponding ``foldr`` which processes from the right.
 
-.. code-block::daml
+.. code-block:: daml
 
   foldl : (b -> a -> b) -> b -> [a] -> b
 
