@@ -29,6 +29,8 @@ After this section, you should be able to use a DAML ledger as a simple database
 
   Remember that you can load all the code for this section into a folder called ``3_Data`` by running ``daml new 3_Data --template daml-intro-3``
 
+.. _native-types:
+
 Native types
 ------------
 

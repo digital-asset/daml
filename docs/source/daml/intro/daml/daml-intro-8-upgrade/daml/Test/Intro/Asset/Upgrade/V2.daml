@@ -154,7 +154,9 @@ runCompleteUpgrade r = do
 
 testUpgrade = do
   -- Use the V1 Trade Setup Script to set up parties and issue assets:
+-- TUPLE_USE_BEGIN
   (alice, bob, usdbank, eurbank, usdha, usdhb, eurha, eurhb, usdCid, eurCid) <- v1Setup
+-- TUPLE_USE_END
 
   let
     relationships = 

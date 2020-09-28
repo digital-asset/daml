@@ -18,8 +18,9 @@ template AssetHolderInvite
     invitedOwners : [Party]
   where
     signatory issuer, signedOwners
+-- ENSURE_BEGIN
     ensure not (null invitedOwners) && unique (invitedOwners <> signedOwners)
-
+-- ENSURE_END
     controller head invitedOwners can
       AssetHolderInvite_Accept
         : ()

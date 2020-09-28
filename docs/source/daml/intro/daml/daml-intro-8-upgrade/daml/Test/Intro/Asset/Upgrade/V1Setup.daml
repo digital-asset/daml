@@ -75,5 +75,6 @@ v1Setup = do
       symbol = "EUR"
       quantity = 90.0
 
+-- TUPLE_RETURN_BEGIN
   return (alice, bob, usdbank, eurbank, usdha, usdhb, eurha, eurhb, usdCid, eurCid)
-
+-- TUPLE_RETURN_END

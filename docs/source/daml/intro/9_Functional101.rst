@@ -11,6 +11,10 @@ In this chapter, we will use both the Asset, as well as the Upgrade models from 
 
 If you no longer have your projects set up, please follow the setup instructions in :doc:`8_Upgrading` to get hold of the code for this chapter.
 
+.. note::
+
+  There is a project template ``daml-intro-9`` for this chapter, but it only contains a single source file with the code snippets embedded in this section.
+
 .. _haskell-connection:
 
 The Haskell Connection
@@ -108,6 +112,10 @@ If we want to partially apply an infix operation we can also do that as follows:
   :language: daml
   :start-after: -- INFIX2_BEGIN
   :end-before: -- INFIX2_END
+
+.. note::
+
+  While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3, and 2, respectively. This allows you to write ``False && True || True && True`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities. 
 
 Type Constraints
 ................
@@ -375,6 +383,8 @@ A more general loop looks like this:
 The only real difference is that the iterator is explicit in the former, and implicit in the latter.
 
 In both cases, state is being mutated: ``result`` in the former, ``state`` in the latter. Values in DAML are immutable, so it needs to work differently. In DAML we will do this with folds and recursion.
+
+.. _folds:
 
 Folds
 ~~~~~
