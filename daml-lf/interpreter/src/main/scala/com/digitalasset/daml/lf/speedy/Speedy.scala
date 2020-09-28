@@ -9,6 +9,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.ledger.{Authorize, CheckAuthorizationMode}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -106,6 +107,8 @@ private[lf] object Speedy {
        * it. If this is false, the committers must be a singleton set.
        */
       val validating: Boolean,
+      /* Controls if authorization checks are performed during evaluation */
+      val checkAuthorization: CheckAuthorizationMode,
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -266,6 +269,20 @@ private[lf] object Speedy {
       }
       s.result()
     }
+
+    private[lf] def contextActors: Set[Party] =
+      this.ptx.context.exeContext match {
+        case Some(ctx) =>
+          ctx.actingParties union ctx.signatories
+        case None =>
+          this.committers
+      }
+
+    private[lf] def auth: Option[Authorize] =
+      this.checkAuthorization match {
+        case CheckAuthorizationMode.On => Some(Authorize(this.contextActors))
+        case CheckAuthorizationMode.Off => None
+      }
 
     def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
       coid match {
@@ -660,6 +677,7 @@ private[lf] object Speedy {
         inputValueVersions: VersionRange[ValueVersion],
         outputTransactionVersions: VersionRange[TransactionVersion],
         validating: Boolean = false,
+        checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
         onLedger: Boolean = true,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine =
@@ -667,6 +685,7 @@ private[lf] object Speedy {
         inputValueVersions = inputValueVersions,
         outputTransactionVersions = outputTransactionVersions,
         validating = validating,
+        checkAuthorization = checkAuthorization,
         ctrl = expr,
         returnValue = null,
         frame = null,

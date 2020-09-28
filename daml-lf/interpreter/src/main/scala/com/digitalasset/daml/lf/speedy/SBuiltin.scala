@@ -12,7 +12,6 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.{keyFieldName, maintainersFieldName}
-import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -852,16 +851,7 @@ private[lf] object SBuiltin {
       val sigs = extractParties(args.get(2))
       val obs = extractParties(args.get(3))
       val key = extractOptionalKeyWithMaintainers(args.get(4))
-
-      // TODO: refact/share the following 7 lines which occurs a number of times
-      val contextActors = machine.ptx.context.exeContext match {
-        case Some(ctx) =>
-          ctx.actingParties union ctx.signatories
-        case None =>
-          machine.committers
-      }
-      val auth = Authorize(contextActors)
-
+      val auth = machine.auth
       val (coid, newPtx) = machine.ptx
         .insertCreate(
           auth = auth,
@@ -919,17 +909,8 @@ private[lf] object SBuiltin {
       val sigs = extractParties(args.get(4))
       val obs = extractParties(args.get(5))
       val ctrls = extractParties(args.get(6))
-
       val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
-
-      val contextActors = machine.ptx.context.exeContext match {
-        case Some(ctx) =>
-          ctx.actingParties union ctx.signatories
-        case None =>
-          machine.committers
-      }
-      val auth = Authorize(contextActors)
-
+      val auth = machine.auth
       machine.ptx = machine.ptx
         .beginExercises(
           auth = auth,
@@ -1041,16 +1022,9 @@ private[lf] object SBuiltin {
       val signatories = extractParties(args.get(1))
       val observers = extractParties(args.get(2))
       val key = extractOptionalKeyWithMaintainers(args.get(3))
-
       val stakeholders = observers union signatories
-      val contextActors = machine.ptx.context.exeContext match {
-        case Some(ctx) =>
-          ctx.actingParties union ctx.signatories
-        case None =>
-          machine.committers
-      }
-      val auth = Authorize(contextActors)
-
+      val contextActors = machine.contextActors
+      val auth = machine.auth
       machine.ptx = machine.ptx.insertFetch(
         auth,
         coid,
@@ -1135,15 +1109,7 @@ private[lf] object SBuiltin {
           }
         case _ => crash(s"Non option value when inserting lookup node")
       }
-
-      val contextActors = machine.ptx.context.exeContext match {
-        case Some(ctx) =>
-          ctx.actingParties union ctx.signatories
-        case None =>
-          machine.committers
-      }
-      val auth = Authorize(contextActors)
-
+      val auth = machine.auth
       machine.ptx = machine.ptx.insertLookup(
         auth,
         templateId,
