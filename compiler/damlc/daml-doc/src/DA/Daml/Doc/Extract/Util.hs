@@ -40,10 +40,8 @@ docToText = docToText' . T.pack . unpackHDS
 
 -- | Remove the HAS_DAML_VERSION_HEADER annotation inserted by our patched ghc parser.
 removeVersionHeaderAnnotation :: T.Text -> T.Text
-removeVersionHeaderAnnotation doc =
-    case T.stripPrefix "HAS_DAML_VERSION_HEADER" doc of
-        Just doc' -> T.stripStart doc'
-        Nothing -> doc
+removeVersionHeaderAnnotation doc
+    = maybe doc T.stripStart (T.stripPrefix "HAS_DAML_VERSION_HEADER" doc)
 
 docToText' :: T.Text -> DocText
 docToText' = DocText . T.strip . T.unlines . go . T.lines
