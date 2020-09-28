@@ -15,9 +15,9 @@ The application from Chapter 7 is a complete and secure model for atomic swaps o
 
 Since we are upgrading from chapter 7, the setup for this chapter is slightly more complex:
 
-#. In a base directory, load the chapter 7 project using ``daml new 7_Composing daml-intro-7``. The directory ``7_Composing`` here is important as it'll be referenced by the other projects we are creating.
-#. In the same directory, load the chapter 8 Asset project using ``daml new 8_Assets daml-intro-8-assets``.
-#. In the same directory, load the chapter 8 Upgrade project using ``daml new 8_Upgrade daml-intro-8-upgrade``.
+#. In a base directory, load the chapter 7 project using ``daml new 7Composing --template daml-intro-7``. The directory ``7_Composing`` here is important as it'll be referenced by the other projects we are creating.
+#. In the same directory, load the chapter 8 Asset project using ``daml new 8Assets --template daml-intro-8-assets``.
+#. In the same directory, load the chapter 8 Upgrade project using ``daml new 8Upgrade --template daml-intro-8-upgrade``.
 
 ``8_Assets`` is an improved version of the chapter 7 model, and ``8_Upgrade`` is a DAML model used to upgrade an existing, running application of the chapter 7 model to the new improved ``8_Assets`` model. The upgraded model has one major new feature: Multi-signatory owners. Wherever we had ``owner : Party`` in chapter 7, we now have ``owner : [Party]`` or something similar. This changes almost all templates. We can't just use composition and add new templates to the ledger, we need to convert old ``Asset`` contracts into new ones. We will use this feature to explore control flow, typeclasses, functions, and the Standard Libary in chapters 9 and 10, but for now, we will concentrate on the Upgrading part.
 
@@ -28,7 +28,7 @@ In :doc:`7_Composing` you already learnt a little about projects, DAML-LF, DAR f
 
 Let's have a look inside the DAR file of chapter 7. DAR files, like Java JAR files are just ZIP archives, but the DAML SDK also has a utility to inspect DARs out of the box:
 
-#. Navigate into the ``7_Composing`` directory.
+#. Navigate into the ``7Composing`` directory.
 #. Build using ``daml build -o assets.dar``
 #. Run ``daml damlc inspect-dar assets.dar``
 
@@ -39,14 +39,14 @@ You'll get a whole lot of output. Under the header "DAR archive contains the fol
 #. ``*.hi`` and ``*.hie`` files for each ``*.daml`` file
 #. Some meta-inf and config files
 
-The first file is something like ``7_Composing-1.0.0-887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625.dalf`` which is the actual compiled package for the project. ``*.dalf`` files contain DAML-LF, which is DAML's intermediate language. The file contents are a binary encoded protobuf message from the `daml-lf schema <https://github.com/digital-asset/daml/tree/master/daml-lf/archive>`_.  DAML-LF is evaluated on the Ledger by the DAML Engine, which is a JVM component that is part of tools like the IDE's Script runner, the Sandbox, or proper production ledgers. If DAML-LF is to DAML what Java Bytecode is to Java, the DAML Engine is to DAML what the JVM is to Java.
+The first file is something like ``7Composing-1.0.0-887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625.dalf`` which is the actual compiled package for the project. ``*.dalf`` files contain DAML-LF, which is DAML's intermediate language. The file contents are a binary encoded protobuf message from the `daml-lf schema <https://github.com/digital-asset/daml/tree/master/daml-lf/archive>`_.  DAML-LF is evaluated on the Ledger by the DAML Engine, which is a JVM component that is part of tools like the IDE's Script runner, the Sandbox, or proper production ledgers. If DAML-LF is to DAML what Java Bytecode is to Java, the DAML Engine is to DAML what the JVM is to Java.
 
 Hashes and Identifiers
 ----------------------
 
 The  ``*.hi`` and ``*.hie`` files are interface files, which tell the DAML compiler how to map the bytecode back to DAML types.
 
-Under the heading "DAR archive contains the following packages:" you get a similar looking list of package names, paired with only the long random string repeated. That hexadecimal string, ``887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625`` in this case, is the package hash and the primary and only identifier for a package that's guaranteed to be available and preserved. Meta information like name ("7_Composing") and version ("1.0.0") help make it human readable but should not be relied upon. You may not always get DAR files from your compiler, but be loading them from a running Ledger, or get them from an artifact repository.
+Under the heading "DAR archive contains the following packages:" you get a similar looking list of package names, paired with only the long random string repeated. That hexadecimal string, ``887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625`` in this case, is the package hash and the primary and only identifier for a package that's guaranteed to be available and preserved. Meta information like name ("7Composing") and version ("1.0.0") help make it human readable but should not be relied upon. You may not always get DAR files from your compiler, but be loading them from a running Ledger, or get them from an artifact repository.
 
 We can see this in action. When a DAR file gets deployed to a ledger, not all meta information is preserved. 
 
@@ -55,7 +55,7 @@ We can see this in action. When a DAR file gets deployed to a ledger, not all me
 #. Open a second terminal and run ``daml ledger fetch-dar --host localhost --port 6865 --main-package-id "887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625" -o assets_ledger.dar``, making sure to replace the hash with the appropriate one.
 #. Run ``daml damlc inspect-dar assets_ledger.dar``
 
-You'll notice two things. Firstly, a lot of the dependencies have lost their names, they are now only identifiable by hash. We could of course also create a second project ``7_Composing-1.0.0`` with completely different contents so even when name and version are available, package hash is the only safe identifier.
+You'll notice two things. Firstly, a lot of the dependencies have lost their names, they are now only identifiable by hash. We could of course also create a second project ``7Composing-1.0.0`` with completely different contents so even when name and version are available, package hash is the only safe identifier.
 
 That's why over the Ledger API, all types, like templates and records are identified by the triple ``(entity name, module name, package hash)``. Your client application should know the package hashes it wants to interact with. To aid that, ``inspect-dar`` also provides a machine-readable format for the information it emits: ``daml damlc inspect-dar --json assets_ledger.dar``. The ``main_package_id`` field in the resulting JSON payload is the package hash of our project.
 
@@ -66,7 +66,7 @@ Dependencies and Data Dependencies
 
 Dependencies under the ``daml.yaml`` ``dependencies`` group rely on the ``*.hi`` and ``*.hie`` files, which are interface files that allow the compiler to map the low-level DAML-LF back to high level DAML types and typeclasses. This sort of information is crucial for dependencies like the Standard Library, which provides functions, types and typeclasses.
 
-However, as you can see above, this information isn't preserved. Furthermore, preserving this information may not even be desireable. Imagine we had built ``7_Composing`` with SDK 1.100.0, and are building ``8_Upgrading`` with SDK 1.101.0. An inbuilt typeclass like ``Eq`` may have changed in between so we now have two different ``==`` functions. The one from the 1.100.0 Standard Library and the one from 1.101.0. This gets messy fast, which is why the SDK does not support ``dependencies`` across SDK versions. For dependencies on contract models that were fetched from a ledger, or come from an older SDK version, there is a simpler kind of dependency called ``data-dependencies``. The syntax for ``data-dependencies`` is the same, but they only rely on the "binary" ``*.dalf`` files. The name tries to confer that the main purpose of such dependencies is to handle data: Records, Choices, Templates. The stuff one needs to use contract composability across projects.
+However, as you can see above, this information isn't preserved. Furthermore, preserving this information may not even be desireable. Imagine we had built ``7Composing`` with SDK 1.100.0, and are building ``8_Upgrading`` with SDK 1.101.0. An inbuilt typeclass like ``Eq`` may have changed in between so we now have two different ``==`` functions. The one from the 1.100.0 Standard Library and the one from 1.101.0. This gets messy fast, which is why the SDK does not support ``dependencies`` across SDK versions. For dependencies on contract models that were fetched from a ledger, or come from an older SDK version, there is a simpler kind of dependency called ``data-dependencies``. The syntax for ``data-dependencies`` is the same, but they only rely on the "binary" ``*.dalf`` files. The name tries to confer that the main purpose of such dependencies is to handle data: Records, Choices, Templates. The stuff one needs to use contract composability across projects.
 
 For an upgrade model like this one, ``data-dependencies`` are appropriate so the ``upgrade`` project includes both the old and new asset models that way.
 

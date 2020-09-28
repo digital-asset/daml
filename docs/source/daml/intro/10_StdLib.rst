@@ -1,5 +1,5 @@
-Intro to the DAML Standard Library
-===================================
+10 Intro to the DAML Standard Library
+=====================================
 
 In chapters :doc:`3_Data` and :doc:`9_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. DAML comes with a library of types, functions and typeclasses that cover a large range of use-cases, the DAML Standard Library. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing DAML code. Specifically, this chapter covers:
 
