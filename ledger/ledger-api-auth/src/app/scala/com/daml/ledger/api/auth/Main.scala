@@ -89,8 +89,6 @@ object Main {
                 parties,
                 readOnly @ _,
                 admin)))) =>
-        import JwtSigner.Error.showInstance
-
         val keyId = kid.getOrElse(defaultKeyId(signingKeyFile))
 
         val payload = AuthServiceJWTPayload(
