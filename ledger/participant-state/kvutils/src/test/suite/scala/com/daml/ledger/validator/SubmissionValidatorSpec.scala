@@ -17,7 +17,6 @@ import com.daml.ledger.validator.ValidationFailed.{MissingInputState, Validation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
-import com.github.ghik.silencer.silent
 import com.google.protobuf.{ByteString, Empty}
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
@@ -27,7 +26,6 @@ import org.scalatest.{AsyncWordSpec, Inside, Matchers}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-@silent("deprecated \\(since v1\\.5\\): To be removed in v1\\.6\\.")
 class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
   "validate" should {
     "return success in case of no errors during processing of submission" in {
@@ -289,46 +287,6 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
           }
         }
     }
-
-    "work with v1.4 LedgerStateAccess" in {
-      val mockStateOperations = mock[LedgerStateOperations.v1_4[Int]]
-      when(mockStateOperations.modernize()).thenCallRealMethod()
-      val expectedLogResult: Int = 3
-      when(mockStateOperations.readState(any[Seq[Bytes]]()))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      val logEntryValueCaptor = captor[Bytes]
-      val logEntryIdCaptor = captor[Bytes]
-      when(
-        mockStateOperations.appendToLog(logEntryIdCaptor.capture(), logEntryValueCaptor.capture()))
-        .thenReturn(Future.successful(expectedLogResult))
-      val expectedLogEntryId = aLogEntryId()
-      val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
-      val metrics = new Metrics(new MetricRegistry)
-      val instance = SubmissionValidator.new_v1_4(
-        ledgerStateAccess = new FakeStateAccess.v1_4(mockStateOperations),
-        processSubmission = SubmissionValidator
-          .processSubmission(new KeyValueCommitting(Engine.DevEngine(), metrics)),
-        allocateLogEntryId = mockLogEntryIdGenerator,
-        checkForMissingInputs = false,
-        stateValueCache = Cache.none,
-        metrics = metrics,
-      )
-      instance
-        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
-        .map {
-          inside(_) {
-            case Right(actualLogResult) =>
-              actualLogResult should be(expectedLogResult)
-              verify(mockLogEntryIdGenerator, times(1)).apply()
-              verify(mockStateOperations, times(0))
-                .writeState(any[RawKeyValuePairs]())
-              logEntryValueCaptor.getAllValues should have size 1
-              logEntryIdCaptor.getAllValues should have size 1
-              logEntryIdCaptor.getValue should be(expectedLogEntryId.toByteString)
-              logEntryValueCaptor.getValue should not be logEntryIdCaptor.getValue
-          }
-        }
-    }
   }
 }
 
@@ -381,20 +339,6 @@ object SubmissionValidatorSpec {
         body: LedgerStateOperations[LogResult] => Future[T],
     )(implicit executionContext: ExecutionContext): Future[T] =
       body(mockStateOperations)
-  }
-
-  object FakeStateAccess {
-
-    @silent("deprecated \\(since v1\\.5\\): To be removed in v1\\.6\\.")
-    private[SubmissionValidatorSpec] class v1_4[LogResult](
-        mockStateOperations: LedgerStateOperations.v1_4[LogResult],
-    ) extends LedgerStateAccess.v1_4[LogResult] {
-      override def inTransaction[T](
-          body: LedgerStateOperations.v1_4[LogResult] => Future[T],
-      ): Future[T] =
-        body(mockStateOperations)
-    }
-
   }
 
 }
