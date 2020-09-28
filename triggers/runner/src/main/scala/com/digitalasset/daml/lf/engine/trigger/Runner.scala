@@ -222,7 +222,7 @@ class Runner(
 
   import Runner.{DaTypesTuple2, DamlTuple2, DamlFun}
 
-  // Handles the result of initialState or update, i.e., (s, [Commands], Text)
+  // Handles the result of initialState, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
   // the new state
   private def handleStepResult(v: SValue, submit: SubmitRequest => Unit): SValue =
@@ -271,8 +271,7 @@ class Runner(
   }
 
   // Handles the value of update.
-  /*TODO SC private*/
-  def handleStepFreeResult(
+  private def handleStepFreeResult(
       clientTime: Timestamp,
       messageVal: SValue,
       v: SValue,
@@ -315,7 +314,7 @@ class Runner(
             case _ => {
               case _ => state
             } // unrecognized constructors terminate early
-          }(fallback = throw new RuntimeException(s"invalid contents for $variant: $vv"))
+          }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
         case Right(Left(_)) => state
         case Left(e) => throw new RuntimeException(e)
       }
@@ -426,6 +425,8 @@ class Runner(
     val value = Machine.stepToValue(machine)
     val evaluatedInitialState: SValue = handleStepResult(value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
+    machine.setExpressionToEvaluate(update)
+    val evaluatedUpdate: SValue = Machine.stepToValue(machine)
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -487,10 +488,12 @@ class Runner(
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(
-          makeApp(update, Array(STimestamp(clientTime): SValue, messageVal, state)))
-        val value = Machine.stepToValue(machine)
-        val newState = handleStepResult(value, submit)
+        val newState = handleStepFreeResult(
+          clientTime,
+          messageVal = messageVal,
+          v = evaluatedUpdate,
+          state = state,
+          submit = submit)
         newState
       }))(Keep.right[NotUsed, Future[SValue]])
   }

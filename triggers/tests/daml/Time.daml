@@ -10,7 +10,7 @@ test : Trigger (Bool, [Time])
 test = Trigger
   { initialState = \party _ _ ->
       ((False, []), [Commands (CommandId "a") [createCmd (T party)]])
-  , update = \time msg (done, ts) ->
+  , update = forwardPort $ \time msg (done, ts) ->
   case msg of
     MTransaction (Transaction _ _ events) ->
       let cmds = case (done, events) of

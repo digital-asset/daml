@@ -35,6 +35,7 @@ module Daml.Trigger.LowLevel
   , RegisteredTemplates(..)
   , registeredTemplate
   , RelTime(..)
+  , forwardPort
   ) where
 
 import DA.Foldable (mapA_)
@@ -158,7 +159,7 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- an accumulator of type `s`.
 data Trigger s = Trigger
   { initialState : Party -> Time -> ActiveContracts -> (s, [Commands])
-  , update : Time -> Message -> s -> (s, [Commands])
+  , update : Free (TriggerF s) ()
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
   }
@@ -306,8 +307,8 @@ submitCommands cmds = liftAT (Submit (cmds, identity))
 
 type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
 
-forwardPort : TriggerUpdate s -> ActionTrigger s ()
-forwardPort f = do
+forwardPort : TriggerUpdate s -> Free (TriggerF s) ()
+forwardPort f = runActionTrigger do
   (s, cmds) <- f <$> getTime <*> getMessage <*> getS
   setS s
   submitCommands cmds

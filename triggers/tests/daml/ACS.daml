@@ -34,7 +34,7 @@ initState party (ActiveContracts events) = TriggerState
 test : Trigger TriggerState
 test = Trigger
   { initialState = \party _time acs -> (initState party acs, [])
-  , update = \_time -> update
+  , update = forwardPort $ \_time -> update
   , registeredTemplates = AllInDar
   , heartbeat = None
   }
