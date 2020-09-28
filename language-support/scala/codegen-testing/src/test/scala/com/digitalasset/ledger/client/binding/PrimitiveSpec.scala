@@ -40,7 +40,7 @@ class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
   }
 
   "Date.fromLocalDate" should {
-    import ValueSpec.dateArb
+    import ValueGen.dateArb
 
     "pass through existing dates" in forAll { d: P.Date =>
       P.Date.fromLocalDate(d: LocalDate) shouldBe Some(d)
@@ -59,7 +59,7 @@ class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
   }
 
   "Timestamp.discardNanos" should {
-    import ValueSpec.timestampArb
+    import ValueGen.timestampArb
 
     "pass through existing times" in forAll { t: P.Timestamp =>
       P.Timestamp.discardNanos(t: Instant) shouldBe Some(t)
