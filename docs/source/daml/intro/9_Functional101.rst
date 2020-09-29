@@ -487,11 +487,7 @@ Have a go at implementing ``foldlA`` in terms of ``foldl`` and ``sequence`` and 
   :start-after: -- FORA_EXAMPLE_BEGIN
   :end-before: -- FORA_EXAMPLE_END
 
-<<<<<<< HEAD
 Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. The underscore indicates that the result is not used. ``mapA_ fn xs fn = void (mapA fn xs)``. The DAML Linter will alert you if you could use ``mapA_`` instead of ``mapA``, and similarly for ``forA_``.
-=======
-The underscore indicates that the result is not used. ``forA_ xs fn = void (forA xs fn)``. The DAML Linter will alert you if you could use ``forA_`` instead of ``forA``.
->>>>>>> Intro to DAML Chapter 10
 
 Next up
 -------
