@@ -156,6 +156,10 @@ conditionalS b p = if b
 conditionalS2 b p = when b (void (create S with p))
 -- WHEN_END
 
+-- MAGIC_WHEN_BEGIN
+noop : Update () = when False (error "Foo")
+-- MAGIC_WHEN_END
+
 -- TELL_SIZE_BEGIN
 tellSize : Int -> Text
 tellSize d
