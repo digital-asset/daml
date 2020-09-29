@@ -9,7 +9,7 @@ The application from Chapter 7 is a complete and secure model for atomic swaps o
 1. Upgrades, which change existing logic. For example, one might want the ``Asset`` template to have multiple signatories.
 2. Extensions, which merely add new functionality though additional templates.
 
-Upgrades are covered in their own own section outside this introduction to DAML: :doc:`upgrade/index` so in this section we will extend the chapter 7 model with a simple second workflow: A multi-leg trade. In doing so, you'll learn about:
+Upgrades are covered in their own own section outside this introduction to DAML: :doc:`/upgrade/index` so in this section we will extend the chapter 7 model with a simple second workflow: A multi-leg trade. In doing so, you'll learn about:
 
 - The software architecture of the DAML Stack
 - Dependencies and Data Dependencies
