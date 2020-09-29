@@ -139,7 +139,6 @@ renderDocTestModule DocTestModule{..} = rendered
         testsWithIds = zip [DocTestId 0..] dtModuleContent
         rendered = T.unlines $
             [ "{-# OPTIONS_GHC -Wno-unused-imports #-}"
-            , "daml 1.2"
             , "module " <> docTestModuleName dtModuleName <> " where"
             , ""
             , "import " <> dtModuleName
@@ -170,4 +169,3 @@ data GeneratedModule = GeneratedModule
   } deriving (Show, Generic)
 
 instance NFData GeneratedModule
-

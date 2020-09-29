@@ -92,7 +92,8 @@ object PostExecutionFinalizer {
 
   private def createWriteSet(
       preExecutionOutput: PreExecutionOutput[RawKeyValuePairsWithLogEntry],
-      withinTimeBounds: Boolean): Seq[(Bytes, Bytes)] =
+      withinTimeBounds: Boolean,
+  ): Iterable[(Bytes, Bytes)] =
     if (withinTimeBounds) {
       preExecutionOutput.successWriteSet.state
     } else {

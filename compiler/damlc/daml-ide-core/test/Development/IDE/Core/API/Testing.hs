@@ -216,8 +216,7 @@ makeModule :: String -> [T.Text] -> ShakeTest D.NormalizedFilePath
 makeModule modName body = do
     let modPath = moduleNameToFilePath modName
     makeFile modPath . T.unlines $
-        [ "daml 1.2"
-        , "module " <> T.pack modName <> " where"
+        [ "module " <> T.pack modName <> " where"
         ] ++ body
 
 -- | Set files of interest.
@@ -534,8 +533,7 @@ expectedGraph damlFilePath expectedGraph = do
 example :: ShakeTest ()
 example = do
     fooPath <- makeFile "src/Foo.daml" $ T.unlines
-        [ "daml 1.2"
-        , "module Foo where"
+        [ "module Foo where"
         , "data Foo = Foo"
         , "  with"
         , "    bar : Party"

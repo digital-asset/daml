@@ -40,12 +40,11 @@ object Queries {
     ()
   }
 
-  implicit def byteStringToStatement: ToStatement[ByteString] = new ToStatement[ByteString] {
-    override def set(s: PreparedStatement, index: Int, v: ByteString): Unit =
+  implicit val byteStringToStatement: ToStatement[ByteString] =
+    (s: PreparedStatement, index: Int, v: ByteString) =>
       s.setBinaryStream(index, v.newInput(), v.size())
-  }
 
-  implicit def columnToByteString: Column[ByteString] =
+  implicit val columnToByteString: Column[ByteString] =
     Column.nonNull { (value: Any, meta: MetaDataItem) =>
       value match {
         case blob: Blob => Right(ByteString.readFrom(blob.getBinaryStream))

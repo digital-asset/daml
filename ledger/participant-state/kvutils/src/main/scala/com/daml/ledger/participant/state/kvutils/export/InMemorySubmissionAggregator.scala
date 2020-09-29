@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import com.daml.ledger.participant.state.kvutils.`Bytes Ordering`
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator.WriteSetBuilder
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
@@ -14,7 +13,7 @@ final class InMemorySubmissionAggregator(submissionInfo: SubmissionInfo, writer:
 
   import InMemorySubmissionAggregator._
 
-  private val aggregate = mutable.SortedMap.empty[Key, Value]
+  private val aggregate = mutable.Buffer.empty[(Key, Value)]
 
   override def addChild(): WriteSetBuilder = new InMemoryWriteSetBuilder(aggregate)
 
@@ -25,7 +24,7 @@ final class InMemorySubmissionAggregator(submissionInfo: SubmissionInfo, writer:
 object InMemorySubmissionAggregator {
 
   final class InMemoryWriteSetBuilder private[InMemorySubmissionAggregator] (
-      aggregate: mutable.SortedMap[Key, Value],
+      aggregate: mutable.Buffer[(Key, Value)],
   ) extends WriteSetBuilder {
     override def +=(data: WriteItem): Unit = aggregate.synchronized {
       aggregate += data

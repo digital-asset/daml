@@ -9,11 +9,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.{Envelope, `Bytes Ordering`}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
-import scala.collection.breakOut
+import scala.collection.{SortedMap, breakOut}
 import scala.concurrent.{ExecutionContext, Future}
 
 class LogAppendingCommitStrategy[Index](
@@ -29,28 +30,27 @@ class LogAppendingCommitStrategy[Index](
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder] = None,
-  ): Future[Index] =
+  ): Future[Index] = {
+    val serializedKeyValuePairs: SortedMap[Key, Value] =
+      outputState
+        .map {
+          case (key, value) =>
+            (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
+        }(breakOut)
+    exporterWriteSet.foreach {
+      _ ++= serializedKeyValuePairs
+    }
     for {
-      serializedKeyValuePairs <- Future.successful(outputState.map {
-        case (key, value) =>
-          (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
-      }(breakOut))
-      _ = exporterWriteSet.foreach {
-        _ ++= serializedKeyValuePairs
-      }
       _ <- if (serializedKeyValuePairs.nonEmpty) {
         ledgerStateOperations.writeState(serializedKeyValuePairs)
       } else {
         Future.unit
       }
-      envelopedLogEntry <- Future.successful(Envelope.enclose(entry))
+      envelopedLogEntry = Envelope.enclose(entry)
       _ = exporterWriteSet.foreach {
         _ += entryId.toByteString -> envelopedLogEntry
       }
-      index <- ledgerStateOperations
-        .appendToLog(
-          entryId.toByteString,
-          envelopedLogEntry
-        )
+      index <- ledgerStateOperations.appendToLog(entryId.toByteString, envelopedLogEntry)
     } yield index
+  }
 }

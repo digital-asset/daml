@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.BatchingLedgerStateOperations
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
-import scala.collection.mutable
+import scala.collection.{breakOut, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] final class InMemoryLedgerStateOperations(
@@ -20,14 +20,14 @@ private[memory] final class InMemoryLedgerStateOperations(
 
   import InMemoryLedgerStateOperations.appendEntry
 
-  override def readState(keys: Seq[Key])(
-      implicit executionContext: ExecutionContext
-  ): Future[Seq[Option[Value]]] =
-    Future.successful(keys.map(state.get))
+  override def readState(
+      keys: Iterable[Key],
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
+    Future.successful(keys.map(state.get)(breakOut))
 
-  override def writeState(keyValuePairs: Seq[(Key, Value)])(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit] = {
+  override def writeState(
+      keyValuePairs: Iterable[(Key, Value)],
+  )(implicit executionContext: ExecutionContext): Future[Unit] = {
     state ++= keyValuePairs
     Future.unit
   }

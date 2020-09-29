@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.ExecutionContext
 
 // Starting from Scala 2.13 this can deleted and replaced by `parasitic`
-object DirectExecutionContext extends ExecutionContext {
+private[dec] object DirectExecutionContextInternal extends ExecutionContext {
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 

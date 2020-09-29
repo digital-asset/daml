@@ -23,8 +23,7 @@ tests damlcPath = testGroup "doctest integration tests"
           withTempDir $ \tmpDir -> do
               let f = tmpDir </> "Main.daml"
               writeFileUTF8 f $ unlines
-                  [ "daml 1.2"
-                  , "module Main where"
+                  [ "module Main where"
                   , "-- | add"
                   , "-- >>> add 1 1"
                   , "-- 2"
@@ -43,8 +42,7 @@ tests damlcPath = testGroup "doctest integration tests"
           withTempDir $ \tmpDir -> do
               let f = tmpDir </> "Main.daml"
               writeFileUTF8 f $ unlines
-                  [ "daml 1.2"
-                  , "module Main where"
+                  [ "module Main where"
                   , "-- | add"
                   , "-- >>> add 1 1"
                   , "-- 2"

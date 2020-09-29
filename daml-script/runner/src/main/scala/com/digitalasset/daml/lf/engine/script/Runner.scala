@@ -353,14 +353,14 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       mat: Materializer): (Speedy.Machine, Future[SValue]) = {
     var clients = initialClients
     val machine =
-      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, onLedger = false)
+      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
         case SResultFinalValue(v) =>
           Right(v)
         case SResultError(err) =>
-          logger.error(Pretty.prettyError(err, machine.ptx).render(80))
+          logger.error(Pretty.prettyError(err).render(80))
           Left(err)
         case res =>
           Left(new RuntimeException(s"Unexpected speedy result $res"))

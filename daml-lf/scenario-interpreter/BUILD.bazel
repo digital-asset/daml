@@ -42,6 +42,7 @@ da_scala_test_suite(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

@@ -167,7 +167,6 @@ writeMinimalProject = do
       , "  - daml-stdlib"
       ]
   writeFileUTF8 "Main.daml" $ unlines
-    [ "daml 1.2"
-    , "module Main where"
+    [ "module Main where"
     , "template T with p : Party where signatory p"
     ]
