@@ -84,3 +84,8 @@ As you've seen here, identifiers depend on the package as a whole and packages a
 For example, in all our projects in this intro, including this chapter, our scripts are in the same project as our templates. In practice, that means changing a test changes all identifiers, which is not desireable. It's better for maintainability to separate tests from main templates. If we had done that in chapter 7, that would also have saved us from copying the chapter 7 
 
 Similarly, we included ``Trade`` in the same project as ``Asset`` in chapter 7, even though ``Trade`` is a pure extension to the core ``Asset`` model. If we expect ``Trade`` to need more frequent changes, it may be a good idea to split it out into a separate project from the start.
+
+Next up
+-------
+
+The ``MultiTrade`` model has more complex control flow and data handling than previous models. In :doc:`9_Functional101` you'll learn how to write more advanced logic: control flow, folds, common typeclasses, custom functions, and the Standard Library. We'll be using the same projects so don't delete your chapter 7 and 8 folders just yet.
