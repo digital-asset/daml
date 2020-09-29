@@ -17,7 +17,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers with MockitoSugar {
+final class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers with MockitoSugar {
   "commit" should {
     "return index from appendToLog" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
@@ -49,6 +49,8 @@ class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers with Mo
         .thenReturn(Future.successful(0L))
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
       val expectedStateKey = ByteString.copyFromUtf8("some key")
+      when(mockStateKeySerializationStrategy.serializeState(any[Map[DamlStateKey, DamlStateValue]]))
+        .thenCallRealMethod()
       when(mockStateKeySerializationStrategy.serializeStateKey(aStateKey))
         .thenReturn(expectedStateKey)
       val expectedOutputStateBytes = Map(expectedStateKey -> Envelope.enclose(aStateValue))

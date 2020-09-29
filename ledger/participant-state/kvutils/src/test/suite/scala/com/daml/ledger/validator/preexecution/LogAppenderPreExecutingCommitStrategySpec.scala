@@ -27,6 +27,8 @@ final class LogAppenderPreExecutingCommitStrategySpec
   "generateWriteSets" should {
     "serialize keys according to strategy" in {
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
+      when(mockStateKeySerializationStrategy.serializeState(any[Map[DamlStateKey, DamlStateValue]]))
+        .thenCallRealMethod()
       when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
         .thenAnswer((invocation: InvocationOnMock) =>
           invocation.getArgument[DamlStateKey](0).getContractIdBytes)
