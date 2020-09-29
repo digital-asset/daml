@@ -17,143 +17,24 @@ If you no longer have your projects set up, please follow the setup instructions
 DAML Test Tooling
 -----------------
 
-There are three primary tools available in the SDK to test and interact with DAML contracts:
+There are three primary tools available in the SDK to test and interact with DAML contracts. It is highly recommended to explore the respective docs. The chapter 8 model lends itself well to being tested using these tools.
 
-- DAML Script
-- DAML Navigator
-- DAML REPL
+:doc:`DAML Script </daml-script/index>` 
+  
+   :doc:`DAML Script </daml-script/index>` should be familiar by now. It's a way to script commands and queries from multiple parties against a DAML Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, DAML Script can do much more than that. It has four different modes of operation:
 
-DAML Script
-~~~~~~~~~~~
+   1. Run on a special Script Service in the IDE, providing the Script Views.
+   2. Run the Script Service via the CLI, which is useful for quick regression testing.
+   3. Start a Sandbox and run against that for regression testing against an actual Ledger API.
+   4. Run against any other already running Ledger.
 
-:doc:`DAML Script </daml-script/index>` should be familiar by now. It's a way to script commands and queries from multiple parties against a DAML Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, DAML Script can do much more than that. It has four different modes of operation:
+:doc:`DAML Navigator </tools/navigator/index>`
 
-1. Run on a special Script Service in the IDE, providing the Script Views.
-2. Run the Script Service via the CLI, which is useful for quick regression testing.
-3. Start a Sandbox and run against that for regression testing against an actual Ledger API.
-4. Run against any other already running Ledger.
+  DAML Navigator is a UI that runs against a Ledger API and allows interaction with contracts.
 
-Let's quickly see 2-4 in action. 
+:doc:`DAML REPL </daml-repl/index>`
 
-Script Service CLI Testing
-..........................
-
-In your chapter 8 project, run ``daml test``. This runs the same Scripts that are run in the IDE on the same in-memory Ledger called the Script Service. Instead of views of the resulting ledger, it outputs successes and failures.
-
-.. code-block:: none
-
-  daml/Test/Intro/Asset/TradeSetup.daml:setupRoles: ok, 2 active contracts, 4 transactions.
-  daml/Test/Intro/Asset/TradeSetup.daml:test_issuance: ok, 3 active contracts, 5 transactions.
-  daml/Test/Intro/Asset/TradeSetup.daml:tradeSetup: ok, 6 active contracts, 10 transactions.
-  daml/Test/Intro/Asset/MultiTrade.daml:testMultiTrade: ok, 12 active contracts, 28 transactions.
-
-If you add the command line flag ``--junit``, ``daml test`` can write the results in jUnit format, which is useful for automated testing.
-
-Sandbox CLI Testing
-...................
-
-The next step up in terms of how "real" the tests are is the command ``daml test-script``. Unlike ``daml test``, these tests are performed via a Ledger API against a real Ledger. If no ledger host and port are provided, a temporary Sandbox is started to run the tests against.
-
-In the same project, make sure you have compiled the contracts (``daml build -o multi-trade.dar``), then run ``daml test-script --dar multi-trade.dar``. You'll see a lot more output this time, starting with a Sandbox being started up, followed by DAML Script outputs. Each script should finish with a message of the type ``Test.Intro.Asset.MultiTrade.daml:testMultiTrade SUCCESS``.
-
-Script Against a Running Ledger
-...............................
-
-The last thing we can do with DAML Script is to run against a live ledger through the Ledger API. To see this in action, we'll initialize a Sandbox Ledger with the trade initialization data from chapter 7 model. Go to your chapter 8 project.
-
-#. Start a sandbox with ``daml sandbox``.
-#. Upload the DAR file form the chapter 8 project by running ``daml ledger upload-dar multi-trade.dar``.
-#. Run the v1Setup Script with ``daml script --dar multi-trade.dar --ledger-host localhost --ledger-port 6865 --script-name Test.Intro.Asset.TradeSetup:tradeSetup``
-
-By default, this doesn't log much so if it returns with code 0, you can assume it was successful. But how can we check?
-
-DAML Navigator
-~~~~~~~~~~~~~~
-
-:doc:`/tools/navigator/index` is a UI that runs against a Ledger API and allows interaction with contracts. The easiest way to start it against an already running ledger is using ``daml ledger navigator``. If successful, it will tell you ``Frontend running at http://localhost:4000.``. Navigate to that URL and log in as Alice. You'll see the three contracts created by the setup script: One ``AssetHolder`` contract for each bank, and one ``Asset``. If so, the script was successful.
-
-We now want establish more relationships and issue assets. We could do that using Navigator, but it would be some work.
-
-DAML Script with Inputs
-~~~~~~~~~~~~~~~~~~~~~~~
-
-You may be tempted to run the script ``Test.Intro.Asset.MultiAsset.testMultiTrade``, but beware! That script calls ``tradeSetup``, which allocates parties. If we ran that script, we would run an entirely new setup, and then multi-leg trade on the contracts resulting from the second ``tradeSetup``. Try it out if you want to see that in action.
-
-Fortunately, DAML Script can take inputs in JSON format, and all the ``setupRelationship`` and ``issueAsset`` scripts are set up for that by taking ``Relationship`` and ``Asset`` record value as input. In order to use that feature, we first have to get our hands on a new party. Run ``daml ledger allocate-party CHF_Bank`` to allocate the party. You can list all known parties using ``daml ledger list-parties``.
-
-.. code-block:: none
-
-  Listing parties at localhost:6865
-  PartyDetails {party = 'party-27089832', displayName = "Alice", isLocal = True}
-  PartyDetails {party = 'party-6ccc1f1e', displayName = "Bob", isLocal = True}
-  PartyDetails {party = 'party-084d5d8e', displayName = "USD_Bank", isLocal = True}
-  PartyDetails {party = 'party-cee70c7b', displayName = "EUR_Bank", isLocal = True}
-  PartyDetails {party = 'CHF_Bank', displayName = "CHF_Bank", isLocal = True}
-
-Now we can establish a relationship between Alice and the new party. The JSON input for a ``Relationship`` looks as you might expect:
-
-.. code-block:: json
-
-  {
-    "issuer" : "CHF_Bank",
-    "owner" : "party-27089832"
-  }
-
-To execute the DAML Script, run the below command, replacing the party IDs.
-
-.. code-block:: none
-
-  daml script --dar multi-trade.dar --ledger-host localhost --ledger-port 6865 --script-name Test.Intro.Asset.MultiTrade:setupRelationship --input-file <(echo '{"issuer" : "CHF_Bank", "owner" : "party-27089832"}')
-
-Note that the ``--input-file`` flag expects a file. The ``<(..)`` is a bit of unix shell magic to provide the file contents inline. If it doesn't work on your shell, put the JSON into a file ``relationship.json``, and supply that instead. For more information on this, please refer to the :doc:`DAML Script </daml-script/index>` and :doc:`JSON Format </json-api/lf-value-specification>` docs.
-
-If you still have the Navigator open, you'll see a new ``AssetHolder`` for Alice appear as you run the script. That worked, but it would be cumbersome if we wanted to step through the entire multi-leg trade script this way.
-
-DAML REPL
-~~~~~~~~~
-
-If you want to do things interactively, :doc:`DAML REPL </daml-repl/index>` is the tool to use. The best way to think of DAML REPL is as an interactive version of DAML Script. Run it using
-
-.. code-block:: none
-
-  daml repl --ledger-host localhost --ledger-port 6865 multi-trade.dar -i 8Dependencies -i 7Composing
-
-DAML REPL acts both as a language REPL (Read-Evaluate-Print Loop) as well as a shell to interact with a ledger. In other words, we can test pure expressions as well as sending commands and querying. As an example, you can use the ``length`` function from Prelude:
-
-.. code-block:: none
-
-  daml> length [1,3,2]
-  3
-
-You can use ``:help`` to show the available meta-commands. Running ``:show imports`` will show you that the modules form the chapter 7 and 8 projects are already imported. That's the effect of the ``-i 8Dependencies -i 7Composing`` in the command above. You an load and unload other modules using the ``:module`` command:
-
-.. code-block:: none
-
-  daml> :module + DA.List
-  daml> sort [1,3,2]
-  [1,2,3]
-
-Now let's establish the next relationship interactively. We first need to get our hands on the Bob and CHF_Bank parties. For that, we use the ``listKnownParties`` action and filter according to display names:
-
-.. code-block:: none
-
-  daml> parties <- listKnownParties
-  daml> parties
-  [PartyDetails {party = 'party-3cca7cc5', displayName = Some "Alice", isLocal = True},PartyDetails {party = 'party-4b70184e', displayName = Some "Bob", isLocal = True},PartyDetails {party = 'party-6e5b60bf', displayName = Some "USD_Bank", isLocal = True},PartyDetails {party = 'party-3d836540', displayName = Some "EUR_Bank", isLocal = True}]
-  daml> let bob = (parties!!1).party
-  daml> let chfbank = (parties!!4).party
-
-Now we can run scripts from the REPL just like we would in Script:
-
-.. code-block:: none
-
-  daml> let rel = Relationship with issuer=chfbank; owner=bob
-  daml> setupRelationship rel
-  <contract-id>
-
-The last script returns a ``ContractId AssetHolder`` so the REPL prints the result of ``show`` on that, which always returns "<contract-id>".
-
-As you can see, DAML Repl is able to mix and match scripts and custom interactions seamlessly. 
+  If you want to do things interactively, DAML REPL is the tool to use. The best way to think of DAML REPL is as an interactive version of DAML Script, but it doubles up as a language REPL (Read-Evaluate-Print Loop), allowing you to evaluate pure expressions and inspect the results.
 
 Debug, Trace, and Stacktraces
 -----------------------------
