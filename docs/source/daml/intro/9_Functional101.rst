@@ -4,12 +4,20 @@
 9 Functional Programming 101
 ============================
 
+<<<<<<< HEAD
 In this chapter, you will learn more about expressing complex logic in a functional language like DAML. Specifically, you'll learn about
+=======
+In this chapter, we will use both the Asset, as well as the Upgrade models from Chapter 8 to learn more about expressing complex logic in a functional language like DAML. You'll learn about
+>>>>>>> Intro to DAML Chapter 9
 
 - Function signatures and functions
 - Advanced control flow (``if...else``, folds, recursion, ``when``)
 
+<<<<<<< HEAD
 If you no longer have your chapter 7 and 8 projects set up, and want to look back at the code, please follow the setup instructions in :doc:`8_Dependencies` to get hold of the code for this chapter.
+=======
+If you no longer have your projects set up, please follow the setup instructions in :doc:`8_Upgrading` to get hold of the code for this chapter.
+>>>>>>> Intro to DAML Chapter 9
 
 .. note::
 
@@ -33,8 +41,13 @@ When comparing DAML to Haskell it's worth noting:
 -   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". DAML by contrast is strict. Expressions are fully evaluated, which means it it not possible to work with infinite data structures.
 - DAML has a ``with`` syntax for records, and dot syntax for record field access, neither of which present in Haskell. But DAML supports Haskell's curly brace record notation.
 - DAML has a number of Haskell compiler extensions active by default.
+<<<<<<< HEAD
 - DAML doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
 - Actions are called Monads in Haskell.
+=======
+- DAML doesn't support all features of Haskell's type system. For example, there are no existential types of GADTs.
+- Actions, called Monads in Haskell.
+>>>>>>> Intro to DAML Chapter 9
 
 Functions
 ---------
@@ -168,6 +181,7 @@ The above will give you a warning:
 
 This means ``fromSome`` is a partial function. ``fromSome None`` will cause a runtime error.
 
+<<<<<<< HEAD
 We can use function level pattern matching together with a feature called *Record Wildcards* to write the function ``issueAsset`` in chapter 8:
 
 .. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/MultiTrade.daml
@@ -178,6 +192,18 @@ We can use function level pattern matching together with a feature called *Recor
 The ``..`` in the pattern match here means bind all fields from the given record to local variables, so we have local variables ``issuer``, ``owner``, etc.
 
 The ``..`` in the second to last line means fill all fields of the new record using local variables of the matching name. So the function succinctly transfers all fields except for ``owner``, which is set explicitly, from the V1 Asset to the V2 Asset.
+=======
+We can use function level pattern matching together with a feature called *Record Wildcards* to write the function ``mapV1AssetToV2`` in the Chapter 8 upgrade package:
+
+.. literalinclude:: daml/daml-intro-8-upgrade/daml/Intro/Asset/Upgrade/V2.daml
+  :language: daml
+  :start-after: -- MAP_ASSET_BEGIN
+  :end-before: -- MAP_ASSET_END
+
+The ``..`` in the pattern match here means bind all fields from the given record to local variables, so we have local variables ``issuer``, ``owner``, etc.
+
+The ``..`` at the end means fill all fields of the new record using local variables of the matching name. So the function succinctly transfers all fields except for ``owner``, which is set explicitly, from the V1 Asset to the V2 Asset.
+>>>>>>> Intro to DAML Chapter 9
 
 Functions Everywhere
 ....................
@@ -189,6 +215,7 @@ You have probably already guessed it: Anywhere you can put a value in DAML you c
   :start-after: -- FUNCTION_IN_DATA_BEGIN
   :end-before: -- FUNCTION_IN_DATA_END
 
+<<<<<<< HEAD
 More commonly, it makes sense to define functions locally, inside a ``let`` clause or similar. A good example of this are the ``validate`` and ``transfer`` functions defined locally in the ``Trade_Settle`` choice of the  model from chapter 8:
 
 .. literalinclude:: daml/daml-intro-8/daml/Intro/Asset/MultiTrade.daml
@@ -201,12 +228,30 @@ You can see that the function signature is inferred from the context here. If yo
 .. code-block:: shell
 
     validate : (HasFetch r, Eq r, HasField "observers" r a) => (r, ContractId r) -> Update ()
+=======
+More commonly, it makes sense to define functions locally, inside a ``let`` clause or similar. A good example of this is the ``upgradeAsset`` function defined locally in the ``UpgradeContracts`` choice of the upgrade model from Chapter 8:
+
+.. literalinclude:: daml/daml-intro-8-upgrade/daml/Intro/Asset/Upgrade/V2.daml
+  :language: daml
+  :start-after: -- UPGRADE_CONTRACTS_BEGIN
+  :end-before: -- UPGRADE_CONTRACTS_END
+
+You can see that the function signature is inferred from the context here. If you look closely (or hover over the function in the IDE), you'll see that it has signature 
+
+.. code-block:: daml
+
+    upgradeAsset : ContractId AssetV1.Asset -> Update (ContractId AssetV2.Asset)
+>>>>>>> Intro to DAML Chapter 9
 
 .. note::
 
     Bear in mind that functions are not serializable, so you can't use them inside template arguments, or as choice in- or outputs. They also don't have instances of the ``Eq`` or ``Show`` typeclasses which one would commonly want on data types.
 
+<<<<<<< HEAD
 You can probably guess what the ``mapA`` and ``mapA_``\ s in the above choice do. They somehow loop through the lists of assets, and approvals, and the functions ``validate`` and ``transfer`` to each, performing the resulting ``Update`` action in the process. We'll look at that more closely under :ref:`looping` below.
+=======
+You can probably guess what the ``mapA`` at the end of the above choice does. It somehow loops through the list ``assetCids``, applies the function ``upgradeAsset`` to each, and performs the resulting ``Update`` action. We'll look at that more closely under :ref:`looping` below.
+>>>>>>> Intro to DAML Chapter 9
 
 Lambdas
 .......
@@ -337,6 +382,16 @@ Note that we still need the ``else`` clause of the same type ``()``. This patter
   :start-after: -- WHEN_BEGIN
   :end-before: -- WHEN_END
 
+<<<<<<< HEAD
+=======
+You've already seen this in use in Chapter 8:
+
+.. literalinclude:: daml/daml-intro-8-upgrade/daml/Test/Intro/Asset/Upgrade/V2.daml
+  :language: daml
+  :start-after: -- RUN_COMPLETE_UPGRADE_BEGIN
+  :end-before: -- RUN_COMPLETE_UPGRADE_END
+
+>>>>>>> Intro to DAML Chapter 9
 With ``case``, ``if..else``, ``void`` and ``when``, you can express all branching. However, one additional feature you may want to learn is guards. They are not covered here, but can help avoid deeply nested ``if..else`` blocks. Here's just one example. The Haskell sources at the beginning of the chapter cover this topic in more depth.
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
@@ -349,15 +404,26 @@ With ``case``, ``if..else``, ``void`` and ``when``, you can express all branchin
 Looping
 .......
 
+<<<<<<< HEAD
 Other than branching, the most common form of control flow is looping. Looping is usually used to iteratively modify some state. We'll use JavaScript in this section to illustrate the procedural way of doing things. 
+=======
+Other than branching, the most common form of control flow is looping. Looping is usually used to iteratively modify some state. We'll use pseudocode in this section to illustrate the procedural way of doing things. 
+>>>>>>> Intro to DAML Chapter 9
 
 .. code-block:: JavaScript
 
   function sum(intArr) {
+<<<<<<< HEAD
     var result = 0;
     intarr.forEach (i => {
       result += i;
     });
+=======
+    int result = 0;
+    forEach (i in intArr) {
+      result += i;
+    }
+>>>>>>> Intro to DAML Chapter 9
     return result;
   }
 
@@ -367,7 +433,11 @@ A more general loop looks like this:
 
   function whileFunction(arr) {
     var rev = initialize(input);
+<<<<<<< HEAD
     while (doContinue (state)) {
+=======
+    while (continue (state)) {
+>>>>>>> Intro to DAML Chapter 9
       state = process (state);
     }
     return finalize(state);
