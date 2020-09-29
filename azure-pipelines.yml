@@ -113,12 +113,6 @@ jobs:
           release_tag: $(release_tag)
           name: 'linux'
           is_release: variables.is_release
-      - bash: |
-          set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
-          bazel build //release:release
-          ./bazel-bin/release/release --release-dir "$(mktemp -d)"
-        condition: and(succeeded(), ne(variables['is_release'], 'true'))
       - task: PublishBuildArtifacts@1
         condition: succeededOrFailed()
         inputs:
