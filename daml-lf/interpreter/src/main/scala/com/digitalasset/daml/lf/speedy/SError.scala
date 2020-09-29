@@ -26,6 +26,11 @@ object SError {
     override def toString = "CRASH: " + reason
   }
 
+  /** Operation is only supported in on-ledger mode but was
+    * called in off-ledger mode.
+    */
+  final case class SRequiresOnLedger(operation: String) extends SError
+
   def crash[A](reason: String): A =
     throw SErrorCrash(reason)
 

@@ -237,7 +237,7 @@ object Converter {
             Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))
           case v => Left(s"Expected binary SStruct but got $v")
         }
-      case SResultError(err) => Left(Pretty.prettyError(err, machine.ptx).render(80))
+      case SResultError(err) => Left(Pretty.prettyError(err).render(80))
       case res => Left(res.toString)
     }
   }
