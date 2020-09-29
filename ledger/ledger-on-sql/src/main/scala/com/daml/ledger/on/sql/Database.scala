@@ -8,6 +8,7 @@ import java.util.concurrent.Executors
 
 import com.daml.concurrent.FutureOf._
 import com.daml.concurrent.{ExecutionContext, Future}
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.on.sql.Database._
 import com.daml.ledger.on.sql.queries._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -26,23 +27,21 @@ final class Database(
     queries: Connection => Queries,
     metrics: Metrics,
 )(
-    implicit readerExecutionContext: ExecutionContext[Reader],
-    writerExecutionContext: ExecutionContext[Writer],
-    readerConnectionPool: ConnectionPool[Reader],
+    implicit readerConnectionPool: ConnectionPool[Reader],
     writerConnectionPool: ConnectionPool[Writer],
 ) {
   def inReadTransaction[T](name: String)(
       body: ReadQueries => Future[Reader, T]
   ): Future[Reader, T] =
-    inTransaction(name)(queries => Future[Reader](body(queries)).join)
+    inTransaction(name)(body)
 
   def inWriteTransaction[T](name: String)(body: Queries => Future[Writer, T]): Future[Writer, T] =
-    inTransaction(name)(queries => Future[Writer](body(queries)).join)
+    inTransaction(name)(body)
 
   private def inTransaction[X, T](name: String)(body: Queries => Future[X, T])(
-      implicit executionContext: ExecutionContext[X],
-      connectionPool: ConnectionPool[X],
+      implicit connectionPool: ConnectionPool[X],
   ): Future[X, T] = {
+    import connectionPool.executionContext
     val connection = try {
       Timed.value(
         metrics.daml.ledger.database.transactions.acquireConnection(name),
@@ -52,7 +51,8 @@ final class Database(
         throw new ConnectionAcquisitionException(name, exception)
     }
     Timed.future(
-      metrics.daml.ledger.database.transactions.run(name), {
+      metrics.daml.ledger.database.transactions.run(name),
+      Future[X] {
         body(new TimedQueries(queries(connection), metrics))
           .andThen {
             case Success(_) => connection.commit()
@@ -61,7 +61,7 @@ final class Database(
           .andThen {
             case _ => connection.close()
           }
-      }
+      }.join
     )
   }
 }
@@ -133,7 +133,7 @@ object Database {
         implicit val writerConnectionPool: ConnectionPool[Writer] =
           new ConnectionPool(writerDataSource)
         implicit val adminConnectionPool: ConnectionPool[Migrator] =
-          new ConnectionPool(adminDataSource)
+          new ConnectionPool(adminDataSource)(DirectExecutionContext)
         new UninitializedDatabase(
           system = system,
           readerConnectionPool = readerConnectionPool,
@@ -162,7 +162,7 @@ object Database {
         implicit val readerWriterConnectionPool: ConnectionPool[Reader with Writer] =
           new ConnectionPool(readerWriterDataSource)
         implicit val adminConnectionPool: ConnectionPool[Migrator] =
-          new ConnectionPool(adminDataSource)
+          new ConnectionPool(adminDataSource)(DirectExecutionContext)
         new UninitializedDatabase(
           system = system,
           readerConnectionPool = readerWriterConnectionPool,
@@ -218,9 +218,6 @@ object Database {
       writerConnectionPool: ConnectionPool[Writer],
       adminConnectionPool: ConnectionPool[Migrator],
       metrics: Metrics,
-  )(
-      implicit readerExecutionContext: ExecutionContext[Reader],
-      writerExecutionContext: ExecutionContext[Writer],
   ) {
     private val flyway: Flyway =
       Flyway
@@ -265,7 +262,9 @@ object Database {
 
   sealed trait Migrator extends Writer
 
-  private final class ConnectionPool[+P](val dataSource: DataSource) extends AnyVal {
+  private final class ConnectionPool[+P](
+      val dataSource: DataSource,
+  )(implicit val executionContext: ExecutionContext[P]) {
     def acquireConnection(): Connection = dataSource.getConnection()
   }
 
