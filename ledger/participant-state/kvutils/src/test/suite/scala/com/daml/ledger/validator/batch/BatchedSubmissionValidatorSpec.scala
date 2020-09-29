@@ -25,7 +25,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, argThat}
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{Assertion, AsyncWordSpec, Inside, Matchers}
+import org.scalatest.{AsyncWordSpec, Inside, Matchers}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
@@ -169,22 +169,14 @@ class BatchedSubmissionValidatorSpec
         }
     }
 
-    "validate a batch" in {
-      validateBatchSubmission(nSubmissions = 1000, commitParallelism = 2)
-    }
-
-    "validate a batch with 1 committer for each submission" in {
-      validateBatchSubmission(nSubmissions = 4, commitParallelism = 4)
-    }
-
-    "serially commit a batch in case commitParallelism is set to 1" in {
-      val nSubmissions = 100
-      val (submissions, _, batchSubmissionBytes) = createBatchSubmissionOf(nSubmissions)
+    "validate and commit a batch" in {
+      val (submissions, _, batchSubmissionBytes) = createBatchSubmissionOf(1000)
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
       when(mockLedgerStateReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 2)))
         .thenReturn(Future.successful(Seq(None, None)))
       val logEntryCaptor = ArgumentCaptor.forClass(classOf[DamlLogEntry])
+      val outputStateCaptor = ArgumentCaptor.forClass(classOf[Map[DamlStateKey, DamlStateValue]])
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
         mockCommit.commit(
@@ -193,13 +185,12 @@ class BatchedSubmissionValidatorSpec
           any[DamlLogEntryId],
           logEntryCaptor.capture(),
           any[Map[DamlStateKey, Option[DamlStateValue]]],
-          any[Map[DamlStateKey, DamlStateValue]],
+          outputStateCaptor.capture(),
           any[Option[SubmissionAggregator.WriteSetBuilder]],
         ))
         .thenReturn(Future.unit)
-      val validatorConfig =
-        BatchedSubmissionValidatorParameters.reasonableDefault.copy(commitParallelism = 1)
-      val validator = newBatchedSubmissionValidator[Unit](validatorConfig)
+      val validator =
+        newBatchedSubmissionValidator[Unit](BatchedSubmissionValidatorParameters.reasonableDefault)
 
       validator
         .validateAndCommit(
@@ -211,7 +202,9 @@ class BatchedSubmissionValidatorSpec
           mockCommit
         )
         .map { _ =>
-          verify(mockCommit, times(nSubmissions)).commit(
+          // We expected two state fetches and two commits.
+          verify(mockLedgerStateReader, times(1000)).readState(any[Seq[DamlStateKey]]())
+          verify(mockCommit, times(1000)).commit(
             any[ParticipantId],
             any[String],
             any[DamlLogEntryId],
@@ -224,6 +217,12 @@ class BatchedSubmissionValidatorSpec
           val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
           logEntries.map(_.getPartyAllocationEntry) should be(
             submissions.map(_.getPartyAllocationEntry))
+          // Verify that output state contains all the expected values.
+          val outputState = outputStateCaptor.getAllValues.asScala
+            .map(_.asInstanceOf[Map[DamlStateKey, DamlStateValue]])
+            .fold(Map.empty) { case (a, b) => a ++ b }
+          outputState should have size (2 * 1000.toLong) // party + submission dedup for each
+          outputState.keySet should be(submissions.flatMap(_.getInputDamlStateList.asScala).toSet)
         }
     }
 
@@ -335,67 +334,6 @@ class BatchedSubmissionValidatorSpec
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   private lazy val aCorrelationId: String = "aCorrelationId"
-
-  private def validateBatchSubmission(
-      nSubmissions: Int,
-      commitParallelism: Int): Future[Assertion] = {
-    val (submissions, _, batchSubmissionBytes) = createBatchSubmissionOf(nSubmissions)
-    val mockLedgerStateReader = mock[DamlLedgerStateReader]
-    // Expect two keys, i.e., to retrieve the party and submission dedup values.
-    when(mockLedgerStateReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 2)))
-      .thenReturn(Future.successful(Seq(None, None)))
-    val logEntryCaptor = ArgumentCaptor.forClass(classOf[DamlLogEntry])
-    val outputStateCaptor = ArgumentCaptor.forClass(classOf[Map[DamlStateKey, DamlStateValue]])
-    val mockCommit = mock[CommitStrategy[Unit]]
-    when(
-      mockCommit.commit(
-        any[ParticipantId],
-        any[String],
-        any[DamlLogEntryId],
-        logEntryCaptor.capture(),
-        any[Map[DamlStateKey, Option[DamlStateValue]]],
-        outputStateCaptor.capture(),
-        any[Option[SubmissionAggregator.WriteSetBuilder]],
-      ))
-      .thenReturn(Future.unit)
-    val validatorConfig =
-      BatchedSubmissionValidatorParameters.reasonableDefault.copy(
-        commitParallelism = commitParallelism)
-    val validator = newBatchedSubmissionValidator[Unit](validatorConfig)
-
-    validator
-      .validateAndCommit(
-        batchSubmissionBytes,
-        "batch-correlationId",
-        newRecordTime().toInstant,
-        aParticipantId,
-        mockLedgerStateReader,
-        mockCommit
-      )
-      .map { _ =>
-        // We expected two state fetches and two commits.
-        verify(mockLedgerStateReader, times(nSubmissions)).readState(any[Seq[DamlStateKey]]())
-        verify(mockCommit, times(nSubmissions)).commit(
-          any[ParticipantId],
-          any[String],
-          any[DamlLogEntryId],
-          any[DamlLogEntry],
-          any[DamlInputState],
-          any[DamlOutputState],
-          any[Option[SubmissionAggregator.WriteSetBuilder]],
-        )
-        // Verify we have all the expected log entries.
-        val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
-        logEntries.map(_.getPartyAllocationEntry) should contain allElementsOf
-          submissions.map(_.getPartyAllocationEntry)
-        // Verify that output state contains all the expected values.
-        val outputState = outputStateCaptor.getAllValues.asScala
-          .map(_.asInstanceOf[Map[DamlStateKey, DamlStateValue]])
-          .fold(Map.empty) { case (a, b) => a ++ b }
-        outputState should have size (2 * nSubmissions.toLong) // party + submission dedup for each
-        outputState.keySet should be(submissions.flatMap(_.getInputDamlStateList.asScala).toSet)
-      }
-  }
 
   private def createBatchSubmissionOf(
       nSubmissions: Int): (Seq[DamlSubmission], DamlSubmissionBatch, ByteString) = {
