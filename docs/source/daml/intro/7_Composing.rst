@@ -32,7 +32,7 @@ You can start a new project with a skeleton structure using ``daml new project_n
 
 You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and DAML Runtime, the latter gives access to the DAML Standard Library.``daml-script`` contains the types and standard library for DAML Script.
 
-You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package.
+You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`8_Dependencies`.
 
 Project structure
 -----------------
@@ -297,3 +297,8 @@ Note that principle 2. of the privacy model means that sometimes parties see con
 .. figure:: images/7_Composing/divulgence.png
 
 This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing DAML models for privacy sensitive applications.
+
+Next up
+-------
+
+The model presented here is safe and sound so we could deploy it to production and start trading. But the journey doesn't stop there. In :doc:`8_Dependencies` you will learn how to extend an already running application to enhance it with new features. In that context you'll learn a bit more about the architecture of DAML, about dependencies, and identifiers.

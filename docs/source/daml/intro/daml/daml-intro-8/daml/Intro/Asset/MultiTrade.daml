@@ -1,0 +1,73 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Intro.Asset.MultiTrade where
+
+import DA.List
+
+import Intro.Asset
+import DA.Foldable (forA_)
+
+template MultiTrade
+  with
+    baseAssetCids : [ContractId Asset]
+    baseAssets : [Asset]
+    quoteApprovalCids : [ContractId TransferApproval]
+    quoteAssets : [Asset]
+  where
+    signatory baseOwner
+    ensure (length baseAssetCids == length baseAssets) &&
+      (length quoteApprovalCids == length quoteAssets) &&
+      not (null baseAssets) &&
+      not (null quoteAssets)
+
+    let
+      baseOwner = (head baseAssets).owner
+      quoteOwner = (head quoteAssets).owner
+
+    controller baseOwner can
+      Trade_Cancel
+        : ()
+        do
+          return ()
+
+    controller quoteOwner can
+      Trade_Reject
+        : ()
+        do
+          return ()
+
+-- TRADE_SETTLE_BEGIN
+      Trade_Settle
+        : ([ContractId Asset], [ContractId Asset])
+        with
+          quoteAssetCids : [ContractId Asset]
+          baseApprovalCids : [ContractId TransferApproval]
+        do
+          assertMsg
+            "Wrong number of quoteAssetCids"
+            (length quoteAssetCids == length quoteAssets)
+          assertMsg
+            "Wrong number of baseApprovalCids"
+            (length baseApprovalCids == length baseAssets)
+
+          let 
+            validate (asset, assetCid) = do
+              fetchedAsset <- fetch assetCid
+              assertMsg
+                "Asset mismatch"
+                (asset == fetchedAsset with
+                  observers = asset.observers)
+
+          forA_ (zip baseAssets baseAssetCids) validate
+          forA_ (zip quoteAssets quoteAssetCids) validate
+
+          let 
+            transfer (assetCid, approvalCid) = do
+              exercise approvalCid TransferApproval_Transfer with assetCid
+
+          transferredBaseCids <- forA (zip baseAssetCids baseApprovalCids) transfer
+          transferredQuoteCids <- forA (zip quoteAssetCids quoteApprovalCids) transfer
+
+          return (transferredBaseCids, transferredQuoteCids)
+-- TRADE_SETTLE_END
