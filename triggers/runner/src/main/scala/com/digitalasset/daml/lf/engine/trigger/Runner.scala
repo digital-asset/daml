@@ -301,7 +301,7 @@ class Runner(
               case DamlTuple2(newState, DamlFun(unitA)) =>
                 go(evaluate(makeAppD(unitA, SUnit)), newState)
             }
-            case "Submit" /*((Text, [Command]), () -> a)*/ => {
+            case "Submit" /*(Commands, () -> a)*/ => {
               case DamlTuple2(commands, DamlFun(unitA)) =>
                 converter.toCommands(commands) match {
                   case Left(err) => throw new ConverterException(err)
