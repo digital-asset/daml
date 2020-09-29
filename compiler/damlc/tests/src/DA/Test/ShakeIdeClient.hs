@@ -569,7 +569,7 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,1,[10])   Missing             -- (out of range)
             expectGoToDefinition (foo,2,[0..2]) (At (foo,2,0))      -- "foo"
             expectGoToDefinition (foo,2,[3..5]) Missing             -- " = "
-            expectGoToDefinition (foo,2,[6..8]) (At (foo,2,0))      -- "bar"
+            expectGoToDefinition (foo,2,[6..8]) (At (foo,4,0))      -- "bar"
             expectGoToDefinition (foo,2,[9])    Missing             -- "\n"
             expectGoToDefinition (foo,2,[10])   Missing             -- (out of range)
 

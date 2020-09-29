@@ -336,7 +336,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , ": Int -> Int -> Int"
                     , "```"
                     , "*\t*\t*"
-                    , "*Defined at " <> T.pack fp <> ":4:1*"
+                    , "*Defined at " <> T.pack fp <> ":3:1*"
                     ]
               , _range = Just $ Range (Position 8 17) (Position 8 20)
               }
