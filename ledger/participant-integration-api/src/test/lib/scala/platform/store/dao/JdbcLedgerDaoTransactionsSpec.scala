@@ -538,7 +538,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                   msg +
                     "\n  Random parameters:" +
                     s"\n    actual frequency: ${boolSeq.count(identity)}/$txSeqLength" +
-                    s"\n    code path: ${cp.label}"
+                    s"\n    code path: ${cp.label}" +
+                    s"\n  Please copy the above 4 lines to https://github.com/digital-asset/daml/issues/7521" +
+                    s"\n  along with which of (JdbcLedgerDaoPostgresqlSpec, JdbcLedgerDaoH2DatabaseSpec) failed"
                 })
             }
       }
