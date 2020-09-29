@@ -356,15 +356,15 @@ With ``case``, ``if..else``, ``void`` and ``when``, you can express all branchin
 Looping
 .......
 
-Other than branching, the most common form of control flow is looping. Looping is usually used to iteratively modify some state. We'll use pseudocode in this section to illustrate the procedural way of doing things. 
+Other than branching, the most common form of control flow is looping. Looping is usually used to iteratively modify some state. We'll use JavaScript in this section to illustrate the procedural way of doing things. 
 
 .. code-block:: JavaScript
 
   function sum(intArr) {
-    int result = 0;
-    forEach (i in intArr) {
+    var result = 0;
+    intarr.forEach (i => {
       result += i;
-    }
+    });
     return result;
   }
 
@@ -374,7 +374,7 @@ A more general loop looks like this:
 
   function whileFunction(arr) {
     var rev = initialize(input);
-    while (continue (state)) {
+    while (doContinue (state)) {
       state = process (state);
     }
     return finalize(state);
@@ -402,16 +402,16 @@ Let's give the type parameters semantic names. ``b`` is the state, ``a`` is an i
   :start-after: -- SUM_BEGIN
   :end-before: -- SUM_END
 
-If we wanted to be more verbose, we could replace ``(+)`` with a lambda ``(\result i -> result + i)`` which makes the correspondence to ``result += i`` from the pseudocode clearer.
+If we wanted to be more verbose, we could replace ``(+)`` with a lambda ``(\result i -> result + i)`` which makes the correspondence to ``result += i`` from the JavaScript clearer.
 
 Almost all loops with explicit iterators can be translated to folds, though we have to take a bit of care with performance when it comes to translating ``for`` loops:
 
 .. code-block:: JavaScript
 
   function sumArrs(arr1, arr2) {
-    val l = min (arr1.length, arr2.length);
-    int[] result = new int[l];
-    for(int i = 0; i < l; i++) {
+    var l = min (arr1.length, arr2.length);
+    var result = new int[l];
+    for(var i = 0; i < l; i++) {
       result[i] = arr1[i] + arr2[i];
     }
     return result;
