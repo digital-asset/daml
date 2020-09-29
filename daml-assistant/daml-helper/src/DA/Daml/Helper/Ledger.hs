@@ -14,7 +14,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerNavigator
     ) where
 
-import Control.Exception (SomeException,Exception,catch,throw)
+import Control.Exception.Safe (SomeException,Exception,catch,throw)
 import Control.Monad.Extra hiding (fromMaybeM)
 import DA.Ledger (LedgerService,PartyDetails(..),Party(..),Token)
 import Data.Aeson
