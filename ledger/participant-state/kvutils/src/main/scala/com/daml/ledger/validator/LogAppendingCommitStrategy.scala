@@ -31,11 +31,12 @@ class LogAppendingCommitStrategy[Index](
       outputState: Map[DamlStateKey, DamlStateValue],
       exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder] = None,
   ): Future[Index] = {
-    val serializedKeyValuePairs: SortedMap[Key, Value] = outputState
-      .map {
-        case (key, value) =>
-          (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
-      }(breakOut)
+    val serializedKeyValuePairs: SortedMap[Key, Value] =
+      outputState
+        .map {
+          case (key, value) =>
+            (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
+        }(breakOut)
     exporterWriteSet.foreach {
       _ ++= serializedKeyValuePairs
     }
