@@ -78,7 +78,7 @@ For an upgrade model like this one, ``data-dependencies`` are appropriate so the
 Structuring Projects for Upgrades
 ---------------------------------
 
-There are two important things to not about how the new version of the Asset model, and the Upgrade model are structured:
+There are two important things to note about how the new version of the Asset model, and the Upgrade model are structured:
 
 1. The new version of the Asset model does not depend on the old one
 2. All modules in the new model are prefixed with ``Intro.Asset.V2`` rather than just ``Intro.Asset``
