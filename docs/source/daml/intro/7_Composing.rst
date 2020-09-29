@@ -30,9 +30,9 @@ You can start a new project with a skeleton structure using ``daml new project_n
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
-You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` as it contains internals of compiler and DAML Runtime. ``daml-stdlib`` gives access to the DAML Standard Library, and ``daml-script`` contains the types and standard library for DAML Script.
+You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and DAML Runtime, the latter gives access to the DAML Standard Library.``daml-script`` contains the types and standard library for DAML Script.
 
-You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. More on all of this in :doc:`8_Upgrading`.
+You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`8_Upgrading`.
 
 Project structure
 -----------------
@@ -211,13 +211,13 @@ DAML's execution model
 
 DAML's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
 
-Command
+Command Submission
   A user submits a list of Commands via the Ledger API of a Participant Node, acting as a `Party` hosted on that Node. That party is called the requester.
 Interpretation
   Each Command corresponds to one or more Actions. During this step, the ``Update`` corresponding to each Action is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.). The result of this is a complete Transaction. Together with its requestor, this is also known as a Commit.
 Blinding
   On ledgers with strong privacy, projections (see :ref:`privacy`) for all involved parties are created. This is also called *projecting*.
-Submission
+Transaction Submission
   The Transaction/Commit is submitted to the network.
 Validation
   The Transaction/Commit is validated by the network. Who exactly validates can differ from implementation to implementation. Validation also involves scheduling and collision detection, ensuring that the transaction has a well-defined place in the (partial) ordering of Commits, and no double spends occur.
