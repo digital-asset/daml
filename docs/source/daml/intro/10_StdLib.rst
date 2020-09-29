@@ -9,7 +9,7 @@ In chapters :doc:`3_Data` and :doc:`9_Functional101` you learnt how to define yo
 - Important typeclasses like ``Fuctor``, ``Foldable``, and ``Traversable``
 - How to search the Standard Library
 
-To go in depth on some of these topics, the Standard Library typeclasses, in particular, the literature referenced in :ref:`haskell-connection` covers all of these topics in much greater detail.
+To go in depth on some of these topics, the literature referenced in :ref:`haskell-connection` covers them in much greater detail. The Standard Library typeclasses like ``Applicative``, ``Foldable``, ``Traversable``, ``Action`` (called ``Monad``), and many more, are the bread and butter of Haskell programmers.
 
 .. note::
 
@@ -20,9 +20,7 @@ The Prelude
 
 You've already used a lot of functions, types, and typeclasses without importing anything. Functions like ``create``, ``exercise``, and ``(==)``, types like ``[]``, ``(,)``, ``Optional``, and typeclasses like ``Eq``, ``Show``, and ``Ord``. These all come from the :doc:`Prelude </daml/stdlib/Prelude>`. The Prelude is module that gets implicitly imported into every other DAML module and contains both DAML specific machinery as well as the essentials needed to work with the inbuilt types and typeclasses.
 
-There are rare occasions where you may want to import the Prelude selectively, in which case you can disable the implicit import using the language option ``{-# LANGUAGE NoImplicitPrelude #-}``.
-
-Important Types form the Prelude
+Important Types from the Prelude
 --------------------------------
 
 In addition to the :ref:`native-types`, the Prelude defines a number of common types:
@@ -35,7 +33,7 @@ You've already met lists. Lists have two constructors ``[]`` and ``x :: xs``, th
 Tuples
 ......
 
-In addition tot he 2-tuple you have already seen, the Prelude contains definitions for tuple of size up to 15. Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. An example of a relatively wide Tuple can be found in the test modules of the Chapter 8 upgrade project. ``Test.Intro.Asset.Upgrade.V1Setup.v1Setup`` returns the allocated parties and active contracts in a long tuple. ``Test.Intro.Asset.Upgrade.V2.testUpgrade`` puts them back into scope using pattern matching.
+In addition to the 2-tuple you have already seen, the Prelude contains definitions for tuple of size up to 15. Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. An example of a relatively wide Tuple can be found in the test modules of the Chapter 8 upgrade project. ``Test.Intro.Asset.Upgrade.V1Setup.v1Setup`` returns the allocated parties and active contracts in a long tuple. ``Test.Intro.Asset.Upgrade.V2.testUpgrade`` puts them back into scope using pattern matching.
 
 .. literalinclude:: daml/daml-intro-8-upgrade/daml/Test/Intro/Asset/Upgrade/V1Setup.daml
   :language: daml
@@ -56,7 +54,7 @@ Tuples, like lists have some syntactic magic. Both the types as well as the cons
 
 .. note::
 
-    While tuples of great lengths are available, it is often advisable to define custom data types with named fields for complex structures or long-lived values. Overuse of tuples can harm code readability.
+    While tuples of great lengths are available, it is often advisable to define custom records with named fields for complex structures or long-lived values. Overuse of tuples can harm code readability.
 
 Optional
 ........
@@ -85,6 +83,10 @@ Either
 
 ``Either`` is used in cases where a value should store one of two types. It has two constructors, ``Left`` and ``Right``, each of which take a value of one or the other of the two types. One typical use-case of ``Either`` is as an extended ``Optional`` where ``Right`` takes the role of ``Some`` and ``Left`` the role of ``None``, but with the ability to store an error value. ``Either Text``, for example behaves just like ``Optional`, except that values with constructor ``Left`` have a text associated to them.
 
+.. note::
+
+  As with tuples, it's easy to overuse ``Either`` and harm readability. Consider writing your own type instead.
+
 Typeclasses
 -----------
 
@@ -97,14 +99,14 @@ Typeclasses are declared using the ``class`` keyword:
   :start-after: -- CLASS_BEGIN
   :end-before: -- CLASS_END
 
-This is akin to an instance declaration. To *implement* this interface, you need to define instances of this typeclass:
+This is akin to an interface declaration of an interface with a getter and setter for a quantity. To *implement* this interface, you need to define instances of this typeclass:
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml
   :start-after: -- INSTANCE_BEGIN
   :end-before: -- INSTANCE_END
 
-Typeclasses can have constraints like functions. For example: ``class Eq a => Ord a`` means "to be orderable, you need to be equality comparable". And that's almost all there's to it. 
+Typeclasses can have constraints like functions. For example: ``class Eq a => Ord a`` means "everything that is orderable can also be compared for equality". And that's almost all there's to it. 
 
 Important Typeclasses from the Prelude
 --------------------------------------
@@ -119,12 +121,12 @@ Templates always have an ``Eq`` instance, and all types stored on a template nee
 Ord
 ...
 
-The ``Ord`` typeclass allows values of a type to be compared for order. It makes available functions: ``<``, ``>``, ``<=``, and ``>=``. Most of the inbuilt data types have an instance of ``Ord``. Furthermore, types like ``List`` and ``Optional`` get an instance of ``Ord`` if the thing they contain has one. You can automatically derive instances of ``Eq`` for you using the ``deriving`` keyword.
+The ``Ord`` typeclass allows values of a type to be compared for order. It makes available functions: ``<``, ``>``, ``<=``, and ``>=``. Most of the inbuilt data types have an instance of ``Ord``. Furthermore, types like ``List`` and ``Optional`` get an instance of ``Ord`` if the type they contain has one. You can automatically derive instances of ``Ord`` for you using the ``deriving`` keyword.
 
 Show
 ....
 
-``Show`` indicates that a type can be serialized to ``Text``, ie "shown" in a shell. It's key function is ``show``, which takes a value and converts it to ``Text``. All inbuilt data types have an instance for ``Show`` and types like ``List`` and ``Optional`` get an instance if the thing they contain has one. It also supports the ``deriving`` keyword.
+``Show`` indicates that a type can be serialized to ``Text``, ie "shown" in a shell. It's key function is ``show``, which takes a value and converts it to ``Text``. All inbuilt data types have an instance for ``Show`` and types like ``List`` and ``Optional`` get an instance if the type they contain has one. It also supports the ``deriving`` keyword.
 
 Functor
 .......
@@ -143,7 +145,7 @@ Actions
 
 :ref:`Actions <class-da-internal-prelude-action-24943>` were already covered in :doc:`5_Restrictions`. One way to think of them is as "recipes" for a value, which need to be "executed to get at that value. Actions are always Functors (and Applicative Functors). The intuition for that is simply that ``fmap f x`` is the recipe in ``x`` with the extra instruction to apply the pure function ``f`` to the result.
 
-The really important Actions in DAML are ``Update`` and ``Script``, but there are many others, like ``[]``, ``Optional``, and ``Either Text``.
+The really important Actions in DAML are ``Update`` and ``Script``, but there are many others, like ``[]``, ``Optional``, and ``Either a``.
 
 Semigroups and Monoids
 ......................
@@ -169,6 +171,7 @@ For almost all the types and typeclasses presented above, the Standard Library c
 - :doc:`/daml/stdlib/DA-Monoid` and :doc:`/daml/stdlib/DA-Semigroup` for Monoids and Semigroups
 - :doc:`/daml/stdlib/DA-Text` for working with ``Text``
 - :doc:`/daml/stdlib/DA-Time` for working with ``Time``
+- :doc:`/daml/stdlib/DA-Date` for working with ``Date``
 
 You get the idea, the names are fairly descriptive.
 
