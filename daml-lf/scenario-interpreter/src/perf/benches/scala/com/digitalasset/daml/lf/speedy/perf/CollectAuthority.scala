@@ -95,7 +95,7 @@ class CollectAuthorityState {
   // This is the initial setup run (not benchmarked), where we cache the results of
   // interacting with the ledger, so they can be reused during the benchmark runs.
 
-  def setup(): Unit = {
+  def setup(): Unit = machine.withOnLedger("CollectAuthority") { onLedger =>
     var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
     var step = 0
     var finalValue: SValue = null
@@ -114,7 +114,7 @@ class CollectAuthorityState {
           ScenarioLedger.commitTransaction(
             committers.head,
             ledger.currentTime,
-            machine.commitLocation,
+            onLedger.commitLocation,
             tx,
             ledger
           ) match {

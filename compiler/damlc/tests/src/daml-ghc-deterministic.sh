@@ -76,7 +76,6 @@ dependencies: [daml-prim, daml-stdlib]
 EOF
 
 cat <<EOF > "$PROJDIR/A.daml"
-daml 1.2
 module A where
 EOF
 

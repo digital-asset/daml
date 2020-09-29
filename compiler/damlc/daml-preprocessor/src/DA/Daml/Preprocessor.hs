@@ -63,7 +63,7 @@ damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedSource -> IdePreprocessedSourc
 damlPreprocessor mbUnitId x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = checkVariantUnitConstructors x
+        { preprocWarnings = checkDamlHeader x ++ checkVariantUnitConstructors x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
@@ -119,6 +119,16 @@ checkImports :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkImports x =
     [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
     | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isInternal m]
+
+-- | Emit a warning if the "daml 1.2" version header is present.
+checkDamlHeader :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkDamlHeader (GHC.L _ m)
+    | Just (GHC.L ss doc) <- GHC.hsmodHaddockModHeader m
+    , "HAS_DAML_VERSION_HEADER" `isPrefixOf` GHC.unpackHDS doc
+    = [(ss, "The \"daml 1.2\" version header is deprecated, please remove it.")]
+
+    | otherwise
+    = []
 
 -- | Emit a warning if a variant constructor has a single argument of unit type '()'.
 -- See issue #7207.

@@ -33,7 +33,7 @@ setupRelationship (Relationship with issuer; owner)  = script do
 issueAsset : Asset -> Script (ContractId Asset)
 issueAsset asset@(Asset with ..) = do
   assetHolders <- queryFilter @AssetHolder issuer
-    (\ah -> (ah.issuer == issuer) && (ah.owner == owner)) assetHolders
+    (\ah -> (ah.issuer == issuer) && (ah.owner == owner))
 
   case assetHolders of
     (ahCid, _)::_ -> submit asset.issuer do
