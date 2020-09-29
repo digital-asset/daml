@@ -909,7 +909,7 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(8))
+      checkToken(args.get(7))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
