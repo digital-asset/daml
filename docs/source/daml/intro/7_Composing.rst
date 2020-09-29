@@ -301,4 +301,4 @@ This is because the ``create`` action of these contracts are in the transitive c
 Next up
 -------
 
-The model presented here is safe and sound so we could deploy it to production and start trading. But the development of an application doesn't end there. In :doc:`8_Upgrading` you will learn how to upgrade an already running applicaiton to enhance it with new features. In that context you'll learn a bit more about the architecture of DAML, about dependencies, and identifiers as well.
+The model presented here is safe and sound so we could deploy it to production and start trading. But the journey doesn't stop there. In :doc:`8_Dependencies` you will learn how to extend an already running application to enhance it with new features. In that context you'll learn a bit more about the architecture of DAML, about dependencies, and identifiers.

@@ -8,6 +8,5 @@ dependencies:
   - daml-script
 data-dependencies:
   - ../7Composing/assets.dar
-  - ../8Assets/assets.dar
 sandbox-options:
   - --wall-clock-time

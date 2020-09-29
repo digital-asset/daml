@@ -1,10 +1,9 @@
-module Test.Intro.Asset.Upgrade.V1Setup where
+module Test.Intro.Asset.TradeSetup where
 
 import Daml.Script
 
 import Intro.Asset
 import Intro.Asset.Role
-
 
 setupRoles = do
   alice <- allocateParty "Alice"
@@ -49,8 +48,8 @@ test_issuance = do
 
   return (setupResult, assetCid)
 
--- A copy of the `tradeSetup` Scenario from the V1 model
-v1Setup = do
+-- A copy of the `tradeSetup` Scenario from the chaper 7 model
+tradeSetup = do
   (setupResult@(alice, bob, usdbank, usdha, usdhb), usdCid) <- test_issuance
   eurbank <- allocateParty "EUR_Bank"
 
@@ -77,4 +76,4 @@ v1Setup = do
 
 -- TUPLE_RETURN_BEGIN
   return (alice, bob, usdbank, eurbank, usdha, usdhb, eurha, eurhb, usdCid, eurCid)
--- TUPLE_RETURN_END
+-- TUPLE_RETURN_END 
