@@ -102,7 +102,7 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
                 , "this is bad syntax"
                 ]
             setFilesOfInterest [foo, bar]
-            expectOnlyErrors [((foo,3,0), "Parse error"), ((bar,4,0), "Parse error")]
+            expectOnlyErrors [((foo,3,0), "Parse error"), ((bar,3,0), "Parse error")]
 
     ,   testCase' "Simple module import" $ do
             foo <- makeFile "src/Foo.daml" $ T.unlines
@@ -281,14 +281,13 @@ dlintSmokeTests :: Maybe SS.Handle -> Tasty.TestTree
 dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
   [    testCase' "Imports can be simplified" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
-                [ ""
-                , "module Foo where"
+                [ "module Foo where"
                 , "import DA.Optional"
                 , "import DA.Optional(fromSome)"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors
-            expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
+            expectDiagnostic DsInfo (foo, 1, 0) "Warning: Use fewer imports"
     -- This hint is now disabled. See PR
     -- https://github.com/digital-asset/daml/pull/6423 for details.
     -- ,  testCase' "Reduce duplication" $ do
@@ -602,8 +601,8 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectGoToDefinition (foo,1,[6..8])   (At (foo,2,0)) -- "bar"
-            expectGoToDefinition (foo,1,[9..11])  (At (foo,2,0)) -- "+++"
-            expectGoToDefinition (foo,1,[12..14]) (At (foo,2,0)) -- "baz"
+            expectGoToDefinition (foo,1,[9..11])  (At (foo,3,0)) -- "+++"
+            expectGoToDefinition (foo,1,[12..14]) (At (foo,4,0)) -- "baz"
 
     ,   testCase' "Take bound variable to its binding" $ do
             foo <- makeModule "Foo"
