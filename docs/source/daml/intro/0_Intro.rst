@@ -28,3 +28,4 @@ Next: :doc:`1_Token`.
   6_Parties
   7_Composing
   8_Upgrading
+  9_Functional101
