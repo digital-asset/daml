@@ -9,6 +9,7 @@ module Daml.Script
   , query
   , queryContractId
   , queryContractKey
+  , queryFilter
   , PartyIdHint (..)
   , ParticipantName (..)
   , PartyDetails(..)

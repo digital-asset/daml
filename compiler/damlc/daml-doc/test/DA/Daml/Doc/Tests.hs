@@ -61,8 +61,7 @@ unitTests =
          , damldocExpect
            Nothing
            "Module header doc"
-           [ "daml 1.2"
-           , "-- | This is a module header"
+           [ "-- | This is a module header"
            , "module " <> T.pack testModule <> " where"
            ]
            (\ModuleDoc{..} -> assertBool "Expected the module header" $
@@ -220,7 +219,7 @@ testModule = "Testfile"
 
 
 testModHdr :: T.Text
-testModHdr = T.pack $ "daml 1.2 module\n  " <> testModule <> " where\n"
+testModHdr = T.pack $ "module\n  " <> testModule <> " where\n"
 
 
 emptyDocs :: String -> ModuleDoc
