@@ -311,8 +311,10 @@ class Runner(
                 go(evaluate(makeAppD(unitA, SUnit)), state)
             }
             case _ => {
-              case _ => state
-            } // unrecognized constructors terminate early
+              case _ =>
+                logger.error(s"unrecognized TriggerF step $variant")
+                state // unrecognized constructors terminate early
+            }
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
         case Right(Left(_)) => state
         case Left(e) => throw new RuntimeException(e)
