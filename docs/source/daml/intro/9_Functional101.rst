@@ -4,12 +4,12 @@
 9 Functional Programming 101
 ============================
 
-In this chapter, we will use both the Asset, as well as the Upgrade models from Chapter 8 to learn more about expressing complex logic in a functional language like DAML. You'll learn about
+In this chapter, you will learn more about expressing complex logic in a functional language like DAML. Specifically, you'll learn about
 
 - Function signatures and functions
 - Advanced control flow (``if...else``, folds, recursion, ``when``)
 
-If you no longer have your projects set up, please follow the setup instructions in :doc:`8_Upgrading` to get hold of the code for this chapter.
+If you no longer have your chapter 7 and 8 projects set up, and want to look back at the code, please follow the setup instructions in :doc:`8_Dependencies` to get hold of the code for this chapter.
 
 .. note::
 
@@ -168,16 +168,16 @@ The above will give you a warning:
 
 This means ``fromSome`` is a partial function. ``fromSome None`` will cause a runtime error.
 
-We can use function level pattern matching together with a feature called *Record Wildcards* to write the function ``mapV1AssetToV2`` in the Chapter 8 upgrade package:
+We can use function level pattern matching together with a feature called *Record Wildcards* to write the function ``issueAsset`` in chapter 8:
 
-.. literalinclude:: daml/daml-intro-8-upgrade/daml/Intro/Asset/Upgrade/V2.daml
+.. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
-  :start-after: -- MAP_ASSET_BEGIN
-  :end-before: -- MAP_ASSET_END
+  :start-after: -- ISSUE_ASSET_BEGIN
+  :end-before: -- ISSUE_ASSET_END
 
 The ``..`` in the pattern match here means bind all fields from the given record to local variables, so we have local variables ``issuer``, ``owner``, etc.
 
-The ``..`` at the end means fill all fields of the new record using local variables of the matching name. So the function succinctly transfers all fields except for ``owner``, which is set explicitly, from the V1 Asset to the V2 Asset.
+The ``..`` in the second to last line means fill all fields of the new record using local variables of the matching name. So the function succinctly transfers all fields except for ``owner``, which is set explicitly, from the V1 Asset to the V2 Asset.
 
 Functions Everywhere
 ....................
@@ -189,24 +189,24 @@ You have probably already guessed it: Anywhere you can put a value in DAML you c
   :start-after: -- FUNCTION_IN_DATA_BEGIN
   :end-before: -- FUNCTION_IN_DATA_END
 
-More commonly, it makes sense to define functions locally, inside a ``let`` clause or similar. A good example of this is the ``upgradeAsset`` function defined locally in the ``UpgradeContracts`` choice of the upgrade model from Chapter 8:
+More commonly, it makes sense to define functions locally, inside a ``let`` clause or similar. A good example of this are the ``validate`` and ``transfer`` functions defined locally in the ``Trade_Settle`` choice of the  model from chapter 8:
 
-.. literalinclude:: daml/daml-intro-8-upgrade/daml/Intro/Asset/Upgrade/V2.daml
+.. literalinclude:: daml/daml-intro-8/daml/Intro/Asset/MultiTrade.daml
   :language: daml
-  :start-after: -- UPGRADE_CONTRACTS_BEGIN
-  :end-before: -- UPGRADE_CONTRACTS_END
+  :start-after: -- LOCAL_FUNCTIONS_BEGIN
+  :end-before: -- LOCAL_FUNCTIONS_END
 
 You can see that the function signature is inferred from the context here. If you look closely (or hover over the function in the IDE), you'll see that it has signature 
 
-.. code-block:: daml
+.. code-block:: shell
 
-    upgradeAsset : ContractId AssetV1.Asset -> Update (ContractId AssetV2.Asset)
+    validate : (HasFetch r, Eq r, HasField "observers" r a) => (r, ContractId r) -> Update ()
 
 .. note::
 
     Bear in mind that functions are not serializable, so you can't use them inside template arguments, or as choice in- or outputs. They also don't have instances of the ``Eq`` or ``Show`` typeclasses which one would commonly want on data types.
 
-You can probably guess what the ``mapA`` at the end of the above choice does. It somehow loops through the list ``assetCids``, applies the function ``upgradeAsset`` to each, and performs the resulting ``Update`` action. We'll look at that more closely under :ref:`looping` below.
+You can probably guess what the ``mapA`` and ``mapA_``\ s in the above choice do. They somehow loop through the lists of assets, and approvals, and the functions ``validate`` and ``transfer`` to each, performing the resulting ``Update`` action in the process. We'll look at that more closely under :ref:`looping` below.
 
 Lambdas
 .......
@@ -337,13 +337,6 @@ Note that we still need the ``else`` clause of the same type ``()``. This patter
   :start-after: -- WHEN_BEGIN
   :end-before: -- WHEN_END
 
-You've already seen this in use in Chapter 8:
-
-.. literalinclude:: daml/daml-intro-8-upgrade/daml/Test/Intro/Asset/Upgrade/V2.daml
-  :language: daml
-  :start-after: -- RUN_COMPLETE_UPGRADE_BEGIN
-  :end-before: -- RUN_COMPLETE_UPGRADE_END
-
 With ``case``, ``if..else``, ``void`` and ``when``, you can express all branching. However, one additional feature you may want to learn is guards. They are not covered here, but can help avoid deeply nested ``if..else`` blocks. Here's just one example. The Haskell sources at the beginning of the chapter cover this topic in more depth.
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
@@ -462,17 +455,16 @@ You may be tempted to make ``reverseWorker`` a local definition inside ``reverse
 Folds and Maps in Action Contexts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Restrictions`: The functions used to map or process items have no side-effects. In day-to-day DAML that's the exception rather than the rule. If you have looked at the Chapter 8 models, you'll have noticed ``mapA``, and ``_forA`` all over the place. A good example is the ``mapA`` in ``UpdateContracts``:
+The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Restrictions`: The functions used to map or process items have no side-effects. In day-to-day DAML that's the exception rather than the rule. If you have looked at the chapter 8 models, you'll have noticed ``mapA``, ``mapA_``, and ``forA`` all over the place. A good example are the ``mapA`` in the ``testMultiTrade`` script:
 
-.. literalinclude:: daml/daml-intro-8-upgrade/daml/Intro/Asset/Upgrade/V2.daml
+.. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
-  :start-after: -- UPGRADE_CONTRACTS_BEGIN
-  :end-before: -- UPGRADE_CONTRACTS_END
+  :start-after: -- MAPA_BEGIN
+  :end-before: -- MAPA_END
 
-Here we have a list ``assetCids : [ContractId AssetV1.Asset]`` and a function ``upgradeAsset : ContractId AssetV1.Asset -> Update (ContractId AssetV2.Asset)``. We want ``UpgradeContracts`` to return a list ``[ContractId AssetV1.Asset]``. Using the map function almost gets us there. ``map upgradeAsset assetCids : [Update (ContractId AssetV2.Asset)]``. This is a list of actions, each resulting in a ``ContractId AssetV2.Asset``. What we need is an ``Update`` action resulting in a ``[ContractId AssetV2.Asset]``. The list and ``Update`` are the wrong way around for our purposes.
+Here we have a list of relationships (type ``[Relationship]`` and a function ``setupRelationship : Relationship -> Script (ContractId AssetHolder) ``. We want the ``AssetHolder`` contracts for those relationships, ie something of type ``[ContractId AssetHolder]``. Using the map function almost gets us there. ``map setupRelationship rels : [Update (ContractId AssetHolder)]``. This is a list of ``Update`` actions, each resulting in a ``ContractId AssetHolder``. What we need is an ``Update`` action resulting in a ``[ContractId AssetHolder]``. The list and ``Update`` are the wrong way around for our purposes.
 
-
- Intuitively, it's clear how to fix this: we want the compound action consisting of performing each of the actions in the list in turn. There's a function for that, of course. ``sequence : : Applicative m => [m a] -> m [a]`` implements that intuition and allows us to take the ``Update`` out of the list. So we could write ``sequence (map upgradeAsset assetCids)``. This is so common that it's encapsulated in the ``mapA`` function, a possible implementation of which is
+Intuitively, it's clear how to fix this: we want the compound action consisting of performing each of the actions in the list in turn. There's a function for that, of course. ``sequence : : Applicative m => [m a] -> m [a]`` implements that intuition and allows us to take the ``Update`` out of the list. So we could write ``sequence (map setupRelationship rels)``. This is so common that it's encapsulated in the ``mapA`` function, a possible implementation of which is
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -490,9 +482,9 @@ Have a go at implementing ``foldlA`` in terms of ``foldl`` and ``sequence`` and 
 
 ``forA`` is just ``mapA`` with its arguments reversed. This is useful for readability if the list of items is already in a variable, but the function is a lengthy lambda.
 
-.. literalinclude:: daml/daml-intro-8-upgrade/daml/Test/Intro/Asset/Upgrade/V2.daml
+.. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
   :start-after: -- FORA_EXAMPLE_BEGIN
   :end-before: -- FORA_EXAMPLE_END
 
-The underscore indicates that the result is not used. ``forA_ xs fn = void (forA xs fn)``. The DAML Linter will alert you if you could use ``forA_`` instead of ``forA``.
+Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. The underscore indicates that the result is not used. ``mapA_ fn xs fn = void (mapA fn xs)``. The DAML Linter will alert you if you could use ``mapA_`` instead of ``mapA``, and similarly for ``forA_``.

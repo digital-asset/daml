@@ -6,7 +6,7 @@ module Intro.Asset.MultiTrade where
 import DA.List
 
 import Intro.Asset
-import DA.Foldable (forA_)
+import DA.Foldable (mapA_)
 
 template MultiTrade
   with
@@ -37,7 +37,6 @@ template MultiTrade
         do
           return ()
 
--- TRADE_SETTLE_BEGIN
       Trade_Settle
         : ([ContractId Asset], [ContractId Asset])
         with
@@ -51,6 +50,7 @@ template MultiTrade
             "Wrong number of baseApprovalCids"
             (length baseApprovalCids == length baseAssets)
 
+-- LOCAL_FUNCTIONS_BEGIN
           let 
             validate (asset, assetCid) = do
               fetchedAsset <- fetch assetCid
@@ -59,15 +59,15 @@ template MultiTrade
                 (asset == fetchedAsset with
                   observers = asset.observers)
 
-          forA_ (zip baseAssets baseAssetCids) validate
-          forA_ (zip quoteAssets quoteAssetCids) validate
+          mapA_ validate (zip baseAssets baseAssetCids)
+          mapA_ validate (zip quoteAssets quoteAssetCids)
 
           let 
             transfer (assetCid, approvalCid) = do
               exercise approvalCid TransferApproval_Transfer with assetCid
 
-          transferredBaseCids <- forA (zip baseAssetCids baseApprovalCids) transfer
-          transferredQuoteCids <- forA (zip quoteAssetCids quoteApprovalCids) transfer
+          transferredBaseCids <- mapA transfer (zip baseAssetCids baseApprovalCids)
+          transferredQuoteCids <- mapA transfer (zip quoteAssetCids quoteApprovalCids)
+-- LOCAL_FUNCTIONS_END
 
           return (transferredBaseCids, transferredQuoteCids)
--- TRADE_SETTLE_END

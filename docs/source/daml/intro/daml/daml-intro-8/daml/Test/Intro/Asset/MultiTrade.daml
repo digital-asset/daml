@@ -29,6 +29,7 @@ setupRelationship (Relationship with issuer; owner)  = script do
   submit owner do
   exerciseCmd ahi AssetHolderInvite_Accept
 
+-- ISSUE_ASSET_BEGIN
 issueAsset : Asset -> Script (ContractId Asset)
 issueAsset asset@(Asset with ..) = do
   assetHolders <- queryFilter @AssetHolder issuer
@@ -38,6 +39,7 @@ issueAsset asset@(Asset with ..) = do
     (ahCid, _)::_ -> submit asset.issuer do
       exerciseCmd ahCid Issue_Asset with ..
     [] -> abort ("No AssetHolder found for " <> show asset)
+-- ISSUE_ASSET_BEGIN
 
 testMultiTrade = script do
   -- Use the V1 Trade Setup Script to set up parties and issue assets:
@@ -50,12 +52,15 @@ testMultiTrade = script do
   gbpbank <- allocateParty "GBP_Bank"
 
   -- Set up relationships
-  [chfha, chfhb, gbpha, gbphb] <- mapA setupRelationship
-      [ Relationship chfbank alice
-      , Relationship chfbank bob
-      , Relationship gbpbank alice
-      , Relationship gbpbank bob
-      ]
+  -- MAPA_BEGIN
+  let rels = 
+        [ Relationship chfbank alice
+        , Relationship chfbank bob
+        , Relationship gbpbank alice
+        , Relationship gbpbank bob
+        ]
+  [chfha, chfhb, gbpha, gbphb] <- mapA setupRelationship rels
+  -- MAPA_BEGIN
 
   let chf = Asset with
         issuer = chfbank
@@ -84,10 +89,12 @@ testMultiTrade = script do
       quantity = 90.0
       observers = []
 
+  -- FORA_EXAMPLE_BEGIN
   [usdCid, chfCid] <- forA [usdCid, chfCid] (\cid -> submit alice do
     exerciseCmd cid SetObservers with
       newObservers = [bob]
     )
+  -- FORA_EXAMPLE_END
   
   eurtaCid <- submit alice do
     exerciseCmd eurha Preapprove_Transfer with
@@ -131,4 +138,3 @@ testMultiTrade = script do
   assert (chf.owner == bob)
 
   return ()
-  
