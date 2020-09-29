@@ -19,7 +19,7 @@ class WriteRecordingLedgerStateOperations[LogResult](delegate: LedgerStateOperat
       implicit executionContext: ExecutionContext
   ): Future[Option[Value]] = delegate.readState(key)
 
-  override def readState(keys: Seq[Key])(
+  override def readState(keys: Iterable[Key])(
       implicit executionContext: ExecutionContext
   ): Future[Seq[Option[Value]]] =
     delegate.readState(keys)
@@ -31,7 +31,7 @@ class WriteRecordingLedgerStateOperations[LogResult](delegate: LedgerStateOperat
     delegate.writeState(key, value)
   }
 
-  override def writeState(keyValuePairs: Seq[(Key, Value)])(
+  override def writeState(keyValuePairs: Iterable[(Key, Value)])(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     this.synchronized(recordedWriteSet.appendAll(keyValuePairs))

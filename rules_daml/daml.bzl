@@ -293,10 +293,12 @@ def daml_build_test(
         project_dir,
         daml_config_basename = "daml.yaml",
         daml_subdir_basename = "daml",
+        daml_yaml = None,
         dar_dict = {},
         **kwargs):
     "Build a DAML project and validate the resulting .dar file."
-    daml_yaml = project_dir + "/" + daml_config_basename
+    if not daml_yaml:
+        daml_yaml = project_dir + "/" + daml_config_basename
     srcs = native.glob([project_dir + "/" + daml_subdir_basename + "/**/*.daml"])
     _daml_build(
         name = name,
@@ -315,25 +317,31 @@ def daml_test(
         name,
         srcs = [],
         deps = [],
+        data_deps = [],
         damlc = "//compiler/damlc",
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [damlc] + srcs + deps,
+        data = [damlc] + srcs + deps + data_deps,
         cmd = """\
-set -eou pipefail
+set -eoux pipefail
 tmpdir=$$(mktemp -d)
 trap "rm -rf $$tmpdir" EXIT
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
 rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
 DEPS=($$(rlocations {deps}))
+DATA_DEPS=($$(rlocations {data_deps}))
+JOINED_DATA_DEPS="$$(printf ',"%s"' $${{DATA_DEPS[@]}})"
+echo "$$JOINED_DATA_DEPS"
 cat << EOF > $$tmpdir/daml.yaml
 sdk-version: {sdk_version}
 name: test
 version: 0.0.1
 source: .
 dependencies: [daml-stdlib, daml-prim $$([ $${{#DEPS[@]}} -gt 0 ] && printf ',"%s"' $${{DEPS[@]}})]
+data-dependencies: [$$([ $${{#DATA_DEPS[@]}} -gt 0 ] && printf '%s' $${{JOINED_DATA_DEPS:1}})]
 EOF
+cat $$tmpdir/daml.yaml
 {cp_srcs}
 cd $$tmpdir
 $$DAMLC test --files {files}
@@ -342,6 +350,7 @@ $$DAMLC test --files {files}
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
             sdk_version = sdk_version,
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
+            data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),

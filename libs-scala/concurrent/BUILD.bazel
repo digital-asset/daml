@@ -25,6 +25,7 @@ da_scala_library(
     ],
     deps = [
         "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

@@ -36,10 +36,12 @@ trait CommonQueries extends Queries {
       }.*)
   }
 
-  override final def selectStateValuesByKeys(keys: Seq[Key]): Try[immutable.Seq[Option[Value]]] =
+  override final def selectStateValuesByKeys(
+      keys: Iterable[Key],
+  ): Try[immutable.Seq[Option[Value]]] =
     Try {
       val results =
-        SQL"SELECT key, value FROM #$StateTable WHERE key IN ($keys)"
+        SQL"SELECT key, value FROM #$StateTable WHERE key IN (${keys.toSeq})"
           .fold(Map.newBuilder[Key, Value], ColumnAliaser.empty) { (builder, row) =>
             builder += row("key") -> row("value")
           }
@@ -47,7 +49,7 @@ trait CommonQueries extends Queries {
       keys.map(results.get)(breakOut)
     }
 
-  override final def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit] = Try {
+  override final def updateState(stateUpdates: Iterable[(Key, Value)]): Try[Unit] = Try {
     executeBatchSql(updateStateQuery, stateUpdates.map {
       case (key, value) =>
         Seq[NamedParameter]("key" -> key, "value" -> value)

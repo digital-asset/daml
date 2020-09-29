@@ -135,44 +135,55 @@ private[lf] final class Compiler(
   // corresponds to DAML-LF type variable.
   private[this] case class TVarRef(name: TypeVarName) extends VarRef
 
+  case class Position(idx: Int)
+
+  @inline
+  private[this] def nextPosition(): Position = {
+    val p = env.position
+    env = env.copy(position = env.position + 1)
+    Position(p)
+  }
+
+  @inline
+  private[this] def nextPositionWithExprName(name: ExprVarName): Position = {
+    val p = nextPosition()
+    addExprVar(name, p)
+    p
+  }
+
+  private[this] def nextPositionWithOptionalExprName(name: Option[ExprVarName]): Position =
+    name.fold(nextPosition())(nextPositionWithExprName)
+
+  private[this] def svar(p: Position): SEVar = SEVar(env.position - p.idx)
+
+  private[this] def addVar(ref: VarRef, position: Position) =
+    env = env.copy(varIndices = env.varIndices.updated(ref, position))
+
+  private[this] def addExprVar(name: ExprVarName, position: Position) =
+    addVar(EVarRef(name), position)
+
+  private[this] def addTypeVar(name: TypeVarName, position: Position) =
+    addVar(TVarRef(name), position)
+
+  private[this] def hideTypeVar(name: TypeVarName) =
+    env = env.copy(varIndices = env.varIndices - TVarRef(name))
+
+  private[this] def vars: List[VarRef] = env.varIndices.keys.toList
+
+  private[this] def lookupVar(varRef: VarRef): Option[SEVar] =
+    env.varIndices.get(varRef).map(svar)
+
+  def lookupExprVar(name: ExprVarName): SEVar =
+    lookupVar(EVarRef(name))
+      .getOrElse(throw CompilationError(s"Unknown variable: $name. Known: ${vars.mkString(",")}"))
+
+  def lookupTypeVar(name: TypeVarName): Option[SEVar] =
+    lookupVar(TVarRef(name))
+
   private[this] case class Env(
       position: Int = 0,
-      varIndices: List[(VarRef, Option[Int])] = List.empty,
-  ) {
-    def incrPos: Env = copy(position = position + 1)
-    def addExprVar(name: Option[ExprVarName], index: Int): Env =
-      name.fold(this)(n => copy(varIndices = (EVarRef(n), Some(index)) :: varIndices))
-    def addExprVar(name: ExprVarName, index: Int): Env =
-      addExprVar(Some(name), index)
-    def addExprVar(name: Option[ExprVarName]): Env =
-      incrPos.addExprVar(name, position)
-    def addExprVar(name: ExprVarName): Env =
-      addExprVar(Some(name))
-    def addTypeVar(name: TypeVarName): Env =
-      incrPos.copy(varIndices = (TVarRef(name), Some(position)) :: varIndices)
-    def hideTypeVar(name: TypeVarName): Env =
-      copy(varIndices = (TVarRef(name), None) :: varIndices)
-
-    def vars: List[VarRef] = varIndices.map(_._1)
-
-    private[this] def lookUpVar(varRef: VarRef): Option[Int] =
-      varIndices
-        .find(_._1 == varRef)
-        .flatMap(_._2)
-        // The de Bruijin index for the binder, e.g.
-        // the distance to the binder. The closest binder
-        // is at distance 1.
-        .map(position - _)
-
-    def lookUpExprVar(name: ExprVarName): Int =
-      lookUpVar(EVarRef(name))
-        .getOrElse(
-          throw CompilationError(s"Unknown variable: $name. Known: ${env.vars.mkString(",")}"))
-
-    def lookUpTypeVar(name: TypeVarName): Option[Int] =
-      lookUpVar(TVarRef(name))
-
-  }
+      varIndices: Map[VarRef, Position] = Map.empty,
+  )
 
   /** Environment mapping names into stack positions */
   private[this] var env = Env()
@@ -243,18 +254,12 @@ private[lf] final class Compiler(
         builder += compileCreate(identifier, tmpl)
         builder += compileFetch(identifier, tmpl)
 
-        tmpl.choices.toList.foreach {
-          case (cname, choice) =>
-            builder += compileChoice(identifier, tmpl, cname, choice)
-        }
+        tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
 
         tmpl.key.foreach { tmplKey =>
           builder += compileFetchByKey(identifier, tmpl, tmplKey)
           builder += compileLookupByKey(identifier, tmplKey)
-          tmpl.choices.foreach {
-            case (cname, choice) =>
-              builder += compileChoiceByKey(identifier, tmpl, tmplKey, cname, choice)
-          }
+          tmpl.choices.values.foreach(builder += compileChoiceByKey(identifier, tmpl, tmplKey, _))
         }
 
         builder.result()
@@ -327,7 +332,7 @@ private[lf] final class Compiler(
   private[this] def compile(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) =>
-        SEVar(env.lookUpExprVar(name))
+        lookupExprVar(name)
       case EVal(ref) =>
         SEVal(LfDefRef(ref))
       case EBuiltin(bf) =>
@@ -649,7 +654,7 @@ private[lf] final class Compiler(
         bindings.map {
           case Binding(optBinder, _, bound) =>
             val bound2 = withOptLabel(optBinder, compile(bound))
-            env = env.addExprVar(optBinder)
+            nextPositionWithOptionalExprName(optBinder)
             bound2
         }.toArray,
         compile(body),
@@ -690,13 +695,13 @@ private[lf] final class Compiler(
   private[this] def compileAbss(expr0: Expr, arity: Int = 0): SExpr =
     expr0 match {
       case EAbs((binder, typ @ _), body, ref @ _) =>
-        env = env.addExprVar(binder)
+        nextPositionWithExprName(binder)
         compileAbss(body, arity + 1)
       case ETyAbs((binder, KNat), body) =>
-        env = env.addTypeVar(binder)
+        addTypeVar(binder, nextPosition())
         compileAbss(body, arity + 1)
       case ETyAbs((binder, _), body) =>
-        env = env.hideTypeVar(binder)
+        hideTypeVar(binder)
         compileAbss(body, arity)
       case _ if arity == 0 =>
         compile(expr0)
@@ -720,7 +725,7 @@ private[lf] final class Compiler(
   private[this] def translateType(typ: Type): Option[SExpr] =
     typ match {
       case TNat(n) => SENat(n)
-      case TVar(name) => env.lookUpTypeVar(name).map(SEVar)
+      case TVar(name) => lookupTypeVar(name)
       case _ => None
     }
 
@@ -743,6 +748,7 @@ private[lf] final class Compiler(
       case ScenarioEmbedExpr(_, e) =>
         compileEmbedExpr(e)
     }
+
   @inline
   private[this] def compileCommit(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
     // let party = <partyE>
@@ -750,86 +756,77 @@ private[lf] final class Compiler(
     // in \token ->
     //   let _ = $beginCommit party token
     //       r = update token
-    //   in $endCommit[mustFail = false] r token
+    //   in $endCommit(mustFail = false) r token
     withEnv { _ =>
       val party = compile(partyE)
-      env = env.incrPos // party
+      val partyPos = nextPosition()
       val update = compile(updateE)
-      env = env.incrPos // update
-      env = env.incrPos // $beginCommit
+      val updatePos = nextPosition()
+
       SELet(party, update) in
         withLabel(
           "submit",
           SEAbs(1) {
+            val tokenPos = nextPosition()
+            val beginCommit = SBSBeginCommit(optLoc)(svar(partyPos), svar(tokenPos))
+            nextPosition()
+            val result = SEApp(svar(updatePos), Array(svar(tokenPos)))
+            val resultPos = nextPosition()
+
             SELet(
-              // stack: <party> <update> <token>
-              SBSBeginCommit(optLoc)(SEVar(3), SEVar(1)),
-              // stack: <party> <update> <token> ()
-              SEApp(SEVar(3), Array(SEVar(2))),
-              // stack: <party> <update> <token> () result
+              beginCommit,
+              result
             ) in
-              SBSEndCommit(false)(SEVar(1), SEVar(3))
+              SBSEndCommit(mustFail = false)(svar(resultPos), svar(tokenPos))
           }
         )
     }
 
   @inline
-  private[this] def compileMustFail(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
+  private[this] def compileMustFail(party: Expr, update: Expr, optLoc: Option[Location]): SExpr =
     // \token ->
-    //   let _ = $beginCommit <party> token
-    //       r = $catch (<updateE> token) true false
-    //   in $endCommit[mustFail = true] r token
+    //   let _ = $beginCommit [party] <token>
+    //       <r> = $catch ([update] <token>) true false
+    //   in $endCommit(mustFail = true) <r> <token>
     withEnv { _ =>
-      env = env.incrPos // token
-      val party = compile(partyE)
-      env = env.incrPos // $beginCommit
-      val update = compile(updateE)
       withLabel(
         "submitMustFail",
         SEAbs(1) {
+          val tokenPos = nextPosition()
+          val beginCommit = SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))
+          nextPosition()
+          val result =
+            SECatch(SEApp(compile(update), Array(svar(tokenPos))), SEValue.True, SEValue.False)
+          val resultPos = nextPosition()
+
           SELet(
-            SBSBeginCommit(optLoc)(party, SEVar(1)),
-            SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False),
-          ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
+            beginCommit,
+            result,
+          ) in SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
         }
       )
     }
 
   @inline
   private[this] def compileGetParty(expr: Expr): SExpr =
-    withEnv { _ =>
-      env = env.incrPos // token
-      withLabel(
-        "getParty",
-        SEAbs(1) {
-          SBSGetParty(compile(expr), SEVar(1))
-        }
-      )
+    function(1, "getPArty") {
+      case List(tokenPos) => SBSGetParty(compile(expr), svar(tokenPos))
     }
 
   @inline
   private[this] def compilePass(time: Expr): SExpr =
-    withEnv { _ =>
-      env = env.incrPos // token
-      withLabel(
-        "pass",
-        SEAbs(1) {
-          SBSPass(compile(time), SEVar(1))
-        }
-      )
+    function(1, "pass") {
+      case List(tokenPos) => SBSPass(compile(time), svar(tokenPos))
     }
 
   @inline
   private[this] def compileEmbedExpr(expr: Expr): SExpr =
-    withEnv { _ =>
-      env = env.incrPos // token
+    function(1) {
       // EmbedExpr's get wrapped into an extra layer of abstraction
       // to delay evaluation.
       // e.g.
       // embed (error "foo") => \token -> error "foo"
-      SEAbs(1) {
-        SEApp(compile(expr), Array(SEVar(1)))
-      }
+      case List(tokenPos) => SEApp(compile(expr), Array(svar(tokenPos)))
     }
 
   private[this] def compilePure(body: Expr): SExpr =
@@ -851,208 +848,174 @@ private[lf] final class Compiler(
     //   in z x y token
     withEnv { _ =>
       val boundHead = compile(bindings.head.bound)
-      env = env.incrPos // evaluated body of first binding
+      val boundHeadPos = nextPosition()
 
-      val tokenPosition = env.position
-      env = env.incrPos // token
-
-      // add the first binding into the environment
-      val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
-      env = env.addExprVar(bindings.head.binder)
-
-      // and then the rest
-      val boundTail = bindings.tail.toList.map {
-        case Binding(optB, _, bound) =>
-          val sbound = compile(bound)
-          val tokenIndex = env.position - tokenPosition
-          env = env.addExprVar(optB)
-          SEApp(sbound, Array(SEVar(tokenIndex)))
-      }
-      val allBounds = appBoundHead +: boundTail
       SELet(boundHead) in
         SEAbs(1) {
+          val tokenPos = nextPosition()
+
+          // add the first binding into the environment
+          val appBoundHead = SEApp(svar(boundHeadPos), Array(svar(tokenPos)))
+          nextPositionWithOptionalExprName(bindings.head.binder)
+
+          // and then the rest
+          val boundTail = bindings.tail.toList.map {
+            case Binding(optB, _, bound) =>
+              val expr = SEApp(compile(bound), Array(svar(tokenPos)))
+              nextPositionWithOptionalExprName(optB)
+              expr
+          }
+          val allBounds = appBoundHead +: boundTail
           SELet(allBounds: _*) in
-            SEApp(compile(body), Array(SEVar(env.position - tokenPosition)))
+            SEApp(compile(body), Array(svar(tokenPos)))
         }
     }
 
-  private[this] val keyWithMaintainersStruct: Struct[Int] =
-    Struct.assertFromSeq(List(keyFieldName, maintainersFieldName).zipWithIndex)
+  private[this] val KeyWithMaintainersStruct =
+    SBStructCon(Struct.assertFromSeq(List(keyFieldName, maintainersFieldName).zipWithIndex))
 
-  private def encodeKeyWithMaintainers(key: SExpr, tmplKey: TemplateKey): SExpr =
-    SELet(key) in
-      SBStructCon(keyWithMaintainersStruct)(
-        SEVar(1), // key
-        SEApp(compile(tmplKey.maintainers), Array(SEVar(1) /* key */ )),
+  private[this] def encodeKeyWithMaintainers(keyPos: Position, tmplKey: TemplateKey): SExpr =
+    KeyWithMaintainersStruct(svar(keyPos), SEApp(compile(tmplKey.maintainers), Array(svar(keyPos))))
+
+  private[this] def compileKeyWithMaintainers(maybeTmplKey: Option[TemplateKey]): SExpr =
+    withEnv { _ =>
+      maybeTmplKey match {
+        case None => SEValue.None
+        case Some(tmplKey) =>
+          val key = compile(tmplKey.body)
+          val keyPos = nextPosition()
+          SELet(key) in SBSome(encodeKeyWithMaintainers(keyPos, tmplKey))
+      }
+    }
+
+  @inline
+  def function(arity: Int)(body: List[Position] => SExpr): SExpr =
+    withEnv { _ =>
+      SEAbs(arity, body(List.fill(arity)(nextPosition())))
+    }
+
+  @inline
+  def function(arity: Int, label: String)(body: List[Position] => SExpr): SExpr =
+    function(arity)(x => withLabel(label, body(x)))
+
+  @inline
+  private[this] def topLevelFunction(ref: SDefinitionRef, arity: Int, label: String)(
+      body: List[Position] => SExpr
+  ): (SDefinitionRef, SExpr) =
+    ref ->
+      validate(
+        closureConvert(
+          Map.empty,
+          function(arity, label)(body)
+        )
       )
-
-  private[this] def translateKeyWithMaintainers(tmplKey: TemplateKey): SExpr =
-    encodeKeyWithMaintainers(compile(tmplKey.body), tmplKey)
 
   private[this] def compileChoice(
       tmplId: TypeConName,
       tmpl: Template,
-      cname: ChoiceName,
       choice: TemplateChoice,
-  ): (ChoiceDefRef, SExpr) =
+  ): (SDefinitionRef, SExpr) =
     // Compiles a choice into:
     // ChoiceDefRef(SomeTemplate, SomeChoice) = \<actors> <cid> <choiceArg> <token> ->
-    //   let targ = fetch <cid>
-    //       _ = $beginExercise[tmplId, chId] <choiceArg> <cid> <actors> <byKey flag> sigs obs ctrls mbKey <token>
-    //       result = <updateE>
-    //       _ = $endExercise[tmplId]
-    //   in result
-    ChoiceDefRef(tmplId, cname) ->
-      validate(
-        closureConvert(
-          Map.empty,
-          withEnv { _ =>
-            env = env.incrPos /* <actors> */
-            val selfBinderPos = env.position
-            env = env.incrPos /* <cid> */
-            val choiceArgumentPos = env.position
-            env = env.incrPos // <choice argument>
-            env = env.incrPos /* <token> */
-            // <template argument>
-            env = env.addExprVar(tmpl.param)
-            val signatories = compile(tmpl.signatories)
-            val observers = compile(tmpl.observers)
-            // now allow access to the choice argument
-            env = env.addExprVar(choice.argBinder._1, choiceArgumentPos)
-            val controllers = compile(choice.controllers)
-            val mbKey: SExpr = tmpl.key match {
-              case None => SEValue.None
-              case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
-            }
-            env = env.incrPos // beginExercise's ()
-            // allow access to the self contract id
-            env = env.addExprVar(choice.selfBinder, selfBinderPos)
-            val update = compile(choice.update)
+    //   let targ = fetch(tmplId) <cid>
+    //       _ = $beginExercise(tmplId, choice.name, choice.consuming, false) <choiceArg> <cid> <actors> [tmpl.signatories] [tmpl.observers] [choice.controllers] [tmpl.key] <token>
+    //       <retValue> = [update] <token>
+    //       _ = $endExercise[tmplId] <token> <retValue>
+    //   in <retValue>
+    topLevelFunction(
+      ChoiceDefRef(tmplId, choice.name),
+      4,
+      s"exercise @${tmplId.qualifiedName} ${choice.name}") {
+      case List(actorsPos, cidPos, choiceArgPos, tokenPos) =>
+        val tmplArg = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
+        nextPositionWithExprName(tmpl.param)
+        val beginExercise =
+          SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = false)(
+            svar(choiceArgPos),
+            svar(cidPos),
+            svar(actorsPos),
+            compile(tmpl.signatories),
+            compile(tmpl.observers), //
+            {
+              addExprVar(choice.argBinder._1, choiceArgPos)
+              compile(choice.controllers)
+            },
+            compileKeyWithMaintainers(tmpl.key),
+            svar(tokenPos)
+          )
+        nextPosition()
+        addExprVar(choice.selfBinder, cidPos)
+        val update = SEApp(compile(choice.update), Array(svar(tokenPos)))
+        val retValuePos = nextPosition()
+        val endExercise = SBUEndExercise(tmplId)(svar(tokenPos), svar(retValuePos))
+        nextPosition()
 
-            withLabel(
-              s"exercise @${tmplId.qualifiedName} ${cname}",
-              SEAbs(4) {
-                SELet(
-                  // stack: <actors> <cid> <choiceArg> <token>
-                  // <tmplArg> =
-                  SBUFetch(tmplId)(SEVar(3) /* <cid> */, SEVar(1) /* <token> */ ),
-                  // stack: <actors> <cid> <choiceArg> <token> <tmplArg>
-                  // _ =
-                  SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = false)(
-                    SEVar(3), /* <choiceArg> */
-                    SEVar(4), /* <cid> */
-                    SEVar(5), /* <actors> */
-                    signatories,
-                    observers,
-                    controllers,
-                    mbKey,
-                    SEVar(2) /* <token> */
-                  ),
-                  // stack: <actors> <cid> <choiceArg> <token> <tmplArg> ()
-                  // <ret value> =
-                  SEApp(update, Array(SEVar(3) /* <token> */ )),
-                  // stack: <actors> <cid> <choiceArg> <token> <tmplArg> () <ret value>
-                  // _ =
-                  SBUEndExercise(tmplId)(
-                    SEVar(4), /* <token> */
-                    SEVar(1) /* <retValue> */
-                  )
-                ) in
-                  // stack: <actors> <cid> <choiceArg> <token> <tmplArg> () <ret value> ()
-                  SEVar(2) /* <retValue> */
-              }
-            )
-          }
-        )
-      )
+        SELet(
+          tmplArg,
+          beginExercise,
+          update,
+          endExercise
+        ) in
+          svar(retValuePos)
+    }
 
   /** Compile a choice into a top-level function for exercising that choice */
   private[this] def compileChoiceByKey(
       tmplId: TypeConName,
       tmpl: Template,
       tmplKey: TemplateKey,
-      cname: ChoiceName,
       choice: TemplateChoice,
-  ): (ChoiceByKeyDefRef, SExpr) =
+  ): (SDefinitionRef, SExpr) =
     // Compiles a choice into:
-    // ChoiceByKeyDefRef(SomeTemplate, SomeChoice) = \<byKey flag> <actors> <cid> <choiceArg> <token> ->
-    //   let targ = fetch <cid>
-    //       _ = $beginExercise[tmplId, chId, consuming, true] <choiceArg> <cid> <actors> <byKey flag> sigs obs ctrls mbKey <token>
-    //       result = <updateE>
-    //       _ = $endExercise[tmplId]
-    //   in result
-    ChoiceByKeyDefRef(tmplId, cname) ->
-      validate(
-        closureConvert(
-          Map.empty,
-          withEnv { _ =>
-            env = env.incrPos /* <actors> */
-            env = env.incrPos /* <key> */
-            val choiceArgumentPos = env.position
-            env = env.incrPos /* <choiceArg> */
-            env = env.incrPos /* <token> */
-            env = env.incrPos //  <keyWithM>
-            val selfBinderPos = env.position
-            env = env.incrPos /* <cid> */
-            env = env.addExprVar(tmpl.param) /* <tmplArg> */
-            val signatories = compile(tmpl.signatories)
-            val observers = compile(tmpl.observers)
-            // now allow access to the choice argument
-            env = env.addExprVar(choice.argBinder._1, choiceArgumentPos)
-            val controllers = compile(choice.controllers)
-            env = env.incrPos // beginExercise's ()
-            // allow access to the self contract id
-            env = env.addExprVar(choice.selfBinder, selfBinderPos)
-            val update = compile(choice.update)
-
-            withLabel(
-              s"exercise @${tmplId.qualifiedName} ${cname}",
-              SEAbs(4) {
-                SELet(
-                  // stack: <actors> <key> <choiceArg> <token>
-                  // <keyWithM> =
-                  SBStructCon(keyWithMaintainersStruct)(
-                    SEVar(3), // key
-                    SEApp(compile(tmplKey.maintainers), Array(SEVar(3) /* key */ )),
-                  ),
-                  // stack: <actors> <key> <choiceArg> <token> <keyWithM>
-                  // <cid> =
-                  SBUFetchKey(tmplId)(
-                    SEVar(1), /* <keyWithM> */
-                    SEVar(2) /* <token> */
-                  ),
-                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid>
-                  // <tmplArg> =
-                  SBUFetch(tmplId)(SEVar(1) /* <cid> */, SEVar(3) /* <token> */ ),
-                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg>
-                  // _ =
-                  SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = true)(
-                    SEVar(5), /* <choiceArg> */
-                    SEVar(2), /* <cid> */
-                    SEVar(7), /* <actors> */
-                    signatories,
-                    observers,
-                    controllers,
-                    SBSome(SEVar(3)),
-                    SEVar(4) /* <token> */
-                  ),
-                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg> ()
-                  // <ret value> =
-                  SEApp(update, Array(SEVar(5) /* <token> */ )),
-                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg> () <retValue>
-                  // _ =
-                  SBUEndExercise(tmplId)(
-                    SEVar(6), /* <token> */
-                    SEVar(1) /* <retValue> */
-                  ),
-                ) in
-                  // stack: <actors> <key> <choiceArg> <token> <keyWithM> <cid> <tmplArg> () <retValue> ()
-                  SEVar(2) /* <retValue> */
-              }
-            )
-          },
-        ),
-      )
+    // ChoiceByKeyDefRef(SomeTemplate, SomeChoice) = \ <actors> <key> <choiceArg> <token> ->
+    //    let <keyWithM> = { key = <key> ; maintainers = [tmpl.maintainers] <key> }
+    //        <cid> = $fecthKey(tmplId) <keyWithM> <token>
+    //        targ = fetch <cid>
+    //       _ = $beginExercise[tmplId,  choice.name, choice.consuming, true] <choiceArg> <cid> <actors> [tmpl.signatories] [tmpl.observers] [choice.controllers] (Some <keyWithM>) <token>
+    //       <retValue> = <updateE> <token>
+    //       _ = $endExercise[tmplId] <token> <retValue>
+    //   in  <retValue>
+    topLevelFunction(
+      ChoiceByKeyDefRef(tmplId, choice.name),
+      4,
+      s"exercise by key @${tmplId.qualifiedName} ${choice.name}") {
+      case List(actorsPos, keyPos, choiceArgPos, tokenPos) =>
+        val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
+        val keyWithMPos = nextPosition()
+        val cid = SBUFetchKey(tmplId)(svar(keyWithMPos), svar(tokenPos))
+        val cidPos = nextPosition()
+        val tmplArg = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
+        nextPositionWithExprName(tmpl.param)
+        val beginExercise =
+          SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = true)(
+            svar(choiceArgPos),
+            svar(cidPos),
+            svar(actorsPos),
+            compile(tmpl.signatories),
+            compile(tmpl.observers), //
+            {
+              addExprVar(choice.argBinder._1, choiceArgPos)
+              compile(choice.controllers)
+            },
+            SBSome(svar(keyWithMPos)),
+            svar(tokenPos)
+          )
+        nextPosition()
+        addExprVar(choice.selfBinder, cidPos)
+        val update = SEApp(compile(choice.update), Array(svar(tokenPos)))
+        val retValuePos = nextPosition()
+        val endExercise = SBUEndExercise(tmplId)(svar(tokenPos), svar(retValuePos))
+        nextPosition()
+        SELet(
+          keyWithM,
+          cid,
+          tmplArg,
+          beginExercise,
+          update,
+          endExercise,
+        ) in
+          svar(retValuePos)
+    }
 
   @tailrec
   private[this] def stripLocs(expr: Expr): Expr =
@@ -1105,7 +1068,7 @@ private[lf] final class Compiler(
 
   private[this] def withBinders[A](binders: ExprVarName*)(f: Unit => A): A =
     withEnv { _ =>
-      env = (binders foldLeft env)(_ addExprVar _)
+      binders.foreach(nextPositionWithExprName)
       f(())
     }
 
@@ -1136,8 +1099,9 @@ private[lf] final class Compiler(
     // The Map is consulted when translating variable references (SEVar) and free variables of an abstraction (SEAbs)
     def remap(i: Int): SELoc =
       remaps.get(i) match {
-        case None => throw CompilationError(s"remap($i),remaps=$remaps")
         case Some(loc) => loc
+        case None =>
+          throw CompilationError(s"remap($i),remaps=$remaps")
       }
     expr match {
       case SEVar(i) => remap(i)
@@ -1295,6 +1259,7 @@ private[lf] final class Compiler(
         case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
       }
+
     go(expr, initiallyBound, Set.empty)
   }
 
@@ -1409,93 +1374,56 @@ private[lf] final class Compiler(
     expr0
   }
 
-  private[this] def compileFetch(tmplId: Identifier, tmpl: Template): (FetchDefRef, SExpr) =
+  private[this] def compileFetch(tmplId: Identifier, tmpl: Template): (SDefinitionRef, SExpr) =
     // compile a template to
     // FetchDefRef(tmplId) = \ <coid> <token> ->
-    //   let arg = $fetch coid token
-    //       _ = $insertFetch coid <signatories> <observers>
-    //   in arg
-    FetchDefRef(tmplId) ->
-      validate(
-        closureConvert(
-          Map.empty,
-          withEnv { _ =>
-            env = env.incrPos // token
-            env = env.addExprVar(tmpl.param) // argument
-            val signatories = compile(tmpl.signatories)
-            val observers = compile(tmpl.observers)
-            val key = tmpl.key match {
-              case None => SEValue.None
-              case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
-            }
-            withLabel(
-              s"fetch @${tmplId.qualifiedName}",
-              SEAbs(2) {
-                SELet(
-                  SBUFetch(tmplId)(
-                    SEVar(2), /* coid */
-                    SEVar(1) /* token */
-                  ),
-                  SBUInsertFetchNode(tmplId, byKey = false)(
-                    SEVar(3), /* coid */
-                    signatories,
-                    observers,
-                    key,
-                    SEVar(2) /* token */
-                  ),
-                ) in SEVar(2) /* fetch result */
-              }
-            )
-          }
-        ))
+    //   let <tmplArg> = $fetch(tmplId) <coid> <token>
+    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key] <token>
+    //   in <tmplArg>
+    topLevelFunction(FetchDefRef(tmplId), 2, s"fetch @${tmplId.qualifiedName}") {
+      case List(cidPos, tokenPos) =>
+        val fetch = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
+        val tmplArgPos = nextPositionWithExprName(tmpl.param)
+        val insertNode = SBUInsertFetchNode(tmplId, byKey = false)(
+          svar(cidPos),
+          compile(tmpl.signatories),
+          compile(tmpl.observers),
+          compileKeyWithMaintainers(tmpl.key),
+          svar(tokenPos)
+        )
+        nextPosition()
 
-  private[this] def compileCreate(tmplId: Identifier, tmpl: Template): (CreateDefRef, SExpr) =
+        SELet(
+          fetch,
+          insertNode,
+        ) in svar(tmplArgPos)
+
+    }
+
+  private[this] def compileCreate(tmplId: Identifier, tmpl: Template): (SDefinitionRef, SExpr) =
     // Translates 'create Foo with <params>' into:
-    // let arg = <params>
-    // let key = if (we have a key definition in the template) {
-    //   let keyBody = <key>
-    //   in Some {key: keyBody, maintainers: <key maintainers> keyBody}
-    // } else {
-    //   None
-    // }
-    // in \token ->
-    //   $create arg <precond> <agreement text> <signatories> <observers> <token> <key>
-    CreateDefRef(tmplId) ->
-      validate(
-        closureConvert(
-          Map.empty,
-          withEnv { _ =>
-            env = env.addExprVar(tmpl.param) // argument
-            env = env.incrPos // token
-            val precond = compile(tmpl.precond)
+    // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
+    //   let _ = $checkPreconf(tmplId)(<tmplArg> [tmpl.precond]
+    //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key] <token>
+    topLevelFunction(CreateDefRef(tmplId), 2, s"create @${tmplId.qualifiedName}") {
+      case List(tmplArgPos, tokenPos) =>
+        addExprVar(tmpl.param, tmplArgPos)
+        val precond = SBCheckPrecond(tmplId)(svar(tmplArgPos), compile(tmpl.precond))
+        nextPosition()
 
-            env = env.incrPos // unit returned by SBCheckPrecond
-            val agreement = compile(tmpl.agreementText)
-            val signatories = compile(tmpl.signatories)
-            val observers = compile(tmpl.observers)
-            val key = tmpl.key match {
-              case None => SEValue.None
-              case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
-            }
-            withLabel(
-              s"create @${tmplId.qualifiedName}",
-              SEAbs(2) {
-                // We check precondition in a separated builtin to prevent
-                // further evaluation of agreement, signatories, observers and key
-                // in case of failed precondition.
-                SELet(SBCheckPrecond(tmplId)(SEVar(2), precond)) in
-                  SBUCreate(tmplId)(
-                    SEVar(3), /* argument */
-                    agreement,
-                    signatories,
-                    observers,
-                    key,
-                    SEVar(2) /* token */
-                  )
-              }
-            )
-          }
-        ))
+        // We check precondition in a separated builtin to prevent
+        // further evaluation of agreement, signatories, observers and key
+        // in case of failed precondition.
+        SELet(precond) in
+          SBUCreate(tmplId)(
+            svar(tmplArgPos),
+            compile(tmpl.agreementText),
+            compile(tmpl.signatories),
+            compile(tmpl.observers),
+            compileKeyWithMaintainers(tmpl.key),
+            svar(tokenPos)
+          )
+    }
 
   private[this] def compileExercise(
       tmplId: Identifier,
@@ -1543,67 +1471,49 @@ private[lf] final class Compiler(
       choiceId: ChoiceName,
       choiceArg: SValue,
   ): SExpr =
-    withEnv { _ =>
-      withLabel(
-        s"createAndExercise @${tmplId.qualifiedName} ${choiceId}",
-        SEAbs(1) {
-          env = env.incrPos // token
-          SELet(
-            SEApp(SEVal(CreateDefRef(tmplId)), Array(SEValue(createArg), SEVar(1))),
-            SEApp(
-              compileExercise(
-                tmplId = tmplId,
-                contractId = SEVar(1),
-                choiceId = choiceId,
-                optActors = None,
-                argument = SEValue(choiceArg),
-              ),
-              Array(SEVar(2)),
+    function(1, s"createAndExercise @${tmplId.qualifiedName} ${choiceId}") {
+      case List(tokenPos) =>
+        val create = SEApp(SEVal(CreateDefRef(tmplId)), Array(SEValue(createArg), svar(tokenPos)))
+        val cidPos = nextPosition()
+        SELet(create) in
+          SEApp(
+            compileExercise(
+              tmplId = tmplId,
+              contractId = svar(cidPos),
+              choiceId = choiceId,
+              optActors = None,
+              argument = SEValue(choiceArg),
             ),
-          ) in SEVar(1)
-        }
-      )
+            Array(svar(tokenPos))
+          )
     }
 
   private[this] def compileLookupByKey(
       tmplId: Identifier,
       tmplKey: TemplateKey,
-  ): (LookupByKeyDefRef, SExpr) =
+  ): (SDefinitionRef, SExpr) =
     // compile a template with key into
-    // LookupByKeyDefRef(tmplId) = \ <keyWithMaintainer> <token> ->
-    //    let mbContractId = $lookupKey keyWithMaintainers
-    //        _ = $insertLookup Foo keyWithMaintainers
-    //    in mbContractId
-    LookupByKeyDefRef(tmplId) ->
-      validate(
-        closureConvert(
-          Map.empty,
-          withEnv { _ =>
-            withLabel(
-              s"lookupByKey @${tmplId.qualifiedName}",
-              SEAbs(2) {
-                env = env.incrPos // key
-                env = env.incrPos // token
-                SELet(
-                  // key with maintainer =
-                  SBStructCon(keyWithMaintainersStruct)(
-                    SEVar(2), // key
-                    SEApp(compile(tmplKey.maintainers), Array(SEVar(2) /* key */ )),
-                  ),
-                  SBULookupKey(tmplId)(
-                    SEVar(1), // key with maintainers
-                    SEVar(2) // token
-                  ),
-                  SBUInsertLookupNode(tmplId)(
-                    SEVar(2), // key with maintainers
-                    SEVar(1), // mb contract id
-                    SEVar(3) // token
-                  ),
-                ) in SEVar(2) // mb contract id
-              }
-            )
-          }
-        ))
+    // LookupByKeyDefRef(tmplId) = \ <key> <token> ->
+    //    let <keyWithM> = { key = <key> ; maintainers = [tmplKey.maintainers] <key> }
+    //        <mbCid> = $lookupKey(tmplId) <keyWithM> <token>
+    //        _ = $insertLookup(tmplId> <keyWithM> <mbCid> <token>
+    //    in <mbCid>
+    topLevelFunction(LookupByKeyDefRef(tmplId), 2, s"lookupByKey @${tmplId.qualifiedName}") {
+      case List(keyPos, tokenPos) =>
+        val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
+        val keyWithMPos = nextPosition()
+        val mbCid = SBULookupKey(tmplId)(svar(keyWithMPos), svar(tokenPos))
+        val maybeCidPos = nextPosition()
+        val insertNode =
+          SBUInsertLookupNode(tmplId)(svar(keyWithMPos), svar(maybeCidPos), svar(tokenPos))
+        nextPosition()
+
+        SELet(
+          keyWithM,
+          mbCid,
+          insertNode,
+        ) in svar(maybeCidPos)
+    }
 
   private[this] val fetchByKeyResultStruct: Struct[Int] =
     Struct.assertFromSeq(List(contractIdFieldName, contractFieldName).zipWithIndex)
@@ -1613,58 +1523,39 @@ private[lf] final class Compiler(
       tmplId: TypeConName,
       tmpl: Template,
       tmplKey: TemplateKey,
-  ): (FetchByKeyDefRef, SExpr) =
+  ): (SDefinitionRef, SExpr) =
     // compile a template with key into
-    // FetchByKeyDefRef(tmplId) = \ <keyWithMaintainer> <token> ->
-    //    let coid = $fetchKey keyWithMaintainers token
-    //        contract = $fetch coid token
-    //        _ = $insertFetch coid <signatories> <observers> Some(keyWithMaintainers)
+    // FetchByKeyDefRef(tmplId) = \ <key> <token> ->
+    //    let <keyWithM> = { key = <key> ; maintainers = [tmpl.maintainers] <key> }
+    //        <coid> = $fetchKey(tmplId) <keyWithM> <token>
+    //        <contract> = $fetch(tmplId) <coid> <token>
+    //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
-    FetchByKeyDefRef(tmplId) ->
-      validate(
-        closureConvert(
-          Map.empty,
-          withEnv { _ =>
-            withLabel(
-              s"fetchByKey @${tmplId.qualifiedName}",
-              SEAbs(2) {
-                env = env.incrPos // key
-                env = env.incrPos // token
-                env = env.addExprVar(tmpl.param)
-                val signatories = compile(tmpl.signatories)
-                val observers = compile(tmpl.observers)
-                SELet(
-                  // key with maintainer =
-                  SBStructCon(keyWithMaintainersStruct)(
-                    SEVar(2), // key
-                    SEApp(compile(tmplKey.maintainers), Array(SEVar(2) /* key */ )),
-                  ),
-                  // coid =
-                  SBUFetchKey(tmplId)(
-                    SEVar(1), // key with maintainers
-                    SEVar(2) // token
-                  ),
-                  // contract =
-                  SBUFetch(tmplId)(
-                    SEVar(1), // coid
-                    SEVar(3) // token
-                  ),
-                  // _ =
-                  SBUInsertFetchNode(tmplId, byKey = true)(
-                    SEVar(2), // coid
-                    signatories,
-                    observers,
-                    SBSome(SEVar(3)), // key with maintainer,
-                    SEVar(4) // token
-                  ),
-                ) in SBStructCon(fetchByKeyResultStruct)(
-                  SEVar(3), // coid
-                  SEVar(2) // contract
-                )
-              }
-            )
-          }
-        ))
+    topLevelFunction(FetchByKeyDefRef(tmplId), 2, s"fetchByKey @${tmplId.qualifiedName}") {
+      case List(keyPos, tokenPos) =>
+        val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
+        val keyWithMPos = nextPosition()
+        val fetchKey = SBUFetchKey(tmplId)(svar(keyWithMPos), svar(tokenPos))
+        val cidPos = nextPosition()
+        val fetch = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
+        val contractPos = nextPositionWithExprName(tmpl.param)
+        val insertNode = SBUInsertFetchNode(tmplId, byKey = true)(
+          svar(cidPos),
+          compile(tmpl.signatories),
+          compile(tmpl.observers),
+          SBSome(svar(keyWithMPos)),
+          svar(tokenPos)
+        )
+        nextPosition()
+
+        SELet(
+          keyWithM,
+          fetchKey,
+          fetch,
+          insertNode,
+        ) in
+          SBStructCon(fetchByKeyResultStruct)(svar(cidPos), svar(contractPos))
+    }
 
   private[this] def compileCommand(cmd: Command): SExpr = cmd match {
     case Command.Create(templateId, argument) =>
@@ -1699,25 +1590,20 @@ private[lf] final class Compiler(
     else
       withEnv { _ =>
         val boundHead = compileCommand(bindings.head)
-        env = env.incrPos // evaluated body of first binding
+        nextPosition()
 
-        val tokenPosition = env.position
-        env = env.incrPos // token
-
-        // add the first binding into the environment
-        env = env.incrPos
-
-        // and then the rest
-        val boundTail = bindings.tail.toList.map { cmd =>
-          val tokenIndex = env.position - tokenPosition
-          env = env.incrPos
-          SEApp(compileCommand(cmd), Array(SEVar(tokenIndex)))
-        }
-        val allBounds = SEAppBoundHead +: boundTail
         SELet(boundHead) in
           SEAbs(1) {
+            val tokenPos = nextPosition()
+            val boundTail = bindings.tail.toList.map { cmd =>
+              nextPosition()
+              SEApp(compileCommand(cmd), Array(svar(tokenPos)))
+            }
+            val allBounds = SEAppBoundHead +: boundTail
+            nextPosition()
+
             SELet(allBounds: _*) in
-              SEApp(SEUpdatePureUnit, Array(SEVar(env.position - tokenPosition)))
+              SEApp(SEUpdatePureUnit, Array(svar(tokenPos)))
           }
       }
 

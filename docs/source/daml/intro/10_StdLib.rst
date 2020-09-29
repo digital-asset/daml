@@ -1,15 +1,18 @@
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 10 Intro to the DAML Standard Library
 =====================================
 
-In chapters :doc:`3_Data` and :doc:`9_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. DAML comes with a library of types, functions and typeclasses that cover a large range of use-cases, the DAML Standard Library. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing DAML code. Specifically, this chapter covers:
+In chapters :doc:`3_Data` and :doc:`9_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. DAML comes with the DAML Standard Library which contains types, functions, and typeclasses that cover a large range of use-cases. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing DAML code. Specifically, this chapter covers:
 
 - The Prelude
 - Important types from the Standard Library, and associated functions and typeclasses
 - Typeclasses
-- Important typeclasses like ``Fuctor``, ``Foldable``, and ``Traversable``
+- Important typeclasses like ``Functor``, ``Foldable``, and ``Traversable``
 - How to search the Standard Library
 
-To go in depth on some of these topics, the literature referenced in :ref:`haskell-connection` covers them in much greater detail. The Standard Library typeclasses like ``Applicative``, ``Foldable``, ``Traversable``, ``Action`` (called ``Monad``), and many more, are the bread and butter of Haskell programmers.
+To go in depth on some of these topics, the literature referenced in :ref:`haskell-connection` covers them in much greater detail. The Standard Library typeclasses like ``Applicative``, ``Foldable``, ``Traversable``, ``Action`` (called ``Monad`` in Haskell), and many more, are the bread and butter of Haskell programmers.
 
 .. note::
 
@@ -28,12 +31,17 @@ In addition to the :ref:`native-types`, the Prelude defines a number of common t
 Lists
 .....
 
-You've already met lists. Lists have two constructors ``[]`` and ``x :: xs``, the latter of which is "prepend" in the sense that ``1 :: [2] == [1, 2]``. That equality is deeper: ``[1,2,3]`` is just special syntax for ``1 :: 2 :: 3 :: []``. 
+You've already met lists. Lists have two constructors ``[]`` and ``x :: xs``, the latter of which is "prepend" in the sense that ``1 :: [2] == [1, 2]``. In fact ``[1,2]`` is just syntactical sugar for ``1 :: 2 :: []``. 
 
 Tuples
 ......
 
-In addition to the 2-tuple you have already seen, the Prelude contains definitions for tuple of size up to 15. Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. An example of a relatively wide Tuple can be found in the test modules of the chapter 8 project. ``Test.Intro.Asset.TradeSetup.tradeSetup`` returns the allocated parties and active contracts in a long tuple. ``Test.Intro.Asset.MultiTrade.testMultiTrade`` puts them back into scope using pattern matching.
+In addition to the 2-tuple you have already seen, the Prelude contains definitions for tuples of size up to 15.
+Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions
+consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. 
+An example of a relatively wide Tuple can be found in the test modules of the chapter 8 project.
+``Test.Intro.Asset.TradeSetup.tradeSetup`` returns the allocated parties and active contracts in a long tuple.
+``Test.Intro.Asset.MultiTrade.testMultiTrade`` puts them back into scope using pattern matching.
 
 .. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/TradeSetup.daml
   :language: daml
@@ -81,11 +89,11 @@ In DAML the same thing would be expressed as
 Either
 ......
 
-``Either`` is used in cases where a value should store one of two types. It has two constructors, ``Left`` and ``Right``, each of which take a value of one or the other of the two types. One typical use-case of ``Either`` is as an extended ``Optional`` where ``Right`` takes the role of ``Some`` and ``Left`` the role of ``None``, but with the ability to store an error value. ``Either Text``, for example behaves just like ``Optional`, except that values with constructor ``Left`` have a text associated to them.
+``Either`` is used in cases where a value should store one of two types. It has two constructors, ``Left`` and ``Right``, each of which take a value of one or the other of the two types. One typical use-case of ``Either`` is as an extended ``Optional`` where ``Right`` takes the role of ``Some`` and ``Left`` the role of ``None``, but with the ability to store an error value. ``Either Text``, for example behaves just like ``Optional``, except that values with constructor ``Left`` have a text associated to them.
 
 .. note::
 
-  As with tuples, it's easy to overuse ``Either`` and harm readability. Consider writing your own type instead.
+  As with tuples, it's easy to overuse ``Either`` and harm readability. Consider writing your own more explicit type instead. For example if you were returning ``South a`` vs ``North b`` using your own type over ``Either`` would make your code clearer.
 
 Typeclasses
 -----------
@@ -121,24 +129,24 @@ Templates always have an ``Eq`` instance, and all types stored on a template nee
 Ord
 ...
 
-The ``Ord`` typeclass allows values of a type to be compared for order. It makes available functions: ``<``, ``>``, ``<=``, and ``>=``. Most of the inbuilt data types have an instance of ``Ord``. Furthermore, types like ``List`` and ``Optional`` get an instance of ``Ord`` if the type they contain has one. You can automatically derive instances of ``Ord`` for you using the ``deriving`` keyword.
+The ``Ord`` typeclass allows values of a type to be compared for order. It makes available functions: ``<``, ``>``, ``<=``, and ``>=``. Most of the inbuilt data types have an instance of ``Ord``. Furthermore, types like ``List`` and ``Optional`` get an instance of ``Ord`` if the type they contain has one. You can let the compiler automatically derive instances of ``Ord`` for you using the ``deriving`` keyword.
 
 Show
 ....
 
-``Show`` indicates that a type can be serialized to ``Text``, ie "shown" in a shell. It's key function is ``show``, which takes a value and converts it to ``Text``. All inbuilt data types have an instance for ``Show`` and types like ``List`` and ``Optional`` get an instance if the type they contain has one. It also supports the ``deriving`` keyword.
+``Show`` indicates that a type can be serialized to ``Text``, ie "shown" in a shell. Its key function is ``show``, which takes a value and converts it to ``Text``. All inbuilt data types have an instance for ``Show`` and types like ``List`` and ``Optional`` get an instance if the type they contain has one. It also supports the ``deriving`` keyword.
 
 Functor
 .......
 
-:ref:`Functors <class-ghc-base-functor-73448>` are the closest thing to "containers" DAML has. Whenever you see a type with a single type parameter, you are probably looking at a ``Functor``: ``[a]``, ``Optional a``, ``Either Text a``, ``Update a``. Functors are things that can be mapped over and as such, the key function of ``Functor`` is ``fmap``, which does generically what the ``map`` function does for lists.
+:ref:`Functors <class-ghc-base-functor-73448>` are the closest thing to "containers" that DAML has. Whenever you see a type with a single type parameter, you are probably looking at a ``Functor``: ``[a]``, ``Optional a``, ``Either Text a``, ``Update a``. Functors are things that can be mapped over and as such, the key function of ``Functor`` is ``fmap``, which does generically what the ``map`` function does for lists.
 
 Other classic examples of Functors are Sets, Maps, Trees, etc.
 
 Applicative Functor
 ...................
 
-:ref:`Applicative Functors <class-da-internal-prelude-applicative-43914>` are a bit like Actions, which you met in :doc:`5_Restrictions`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in DAML is the ``Commands`` type submitted in ``submit`` block in DAML Script. That's why in order to use ``do`` notation in DAML Script, you have to enable the ``ApplicativeDo`` language extension.
+:ref:`Applicative Functors <class-da-internal-prelude-applicative-43914>` are a bit like Actions, which you met in :doc:`5_Restrictions`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in DAML is the ``Commands`` type submitted in a ``submit`` block in DAML Script. That's why in order to use ``do`` notation in DAML Script, you have to enable the ``ApplicativeDo`` language extension.
 
 Actions
 .......
@@ -175,14 +183,14 @@ For almost all the types and typeclasses presented above, the Standard Library c
 
 You get the idea, the names are fairly descriptive.
 
-Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learnt about, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`looping` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :doc:`/daml/stdlib/DA-Traversable`) and :doc:`/daml/stdlib/DA-Foldable`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
+Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learnt about, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`looping` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :doc:`/daml/stdlib/DA-Traversable`, and :doc:`/daml/stdlib/DA-Foldable`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
 
 Searching the Standard Library
 ------------------------------
 
 Being able to browse the Standard Library starting from :doc:`/daml/stdlib/index` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, or even less so to find a function that does a thing you need to do.
 
-DAML has it's own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. It's fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `https://hoogle.daml.com.`.
+DAML has it's own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. It's fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
 
 Searching for functions by Name
 ...............................
@@ -233,3 +241,4 @@ Next up
 -------
 
 There's little more to learn about writing DAML at this point that isn't best learnt by practice and consulting reference material for both DAML and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with DAML code in :doc:`11_Testing`, and about the operational semantics of some keywords and common associated failures.
+

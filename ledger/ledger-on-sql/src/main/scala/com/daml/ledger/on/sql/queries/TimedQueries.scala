@@ -24,7 +24,7 @@ final class TimedQueries(delegate: Queries, metrics: Metrics) extends Queries {
       metrics.daml.ledger.database.queries.selectFromLog,
       delegate.selectFromLog(start, end))
 
-  override def selectStateValuesByKeys(keys: Seq[Key]): Try[immutable.Seq[Option[Value]]] =
+  override def selectStateValuesByKeys(keys: Iterable[Key]): Try[immutable.Seq[Option[Value]]] =
     Timed.value(
       metrics.daml.ledger.database.queries.selectStateValuesByKeys,
       delegate.selectStateValuesByKeys(keys))
@@ -39,7 +39,7 @@ final class TimedQueries(delegate: Queries, metrics: Metrics) extends Queries {
       metrics.daml.ledger.database.queries.insertRecordIntoLog,
       delegate.insertRecordIntoLog(key, value))
 
-  override def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit] =
+  override def updateState(stateUpdates: Iterable[(Key, Value)]): Try[Unit] =
     Timed.value(
       metrics.daml.ledger.database.queries.updateState,
       delegate.updateState(stateUpdates))

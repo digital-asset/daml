@@ -51,7 +51,7 @@ trait LedgerStateOperations[LogResult] {
     * @return values corresponding to the requested keys, in the same order as requested
     */
   def readState(
-      keys: Seq[Key],
+      keys: Iterable[Key],
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]]
 
   /**
@@ -66,7 +66,7 @@ trait LedgerStateOperations[LogResult] {
     * Writes a list of key-value pairs to the backing store.  In case a key already exists its value is overwritten.
     */
   def writeState(
-      keyValuePairs: Seq[(Key, Value)],
+      keyValuePairs: Iterable[(Key, Value)],
   )(implicit executionContext: ExecutionContext): Future[Unit]
 
   /**
@@ -104,12 +104,12 @@ abstract class BatchingLedgerStateOperations[LogResult] extends LedgerStateOpera
 abstract class NonBatchingLedgerStateOperations[LogResult]
     extends LedgerStateOperations[LogResult] {
   override final def readState(
-      keys: Seq[Key],
+      keys: Iterable[Key],
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
-    Future.sequence(keys.map(readState))
+    Future.sequence(keys.map(readState)).map(_.toSeq)
 
   override final def writeState(
-      keyValuePairs: Seq[(Key, Value)],
+      keyValuePairs: Iterable[(Key, Value)],
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future
       .sequence(keyValuePairs.map {
@@ -129,7 +129,7 @@ final class TimedLedgerStateOperations[LogResult](
     Timed.future(metrics.daml.ledger.state.read, delegate.readState(key))
 
   override def readState(
-      keys: Seq[Key],
+      keys: Iterable[Key],
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
     Timed.future(metrics.daml.ledger.state.read, delegate.readState(keys))
 
@@ -140,7 +140,7 @@ final class TimedLedgerStateOperations[LogResult](
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(key, value))
 
   override def writeState(
-      keyValuePairs: Seq[(Key, Value)],
+      keyValuePairs: Iterable[(Key, Value)],
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(keyValuePairs))
 
