@@ -72,9 +72,9 @@ private[daml] object Converter {
     */
   def unrollFree(v: SValue): ErrorOr[SValue Either (Ast.VariantConName, SValue)] =
     v expect ("Free with variant or Pure", {
-      case SVariant(_, "Free", _, v) => Left(v)
-      case SVariant(_, "Pure", _, SVariant(_, variant, _, vv)) =>
+      case SVariant(_, "Free", _, SVariant(_, variant, _, vv)) =>
         Right((variant, vv))
+      case SVariant(_, "Pure", _, v) => Left(v)
     })
 
   object JavaList {
