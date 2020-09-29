@@ -32,7 +32,6 @@ object BatchedSubmissionValidatorFactory {
       BatchedSubmissionValidatorParameters(
         cpuParallelism = 1,
         readParallelism = 1,
-        commitParallelism = 1
       )
     }
 

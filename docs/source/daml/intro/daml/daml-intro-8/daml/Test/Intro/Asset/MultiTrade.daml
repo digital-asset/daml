@@ -39,7 +39,7 @@ issueAsset asset@(Asset with ..) = do
     (ahCid, _)::_ -> submit asset.issuer do
       exerciseCmd ahCid Issue_Asset with ..
     [] -> abort ("No AssetHolder found for " <> show asset)
--- ISSUE_ASSET_BEGIN
+-- ISSUE_ASSET_END
 
 testMultiTrade = script do
   -- Use the V1 Trade Setup Script to set up parties and issue assets:
@@ -60,7 +60,7 @@ testMultiTrade = script do
         , Relationship gbpbank bob
         ]
   [chfha, chfhb, gbpha, gbphb] <- mapA setupRelationship rels
-  -- MAPA_BEGIN
+  -- MAPA_END
 
   let chf = Asset with
         issuer = chfbank
