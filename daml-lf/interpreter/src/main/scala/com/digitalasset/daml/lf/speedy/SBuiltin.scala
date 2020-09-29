@@ -60,6 +60,20 @@ private[speedy] sealed abstract class SBuiltinPure(val arity1: Int) extends SBui
   private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
 }
 
+private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
+    extends SBuiltin(arity)
+    with Product {
+
+  protected def execute(
+      args: util.ArrayList[SValue],
+      machine: Machine,
+      onLedger: OnLedger
+  ): Unit
+
+  final override def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+    machine.withOnLedger(productPrefix)(execute(args, machine, _))
+}
+
 private[lf] object SBuiltin {
 
   //
@@ -837,11 +851,12 @@ private[lf] object SBuiltin {
     *    -> Token
     *    -> ContractId arg
     */
-  final case class SBUCreate(templateId: TypeConName) extends SBuiltin(6) {
-    override private[speedy] final def execute(
+  final case class SBUCreate(templateId: TypeConName) extends OnLedgerBuiltin(6) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBUCreate") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(5))
       val createArg = args.get(0)
       val createArgValue = createArg.toValue
@@ -887,14 +902,14 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       choiceId: ChoiceName,
       consuming: Boolean,
-      byKey: Boolean,
-  ) extends SBuiltin(8) {
+  ) extends OnLedgerBuiltin(8) {
 
-    override private[speedy] final def execute(
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBUBeginExercise") { onLedger =>
-      checkToken(args.get(7))
+        onLedger: OnLedger
+    ): Unit = {
+      checkToken(args.get(8))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
@@ -939,11 +954,12 @@ private[lf] object SBuiltin {
     *    -> Value   (result of the exercise)
     *    -> ()
     */
-  final case class SBUEndExercise(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBUEndExercise(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBUEndExercise") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(0))
       val exerciseResult = args.get(1).toValue
       onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
@@ -957,11 +973,12 @@ private[lf] object SBuiltin {
     *    -> Token
     *    -> a
     */
-  final case class SBUFetch(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBUFetch(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBUFetch") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(1))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
@@ -1010,11 +1027,13 @@ private[lf] object SBuiltin {
     *    -> Token
     *    -> ()
     */
-  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean) extends SBuiltin(5) {
-    override private[speedy] final def execute(
+  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean)
+      extends OnLedgerBuiltin(5) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBUInsertFetchNode") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(4))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
@@ -1047,11 +1066,12 @@ private[lf] object SBuiltin {
     *   -> Token
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBULookupKey(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBULookupKey") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers =
         extractKeyWithMaintainers(args.get(0))
@@ -1095,11 +1115,12 @@ private[lf] object SBuiltin {
     *    -> Token
     *    -> ()
     */
-  final case class SBUInsertLookupNode(templateId: TypeConName) extends SBuiltin(3) {
-    override private[speedy] final def execute(
+  final case class SBUInsertLookupNode(templateId: TypeConName) extends OnLedgerBuiltin(3) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBUInsertLookupNode") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(2))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val mbCoid = args.get(1) match {
@@ -1131,11 +1152,12 @@ private[lf] object SBuiltin {
     *   -> Token
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBUFetchKey(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBUFetchKey") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
@@ -1184,11 +1206,12 @@ private[lf] object SBuiltin {
   }
 
   /** $beginCommit :: Party -> Token -> () */
-  final case class SBSBeginCommit(optLocation: Option[Location]) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBSBeginCommit(optLocation: Option[Location]) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBSBeginCommit") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(1))
       onLedger.localContracts = Map.empty
       onLedger.globalDiscriminators = Set.empty
@@ -1199,11 +1222,12 @@ private[lf] object SBuiltin {
   }
 
   /** $endCommit[mustFail?] :: result -> Token -> () */
-  final case class SBSEndCommit(mustFail: Boolean) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBSEndCommit(mustFail: Boolean) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
-    ): Unit = machine.withOnLedger("SBSEndCommit") { onLedger =>
+        onLedger: OnLedger
+    ): Unit = {
       checkToken(args.get(1))
       if (mustFail) executeMustFail(args, machine, onLedger)
       else executeCommit(args, machine, onLedger)
