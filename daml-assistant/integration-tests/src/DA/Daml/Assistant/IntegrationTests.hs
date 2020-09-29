@@ -105,8 +105,7 @@ packagingTests = testGroup "packaging"
             , "  - daml-stdlib"
             ]
         writeFileUTF8 (myDepDir </> "daml" </> "MyDep.daml") $ unlines
-          [ "daml 1.2"
-          , "module MyDep where"
+          [ "module MyDep where"
           ]
         withCurrentDirectory myDepDir $ callCommandSilent "daml build -o mydep.dar"
         let myTriggerDir = tmpDir </> "mytrigger"
@@ -123,8 +122,7 @@ packagingTests = testGroup "packaging"
             , "  - " <> myDepDir </> "mydep.dar"
             ]
         writeFileUTF8 (myTriggerDir </> "daml/Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
+            [ "module Main where"
             , "import MyDep ()"
             , "import Daml.Trigger ()"
             ]
@@ -216,8 +214,7 @@ packagingTests = testGroup "packaging"
           , "  - --wall-clock-time"
           ]
         writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
-          [ "daml 1.2"
-          , "module Main where"
+          [ "module Main where"
           , "import Daml.Script"
           , "template T with p : Party where signatory p"
           , "init : Script ()"
@@ -283,8 +280,7 @@ packagingTests = testGroup "packaging"
           , "  - daml-stdlib"
           ]
         writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
-          [ "daml 1.2"
-          , "module Main where"
+          [ "module Main where"
           , "template T with p : Party where signatory p"
           ]
         sandboxPort :: Int <- fromIntegral <$> getFreePort
@@ -379,8 +375,7 @@ packagingTests = testGroup "packaging"
           , "  - daml-stdlib"
           ]
         writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
-          [ "daml 1.2"
-          , "module Main where"
+          [ "module Main where"
           , "template T with p : Party where signatory p"
           ]
         sandboxPort :: Int <- fromIntegral <$> getFreePort

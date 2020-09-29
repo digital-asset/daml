@@ -296,7 +296,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("DAML Engine") { onLedger =>
     var finished: Boolean = false
     while (!finished) {
       machine.run() match {
@@ -305,8 +305,8 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         case SResultError(err) =>
           return ResultError(
             Error(
-              s"Interpretation error: ${Pretty.prettyError(err, machine.ptx).render(80)}",
-              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${machine.ptx.nodesToString}"
+              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptx).render(80)}",
+              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptx.nodesToString}"
             ))
 
         case SResultNeedPackage(pkgId, callback) =>
@@ -329,7 +329,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
           )
 
         case SResultNeedTime(callback) =>
-          machine.dependsOnTime = true
+          onLedger.dependsOnTime = true
           callback(time)
 
         case SResultNeedKey(gk, _, cb) =>
@@ -356,18 +356,18 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       }
     }
 
-    machine.ptx.finish(
-      machine.outputTransactionVersions,
+    onLedger.ptx.finish(
+      onLedger.outputTransactionVersions,
       compiledPackages.packageLanguageVersion,
     ) match {
       case PartialTransaction.CompleteTransaction(tx) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
-          submissionTime = machine.ptx.submissionTime,
+          submissionTime = onLedger.ptx.submissionTime,
           usedPackages = Set.empty,
-          dependsOnTime = machine.dependsOnTime,
-          nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
-          byKeyNodes = machine.ptx.byKeyNodes.toImmArray,
+          dependsOnTime = onLedger.dependsOnTime,
+          nodeSeeds = onLedger.ptx.nodeSeeds.toImmArray,
+          byKeyNodes = onLedger.ptx.byKeyNodes.toImmArray,
         )
         config.profileDir.foreach { dir =>
           val hash = meta.nodeSeeds(0)._2.toHexString

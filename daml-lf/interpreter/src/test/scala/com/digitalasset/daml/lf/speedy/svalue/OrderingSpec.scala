@@ -4,12 +4,14 @@
 package com.daml.lf.speedy
 package svalue
 
+import com.daml.lf.crypto
 import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.SEImportValue
+import com.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEImportValue, SELocA}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.TransactionVersions
+import com.daml.lf.value.{Value, ValueVersions}
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
@@ -107,7 +109,15 @@ class OrderingSpec
   private[this] val noPackages = PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
 
   private def translatePrimValue(v: Value[Value.ContractId]) = {
-    val machine = Speedy.Machine.fromPureSExpr(noPackages, SEImportValue(v))
+    val seed = crypto.Hash.hashPrivateKey("OrderingSpec")
+    val machine = Speedy.Machine.fromScenarioSExpr(
+      noPackages,
+      transactionSeed = seed,
+      scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(v))),
+      inputValueVersions = ValueVersions.Empty,
+      outputTransactionVersions = TransactionVersions.Empty
+    )
+
     machine.run() match {
       case SResultFinalValue(value) => value
       case _ => throw new Error(s"error while translating value $v")
