@@ -33,8 +33,8 @@ When comparing DAML to Haskell it's worth noting:
 -   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". DAML by contrast is strict. Expressions are fully evaluated, which means it it not possible to work with infinite data structures.
 - DAML has a ``with`` syntax for records, and dot syntax for record field access, neither of which present in Haskell. But DAML supports Haskell's curly brace record notation.
 - DAML has a number of Haskell compiler extensions active by default.
-- DAML doesn't support all features of Haskell's type system. For example, there are no existential types of GADTs.
-- Actions, called Monads in Haskell.
+- DAML doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
+- Actions are called Monads in Haskell.
 
 Functions
 ---------
@@ -472,7 +472,7 @@ The folds and ``map`` function above are pure in the sense introduced in :doc:`5
 Here we have a list ``assetCids : [ContractId AssetV1.Asset]`` and a function ``upgradeAsset : ContractId AssetV1.Asset -> Update (ContractId AssetV2.Asset)``. We want ``UpgradeContracts`` to return a list ``[ContractId AssetV1.Asset]``. Using the map function almost gets us there. ``map upgradeAsset assetCids : [Update (ContractId AssetV2.Asset)]``. This is a list of actions, each resulting in a ``ContractId AssetV2.Asset``. What we need is an ``Update`` action resulting in a ``[ContractId AssetV2.Asset]``. The list and ``Update`` are the wrong way around for our purposes.
 
 
- Intuitively, it's clear how to fix this: we want the compound action consisting of performing each of the actions in the list in turn. There's a function for that, of course. ``sequence : : Applicative m => [m a] -> m [a]`` implements that intuition and allows us to take the ``Update`` out of the list. So we could write ``sequence (map upgradeAsset assetCids``. This is so common that it's encapsulated in the ``mapA`` function, a possible implementation of which is
+ Intuitively, it's clear how to fix this: we want the compound action consisting of performing each of the actions in the list in turn. There's a function for that, of course. ``sequence : : Applicative m => [m a] -> m [a]`` implements that intuition and allows us to take the ``Update`` out of the list. So we could write ``sequence (map upgradeAsset assetCids)``. This is so common that it's encapsulated in the ``mapA`` function, a possible implementation of which is
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
