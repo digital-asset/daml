@@ -6,13 +6,19 @@ package com.daml.ledger.validator.preexecution
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.{Bytes, DamlKvutils, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.{StateKeySerializationStrategy, inParallel}
+import com.daml.ledger.validator.{
+  StateKeySerializationStrategy,
+  StateSerializationStrategy,
+  inParallel
+}
 import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySerializationStrategy)
-    extends PreExecutingCommitStrategy[RawKeyValuePairsWithLogEntry] {
+final class LogAppenderPreExecutingCommitStrategy(
+    keySerializationStrategy: StateKeySerializationStrategy,
+) extends PreExecutingCommitStrategy[RawKeyValuePairsWithLogEntry] {
+  private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
 
   override def generateWriteSets(
       participantId: ParticipantId,
@@ -26,7 +32,7 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
         serializedSuccessKeyValuePairs,
         (serializedSuccessLogEntryPair, serializedOutOfTimeBoundsLogEntryPair),
       ) <- inParallel(
-        Future(keySerializationStrategy.serializeState(preExecutionResult.stateUpdates)),
+        Future(stateSerializationStrategy.serializeState(preExecutionResult.stateUpdates)),
         Future(logEntryId.toByteString).flatMap(
           serializedId =>
             inParallel(

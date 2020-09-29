@@ -20,6 +20,8 @@ class LogAppendingCommitStrategy[Index](
     keySerializationStrategy: StateKeySerializationStrategy,
 )(implicit executionContext: ExecutionContext)
     extends CommitStrategy[Index] {
+  private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
+
   override def commit(
       participantId: ParticipantId,
       correlationId: String,
@@ -31,7 +33,7 @@ class LogAppendingCommitStrategy[Index](
   ): Future[Index] =
     for {
       (serializedKeyValuePairs, envelopedLogEntry) <- inParallel(
-        Future(keySerializationStrategy.serializeState(outputState)),
+        Future(stateSerializationStrategy.serializeState(outputState)),
         Future(Envelope.enclose(entry)),
       )
       (_, _, index) <- inParallel(

@@ -49,8 +49,6 @@ final class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers w
         .thenReturn(Future.successful(0L))
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
       val expectedStateKey = ByteString.copyFromUtf8("some key")
-      when(mockStateKeySerializationStrategy.serializeState(any[Map[DamlStateKey, DamlStateValue]]))
-        .thenCallRealMethod()
       when(mockStateKeySerializationStrategy.serializeStateKey(aStateKey))
         .thenReturn(expectedStateKey)
       val expectedOutputStateBytes = Map(expectedStateKey -> Envelope.enclose(aStateValue))
