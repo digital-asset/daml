@@ -54,7 +54,7 @@ Sandbox CLI Testing
 
 The next step up in terms of how "real" the tests are is the command ``daml test-script``. Unlike ``daml test``, these tests are performed via a Ledger API against a real Ledger. If no ledger host and port are provided, a temporary Sandbox is started to run the tests against.
 
-In the same project, make sure you have compiled the contracts (``daml build -o multi-trade.dar``), then run ``daml test-script --dar multi-trade.dar``. You'll see a lot more output this time, starting with a Sandbox being started up, followed by DAML Scrpipt outputs. Each script should finish with a message of the type ``Test.Intro.Asset.MultiTrade.daml:testMultiTrade SUCCESS``.
+In the same project, make sure you have compiled the contracts (``daml build -o multi-trade.dar``), then run ``daml test-script --dar multi-trade.dar``. You'll see a lot more output this time, starting with a Sandbox being started up, followed by DAML Script outputs. Each script should finish with a message of the type ``Test.Intro.Asset.MultiTrade.daml:testMultiTrade SUCCESS``.
 
 Script Against a Running Ledger
 ...............................
