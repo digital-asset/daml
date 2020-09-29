@@ -11,6 +11,7 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.speedy.Speedy.{OnLedger, OffLedger}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 
@@ -29,7 +30,10 @@ final case class ScenarioRunner(
     machine: Speedy.Machine,
     partyNameMangler: (String => String) = identity) {
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
-  val onLedger = machine.withOnLedger("ScenarioRunner")(identity)
+  val onLedger = machine.ledgerMode match {
+    case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
+    case onLedger: OnLedger => onLedger
+  }
 
   import scala.util.{Try, Success, Failure}
 

@@ -40,7 +40,7 @@ import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.{ScenarioRunner, TraceLog}
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, OnLedger, OffLedger}
 import com.daml.lf.speedy.{PartialTransaction, SValue}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -388,7 +388,10 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
     traceLog = traceLog,
   )
-  val onLedger = machine.withOnLedger("IdeClient")(identity)
+  val onLedger = machine.ledgerMode match {
+    case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
+    case onLedger: OnLedger => onLedger
+  }
   val scenarioRunner = ScenarioRunner(machine)
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
