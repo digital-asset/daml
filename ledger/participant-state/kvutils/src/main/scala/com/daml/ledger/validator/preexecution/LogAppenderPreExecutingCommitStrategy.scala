@@ -4,12 +4,19 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
-import com.daml.ledger.participant.state.kvutils.{Bytes, DamlKvutils, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{
+  Bytes,
+  DamlKvutils,
+  Envelope,
+  KeyValueCommitting,
+  `Bytes Ordering`
+}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.google.protobuf.ByteString
 
-import scala.collection.breakOut
+import scala.collection.{SortedMap, breakOut}
 import scala.concurrent.{ExecutionContext, Future}
 
 class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySerializationStrategy)
@@ -21,16 +28,15 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
       inputState: Map[DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue]],
       preExecutionResult: KeyValueCommitting.PreExecutionResult,
   )(implicit executionContext: ExecutionContext)
-    : Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] =
-    for {
-      serializedSuccessKeyValuePairs <- Future {
-        preExecutionResult.stateUpdates.map {
+    : Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] = {
+    val serializedSuccessKeyValuePairs: SortedMap[Key, Value] =
+      preExecutionResult.stateUpdates
+        .map {
           case (key, value) =>
-            keySerializationStrategy.serializeStateKey(key) -> Envelope
-              .enclose(value)
+            (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
         }(breakOut)
-      }
-      serializedLogEntryId = entryId.toByteString
+    val serializedLogEntryId = entryId.toByteString
+    for {
       serializedSuccessLogEntryPair <- logEntryToKeyValuePairs(
         serializedLogEntryId,
         preExecutionResult.successfulLogEntry)
@@ -52,6 +58,7 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
         // public ledgers.
         involvedParticipants = Set.empty
       )
+  }
 
   private def logEntryToKeyValuePairs(
       logEntryId: ByteString,
