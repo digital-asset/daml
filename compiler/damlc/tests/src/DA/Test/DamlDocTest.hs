@@ -86,14 +86,12 @@ generateTests = testGroup "generate doctest module"
 
 testModuleHeader :: [T.Text]
 testModuleHeader =
-    [ "daml 1.2"
-    , "module Test where"
+    [ "module Test where"
     ]
 
 doctestHeader :: [T.Text]
 doctestHeader =
     [ "{-# OPTIONS_GHC -Wno-unused-imports #-}"
-    , "daml 1.2"
     , "module Test_doctest where"
     , ""
     , "import Test"

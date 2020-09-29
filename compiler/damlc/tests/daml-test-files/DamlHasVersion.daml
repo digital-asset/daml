@@ -1,4 +1,5 @@
 daml 1.2
+-- @WARN The "daml 1.2" version header is deprecated, please remove it.
 
 -- | Testing the daml version header.
 module DamlHasVersion(T, main) where

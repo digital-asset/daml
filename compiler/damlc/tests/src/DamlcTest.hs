@@ -53,7 +53,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module Good where"
+        [ "module Good where"
         , "good = 1 + 2"
         ]
       step "build"
@@ -75,7 +75,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module Good where"
+        [ "module Good where"
         , "template MyT"
         , "  with"
         , "    myParty : Party"
@@ -101,7 +101,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module Good where"
+        [ "module Good where"
         , "good = 1"
         ]
       step "build"
@@ -131,7 +131,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module Good where"
+        [ "module Good where"
         , "good = 1"
         ]
       step "build"
@@ -163,8 +163,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
         withTempDir $ \dir -> do
             let file = dir </> "Foo.daml"
             T.writeFileUtf8 file $ T.unlines
-              [ "daml 1.2"
-              , "module Foo where"
+              [ "module Foo where"
               , "abc"
               ]
             (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
@@ -175,8 +174,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
         withTempDir $ \dir -> do
             let file = dir </> "Foo.daml"
             T.writeFileUtf8 file $ T.unlines
-              [ "daml 1.2"
-              , "module Foo where"
+              [ "module Foo where"
               , "x = scenario $ assert False"
               ]
             (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
@@ -185,8 +183,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             exitCode @?= ExitFailure 1
     , testCase "damlc test --files outside of project" $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
+            [ "module Main where"
             , "test = scenario do"
             , "  assert True"
             ]
@@ -197,8 +194,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
     , testCase "damlc test --project-root relative" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "relative")
           writeFileUTF8 (projDir </> "relative" </> "Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
+            [ "module Main where"
             , "test = scenario do"
             , "  assert True"
             ]
@@ -222,7 +218,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
           writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
-            [ "daml 1.2 module A where"
+            [ "module A where"
             , "a = 1"
             ]
           callProcessSilent damlc ["build", "--project-root", projDir </> "a"]
@@ -235,7 +231,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
             ]
           writeFileUTF8 (projDir </> "b" </> "B.daml") $ unlines
-            [ "daml 1.2 module B where"
+            [ "module B where"
             , "import A"
             , "b = a"
             , "test = scenario do"
