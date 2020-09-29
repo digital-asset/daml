@@ -1,0 +1,89 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- PRAGMA_BEGIN
+
+module Intro.Asset.V2.Role where
+
+import DA.List
+
+-- IMPORT_BEGIN
+import Intro.Asset.V2
+-- IMPORT_END
+
+template AssetHolderInvite
+  with
+    issuer : Party
+    signedOwners : [Party]
+    invitedOwners : [Party]
+  where
+    signatory issuer, signedOwners
+-- ENSURE_BEGIN
+    ensure not (null invitedOwners) && unique (invitedOwners <> signedOwners)
+-- ENSURE_END
+    controller head invitedOwners can
+      AssetHolderInvite_Accept
+        : ()
+        do
+          if length invitedOwners == 1 then do
+            create AssetHolder with
+              issuer
+              owner = invitedOwners <> signedOwners
+            return ()
+          else do
+            create AssetHolderInvite with
+              issuer
+              signedOwners = (head invitedOwners) :: signedOwners
+              invitedOwners = tail invitedOwners
+            return ()
+
+template AssetHolder
+  with
+    issuer : Party
+    owner : [Party]
+  where
+    signatory issuer, owner
+
+    key this : AssetHolder
+    maintainer key.issuer
+
+    controller issuer can
+      nonconsuming Issue_Asset
+        : ContractId Asset
+        with
+          symbol : Text
+          quantity : Decimal
+        do
+          create Asset with
+            issuer
+            owner
+            symbol
+            quantity
+            observers = []
+
+    controller owner can
+      nonconsuming Accept_Transfer
+        : ContractId Asset
+        with
+          transferProposalCid : ContractId TransferProposal
+        do
+          exercise transferProposalCid TransferProposal_Accept
+
+      nonconsuming Preapprove_Transfer
+        : ContractId TransferApproval
+        with
+          asset : Asset
+        do
+          create TransferApproval with
+            asset
+            newOwner = owner
+
+      nonconsuming InviteOthers
+        : ContractId AssetHolderInvite
+        with
+          others : [Party]
+        do
+          create AssetHolderInvite with
+            issuer
+            invitedOwners = others
+            signedOwners = owner
