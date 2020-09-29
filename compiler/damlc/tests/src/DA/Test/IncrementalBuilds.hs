@@ -25,8 +25,7 @@ tests :: FilePath -> FilePath -> TestTree
 tests damlc repl = testGroup "Incremental builds"
     [ test "No changes"
         [ ("daml/A.daml", unlines
-           [ "daml 1.2"
-           , "module A where"
+           [ "module A where"
            ]
           )
         ]
@@ -35,15 +34,13 @@ tests damlc repl = testGroup "Incremental builds"
         (ShouldSucceed True)
     , test "Modify single file"
         [ ("daml/A.daml", unlines
-           [ "daml 1.2"
-           , "module A where"
+           [ "module A where"
            , "test = scenario $ assert True"
            ]
           )
         ]
         [ ("daml/A.daml", unlines
-           [ "daml 1.2"
-           , "module A where"
+           [ "module A where"
            , "test = scenario $ assert False"
            ]
           )
@@ -52,22 +49,19 @@ tests damlc repl = testGroup "Incremental builds"
         (ShouldSucceed False)
     , test "Modify dependency without ABI change"
         [ ("daml/A.daml", unlines
-           [ "daml 1.2"
-           , "module A where"
+           [ "module A where"
            , "import B"
            , "test = scenario $ b"
            ]
           )
         , ("daml/B.daml", unlines
-           [ "daml 1.2"
-           , "module B where"
+           [ "module B where"
            , "b = scenario $ assert True"
            ]
           )
         ]
         [ ("daml/B.daml", unlines
-           [ "daml 1.2"
-           , "module B where"
+           [ "module B where"
            , "b = scenario $ assert False"
            ]
           )
@@ -76,23 +70,20 @@ tests damlc repl = testGroup "Incremental builds"
         (ShouldSucceed False)
     , test "Modify dependency with ABI change"
         [ ("daml/A.daml", unlines
-           [ "daml 1.2"
-           , "module A where"
+           [ "module A where"
            , "import B"
            , "test = scenario $ do _ <- b; pure ()"
            ]
           )
         , ("daml/B.daml", unlines
-           [ "daml 1.2"
-           , "module B where"
+           [ "module B where"
            , "b : Scenario Bool"
            , "b = pure True"
            ]
           )
         ]
         [ ("daml/B.daml", unlines
-           [ "daml 1.2"
-           , "module B where"
+           [ "module B where"
            , "b : Scenario ()"
            , "b = assert False"
            ]
@@ -104,7 +95,7 @@ tests damlc repl = testGroup "Incremental builds"
       -- This test checks that we setup dependent modules in the right order. Note that just having imports is not sufficient
       -- to trigger this. The modules actually need to use identifiers from the other modules.
       [ ("daml/A.daml", unlines
-         [ "daml 1.2 module A where"
+         [ "module A where"
          , "import B"
          , "test = scenario $ do"
          , "  p <- getParty \"Alice\""
@@ -113,7 +104,7 @@ tests damlc repl = testGroup "Incremental builds"
          ]
         )
       , ("daml/B.daml", unlines
-         [ "daml 1.2 module B (module C, Y(..)) where"
+         [ "module B (module C, Y(..)) where"
          , "import C"
          , "template Y"
          , "  with p : Party; cid : ContractId X"
@@ -121,7 +112,7 @@ tests damlc repl = testGroup "Incremental builds"
          ]
         )
       , ("daml/C.daml", unlines
-         [ "daml 1.2 module C where"
+         [ "module C where"
          , "template X"
          , "  with p : Party"
          , "  where signatory p"

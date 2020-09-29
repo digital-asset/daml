@@ -32,7 +32,7 @@ mkModule n = T.unlines
   ]
 
 mkHeader :: Int -> T.Text
-mkHeader n = T.pack $ "daml 1.2\nmodule " <> stdModName n <> "\n  where"
+mkHeader n = T.pack $ "module " <> stdModName n <> "\n  where"
 
 mkImport :: Int -> T.Text
 mkImport k = T.pack $ "import qualified " <> stdModName k
