@@ -33,14 +33,14 @@ You've already met lists. Lists have two constructors ``[]`` and ``x :: xs``, th
 Tuples
 ......
 
-In addition to the 2-tuple you have already seen, the Prelude contains definitions for tuple of size up to 15. Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. An example of a relatively wide Tuple can be found in the test modules of the Chapter 8 upgrade project. ``Test.Intro.Asset.Upgrade.V1Setup.v1Setup`` returns the allocated parties and active contracts in a long tuple. ``Test.Intro.Asset.Upgrade.V2.testUpgrade`` puts them back into scope using pattern matching.
+In addition to the 2-tuple you have already seen, the Prelude contains definitions for tuple of size up to 15. Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. An example of a relatively wide Tuple can be found in the test modules of the chapter 8 project. ``Test.Intro.Asset.TradeSetup.tradeSetup`` returns the allocated parties and active contracts in a long tuple. ``Test.Intro.Asset.MultiTrade.testMultiTrade`` puts them back into scope using pattern matching.
 
-.. literalinclude:: daml/daml-intro-8-upgrade/daml/Test/Intro/Asset/Upgrade/V1Setup.daml
+.. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/TradeSetup.daml
   :language: daml
   :start-after: -- TUPLE_RETURN_BEGIN
   :end-before: -- TUPLE_RETURN_END
 
-.. literalinclude:: daml/daml-intro-8-upgrade/daml/Test/Intro/Asset/Upgrade/V2.daml
+.. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
   :start-after: -- TUPLE_USE_BEGIN
   :end-before: -- TUPLE_USE_END
@@ -187,33 +187,33 @@ DAML has it's own version of the `Hoogle <https://hoogle.haskell.org/>`__ search
 Searching for functions by Name
 ...............................
 
-Say you come across some functions you haven't seen before, like the ones in the ``ensure`` clause of the V2 ``AssetHolderInvite``.
+Say you come across some functions you haven't seen before, like the ones in the ``ensure`` clause of the ``MultiTrade``.
 
-.. literalinclude:: daml/daml-intro-8-assets/daml/Intro/Asset/V2/Role.daml
+.. literalinclude:: daml/daml-intro-8/daml/Intro/Asset/MultiTrade.daml
   :language: daml
   :start-after: -- ENSURE_BEGIN
   :end-before: -- ENSURE_END
 
-You may be able to guess what ``not``, ``null`` and ``unique`` do, but try searching those names in the documentation search. Search results from the Standard Library will show on top. ``unique``, for example, gives
+You may be able to guess what ``not`` and ``null`` do, but try searching those names in the documentation search. Search results from the Standard Library will show on top. ``not``, for example, gives
 
 .. code-block:: none
 
-   unique
+   not
+    
+    : Bool -> Bool
 
-      : Ord a => [a] -> Bool
+    Boolean “not”
 
-      Returns True if and only if there are no duplicate elements in the given list.
-
-Signature (including type constraints) and description, usually give a pretty clear picture of what a function does. In case you are wondering why this needs ``Ord a`` and not just ``Eq a``, it's because the same function using only ``Eq a`` would have quadratic complexity.
+Signature (including type constraints) and description usually give a pretty clear picture of what a function does.
 
 Searching for functions by Signature
 ....................................
 
-The other very common use-case for the search is that you have some values that you want to do something with, but don't know the standard library function you need. Say you have a list, and thanks to your ensure clause you know it's non-empty. How do you get the first element without going through the motions of a complete pattern match using ``case``?
+The other very common use-case for the search is that you have some values that you want to do something with, but don't know the standard library function you need. On the ``MultiTrade`` template we have a list ``baseAssets``, and thanks to your ensure clause we know it's non-empty. In the original ``Trade`` we used ``baseAsset.owner`` as the signatory. How do you get the first element of this list to extract the ``owner`` without going through the motions of a complete pattern match using ``case``?
 
-The trick is to think about the signature of the function that's needed, and then to search for that signature. We want a single distinguished element from a list so the signature should be ``[a] -> a``. If you search for that, you'll get a whole range of results, but again, Standard Library results are shown at the top.
+The trick is to think about the signature of the function that's needed, and then to search for that signature. In this case, we want a single distinguished element from a list so the signature should be ``[a] -> a``. If you search for that, you'll get a whole range of results, but again, Standard Library results are shown at the top.
 
-Scanning the descriptions, ``head`` is the obvious choice, as used in the ``controller`` of the V2 ``AssetHolderInvite`` template.
+Scanning the descriptions, ``head`` is the obvious choice, as used in the ``let`` of the ``MultiTrade`` template.
 
 You may notice that in the search results you also get some hits that don't mention ``[]`` explicitly. For example:
 
