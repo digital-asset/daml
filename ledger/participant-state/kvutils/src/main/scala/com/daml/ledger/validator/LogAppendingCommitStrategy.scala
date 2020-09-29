@@ -9,10 +9,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.{Envelope, `Bytes Ordering`}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
+import scala.collection.{SortedMap, breakOut}
 import scala.concurrent.{ExecutionContext, Future}
 
 class LogAppendingCommitStrategy[Index](
@@ -29,13 +31,11 @@ class LogAppendingCommitStrategy[Index](
       outputState: Map[DamlStateKey, DamlStateValue],
       exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder] = None,
   ): Future[Index] = {
-    val serializedKeyValuePairs = outputState.view
+    val serializedKeyValuePairs: SortedMap[Key, Value] = outputState
       .map {
         case (key, value) =>
           (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
-      }
-      .toVector
-      .sortBy(_._1.asReadOnlyByteBuffer)
+      }(breakOut)
     exporterWriteSet.foreach {
       _ ++= serializedKeyValuePairs
     }
