@@ -148,7 +148,7 @@ In the ``assert`` statements above, we always compared values of in-built types.
 
 There are some other typeclasses that the compiler can derive automatically. Most prominently, ``Show`` to get access to the function ``show`` (equivalent to ``toString`` in many languages) and ``Ord``, which gives access to comparison operators ``<``, ``>``, ``<=``, ``>=``.
 
-It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show)``. The record types created using ``template T with`` do this automatically, and the native types have appropriate typeclass instances. Eg `Int` derives `Eq`, `Show` and `Ord`, and `ContractId a` derives `Eq`.
+It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show)``. The record types created using ``template T with`` do this automatically, and the native types have appropriate typeclass instances. Eg ``Int`` derives ``Eq``, ``Show`` and ``Ord``, and ``ContractId a`` derives ``Eq`` and ``Show``.
 
 Records can give the data on ``CashBalance`` a bit more structure:
 
