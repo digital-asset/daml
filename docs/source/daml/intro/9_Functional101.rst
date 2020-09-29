@@ -337,6 +337,13 @@ Note that we still need the ``else`` clause of the same type ``()``. This patter
   :start-after: -- WHEN_BEGIN
   :end-before: -- WHEN_END
 
+Despite ``when`` looking like a simple function, the compiler does some magic so that is short circuits evaluation just like ``if..else``. ``noop`` is a no-op, not an error as one might otherwise expect:
+
+.. literalinclude:: daml/daml-intro-9/daml/Main.daml
+  :language: daml
+  :start-after: -- MAGIC_WHEN_BEGIN
+  :end-before: -- MAGIC_WHEN_END
+
 With ``case``, ``if..else``, ``void`` and ``when``, you can express all branching. However, one additional feature you may want to learn is guards. They are not covered here, but can help avoid deeply nested ``if..else`` blocks. Here's just one example. The Haskell sources at the beginning of the chapter cover this topic in more depth.
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml

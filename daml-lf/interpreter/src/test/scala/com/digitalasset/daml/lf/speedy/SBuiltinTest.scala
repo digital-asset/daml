@@ -6,6 +6,7 @@ package speedy
 
 import java.util
 
+import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SErrorCrash}
@@ -13,7 +14,8 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.TransactionVersions
+import com.daml.lf.value.{Value, ValueVersions}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
@@ -1413,7 +1415,18 @@ object SBuiltinTest {
   }
 
   private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, e, onLedger)
+    val machine = if (onLedger) {
+      val seed = crypto.Hash.hashPrivateKey("SBuiltinTest")
+      Speedy.Machine.fromScenarioSExpr(
+        compiledPackages,
+        transactionSeed = seed,
+        scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+        inputValueVersions = ValueVersions.Empty,
+        outputTransactionVersions = TransactionVersions.Empty
+      )
+    } else {
+      Speedy.Machine.fromPureSExpr(compiledPackages, e)
+    }
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       val value = machine.run() match {

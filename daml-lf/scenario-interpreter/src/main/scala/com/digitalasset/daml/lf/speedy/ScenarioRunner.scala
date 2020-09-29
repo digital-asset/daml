@@ -11,6 +11,7 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.speedy.Speedy.{OnLedger, OffLedger}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 
@@ -29,6 +30,10 @@ final case class ScenarioRunner(
     machine: Speedy.Machine,
     partyNameMangler: (String => String) = identity) {
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+  val onLedger = machine.ledgerMode match {
+    case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
+    case onLedger: OnLedger => onLedger
+  }
 
   import scala.util.{Try, Success, Failure}
 
@@ -121,13 +126,13 @@ final case class ScenarioRunner(
         .commitTransaction(
           committer = committer,
           effectiveAt = ledger.currentTime,
-          optLocation = machine.commitLocation,
+          optLocation = onLedger.commitLocation,
           tx = tx,
           l = ledger)
         .isRight) {
       throw SRunnerException(ScenarioErrorMustFailSucceeded(tx))
     }
-    ledger = ledger.insertAssertMustFail(committer, machine.commitLocation)
+    ledger = ledger.insertAssertMustFail(committer, onLedger.commitLocation)
   }
 
   private def commit(
@@ -141,7 +146,7 @@ final case class ScenarioRunner(
     ScenarioLedger.commitTransaction(
       committer = committer,
       effectiveAt = ledger.currentTime,
-      optLocation = machine.commitLocation,
+      optLocation = onLedger.commitLocation,
       tx = tx,
       l = ledger
     ) match {
