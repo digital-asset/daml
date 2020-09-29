@@ -14,6 +14,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerNavigator
     ) where
 
+import Control.Exception.Safe (SomeException,Exception,catch,throw)
 import Control.Monad.Extra hiding (fromMaybeM)
 import DA.Ledger (LedgerService,PartyDetails(..),Party(..),Token)
 import Data.Aeson
@@ -116,6 +117,16 @@ allocatePartyIfRequired hp name = do
         allocateParty hp name
     putStrLn $ "Allocated " <> show party <> " for '" <> name <> "' at " <> show hp
 
+-- | Give better help to the user if the upload-dar commands fails
+data ExceptionDuringUploadDar = ExceptionDuringUploadDar SomeException
+instance Exception ExceptionDuringUploadDar
+
+instance Show ExceptionDuringUploadDar where
+  show (ExceptionDuringUploadDar e) =
+    unlines [ "An exception was thrown when during the upload-dar command"
+            , "- " <> show e
+            , "One reason for this to occur is if the size of DAR file being uploaded exceeds the gRPC maximum message size. The default value for this is 4Mb, but it may be increased when the ledger is (re)started. Please check with your ledger operator."
+            ]
 -- | Upload a DAR file to the ledger. (Defaults to project DAR)
 runLedgerUploadDar :: LedgerFlags -> Maybe FilePath -> IO ()
 runLedgerUploadDar flags darPathM = do
@@ -125,7 +136,7 @@ runLedgerUploadDar flags darPathM = do
         getDarPath
     putStrLn $ "Uploading " <> darPath <> " to " <> show hp
     bytes <- BS.readFile darPath
-    uploadDarFile hp bytes
+    uploadDarFile hp bytes `catch` \e -> throw (ExceptionDuringUploadDar e)
     putStrLn "DAR upload succeeded."
 
 -- | Fetch the packages reachable from a main package-id, and reconstruct a DAR file.

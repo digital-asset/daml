@@ -303,8 +303,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             )
         }
       }
-      // Commit the results.
-      .mapAsync[Outputs6](params.commitParallelism) {
+      // Commit the results. This must be done serially to ensure a deterministic set of writes.
+      .mapAsync[Outputs6](1) {
         case ValidatedSubmission(
             correlatedSubmission,
             inputState,

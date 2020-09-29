@@ -195,14 +195,14 @@ object SqlLedgerReaderWriter {
 
   private final class SqlLedgerStateOperations(queries: Queries)
       extends BatchingLedgerStateOperations[Index] {
-    override def readState(keys: Seq[Key])(
-        implicit executionContext: ExecutionContext
-    ): Future[Seq[Option[Value]]] =
+    override def readState(
+        keys: Iterable[Key],
+    )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys))
 
-    override def writeState(keyValuePairs: Seq[(Key, Value)])(
-        implicit executionContext: ExecutionContext
-    ): Future[Unit] =
+    override def writeState(
+        keyValuePairs: Iterable[(Key, Value)],
+    )(implicit executionContext: ExecutionContext): Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs))
 
     override def appendToLog(key: Key, value: Value)(
