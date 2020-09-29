@@ -44,8 +44,6 @@ The first file is something like ``7Composing-1.0.0-887056cbb313b94ab9a6caf34f7f
 Hashes and Identifiers
 ----------------------
 
-The  ``*.hi`` and ``*.hie`` files are interface files, which tell the DAML compiler how to map the bytecode back to DAML types.
-
 Under the heading "DAR archive contains the following packages:" you get a similar looking list of package names, paired with only the long random string repeated. That hexadecimal string, ``887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625`` in this case, is the package hash and the primary and only identifier for a package that's guaranteed to be available and preserved. Meta information like name ("7Composing") and version ("1.0.0") help make it human readable but should not be relied upon. You may not always get DAR files from your compiler, but be loading them from a running Ledger, or get them from an artifact repository.
 
 We can see this in action. When a DAR file gets deployed to a ledger, not all meta information is preserved. 
@@ -64,7 +62,7 @@ Secondly, you'll notice that all the ``*.daml``, ``*.hi`` and ``*.hie`` files ar
 Dependencies and Data Dependencies
 ----------------------------------
 
-Dependencies under the ``daml.yaml`` ``dependencies`` group rely on the ``*.hi`` and ``*.hie`` files, which are interface files that allow the compiler to map the low-level DAML-LF back to high level DAML types and typeclasses. This sort of information is crucial for dependencies like the Standard Library, which provides functions, types and typeclasses.
+Dependencies under the ``daml.yaml`` ``dependencies`` group rely on the ``*.hi``, ``*.hie``, and ``*.daml`` files. The information in these files is crucial for dependencies like the Standard Library, which provide functions, types and typeclasses.
 
 However, as you can see above, this information isn't preserved. Furthermore, preserving this information may not even be desireable. Imagine we had built ``7Composing`` with SDK 1.100.0, and are building ``8_Upgrading`` with SDK 1.101.0. An inbuilt typeclass like ``Eq`` may have changed in between so we now have two different ``==`` functions. The one from the 1.100.0 Standard Library and the one from 1.101.0. This gets messy fast, which is why the SDK does not support ``dependencies`` across SDK versions. For dependencies on contract models that were fetched from a ledger, or come from an older SDK version, there is a simpler kind of dependency called ``data-dependencies``. The syntax for ``data-dependencies`` is the same, but they only rely on the "binary" ``*.dalf`` files. The name tries to confer that the main purpose of such dependencies is to handle data: Records, Choices, Templates. The stuff one needs to use contract composability across projects.
 
