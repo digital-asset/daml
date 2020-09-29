@@ -145,14 +145,14 @@ private[lf] final class Compiler(
   }
 
   @inline
-  private[this] def nextPositionWithName(name: ExprVarName): Position = {
+  private[this] def nextPositionWithExprName(name: ExprVarName): Position = {
     val p = nextPosition()
     addExprVar(name, p)
     p
   }
 
-  private[this] def nextPositionWithOptionalName(name: Option[ExprVarName]): Position =
-    name.fold(nextPosition())(nextPositionWithName)
+  private[this] def nextPositionWithOptionalExprName(name: Option[ExprVarName]): Position =
+    name.fold(nextPosition())(nextPositionWithExprName)
 
   private[this] def svar(p: Position): SEVar = SEVar(env.position - p.idx)
 
@@ -654,7 +654,7 @@ private[lf] final class Compiler(
         bindings.map {
           case Binding(optBinder, _, bound) =>
             val bound2 = withOptLabel(optBinder, compile(bound))
-            nextPositionWithOptionalName(optBinder)
+            nextPositionWithOptionalExprName(optBinder)
             bound2
         }.toArray,
         compile(body),
@@ -695,7 +695,7 @@ private[lf] final class Compiler(
   private[this] def compileAbss(expr0: Expr, arity: Int = 0): SExpr =
     expr0 match {
       case EAbs((binder, typ @ _), body, ref @ _) =>
-        nextPositionWithName(binder)
+        nextPositionWithExprName(binder)
         compileAbss(body, arity + 1)
       case ETyAbs((binder, KNat), body) =>
         addTypeVar(binder, nextPosition())
@@ -856,13 +856,13 @@ private[lf] final class Compiler(
 
           // add the first binding into the environment
           val appBoundHead = SEApp(svar(boundHeadPos), Array(svar(tokenPos)))
-          nextPositionWithOptionalName(bindings.head.binder)
+          nextPositionWithOptionalExprName(bindings.head.binder)
 
           // and then the rest
           val boundTail = bindings.tail.toList.map {
             case Binding(optB, _, bound) =>
               val expr = SEApp(compile(bound), Array(svar(tokenPos)))
-              nextPositionWithOptionalName(optB)
+              nextPositionWithOptionalExprName(optB)
               expr
           }
           val allBounds = appBoundHead +: boundTail
@@ -928,7 +928,7 @@ private[lf] final class Compiler(
       s"exercise @${tmplId.qualifiedName} ${choice.name}") {
       case List(actorsPos, cidPos, choiceArgPos, tokenPos) =>
         val tmplArg = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
-        nextPositionWithName(tmpl.param)
+        nextPositionWithExprName(tmpl.param)
         val beginExercise =
           SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = false)(
             svar(choiceArgPos),
@@ -985,7 +985,7 @@ private[lf] final class Compiler(
         val cid = SBUFetchKey(tmplId)(svar(keyWithMPos), svar(tokenPos))
         val cidPos = nextPosition()
         val tmplArg = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
-        nextPositionWithName(tmpl.param)
+        nextPositionWithExprName(tmpl.param)
         val beginExercise =
           SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = true)(
             svar(choiceArgPos),
@@ -1068,7 +1068,7 @@ private[lf] final class Compiler(
 
   private[this] def withBinders[A](binders: ExprVarName*)(f: Unit => A): A =
     withEnv { _ =>
-      binders.foreach(nextPositionWithName)
+      binders.foreach(nextPositionWithExprName)
       f(())
     }
 
@@ -1383,7 +1383,7 @@ private[lf] final class Compiler(
     topLevelFunction(FetchDefRef(tmplId), 2, s"fetch @${tmplId.qualifiedName}") {
       case List(cidPos, tokenPos) =>
         val fetch = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
-        val tmplArgPos = nextPositionWithName(tmpl.param)
+        val tmplArgPos = nextPositionWithExprName(tmpl.param)
         val insertNode = SBUInsertFetchNode(tmplId, byKey = false)(
           svar(cidPos),
           compile(tmpl.signatories),
@@ -1538,7 +1538,7 @@ private[lf] final class Compiler(
         val fetchKey = SBUFetchKey(tmplId)(svar(keyWithMPos), svar(tokenPos))
         val cidPos = nextPosition()
         val fetch = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
-        val contractPos = nextPositionWithName(tmpl.param)
+        val contractPos = nextPositionWithExprName(tmpl.param)
         val insertNode = SBUInsertFetchNode(tmplId, byKey = true)(
           svar(cidPos),
           compile(tmpl.signatories),
