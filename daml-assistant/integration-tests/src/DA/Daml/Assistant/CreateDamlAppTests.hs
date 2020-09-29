@@ -63,8 +63,8 @@ tests =
       withTempDir $ \tmpDir' -> do
         -- npm gets confused when the temp dir is not under /private on mac.
         let tmpDir
-              | isMac = "/private" <> tmpDir'
-              | otherwise = tmpDir'
+               | isMac = "/private" <> tmpDir'
+               | otherwise = tmpDir'
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
           callCommandSilent $ "daml new " <> projectName <> " --template create-daml-app"
@@ -111,8 +111,6 @@ tests =
           forM_ [file | file <- genFiles, takeFileName file == "package.json"] (patchTsDependencies uiDir)
         withCurrentDirectory uiDir $ do
           patchTsDependencies uiDir "package.json"
-          step "Install UI dependencies again to incorporate the changes"
-          callCommandSilent "npm-cli.js install --frozen-lockfile"
           step "Run linter again"
           callCommandSilent "npm-cli.js run-script lint -- --max-warnings 0"
           step "Build the new UI"
@@ -130,6 +128,11 @@ tests =
           T.writeFileUtf8
               (uiDir </> "src" </> "index.test.ts")
               (T.replace "create-daml-app" (T.pack projectName) testFileContent)
+          -- patch daml.yaml, remove JavaScript code generation entry so that patched generated code
+          -- is not overwritten
+          let damlYaml = cdaDir </> "daml.yaml"
+          content <- readFileUTF8' damlYaml
+          writeFileUTF8 damlYaml $ unlines $ dropEnd 4 $ lines content
           callCommandSilent "CI=yes npm-cli.js run-script test -- --ci --all"
 
 addTestDependencies :: FilePath -> FilePath -> IO ()

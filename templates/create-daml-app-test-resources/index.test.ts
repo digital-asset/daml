@@ -72,7 +72,7 @@ beforeAll(async () => {
   // Getting Started Guide.
   const startArgs = [
     'start',
-    `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`
+    `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
 
   startProc = spawn('daml', startArgs, startOpts);

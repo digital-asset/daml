@@ -14,3 +14,7 @@ sandbox-options:
 - --wall-clock-time
 - --ledgerid=__PROJECT_NAME__-sandbox
 start-navigator: false
+codegen:
+  js:
+    output-directory: ui/daml.js
+    npm-scope: daml.js
