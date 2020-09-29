@@ -4,7 +4,7 @@
 11 Testing DAML Contracts
 =========================
 
-This chapter is all about testing and debugging the DAML contracts you've build using the tools from chapters 1-10. You've already met DAML Script as a way of testing your code inside the IDE. In this chapter you'll learn about other uses of DAML Script, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
+This chapter is all about testing and debugging the DAML contracts you've built using the tools from chapters 1-10. You've already met DAML Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with DAML Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
 
 - DAML Test tooling - Script, REPL, and Navigator
 - The ``trace`` and ``debug`` functions
@@ -66,9 +66,9 @@ The above tools and functions allow you to diagnose most problems with DAML code
 
 Contention refers to conflicts over access to contracts. DAML guarantees that there can only be one consuming choice exercised per contract so what if two parties simultaneously submit an exercise command on the same contract? Only one can succeed. Contention can also occur due to incomplete or stale knowledge. Maybe a contract was archived a little while ago, but due to latencies, a client hasn't found out yet, or maybe due to the privacy model, they never will. What all these cases have in common is that someone has incomplete knowledge of the state the ledger will be in at the time a transaction will be processed and/or committed.
 
-Look back that the :ref:`execution_model`. There are three places where ledger state is consumed:
+If we look back at :ref:`execution_model` we'll see there are three places where ledger state is consumed:
 
-1. A command is submitted by some client, probably looking at the state of the ledger to build that command. Maybe the command includes references to ContractIds that the client believes active.
+1. A command is submitted by some client, probably looking at the state of the ledger to build that command. Maybe the command includes references to ContractIds that the client believes are active.
 2. During interpretation, ledger state is used to to look up active contracts.
 3. During commit, ledger state is again used to look up contracts and validate the transaction by reinterpreting it.
 
@@ -134,7 +134,7 @@ Here are a few scenarios and measures you can take to reduce this type of collis
    
    Contract keys can seem like a way out, but they are not. Contract keys are resolved to Contract IDs during the interpretation phase on the participant node. So it reduces latencies slightly by moving resolution from the client layer to the participant layer, but it doesn't remove the issue. Going back to the auction example above, if Alice sent a command ``exerciseByKey @Auction auctionKey Bid with amount = 100``, this would be resolved to an ``exercise cid Bid with amount = 100`` during interpretation, where ``cid`` is the participant's best guess what ContractId the key refers to.
 3. Avoid workflows that encourage multiple parties to simultaneously try to exercise a consuming choice on the same contract. For example, imagine an ``Auction`` contract containing a field ``highestBid : (Party, Decimal)``. If Alice tries to bid $100 at the same time that Bob tries to bid $90, it doesn't matter that Alice's bid is higher. The second transaction to be sequenced will be rejected as it has a write collision with the first. It's better to record the bids in separate ``Bid`` contracts, which can be written to independently. Again, think about how you would structure this data in a relational database to avoid data loss due to race conditions.
-4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in DAML.
+4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in DAML. If you need to be able to make this link inside DAML, Contract Keys help here. If the only place you need to link ``Party`` to ``User`` is the UI, it might be best to not store contract references in DAML at all.
 
 Collisions due to Ignorance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
