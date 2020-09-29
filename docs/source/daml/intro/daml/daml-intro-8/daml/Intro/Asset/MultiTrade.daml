@@ -16,11 +16,12 @@ template MultiTrade
     quoteAssets : [Asset]
   where
     signatory baseOwner
+    -- ENSURE_BEGIN
     ensure (length baseAssetCids == length baseAssets) &&
       (length quoteApprovalCids == length quoteAssets) &&
       not (null baseAssets) &&
       not (null quoteAssets)
-
+    -- ENSURE_END
     let
       baseOwner = (head baseAssets).owner
       quoteOwner = (head quoteAssets).owner

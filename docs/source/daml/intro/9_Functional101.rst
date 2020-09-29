@@ -495,3 +495,8 @@ Have a go at implementing ``foldlA`` in terms of ``foldl`` and ``sequence`` and 
   :end-before: -- FORA_EXAMPLE_END
 
 Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. The underscore indicates that the result is not used. ``mapA_ fn xs fn = void (mapA fn xs)``. The DAML Linter will alert you if you could use ``mapA_`` instead of ``mapA``, and similarly for ``forA_``.
+
+Next up
+-------
+
+You now know the basics of functions and control flow, both in pure and Action contexts. The Chapter 8 example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the the DAML Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`10_StdLib`, you'll get an overview of the library and learn how to search and browse it.
