@@ -119,6 +119,11 @@ jobs:
           bazel build //release:release
           ./bazel-bin/release/release --release-dir "$(mktemp -d)"
         condition: and(succeeded(), ne(variables['is_release'], 'true'))
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Linux Bazel Logs'
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
