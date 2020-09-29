@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 class LogAppendingCommitStrategy[Index](
@@ -29,28 +28,28 @@ class LogAppendingCommitStrategy[Index](
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder] = None,
-  ): Future[Index] =
-    for {
-      serializedKeyValuePairs <- Future.successful(outputState.map {
+  ): Future[Index] = {
+    val serializedKeyValuePairs = outputState.view
+      .map {
         case (key, value) =>
           (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
-      }(breakOut))
-      _ = exporterWriteSet.foreach {
-        _ ++= serializedKeyValuePairs
       }
+      .toVector
+      .sortBy(_._1.asReadOnlyByteBuffer)
+    exporterWriteSet.foreach {
+      _ ++= serializedKeyValuePairs
+    }
+    for {
       _ <- if (serializedKeyValuePairs.nonEmpty) {
         ledgerStateOperations.writeState(serializedKeyValuePairs)
       } else {
         Future.unit
       }
-      envelopedLogEntry <- Future.successful(Envelope.enclose(entry))
+      envelopedLogEntry = Envelope.enclose(entry)
       _ = exporterWriteSet.foreach {
         _ += entryId.toByteString -> envelopedLogEntry
       }
-      index <- ledgerStateOperations
-        .appendToLog(
-          entryId.toByteString,
-          envelopedLogEntry
-        )
+      index <- ledgerStateOperations.appendToLog(entryId.toByteString, envelopedLogEntry)
     } yield index
+  }
 }

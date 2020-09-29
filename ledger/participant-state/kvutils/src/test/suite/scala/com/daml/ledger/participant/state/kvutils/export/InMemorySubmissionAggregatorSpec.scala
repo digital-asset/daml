@@ -5,14 +5,11 @@ package com.daml.ledger.participant.state.kvutils.export
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.`Bytes Ordering`
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.google.protobuf.ByteString
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
-
-import scala.collection.SortedMap
 
 final class InMemorySubmissionAggregatorSpec extends WordSpec with Matchers with MockitoSugar {
   "InMemorySubmissionAggregator" should {
@@ -35,11 +32,11 @@ final class InMemorySubmissionAggregatorSpec extends WordSpec with Matchers with
 
       submission.finish()
 
-      val expected = SortedMap(
+      val expected = Seq(
         keyValuePairOf("a", "b"),
-        keyValuePairOf("c", "d"),
         keyValuePairOf("e", "f"),
         keyValuePairOf("g", "h"),
+        keyValuePairOf("c", "d"),
       )
       Mockito.verify(writer).write(submissionInfo, expected)
     }

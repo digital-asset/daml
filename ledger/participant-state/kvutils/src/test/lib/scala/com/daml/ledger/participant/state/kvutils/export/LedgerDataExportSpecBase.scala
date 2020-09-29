@@ -45,10 +45,10 @@ abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matc
       actualWriteSet should be(
         Seq(
           keyValuePairOf("a", "b"),
-          keyValuePairOf("c", "d"),
-          keyValuePairOf("e", "f"),
           keyValuePairOf("g", "h"),
           keyValuePairOf("i", "j"),
+          keyValuePairOf("e", "f"),
+          keyValuePairOf("c", "d"),
         ))
     }
   }
