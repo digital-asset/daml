@@ -30,4 +30,4 @@ fi
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel clean --expunge
 rm -rf .bazel-cache
-bazel build @stackage//:ghc-lib-parser --experimental_execution_log_file "$ARTIFACT_DIRS/build.${execution_log_postfix}.log"
+bazel build //...
