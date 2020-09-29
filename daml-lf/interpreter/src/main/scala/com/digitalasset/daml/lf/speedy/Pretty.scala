@@ -12,6 +12,7 @@ import com.daml.lf.VersionRange
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
 import com.daml.lf.transaction.{NodeId, Transaction => Tx}
@@ -31,10 +32,20 @@ private[lf] object Pretty {
         prettyDamlException(ex, ptx)
       case SErrorCrash(reason) =>
         text(s"CRASH: $reason")
+      case SRequiresOnLedger(operation) =>
+        text(s"Operation is not supported off-ledger: $operation")
 
       case serr: SErrorScenario =>
         prettyScenarioError(serr)
     })
+
+  def prettyError(err: SError): Doc = {
+    val ptx = PartialTransaction.initial(
+      submissionTime = Time.Timestamp.MinValue,
+      initialSeeds = InitialSeeding.NoSeed
+    )
+    prettyError(err, ptx)
+  }
 
   def prettyParty(p: Party): Doc =
     char('\'') + text(p) + char('\'')

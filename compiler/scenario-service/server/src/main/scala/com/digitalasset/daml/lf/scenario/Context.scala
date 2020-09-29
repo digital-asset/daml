@@ -155,7 +155,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   }
 
   // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
-  private val txSeeding = crypto.Hash.hashPrivateKey(s"scenario-service")
+  private val txSeeding =
+    crypto.Hash.hashPrivateKey(s"scenario-service")
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     val defns = this.defns
