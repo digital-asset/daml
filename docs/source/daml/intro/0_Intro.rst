@@ -27,7 +27,7 @@ Next: :doc:`1_Token`.
   5_Restrictions
   6_Parties
   7_Composing
-  8_Upgrading
+  8_Dependencies
   9_Functional101
   10_StdLib
   11_Testing

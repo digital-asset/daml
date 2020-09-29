@@ -40,7 +40,7 @@ Script Service CLI Testing
 
 In your chapter 8 project, run ``daml test``. This runs the same Scripts that are run in the IDE on the same in-memory Ledger called the Script Service. Instead of views of the resulting ledger, it outputs successes and failures.
 
-.. code-block:: shell
+.. code-block:: none
 
   daml/Test/Intro/Asset/TradeSetup.daml:setupRoles: ok, 2 active contracts, 4 transactions.
   daml/Test/Intro/Asset/TradeSetup.daml:test_issuance: ok, 3 active contracts, 5 transactions.
@@ -81,7 +81,7 @@ You may be tempted to run the script ``Test.Intro.Asset.MultiAsset.testMultiTrad
 
 Fortunately, DAML Script can take inputs in JSON format, and all the ``setupRelationship`` and ``issueAsset`` scripts are set up for that by taking ``Relationship`` and ``Asset`` record value as input. In order to use that feature, we first have to get our hands on a new party. Run ``daml ledger allocate-party CHF_Bank`` to allocate the party. You can list all known parties using ``daml ledger list-parties``.
 
-.. code-block:: shell
+.. code-block:: none
 
   Listing parties at localhost:6865
   PartyDetails {party = 'party-27089832', displayName = "Alice", isLocal = True}
@@ -101,7 +101,7 @@ Now we can establish a relationship between Alice and the new party. The JSON in
 
 To execute the DAML Script, run the below command, replacing the party IDs.
 
-.. code-block:: shell
+.. code-block:: none
 
   daml script --dar multi-trade.dar --ledger-host localhost --ledger-port 6865 --script-name Test.Intro.Asset.MultiTrade:setupRelationship --input-file <(echo '{"issuer" : "CHF_Bank", "owner" : "party-27089832"}')
 
@@ -114,20 +114,20 @@ DAML REPL
 
 If you want to do things interactively, :doc:`DAML REPL </daml-repl/index>` is the tool to use. The best way to think of DAML REPL is as an interactive version of DAML Script. Run it using
 
-.. code-block:: shell
+.. code-block:: none
 
   daml repl --ledger-host localhost --ledger-port 6865 multi-trade.dar -i 8Dependencies -i 7Composing
 
 DAML REPL acts both as a language REPL (Read-Evaluate-Print Loop) as well as a shell to interact with a ledger. In other words, we can test pure expressions as well as sending commands and querying. As an example, you can use the ``length`` function from Prelude:
 
-.. code-block:: shell
+.. code-block:: none
 
   daml> length [1,3,2]
   3
 
 You can use ``:help`` to show the available meta-commands. Running ``:show imports`` will show you that the modules form the chapter 7 and 8 projects are already imported. That's the effect of the ``-i 8Dependencies -i 7Composing`` in the command above. You an load and unload other modules using the ``:module`` command:
 
-.. code-block:: shell
+.. code-block:: none
 
   daml> :module + DA.List
   daml> sort [1,3,2]
@@ -135,7 +135,7 @@ You can use ``:help`` to show the available meta-commands. Running ``:show impor
 
 Now let's establish the next relationship interactively. We first need to get our hands on the Bob and CHF_Bank parties. For that, we use the ``listKnownParties`` action and filter according to display names:
 
-.. code-block:: shell
+.. code-block:: none
 
   daml> parties <- listKnownParties
   daml> parties
@@ -145,7 +145,7 @@ Now let's establish the next relationship interactively. We first need to get ou
 
 Now we can run scripts from the REPL just like we would in Script:
 
-.. code-block:: shell
+.. code-block:: none
 
   daml> let rel = Relationship with issuer=chfbank; owner=bob
   daml> setupRelationship rel
@@ -163,7 +163,7 @@ The above demonstrates nicely how to test the happy path, but what if a function
 - ``debug : Text -> m ()`` maps a text to an Action that has the side-effect of printing to StdOut.
 - ``trace : Text -> a -> a`` prints to StdOut when the expression is evaluated. 
 
-.. code-block:: shell
+.. code-block:: none
 
   daml> let a : Script () = debug "foo"
   daml> let b : Script () = trace "bar" (debug "baz")
@@ -207,35 +207,35 @@ Following the possible error messages, we'll discuss a few possible causes and r
 ContractId Not Found During Interpretation
 ..........................................
 
-.. code-block:: shell 
+.. code-block:: none 
 
   Command interpretation error in LF-DAMLe: dependency error: couldn't find contract ContractId(004481eb78464f1ed3291b06504d5619db4f110df71cb5764717e1c4d3aa096b9f).
 
 ContractId Not Found During Validation
 ......................................
 
-.. code-block:: shell
+.. code-block:: none
 
   Disputed: dependency error: couldn't find contract ContractId (00c06fa370f8858b20fd100423d928b1d200d8e3c9975600b9c038307ed6e25d6f).
 
 fetchByKey Error during Interpretation
 ......................................
 
-.. code-block:: shell
+.. code-block:: none
 
   Command interpretation error in LF-DAMLe: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d.
 
 fetchByKey Dispute During Validation
 ....................................
 
-.. code-block:: shell
+.. code-block:: none
 
   Disputed: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d
 
 lookupByKey Distpute During Validation
 ......................................
 
-.. code-block:: shell
+.. code-block:: none
 
   Disputed: recreated and original transaction mismatch VersionedTransaction(...) expected, but VersionedTransaction(...) is recreated.
 
