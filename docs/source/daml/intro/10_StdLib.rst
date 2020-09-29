@@ -1,3 +1,6 @@
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 10 Intro to the DAML Standard Library
 =====================================
 
@@ -238,3 +241,4 @@ Next up
 -------
 
 There's little more to learn about writing DAML at this point that isn't best learnt by practice and consulting reference material for both DAML and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with DAML code in :doc:`11_Testing`, and about the operational semantics of some keywords and common associated failures.
+
