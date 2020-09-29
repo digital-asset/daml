@@ -16,23 +16,23 @@ The model in this section is not a single DAML file, but a DAML project consisti
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``7_Composing`` by running ``daml new 7_Composing --template daml-intro-7``
+  Remember that you can load all the code for this section into a folder called ``7_Composing`` by running ``daml new 7Composing --template daml-intro-7``
 
 DAML projects
 -------------
 
-DAML is organized in packages and modules. A DAML project is specified using a single ``daml.yaml`` file, and compiles into a package. Each DAML file within a project becomes a DAML module. You can start a new project with a skeleton structure using ``daml new project_name`` in the terminal.
+DAML is organized in projects, packages and modules. A DAML project is specified using a single ``daml.yaml`` file, and compiles into a package in DAML's intermediate language, or bytecode equivalent, DAML-LF. Each DAML file within a project becomes a DAML module, which is a bit like a namespace. Each DAML project has a source root specified in the ``source`` parameter in the project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
 
-Each DAML project has a main source file, which is the entry point for the compiler. A common pattern is to have a main file called ``LibraryModules.daml``, which simply lists all the other modules to include.
+You can start a new project with a skeleton structure using ``daml new project_name`` in the terminal. A minimal project would contain just a ``daml.yaml`` file and an empty directory of source files.
 
-A minimal project would contain just a ``daml.yaml`` file and an empty directory of source files. Take a look at the ``daml.yaml`` for this project:
+ Take a look at the ``daml.yaml`` for the chapter 7 project:
 
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
-You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` lists package dependencies: you should always include ``daml-prim``, and ``daml-stdlib`` gives access to the DAML standard library.
+You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` as it contains internals of compiler and DAML Runtime. ``daml-stdlib`` gives access to the DAML Standard Library, and ``daml-script`` contains the types and standard library for DAML Script.
 
-You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` package in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the contract model.
+You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies.
 
 Project structure
 -----------------
@@ -41,7 +41,7 @@ This project contains an asset holding model for transferrable, fungible assets 
 
 In addition, there are tests in modules ``Test.Intro.Asset``, ``Test.Intro.Asset.Role``, and ``Test.Intro.Asset.Trade``.
 
-All but the last ``.``-separated segment in module names correspond to paths, and the last one to a file name. The folder structure therefore looks like this:
+All but the last ``.``-separated segment in module names correspond to paths relative to the project source directory, and the last one to a file name. The folder structure therefore looks like this:
 
 .. code-block:: none
 
@@ -60,7 +60,7 @@ All but the last ``.``-separated segment in module names correspond to paths, an
   │           └── Asset.daml
   └── daml.yaml
 
-Each file contains the DAML pragma and module header. For example, ``daml/Intro/Asset/Role.daml``:
+Each file contains a module header. For example, ``daml/Intro/Asset/Role.daml``:
 
 .. literalinclude:: daml/daml-intro-7/daml/Intro/Asset/Role.daml
   :language: daml
@@ -211,18 +211,28 @@ DAML's execution model
 
 DAML's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
 
-1. A party submits a list of ``Commands``.
-2. The transaction is interpreted, meaning the ``Update`` corresponding to each command is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.).
-3. The views of the transaction that parties get to see (see :ref:`privacy`) are calculated in a process called *blinding*, or *projecting*.
-4. The blinded views are distributed to the parties.
-5. The transaction is *validated* based on the blinded views and a consensus protocol depending on the underlying infrastructure.
-6. If validation succeeds, the transaction is *committed*.
+Command
+  A user submits a list of Commands via the Ledger API of a Participant Node, acting as a `Party` hosted on that Node. That party is called the requester.
+Interpretation
+  Each Command corresponds to one or more Actions. During this step, the ``Update`` corresponding to each Action is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.). The result of this is a complete Transaction. Together with its requestor, this is also known as a Commit.
+Blinding
+  On ledgers with strong privacy, projections (see :ref:`privacy`) for all involved parties are created. This is also called *projecting*.
+Submission
+  The Transaction/Commit is submitted to the network.
+Validation
+  The Transaction/Commit is validated by the network. Who exactly validates can differ from implementation to implementation. Validation also involves scheduling and collision detection, ensuring that the transaction has a well-defined place in the (partial) ordering of Commits, and no double spends occur.
+Commitment
+  The Commit is actually commited according to the commit or consensus protocol of the Ledger.
+Confirmation
+  The network sends confirmations of the commitment back to all involved Participant Nodes.
+Completion
+  The user gets back a confirmation through the Ledger API of the submitting Participant Node.
 
 The first important consequence of the above is that all transactions are committed atomically. Either a transaction is committed as a whole and for all participants, or it fails.
 
 That's important in the context of the ``Trade_Settle`` choice shown above. The choice transfers a ``baseAsset`` one way and a ``quoteAsset`` the other way. Thanks to transaction atomicity, there is no chance that either party is left out of pocket.
 
-The second consequence, due to 2., is that the submitter of a transaction knows all consequences of their submitted transaction -- there are no surprises in DAML. However, it also means that the submitter must have all the information to interpret the transaction.
+The second consequence, due to 2., is that the requester of a transaction knows all consequences of their submitted transaction -- there are no surprises in DAML. However, it also means that the requester must have all the information to interpret the transaction.
 
 That's also important in the context of ``Trade``. In order to allow Bob to interpret a transaction that transfers Alice's cash to Bob, Bob needs to know both about Alice's ``Asset`` contract, as well as about some way for ``Alice`` to accept a transfer -- remember, accepting a transfer needs the authority of ``issuer`` in this example.
 
