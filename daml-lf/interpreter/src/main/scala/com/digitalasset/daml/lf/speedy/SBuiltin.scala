@@ -902,6 +902,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       choiceId: ChoiceName,
       consuming: Boolean,
+      byKey: Boolean,
   ) extends OnLedgerBuiltin(8) {
 
     override protected final def execute(
@@ -926,7 +927,6 @@ private[lf] object SBuiltin {
       val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
       val auth = machine.auth
 
-      machine.ptx = machine.ptx
       onLedger.ptx = onLedger.ptx
         .beginExercises(
           auth = auth,
