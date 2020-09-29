@@ -28,15 +28,17 @@ DAML Script
 
 :doc:`DAML Script </daml-script/index>` should be familiar by now. It's a way to script commands and queries from multiple parties against a DAML Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, DAML Script can do much more than that. It has four different modes of operation:
 
-1. Run on and in-memory Ledger in the IDE, providing the Script Views.
-2. Run on an in-memory Ledger via the CLI, which is useful for quick regression testing.
-3. Stat a Sandbox and run against that for regression testing against an actual Ledger API.
+1. Run on a special Script Service in the IDE, providing the Script Views.
+2. Run the Script Service via the CLI, which is useful for quick regression testing.
+3. Start a Sandbox and run against that for regression testing against an actual Ledger API.
 4. Run against any other already running Ledger.
 
-Let's quickly see 2-4 in action. In your V2 Asset project, run ``daml test``. This runs the same Scripts that are run in the IDE on the same in-memory Ledger called the Script Service. Instead of views of the resulting ledger, it outputs successes and failures.
+Let's quickly see 2-4 in action. 
 
 Script Service CLI Testing
 ..........................
+
+In your V2 Asset project, run ``daml test``. This runs the same Scripts that are run in the IDE on the same in-memory Ledger called the Script Service. Instead of views of the resulting ledger, it outputs successes and failures.
 
 .. code-block:: shell
 
@@ -53,7 +55,9 @@ If you add the command line flag ``--junit``, ``daml test`` can write the result
 Sandbox CLI Testing
 ...................
 
-The next step up in terms of how "real" the tests are is the command ``daml test-script``. Unlike ``daml test``, these tests are performed via a Ledger API against a Sandbox Ledger. In the same project, make sure you have compiled the contracts (``daml build -o assets.dar``), then run ``daml test-script --dar assets.dar``. You'll see a lot more output this time, starting with a Sandbox being started up, followed by DAML Scrpipt outputs. Each script should finish with a message of the type ``Test.Intro.Asset.V2:test_split SUCCESS``.
+The next step up in terms of how "real" the tests are is the command ``daml test-script``. Unlike ``daml test``, these tests are performed via a Ledger API against a real Ledger. If no ledger host and port are provided, a temporary Sandbox is started to run the tests against.
+
+In the same project, make sure you have compiled the contracts (``daml build -o assets.dar``), then run ``daml test-script --dar assets.dar``. You'll see a lot more output this time, starting with a Sandbox being started up, followed by DAML Scrpipt outputs. Each script should finish with a message of the type ``Test.Intro.Asset.V2:test_split SUCCESS``.
 
 Script Against a Running Ledger
 ...............................
@@ -104,14 +108,14 @@ To run the complete upgrade using DAML Script, run the below command, replacing 
 
   daml script --dar upgrade.dar --ledger-host localhost --ledger-port 6865 --script-name Test.Intro.Asset.Upgrade.V2:runCompleteUpgrade --input-file <(echo '{"issuer" : "party-5820624d", "owner" : "party-7c7129dd"}')
 
-Note that the ``--input-file`` flag expects a file. The ``<(..)`` is a bit of unix shell magic to provide the file contents inline. If it doesn't work on your shell, put the JSON into a file ``relationship.json``, and supply that instead.
+Note that the ``--input-file`` flag expects a file. The ``<(..)`` is a bit of unix shell magic to provide the file contents inline. If it doesn't work on your shell, put the JSON into a file ``relationship.json``, and supply that instead. For more information on this, please refer to the :doc:`DAML Script </daml-script/index>` and :doc:`JSON Format </json-api/lf-value-specification>` docs.
 
 If you still have the Navigator open, you'll see two of Alice's three contracts upgrade as you run the script. That worked as a way to test an upgrade, but it would be cumbersome if we wanted to step through the individual steps of that script one by one.
 
 DAML REPL
 ~~~~~~~~~
 
-If you want to do things interactively, :doc:`DAML REPL </daml-repl/index>` is the tool to use. The best way to think of DAML REPL is as an interactive version of DAML Shell. Run it using
+If you want to do things interactively, :doc:`DAML REPL </daml-repl/index>` is the tool to use. The best way to think of DAML REPL is as an interactive version of DAML Script. Run it using
 
 .. code-block:: shell
 
@@ -197,10 +201,10 @@ The above demonstrates nicely how to test the happy path, but what if a function
 
 If in doubt, use ``debug``. It's the easier of the two to interpret the results of.
 
-The thing in the square brackets is a stack trace. It'll tell you the DAML file and line number that triggered the printing, but often no more than that because full stacktraces could violate subtransaction privacy quite easily. If you want to enable stacktraces for some purely functional code in your modules, you can use the machinery in :doc:`/daml/stdlib/DA-Stack` to do so, but we won't cover that any further here.
+The thing in the square brackets is the last location. It'll tell you the DAML file and line number that triggered the printing, but often no more than that because full stacktraces could violate subtransaction privacy quite easily. If you want to enable stacktraces for some purely functional code in your modules, you can use the machinery in :doc:`/daml/stdlib/DA-Stack` to do so, but we won't cover that any further here.
 
-Contention
-----------
+Diagnosing Contention Errors
+----------------------------
 
 The above tools and functions allow you to diagnose most problems with DAML code, but they are all synchronous. The sequence of commands is determined by the sequence of inputs. That means one of the main pitfalls of distributed applications doesn't come into play: Contention.
 
@@ -208,16 +212,64 @@ Contention refers to conflicts over access to contracts. DAML guarantees that th
 
 Look back that the :ref:`execution_model`. There are three places where ledger state is consumed:
 
-1. The ledger client that submits the command is probably looking at the state of the ledger to build that command. Maybe the command includes references to ContractIds that the client believes active.
-2. The Participant node that interprets the command uses ledger state to look up active contracts.
-3. During commit, the validating nodes look at ledger state to validate the transaction.
+1. A command is submitted by some client, probably looking at the state of the ledger to build that command. Maybe the command includes references to ContractIds that the client believes active.
+2. During interpretation, ledger state is used to to look up active contracts.
+3. During commit, ledger state is again used to look up contracts and validate the transaction by reinterpreting it.
 
-Collisions can occur both between 1 and 2 and between 2 and 3. Only during the commit phase is the complete relevant ledger state at the time of the transaction known, which means the ledger state at commit time is king. As a DAML contract developer, you need to think about how to avoid collisions. Here are a few common scenarios.
+Collisions can occur both between 1 and 2 and between 2 and 3. Only during the commit phase is the complete relevant ledger state at the time of the transaction known, which means the ledger state at commit time is king. As a DAML contract developer, you need to understand the different causes of contention, be able to diagnose the root cause if errors of this type occur, and be able to avoid collisions by designing contracts appropriately. 
 
-Exercise Collisions on Contracts
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Common Errors
+~~~~~~~~~~~~~
 
-The first thing to avoid is write-write or write-read contention on contracts. In other words, one requester submitting a transaction with a consuming exercise on a contract while another requester submits another exercise or fetch on the same contract. This type of contention cannot be eliminated entirely, for there will always be some latency between a client submitting a command to a participant, and other clients learning of the committed transaction. Here are a few measures you can take to reduce this type of collision:
+The most common error messages you'll see are listed below. All of them can be due to one of three reasons.
+
+1. Race Conditions - knowledge of a state change is not yet known during command submission
+2. Stale References - the state change is known, but contracts have stale references to keys or ContractIds
+3. Ignorance - due to privacy or operational semantics, the requester doesn't know the current state
+
+Following the possible error messages, we'll discuss a few possible causes and remedies.
+
+ContractId Not Found During Interpretation
+..........................................
+
+.. code-block:: shell 
+
+  Command interpretation error in LF-DAMLe: dependency error: couldn't find contract ContractId(004481eb78464f1ed3291b06504d5619db4f110df71cb5764717e1c4d3aa096b9f).
+
+ContractId Not Found During Validation
+......................................
+
+.. code-block:: shell
+
+  Disputed: dependency error: couldn't find contract ContractId (00c06fa370f8858b20fd100423d928b1d200d8e3c9975600b9c038307ed6e25d6f).
+
+fetchByKey Error during Interpretation
+......................................
+
+.. code-block:: shell
+
+  Command interpretation error in LF-DAMLe: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d.
+
+fetchByKey Dispute During Validation
+....................................
+
+.. code-block:: shell
+
+  Disputed: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d
+
+lookupByKey Distpute During Validation
+......................................
+
+.. code-block:: shell
+
+  Disputed: recreated and original transaction mismatch VersionedTransaction(...) expected, but VersionedTransaction(...) is recreated.
+
+Avoiding Race Conditions and Stale References
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The first thing to avoid is write-write or write-read contention on contracts. In other words, one requester submitting a transaction with a consuming exercise on a contract while another requester submits another exercise or fetch on the same contract. This type of contention cannot be eliminated entirely, for there will always be some latency between a client submitting a command to a participant, and other clients learning of the committed transaction.
+
+Here are a few scenarios and measures you can take to reduce this type of collision:
 
 1. Shard data. Imagine you want to store a user directory on the Ledger. At the core, this is of type ``[(Text, Party)]``, where ``Text`` is a display name and `Party` the associated Party. If you store this entire list on a single contract, any two users wanting to update their display name at the same time will cause a collision. If you instead keep each ``(Text, Party)`` on a separate contract, these write operations become independent from each other.
    
@@ -235,7 +287,7 @@ The :doc:`DAML Ledger Model </concepts/ledger-model/index>` specifies authorizat
 
 To illustrate the problem, let's assume there is a template ``T`` with a contract key, and Alice has witnessed two ``Create`` nodes of a contract of type ``T`` with key ``k``, but no corresponding archive nodes. Alice may not be able to order these two nodes causally in the sense of "one create came before the other". See :doc:`/concepts/local-ledger` for an in-depth treatment of causality on DAML Ledgers.
 
-So what should happen now if Alice's participant encounters a ``fetchByKey @T k`` or ``lookupByKey @T k`` during interpretation? What if it encounters a ``fetch`` node? These decisions are part of the operational semantics of a participant, and the decision of what should happen is based on the consideration that the chance of a participant submitting an invalid transaction should be minimized.
+So what should happen now if Alice's participant encounters a ``fetchByKey @T k`` or ``lookupByKey @T k`` during interpretation? What if it encounters a ``fetch`` node? These decisions are part of the operational semantics, and the decision of what should happen is based on the consideration that the chance of a participant submitting an invalid transaction should be minimized.
 
 If a ``fetch`` or ``exercise`` is encountered, the participant resolves the contract as long as it has not witnessed an archive node for that contract - ie as long as it can't guarantee that the contract is no longer active. The rationale behind this is that ``fetch`` and ``exercise`` use ContractIds, which need to come from somewhere: Command arguments, Contract arguments, or key lookups. In all three cases, someone believes the ContractId to be active still so it's worth trying.
 
@@ -247,6 +299,8 @@ Let's illustrate how collisions and operational semantics and interleave:
 2. Alice submits a command resulting in well-authorized ``lookupByKey @T k`` during interpretation. Even if Alice witnessed 1, this will resolve to a ``None`` as Alice is not a stakeholder. This transaction is invalid at the time of interpretation, but Alice doesn't know that.
 3. Bob submits an ``exerciseByKey @T k Archive``.
 4. Depending on which of the transactions from 2 and 3 gets sequenced first, either just 3, or both 2 and 3 get committed. If 3 is committed before 2, 2 becomes valid while in transit.
+
+As you can see, the behavior of ``fetch``, ``fetchByKey`` and ``lookupByKey`` at interpretation time depend on what information is available to the requester at that time. That's something to keep in mind when writing DAML contracts, and something to think about when encountering frequent "Disputed" errors.
 
 Next up
 -------
