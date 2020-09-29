@@ -900,11 +900,11 @@ private[lf] final class Compiler(
     function(arity)(x => withLabel(label, body(x)))
 
   @inline
-  private[this] def topLevelFunction[RefDef <: SDefinitionRef: LabelModule.Allowed](
-      ref: RefDef,
+  private[this] def topLevelFunction[SDefRef <: SDefinitionRef: LabelModule.Allowed](
+      ref: SDefRef,
       arity: Int)(
       body: List[Position] => SExpr
-  ): (RefDef, SExpr) =
+  ): (SDefRef, SExpr) =
     ref ->
       validate(
         closureConvert(
