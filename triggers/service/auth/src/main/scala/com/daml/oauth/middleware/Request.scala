@@ -8,7 +8,14 @@ import spray.json.{DefaultJsonProtocol, JsString, JsValue, JsonFormat, deseriali
 
 object Request {
 
-  case class Login(redirectUri: Uri, claims: String) // TODO[AH] parse ledger claims
+  /** Login endpoint query parameters
+   *
+   * @param redirectUri Redirect target after the login flow completed. I.e. the original request URI on the trigger service.
+   * @param claims Required ledger claims.
+   */
+  case class Login(
+    redirectUri: Uri,
+    claims: String) // TODO[AH] parse ledger claims
 
 }
 
