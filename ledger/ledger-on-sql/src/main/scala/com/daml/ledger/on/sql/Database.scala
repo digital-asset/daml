@@ -38,7 +38,7 @@ final class Database(
   def inWriteTransaction[T](name: String)(body: Queries => Future[Writer, T]): Future[Writer, T] =
     inTransaction(name)(body)
 
-  private def inTransaction[X, T](name: String)(body: Queries => Future[X, T])(
+  def inTransaction[X, T](name: String)(body: Queries => Future[X, T])(
       implicit connectionPool: ConnectionPool[X],
   ): Future[X, T] = {
     import connectionPool.executionContext
@@ -125,22 +125,16 @@ object Database {
           Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize))
       } yield {
         implicit val readerExecutionContext: ExecutionContext[Reader] =
-          ExecutionContext.fromExecutorService[Reader](readerExecutorService)
+          ExecutionContext.fromExecutorService(readerExecutorService)
         implicit val writerExecutionContext: ExecutionContext[Writer] =
-          ExecutionContext.fromExecutorService[Writer](writerExecutorService)
+          ExecutionContext.fromExecutorService(writerExecutorService)
         implicit val readerConnectionPool: ConnectionPool[Reader] =
           new ConnectionPool(readerDataSource)
         implicit val writerConnectionPool: ConnectionPool[Writer] =
           new ConnectionPool(writerDataSource)
         implicit val adminConnectionPool: ConnectionPool[Migrator] =
           new ConnectionPool(adminDataSource)(DirectExecutionContext)
-        new UninitializedDatabase(
-          system = system,
-          readerConnectionPool = readerConnectionPool,
-          writerConnectionPool = writerConnectionPool,
-          adminConnectionPool = adminConnectionPool,
-          metrics = metrics,
-        )
+        new UninitializedDatabase(system = system, metrics = metrics)
       }
   }
 
@@ -158,18 +152,12 @@ object Database {
           Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize))
       } yield {
         implicit val readerWriterExecutionContext: ExecutionContext[Reader with Writer] =
-          ExecutionContext.fromExecutorService[Reader with Writer](readerWriterExecutorService)
+          ExecutionContext.fromExecutorService(readerWriterExecutorService)
         implicit val readerWriterConnectionPool: ConnectionPool[Reader with Writer] =
           new ConnectionPool(readerWriterDataSource)
         implicit val adminConnectionPool: ConnectionPool[Migrator] =
           new ConnectionPool(adminDataSource)(DirectExecutionContext)
-        new UninitializedDatabase(
-          system = system,
-          readerConnectionPool = readerWriterConnectionPool,
-          writerConnectionPool = readerWriterConnectionPool,
-          adminConnectionPool = adminConnectionPool,
-          metrics = metrics,
-        )
+        new UninitializedDatabase(system = system, metrics = metrics)
       }
   }
 
@@ -210,14 +198,13 @@ object Database {
 
       override val queries: Connection => Queries = SqliteQueries.apply
     }
+
   }
 
-  class UninitializedDatabase(
-      system: RDBMS,
-      readerConnectionPool: ConnectionPool[Reader],
+  class UninitializedDatabase(system: RDBMS, metrics: Metrics)(
+      implicit readerConnectionPool: ConnectionPool[Reader],
       writerConnectionPool: ConnectionPool[Writer],
       adminConnectionPool: ConnectionPool[Migrator],
-      metrics: Metrics,
   ) {
     private val flyway: Flyway =
       Flyway
@@ -229,22 +216,17 @@ object Database {
         .load()
 
     def migrate(): Database = {
-      implicit val readerCP: ConnectionPool[Reader] = readerConnectionPool
-      implicit val writerCP: ConnectionPool[Writer] = writerConnectionPool
       flyway.migrate()
-      new Database(
-        queries = system.queries,
-        metrics = metrics,
-      )
+      new Database(queries = system.queries, metrics = metrics)
     }
 
     def migrateAndReset()(
         implicit executionContext: ExecutionContext[Migrator]
     ): Future[Migrator, Database] = {
       val db = migrate()
-      db.inWriteTransaction("ledger_reset") { queries =>
+      db.inTransaction("ledger_reset") { queries =>
           Future.fromTry(queries.truncate())
-        }
+        }(adminConnectionPool)
         .map(_ => db)
     }
 
@@ -260,7 +242,7 @@ object Database {
 
   sealed trait Writer extends Context
 
-  sealed trait Migrator extends Writer
+  sealed trait Migrator extends Context
 
   private final class ConnectionPool[+P](
       val dataSource: DataSource,
