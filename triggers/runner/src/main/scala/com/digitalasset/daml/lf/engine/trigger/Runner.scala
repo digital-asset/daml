@@ -279,7 +279,7 @@ class Runner(
       submit: SubmitRequest => Unit): SValue = {
     def evaluate(se: SExpr) = {
       val machine: Speedy.Machine = // TODO SC pull up
-        Speedy.Machine.fromPureSExpr(compiledPackages, se, onLedger = false)
+        Speedy.Machine.fromPureSExpr(compiledPackages, se)
       // Evaluate it.
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
