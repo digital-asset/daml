@@ -32,6 +32,8 @@ jobs:
       setvar should_run $SHOULD_RUN
       setvar target $TARGET
       setvar target_url $TARGET_URL
+
+      echo "Final hash and URL will be printed by the ${{parameters.final_job_name}} job."
     name: out
 
 - job: patch_bazel_compile
@@ -72,6 +74,7 @@ jobs:
       mkdir '$(Build.StagingDirectory)\patched-bazel'
       zip bazel.zip bazel.exe
       cp bazel.zip '$(Build.StagingDirectory)\patched-bazel'
+      echo "Final hash and URL will be printed by the ${{parameters.final_job_name}} job."
     condition: eq(variables.should_run, 'true')
   - task: PublishPipelineArtifact@1
     inputs:
