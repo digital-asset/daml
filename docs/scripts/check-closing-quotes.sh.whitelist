@@ -1,0 +1,4 @@
+# Every line of this file is a regex. Each regex is ignored when checking unpaired quotes.
+# You can add comments to this file if the comment line is unlikely to match.
+# Just do not add to generic patterns (such as empty line) because it will match to everything.
+^   *[_\\/|` ]*$

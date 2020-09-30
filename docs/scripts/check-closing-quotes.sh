@@ -2,15 +2,15 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-echo Checks closing quotes '`' for all rst file.
+whitelist="$0.whitelist"
+
+echo Checking closing quotes '`' for all rst file.
 
 errors=0
 
-daml_ascii_art='^   *[_\\/][ _\\/]'
-
 while read file
 do
-  numberOfQuotes=$(egrep -v "$daml_ascii_art" "$file" | grep -o '`' | wc -l)
+  numberOfQuotes=$(egrep --invert-match --file="$whitelist" "$file" | grep --only-matching '`' | wc --lines)
   if (( $numberOfQuotes % 2 ))
   then
     ((errors++))
@@ -25,5 +25,8 @@ echo $errors errors found.
 echo "Note: errors are not detected if they are in the same line (of even number)."
 if [ $errors -gt 0 ]
 then
+  echo
+  echo "If these errors are false positives, please add a regex to the whitelist in the file \`$whitelist'."
+  echo
   exit 1
 fi
