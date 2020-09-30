@@ -103,6 +103,7 @@ build_and_push temp versions = do
         build version = do
             shell_ $ "git checkout v" <> show version
             build_helper version
+
         build_helper version = do
             robustly_download_nix_packages
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
