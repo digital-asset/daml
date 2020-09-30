@@ -9,12 +9,12 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.HttpCookie
+import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
+import akka.http.scaladsl.server.Directive1
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.oauth.server.{Request => OAuthRequest, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
-import java.util.Base64
 import java.util.UUID
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,6 +25,7 @@ import spray.json._
 // This is an implementation of the trigger service authentication middleware
 // for OAuth2 as specified in `/triggers/service/authentication.md`
 object Server extends StrictLogging {
+  import JsonProtocol._
   import com.daml.oauth.server.JsonProtocol._
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
@@ -42,11 +43,7 @@ object Server extends StrictLogging {
     // TODO[AH] Make sure this is bounded in size - or avoid state altogether.
     implicit val requests: TrieMap[UUID, Uri] = TrieMap()
     val route = concat(
-      path("auth") {
-        get {
-          complete((StatusCodes.NotImplemented, "The /auth endpoint is not implemented yet"))
-        }
-      },
+      path("auth") { get { auth } },
       path("login") { get { login } },
       path("cb") { get { loginCallback } },
       path("refresh") {
@@ -61,6 +58,25 @@ object Server extends StrictLogging {
 
   def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
     f.flatMap(_.unbind())
+
+  private val cookieName = "daml-ledger-token"
+
+  private def optionalToken: Directive1[Option[OAuthResponse.Token]] = {
+    def f(x: HttpCookiePair) = OAuthResponse.Token.fromCookieValue(x.value)
+    optionalCookie(cookieName).map(_.flatMap(f))
+  }
+
+  private def auth =
+    parameters(('claims))
+      .as[Request.Auth](Request.Auth) { _ =>
+        optionalToken {
+          case None => complete(StatusCodes.Unauthorized)
+          case Some(token) =>
+            complete(Response.Authorize(
+              accessToken = token.accessToken,
+              refreshToken = token.refreshToken))
+        }
+      }
 
   private def login(implicit config: Config, requests: TrieMap[UUID, Uri]) =
     parameters(('redirect_uri.as[Uri], 'claims))
@@ -114,9 +130,7 @@ object Server extends StrictLogging {
                 tokenResp <- Unmarshal(resp).to[OAuthResponse.Token]
               } yield tokenResp
               onSuccess(tokenRequest) { token =>
-                val encoder = Base64.getUrlEncoder()
-                val content = encoder.encodeToString(token.toJson.compactPrint.getBytes)
-                setCookie(HttpCookie("daml-ledger-token", content)) {
+                setCookie(HttpCookie(cookieName, token.toCookieValue)) {
                   redirect(redirectUri, StatusCodes.Found)
                 }
               }
