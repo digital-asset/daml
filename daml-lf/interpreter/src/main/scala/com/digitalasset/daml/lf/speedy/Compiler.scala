@@ -135,45 +135,36 @@ private[lf] final class Compiler(
 
   case class Position(idx: Int)
 
-  @inline
   private[this] def nextPosition(): Position = {
     val p = env.position
     env = env.copy(position = env.position + 1)
     Position(p)
   }
 
-  @inline
   private[this] def svar(p: Position): SEVar = SEVar(env.position - p.idx)
 
-  @inline
   private[this] def addVar(ref: VarRef, position: Position) =
     env = env.copy(varIndices = env.varIndices.updated(ref, position))
 
-  @inline
   private[this] def addExprVar(name: ExprVarName, position: Position) =
     addVar(EVarRef(name), position)
 
-  @inline
   private[this] def addTypeVar(name: TypeVarName, position: Position) =
     addVar(TVarRef(name), position)
 
-  @inline
   private[this] def hideTypeVar(name: TypeVarName) =
     env = env.copy(varIndices = env.varIndices - TVarRef(name))
 
   private[this] def vars: List[VarRef] = env.varIndices.keys.toList
 
-  @inline
   private[this] def lookupVar(varRef: VarRef): Option[SEVar] =
     env.varIndices.get(varRef).map(svar)
 
-  @inline
-  private[this] def lookupExprVar(name: ExprVarName): SEVar =
+  def lookupExprVar(name: ExprVarName): SEVar =
     lookupVar(EVarRef(name))
       .getOrElse(throw CompilationError(s"Unknown variable: $name. Known: ${vars.mkString(",")}"))
 
-  @inline
-  private[this] def lookupTypeVar(name: TypeVarName): Option[SEVar] =
+  def lookupTypeVar(name: TypeVarName): Option[SEVar] =
     lookupVar(TVarRef(name))
 
   private[this] case class Env(
@@ -206,24 +197,19 @@ private[lf] final class Compiler(
       case None => expr
     }
 
-  @inline
   private[this] def app(f: SExpr, a: SExpr) = SEApp(f, Array(a))
 
-  @inline
   private[this] def let(bound: SExpr)(body: Position => SExpr) =
     SELet1General(bound, body(nextPosition()))
 
-  @inline
   private[this] def function(body: Position => SExpr): SExpr =
     withEnv { _ =>
       SEAbs(1, body(nextPosition()))
     }
 
-  @inline
   private[this] def labeledFunction(label: String)(body: Position => SExpr): SExpr =
     function(pos => withLabel(label, body(pos)))
 
-  @inline
   private[this] def topLevelFunction[SDefRef <: SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef,
       arity: Int)(
@@ -801,7 +787,7 @@ private[lf] final class Compiler(
 
   @inline
   private[this] def compileGetParty(expr: Expr): SExpr =
-    labeledFunction("getPArty") { tokenPos =>
+    labeledFunction("getParty") { tokenPos =>
       SBSGetParty(compile(expr), svar(tokenPos))
     }
 
