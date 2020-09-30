@@ -654,7 +654,7 @@ sum = foldl (+) aunit
 product : Multiplicative a => [a] -> a
 product = foldl (*) munit
 
--- | A convenience operator that can be used to mark something not implemented.
+-- | A convenience function that can be used to mark something not implemented.
 -- Always throws an error with "Not implemented."
-(???) : a
-(???) = error "Not implemented."
+undefined : a
+undefined = error "Not implemented."
