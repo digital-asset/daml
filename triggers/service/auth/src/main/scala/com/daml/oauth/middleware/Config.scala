@@ -20,7 +20,7 @@ private[middleware] object Config {
   private val Empty =
     Config(
       port = Port.Dynamic,
-      oauthUri = Uri().withScheme("http"),
+      oauthUri = null,
       clientId = null,
       clientSecret = null)
 
@@ -37,15 +37,10 @@ private[middleware] object Config {
         .required()
         .text("Port to listen on")
 
-      opt[String]("oauth-host")
-        .action((x, c) => c.copy(oauthUri = c.oauthUri.withHost(x)))
+      opt[String]("oauth-uri")
+        .action((x, c) => c.copy(oauthUri = Uri(x)))
         .required()
-        .text("Hostname of the OAuth2 server")
-
-      opt[Int]("oauth-port")
-        .action((x, c) => c.copy(oauthUri = c.oauthUri.withPort(x)))
-        .required()
-        .text("Port of the OAuth2 server")
+        .text("URI of the OAuth2 server")
 
       opt[String]("id")
         .hidden
