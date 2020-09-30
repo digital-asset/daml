@@ -11,7 +11,6 @@ This page gives reference information on the structure of DAML files outside of 
 File structure
 **************
 
-- Language version (``daml 1.2``).
 - This file's module name (``module NameOfThisFile where``).
 
   Part of a hierarchical module system to facilitate code reuse. Must be the same as the DAML file name, without the file extension.

@@ -75,7 +75,7 @@ object Machine extends StrictLogging {
     machine.run() match {
       case SResultFinalValue(v) => v
       case SResultError(err) => {
-        logger.error(Pretty.prettyError(err, machine.ptx).render(80))
+        logger.error(Pretty.prettyError(err).render(80))
         throw err
       }
       case res => {
@@ -420,7 +420,7 @@ class Runner(
         Array(SParty(Party.assertFromString(party)), STimestamp(clientTime), createdValue))
     // Prepare a speedy machine for evaluting expressions.
     val machine: Speedy.Machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, initialState, onLedger = false)
+      Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
     val value = Machine.stepToValue(machine)

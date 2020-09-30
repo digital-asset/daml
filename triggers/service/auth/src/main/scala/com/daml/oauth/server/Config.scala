@@ -5,7 +5,7 @@ package com.daml.oauth.server
 
 import com.daml.ports.Port
 
-private[server] case class Config(
+case class Config(
     // Port the authorization server listens on
     port: Port,
     // Ledger ID of issued tokens
@@ -16,7 +16,7 @@ private[server] case class Config(
     jwtSecret: String
 )
 
-private[server] object Config {
+object Config {
   private val Empty =
     Config(port = Port.Dynamic, ledgerId = null, applicationId = null, jwtSecret = null)
 

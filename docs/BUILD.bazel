@@ -694,8 +694,27 @@ daml_test(
 
 daml_test(
     name = "daml-intro-daml-test",
-    srcs = glob(["source/daml/intro/daml/**/*.daml"]),
+    srcs = glob(
+        ["source/daml/intro/daml/**/*.daml"],
+        exclude = ["source/daml/intro/daml/daml-intro-8/**"],
+    ),
     deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-8-daml-test",
+    srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
+    data_deps = [":daml-intro-7.dar"],
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_build_test(
+    name = "daml-intro-7",
+    daml_yaml = ":daml-intro-7.yaml",
+    dar_dict = {
+        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+    },
+    project_dir = "source/daml/intro/daml/daml-intro-7",
 )
 
 daml_build_test(

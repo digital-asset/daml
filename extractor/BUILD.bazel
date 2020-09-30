@@ -45,11 +45,11 @@ genrule(
         filecount=32
         outs=($(OUTS))
         main="$${outs[0]}"
-        echo 'daml 1.2
+        echo '
 module VeryLargeArchive.Blobs where
 import VeryLargeArchive.Blob1()' > "$$main"
         firstfil="$${outs[1]}"
-        echo 'daml 1.2
+        echo '
 module VeryLargeArchive.Blob1 where
 ' > "$$firstfil"
         { for linen in `seq 1 1024`; do

@@ -241,7 +241,14 @@ additional_languages:
 Click "Next" once you are ready. You will be able to modify the project view
 file whenever you like, so don't worry too much.
  
-IntelliJ will now import the project. This process will take a while.
+The first import of the project might fail due to a resolution error of the 
+`bazel` binary. In order to solve this, configure the Bazel plugin settings
+with the location of the `bazel` binary, 
+by setting _Preferences_ -> _Bazel Settings_ -> _Bazel binary location_ 
+to `./dev-env/bin/bazel`.
+
+Now, re-trigger a sync of the workspace (IntelliJ Action: 
+_Sync project with BUILD files_). This process will take a while.
 
 [intellij_project_view]: https://ij.bazel.build/docs/project-views.html
 
