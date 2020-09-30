@@ -66,7 +66,7 @@ testRule trigger party acsBuilder commandsInFlight s = do
         , commandsInFlight = commandsInFlight
         , nextCommandId = 0
         }
-  let (_, commands) = runRule trigger.rule time state
+  let (_, commands) = undefined $ runRule trigger.rule -- time state -- TODO SC transform
   pure commands
 
 -- | Drop 'CommandId's and extract all 'Command's.
