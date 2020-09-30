@@ -38,8 +38,8 @@ module Daml.Trigger.LowLevel
   , ActionTrigger(..)
   , TriggerSetup(..)
   , TriggerRule(..)
-  , getS
-  , setS
+  , ActionState(..)
+  , modify
   , zoom
   , submitCommands
   , forwardPortInitialState
@@ -299,12 +299,15 @@ instance Action m => Action (StateT s m) where
     runStateT (f x') s'
 
 class ActionState s m | m -> s where
-  getS : m s
-  setS : s -> m ()
+  get : m s
+  put : s -> m ()
+
+modify : (Action m, ActionState s m) => (s -> s) -> m ()
+modify f = put . f =<< get
 
 instance Applicative m => ActionState s (StateT s m) where
-  getS = StateT $ \s -> pure (s, s)
-  setS s = StateT $ const $ pure ((), s)
+  get = StateT $ \s -> pure (s, s)
+  put s = StateT $ const $ pure ((), s)
 
 execStateT : Functor m => StateT s m a -> s -> m s
 execStateT (StateT fa) = fmap snd . fa
@@ -358,6 +361,6 @@ forwardPortInitialState f p ac = runTriggerSetup do
 forwardPort : TriggerUpdate s -> Message -> s -> Free TriggerF s
 forwardPort f msg = execStateT $ runTriggerRule $ do
   time <- getTime
-  (s, cmds) <- f time msg <$> getS
-  setS s
+  (s, cmds) <- f time msg <$> get
+  put s
   mapA_ submitCommands cmds

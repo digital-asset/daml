@@ -18,7 +18,6 @@ module Daml.Trigger.Internal
   , TriggerState (..)
   ) where
 
-import DA.Action.State
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
@@ -106,11 +105,11 @@ runRule
   : (Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ())
   -> TriggerRule (TriggerState s) [Commands]
 runRule rule = do
-  state <- getS
+  state <- get
   TriggerRule . zoom zoomIn zoomOut $ do
     runTriggerRule . runTriggerA
         $ rule state.party state.acs state.commandsInFlight state.userState
-    aState <- getS
+    aState <- get
     pure aState.emittedCommands
   where zoomIn state = TriggerAState state.commandsInFlight [] state.acs.pendingContracts state.nextCommandId
         zoomOut state aState =
@@ -121,8 +120,8 @@ runRule rule = do
 runTriggerA : TriggerA a -> TriggerRule TriggerAState a
 runTriggerA (TriggerA f) = do
   a <- f
-  s' <- getS
-  setS s' { emittedCommands = reverse s'.emittedCommands }
+  s' <- get
+  put s' { emittedCommands = reverse s'.emittedCommands }
   pure a
 
 data TriggerAState = TriggerAState

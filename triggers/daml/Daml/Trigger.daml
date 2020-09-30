@@ -34,7 +34,6 @@ module Daml.Trigger
  ) where
 
 import DA.Action
-import DA.Action.State
 import DA.Foldable (mapA_)
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import qualified DA.Map as GMap
@@ -195,7 +194,7 @@ runTrigger userTrigger = LowLevel.Trigger
       pure s
     update msg = do
       time <- getTime
-      state <- getS
+      state <- get
       let (s, cmds) = case msg of
             MCompletion completion ->
               let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
@@ -222,5 +221,5 @@ runTrigger userTrigger = LowLevel.Trigger
               let userState = userTrigger.updateState state.acs MHeartbeat state.userState
                   state' = state { userState }
               in runRule userTrigger.rule time state'
-      setS s
+      put s
       mapA_ submitCommands cmds
