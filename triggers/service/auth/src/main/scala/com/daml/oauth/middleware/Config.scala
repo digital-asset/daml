@@ -18,11 +18,7 @@ private[middleware] case class Config(
 
 private[middleware] object Config {
   private val Empty =
-    Config(
-      port = Port.Dynamic,
-      oauthUri = null,
-      clientId = null,
-      clientSecret = null)
+    Config(port = Port.Dynamic, oauthUri = null, clientId = null, clientSecret = null)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
@@ -42,17 +38,19 @@ private[middleware] object Config {
         .required()
         .text("URI of the OAuth2 server")
 
-      opt[String]("id")
-        .hidden
+      opt[String]("id").hidden
         .action((x, c) => c.copy(clientId = x))
         .withFallback(() => sys.env.getOrElse("DAML_CLIENT_ID", ""))
-        .validate(x => if (x.isEmpty) failure("Environment variable DAML_CLIENT_ID must not be empty") else success)
+        .validate(x =>
+          if (x.isEmpty) failure("Environment variable DAML_CLIENT_ID must not be empty")
+          else success)
 
-      opt[String]("secret")
-        .hidden
+      opt[String]("secret").hidden
         .action((x, c) => c.copy(clientSecret = x))
         .withFallback(() => sys.env.getOrElse("DAML_CLIENT_SECRET", ""))
-        .validate(x => if (x.isEmpty) failure("Environment variable DAML_CLIENT_SECRET must not be empty") else success)
+        .validate(x =>
+          if (x.isEmpty) failure("Environment variable DAML_CLIENT_SECRET must not be empty")
+          else success)
 
       help("help").text("Print this usage text")
 

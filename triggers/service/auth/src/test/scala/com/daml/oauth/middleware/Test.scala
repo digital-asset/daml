@@ -49,7 +49,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         val cookie = resp.header[`Set-Cookie`].get.cookie
         assert(cookie.name == "daml-ledger-token")
         val decoder = Base64.getUrlDecoder()
-        val token = new String(decoder.decode(cookie.value)).parseJson.convertTo[OAuthResponse.Token]
+        val token =
+          new String(decoder.decode(cookie.value)).parseJson.convertTo[OAuthResponse.Token]
         assert(token.tokenType == "bearer")
       }
     }
