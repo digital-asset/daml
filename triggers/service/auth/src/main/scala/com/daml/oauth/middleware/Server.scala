@@ -103,7 +103,7 @@ object Server extends StrictLogging {
                         onSuccess(tokenRequest) { token =>
                           val encoder = Base64.getUrlEncoder()
                           val content = encoder.encodeToString(token.toJson.compactPrint.getBytes)
-                          setCookie(HttpCookie("token", content)) {
+                          setCookie(HttpCookie("daml-ledger-token", content)) {
                             redirect(redirectUri, StatusCodes.Found)
                           }
                         }

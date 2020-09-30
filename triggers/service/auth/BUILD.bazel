@@ -116,5 +116,6 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_parsing_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_spray_spray_json_2_12",
     ],
 )
