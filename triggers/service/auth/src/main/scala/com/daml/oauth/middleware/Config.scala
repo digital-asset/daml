@@ -48,15 +48,23 @@ private[middleware] object Config {
         .text("Port of the OAuth2 server")
 
       opt[String]("id")
+        .hidden
         .action((x, c) => c.copy(clientId = x))
-        .required()
-        .text("OAuth2 client id")
+        .withFallback(() => sys.env.getOrElse("DAML_CLIENT_ID", ""))
+        .validate(x => if (x.isEmpty) failure("Environment variable DAML_CLIENT_ID must not be empty") else success)
 
       opt[String]("secret")
+        .hidden
         .action((x, c) => c.copy(clientSecret = x))
-        .required()
-        .text("OAuth2 client secret")
+        .withFallback(() => sys.env.getOrElse("DAML_CLIENT_SECRET", ""))
+        .validate(x => if (x.isEmpty) failure("Environment variable DAML_CLIENT_SECRET must not be empty") else success)
 
       help("help").text("Print this usage text")
+
+      note("""
+        |Environment variables:
+        |  DAML_CLIENT_ID      The OAuth2 client-id - must not be empty
+        |  DAML_CLIENT_SECRET  The OAuth2 client-secret - must not be empty
+        """.stripMargin)
     }
 }
