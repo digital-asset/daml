@@ -199,7 +199,12 @@ object Profile {
       private[this] val allowAll = new Allowed[Any]
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
+      implicit val createDefRef: Allowed[CreateDefRef] = allowAll
       implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
+      implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll
+      implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
+      implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
+      implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
       implicit val sebrdr: Allowed[SEBuiltinRecursiveDefinition.Reference] = allowAll
       implicit val str: Allowed[String] = allowAll
 
@@ -210,7 +215,13 @@ object Profile {
           case null => "<null>" // NOTE(MH): We should never see this but it's no problem if we do.
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
+          case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
           case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
+          case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
+          case ChoiceByKeyDefRef(tmplRef, name) =>
+            s"exerciseByKey @${tmplRef.qualifiedName} ${name}"
+          case FetchByKeyDefRef(tmplRef) => s"fetchByKey @${tmplRef.qualifiedName}"
+          case LookupByKeyDefRef(tmplRef) => s"lookupByKey @${tmplRef.qualifiedName}"
           case ref: SEBuiltinRecursiveDefinition.Reference => ref.toString().toLowerCase()
           case str: String => str
           case any => s"<unknown ${any}>"

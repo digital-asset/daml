@@ -12,6 +12,7 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Anf.flattenToAnf
+import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.transaction.VersionTimeline
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
@@ -899,14 +900,16 @@ private[lf] final class Compiler(
     function(arity)(x => withLabel(label, body(x)))
 
   @inline
-  private[this] def topLevelFunction(ref: SDefinitionRef, arity: Int, label: String)(
+  private[this] def topLevelFunction[SDefRef <: SDefinitionRef: LabelModule.Allowed](
+      ref: SDefRef,
+      arity: Int)(
       body: List[Position] => SExpr
-  ): (SDefinitionRef, SExpr) =
+  ): (SDefRef, SExpr) =
     ref ->
       validate(
         closureConvert(
           Map.empty,
-          function(arity, label)(body)
+          SEAbs(arity, withLabel(ref, body(List.fill(arity)(nextPosition()))))
         )
       )
 
@@ -922,10 +925,7 @@ private[lf] final class Compiler(
     //       <retValue> = [update] <token>
     //       _ = $endExercise[tmplId] <token> <retValue>
     //   in <retValue>
-    topLevelFunction(
-      ChoiceDefRef(tmplId, choice.name),
-      4,
-      s"exercise @${tmplId.qualifiedName} ${choice.name}") {
+    topLevelFunction(ChoiceDefRef(tmplId, choice.name), 4) {
       case List(actorsPos, cidPos, choiceArgPos, tokenPos) =>
         val tmplArg = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
         nextPositionWithExprName(tmpl.param)
@@ -975,10 +975,7 @@ private[lf] final class Compiler(
     //       <retValue> = <updateE> <token>
     //       _ = $endExercise[tmplId] <token> <retValue>
     //   in  <retValue>
-    topLevelFunction(
-      ChoiceByKeyDefRef(tmplId, choice.name),
-      4,
-      s"exercise by key @${tmplId.qualifiedName} ${choice.name}") {
+    topLevelFunction(ChoiceByKeyDefRef(tmplId, choice.name), 4) {
       case List(actorsPos, keyPos, choiceArgPos, tokenPos) =>
         val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
         val keyWithMPos = nextPosition()
@@ -1380,7 +1377,7 @@ private[lf] final class Compiler(
     //   let <tmplArg> = $fetch(tmplId) <coid> <token>
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key] <token>
     //   in <tmplArg>
-    topLevelFunction(FetchDefRef(tmplId), 2, s"fetch @${tmplId.qualifiedName}") {
+    topLevelFunction(FetchDefRef(tmplId), 2) {
       case List(cidPos, tokenPos) =>
         val fetch = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
         val tmplArgPos = nextPositionWithExprName(tmpl.param)
@@ -1405,7 +1402,7 @@ private[lf] final class Compiler(
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = $checkPreconf(tmplId)(<tmplArg> [tmpl.precond]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key] <token>
-    topLevelFunction(CreateDefRef(tmplId), 2, s"create @${tmplId.qualifiedName}") {
+    topLevelFunction(CreateDefRef(tmplId), 2) {
       case List(tmplArgPos, tokenPos) =>
         addExprVar(tmpl.param, tmplArgPos)
         val precond = SBCheckPrecond(tmplId)(svar(tmplArgPos), compile(tmpl.precond))
@@ -1498,7 +1495,7 @@ private[lf] final class Compiler(
     //        <mbCid> = $lookupKey(tmplId) <keyWithM> <token>
     //        _ = $insertLookup(tmplId> <keyWithM> <mbCid> <token>
     //    in <mbCid>
-    topLevelFunction(LookupByKeyDefRef(tmplId), 2, s"lookupByKey @${tmplId.qualifiedName}") {
+    topLevelFunction(LookupByKeyDefRef(tmplId), 2) {
       case List(keyPos, tokenPos) =>
         val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
         val keyWithMPos = nextPosition()
@@ -1531,7 +1528,7 @@ private[lf] final class Compiler(
     //        <contract> = $fetch(tmplId) <coid> <token>
     //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
-    topLevelFunction(FetchByKeyDefRef(tmplId), 2, s"fetchByKey @${tmplId.qualifiedName}") {
+    topLevelFunction(FetchByKeyDefRef(tmplId), 2) {
       case List(keyPos, tokenPos) =>
         val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
         val keyWithMPos = nextPosition()
