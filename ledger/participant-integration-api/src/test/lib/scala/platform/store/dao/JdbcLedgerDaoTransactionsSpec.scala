@@ -503,10 +503,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     import JdbcLedgerDaoSuite._
 
     val trials = 10
+    val txSeqLength = 1000
     val trialData = Gen
       .listOfN(
         trials,
-        Gen.zip(unfilteredTxSeq(length = 1000), Gen oneOf getFlatTransactionCodePaths))
+        Gen.zip(unfilteredTxSeq(length = txSeqLength), Gen oneOf getFlatTransactionCodePaths))
       .sample getOrElse sys.error("impossible Gen failure")
 
     trialData
@@ -524,15 +525,26 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               .runWith(Sink.seq)
             readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
             readCreates = extractAllTransactions(response) flatMap (_.events)
-          } yield {
-            readCreates.size should ===(boolSeq count identity)
-            // we check that the offsets from the DB match the ones we had before
-            // submission as a substitute for actually inspecting the events (indeed,
-            // so many of the events are = as written that this would not be useful)
-            readOffsets should ===(matchingOffsets)
-          }
+          } yield
+            try {
+              readCreates.size should ===(boolSeq count identity)
+              // we check that the offsets from the DB match the ones we had before
+              // submission as a substitute for actually inspecting the events (indeed,
+              // so many of the events are = as written that this would not be useful)
+              readOffsets should ===(matchingOffsets)
+            } catch {
+              case ae: org.scalatest.exceptions.TestFailedException =>
+                throw ae modifyMessage (_ map { msg: String =>
+                  msg +
+                    "\n  Random parameters:" +
+                    s"\n    actual frequency: ${boolSeq.count(identity)}/$txSeqLength" +
+                    s"\n    code path: ${cp.label}" +
+                    s"\n  Please copy the above 4 lines to https://github.com/digital-asset/daml/issues/7521" +
+                    s"\n  along with which of (JdbcLedgerDaoPostgresqlSpec, JdbcLedgerDaoH2DatabaseSpec) failed"
+                })
+            }
       }
-      .map(_.foldLeft(1 shouldBe 1)((_, r) => r))
+      .map(_.foldLeft(succeed)((_, r) => r))
   }
 
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
