@@ -206,7 +206,7 @@ Developer Tools
    * - ``daml deploy`` :doc:`helper command and associated CLI </deploy/generic_ledger>` (``daml deploy --help``)
      - Stable
      -
-   * - Assistant commands to start Runtime Components: ``daml json-api`, ``daml trigger``, ``daml trigger-service``, and ``daml extractor``.
+   * - Assistant commands to start Runtime Components: ``daml json-api``, ``daml trigger``, ``daml trigger-service``, and ``daml extractor``.
      - See :ref:`runtime-components`.
      -
    * - **DAML Projects**
