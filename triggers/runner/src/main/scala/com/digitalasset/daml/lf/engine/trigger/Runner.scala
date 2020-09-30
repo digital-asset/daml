@@ -273,7 +273,6 @@ class Runner(
   // Handles the value of update.
   private def handleStepFreeResult(
       clientTime: Timestamp,
-      messageVal: SValue,
       v: SValue,
       state: SValue,
       submit: SubmitRequest => Unit): SValue = {
@@ -290,9 +289,6 @@ class Runner(
           vvv.match2 {
             case "GetTime" /*(Time -> a)*/ => {
               case DamlFun(timeA) => go(evaluate(makeAppD(timeA, STimestamp(clientTime))))
-            }
-            case "GetMessage" /*(Message -> a)*/ => {
-              case DamlFun(messageA) => go(evaluate(makeAppD(messageA, messageVal)))
             }
             case "Submit" /*(Commands, () -> a)*/ => {
               case DamlTuple2(commands, DamlFun(unitA)) =>
@@ -482,14 +478,10 @@ class Runner(
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, state))
+        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal, state))
         val updateWithNewState = Machine.stepToValue(machine)
-        val newState = handleStepFreeResult(
-          clientTime,
-          messageVal = messageVal,
-          v = updateWithNewState,
-          state = state,
-          submit = submit)
+        val newState =
+          handleStepFreeResult(clientTime, v = updateWithNewState, state = state, submit = submit)
         newState
       }))(Keep.right[NotUsed, Future[SValue]])
   }

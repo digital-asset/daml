@@ -180,7 +180,7 @@ dedupExerciseByKey k c = do
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState
-  , update = execStateT $ runActionTrigger update
+  , update = execStateT . runActionTrigger . update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat
   }
@@ -190,9 +190,8 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty 0
       in runRule userTrigger.rule time state
-    update = do
+    update msg = do
       time <- getTime
-      msg <- getMessage
       state <- getS
       let (s, cmds) = case msg of
             MCompletion completion ->

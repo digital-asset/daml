@@ -37,7 +37,6 @@ module Daml.Trigger.LowLevel
   , RelTime(..)
   , execStateT
   , ActionTrigger(..)
-  , getMessage
   , getS
   , setS
   , submitCommands
@@ -166,7 +165,7 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- an accumulator of type `s`.
 data Trigger s = Trigger
   { initialState : Party -> Time -> ActiveContracts -> (s, [Commands])
-  , update : s -> Free TriggerF s
+  , update : Message -> s -> Free TriggerF s
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
   }
@@ -314,7 +313,6 @@ zoom r w (StateT smas) = StateT $ \t ->
 -- Must be kept in sync with Runner#handleStepFreeResult
 data TriggerF a =
   GetTime (Time -> a)
-  | GetMessage (Message -> a)
   | Submit (Commands, () -> a)
   deriving Functor
 
@@ -330,16 +328,14 @@ instance HasTime (ActionTrigger s) where
   getTime : ActionTrigger s Time
   getTime = liftAT (GetTime identity)
 
-getMessage : ActionTrigger s Message
-getMessage = liftAT (GetMessage identity)
-
 submitCommands : Commands -> ActionTrigger s ()
 submitCommands cmds = liftAT (Submit (cmds, identity))
 
 type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
 
-forwardPort : TriggerUpdate s -> s -> Free TriggerF s
-forwardPort f = execStateT $ runActionTrigger $ do
-  (s, cmds) <- f <$> getTime <*> getMessage <*> getS
+forwardPort : TriggerUpdate s -> Message -> s -> Free TriggerF s
+forwardPort f msg = execStateT $ runActionTrigger $ do
+  time <- getTime
+  (s, cmds) <- f time msg <$> getS
   setS s
   mapA_ submitCommands cmds
