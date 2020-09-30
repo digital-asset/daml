@@ -523,17 +523,12 @@ private[lf] object Pretty {
 
         case loc: SELoc => prettySELoc(loc)
 
-        case SELet(bounds, body) =>
-          // let [a, b, c] in X
-          intercalate(comma + lineOrSpace, (bounds.zipWithIndex.map {
-            case (x, n) =>
-              str(index + n) & char('=') & prettySExpr(index + n)(x)
-          })).tightBracketBy(text("let ["), char(']')) +
-            lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
-        case SELet1General(rhs, body) =>
-          prettySExpr(index)(SELet(Array(rhs), body))
-        case SELet1Builtin(builtin, args, body) =>
-          prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
+        case SELet(lhs, rhs) =>
+          (text("let ") & str(index) & char('=') & prettySExpr(index)(lhs)) +
+            lineOrSpace + text("in") & prettySExpr(index + 1)(rhs)
+
+        case SELetBuiltin(builtin, args, body) =>
+          prettySExpr(index)(SELet(SEAppAtomicSaturatedBuiltin(builtin, args), body))
 
         case x: SEBuiltinRecursiveDefinition => str(x)
         case x: SEImportValue => str(x)

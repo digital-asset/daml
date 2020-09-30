@@ -200,7 +200,7 @@ private[lf] final class Compiler(
   private[this] def app(f: SExpr, a: SExpr) = SEApp(f, Array(a))
 
   private[this] def let(bound: SExpr)(body: Position => SExpr) =
-    SELet1General(bound, body(nextPosition()))
+    SELet(bound, body(nextPosition()))
 
   private[this] def unaryFunction(body: Position => SExpr): SExpr =
     withEnv { _ =>
@@ -1095,12 +1095,6 @@ private[lf] final class Compiler(
           },
         )
 
-      case SELet(bounds, body) =>
-        SELet(bounds.zipWithIndex.map {
-          case (b, i) =>
-            closureConvert(shift(remaps, i), b)
-        }, closureConvert(shift(remaps, bounds.length), body))
-
       case SECatch(body, handler, fin) =>
         SECatch(
           closureConvert(remaps, body),
@@ -1123,10 +1117,10 @@ private[lf] final class Compiler(
       case x: SEAppAtomicSaturatedBuiltin =>
         throw CompilationError(s"closureConvert: unexpected: $x")
 
-      case SELet1General(bound, body) =>
-        SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
+      case SELet(bound, body) =>
+        SELet(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
 
-      case x: SELet1Builtin =>
+      case x: SELetBuiltin =>
         throw CompilationError(s"closureConvert: unexpected: $x")
 
       case x: SECaseAtomic =>
@@ -1185,10 +1179,6 @@ private[lf] final class Compiler(
           alts.foldLeft(go(scrut, bound, free)) {
             case (acc, SCaseAlt(pat, body)) => go(body, bound + patternNArgs(pat), acc)
           }
-        case SELet(bounds, body) =>
-          bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
-            case (acc, (expr, idx)) => go(expr, bound + idx, acc)
-          }
         case SECatch(body, handler, fin) =>
           go(body, bound, go(handler, bound, go(fin, bound, free)))
         case SELabelClosure(_, expr) =>
@@ -1200,9 +1190,9 @@ private[lf] final class Compiler(
 
         case x: SEAppAtomicGeneral => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
-        case SELet1General(lhs, rhs) =>
+        case SELet(lhs, rhs) =>
           go(lhs, bound, go(rhs, bound + 1, free))
-        case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SELetBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
       }
 
@@ -1279,14 +1269,8 @@ private[lf] final class Compiler(
               val n = patternNArgs(pat)
               goBody(maxS + n, maxA, maxF)(body)
           }
-        case SELet(bounds, body) =>
-          bounds.zipWithIndex.foreach {
-            case (rhs, i) =>
-              goBody(maxS + i, maxA, maxF)(rhs)
-          }
-          goBody(maxS + bounds.length, maxA, maxF)(body)
-        case _: SELet1General => goLets(maxS)(expr)
-        case _: SELet1Builtin => goLets(maxS)(expr)
+        case _: SELet => goLets(maxS)(expr)
+        case _: SELetBuiltin => goLets(maxS)(expr)
         case SECatch(body, handler, fin) =>
           go(body)
           go(handler)
@@ -1304,10 +1288,10 @@ private[lf] final class Compiler(
       def goLets(maxS: Int)(expr: SExpr): Unit = {
         def go = goBody(maxS, maxA, maxF)
         expr match {
-          case SELet1General(rhs, body) =>
+          case SELet(rhs, body) =>
             go(rhs)
             goLets(maxS + 1)(body)
-          case SELet1Builtin(_, args, body) =>
+          case SELetBuiltin(_, args, body) =>
             args.foreach(go)
             goLets(maxS + 1)(body)
           case expr =>

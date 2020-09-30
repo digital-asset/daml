@@ -56,9 +56,8 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     case SEBuiltin(b) => s"(BUILTIN)$b"
     case SEVal(ref) => s"(DEF)${pp(ref)}"
     case SELocation(_, exp) => s"LOC(${pp(exp)})"
-    case SELet(rhss, body) => s"letG (${commas(rhss.map(pp))}) in ${pp(body)}"
-    case SELet1General(rhs, body) => s"let ${pp(rhs)} in ${pp(body)}"
-    case SELet1Builtin(builtin, args, body) =>
+    case SELet(rhs, body) => s"let ${pp(rhs)} in ${pp(body)}"
+    case SELetBuiltin(builtin, args, body) =>
       s"letB (${pp(SEBuiltin(builtin))},${commas(args.map(pp))}) in ${pp(body)}"
     case SECaseAtomic(scrut, _) => s"case(atomic) ${pp(scrut)} of..."
     case SECase(scrut, _) => s"case ${pp(scrut)} of..."

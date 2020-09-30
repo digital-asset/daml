@@ -270,7 +270,7 @@ object SExpr {
   }
 
   /** A let-expression with a single RHS */
-  final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
+  final case class SELet(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KPushTo(machine.env, body, machine.frame, machine.actuals, machine.env.size))
       machine.ctrl = rhs
@@ -278,7 +278,7 @@ object SExpr {
   }
 
   /** A (single) let-expression with an unhungry,saturated builtin-application as RHS */
-  final case class SELet1Builtin(builtin: SBuiltinPure, args: Array[SExprAtomic], body: SExpr)
+  final case class SELetBuiltin(builtin: SBuiltinPure, args: Array[SExprAtomic], body: SExpr)
       extends SExpr
       with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
@@ -297,60 +297,15 @@ object SExpr {
     }
   }
 
-  object SELet1 {
+  object SELet {
     def apply(rhs: SExpr, body: SExpr): SExpr = {
       rhs match {
         case SEAppAtomicSaturatedBuiltin(builtin: SBuiltinPure, args) =>
-          SELet1Builtin(builtin, args, body)
-        case _ => SELet1General(rhs, body)
+          SELetBuiltin(builtin, args, body)
+        case _ =>
+          new SELet(rhs, body)
       }
     }
-  }
-
-  /** A non-recursive, non-parallel let block. Each bound expression
-    * is evaluated in turn and pushed into the environment one by one,
-    * with later expressions possibly referring to earlier.
-    */
-  final case class SELet(bounds: Array[SExpr], body: SExpr) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
-
-      // Evaluate the body after we've evaluated the binders
-      machine.pushKont(
-        KPushTo(
-          machine.env,
-          body,
-          machine.frame,
-          machine.actuals,
-          machine.env.size + bounds.size - 1))
-
-      // Start evaluating the let binders
-      var i = 1
-      while (i < bounds.size) {
-        val b = bounds(bounds.size - i)
-        val expectedEnvSize = machine.env.size + bounds.size - i - 1
-        machine.pushKont(KPushTo(machine.env, b, machine.frame, machine.actuals, expectedEnvSize))
-        i += 1
-      }
-      machine.ctrl = bounds.head
-    }
-  }
-
-  object SELet {
-
-    // Helpers for constructing let expressions:
-    // Instead of
-    //   SELet(Array(SEVar(4), SEVar(1)), SEVar(1))
-    // you can write:
-    //   SELet(
-    //     SEVar(4),
-    //     SEVar(1)
-    //   ) in SEVar(1)
-    case class PartialSELet(bounds: Array[SExpr]) extends SomeArrayEquals {
-      def in(body: => SExpr): SExpr = SELet(bounds, body)
-    }
-
-    def apply(bounds: SExpr*) = PartialSELet(bounds.toArray)
-
   }
 
   /** Location annotation. When encountered the location is stored in the 'lastLocation'
@@ -513,7 +468,7 @@ object SExpr {
                 SCaseAlt(SCPNil, SEValue.False), // nil -> False
                 SCaseAlt( // cons y yss ->
                   SCPCons,
-                  SELet1( // let sub = (f y x) in
+                  SELet( // let sub = (f y x) in
                     SEAppAtomicGeneral(
                       SELocA(0), // f
                       Array(

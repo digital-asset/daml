@@ -193,10 +193,10 @@ class AnfTest extends WordSpec with Matchers {
 
   // anf builders
   private def let1(rhs: SExpr, body: SExpr): SExpr =
-    SELet1General(rhs, body)
+    SELet(rhs, body)
 
   private def let1b2(op: SBuiltinPure, arg1: SExprAtomic, arg2: SExprAtomic, body: SExpr): SExpr =
-    SELet1Builtin(op, Array(arg1, arg2), body)
+    SELetBuiltin(op, Array(arg1, arg2), body)
 
   private def appa(func: SExprAtomic, arg: SExprAtomic): SExpr =
     SEAppAtomicGeneral(func, Array(arg))

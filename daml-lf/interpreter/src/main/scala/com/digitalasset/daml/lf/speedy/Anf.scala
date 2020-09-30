@@ -229,7 +229,7 @@ private[lf] object Anf {
         val env1 = trackBindings(depth, env, 1)
         Bounce(() =>
           transformExp(depth1, env1, body, { body1 =>
-            Bounce(() => txK(AExpr(SELet1(rhs, body1.wrapped))))
+            Bounce(() => txK(AExpr(SELet(rhs, body1.wrapped))))
           })(transform))
     })
   }
@@ -310,11 +310,7 @@ private[lf] object Anf {
         })
       }
 
-      case SELet(rhss, body) =>
-        val expanded = expandMultiLet(rhss.toList, body)
-        Bounce(() => transformExp(depth, env, expanded, k)(transform))
-
-      case SELet1General(rhs, body) =>
+      case SELet(rhs, body) =>
         Bounce(() => transformLet1(depth, env, rhs, body, k, transform))
 
       case SECatch(body0, handler0, fin0) =>
@@ -349,7 +345,7 @@ private[lf] object Anf {
       case x: SEAppAtomicFun => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEAppAtomicGeneral => throw CompilationError(s"flatten: unexpected: $x")
       case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"flatten: unexpected: $x")
-      case x: SELet1Builtin => throw CompilationError(s"flatten: unexpected: $x")
+      case x: SELetBuiltin => throw CompilationError(s"flatten: unexpected: $x")
       case x: SECaseAtomic => throw CompilationError(s"flatten: unexpected: $x")
     }
 
@@ -377,23 +373,11 @@ private[lf] object Anf {
             val atom = Right(AbsBinding(depth))
             Bounce(() =>
               transform(depth.incr(1), atom, { body =>
-                Bounce(() => txK(AExpr(SELet1(anf, body.wrapped))))
+                Bounce(() => txK(AExpr(SELet(anf, body.wrapped))))
               }))
         })
       }
     }
-  }
-
-  private[this] def expandMultiLet(rhss: List[SExpr], body: SExpr): SExpr = {
-    //loop over rhss in reverse order
-    @tailrec
-    def loop(acc: SExpr, xs: List[SExpr]): SExpr = {
-      xs match {
-        case Nil => acc
-        case rhs :: xs => loop(SELet1General(rhs, acc), xs)
-      }
-    }
-    loop(body, rhss.reverse)
   }
 
   /* This function is used when transforming known functions.  And so we can we sure that

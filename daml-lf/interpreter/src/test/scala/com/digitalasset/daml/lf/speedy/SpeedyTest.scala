@@ -310,7 +310,7 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_1_0 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_0")))
       p_1_0 shouldEqual
         Some(
-          SELet1General(
+          SELet(
             SEVal(LfDefRef(qualify("M:origin"))),
             SEAppAtomicSaturatedBuiltin(
               SBRecUpd(qualify("M:Point"), 0),
@@ -333,7 +333,7 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_1_2 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_2")))
       p_1_2 shouldEqual
         Some(
-          SELet1General(
+          SELet(
             SEVal(LfDefRef(qualify("M:origin"))),
             SEAppAtomicSaturatedBuiltin(
               SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
@@ -370,7 +370,7 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_3_4 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_4_loc")))
       p_3_4 shouldEqual
         Some(
-          SELet1General(
+          SELet(
             SELocation(mkLocation(2), SEVal(LfDefRef(qualify("M:origin")))),
             SELocation(
               mkLocation(0),
