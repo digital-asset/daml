@@ -105,7 +105,6 @@ jobs:
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
       - template: ci/build-unix.yml
@@ -143,7 +142,6 @@ jobs:
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
       - template: ci/build-unix.yml
@@ -180,7 +178,6 @@ jobs:
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
       - template: ci/build-windows.yml
@@ -289,9 +286,7 @@ jobs:
 
           changes_release_files() {
               changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha) $(branch_sha) | sort)"
-              stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
-              snapshot="LATEST"
-              [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
+              [ "LATEST" = "$changed" ]
           }
 
           changes_one_line_in_latest() {

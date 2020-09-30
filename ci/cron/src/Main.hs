@@ -16,12 +16,10 @@ import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Split as Split
-import qualified Data.Maybe as Maybe
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import qualified Data.Traversable as Traversable
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
@@ -104,13 +102,7 @@ build_and_push temp versions = do
                                       (const io)
         build version = do
             shell_ $ "git checkout v" <> show version
-            -- The release-triggering commit does not have a tag, so we need to
-            -- find it by walking through the git history of the LATEST file.
-            sha <- find_commit_for_version version
-            Control.Exception.bracket_
-                (shell_ $ "git checkout " <> sha <> " -- docs/source/support/release-notes.rst")
-                (shell_ "git reset --hard")
-                (build_helper version)
+            build_helper version
         build_helper version = do
             robustly_download_nix_packages
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
@@ -171,25 +163,6 @@ reset_cloudfront = do
     shell_ $ "aws cloudfront create-invalidation"
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
-
-find_commit_for_version :: Version -> IO String
-find_commit_for_version version = do
-    ver_sha <- init <$> (shell $ "git rev-parse v" <> show version)
-    let expected = ver_sha <> " " <> show version
-    -- git log -G 'regex' returns all the commits for which 'regex' appears in
-    -- the diff. To find out the commit that "released" the version. The commit
-    -- we want is a commit that added a single line, which matches the version
-    -- we are checking for.
-    matching_commits <- lines <$> (shell $ "git log --format=%H --all -G '" <> ver_sha <> "' -- LATEST")
-    matching <- Maybe.catMaybes <$> Traversable.for matching_commits (\sha -> do
-        after <- Set.fromList . lines <$> (shell $ "git show " <> sha <> ":LATEST")
-        before <- Set.fromList . lines <$> (shell $ "git show " <> sha <> "~:LATEST")
-        return $ case Set.toList(after `Set.difference` before) of
-                     [line] | line == expected -> Just sha
-                     _ -> Nothing)
-    case matching of
-      [sha] -> return sha
-      _ -> fail $ "Expected single commit to match release " <> show version <> ", but instead found: " <> show matching
 
 fetch_gh_paginated :: JSON.FromJSON a => String -> IO [a]
 fetch_gh_paginated url = do
