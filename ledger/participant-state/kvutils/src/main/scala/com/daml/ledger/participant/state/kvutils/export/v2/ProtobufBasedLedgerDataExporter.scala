@@ -36,6 +36,7 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
         .build
       output.synchronized {
         entry.writeDelimitedTo(output)
+        output.flush()
       }
     }
 
