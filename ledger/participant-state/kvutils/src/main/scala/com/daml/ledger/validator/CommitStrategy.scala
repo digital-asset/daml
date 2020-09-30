@@ -16,6 +16,10 @@ import scala.concurrent.Future
 
 /**
   * Determines how we commit the results of processing a DAML submission.
+  *
+  * This must write deterministically. The output and order of writes should not vary with the same
+  * input, even across process runs. This also means that the implementing type must not depend on
+  * the order of the `inputState` and `outputState` maps.
   */
 trait CommitStrategy[Result] {
   def commit(

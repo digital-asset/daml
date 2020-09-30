@@ -3,17 +3,16 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
-import com.google.protobuf.ByteString
+import com.daml.ledger.validator.LedgerStateOperations.Key
 
 /**
   * Determines how we namespace and serialize state keys.
   */
 trait StateKeySerializationStrategy {
-  def serializeStateKey(key: DamlStateKey): ByteString
+  def serializeStateKey(key: DamlStateKey): Key
 
-  def deserializeStateKey(input: Bytes): DamlStateKey
+  def deserializeStateKey(input: Key): DamlStateKey
 }
 
 object StateKeySerializationStrategy {

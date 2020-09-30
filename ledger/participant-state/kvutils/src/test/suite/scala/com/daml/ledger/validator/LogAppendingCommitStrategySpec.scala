@@ -17,7 +17,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers with MockitoSugar {
+final class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers with MockitoSugar {
   "commit" should {
     "return index from appendToLog" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
