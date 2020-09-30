@@ -180,7 +180,7 @@ dedupExerciseByKey k c = do
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState
-  , update = runActionTrigger update
+  , update = execStateT $ runActionTrigger update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat
   }

@@ -35,6 +35,7 @@ module Daml.Trigger.LowLevel
   , RegisteredTemplates(..)
   , registeredTemplate
   , RelTime(..)
+  , execStateT
   , ActionTrigger(..)
   , getMessage
   , getS
@@ -44,6 +45,7 @@ module Daml.Trigger.LowLevel
   ) where
 
 import DA.Foldable (mapA_)
+import DA.Functor ((<&>))
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
 
@@ -164,7 +166,7 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- an accumulator of type `s`.
 data Trigger s = Trigger
   { initialState : Party -> Time -> ActiveContracts -> (s, [Commands])
-  , update : Free (TriggerF s) ()
+  , update : s -> Free TriggerF s
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
   }
@@ -279,20 +281,50 @@ lowerFC : Action f => Free f a -> f a
 lowerFC (Pure a) = pure a
 lowerFC (Free x) = x >>= lowerFC
 
+newtype StateT s m a = StateT { runStateT : s -> m (a, s) }
+  deriving Functor
+
+liftStateT : Functor m => m a -> StateT s m a
+liftStateT ma = StateT $ \s -> (,s) <$> ma
+
+instance Action m => Applicative (StateT s m) where
+  pure a = StateT (\s -> pure (a, s))
+  f <*> x = f >>= (<$> x)
+  
+instance Action m => Action (StateT s m) where
+  StateT x >>= f = StateT $ \s -> do
+    (x', s') <- x s
+    runStateT (f x') s'
+
+class ActionState s m | m -> s where
+  getS : m s
+  setS : s -> m ()
+
+instance Applicative m => ActionState s (StateT s m) where
+  getS = StateT $ \s -> pure (s, s)
+  setS s = StateT $ const $ pure ((), s)
+
+execStateT : Functor m => StateT s m a -> s -> m s
+execStateT (StateT fa) = fmap snd . fa
+
+zoom : Functor m => (t -> s) -> (t -> s -> t) -> StateT s m a -> StateT t m a
+zoom r w (StateT smas) = StateT $ \t ->
+  smas (r t) <&> \(a, s) -> (a, w t s)
+
 -- Must be kept in sync with Runner#handleStepFreeResult
-data TriggerF s a =
+data TriggerF a =
   GetTime (Time -> a)
   | GetMessage (Message -> a)
-  | GetS (s -> a)
-  | SetS (s, () -> a)
   | Submit (Commands, () -> a)
   deriving Functor
 
-newtype ActionTrigger s a = ActionTrigger { runActionTrigger : Free (TriggerF s) a }
+newtype ActionTrigger s a = ActionTrigger { runActionTrigger : StateT s (Free TriggerF) a }
   deriving (Functor, Applicative, Action)
 
-liftAT : TriggerF s a -> ActionTrigger s a
-liftAT = ActionTrigger . liftFC
+deriving instance ActionState s (ActionTrigger s)
+
+liftAT : TriggerF a -> ActionTrigger s a
+liftAT = ActionTrigger . liftStateT . liftFC
 
 instance HasTime (ActionTrigger s) where
   getTime : ActionTrigger s Time
@@ -301,19 +333,13 @@ instance HasTime (ActionTrigger s) where
 getMessage : ActionTrigger s Message
 getMessage = liftAT (GetMessage identity)
 
-getS : ActionTrigger s s
-getS = liftAT (GetS identity)
-
-setS : s -> ActionTrigger s ()
-setS s = liftAT (SetS (s, identity))
-
 submitCommands : Commands -> ActionTrigger s ()
 submitCommands cmds = liftAT (Submit (cmds, identity))
 
 type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
 
-forwardPort : TriggerUpdate s -> Free (TriggerF s) ()
-forwardPort f = runActionTrigger do
+forwardPort : TriggerUpdate s -> s -> Free TriggerF s
+forwardPort f = execStateT $ runActionTrigger $ do
   (s, cmds) <- f <$> getTime <*> getMessage <*> getS
   setS s
   mapA_ submitCommands cmds

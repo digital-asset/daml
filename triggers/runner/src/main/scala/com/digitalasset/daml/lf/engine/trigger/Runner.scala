@@ -284,22 +284,15 @@ class Runner(
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
     }
-    def go(v: SValue, state: SValue): SValue =
+    def go(v: SValue): SValue =
       unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
           vvv.match2 {
             case "GetTime" /*(Time -> a)*/ => {
-              case DamlFun(timeA) => go(evaluate(makeAppD(timeA, STimestamp(clientTime))), state)
+              case DamlFun(timeA) => go(evaluate(makeAppD(timeA, STimestamp(clientTime))))
             }
             case "GetMessage" /*(Message -> a)*/ => {
-              case DamlFun(messageA) => go(evaluate(makeAppD(messageA, messageVal)), state)
-            }
-            case "GetS" /*(s -> a)*/ => {
-              case DamlFun(sa) => go(evaluate(makeAppD(sa, state)), state)
-            }
-            case "SetS" /*(s, () -> a)*/ => {
-              case DamlTuple2(newState, DamlFun(unitA)) =>
-                go(evaluate(makeAppD(unitA, SUnit)), newState)
+              case DamlFun(messageA) => go(evaluate(makeAppD(messageA, messageVal)))
             }
             case "Submit" /*(Commands, () -> a)*/ => {
               case DamlTuple2(commands, DamlFun(unitA)) =>
@@ -308,7 +301,7 @@ class Runner(
                   case Right((commandId, commands)) =>
                     handleCommands(commandId, commands, submit)
                 }
-                go(evaluate(makeAppD(unitA, SUnit)), state)
+                go(evaluate(makeAppD(unitA, SUnit)))
             }
             case _ => {
               case _ =>
@@ -316,10 +309,10 @@ class Runner(
                 state // unrecognized constructors terminate early
             }
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
-        case Right(Left(_)) => state
+        case Right(Left(newState)) => newState
         case Left(e) => throw new RuntimeException(e)
       }
-    go(v = v, state = state)
+    go(v)
   }
 
   // This function produces a pair of a source of trigger messages
@@ -489,10 +482,12 @@ class Runner(
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, state))
+        val updateWithNewState = Machine.stepToValue(machine)
         val newState = handleStepFreeResult(
           clientTime,
           messageVal = messageVal,
-          v = evaluatedUpdate,
+          v = updateWithNewState,
           state = state,
           submit = submit)
         newState
