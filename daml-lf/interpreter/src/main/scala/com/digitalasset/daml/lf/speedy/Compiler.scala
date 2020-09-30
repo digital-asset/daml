@@ -202,13 +202,13 @@ private[lf] final class Compiler(
   private[this] def let(bound: SExpr)(body: Position => SExpr) =
     SELet1General(bound, body(nextPosition()))
 
-  private[this] def function(body: Position => SExpr): SExpr =
+  private[this] def unaryFunction(body: Position => SExpr): SExpr =
     withEnv { _ =>
       SEAbs(1, body(nextPosition()))
     }
 
-  private[this] def labeledFunction(label: String)(body: Position => SExpr): SExpr =
-    function(pos => withLabel(label, body(pos)))
+  private[this] def labeledUnaryFunction(label: String)(body: Position => SExpr): SExpr =
+    unaryFunction(pos => withLabel(label, body(pos)))
 
   private[this] def topLevelFunction[SDefRef <: SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef,
@@ -757,7 +757,7 @@ private[lf] final class Compiler(
     withEnv { _ =>
       let(compile(partyE)) { partyPos =>
         let(compile(updateE)) { updatePos =>
-          labeledFunction("submit") { tokenPos =>
+          labeledUnaryFunction("submit") { tokenPos =>
             let(SBSBeginCommit(optLoc)(svar(partyPos), svar(tokenPos))) { _ =>
               let(app(svar(updatePos), svar(tokenPos))) { resultPos =>
                 SBSEndCommit(mustFail = false)(svar(resultPos), svar(tokenPos))
@@ -775,7 +775,7 @@ private[lf] final class Compiler(
     //       <r> = $catch ([update] <token>) true false
     //   in $endCommit(mustFail = true) <r> <token>
     withEnv { _ =>
-      labeledFunction("submitMustFail") { tokenPos =>
+      labeledUnaryFunction("submitMustFail") { tokenPos =>
         let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
           let(SECatch(app(compile(update), svar(tokenPos)), SEValue.True, SEValue.False)) {
             resultPos =>
@@ -787,13 +787,13 @@ private[lf] final class Compiler(
 
   @inline
   private[this] def compileGetParty(expr: Expr): SExpr =
-    labeledFunction("getParty") { tokenPos =>
+    labeledUnaryFunction("getParty") { tokenPos =>
       SBSGetParty(compile(expr), svar(tokenPos))
     }
 
   @inline
   private[this] def compilePass(time: Expr): SExpr =
-    labeledFunction("pass") { tokenPos =>
+    labeledUnaryFunction("pass") { tokenPos =>
       SBSPass(compile(time), svar(tokenPos))
     }
 
@@ -803,11 +803,11 @@ private[lf] final class Compiler(
     // to delay evaluation.
     // e.g.
     // embed (error "foo") => \token -> error "foo"
-    function { tokenPos =>
+    unaryFunction { tokenPos =>
       app(compile(expr), svar(tokenPos))
     }
 
-  private val SEDropSecondArgument = function(firstPos => function(_ => svar(firstPos)))
+  private val SEDropSecondArgument = unaryFunction(firstPos => unaryFunction(_ => svar(firstPos)))
 
   private[this] def compilePure(body: Expr): SExpr =
     // pure <E>
@@ -828,7 +828,7 @@ private[lf] final class Compiler(
     //   in z x y token
     withEnv { _ =>
       let(compile(bindings.head.bound)) { firstPos =>
-        function { tokenPos =>
+        unaryFunction { tokenPos =>
           let(app(svar(firstPos), svar(tokenPos))) { firstBoundPos =>
             bindings.head.binder.foreach(addExprVar(_, firstBoundPos))
 
@@ -1421,7 +1421,7 @@ private[lf] final class Compiler(
       choiceId: ChoiceName,
       choiceArg: SValue,
   ): SExpr =
-    labeledFunction(s"createAndExercise @${tmplId.qualifiedName} ${choiceId}") { tokenPos =>
+    labeledUnaryFunction(s"createAndExercise @${tmplId.qualifiedName} ${choiceId}") { tokenPos =>
       let(CreateDefRef(tmplId)(SEValue(createArg), svar(tokenPos))) { cidPos =>
         app(
           compileExercise(
@@ -1512,7 +1512,7 @@ private[lf] final class Compiler(
       LookupByKeyDefRef(templateId)(SEValue(contractKey))
   }
 
-  private val SEUpdatePureUnit = function(_ => SEValue.Unit)
+  private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
 
   @inline
   def compileCommands(bindings: ImmArray[Command]): SExpr =
@@ -1523,7 +1523,7 @@ private[lf] final class Compiler(
         SEUpdatePureUnit
       case first :: rest =>
         let(compileCommand(first)) { firstPos =>
-          function { tokenPos =>
+          unaryFunction { tokenPos =>
             let(app(svar(firstPos), svar(tokenPos))) { _ =>
               def loop(cmds: List[Command]): SExpr = cmds match {
                 case head :: tail =>
