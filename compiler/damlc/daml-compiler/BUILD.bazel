@@ -16,6 +16,7 @@ da_haskell_library(
         "containers",
         "directory",
         "dlist",
+        "either",
         "extra",
         "filepath",
         "ghc-lib",
