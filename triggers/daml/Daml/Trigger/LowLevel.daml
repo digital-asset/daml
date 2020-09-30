@@ -36,7 +36,6 @@ module Daml.Trigger.LowLevel
   , RelTime(..)
   , execStateT
   , ActionTrigger(..)
-  , TriggerSetup(..)
   , TriggerRule(..)
   , ActionState(..)
   , modify
