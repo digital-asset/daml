@@ -35,10 +35,12 @@ module Daml.Trigger.LowLevel
   , registeredTemplate
   , RelTime(..)
   , execStateT
+  , ActionTrigger(..)
   , TriggerSetup(..)
   , TriggerRule(..)
   , getS
   , setS
+  , zoom
   , submitCommands
   , forwardPortInitialState
   , forwardPort
