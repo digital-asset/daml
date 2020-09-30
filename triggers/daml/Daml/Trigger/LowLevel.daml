@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE InstanceSigs #-}
 
 module Daml.Trigger.LowLevel
   ( Message(..)
@@ -43,7 +42,7 @@ module Daml.Trigger.LowLevel
   , forwardPort
   ) where
 
-import DA.Foldable (mapA_)
+import DA.Foldable (forA_, mapA_)
 import DA.Functor ((<&>))
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
@@ -325,13 +324,20 @@ liftAT : TriggerF a -> ActionTrigger s a
 liftAT = ActionTrigger . liftStateT . liftFC
 
 instance HasTime (ActionTrigger s) where
-  getTime : ActionTrigger s Time
   getTime = liftAT (GetTime identity)
 
 submitCommands : Commands -> ActionTrigger s ()
 submitCommands cmds = liftAT (Submit (cmds, identity))
 
+type TriggerInitialState s = Party -> Time -> ActiveContracts -> (s, [Commands])
 type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
+
+forwardPortInitialState : TriggerInitialState s -> Party -> ActiveContracts -> Free TriggerF s
+forwardPortInitialState f p ac = do
+  time <- liftFC $ GetTime identity
+  let (s, cmds) = f p time ac
+  cmds `forA_` \cmd -> liftFC $ Submit (cmd, identity)
+  pure s
 
 forwardPort : TriggerUpdate s -> Message -> s -> Free TriggerF s
 forwardPort f msg = execStateT $ runActionTrigger $ do
