@@ -35,6 +35,11 @@ module Daml.Trigger.LowLevel
   , RegisteredTemplates(..)
   , registeredTemplate
   , RelTime(..)
+  , ActionTrigger(..)
+  , getMessage
+  , getS
+  , setS
+  , submitCommands
   , forwardPort
   ) where
 

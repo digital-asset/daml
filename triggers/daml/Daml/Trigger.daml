@@ -35,6 +35,7 @@ module Daml.Trigger
 
 import DA.Action
 import DA.Action.State
+import DA.Foldable (mapA_)
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import qualified DA.Map as GMap
 #endif
@@ -179,7 +180,7 @@ dedupExerciseByKey k c = do
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState
-  , update = forwardPort update
+  , update = runActionTrigger update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat
   }
@@ -189,30 +190,35 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty 0
       in runRule userTrigger.rule time state
-    update time msg state =
-      case msg of
-        MCompletion completion ->
-          let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
-          in case completion.status of
-            Succeeded {} ->
-              -- We delete successful completions when we receive the corresponding transaction
-              -- to avoid removing a command from commandsInFlight before we have modified the ACS.
-              (state { userState }, [] )
-            Failed {} ->
-                let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
-                    acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
-                    state' = state { commandsInFlight, userState, acs }
-                in runRule userTrigger.rule time state'
-        MTransaction transaction ->
-          let acs = applyTransaction transaction state.acs
-              userState = userTrigger.updateState acs (MTransaction transaction) state.userState
-              -- See the comment above for why we delete this here instead of when we receive the completion.
-              (acs', commandsInFlight) = case transaction.commandId of
-                None -> (acs, state.commandsInFlight)
-                Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
-              state' = state { acs = acs', userState, commandsInFlight }
-          in runRule userTrigger.rule time state'
-        MHeartbeat ->
-          let userState = userTrigger.updateState state.acs MHeartbeat state.userState
-              state' = state { userState }
-          in runRule userTrigger.rule time state'
+    update = do
+      time <- getTime
+      msg <- getMessage
+      state <- getS
+      let (s, cmds) = case msg of
+            MCompletion completion ->
+              let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
+              in case completion.status of
+                Succeeded {} ->
+                  -- We delete successful completions when we receive the corresponding transaction
+                  -- to avoid removing a command from commandsInFlight before we have modified the ACS.
+                  (state { userState }, [] )
+                Failed {} ->
+                    let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
+                        acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
+                        state' = state { commandsInFlight, userState, acs }
+                    in runRule userTrigger.rule time state'
+            MTransaction transaction ->
+              let acs = applyTransaction transaction state.acs
+                  userState = userTrigger.updateState acs (MTransaction transaction) state.userState
+                  -- See the comment above for why we delete this here instead of when we receive the completion.
+                  (acs', commandsInFlight) = case transaction.commandId of
+                    None -> (acs, state.commandsInFlight)
+                    Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
+                  state' = state { acs = acs', userState, commandsInFlight }
+              in runRule userTrigger.rule time state'
+            MHeartbeat ->
+              let userState = userTrigger.updateState state.acs MHeartbeat state.userState
+                  state' = state { userState }
+              in runRule userTrigger.rule time state'
+      setS s
+      mapA_ submitCommands cmds
