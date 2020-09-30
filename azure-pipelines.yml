@@ -465,29 +465,6 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          GCS_KEY=$(mktemp)
-          cleanup () {
-              rm -f $GCS_KEY
-          }
-          trap cleanup EXIT
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY
-          export BOTO_CONFIG=/dev/null
-
-          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql) \
-                    gs://daml-binaries/daml-on-sql/$(daml-on-sql)
-          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql).asc \
-                    gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
-          gsutil cp $(Build.StagingDirectory)/release/$(json-api) \
-                    gs://daml-binaries/json-api/$(json-api)
-          gsutil cp $(Build.StagingDirectory)/release/$(json-api).asc \
-                    gs://daml-binaries/json-api/$(json-api).asc
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - bash: |
-          set -euo pipefail
-
           push() {
             local file repository
             repository=$1
