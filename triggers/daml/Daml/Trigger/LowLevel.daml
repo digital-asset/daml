@@ -35,7 +35,8 @@ module Daml.Trigger.LowLevel
   , registeredTemplate
   , RelTime(..)
   , execStateT
-  , ActionTrigger(..)
+  , TriggerSetup(..)
+  , TriggerRule(..)
   , getS
   , setS
   , submitCommands
@@ -43,7 +44,7 @@ module Daml.Trigger.LowLevel
   , forwardPort
   ) where
 
-import DA.Foldable (forA_, mapA_)
+import DA.Foldable (mapA_)
 import DA.Functor ((<&>))
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
@@ -316,32 +317,44 @@ data TriggerF a =
   | Submit (Commands, () -> a)
   deriving Functor
 
-newtype ActionTrigger s a = ActionTrigger { runActionTrigger : StateT s (Free TriggerF) a }
+newtype TriggerSetup s a = TriggerSetup { runTriggerSetup : Free TriggerF a }
   deriving (Functor, Applicative, Action)
 
-deriving instance ActionState s (ActionTrigger s)
+newtype TriggerRule s a = TriggerRule { runTriggerRule : StateT s (Free TriggerF) a }
+  deriving (Functor, Applicative, Action)
 
-liftAT : TriggerF a -> ActionTrigger s a
-liftAT = ActionTrigger . liftStateT . liftFC
+deriving instance ActionState s (TriggerRule s)
 
-instance HasTime (ActionTrigger s) where
-  getTime = liftAT (GetTime identity)
+class HasTime m => ActionTrigger m where
+  liftTF : TriggerF a -> m a
 
-submitCommands : Commands -> ActionTrigger s ()
-submitCommands cmds = liftAT (Submit (cmds, identity))
+instance ActionTrigger (TriggerSetup s) where
+  liftTF = TriggerSetup . liftFC
+
+instance ActionTrigger (TriggerRule s) where
+  liftTF = TriggerRule . liftStateT . liftFC
+
+instance HasTime (TriggerSetup s) where
+  getTime = liftTF (GetTime identity)
+
+instance HasTime (TriggerRule s) where
+  getTime = liftTF (GetTime identity)
+
+submitCommands : ActionTrigger m => Commands -> m ()
+submitCommands cmds = liftTF (Submit (cmds, identity))
 
 type TriggerInitialState s = Party -> Time -> ActiveContracts -> (s, [Commands])
 type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
 
 forwardPortInitialState : TriggerInitialState s -> Party -> ActiveContracts -> Free TriggerF s
-forwardPortInitialState f p ac = do
-  time <- liftFC $ GetTime identity
+forwardPortInitialState f p ac = runTriggerSetup do
+  time <- getTime
   let (s, cmds) = f p time ac
-  cmds `forA_` \cmd -> liftFC $ Submit (cmd, identity)
+  mapA_ submitCommands cmds
   pure s
 
 forwardPort : TriggerUpdate s -> Message -> s -> Free TriggerF s
-forwardPort f msg = execStateT $ runActionTrigger $ do
+forwardPort f msg = execStateT $ runTriggerRule $ do
   time <- getTime
   (s, cmds) <- f time msg <$> getS
   setS s

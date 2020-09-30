@@ -179,17 +179,20 @@ dedupExerciseByKey k c = do
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
-  { initialState = forwardPortInitialState initialState
-  , update = execStateT . runActionTrigger . update
+  { initialState = initialState
+  , update = execStateT . runTriggerRule . update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat
   }
   where
-    initialState party time (ActiveContracts createdEvents) =
+    initialState party (ActiveContracts createdEvents) = runTriggerSetup do
+      time <- getTime
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty 0
-      in runRule userTrigger.rule time state
+          (s, cmds) = runRule userTrigger.rule time state
+      mapA_ submitCommands cmds
+      pure s
     update msg = do
       time <- getTime
       state <- getS
