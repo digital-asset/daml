@@ -220,33 +220,7 @@ class Runner(
 
   private[this] def logger = ContextualizedLogger get getClass
 
-  import Runner.{DaTypesTuple2, DamlTuple2, DamlFun}
-
-  // Handles the result of initialState, i.e., (s, [Commands], Text)
-  // by submitting the commands, printing the log message and returning
-  // the new state
-  private def handleStepResult(v: SValue, submit: SubmitRequest => Unit): SValue =
-    v match {
-      case SRecord(Identifier(_, DaTypesTuple2), _, JavaList(newState, commandVal, _*)) => {
-        logger.debug(s"New state: $newState")
-        commandVal match {
-          case SList(transactions) =>
-            // Each transaction is a list of commands
-            for (commands <- transactions) {
-              converter.toCommands(commands) match {
-                case Left(err) => throw new ConverterException(err)
-                case Right((commandId, commands)) =>
-                  handleCommands(commandId, commands, submit)
-              }
-            }
-          case _ => {}
-        }
-        newState
-      }
-      case v => {
-        throw new RuntimeException(s"Expected Tuple2 but got $v")
-      }
-    }
+  import Runner.{DamlTuple2, DamlFun}
 
   @throws[RuntimeException]
   private def handleCommands[Z](
@@ -274,7 +248,6 @@ class Runner(
   private def handleStepFreeResult(
       clientTime: Timestamp,
       v: SValue,
-      state: SValue,
       submit: SubmitRequest => Unit): SValue = {
     def evaluate(se: SExpr) = {
       val machine: Speedy.Machine = // TODO SC pull up
@@ -301,8 +274,9 @@ class Runner(
             }
             case _ => {
               case _ =>
-                logger.error(s"unrecognized TriggerF step $variant")
-                state // unrecognized constructors terminate early
+                val msg = s"unrecognized TriggerF step $variant"
+                logger.error(msg)
+                throw new ConverterException(msg)
             }
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
         case Right(Left(newState)) => newState
@@ -404,16 +378,14 @@ class Runner(
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     // Setup an application expression of initialState on the ACS.
     val initialState: SExpr =
-      makeApp(
-        getInitialState,
-        Array(SParty(Party.assertFromString(party)), STimestamp(clientTime), createdValue))
-    // Prepare a speedy machine for evaluting expressions.
+      makeApp(getInitialState, Array(SParty(Party.assertFromString(party)), createdValue))
+    // Prepare a speedy machine for evaluating expressions.
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
     val value = Machine.stepToValue(machine)
-    val evaluatedInitialState: SValue = handleStepResult(value, submit)
+    val evaluatedInitialState: SValue = handleStepFreeResult(clientTime, v = value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
     machine.setExpressionToEvaluate(update)
     val evaluatedUpdate: SValue = Machine.stepToValue(machine)
@@ -481,7 +453,7 @@ class Runner(
         machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal, state))
         val updateWithNewState = Machine.stepToValue(machine)
         val newState =
-          handleStepFreeResult(clientTime, v = updateWithNewState, state = state, submit = submit)
+          handleStepFreeResult(clientTime, v = updateWithNewState, submit = submit)
         newState
       }))(Keep.right[NotUsed, Future[SValue]])
   }
@@ -547,7 +519,7 @@ object Runner extends StrictLogging {
     }
   }
 
-  private val DaTypesTuple2 =
+  private[this] val DaTypesTuple2 =
     QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))
 
   private object DamlTuple2 {

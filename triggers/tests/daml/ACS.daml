@@ -33,7 +33,7 @@ initState party (ActiveContracts events) = TriggerState
 -- and we create a new AssetMirror contract whenever an Asset contract is created (but we do not archive them).
 test : Trigger TriggerState
 test = Trigger
-  { initialState = \party _time acs -> (initState party acs, [])
+  { initialState = forwardPortInitialState $ \party _time acs -> (initState party acs, [])
   , update = forwardPort $ \_time -> update
   , registeredTemplates = AllInDar
   , heartbeat = None

@@ -179,7 +179,7 @@ dedupExerciseByKey k c = do
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
-  { initialState = initialState
+  { initialState = forwardPortInitialState initialState
   , update = execStateT . runActionTrigger . update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat

@@ -39,6 +39,7 @@ module Daml.Trigger.LowLevel
   , getS
   , setS
   , submitCommands
+  , forwardPortInitialState
   , forwardPort
   ) where
 
@@ -163,7 +164,7 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- | Trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
 data Trigger s = Trigger
-  { initialState : Party -> Time -> ActiveContracts -> (s, [Commands])
+  { initialState : Party -> ActiveContracts -> Free TriggerF s
   , update : Message -> s -> Free TriggerF s
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime

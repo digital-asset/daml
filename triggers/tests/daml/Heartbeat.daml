@@ -9,7 +9,7 @@ import Daml.Trigger.LowLevel
 
 test : Trigger Int
 test = Trigger
-  { initialState = \party _ _ -> (0, [])
+  { initialState = forwardPortInitialState $ \party _ _ -> (0, [])
   , update = forwardPort $ \_ msg count ->
       case msg of
         MHeartbeat -> (count + 1, [])

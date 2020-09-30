@@ -8,7 +8,7 @@ import Daml.Trigger.LowLevel
 
 test : Trigger [Text]
 test = Trigger
-  { initialState = \party _ _ ->
+  { initialState = forwardPortInitialState $ \party _ _ ->
       ([], [Commands (CommandId "mycreateid") [createCmd (T party)]])
   , update = forwardPort $ \_time msg s -> case (s, msg) of
       (cmdIds, MTransaction (Transaction _ (Some (CommandId cmdId)) [CreatedEvent (fromCreated @T -> Some (_, cid, _))])) ->
