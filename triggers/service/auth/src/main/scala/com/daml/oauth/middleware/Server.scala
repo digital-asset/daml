@@ -27,6 +27,7 @@ import spray.json._
 object Server extends StrictLogging {
   import com.daml.oauth.server.JsonProtocol._
 
+  // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
   private def toRedirectUri(uri: Uri) =
     Uri()
       .withScheme(uri.scheme)
