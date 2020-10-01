@@ -4,7 +4,14 @@
 package com.daml.oauth.middleware
 
 import akka.http.scaladsl.model.Uri
-import spray.json.{DefaultJsonProtocol, JsString, JsValue, JsonFormat, RootJsonFormat, deserializationError}
+import spray.json.{
+  DefaultJsonProtocol,
+  JsString,
+  JsValue,
+  JsonFormat,
+  RootJsonFormat,
+  deserializationError
+}
 
 object Request {
 
@@ -23,9 +30,7 @@ object Request {
 
 object Response {
 
-  case class Authorize(
-    accessToken: String,
-    refreshToken: Option[String])
+  case class Authorize(accessToken: String, refreshToken: Option[String])
 
 }
 

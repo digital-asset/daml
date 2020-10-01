@@ -73,9 +73,9 @@ object Server extends StrictLogging {
           // TODO[AH] Implement mapping from scope to claims
           // TODO[AH] Check whether granted scope subsumes requested claims
           case Some(token) if token.scope == Some(auth.claims) =>
-            complete(Response.Authorize(
-              accessToken = token.accessToken,
-              refreshToken = token.refreshToken))
+            complete(
+              Response
+                .Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken))
           case _ => complete(StatusCodes.Unauthorized)
         }
       }

@@ -71,7 +71,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         uri = middlewareUri
           .withPath(Path./("auth"))
           .withQuery(Query(("claims", "actAs:Bob"))),
-          headers = List(cookieHeader))
+        headers = List(cookieHeader))
       for {
         resp <- Http().singleRequest(req)
       } yield {
