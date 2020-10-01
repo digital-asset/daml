@@ -1758,6 +1758,73 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
         withCurrentDirectory (tmpDir </> "proj") $
             callProcessSilent damlc ["build"]
 
+    , testCaseSteps "Dictionary function names match despite conflicts" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test checks that dictionary function names are recreated correctly.
+        -- This is a regression test for issue #7362.
+        step "building project with type definition"
+        createDirectoryIfMissing True (tmpDir </> "type")
+        writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: type"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "type" </> "P1.daml") $ unlines
+            [ "module P1 where"
+            , "data T t = T {}"
+            , "instance Show (T Int) where show T = \"T\""
+            , "instance Show (T Bool) where show T = \"T\""
+            , "instance Show (T Text) where show T = \"T\""
+            , "instance Show (T (Optional Int)) where show T = \"T\""
+            , "instance Show (T (Optional Bool)) where show T = \"T\""
+            , "instance Show (T (Optional Text)) where show T = \"T\""
+            , "instance Show (T [Int]) where show T = \"T\""
+            , "instance Show (T [Bool]) where show T = \"T\""
+            , "instance Show (T [Text]) where show T = \"T\""
+            , "instance Show (T [Optional Int]) where show T = \"T\""
+            , "instance Show (T [Optional Bool]) where show T = \"T\""
+            , "instance Show (T [Optional Text]) where show T = \"T\""
+            ] -- ^ These instances all have conflicting dictionary function names,
+              -- so GHC numbers them 1, 2, 3, 4, ... after the first.
+              --
+              -- NB: It's important to have more than 10 instances here, so we can test
+              -- that we handle non-lexicographically ordered conflicts correctly
+              -- (i.e. instances numbered 10, 11, etc will not be in the correct order
+              -- just by sorting definitions by value name, lexicographically).
+        withCurrentDirectory (tmpDir </> "type") $
+            callProcessSilent damlc ["build", "-o", "type.dar"]
+
+        step "building project that uses it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "type" </> "type.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "P2.daml") $ unlines
+            [ "module P2 where"
+            , "import P1"
+            , "f1 = show @(T Int)"
+            , "f2 = show @(T Bool)"
+            , "f3 = show @(T Text)"
+            , "f4 = show @(T (Optional Int))"
+            , "f5 = show @(T (Optional Bool))"
+            , "f6 = show @(T (Optional Text))"
+            , "f7 = show @(T [Int])"
+            , "f8 = show @(T [Bool])"
+            , "f9 = show @(T [Text])"
+            , "f10 = show @(T [Optional Int])"
+            , "f11 = show @(T [Optional Bool])"
+            , "f12 = show @(T [Optional Text])"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
+
     , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
         step "building project with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")
