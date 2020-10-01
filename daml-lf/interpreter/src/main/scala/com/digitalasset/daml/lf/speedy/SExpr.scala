@@ -31,7 +31,6 @@ sealed abstract class SExpr extends Product with Serializable {
   override def toString: String =
     productPrefix + productIterator.map(SExpr.prettyPrint).mkString("(", ",", ")")
 }
-
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SExpr {
 
@@ -307,32 +306,14 @@ object SExpr {
     }
   }
 
-  /** A non-recursive, non-parallel let block. Each bound expression
-    * is evaluated in turn and pushed into the environment one by one,
-    * with later expressions possibly referring to earlier.
+  /** A non-recursive, non-parallel let block.
+    * It is used as an intermediary data structure by the compiler,
+    * but are later explode into SELet1General and SELet1Builtin by
+    * the ANF transformation.
     */
-  final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
-
-      // Evaluate the body after we've evaluated the binders
-      machine.pushKont(
-        KPushTo(
-          machine.env,
-          body,
-          machine.frame,
-          machine.actuals,
-          machine.env.size + bounds.size - 1))
-
-      // Start evaluating the let binders
-      var i = 1
-      while (i < bounds.size) {
-        val b = bounds(bounds.size - i)
-        val expectedEnvSize = machine.env.size + bounds.size - i - 1
-        machine.pushKont(KPushTo(machine.env, b, machine.frame, machine.actuals, expectedEnvSize))
-        i += 1
-      }
-      machine.ctrl = bounds.head
-    }
+  final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit =
+      crash("not implemented")
   }
 
   /** Location annotation. When encountered the location is stored in the 'lastLocation'

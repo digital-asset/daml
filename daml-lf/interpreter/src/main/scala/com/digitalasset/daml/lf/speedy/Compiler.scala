@@ -162,11 +162,11 @@ private[lf] final class Compiler(
   private[this] def lookupVar(varRef: VarRef): Option[SEVar] =
     env.varIndices.get(varRef).map(svar)
 
-  def lookupExprVar(name: ExprVarName): SEVar =
+  private[this] def lookupExprVar(name: ExprVarName): SEVar =
     lookupVar(EVarRef(name))
       .getOrElse(throw CompilationError(s"Unknown variable: $name. Known: ${vars.mkString(",")}"))
 
-  def lookupTypeVar(name: TypeVarName): Option[SEVar] =
+  private[this] def lookupTypeVar(name: TypeVarName): Option[SEVar] =
     lookupVar(TVarRef(name))
 
   private[this] case class Env(
@@ -248,14 +248,8 @@ private[lf] final class Compiler(
   // Run the compilation pipeline phases:
   // (1) closure conversion
   // (2) transform to ANF
-  private[this] def compilationPipeline(sexpr: SExpr): SExpr = {
-    val doANF = true
-    if (doANF) {
-      flattenToAnf(closureConvert(Map.empty, sexpr))
-    } else {
-      closureConvert(Map.empty, sexpr)
-    }
-  }
+  private[this] def compilationPipeline(sexpr: SExpr): SExpr =
+    flattenToAnf(closureConvert(Map.empty, sexpr))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -1036,7 +1030,7 @@ private[lf] final class Compiler(
     *       SELocF(0) ..            [reference the first let-bound variable via the closure]
     *       SELocA(0))              [reference the first function arg]
     */
-  def closureConvert(remaps: Map[Int, SELoc], expr: SExpr): SExpr = {
+  private[this] def closureConvert(remaps: Map[Int, SELoc], expr: SExpr): SExpr = {
     // remaps is a function which maps the relative offset from variables (SEVar) to their runtime location
     // The Map must contain a binding for every variable referenced.
     // The Map is consulted when translating variable references (SEVar) and free variables of an abstraction (SEAbs)
@@ -1146,7 +1140,7 @@ private[lf] final class Compiler(
   // We must modify `remaps` because it is keyed by indexes relative to the end of the stack.
   // And any values in the map which are of the form SELocS must also be _shifted_
   // because SELocS indexes are also relative to the end of the stack.
-  def shift(remaps: Map[Int, SELoc], n: Int): Map[Int, SELoc] = {
+  private[this] def shift(remaps: Map[Int, SELoc], n: Int): Map[Int, SELoc] = {
 
     // We must update both the keys of the map (the relative-indexes from the original SEVar)
     // And also any values in the map which are stack located (SELocS), which are also indexed relatively
@@ -1158,7 +1152,7 @@ private[lf] final class Compiler(
     m1 ++ m2
   }
 
-  def shiftLoc(loc: SELoc, n: Int): SELoc = loc match {
+  private[this] def shiftLoc(loc: SELoc, n: Int): SELoc = loc match {
     case SELocS(i) => SELocS(i + n)
     case SELocA(_) | SELocF(_) => loc
   }
@@ -1166,7 +1160,7 @@ private[lf] final class Compiler(
   /** Compute the free variables in a speedy expression.
     * The returned free variables are de bruijn indices
     * adjusted to the stack of the caller. */
-  def freeVars(expr: SExpr, initiallyBound: Int): Set[Int] = {
+  private[this] def freeVars(expr: SExpr, initiallyBound: Int): Set[Int] = {
     def go(expr: SExpr, bound: Int, free: Set[Int]): Set[Int] =
       expr match {
         case SEVar(i) =>
@@ -1217,7 +1211,7 @@ private[lf] final class Compiler(
   /** Validate variable references in a speedy expression */
   // validate that we correctly captured all free-variables, and so reference to them is
   // via the surrounding closure, instead of just finding them higher up on the stack
-  def validate(expr0: SExpr): SExpr = {
+  private[this] def validate(expr0: SExpr): SExpr = {
 
     def goV(v: SValue): Unit =
       v match {
@@ -1517,8 +1511,7 @@ private[lf] final class Compiler(
 
   private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
 
-  @inline
-  def compileCommands(bindings: ImmArray[Command]): SExpr =
+  private[this] def compileCommands(bindings: ImmArray[Command]): SExpr =
     // commands are compile similarly as update block
     // see compileBlock
     bindings.toList match {
