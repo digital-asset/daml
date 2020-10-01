@@ -307,9 +307,9 @@ object SExpr {
   }
 
   /** A non-recursive, non-parallel let block.
-    * It is used as an intermediary data structure by the compiler,
-    * but are later exploded into SELet1General and SELet1Builtin by
-    * the ANF transformation.
+    * It is used as an intermediary data structure by the compiler to
+    * mitigate stack overflow issues, but are later exploded into
+    * [[SELet1General]] and [[SELet1Builtin]] by the ANF transformation.
     */
   final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit =
