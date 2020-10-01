@@ -8,6 +8,7 @@ import com.github.ghik.silencer.silent
 
 import doobie._
 import doobie.implicits._
+import doobie.postgres.implicits._
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
@@ -123,11 +124,15 @@ object Queries {
       )
     }
 
-  def lastOffset(party: String, tpid: SurrogateTpId)(
+  def lastOffset(parties: Set[String], tpid: SurrogateTpId)(
       implicit log: LogHandler): ConnectionIO[Option[String]] =
-    sql"""SELECT last_offset FROM ledger_offset WHERE (party = $party AND tpid = $tpid)"""
-      .query[String]
-      .option
+    sql"""SELECT min(last_offset), count(last_offset) FROM ledger_offset WHERE (party = ANY(${parties.toList}) AND tpid = $tpid)"""
+      .query[(Option[String], Int)]
+      .unique
+      .map {
+        case (Some(offset), count) if count == parties.size => Some(offset)
+        case _ => None
+      }
 
   /** Consistency of the whole database mostly pivots around the offset update
     * check, since an offset read and write bookend the update.
@@ -144,16 +149,15 @@ object Queries {
     * If A inserts but B updates, the transactions are sufficiently serialized that
     * there are no logical conflicts.
     */
-  private[http] def updateOffset(
-      party: String,
+  private[http] def updateOffset[F[_]: cats.Foldable: Functor](
+      parties: F[String],
       tpid: SurrogateTpId,
-      newOffset: String,
-      lastOffsetO: Option[String])(implicit log: LogHandler): ConnectionIO[Int] =
-    lastOffsetO.cata(
-      lastOffset =>
-        sql"""UPDATE ledger_offset SET last_offset = $newOffset where party = $party AND tpid = $tpid AND last_offset = $lastOffset""".update.run,
-      sql"""INSERT INTO ledger_offset VALUES ($party, $tpid, $newOffset)""".update.run
-    )
+      newOffset: String)(implicit log: LogHandler): ConnectionIO[Int] = {
+    val upd = Update[(String, SurrogateTpId, String)](
+      """INSERT INTO ledger_offset VALUES(?, ?, ?) ON CONFLICT (party, tpid) DO UPDATE SET last_offset = EXCLUDED.last_offset""",
+      logHandler0 = log)
+    upd.updateMany(parties.map(p => (p, tpid, newOffset)))
+  }
 
   @silent(" pas .* never used")
   def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
@@ -195,12 +199,15 @@ object Queries {
   }
 
   @silent(" gvs .* never used")
-  private[http] def selectContracts(party: String, tpid: SurrogateTpId, predicate: Fragment)(
+  private[http] def selectContracts(
+      parties: List[String],
+      tpid: SurrogateTpId,
+      predicate: Fragment)(
       implicit log: LogHandler,
       gvs: Get[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
     val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
                   FROM contract AS c
-                  WHERE (signatories @> ARRAY[$party::text] OR observers @> ARRAY[$party::text])
+                  WHERE (signatories && $parties::text[] OR observers && $parties::text[])
                    AND tpid = $tpid AND (""" ++ predicate ++ sql")"
     q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
       case (cid, key, payload, signatories, observers, agreement) =>

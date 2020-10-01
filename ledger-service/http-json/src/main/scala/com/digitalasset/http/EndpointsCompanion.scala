@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.http.scaladsl.model._
 import akka.util.ByteString
-import com.daml.http.domain.JwtPayload
+import com.daml.http.domain.{JwtWritePayload, JwtPayload}
 import com.daml.http.json.SprayJson
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
@@ -39,6 +39,14 @@ object EndpointsCompanion {
     }
   }
 
+  trait ParsePayload[A] {
+    def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ A
+  }
+
+  object ParsePayload {
+    @inline def apply[A](implicit ev: ParsePayload[A]): ParsePayload[A] = ev
+  }
+
   lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case HttpRequest(method, uri, _, _, _) =>
       Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
@@ -68,35 +76,69 @@ object EndpointsCompanion {
 
   private[http] def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
-  private[http] def decodeAndParsePayload(
-      jwt: Jwt,
-      decodeJwt: ValidateJwt): Unauthorized \/ (jwt.type, JwtPayload) =
+  private[http] def decodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(
+      implicit parse: ParsePayload[A]): Unauthorized \/ (jwt.type, A) = {
     for {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
-      p <- parsePayload(a)
+      p <- parse.parsePayload(a)
     } yield (jwt, p)
+  }
 
-  private[http] def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload = {
-    // AuthServiceJWTCodec is the JWT reader used by the sandbox and some DAML-on-X ledgers.
-    // Most JWT fields are optional for the sandbox, but not for the JSON API.
-    AuthServiceJWTCodec
-      .readFromString(jwt.payload)
-      .fold(
-        e => -\/(Unauthorized(e.getMessage)),
-        payload =>
-          for {
-            ledgerId <- payload.ledgerId.toRightDisjunction(
-              Unauthorized("ledgerId missing in access token"))
-            applicationId <- payload.applicationId.toRightDisjunction(
-              Unauthorized("applicationId missing in access token"))
-            party <- payload.party.toRightDisjunction(
-              Unauthorized("party missing or not unique in access token"))
-          } yield
-            JwtPayload(
-              lar.LedgerId(ledgerId),
-              lar.ApplicationId(applicationId),
-              lar.Party(party)
-          )
-      )
+  object JwtPayloadInstances {
+
+    private[http] implicit val jwtWriteParsePayload: ParsePayload[JwtWritePayload] =
+      new ParsePayload[JwtWritePayload] {
+        override def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtWritePayload = {
+          // AuthServiceJWTCodec is the JWT reader used by the sandbox and some DAML-on-X ledgers.
+          // Most JWT fields are optional for the sandbox, but not for the JSON API.
+          AuthServiceJWTCodec
+            .readFromString(jwt.payload)
+            .fold(
+              e => -\/(Unauthorized(e.getMessage)),
+              payload =>
+                for {
+                  ledgerId <- payload.ledgerId.toRightDisjunction(
+                    Unauthorized("ledgerId missing in access token"))
+                  applicationId <- payload.applicationId.toRightDisjunction(
+                    Unauthorized("applicationId missing in access token"))
+                  party <- payload.party.toRightDisjunction(
+                    Unauthorized("party missing or not unique in access token"))
+                } yield
+                  JwtWritePayload(
+                    lar.LedgerId(ledgerId),
+                    lar.ApplicationId(applicationId),
+                    lar.Party(party)
+                )
+            )
+        }
+      }
+
+    private[http] implicit val jwtParsePayload: ParsePayload[JwtPayload] =
+      new ParsePayload[JwtPayload] {
+        override def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload = {
+          // AuthServiceJWTCodec is the JWT reader used by the sandbox and some DAML-on-X ledgers.
+          // Most JWT fields are optional for the sandbox, but not for the JSON API.
+          AuthServiceJWTCodec
+            .readFromString(jwt.payload)
+            .fold(
+              e => -\/(Unauthorized(e.getMessage)),
+              payload =>
+                for {
+                  ledgerId <- payload.ledgerId.toRightDisjunction(
+                    Unauthorized("ledgerId missing in access token"))
+                  applicationId <- payload.applicationId.toRightDisjunction(
+                    Unauthorized("applicationId missing in access token"))
+                } yield
+                  JwtPayload(
+                    lar.LedgerId(ledgerId),
+                    lar.ApplicationId(applicationId),
+                    actAs = payload.actAs.map(lar.Party(_)),
+                    readAs = payload.readAs.map(lar.Party(_))
+                )
+            )
+        }
+
+      }
+
   }
 }

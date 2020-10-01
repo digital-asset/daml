@@ -33,6 +33,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_tpolecat_doobie_core_2_12",
         "@maven//:org_tpolecat_doobie_free_2_12",
+        "@maven//:org_tpolecat_doobie_postgres_2_12",
         "@maven//:org_typelevel_cats_core_2_12",
         "@maven//:org_typelevel_cats_effect_2_12",
         "@maven//:org_typelevel_cats_free_2_12",

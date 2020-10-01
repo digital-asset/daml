@@ -367,7 +367,7 @@ class WebSocketService(
         _.map {
           case (offPrefix, qq: Q.Query[q]) =>
             implicit val SQ: StreamQuery[q] = qq.alg
-            getTransactionSourceForParty[q](jwt, jwtPayload.party, offPrefix, qq.q: q)
+            getTransactionSourceForParty[q](jwt, jwtPayload.parties, offPrefix, qq.q: q)
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed]
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
@@ -389,7 +389,7 @@ class WebSocketService(
 
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
-      party: domain.Party,
+      parties: Set[domain.Party],
       offPrefix: Option[domain.StartingOffset],
       request: A): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
@@ -398,7 +398,7 @@ class WebSocketService(
 
     if (resolved.nonEmpty) {
       contractsService
-        .insertDeleteStepSource(jwt, party, resolved.toList, offPrefix, Terminates.Never)
+        .insertDeleteStepSource(jwt, parties, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .via(emitOffsetTicksAndFilterOutEmptySteps)
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))

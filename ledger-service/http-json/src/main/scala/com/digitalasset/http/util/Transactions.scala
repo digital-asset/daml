@@ -23,12 +23,12 @@ object Transactions {
     transaction.events.iterator.flatMap(_.event.archived.toList).to(ImmArraySeq)
 
   def transactionFilterFor(
-      party: lar.Party,
+      parties: Set[lar.Party],
       templateIds: List[TemplateId.RequiredPkg]): TransactionFilter = {
 
     val filters =
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(InclusiveFilters(templateIds.map(apiIdentifier))))
-    TransactionFilter(Map(lar.Party.unwrap(party) -> filters))
+    TransactionFilter(Map(parties.map(party => lar.Party.unwrap(party) -> filters).toList: _*)) // lar.Party.unwrap(party) -> filters))
   }
 }
