@@ -88,7 +88,11 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
-      - bash: cd docs && scripts/check-closing-quotes.sh
+      - bash: |
+          set -euo pipefail
+          ci/dev-env-install.sh
+          eval $(dev-env/bin/dade-assist)
+          cd docs && scripts/check-closing-quotes.sh
 
   - template: ci/da-ghc-lib/compile.yml
     parameters:
