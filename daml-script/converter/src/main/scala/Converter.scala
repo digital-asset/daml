@@ -77,6 +77,17 @@ private[daml] object Converter {
       case SVariant(_, "Pure", _, v) => Left(v)
     })
 
+  private[this] val DaTypesTuple2 =
+    QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))
+
+  object DamlTuple2 {
+    def unapply(v: SRecord): Option[(SValue, SValue)] = v match {
+      case SRecord(Identifier(_, DaTypesTuple2), _, JavaList(fst, snd)) =>
+        Some((fst, snd))
+      case _ => None
+    }
+  }
+
   object JavaList {
     def unapplySeq[A](jl: util.List[A]): Some[Seq[A]] =
       Some(jl.asScala)

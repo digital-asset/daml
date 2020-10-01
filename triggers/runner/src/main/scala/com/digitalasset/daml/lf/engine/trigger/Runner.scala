@@ -43,7 +43,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.script.converter.Converter.{JavaList, unrollFree}
+import com.daml.script.converter.Converter.{DamlTuple2, unrollFree}
 import com.daml.script.converter.ConverterException
 
 import com.google.protobuf.empty.Empty
@@ -220,8 +220,6 @@ class Runner(
 
   private[this] def logger = ContextualizedLogger get getClass
 
-  import Runner.{DamlTuple2, DamlFun}
-
   @throws[RuntimeException]
   private def handleCommands[Z](
       commandId: String,
@@ -243,6 +241,8 @@ class Runner(
     logger.debug(s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
     submit(SubmitRequest(commands = Some(commandsArg)))
   }
+
+  import Runner.DamlFun
 
   // Handles the value of update.
   private def handleStepFreeResult(
@@ -516,17 +516,6 @@ object Runner extends StrictLogging {
       case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
       case TimeProviderType.WallClock => TimeProvider.UTC
       case _ => throw new RuntimeException(s"Unexpected TimeProviderType: $ty")
-    }
-  }
-
-  private[this] val DaTypesTuple2 =
-    QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))
-
-  private object DamlTuple2 {
-    def unapply(v: SRecord): Option[(SValue, SValue)] = v match {
-      case SRecord(Identifier(_, DaTypesTuple2), _, JavaList(fst, snd)) =>
-        Some((fst, snd))
-      case _ => None
     }
   }
 
