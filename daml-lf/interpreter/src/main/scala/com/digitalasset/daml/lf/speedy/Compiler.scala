@@ -201,12 +201,20 @@ private[lf] final class Compiler(
 
   private[this] def app(f: SExpr, a: SExpr) = SEApp(f, Array(a))
 
-  private[this] def let(bound: SExpr)(body: Position => SExpr) =
-    SELet1General(bound, body(nextPosition()))
+  private[this] def let(bound: SExpr)(f: Position => SExpr): SELet =
+    f(nextPosition()) match {
+      case SELet(bounds, body) =>
+        SELet(bound :: bounds, body)
+      case otherwise =>
+        SELet(List(bound), otherwise)
+    }
 
-  private[this] def unaryFunction(body: Position => SExpr): SExpr =
+  private[this] def unaryFunction(f: Position => SExpr): SEAbs =
     withEnv { _ =>
-      SEAbs(1, body(nextPosition()))
+      f(nextPosition())
+    } match {
+      case SEAbs(n, body) => SEAbs(n + 1, body)
+      case otherwise => SEAbs(1, otherwise)
     }
 
   private[this] def labeledUnaryFunction(label: String)(body: Position => SExpr): SExpr =
@@ -218,11 +226,8 @@ private[lf] final class Compiler(
       body: List[Position] => SExpr
   ): (SDefRef, SExpr) =
     ref ->
-      validate(
-        closureConvert(
-          Map.empty,
-          SEAbs(arity, withLabel(ref, body(List.fill(arity)(nextPosition()))))
-        )
+      unsafeClosureConvert(
+        SEAbs(arity, withLabel(ref, body(List.fill(arity)(nextPosition()))))
       )
 
   @throws[PackageNotFound]
@@ -817,7 +822,7 @@ private[lf] final class Compiler(
     // ((\x token -> x) <E>)
     app(SEDropSecondArgument, compile(body))
 
-  def compileBlock(bindings: ImmArray[Binding], body: Expr): SExpr =
+  private[this] def compileBlock(bindings: ImmArray[Binding], body: Expr): SExpr =
     // do
     //   x <- f
     //   y <- g x
@@ -1201,8 +1206,7 @@ private[lf] final class Compiler(
 
         case x: SEAppAtomicGeneral => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
-        case SELet1General(lhs, rhs) =>
-          go(lhs, bound, go(rhs, bound + 1, free))
+        case x: SELet1General => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
       }

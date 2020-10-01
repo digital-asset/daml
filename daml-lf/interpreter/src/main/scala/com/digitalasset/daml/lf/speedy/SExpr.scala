@@ -311,7 +311,7 @@ object SExpr {
     * is evaluated in turn and pushed into the environment one by one,
     * with later expressions possibly referring to earlier.
     */
-  final case class SELet(bounds: Array[SExpr], body: SExpr) extends SExpr with SomeArrayEquals {
+  final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
 
       // Evaluate the body after we've evaluated the binders
@@ -333,24 +333,6 @@ object SExpr {
       }
       machine.ctrl = bounds.head
     }
-  }
-
-  object SELet {
-
-    // Helpers for constructing let expressions:
-    // Instead of
-    //   SELet(Array(SEVar(4), SEVar(1)), SEVar(1))
-    // you can write:
-    //   SELet(
-    //     SEVar(4),
-    //     SEVar(1)
-    //   ) in SEVar(1)
-    case class PartialSELet(bounds: Array[SExpr]) extends SomeArrayEquals {
-      def in(body: => SExpr): SExpr = SELet(bounds, body)
-    }
-
-    def apply(bounds: SExpr*) = PartialSELet(bounds.toArray)
-
   }
 
   /** Location annotation. When encountered the location is stored in the 'lastLocation'

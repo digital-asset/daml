@@ -531,7 +531,7 @@ private[lf] object Pretty {
           })).tightBracketBy(text("let ["), char(']')) +
             lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
         case SELet1General(rhs, body) =>
-          prettySExpr(index)(SELet(Array(rhs), body))
+          prettySExpr(index)(SELet(List(rhs), body))
         case SELet1Builtin(builtin, args, body) =>
           prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
 
