@@ -6,7 +6,6 @@ package com.daml.ledger.on.sql
 import java.sql.{Connection, SQLException}
 import java.util.concurrent.Executors
 
-import com.daml.concurrent.FutureOf._
 import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.on.sql.Database._
