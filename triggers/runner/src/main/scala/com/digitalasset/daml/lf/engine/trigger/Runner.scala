@@ -43,7 +43,8 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.script.converter.Converter.{DamlTuple2, unrollFree}
+import com.daml.script.converter.Converter.{DamlTuple2, DamlAnyModuleRecord, unrollFree}
+import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.ConverterException
 
 import com.google.protobuf.empty.Empty
@@ -384,7 +385,12 @@ class Runner(
       Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
-    val value = Machine.stepToValue(machine)
+    val value = Machine
+      .stepToValue(machine)
+      .expect("TriggerSetup", {
+        case DamlAnyModuleRecord("TriggerSetup", fts) => fts
+      })
+      .orConverterException
     val evaluatedInitialState: SValue = handleStepFreeResult(clientTime, v = value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
     machine.setExpressionToEvaluate(update)
@@ -450,11 +456,21 @@ class Runner(
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal, state))
+        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
+        val stateFun = Machine
+          .stepToValue(machine)
+          .expect("TriggerRule", {
+            case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) => fun
+          })
+          .orConverterException
+        machine.setExpressionToEvaluate(makeAppD(stateFun, state))
         val updateWithNewState = Machine.stepToValue(machine)
-        val newState =
-          handleStepFreeResult(clientTime, v = updateWithNewState, submit = submit)
-        newState
+
+        handleStepFreeResult(clientTime, v = updateWithNewState, submit = submit)
+          .expect("TriggerRule new state", {
+            case DamlTuple2(SUnit, newState) => newState
+          })
+          .orConverterException
       }))(Keep.right[NotUsed, Future[SValue]])
   }
 

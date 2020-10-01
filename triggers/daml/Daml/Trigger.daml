@@ -178,7 +178,7 @@ dedupExerciseByKey k c = do
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState
-  , update = execStateT . runTriggerRule . update
+  , update = update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat
   }
@@ -187,7 +187,7 @@ runTrigger userTrigger = LowLevel.Trigger
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty 0
-      in execStateT (runTriggerRule $ runRule userTrigger.rule) state
+      in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
     update msg = do
       time <- getTime
       state <- get

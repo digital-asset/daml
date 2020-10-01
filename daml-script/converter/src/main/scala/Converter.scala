@@ -88,6 +88,13 @@ private[daml] object Converter {
     }
   }
 
+  object DamlAnyModuleRecord {
+    def unapplySeq(v: SRecord): Some[(String, Seq[SValue])] = {
+      val SRecord(Identifier(_, QualifiedName(_, name)), _, values) = v
+      Some((name.dottedName, values.asScala))
+    }
+  }
+
   object JavaList {
     def unapplySeq[A](jl: util.List[A]): Some[Seq[A]] =
       Some(jl.asScala)
@@ -103,6 +110,11 @@ private[daml] object Converter {
 
       def expectE[R](name: String, pf: A PartialFunction ErrorOr[R]): ErrorOr[R] =
         self.expect(name, pf).join
+    }
+
+    implicit final class `ErrorOr ops`[A](private val self: ErrorOr[A]) extends AnyVal {
+      @throws[ConverterException]
+      def orConverterException: A = self fold (e => throw new ConverterException(e), identity)
     }
   }
 }
