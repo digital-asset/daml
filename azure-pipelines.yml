@@ -82,6 +82,14 @@ jobs:
       - checkout: self
       - bash: ci/check-changelog.sh $(fork_sha)
 
+  - job: check_closing_quotes
+    pool:
+      name: 'linux-pool'
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: cd docs && scripts/check-closing-quotes.sh
+
   - template: ci/da-ghc-lib/compile.yml
     parameters:
       final_job_name: da_ghc_lib
