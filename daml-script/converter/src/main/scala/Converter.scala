@@ -3,41 +3,17 @@
 
 package com.daml.script.converter
 
-// import io.grpc.StatusRuntimeException
 import java.util
 
-// import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-/*
-import scala.concurrent.Future
-import scalaz.{-\/, \/-}
-import spray.json._
- */
 import scalaz.syntax.bind._
 import scalaz.std.either._
-import com.daml.lf.data.{ImmArray, Ref /*, Struct, Time*/}
+import com.daml.lf.data.{ImmArray, Ref}
 import Ref._
-/*
-import com.daml.lf.iface
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
- */
 import com.daml.lf.language.Ast
-/*
-import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SBuiltin._
-import com.daml.lf.speedy.SExpr._
- */
-import com.daml.lf.speedy.{/*Pretty, SExpr, */ SValue /*, Speedy*/}
-// import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
-// import com.daml.lf.value.Value
+import com.daml.lf.speedy.SValue
+import SValue._
 import com.daml.lf.value.Value.ContractId
-/*
-import com.daml.lf.CompiledPackages
-import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.api.v1.value
- */
 
 class ConverterException(message: String) extends RuntimeException(message)
 
