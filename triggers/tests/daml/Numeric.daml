@@ -8,7 +8,9 @@ import Daml.Trigger.LowLevel
 
 test : Trigger Bool
 test = Trigger
-  { initialState = forwardPortInitialState $ \party _ _ -> (False, [Commands (CommandId "mycreate1") [createCmd (T party 1.06)]])
+  { initialState = \party _ -> do
+      submitCommands $ Commands (CommandId "mycreate1") [createCmd (T party 1.06)]
+      pure False
   , update = forwardPort $ \_time msg s -> case (s, msg) of
       (False, MTransaction (Transaction _ _ [CreatedEvent (fromCreated @T -> Some (_, _, t))])) ->
       -- This verifies that t.v has the proper scale as otherwise the interpreter will
