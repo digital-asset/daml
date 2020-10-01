@@ -36,8 +36,8 @@ import com.daml.platform.common.MismatchException
 import com.daml.resources.{Resource, ResourceOwner}
 import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext => ScalaExecutionContext, Future => ScalaFuture}
 import scala.util.{Failure, Success}
+import scala.{concurrent => sc}
 
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -46,7 +46,7 @@ final class SqlLedgerReaderWriter(
     database: Database,
     dispatcher: Dispatcher[Index],
     committer: ValidatingCommitter[Index],
-    committerExecutionContext: ScalaExecutionContext,
+    committerExecutionContext: sc.ExecutionContext,
 ) extends LedgerWriter
     with LedgerReader {
 
@@ -74,7 +74,7 @@ final class SqlLedgerReaderWriter(
       correlationId: String,
       envelope: Bytes,
       metadata: CommitMetadata,
-  ): ScalaFuture[SubmissionResult] =
+  ): sc.Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)(committerExecutionContext)
 }
 
@@ -96,7 +96,7 @@ object SqlLedgerReaderWriter {
   )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
     override def acquire()(
-        implicit executionContext: ScalaExecutionContext
+        implicit executionContext: sc.ExecutionContext
     ): Resource[SqlLedgerReaderWriter] = {
       implicit val migratorExecutionContext: ExecutionContext[Database.Migrator] =
         ExecutionContext(executionContext)
@@ -104,7 +104,7 @@ object SqlLedgerReaderWriter {
         uninitializedDatabase <- Database.owner(jdbcUrl, metrics).acquire()
         database <- Resource.fromFuture(
           if (resetOnStartup) uninitializedDatabase.migrateAndReset().removeExecutionContext
-          else ScalaFuture.successful(uninitializedDatabase.migrate()))
+          else sc.Future.successful(uninitializedDatabase.migrate()))
         ledgerId <- Resource.fromFuture(
           updateOrRetrieveLedgerId(ledgerId, database).removeExecutionContext)
         dispatcher <- new DispatcherOwner(database).acquire()
@@ -123,7 +123,7 @@ object SqlLedgerReaderWriter {
         )
         committerExecutionContext <- ResourceOwner
           .forExecutorService(() =>
-            ScalaExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()))
+            sc.ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()))
           .acquire()
       } yield
         new SqlLedgerReaderWriter(
@@ -161,7 +161,7 @@ object SqlLedgerReaderWriter {
 
   private final class DispatcherOwner(database: Database) extends ResourceOwner[Dispatcher[Index]] {
     override def acquire()(
-        implicit executionContext: ScalaExecutionContext
+        implicit executionContext: sc.ExecutionContext
     ): Resource[Dispatcher[Index]] =
       for {
         head <- Resource.fromFuture(database
@@ -190,9 +190,9 @@ object SqlLedgerReaderWriter {
 
   private final class SqlLedgerStateAccess(database: Database, metrics: Metrics)
       extends LedgerStateAccess[Index] {
-    override def inTransaction[T](body: LedgerStateOperations[Index] => ScalaFuture[T])(
-        implicit executionContext: ScalaExecutionContext
-    ): ScalaFuture[T] =
+    override def inTransaction[T](body: LedgerStateOperations[Index] => sc.Future[T])(
+        implicit executionContext: sc.ExecutionContext
+    ): sc.Future[T] =
       database
         .inWriteTransaction("commit") { queries =>
           body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metrics))
@@ -204,18 +204,18 @@ object SqlLedgerReaderWriter {
       extends BatchingLedgerStateOperations[Index] {
     override def readState(
         keys: Iterable[Key],
-    )(implicit executionContext: ScalaExecutionContext): ScalaFuture[Seq[Option[Value]]] =
+    )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Value]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys)).removeExecutionContext
 
     override def writeState(
         keyValuePairs: Iterable[(Key, Value)],
-    )(implicit executionContext: ScalaExecutionContext): ScalaFuture[Unit] =
+    )(implicit executionContext: sc.ExecutionContext): sc.Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs)).removeExecutionContext
 
     override def appendToLog(
         key: Key,
         value: Value,
-    )(implicit executionContext: ScalaExecutionContext): ScalaFuture[Index] =
+    )(implicit executionContext: sc.ExecutionContext): sc.Future[Index] =
       Future.fromTry(queries.insertRecordIntoLog(key, value)).removeExecutionContext
   }
 
