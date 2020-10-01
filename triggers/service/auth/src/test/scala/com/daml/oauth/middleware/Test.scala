@@ -51,7 +51,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         uri = middlewareUri
           .withPath(Path./("auth"))
           .withQuery(Query(("claims", claims))),
-          headers = List(cookieHeader))
+        headers = List(cookieHeader))
       for {
         resp <- Http().singleRequest(req)
         auth <- {
@@ -61,6 +61,30 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         assert(auth.accessToken == token.accessToken)
         assert(auth.refreshToken == token.refreshToken)
+      }
+    }
+    "return unauthorized on insufficient claims" in {
+      lazy val middlewareBinding = suiteResource.value._2.localAddress
+      lazy val middlewareUri =
+        Uri()
+          .withScheme("http")
+          .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
+      val token = OAuthResponse.Token(
+        accessToken = "access",
+        tokenType = "bearer",
+        expiresIn = None,
+        refreshToken = Some("refresh"),
+        scope = Some("actAs:Alice"))
+      val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
+      val req = HttpRequest(
+        uri = middlewareUri
+          .withPath(Path./("auth"))
+          .withQuery(Query(("claims", "actAs:Bob"))),
+          headers = List(cookieHeader))
+      for {
+        resp <- Http().singleRequest(req)
+      } yield {
+        assert(resp.status == StatusCodes.Unauthorized)
       }
     }
   }

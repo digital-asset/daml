@@ -68,13 +68,15 @@ object Server extends StrictLogging {
 
   private def auth =
     parameters(('claims))
-      .as[Request.Auth](Request.Auth) { _ =>
+      .as[Request.Auth](Request.Auth) { auth =>
         optionalToken {
-          case None => complete(StatusCodes.Unauthorized)
-          case Some(token) =>
+          // TODO[AH] Implement mapping from scope to claims
+          // TODO[AH] Check whether granted scope subsumes requested claims
+          case Some(token) if token.scope == Some(auth.claims) =>
             complete(Response.Authorize(
               accessToken = token.accessToken,
               refreshToken = token.refreshToken))
+          case _ => complete(StatusCodes.Unauthorized)
         }
       }
 
