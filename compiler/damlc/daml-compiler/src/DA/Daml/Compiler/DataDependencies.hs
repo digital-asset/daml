@@ -11,6 +11,7 @@ import DA.Pretty
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans.Writer.CPS
+import Data.Char (isDigit)
 import qualified Data.DList as DL
 import Data.Foldable (fold)
 import Data.Hashable (Hashable)
@@ -383,7 +384,7 @@ generateSrcFromLf env = noLoc mod
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
     instanceDecls = do
-        dval@LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
+        dval@LF.DefValue {..} <- reverse . sortOn nameKey $ NM.toList $ LF.moduleValues $ envMod env
         Just dfunSig <- [getDFunSig dval]
         guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
@@ -404,6 +405,21 @@ generateSrcFromLf env = noLoc mod
                     , cid_datafam_insts = []
                     , cid_overlap_mode = Nothing
                     }
+      where
+        -- Split a DefValue's name, into the lexical part and the numeric part
+        -- if it exists. For example, the name "$dFooBar123" is split into a
+        -- pair ("$dFooBar", Just 123), and the name "$dFooBar" would be turned
+        -- into ("$dFooBar", Nothing). This gives us the correct (or, close
+        -- enough) order for recreating dictionary function names in GHC without
+        -- mismatches.
+        --
+        -- See issue #7362, and the corresponding regression test in the
+        -- packaging test suite.
+        nameKey :: LF.DefValue -> (T.Text, Maybe Int)
+        nameKey dval =
+            let name = LF.unExprValName (fst (LF.dvalBinder dval))
+                (intR,tagR) = T.span isDigit (T.reverse name)
+            in (T.reverse tagR, readMay (T.unpack (T.reverse intR)))
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
