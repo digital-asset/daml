@@ -17,6 +17,7 @@ import Data.Foldable (fold)
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HMS
 import Data.List.Extra
+import Data.Ord (Down (Down))
 import Data.Semigroup.FixedPoint
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -384,7 +385,7 @@ generateSrcFromLf env = noLoc mod
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
     instanceDecls = do
-        dval@LF.DefValue {..} <- reverse . sortOn nameKey $ NM.toList $ LF.moduleValues $ envMod env
+        dval@LF.DefValue {..} <- sortOn (Down . nameKey) $ NM.toList $ LF.moduleValues $ envMod env
         Just dfunSig <- [getDFunSig dval]
         guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
