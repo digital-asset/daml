@@ -49,5 +49,54 @@ steps:
         trap - EXIT
         eval "$restore_trap"
     }
+    gpg_verify() {
+        local key gpg_dir signature_file res
+        signature_file=$1
+        key=$(mktemp)
+        cat > $key <<PUB_KEY
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mQENBFzdsasBCADO+ZcfZQATP6ceTh4WfXiL2Z2tetvUZGfTaEs/UfBoJPmQ53bN
+    90MxudKhgB2mi8DuifYnHfLCvkxSgzfhj2IogV1S+Fa2x99Y819GausJoYfK9gwc
+    8YWKEkM81F15jA5UWJTsssKNxUddr/sxJIHIFfqGRQ0e6YeAcc5bOAogBE8UrmxE
+    uGfOt9/MvLpDewjDE+2lQOFi9RZuy7S8RMJLTiq2JWbO5yI50oFKeMQy/AJPmV7y
+    qAyYUIeZZxvrYeBWi5JDsZ2HOSJPqV7ttD2MvkyXcJCW/Xf8FcleAoWJU09RwVww
+    BhZSDz+9mipwZBHENILMuVyEygG5A+vc/YptABEBAAG0N0RpZ2l0YWwgQXNzZXQg
+    SG9sZGluZ3MsIExMQyA8c2VjdXJpdHlAZGlnaXRhbGFzc2V0LmNvbT6JAVQEEwEI
+    AD4WIQRJEajf6Xas36BxMNvoNywMHHNMUQUCXN2xqwIbAwUJA8JnAAULCQgHAgYV
+    CgkICwIEFgIDAQIeAQIXgAAKCRDoNywMHHNMUeVdCACAEwJ9f0DAKkhwQcg1RG4O
+    RiyWZ7h0nC4XSdmDUe5RhcrU8xUhiyYqKFVCRtYC0BILC/7bQCJcQUkvUH+hY5rK
+    MZM+jeBDLZToEQaZgytkyvRPzaKKx6LrvbGLoOyBgFGi9X9a5thXrAZaKN8Cgp2d
+    0OFDXMi+ep+x0hbmlxtPYhHXcdr2u/BwT1nsEVZn1uTefwcfom8aKw3uOmLQdE+2
+    5eM4GvLC7sJvrlbNLt0FCbty3hvdfINrIOEPj5yjguY4kKewzfZTG7ygccJQ4eyh
+    8HnPFcuBJCCGwOsFsccViX5wevijfGie9tyVeLGZdV2k6aElWDuRVRWKQtrfL0Xk
+    uQENBFzdsasBCAC5fr5pqxFm+AWPc7wiBSt7uKNdxiRJYydeoPqgmYZTvc8Um8pI
+    6JHtUrNxnx4WWKtj6iSPn5pSUrJbue4NAUsBF5O9LZ0fcQKb5diZLGHKtOZttCaj
+    Iryp1Rm961skmPmi3yYaHXq4GC/05Ra/bo3C+ZByv/W0JzntOxA3Pvc3c8Pw5sBm
+    63xu7iRrnJBtyFGD+MuAZxbN8dwYX0OcmwuSFGxf/wa+aB8b7Ut9RP76sbDvFaXx
+    Ef314k8AwxUvlv+ozdNWmEBxp1wR/Fra9i8EbC0V6EkCcModRhjbaNSPIbgkC0ka
+    2cgYp1UDgf9FrKvkuir70dg75qSrPRwvFghrABEBAAGJATwEGAEIACYWIQRJEajf
+    6Xas36BxMNvoNywMHHNMUQUCXN2xqwIbDAUJA8JnAAAKCRDoNywMHHNMUZYBCACW
+    wXLl3untEom4VwzTfvc4xwLThjnNDhewW8LfudYh3ZUbxnqH9jlmZjTALllr+66f
+    +TB1B8EGO5nTV5TxzE2s2rF9+S3Qj2hl1+PyVFjy1p93mUaWOz33sGlpXLOi5/p4
+    9ekSKOzyVYWvMm3FoDagqMCPvSMJ0AN8CJwrCeWyMcGcY+ohzajXKXpJ1vBdzaUU
+    LTZi2uRiN7cTZVAAOr1jO6Rcx4+EfmkjDW6ww/O/sWTDmsS1+Ge6zp9qZCspYX8d
+    7vBpuEUwEYpxVvxDR/TBztlfbQx4Pw+n1gpbXBO0BwJC9L67MS6yMUmuhSrw8UTI
+    JKX1t3MFLLpYQbaNwBgA
+    =5Xfu
+    -----END PGP PUBLIC KEY BLOCK-----
+    PUB_KEY
+        gpg_dir=$(mktemp -d)
+        GNUPGHOME=$gpg_dir gpg --no-tty --quiet --import $key
+        GNUPGHOME=$gpg_dir gpg --no-tty --quiet --command-fd 0 --edit-key 4911A8DFE976ACDFA07130DBE8372C0C1C734C51 << CMD
+    trust
+    4
+    quit
+    CMD
+        GNUPGHOME=$gpg_dir gpg --verify $signature_file
+        res=$?
+        rm -rf $gpg_dir $key
+        return $res
+    }
     END
     echo "##vso[task.setvariable variable=${{parameters.var_name}}]$TMP"
