@@ -15,13 +15,14 @@ import org.scalatest.AsyncWordSpec
 
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import JsonProtocol._
+  lazy private val middlewareUri = {
+    lazy val middlewareBinding = suiteResource.value._2.localAddress
+    Uri()
+      .withScheme("http")
+      .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
+  }
   "the /auth endpoint" should {
     "return unauthorized without cookie" in {
-      lazy val middlewareBinding = suiteResource.value._2.localAddress
-      lazy val middlewareUri =
-        Uri()
-          .withScheme("http")
-          .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
       val claims = "actAs:Alice"
       val req = HttpRequest(
         uri = middlewareUri
@@ -34,11 +35,6 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "return the token from a cookie" in {
-      lazy val middlewareBinding = suiteResource.value._2.localAddress
-      lazy val middlewareUri =
-        Uri()
-          .withScheme("http")
-          .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
       val claims = "actAs:Alice"
       val token = OAuthResponse.Token(
         accessToken = "access",
@@ -64,11 +60,6 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "return unauthorized on insufficient claims" in {
-      lazy val middlewareBinding = suiteResource.value._2.localAddress
-      lazy val middlewareUri =
-        Uri()
-          .withScheme("http")
-          .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
       val token = OAuthResponse.Token(
         accessToken = "access",
         tokenType = "bearer",
@@ -90,11 +81,6 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   }
   "the /login endpoint" should {
     "redirect and set cookie" in {
-      lazy val middlewareBinding = suiteResource.value._2.localAddress
-      lazy val middlewareUri =
-        Uri()
-          .withScheme("http")
-          .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
       val claims = "actAs:Alice"
       val req = HttpRequest(
         uri = middlewareUri
