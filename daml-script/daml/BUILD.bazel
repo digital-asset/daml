@@ -21,8 +21,9 @@ DAML_LF_VERSIONS = [
         cmd = """
           set -eou pipefail
           TMP_DIR=$$(mktemp -d)
-          mkdir -p $$TMP_DIR/daml/Daml
-          cp -L $(location Daml/Script.daml) $$TMP_DIR/daml/Daml
+          mkdir -p $$TMP_DIR/daml/Daml/Script
+          cp -L $(location Daml/Script.daml) $$TMP_DIR/daml/Daml/
+          cp -L $(location Daml/Script/Free.daml) $$TMP_DIR/daml/Daml/Script/
           cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: daml-script
