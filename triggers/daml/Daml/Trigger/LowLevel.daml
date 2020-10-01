@@ -41,15 +41,17 @@ module Daml.Trigger.LowLevel
   , modify
   , zoom
   , submitCommands
+  , simulateRule
   , forwardPortInitialState
   , forwardPort
   ) where
 
+import qualified DA.Action.State as State
 import DA.Foldable (mapA_)
-import DA.Functor ((<&>))
+import DA.Functor ((<&>), ($>))
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
-import Daml.Script.Free (Free(..), lift)
+import Daml.Script.Free (Free(..), lift, foldFree)
 
 -- | This type represents the contract id of an unknown template.
 -- You can use `fromAnyContractId` to check which template it corresponds to.
@@ -301,6 +303,15 @@ newtype TriggerSetup s a = TriggerSetup { runTriggerSetup : Free TriggerF a }
 
 newtype TriggerRule s a = TriggerRule { runTriggerRule : StateT s (Free TriggerF) a }
   deriving (Functor, Applicative, Action)
+
+-- | Run a rule without running it.  May lose information from the rule;
+-- meant for testing purposes only.
+simulateRule : TriggerRule s a -> Time -> s -> (s, [Commands], a)
+simulateRule rule time s = (s', reverse cmds, a)
+  where ((a, s'), cmds) = State.runState (foldFree sim (runStateT (runTriggerRule rule) s)) []
+        sim : TriggerF x -> State.State [Commands] x
+        sim (GetTime f) = pure (f time)
+        sim (Submit (cmds, f)) = State.modify (cmds ::) $> f ()
 
 deriving instance ActionState s (TriggerRule s)
 
