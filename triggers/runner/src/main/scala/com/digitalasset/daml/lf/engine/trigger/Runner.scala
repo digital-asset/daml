@@ -475,7 +475,9 @@ class Runner(
 
         handleStepFreeResult(clientTime, v = updateWithNewState, submit = submit)
           .expect("TriggerRule new state", {
-            case DamlTuple2(SUnit, newState) => newState
+            case DamlTuple2(SUnit, newState) =>
+              logger.debug(s"New state: $newState")
+              newState
           })
           .orConverterException
       }))(Keep.right[NotUsed, Future[SValue]])
