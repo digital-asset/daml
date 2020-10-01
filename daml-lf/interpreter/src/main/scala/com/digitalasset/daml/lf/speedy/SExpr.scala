@@ -441,8 +441,6 @@ object SExpr {
     def ref: DefinitionRef
     def packageId: PackageId = ref.packageId
     def modName: ModuleName = ref.qualifiedName.module
-    private[this] val eval = SEVal(this)
-    def apply(args: SExpr*) = SEApp(eval, args.toArray)
   }
 
   // references to definitions that come from the archive
