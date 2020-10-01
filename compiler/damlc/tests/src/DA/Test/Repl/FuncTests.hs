@@ -226,7 +226,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , matchOutput "^Message:.*error: Variable not in scope: days.*$"
           ]
     , testInteraction' ":show imports"
-          [ input ":module - ReplTest ReplTest2"
+          [ input ":module - ReplTest ReplTest2 Colliding"
           , input ":module + DA.Assert"
           , input ":show imports"
           , matchOutput "^import Daml.Script -- implicit$"
@@ -326,6 +326,15 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "let x = 1"
           , input ":json x"
           , matchOutput "1"
+          ]
+    , testInteraction' "collision"
+      -- Test that collisions are handled correctly if users qualify names.
+          [ input "let x = ReplTest.NameCollision \"abc\""
+          , input "x"
+          , matchOutput "NameCollision {field = \"abc\"}"
+          , input "y <- pure $ Colliding.NameCollision 42"
+          , input "y"
+          , matchOutput "NameCollision {field = 42}"
           ]
     ]
   where
