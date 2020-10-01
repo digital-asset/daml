@@ -14,6 +14,7 @@ import java.util.UUID
 
 import scalaz.syntax.tag._
 
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
@@ -257,12 +258,12 @@ class Runner(
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
     }
-    def go(v: SValue): SValue =
-      unrollFree(v) match {
+    @tailrec def go(v: SValue): SValue = {
+      val resumed = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
           vvv.match2 {
             case "GetTime" /*(Time -> a)*/ => {
-              case DamlFun(timeA) => go(evaluate(makeAppD(timeA, STimestamp(clientTime))))
+              case DamlFun(timeA) => Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
             }
             case "Submit" /*(Commands, () -> a)*/ => {
               case DamlTuple2(commands, DamlFun(unitA)) =>
@@ -271,7 +272,7 @@ class Runner(
                   case Right((commandId, commands)) =>
                     handleCommands(commandId, commands, submit)
                 }
-                go(evaluate(makeAppD(unitA, SUnit)))
+                Right(evaluate(makeAppD(unitA, SUnit)))
             }
             case _ => {
               case _ =>
@@ -280,9 +281,15 @@ class Runner(
                 throw new ConverterException(msg)
             }
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
-        case Right(Left(newState)) => newState
+        case Right(Left(newState)) => Left(newState)
         case Left(e) => throw new ConverterException(e)
       }
+      resumed match {
+        case Left(newState) => newState
+        case Right(suspended) => go(suspended)
+      }
+    }
+
     go(v)
   }
 
