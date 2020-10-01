@@ -280,7 +280,7 @@ class Runner(
             }
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
         case Right(Left(newState)) => newState
-        case Left(e) => throw new RuntimeException(e)
+        case Left(e) => throw new ConverterException(e)
       }
     go(v)
   }
