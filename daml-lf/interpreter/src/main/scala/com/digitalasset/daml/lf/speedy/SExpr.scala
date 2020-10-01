@@ -308,7 +308,7 @@ object SExpr {
 
   /** A non-recursive, non-parallel let block.
     * It is used as an intermediary data structure by the compiler,
-    * but are later explode into SELet1General and SELet1Builtin by
+    * but are later exploded into SELet1General and SELet1Builtin by
     * the ANF transformation.
     */
   final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr {
