@@ -4,9 +4,20 @@
 package com.daml.oauth.middleware
 
 import akka.http.scaladsl.model.Uri
-import spray.json.{DefaultJsonProtocol, JsString, JsValue, JsonFormat, deserializationError}
+import spray.json.{
+  DefaultJsonProtocol,
+  JsString,
+  JsValue,
+  JsonFormat,
+  RootJsonFormat,
+  deserializationError
+}
 
 object Request {
+
+  /** Auth endpoint query parameters
+    */
+  case class Auth(claims: String) // TODO[AH] parse ledger claims
 
   /** Login endpoint query parameters
     *
@@ -17,7 +28,11 @@ object Request {
 
 }
 
-object Response {}
+object Response {
+
+  case class Authorize(accessToken: String, refreshToken: Option[String])
+
+}
 
 object JsonProtocol extends DefaultJsonProtocol {
   implicit object UriFormat extends JsonFormat[Uri] {
@@ -27,4 +42,6 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
     def write(uri: Uri) = JsString(uri.toString)
   }
+  implicit val responseAuthorizeFormat: RootJsonFormat[Response.Authorize] =
+    jsonFormat(Response.Authorize, "access_token", "refresh_token")
 }
