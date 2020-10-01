@@ -70,7 +70,7 @@ import SdkVersion
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
 createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot (disableScenarioService -> opts) thisSdkVer modulePrefixes deps dataDeps
+createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion (SdkVersion.toGhcPkgVersion -> thisSdkVer)) modulePrefixes deps dataDeps
   | null dataDeps && all (`elem` basePackages) deps =
     -- Initializing the package db is expensive since it requires calling GenerateStablePackages and GeneratePackageMap.
     --Therefore we only do it if we actually have a dependency.
@@ -80,9 +80,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) thisSdkVer m
     deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps)
     depsExtracted <- mapM extractDar deps
 
-    let uniqSdkVersions = nubSort $ unPackageSdkVersion thisSdkVer : map edSdkVersions depsExtracted
+    let uniqSdkVersions = nubSort $ thisSdkVer : map edSdkVersions depsExtracted
     let depsSdkVersions = map edSdkVersions depsExtracted
-    unless (all (== unPackageSdkVersion thisSdkVer) depsSdkVersions) $
+    unless (all (== thisSdkVer) depsSdkVersions) $
            fail $
            "Package dependencies from different SDK versions: " ++
            intercalate ", " uniqSdkVersions

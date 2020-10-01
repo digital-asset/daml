@@ -205,7 +205,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
         archive <- Zip.toArchive <$> BSL.readFile dar
         Just entry <- pure $ Zip.findEntryByPath "META-INF/MANIFEST.MF" archive
         let lines = BSL.Char8.lines (Zip.fromEntry entry)
-            expectedLine = "Sdk-Version: " <> BSL.Char8.pack (SdkVersion.toGhcPkgVersion sdkVersion)
+            expectedLine = "Sdk-Version: " <> BSL.Char8.pack sdkVersion
         assertBool "META-INF/MANIFEST.MF picked up the wrong sdk version" (expectedLine `elem` lines)
 
     , testCase "Non-root sources files" $ withTempDir $ \projDir -> do
