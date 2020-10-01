@@ -927,7 +927,7 @@ private[lf] final class Compiler(
     //   in <retValue>
     topLevelFunction(ChoiceDefRef(tmplId, choice.name), 4) {
       case List(actorsPos, cidPos, choiceArgPos, tokenPos) =>
-        val tmplArg = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
+        val tmplArg = SBUFetch(tmplId)(svar(cidPos))
         nextPositionWithExprName(tmpl.param)
         val beginExercise =
           SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = false)(
@@ -941,13 +941,12 @@ private[lf] final class Compiler(
               compile(choice.controllers)
             },
             compileKeyWithMaintainers(tmpl.key),
-            svar(tokenPos)
           )
         nextPosition()
         addExprVar(choice.selfBinder, cidPos)
         val update = SEApp(compile(choice.update), Array(svar(tokenPos)))
         val retValuePos = nextPosition()
-        val endExercise = SBUEndExercise(tmplId)(svar(tokenPos), svar(retValuePos))
+        val endExercise = SBUEndExercise(tmplId)(svar(retValuePos))
         nextPosition()
 
         SELet(
@@ -979,9 +978,9 @@ private[lf] final class Compiler(
       case List(actorsPos, keyPos, choiceArgPos, tokenPos) =>
         val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
         val keyWithMPos = nextPosition()
-        val cid = SBUFetchKey(tmplId)(svar(keyWithMPos), svar(tokenPos))
+        val cid = SBUFetchKey(tmplId)(svar(keyWithMPos))
         val cidPos = nextPosition()
-        val tmplArg = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
+        val tmplArg = SBUFetch(tmplId)(svar(cidPos))
         nextPositionWithExprName(tmpl.param)
         val beginExercise =
           SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = true)(
@@ -995,13 +994,12 @@ private[lf] final class Compiler(
               compile(choice.controllers)
             },
             SBSome(svar(keyWithMPos)),
-            svar(tokenPos)
           )
         nextPosition()
         addExprVar(choice.selfBinder, cidPos)
         val update = SEApp(compile(choice.update), Array(svar(tokenPos)))
         val retValuePos = nextPosition()
-        val endExercise = SBUEndExercise(tmplId)(svar(tokenPos), svar(retValuePos))
+        val endExercise = SBUEndExercise(tmplId)(svar(retValuePos))
         nextPosition()
         SELet(
           keyWithM,
@@ -1378,15 +1376,14 @@ private[lf] final class Compiler(
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key] <token>
     //   in <tmplArg>
     topLevelFunction(FetchDefRef(tmplId), 2) {
-      case List(cidPos, tokenPos) =>
-        val fetch = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
+      case List(cidPos, tokenPos @ _) =>
+        val fetch = SBUFetch(tmplId)(svar(cidPos))
         val tmplArgPos = nextPositionWithExprName(tmpl.param)
         val insertNode = SBUInsertFetchNode(tmplId, byKey = false)(
           svar(cidPos),
           compile(tmpl.signatories),
           compile(tmpl.observers),
           compileKeyWithMaintainers(tmpl.key),
-          svar(tokenPos)
         )
         nextPosition()
 
@@ -1403,7 +1400,7 @@ private[lf] final class Compiler(
     //   let _ = $checkPreconf(tmplId)(<tmplArg> [tmpl.precond]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key] <token>
     topLevelFunction(CreateDefRef(tmplId), 2) {
-      case List(tmplArgPos, tokenPos) =>
+      case List(tmplArgPos, tokenPos @ _) =>
         addExprVar(tmpl.param, tmplArgPos)
         val precond = SBCheckPrecond(tmplId)(svar(tmplArgPos), compile(tmpl.precond))
         nextPosition()
@@ -1418,7 +1415,6 @@ private[lf] final class Compiler(
             compile(tmpl.signatories),
             compile(tmpl.observers),
             compileKeyWithMaintainers(tmpl.key),
-            svar(tokenPos)
           )
     }
 
@@ -1496,13 +1492,13 @@ private[lf] final class Compiler(
     //        _ = $insertLookup(tmplId> <keyWithM> <mbCid> <token>
     //    in <mbCid>
     topLevelFunction(LookupByKeyDefRef(tmplId), 2) {
-      case List(keyPos, tokenPos) =>
+      case List(keyPos, tokenPos @ _) =>
         val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
         val keyWithMPos = nextPosition()
-        val mbCid = SBULookupKey(tmplId)(svar(keyWithMPos), svar(tokenPos))
+        val mbCid = SBULookupKey(tmplId)(svar(keyWithMPos))
         val maybeCidPos = nextPosition()
         val insertNode =
-          SBUInsertLookupNode(tmplId)(svar(keyWithMPos), svar(maybeCidPos), svar(tokenPos))
+          SBUInsertLookupNode(tmplId)(svar(keyWithMPos), svar(maybeCidPos))
         nextPosition()
 
         SELet(
@@ -1529,19 +1525,18 @@ private[lf] final class Compiler(
     //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
     topLevelFunction(FetchByKeyDefRef(tmplId), 2) {
-      case List(keyPos, tokenPos) =>
+      case List(keyPos, tokenPos @ _) =>
         val keyWithM = encodeKeyWithMaintainers(keyPos, tmplKey)
         val keyWithMPos = nextPosition()
-        val fetchKey = SBUFetchKey(tmplId)(svar(keyWithMPos), svar(tokenPos))
+        val fetchKey = SBUFetchKey(tmplId)(svar(keyWithMPos))
         val cidPos = nextPosition()
-        val fetch = SBUFetch(tmplId)(svar(cidPos), svar(tokenPos))
+        val fetch = SBUFetch(tmplId)(svar(cidPos))
         val contractPos = nextPositionWithExprName(tmpl.param)
         val insertNode = SBUInsertFetchNode(tmplId, byKey = true)(
           svar(cidPos),
           compile(tmpl.signatories),
           compile(tmpl.observers),
           SBSome(svar(keyWithMPos)),
-          svar(tokenPos)
         )
         nextPosition()
 
