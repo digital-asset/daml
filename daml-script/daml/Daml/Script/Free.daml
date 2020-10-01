@@ -4,7 +4,6 @@
 module Daml.Script.Free
   ( Free(..)
   , lift
-  , retract
   , foldFree
   ) where 
 
@@ -29,10 +28,6 @@ instance Functor f => Action (Free f) where
 
 lift : Functor f => f a -> Free f a
 lift fa = Free (Pure <$> fa)
-
-retract : Action f => Free f a -> f a
-retract (Pure a) = pure a
-retract (Free x) = x >>= retract
 
 foldFree : Action m => (forall x. f x -> m x) -> Free f a -> m a
 foldFree _ (Pure a) = pure a
