@@ -36,16 +36,14 @@ object Server extends StrictLogging {
       .withAuthority(uri.authority)
       .withPath(Uri.Path./("cb"))
 
-  def start(serverConfig: Config)(
-      implicit system: ActorSystem,
-      ec: ExecutionContext): Future[ServerBinding] = {
-    implicit val config: Config = serverConfig
+  def start(
+      config: Config)(implicit system: ActorSystem, ec: ExecutionContext): Future[ServerBinding] = {
     // TODO[AH] Make sure this is bounded in size - or avoid state altogether.
-    implicit val requests: TrieMap[UUID, Uri] = TrieMap()
+    val requests: TrieMap[UUID, Uri] = TrieMap()
     val route = concat(
       path("auth") { get { auth } },
-      path("login") { get { login } },
-      path("cb") { get { loginCallback } },
+      path("login") { get { login(config, requests) } },
+      path("cb") { get { loginCallback(config, requests) } },
       path("refresh") {
         get {
           complete((StatusCodes.NotImplemented, "The /refresh endpoint is not implemented yet"))
@@ -80,7 +78,7 @@ object Server extends StrictLogging {
         }
       }
 
-  private def login(implicit config: Config, requests: TrieMap[UUID, Uri]) =
+  private def login(config: Config, requests: TrieMap[UUID, Uri]) =
     parameters(('redirect_uri.as[Uri], 'claims))
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
@@ -100,10 +98,8 @@ object Server extends StrictLogging {
         }
       }
 
-  private def loginCallback(
-      implicit config: Config,
-      requests: TrieMap[UUID, Uri],
-      system: ActorSystem,
+  private def loginCallback(config: Config, requests: TrieMap[UUID, Uri])(
+      implicit system: ActorSystem,
       ec: ExecutionContext) =
     parameters(('code, 'state ?))
       .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
