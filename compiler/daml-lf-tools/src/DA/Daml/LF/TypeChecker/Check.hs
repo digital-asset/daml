@@ -656,10 +656,14 @@ checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
       _ -> throwWithContext (EExpectedScenarioType typ)
 
 checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -> m ()
-checkTemplateChoice tpl (TemplateChoice _loc _ _ actors selfBinder (param, paramType) retType upd) = do
+checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBinder (param, paramType) retType upd) = do
   checkType paramType KStar
   checkType retType KStar
-  introExprVar param paramType $ checkExpr actors (TList TParty)
+  introExprVar param paramType $ checkExpr controllers (TList TParty)
+  introExprVar param paramType $ do
+    whenJust mbObservers $ \observers -> do
+      _checkFeature featureChoiceObservers
+      checkExpr observers (TList TParty)
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
     checkExpr upd (TUpdate retType)
 

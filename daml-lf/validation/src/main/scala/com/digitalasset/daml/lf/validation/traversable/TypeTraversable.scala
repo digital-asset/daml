@@ -180,11 +180,13 @@ private[validation] object TypeTraversable {
           name @ _,
           consuming @ _,
           controllers,
+          observers,
           selfBinder @ _,
           (boundedVarName @ _, boundedVarType),
           retType,
           update) =>
         foreach(controllers, f)
+        observers.foreach(foreach(_, f))
         foreach(update, f)
         f(boundedVarType)
         f(retType)

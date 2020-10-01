@@ -344,6 +344,7 @@ private[validation] object Typing {
             name @ _,
             consuming @ _,
             controllers,
+            choiceObservers @ _,
             selfBinder,
             (param, paramType),
             returnType,
@@ -356,6 +357,9 @@ private[validation] object Typing {
             if (eVars.isDefinedAt(param))
               throw EIllegalShadowingExprVar(ctx, param)
             checkExpr(controllers, TParties)
+          }
+          choiceObservers.foreach {
+            checkExpr(_, TParties) // NICK, be conditional on: supportsContractObservers
           }
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))
             .introExprVar(param, paramType)

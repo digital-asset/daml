@@ -32,6 +32,7 @@ private[lf] object TransactionVersions
   private[transaction] val minContractKeyInExercise = TransactionVersion("8")
   private[transaction] val minMaintainersInExercise = TransactionVersion("9")
   private[transaction] val minContractKeyInFetch = TransactionVersion("10")
+  private[transaction] val minChoiceObservers = TransactionVersion("11")
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   val StableOutputVersions: VersionRange[TransactionVersion] =

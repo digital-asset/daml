@@ -534,7 +534,7 @@ instance Pretty DefValue where
 
 pPrintTemplateChoice ::
   PrettyLevel -> ModuleName -> TypeConName -> TemplateChoice -> Doc ann
-pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming controller selfBinder argBinder retType update) =
+pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming controllers observers selfBinder argBinder retType update) =
   withSourceLoc lvl mbLoc $
     vcat
     [ hsep
@@ -545,7 +545,8 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
       , pPrintAndType lvl precParam argBinder
       , if levelHasTypes lvl then docHasType <-> pPrintPrec lvl 0 retType else empty
       ]
-    , nest 2 (keyword_ "controller" <-> pPrintPrec lvl 0 controller)
+    , nest 2 (keyword_ "controller" <-> pPrintPrec lvl 0 controllers)
+    , nest 2 (keyword_ "observer" <-> pPrintPrec lvl 0 observers)
     , nest 2 (keyword_ "do" <-> pPrintPrec lvl 0 update)
     ]
 

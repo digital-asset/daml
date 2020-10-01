@@ -898,6 +898,12 @@ private[lf] final class Compiler(
           {
             addExprVar(choice.argBinder._1, choiceArgPos)
             compile(choice.controllers)
+          }, //
+          {
+            choice.choiceObservers match {
+              case Some(observers) => compile(observers)
+              case None => SEValue.EmptyList
+            }
           },
           mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
         )

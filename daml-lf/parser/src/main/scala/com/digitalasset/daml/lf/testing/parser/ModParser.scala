@@ -138,12 +138,14 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     Id("choice") ~> tags(templateChoiceTags) ~ id ~ selfBinder ~ choiceParam ~
       (`:` ~> typ) ~
       (`,` ~> Id("controllers") ~> expr) ~
+      opt(`,` ~> Id("observers") ~> expr) ~
       (`to` ~> expr) ^^ {
-      case choiceTags ~ name ~ self ~ param ~ retTyp ~ controllers ~ update =>
+      case choiceTags ~ name ~ self ~ param ~ retTyp ~ controllers ~ choiceObservers ~ update =>
         name -> TemplateChoice(
           name,
           !choiceTags(nonConsumingTag),
           controllers,
+          choiceObservers,
           self,
           param,
           retTyp,
