@@ -1759,7 +1759,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             callProcessSilent damlc ["build"]
 
     , testCaseSteps "Dictionary function names match despite conflicts" $ \step -> withTempDir $ \tmpDir -> do
-        -- This test checks that dictionary function names are recreated incorrectly.
+        -- This test checks that dictionary function names are recreated correctly.
         -- This is a regression test for issue #7362.
         step "building project with type definition"
         createDirectoryIfMissing True (tmpDir </> "type")
@@ -1789,9 +1789,9 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               -- so GHC numbers them 1, 2, 3, 4, ... after the first.
               --
               -- NB: It's important to have more than 10 instances here, so we can test
-              -- how that we handle non-lexicographically ordered conflicts correctly the
-              -- (i.e. instances numbered 10, 11, 12 will not be in the correct order
-              -- just by sorting definitions by value name).
+              -- that we handle non-lexicographically ordered conflicts correctly
+              -- (i.e. instances numbered 10, 11, etc will not be in the correct order
+              -- just by sorting definitions by value name, lexicographically).
         withCurrentDirectory (tmpDir </> "type") $
             callProcessSilent damlc ["build", "-o", "type.dar"]
 
