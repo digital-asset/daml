@@ -18,7 +18,6 @@ module Daml.Trigger.Internal
   , TriggerState (..)
   ) where
 
-import DA.Foldable (mapA_)
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
@@ -107,12 +106,8 @@ runRule
   -> TriggerRule (TriggerState s) ()
 runRule rule = do
   state <- get
-  cmds <- TriggerRule . zoom zoomIn zoomOut $ do
-    runTriggerRule . runTriggerA
-        $ rule state.party state.acs state.commandsInFlight state.userState
-    aState <- get
-    pure aState.emittedCommands
-  mapA_ submitCommands cmds -- TODO don't procrastinate
+  TriggerRule . zoom zoomIn zoomOut . runTriggerRule . runTriggerA
+      $ rule state.party state.acs state.commandsInFlight state.userState
   where zoomIn state = TriggerAState state.commandsInFlight [] state.acs.pendingContracts state.nextCommandId
         zoomOut state aState =
           let commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands

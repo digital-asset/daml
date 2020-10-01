@@ -103,6 +103,7 @@ emitCommands cmds pending = do
     , pendingContracts = Map.insert id pending s.pendingContracts
     , nextCommandId = s.nextCommandId + 1
     }
+  submitCommands commands
   pure id
 
 -- | Create the template if it’s not already in the list of commands
