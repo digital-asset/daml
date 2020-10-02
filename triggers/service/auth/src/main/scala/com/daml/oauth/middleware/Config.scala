@@ -9,8 +9,9 @@ import com.daml.ports.Port
 private[middleware] case class Config(
     // Port the middleware listens on
     port: Port,
-    // Uri of the OAuth2 server
-    oauthUri: Uri,
+    // OAuth2 server endpoints
+    oauthAuth: Uri,
+    oauthToken: Uri,
     // OAuth2 client properties
     clientId: String,
     clientSecret: String,
@@ -18,7 +19,12 @@ private[middleware] case class Config(
 
 private[middleware] object Config {
   private val Empty =
-    Config(port = Port.Dynamic, oauthUri = null, clientId = null, clientSecret = null)
+    Config(
+      port = Port.Dynamic,
+      oauthAuth = null,
+      oauthToken = null,
+      clientId = null,
+      clientSecret = null)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
@@ -33,10 +39,15 @@ private[middleware] object Config {
         .required()
         .text("Port to listen on")
 
-      opt[String]("oauth-uri")
-        .action((x, c) => c.copy(oauthUri = Uri(x)))
+      opt[String]("oauth-auth")
+        .action((x, c) => c.copy(oauthAuth = Uri(x)))
         .required()
-        .text("URI of the OAuth2 server")
+        .text("URI of the OAuth2 authorization endpoint")
+
+      opt[String]("oauth-token")
+        .action((x, c) => c.copy(oauthToken = Uri(x)))
+        .required()
+        .text("URI of the OAuth2 token endpoint")
 
       opt[String]("id").hidden
         .action((x, c) => c.copy(clientId = x))
