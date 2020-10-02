@@ -684,7 +684,6 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
               }
               case _ => Future.failed(new ConverterException(s"Expected Tuple2 but got $v"))
             }
-          case v => Future.failed(new ConverterException(s"Expected Free or Pure but got $v"))
         }
     }
 
