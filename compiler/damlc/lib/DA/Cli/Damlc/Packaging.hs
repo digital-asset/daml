@@ -44,9 +44,9 @@ import DA.Cli.Damlc.Base
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
+import DA.Daml.Compiler.DecodeDar (DecodedDar(..), DecodedDalf(..), decodeDar, decodeDalf)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
-import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
@@ -70,7 +70,7 @@ import SdkVersion
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
 createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot (disableScenarioService -> opts) thisSdkVer modulePrefixes deps dataDeps
+createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion thisSdkVer) modulePrefixes deps dataDeps
   | null dataDeps && all (`elem` basePackages) deps =
     -- Initializing the package db is expensive since it requires calling GenerateStablePackages and GeneratePackageMap.
     --Therefore we only do it if we actually have a dependency.
@@ -80,9 +80,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) thisSdkVer m
     deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps)
     depsExtracted <- mapM extractDar deps
 
-    let uniqSdkVersions = nubSort $ unPackageSdkVersion thisSdkVer : map edSdkVersions depsExtracted
+    let uniqSdkVersions = nubSort $ thisSdkVer : map edSdkVersions depsExtracted
     let depsSdkVersions = map edSdkVersions depsExtracted
-    unless (all (== unPackageSdkVersion thisSdkVer) depsSdkVersions) $
+    unless (all (== thisSdkVer) depsSdkVersions) $
            fail $
            "Package dependencies from different SDK versions: " ++
            intercalate ", " uniqSdkVersions
@@ -587,74 +587,6 @@ getDarsFromDataDependencies dependenciesInPkgDb files = do
             pure (DecodedDar decodedDalf [decodedDalf])
     pure (dars ++ dalfs)
     where (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) files
-
-data DecodedDalf = DecodedDalf
-    { decodedDalfPkg :: LF.DalfPackage
-    , decodedUnitId :: UnitId
-    }
-
-data DecodedDar = DecodedDar
-    { mainDalf :: DecodedDalf
-    , dalfs :: [DecodedDalf]
-    -- ^ Like in the MANIFEST.MF definition, this includes
-    -- the main dalf.
-    }
-
-decodeDar :: Set LF.PackageId -> ExtractedDar -> Either String DecodedDar
-decodeDar dependenciesInPkgDb ExtractedDar{..} = do
-    mainDalf <-
-        decodeDalf
-            dependenciesInPkgDb
-            (ZipArchive.eRelativePath edMain)
-            (BSL.toStrict $ ZipArchive.fromEntry edMain)
-    otherDalfs <-
-        mapM decodeEntry $
-            filter
-                (\e -> ZipArchive.eRelativePath e /= ZipArchive.eRelativePath edMain)
-                edDalfs
-    let dalfs = mainDalf : otherDalfs
-    pure DecodedDar{..}
-  where
-    decodeEntry entry =         decodeDalf
-            dependenciesInPkgDb
-            (ZipArchive.eRelativePath entry)
-            (BSL.toStrict $ ZipArchive.fromEntry entry)
-
-decodeDalf :: Set LF.PackageId -> FilePath -> BS.ByteString -> Either String DecodedDalf
-decodeDalf dependenciesInPkgDb path bytes = do
-    (pkgId, package) <-
-        mapLeft DA.Pretty.renderPretty $
-        Archive.decodeArchive Archive.DecodeAsDependency bytes
-    -- daml-prim and daml-stdlib are somewhat special:
-    --
-    -- We always have daml-prim and daml-stdlib from the current SDK and we
-    -- cannot control their unit id since that would require recompiling them.
-    -- However, we might also have daml-prim and daml-stdlib in a different version
-    -- in a DAR we are depending on. Luckily, we can control the unit id there.
-    -- To avoid colliding unit ids which will confuse GHC (or rather hide
-    -- one of them), we instead include the package hash in the unit id.
-    --
-    -- In principle, we can run into the same issue if you combine "dependencies"
-    -- (which have precompiled interface files) and
-    -- "data-dependencies". However, there you can get away with changing the
-    -- package name and version to change the unit id which is not possible for
-    -- daml-prim.
-    --
-    -- If the version of daml-prim/daml-stdlib in a data-dependency is the same
-    -- as the one we are currently compiling against, we don’t need to apply this
-    -- hack.
-    let (name, mbVersion) = case LF.packageMetadataFromFile path package pkgId of
-            (LF.PackageName "daml-prim", Nothing)
-                | pkgId `Set.notMember` dependenciesInPkgDb ->
-                  (LF.PackageName ("daml-prim-" <> LF.unPackageId pkgId), Nothing)
-            (LF.PackageName "daml-stdlib", _)
-                | pkgId `Set.notMember` dependenciesInPkgDb ->
-                  (LF.PackageName ("daml-stdlib-" <> LF.unPackageId pkgId), Nothing)
-            (name, mbVersion) -> (name, mbVersion)
-    pure DecodedDalf
-        { decodedDalfPkg = LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) bytes
-        , decodedUnitId = pkgNameVersion name mbVersion
-        }
 
 getDarsFromDependencies :: Set LF.PackageId -> [ExtractedDar] -> IO [DecodedDar]
 getDarsFromDependencies dependenciesInPkgDb depsExtracted =

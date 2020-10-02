@@ -16,7 +16,6 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
-import SdkVersion
 
 import Control.Exception.Safe (throwIO)
 import Control.Monad (when)
@@ -88,21 +87,12 @@ overrideSdkVersion pkgConfig = do
                     ]
             pure pkgConfig { pSdkVersion = PackageSdkVersion sdkVersion }
 
---- | replace SDK version with one ghc-pkg accepts
----
---- This should let release version unchanged, but convert snapshot versions.
---- See module SdkVersion (in //BUILD) for details.
-replaceSdkVersionWithGhcPkgVersion :: PackageConfigFields -> PackageConfigFields
-replaceSdkVersionWithGhcPkgVersion p@PackageConfigFields{ pSdkVersion = PackageSdkVersion v } =
-    p { pSdkVersion = PackageSdkVersion $ SdkVersion.toGhcPkgVersion v }
-
 withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
     project <- readProjectConfig projectPath
     pkgConfig <- either throwIO pure (parseProjectConfig project)
     pkgConfig' <- overrideSdkVersion pkgConfig
-    let pkgConfig'' = replaceSdkVersionWithGhcPkgVersion pkgConfig'
-    f pkgConfig''
+    f pkgConfig'
 
 -- | Orphans because I’m too lazy to newtype everything.
 instance A.FromJSON Ghc.ModuleName where

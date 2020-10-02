@@ -616,12 +616,19 @@ execRepl
     -> ReplClient.ReplTimeMode
     -> Command
 execRepl projectOpts opts scriptDar dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
-  where effect = do
+  where
+        toPackageFlag (LF.PackageName name, Nothing) =
+            ExposePackage "--import" (PackageArg $ T.unpack name) (ModRenaming True [])
+        toPackageFlag (name, mbVer) =
+            ExposePackage "--import" (UnitIdArg (pkgNameVersion name mbVer)) (ModRenaming True [])
+        pkgFlags = [ toPackageFlag pkg | pkg <- importPkgs ]
+        effect = do
             -- We change directory so make this absolute
             dars <- mapM makeAbsolute dars
             opts <- pure opts
                 { optDlintUsage = DlintDisabled
                 , optScenarioService = EnableScenarioService False
+                , optPackageImports = optPackageImports opts ++ pkgFlags
                 }
             logger <- getLogger opts "repl"
             runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")

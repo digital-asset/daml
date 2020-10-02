@@ -105,7 +105,6 @@ jobs:
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
       - template: ci/build-unix.yml
@@ -143,7 +142,6 @@ jobs:
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
       - template: ci/build-unix.yml
@@ -180,7 +178,6 @@ jobs:
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
       - template: ci/build-windows.yml
@@ -289,9 +286,7 @@ jobs:
 
           changes_release_files() {
               changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha) $(branch_sha) | sort)"
-              stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
-              snapshot="LATEST"
-              [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
+              [ "LATEST" = "$changed" ]
           }
 
           changes_one_line_in_latest() {
@@ -470,29 +465,6 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          GCS_KEY=$(mktemp)
-          cleanup () {
-              rm -f $GCS_KEY
-          }
-          trap cleanup EXIT
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY
-          export BOTO_CONFIG=/dev/null
-
-          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql) \
-                    gs://daml-binaries/daml-on-sql/$(daml-on-sql)
-          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql).asc \
-                    gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
-          gsutil cp $(Build.StagingDirectory)/release/$(json-api) \
-                    gs://daml-binaries/json-api/$(json-api)
-          gsutil cp $(Build.StagingDirectory)/release/$(json-api).asc \
-                    gs://daml-binaries/json-api/$(json-api).asc
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - bash: |
-          set -euo pipefail
-
           push() {
             local file repository
             repository=$1
@@ -512,6 +484,27 @@ jobs:
           push daml-script-runner $(script-runner).asc
         env:
           AUTH: $(ARTIFACTORY_USERPASS)
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
+      - bash: |
+          set -euo pipefail
+
+          source $(bash-lib)
+
+          cd $(Build.StagingDirectory)/release
+          for f in *; do
+              save_gcp_data "$GCRED" "$f" "gs://daml-data/releases/$(release_tag)/github/$f"
+          done
+
+          cd $(Build.StagingDirectory)/artifactory
+          for f in *; do
+              save_gcp_data "$GCRED" "$f" "gs://daml-data/releases/$(release_tag)/artifactory/$f"
+          done
+        name: backup_to_gcs
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail

@@ -848,16 +848,14 @@ private[lf] object SBuiltin {
     *    -> List Party (signatories)
     *    -> List Party (observers)
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
-    *    -> Token
     *    -> ContractId arg
     */
-  final case class SBUCreate(templateId: TypeConName) extends OnLedgerBuiltin(6) {
+  final case class SBUCreate(templateId: TypeConName) extends OnLedgerBuiltin(5) {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(5))
       val createArg = args.get(0)
       val createArgValue = createArg.toValue
       val agreement = args.get(1) match {
@@ -895,7 +893,6 @@ private[lf] object SBuiltin {
     *    -> List Party                                    (observers)
     *    -> List Party                                    (choice controllers)
     *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
-    *    -> Token
     *    -> ()
     */
   final case class SBUBeginExercise(
@@ -903,14 +900,13 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(8) {
+  ) extends OnLedgerBuiltin(7) {
 
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(7))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
@@ -950,18 +946,16 @@ private[lf] object SBuiltin {
   }
 
   /** $endExercise[T]
-    *    :: Token
-    *    -> Value   (result of the exercise)
+    *    :: Value   (result of the exercise)
     *    -> ()
     */
-  final case class SBUEndExercise(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+  final case class SBUEndExercise(templateId: TypeConName) extends OnLedgerBuiltin(1) {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(0))
-      val exerciseResult = args.get(1).toValue
+      val exerciseResult = args.get(0).toValue
       onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -970,16 +964,14 @@ private[lf] object SBuiltin {
 
   /** $fetch[T]
     *    :: ContractId a
-    *    -> Token
     *    -> a
     */
-  final case class SBUFetch(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+  final case class SBUFetch(templateId: TypeConName) extends OnLedgerBuiltin(1) {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(1))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
@@ -1024,17 +1016,15 @@ private[lf] object SBuiltin {
     *    -> List Party    (signatories)
     *    -> List Party    (observers)
     *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
-    *    -> Token
     *    -> ()
     */
   final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean)
-      extends OnLedgerBuiltin(5) {
+      extends OnLedgerBuiltin(4) {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(4))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
@@ -1063,16 +1053,14 @@ private[lf] object SBuiltin {
 
   /** $lookupKey[T]
     *   :: { key: key, maintainers: List Party }
-    *   -> Token
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+  final case class SBULookupKey(templateId: TypeConName) extends OnLedgerBuiltin(1) {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(1))
       val keyWithMaintainers =
         extractKeyWithMaintainers(args.get(0))
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
@@ -1112,16 +1100,14 @@ private[lf] object SBuiltin {
   /** $insertLookup[T]
     *    :: { key : key, maintainers: List Party}
     *    -> Maybe (ContractId T)
-    *    -> Token
     *    -> ()
     */
-  final case class SBUInsertLookupNode(templateId: TypeConName) extends OnLedgerBuiltin(3) {
+  final case class SBUInsertLookupNode(templateId: TypeConName) extends OnLedgerBuiltin(2) {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(2))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
@@ -1149,16 +1135,14 @@ private[lf] object SBuiltin {
 
   /** $fetchKey[T]
     *   :: { key: key, maintainers: List Party }
-    *   -> Token
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+  final case class SBUFetchKey(templateId: TypeConName) extends OnLedgerBuiltin(1) {
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
