@@ -395,6 +395,8 @@ genrule(
         "//templates:create-daml-app-docs",
         "//templates:create-daml-app-test-resources/index.test.ts",
         "@daml-cheat-sheet//:site",
+        ":scripts/check-closing-quotes.sh",
+        ":scripts/check-closing-quotes.sh.whitelist",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -419,6 +421,10 @@ genrule(
         # Copy create-daml-app tests
         mkdir $$CODE_DIR/testing
         cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
+
+        if ! docs/scripts/check-closing-quotes.sh . docs/scripts/check-closing-quotes.sh.whitelist; then
+            exit 1
+        fi
 
         # Build with Sphinx
         cd build
