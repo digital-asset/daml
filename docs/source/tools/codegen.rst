@@ -54,8 +54,9 @@ Help for each specific codegen::
 Project file configuration (Java and Scala)
 -------------------------------------------
 
-For **Java** and **Scala** the above settings can be configured in the ``codegen`` element of the DAML project file ``daml.yaml``.
-At present the **JavaScript/TypeScript** ``codegen`` does not support this. See `this issue <https://github.com/digital-asset/daml/issues/6355>`_ for status on this feature.
+The above settings can be configured in the ``codegen`` element of the DAML project file
+``daml.yaml``.  See `this issue <https://github.com/digital-asset/daml/issues/6355>`_ for status on
+this feature.
 
 Here is an example::
 
@@ -75,6 +76,9 @@ Here is an example::
       - daml-prim
       - daml-stdlib
     codegen:
+      js:
+        output-directory: ui/daml.js
+        npm-scope: daml.js
       java:
         package-prefix: com.daml.quickstart.iou
         output-directory: java-codegen/src/main/java
@@ -86,14 +90,18 @@ Here is an example::
 
 You can then run the above configuration to generate your **Java** or **Scala** code::
 
-    $ daml codegen [java|scala]
+    $ daml codegen [js|java|scala]
 
-The equivalent **Java** or **Scala** command line configuration would be::
+The equivalent **JavaScript** command line configuration would be::
+
+    $ daml codegen js ./.daml/dist/quickstart-0.0.1.dar -o ui/daml.js -s daml.js
+
+and the equivalent **Java** or **Scala** command line configuration::
 
     $ daml codegen [java|scala| ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
 
 In order to compile the resulting **Java** or **Scala** classes, you need to
-add the corresponding dependencies to your build tools. 
+add the corresponding dependencies to your build tools.
 
 For **Scala**, you can depend on::
 
