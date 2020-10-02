@@ -63,7 +63,7 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
       jdbcUrl = jdbcUrl,
       minimumIdle = 2,
       maxPoolSize = 2,
-      connectionTimeout = 250.millis,
+      connectionTimeout = 5.seconds,
       metrics = None,
     )
 }
