@@ -381,9 +381,8 @@ runRepl importPkgs opts replClient logger ideState = do
          hsc_dflags . hscEnv <$>
          runAction ideState (use_ GhcSession $ lineFilePath initialLineNumber)
     (_, tcr) <-
-        (runExceptT $ printDelayedDiagnostics $ tryTypecheck initialLineNumber $
-         T.pack (unlines $ moduleHeader dflags (importFromList imports) initialLineNumber)
-        ) >>= \case
+        runExceptT (typecheckImports dflags (importFromList imports) initialLineNumber)
+        >>= \case
         Left err -> do
             renderError dflags err
             exitFailure
@@ -470,6 +469,9 @@ runRepl importPkgs opts replClient logger ideState = do
             Just r -> do
                 liftIO $ mapM_ (printDiagnostics stdout) diags
                 pure r
+    typecheckImports dflags imports line =
+        printDelayedDiagnostics $ tryTypecheck line $
+        T.pack (unlines $ moduleHeader dflags imports line)
     handleImport
         :: DynFlags
         -> ImportDecl GhcPs
@@ -540,8 +542,7 @@ runRepl importPkgs opts replClient logger ideState = do
     addImports dflags additional = do
         ReplState {imports, lineNumber} <- State.get
         let newImports = foldl' (flip importInsert) imports additional
-        (_, tcr) <- printDelayedDiagnostics $ tryTypecheck lineNumber $
-            T.pack (unlines $ moduleHeader dflags newImports lineNumber)
+        (_, tcr) <- typecheckImports dflags newImports lineNumber
         State.modify $ \s -> s
             { imports = newImports
             , printUnqualified = getPrintUnqualified dflags tcr
@@ -556,8 +557,7 @@ runRepl importPkgs opts replClient logger ideState = do
             newImports = foldl' (flip importDelete) imports modules
         unless (null unknown) $
             throwError $ NotImportedModules unknown
-        (_, tcr) <- printDelayedDiagnostics $ tryTypecheck lineNumber $
-            T.pack (unlines $ moduleHeader dflags newImports lineNumber)
+        (_, tcr) <- typecheckImports dflags newImports lineNumber
         lift $ State.modify $ \s -> s
             { imports = newImports
             , printUnqualified = getPrintUnqualified dflags tcr
