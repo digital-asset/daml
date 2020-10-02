@@ -65,7 +65,7 @@ Then, `act'` happens after `act`.
 .. _da-model-contract-consistency:
 
 Contract consistency
-````````````````````
+~~~~~~~~~~~~~~~~~~~~
 
 Contract consistency ensures that contracts are used after they have been created and before they are consumed.
 
@@ -132,7 +132,7 @@ of contracts `Iou Bank P` and `PaintAgree P A`.
 .. _da-model-key-consistency:
 
 Key consistency
-```````````````
+~~~~~~~~~~~~~~~
 
 Contract keys introduce a key uniqueness constraint for the ledger.
 To capture this notion, the contract model must specify for every contract in the system whether the contract has a key and, if so, the key.
@@ -197,14 +197,14 @@ Key consistency extends to actions, transactions and lists of transactions just 
 .. _da-model-ledger-consistency:
 
 Ledger consistency
-``````````````````
+~~~~~~~~~~~~~~~~~~
 
 Definition »ledger consistency«
   A ledger is **consistent** if it is consistent for all contracts and for all keys.
 
 
 Internal consistency
-````````````````````
+~~~~~~~~~~~~~~~~~~~~
 The above consistency requirement is too strong for actions and transactions
 in isolation.
 For example, the acceptance transaction from the paint offer example is not consistent as a ledger, because `PaintOffer A P Bank`
@@ -348,7 +348,7 @@ and imposed on the contract's *signatories*.
 .. _da-signatories-agreements-maintainers:
 
 Signatories, Agreements, and Maintainers
-````````````````````````````````````````
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To capture these elements of real-world contracts, the **contract model**
 additionally specifies, for each contract in the system:
@@ -403,7 +403,7 @@ signatories yields the image below.
 .. _da-ledgers-authorization-rules:
 
 Authorization Rules
-```````````````````
+~~~~~~~~~~~~~~~~~~~
 
 Signatories allow one to precisely state that the painter has an obligation.
 The imposed obligation is intuitively invalid because the painter did not
@@ -446,7 +446,7 @@ We lift this notion to ledgers, whereby a ledger is well-authorized exactly when
 
 
 Examples
-````````
+~~~~~~~~
 
 An intuition for how the authorization definitions work is most easily
 developed by looking at some examples. The main example, the
