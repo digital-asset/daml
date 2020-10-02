@@ -395,6 +395,7 @@ genrule(
         "//templates:create-daml-app-docs",
         "//templates:create-daml-app-test-resources/index.test.ts",
         "@daml-cheat-sheet//:site",
+        ":scripts/whitelist.txt",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -419,6 +420,28 @@ genrule(
         # Copy create-daml-app tests
         mkdir $$CODE_DIR/testing
         cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
+
+        # Check for invalid quote usage such as "variable `x``"
+        WHITELIST=docs/scripts/whitelist.txt
+        REGEX='^(?!([^`]*(((`[^`]*`)|(``[^`]*``))[^`]*)*)$$)'
+        ERRORS=0
+        if ! test -f "$$WHITELIST"; then
+            echo ERROR: Whitelist file not found: "$$WHITELIST"
+            exit 1
+        fi
+        while read FILE; do
+            if grep --invert-match --file="$$WHITELIST" "$$FILE" | grep --quiet --perl-regexp "$$REGEX"; then
+                echo Quotation error in "\`$$FILE'":
+                grep --perl-regexp "$$REGEX" "$$FILE"
+                echo
+                ERRORS=$$((ERRORS+1))
+            fi
+        done <<< $$(find -name '*.rst')
+        if [ $$ERRORS -gt 0 ]; then
+            echo "ERROR: $$ERRORS file(s) found with errors, see above."
+            echo "You can add lines to \`$$WHITELIST' to ignore false positives."
+            exit 1
+        fi
 
         # Build with Sphinx
         cd build
