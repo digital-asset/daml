@@ -6,8 +6,8 @@
 HTTP JSON API Service
 #####################
 
-The **JSON API** provides a significantly simpler way to interact with a ledger than :doc:`the Ledger
-API </app-dev/ledger-api>` by providing *basic active contract set functionality*:
+The **JSON API** provides a significantly simpler way to interact with a ledger than
+:doc:`the Ledger API </app-dev/ledger-api>` by providing *basic active contract set functionality*:
 
 - creating contracts,
 - exercising choices on contracts,
@@ -24,10 +24,10 @@ complicating concerns including, but not limited to:
 For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
 
-We welcome feedback about the JSON API on `our issue tracker
-<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-`on our forum <https://discuss.daml.com>`_, or `on Slack
-<https://slack.daml.com>`_.
+We welcome feedback about the JSON API on
+`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
+`on our forum <https://discuss.daml.com>`_, or
+`on Slack <https://slack.daml.com>`_.
 
 .. toctree::
    :hidden:
@@ -75,8 +75,8 @@ Standalone JAR
 The ``daml json-api`` command is great during development since it is
 included with the SDK and integrates with ``daml start`` and other
 commands. Once you are ready to deploy your application, you can
-download the standalone JAR from `Github releases
-<https://github.com/digital-asset/daml/releases>`_. It is much smaller
+download the standalone JAR from
+`Github releases <https://github.com/digital-asset/daml/releases>`_. It is much smaller
 than the whole SDK and easier to deploy since it only requires a JVM
 but no other dependencies and no installation process. The JAR accepts
 exactly the same command line parameters as ``daml json-api``, so to
@@ -1456,8 +1456,8 @@ Example:
         {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
     ]
 
-The output stream has the same format as the output from the `Contracts
-Query Stream`_. We further guarantee that for every ``archived`` event
+The output stream has the same format as the output from the
+`Contracts Query Stream`_. We further guarantee that for every ``archived`` event
 appearing on the stream there has been a matching ``created`` event
 earlier in the stream, except in the case of missing
 ``contractIdAtOffset`` fields in the case described below.

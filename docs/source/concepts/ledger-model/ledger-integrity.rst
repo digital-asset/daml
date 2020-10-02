@@ -331,9 +331,9 @@ Authorization
 +++++++++++++
 
 The last criterion rules out the last two problematic examples,
-:ref:`an obligation imposed on a painter
-<obligation-imposed-on-painter>`, and :ref:`the painter stealing
-Alice's money <painter-stealing-ious>`. The first of those is visualized below.
+:ref:`an obligation imposed on a painter <obligation-imposed-on-painter>`,
+and :ref:`the painter stealing Alice's money <painter-stealing-ious>`.
+The first of those is visualized below.
 
 .. image:: ./images/invalid-obligation.svg
    :align: center

@@ -20,9 +20,8 @@ the simplicity of DAML scenarios and all the benefits such as being
 able to reuse your DAML types and logic while running against an actual
 ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-script-results>`.
 This means that you can use it to test automation logic, your
-UI but also for :ref:`ledger initialization
-<script-ledger-initialization>` where scenarios cannot be used (with
-the exception of :doc:`/tools/sandbox`).
+UI but also for :ref:`ledger initialization <script-ledger-initialization>`
+where scenarios cannot be used (with the exception of :doc:`/tools/sandbox`).
 
 You can also use DAML Script interactively using :doc:`/daml-repl/index`.
 
@@ -314,10 +313,10 @@ you need to specify an access token. There are two ways of doing that:
 2. If you need multiple tokens, e.g., because you only have
    single-party tokens you can use the ``access_token`` field in the
    participant config specified via ``--participant-config``. The
-   section on :ref:`using DAML Script in distributed topologies
-   <daml-script-distributed>` contains an example. Note that you can
-   specify the same participant twice if you want different auth
-   tokens.
+   section on
+   :ref:`using DAML Script in distributed topologies <daml-script-distributed>`
+   contains an example. Note that you can specify the same participant
+   twice if you want different auth tokens.
 
 If you specify both ``--access-token-file`` and
 ``--participant-config``, the participant config takes precedence and
@@ -329,8 +328,8 @@ have a token specified in the config.
 Running DAML Script against the HTTP JSON API
 =============================================
 
-In some cases, you only have access to the :doc:`HTTP JSON API
-</json-api/index>` but not to the gRPC of a ledger, e.g., on
+In some cases, you only have access to the
+:doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on
 `project:DABL <https://projectdabl.com>`_. For this usecase, DAML
 script can be run against the JSON API. Note that if you do have
 access to the gRPC API, running DAML script against the JSON API does
