@@ -32,8 +32,8 @@ architecture, providing you with an excellent starting point for your own applic
 Backend
 ~~~~~~~
 
-The backend for your application can be any DAML ledger implementation running your DAR (:ref:`DAML
-Archive <dar-file-dalf-file>`) file.
+The backend for your application can be any DAML ledger implementation running your DAR
+(:ref:`DAML Archive <dar-file-dalf-file>`) file.
 
 We recommend using the :ref:`DAML JSON API <json-api>` as an interface to your frontend. It is
 served by the HTTP JSON API server connected to the ledger API server. It provides simple HTTP
@@ -49,17 +49,17 @@ with a JSON API server by running
 
 in the root of the project. This is the most simple DAML ledger implementation. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and DAML artifacts of your project to a production ledger. See :ref:`Deploying to DAML
-Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
+your frontend and DAML artifacts of your project to a production ledger. See
+:ref:`Deploying to DAML Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
 Frontend
 ~~~~~~~~
 
 We recommended building your frontend with the `React <https://reactjs.org>`_ framework. However,
-you can choose virtually any language for your frontend and interact with the ledger via :ref:`HTTP
-JSON <json-api>` endpoints. In addition, we provide support libraries for :ref:`Java
-<java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the :ref:`gRPC API
-<grpc>` directly.
+you can choose virtually any language for your frontend and interact with the ledger via
+:ref:`HTTP JSON <json-api>` endpoints. In addition, we provide support libraries for
+:ref:`Java <java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the
+:ref:`gRPC API <grpc>` directly.
 
 
 We provide two libraries to build your React frontend for a DAML application.
@@ -165,14 +165,14 @@ between such eventually consistent Ledger API endpoints to tolerate server
 failures. You can do this using the following two steps.
 
 First, your application must keep track of the last ledger offset received
-from the :ref:`transaction service <transaction-service>` or the :ref:`command
-completion service <command-completion-service>`.  When switching to a new
+from the :ref:`transaction service <transaction-service>` or the
+:ref:`command completion service <command-completion-service>`.  When switching to a new
 Ledger API endpoint, it must resume consumption of the transaction (tree)
 and/or the command completion streams starting from this last received
 offset.
 
-Second, your application must retry on ``OUT_OF_RANGE`` errors (see `gRPC
-status codes <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_)
+Second, your application must retry on ``OUT_OF_RANGE`` errors (see
+`gRPC status codes <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_)
 received from a stream subscription -- using an appropriate backoff strategy
 to avoid overloading the server. Such errors can be raised because of eventual
 consistency. The Ledger API endpoint that the application is newly subscribing
