@@ -24,7 +24,7 @@ REGEX='^(?!([^`]*(((`[^`]*`)|(``[^`]*``))[^`]*)*)$$)'
 while read FILE; do
   if grep --invert-match --file="$WHITELIST" "$FILE" | grep --quiet --perl-regexp "$REGEX"; then
     echo Quotation error in "\`$FILE'":
-    grep --perl-regexp "$REGEX" "$FILE"
+    grep --invert-match --file="$WHITELIST" "$FILE" | grep --perl-regexp "$REGEX"
     echo
     ERRORS=$((ERRORS+1))
   fi
