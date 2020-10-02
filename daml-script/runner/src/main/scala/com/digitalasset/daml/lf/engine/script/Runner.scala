@@ -610,16 +610,15 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
               case "SetTime" =>
                 m2c(
                   "SetTimePayload", {
-                    case SRecord(_, _, vals) if vals.size == 2 =>
+                    case SRecord(_, _, JavaList(sT, continue)) =>
                       timeMode match {
                         case ScriptTimeMode.Static =>
-                          val continue = vals.get(1)
                           for {
                             // We don’t parametrize this by participant since this
                             // is only useful in static time mode and using the time
                             // service with multiple participants is very dodgy.
                             client <- Converter.toFuture(clients.getParticipant(None))
-                            t <- Converter.toFuture(Converter.toTimestamp(vals.get(0)))
+                            t <- Converter.toFuture(Converter.toTimestamp(sT))
                             _ <- client.setStaticTime(t)
                             v <- run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
                           } yield v
