@@ -273,8 +273,9 @@ When not to use DAML triggers
 
 DAML Triggers are not suited for automation that needs to interact
 with services or data outside of the ledger. For those cases, you can
-write a ledger client using the :doc:`JavaScript bindings
-</app-dev/bindings-ts/index>` running against the HTTP JSON API or the
+write a ledger client using the
+:doc:`JavaScript bindings </app-dev/bindings-ts/index>`
+running against the HTTP JSON API or the
 :doc:`Java bindings</app-dev/bindings-java/index>` running against the
 gRPC Ledger API.
 

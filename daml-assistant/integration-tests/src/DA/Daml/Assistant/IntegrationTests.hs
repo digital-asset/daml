@@ -339,7 +339,7 @@ packagingTests = testGroup "packaging"
                   , "--json-api-option=--port-file=jsonapi.port"
                   ]
           withCurrentDirectory tmpDir $
-              withCreateProcess startProc $ \_ _ _ _ph -> do
+              withCreateProcess startProc $ \_ _ _ ph -> do
               jsonApiPort <- readPortFile maxRetries "jsonapi.port"
               let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
                     { JWT.unregisteredClaims = JWT.ClaimsMap $
@@ -359,6 +359,48 @@ packagingTests = testGroup "packaging"
               manager <- newManager defaultManagerSettings
               queryResponse <- httpLbs queryRequest manager
               responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess ph
+      , testCase "daml start invokes codegen" $ withTempDir $ \tmpDir -> do
+            writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> sdkVersion
+                , "name: codegen"
+                , "version: \"1.0\""
+                , "source: ."
+                , "dependencies:"
+                , "- daml-prim"
+                , "- daml-stdlib"
+                , "start-navigator: false"
+                , "codegen:"
+                , "  js:"
+                , "    output-directory: ui/daml.js"
+                , "  java:"
+                , "    output-directory: ui/java"
+                , "  scala:"
+                , "    output-directory: ui/scala"
+                -- this configuration option shouldn't be mandatory according to docs, but it is.
+                -- See https://github.com/digital-asset/daml/issues/7547.
+                , "    package-prefix: com.digitalasset"
+                ]
+            let startProc = shell $ unwords
+                    [ "daml"
+                    , "start"
+                    ]
+            withCurrentDirectory tmpDir $
+              withCreateProcess startProc $ \_ _ _ startPh -> do
+              race_ (waitForProcess' startProc startPh) $ do
+                -- 15 secs for all the codegens to complete
+                threadDelay 15000000
+                didGenerateJsCode <-
+                  doesFileExist ("ui" </> "daml.js" </> "codegen-1.0" </> "package.json")
+                didGenerateJavaCode <-
+                  doesFileExist
+                    ("ui" </> "java" </> "da" </> "internal" </> "template" </> "Archive.java")
+                didGenerateScalaCode <- doesFileExist ("ui" </> "scala" </> "com" </> "digitalasset" </> "PackageIDs.scala" )
+                didGenerateJsCode @?= True
+                didGenerateJavaCode @?= True
+                didGenerateScalaCode @?= True
+                terminateProcess startPh
      , testCase "daml start with relative DAML_PROJECT path" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "project"
         createDirectoryIfMissing True (projDir </> "daml")

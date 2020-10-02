@@ -10,6 +10,7 @@ module DA.Daml.Compiler.Repl
     , ReplLogger(..)
     ) where
 
+import TcRnTypes (tcg_rdr_env)
 import BasicTypes (Boxity(..))
 import Bag (bagToList, unitBag)
 import Control.Applicative
@@ -55,13 +56,13 @@ import GHC
 import HsExpr (Stmt, StmtLR(..), LHsExpr)
 import HsExtension (GhcPs, GhcTc)
 import HsPat (Pat(..))
-import HscTypes (HscEnv(..))
+import HscTypes (HscEnv(..), mkPrintUnqualified)
 import Language.Haskell.GhclibParserEx.Parse
 import Language.Haskell.LSP.Messages
 import Lexer (ParseResult(..))
 import Module (unitIdString)
 import OccName (OccSet, occName, elemOccSet, mkOccSet, mkVarOcc)
-import Outputable (ppr, showSDoc)
+import Outputable (ppr, showSDoc, showSDocForUser)
 import qualified Outputable
 import RdrName (mkRdrUnqual)
 import SrcLoc (unLoc)
@@ -279,6 +280,7 @@ importToList (Imports imports) = concat $ Map.elems imports
 
 data ReplState = ReplState
   { imports :: !Imports
+  , printUnqualified :: PrintUnqualified
   , bindings :: ![(LPat GhcPs, Type)]
   , lineNumber :: !Int
   }
@@ -373,10 +375,23 @@ runRepl
     -> IO ()
 runRepl importPkgs opts replClient logger ideState = do
     imports <- loadPackages importPkgs replClient ideState
+    -- Typecheck once to get the GlobalRdrEnv
+    let initialLineNumber = 0
+    dflags <- liftIO $
+         hsc_dflags . hscEnv <$>
+         runAction ideState (use_ GhcSession $ lineFilePath initialLineNumber)
+    (_, tcr) <-
+        runExceptT (typecheckImports dflags (importFromList imports) initialLineNumber)
+        >>= \case
+        Left err -> do
+            renderError dflags err
+            exitFailure
+        Right r -> pure r
     let initReplState = ReplState
           { imports = importFromList imports
           , bindings = []
           , lineNumber = 0
+          , printUnqualified = getPrintUnqualified dflags tcr
           }
     -- TODO[AH] Use Repl.evalReplOpts once we're using repline >= 0.2.2
     let replM = Repl.evalRepl banner command options prefix tabComplete initialiser
@@ -396,9 +411,9 @@ runRepl importPkgs opts replClient logger ideState = do
         -> ReplClient.ReplResponseType
         -> ExceptT Error ReplM ()
     handleStmt dflags line stmt rspType = do
-        ReplState {imports, bindings, lineNumber} <- State.get
+        ReplState {imports, bindings, lineNumber, printUnqualified} <- State.get
         supportedStmt <- maybe (throwError (UnsupportedStatement line)) pure (validateStmt stmt)
-        let rendering = renderModule dflags imports lineNumber bindings supportedStmt
+        let rendering = renderModule dflags printUnqualified imports lineNumber bindings supportedStmt
         (lfMod, tmrModule -> tcMod) <- printDelayedDiagnostics $ case (rspType, rendering) of
             (ReplClient.ReplText, BindingRendering t) ->
                 tryTypecheck lineNumber (T.pack t)
@@ -424,7 +439,7 @@ runRepl importPkgs opts replClient logger ideState = do
         liftIO $ whenJust mbResult T.putStrLn
         let boundVars = stmtBoundVars supportedStmt
             boundVars' = mkOccSet $ map occName boundVars
-        State.put $! ReplState
+        State.modify' $ \s -> s
           { imports = imports
           , bindings = map (first (shadowPat boundVars')) bindings <> [(toTuplePat boundVars, stmtTy)]
           , lineNumber = lineNumber + 1
@@ -437,7 +452,7 @@ runRepl importPkgs opts replClient logger ideState = do
                 liftIO $ mapM_ (printDiagnostics stdout) diags
                 pure (Left err)
             Right r -> pure (Right r)
-    tryTypecheck :: Int -> T.Text -> ExceptT (Error, [[FileDiagnostic]]) ReplM (LF.Module, TcModuleResult)
+    tryTypecheck :: (MonadIO m, MonadError (Error, [[FileDiagnostic]]) m) => Int -> T.Text -> m (LF.Module, TcModuleResult)
     tryTypecheck lineNumber t = do
         liftIO $ setBufferModified ideState (lineFilePath lineNumber) $ Just t
         -- We need to temporarily suppress diagnostics since we use type errors
@@ -454,6 +469,9 @@ runRepl importPkgs opts replClient logger ideState = do
             Just r -> do
                 liftIO $ mapM_ (printDiagnostics stdout) diags
                 pure r
+    typecheckImports dflags imports line =
+        printDelayedDiagnostics $ tryTypecheck line $
+        T.pack (unlines $ moduleHeader dflags imports line)
     handleImport
         :: DynFlags
         -> ImportDecl GhcPs
@@ -506,8 +524,8 @@ runRepl importPkgs opts replClient logger ideState = do
         case input of
             ReplStatement stmt -> handleStmt dflags line stmt ReplClient.ReplJson
             ReplImport _ -> throwError (ExpectedExpression line)
-    optModule _dflags ("-" : names) =
-        removeImports $ map mkModuleName names
+    optModule dflags ("-" : names) =
+        removeImports dflags $ map mkModuleName names
     optModule dflags ("+" : names) =
         addImports dflags $ map (simpleImportDecl . mkModuleName) names
     optModule dflags names =
@@ -524,19 +542,30 @@ runRepl importPkgs opts replClient logger ideState = do
     addImports dflags additional = do
         ReplState {imports, lineNumber} <- State.get
         let newImports = foldl' (flip importInsert) imports additional
-        _ <- printDelayedDiagnostics $ tryTypecheck lineNumber $
-            T.pack (unlines $ moduleHeader dflags newImports lineNumber)
-        State.modify $ \s -> s { imports = newImports }
+        (_, tcr) <- typecheckImports dflags newImports lineNumber
+        State.modify $ \s -> s
+            { imports = newImports
+            , printUnqualified = getPrintUnqualified dflags tcr
+            }
     removeImports
-        :: [ModuleName]
+        :: DynFlags
+        -> [ModuleName]
         -> ExceptT Error ReplM ()
-    removeImports modules = do
-        ReplState {imports} <- lift State.get
+    removeImports dflags modules = do
+        ReplState {imports, lineNumber} <- lift State.get
         let unknown = [name | name <- modules, not $ name `importMember` imports]
             newImports = foldl' (flip importDelete) imports modules
         unless (null unknown) $
             throwError $ NotImportedModules unknown
-        lift $ State.modify $ \s -> s { imports = newImports }
+        (_, tcr) <- typecheckImports dflags newImports lineNumber
+        lift $ State.modify $ \s -> s
+            { imports = newImports
+            , printUnqualified = getPrintUnqualified dflags tcr
+            }
+
+    getPrintUnqualified dflags tcr =
+        let gblRdrEnv = tcg_rdr_env $ fst $ tm_internals_ $ tmrModule tcr
+        in mkPrintUnqualified dflags gblRdrEnv
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
@@ -599,18 +628,19 @@ moduleHeader dflags imports line =
 
 renderModule
     :: DynFlags
+    -> PrintUnqualified
     -> Imports
     -> Int
     -> [(LPat GhcPs, Type)]
     -> SupportedStatement
     -> ModuleRenderings
-renderModule dflags imports line binds stmt = case stmt of
+renderModule dflags printUnqualified imports line binds stmt = case stmt of
     BindStatement pat expr ->
         BindingRendering $ unlines $
             moduleHeader dflags imports line <>
             [ exprTy "Script _"
             , exprLhs
-            , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt (Just pat) expr returnAp)
+            , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt (Just pat) expr returnAp)
             ]
     BodyStatement expr ->
         BodyRenderings
@@ -618,32 +648,32 @@ renderModule dflags imports line binds stmt = case stmt of
               moduleHeader dflags imports line <>
               [ exprTy "Script ()"
               , exprLhs
-              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
               ]
           , printableScript = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script Text"
               , exprLhs
-              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
+              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
               ]
           , arbitraryScript = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script _"
               , exprLhs
-              , showSDoc dflags $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
               ]
           , purePrintableExpr = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script Text"
               , exprLhs
-              , showSDoc dflags $ Outputable.nest 2 $ ppr $
+              , showSDoc' $ Outputable.nest 2 $ ppr $
                 returnShowAp expr
               ]
           , pureArbitraryExpr = unlines $
               moduleHeader dflags imports line <>
               [ exprTy "Script _"
               , exprLhs
-              , showSDoc dflags $ Outputable.nest 2 $ ppr $
+              , showSDoc' $ Outputable.nest 2 $ ppr $
                 returnAp $ noLoc $ HsPar noExt expr
               ]
           }
@@ -655,14 +685,15 @@ renderModule dflags imports line binds stmt = case stmt of
           moduleHeader dflags imports line <>
           [ exprTy "Script _"
           , exprLhs
-          , showSDoc dflags $ Outputable.nest 2 $ ppr $ HsDo noExt DoExpr $ noLoc
+          , showSDoc' $ Outputable.nest 2 $ ppr $ HsDo noExt DoExpr $ noLoc
               [ noLoc $ LetStmt noExt $ toLocalBinds binding
               , noLoc $ LastStmt noExt (returnAp retExpr) False noSyntaxExpr
               ]
           ]
   where
-        renderPat pat = showSDoc dflags (ppr pat)
-        renderTy ty = "(" <> showSDoc dflags (ppr ty) <> ") -> "
+        showSDoc' = showSDocForUser dflags printUnqualified
+        renderPat pat = showSDoc' (ppr pat)
+        renderTy ty = "(" <> showSDoc' (ppr ty) <> ") -> "
         -- build a script statement using the given wrapper (either `return` or `show`)
         -- to wrap the final result.
         scriptStmt mbPat expr wrapper =

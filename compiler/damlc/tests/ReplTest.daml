@@ -29,3 +29,8 @@ data D = D
     x : Int
     y : Int
   deriving Show
+
+data NameCollision = NameCollision
+  with
+    field : Text
+  deriving Show

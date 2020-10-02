@@ -79,8 +79,9 @@ separately. However, since the template definition for all of them is
 the same, this is usually not necessary for most
 applications. Instead, we collect agreement from the signatories only
 once and use that to upgrade all coins. Since there are multiple
-signatories involved here, we use a :ref:`Propose-Accept workflow
-<intro propose accept>`. First, we define an *UpgradeCoinProposal*
+signatories involved here, we use a
+:ref:`Propose-Accept workflow <intro propose accept>`.
+First, we define an *UpgradeCoinProposal*
 template that will be created by the issuer. This template has an
 *Accept* choice that the *owner* can exercise which will then create
 an *UpgradeCoinAgreement*.

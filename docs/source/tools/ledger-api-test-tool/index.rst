@@ -5,8 +5,8 @@ Ledger API Test Tool
 ####################
 
 The Ledger API Test Tool is a command line tool for testing the correctness of
-implementations of the :doc:`Ledger API
-</app-dev/ledger-api>`, i.e. DAML ledgers. For example, it
+implementations of the :doc:`Ledger API </app-dev/ledger-api>`,
+i.e. DAML ledgers. For example, it
 will show you if there are consistency or conformance problem with your
 implementation.
 
@@ -14,8 +14,8 @@ Its intended audience are developers of DAML ledgers, who are using the
 DAML Ledger Implementation Kit to develop
 a DAML ledger on top of their distributed-ledger or database of choice.
 
-Use this tool to verify if your Ledger API endpoint conforms to the :doc:`DA
-Ledger Model </concepts/ledger-model/index>`.
+Use this tool to verify if your Ledger API endpoint conforms to the
+:doc:`DA Ledger Model </concepts/ledger-model/index>`.
 
 Downloading the tool
 ====================
@@ -157,8 +157,8 @@ specific file path using the ``--perf-tests-report`` command line option.
 Try out the Ledger API Test Tool against DAML Sandbox
 =====================================================
 
-If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
-</tools/sandbox>`. To do this:
+If you wanted to test out the tool, you can run it against
+:doc:`DAML Sandbox </tools/sandbox>`. To do this:
 
    .. code-block:: console
 

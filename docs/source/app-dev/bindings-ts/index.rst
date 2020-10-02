@@ -8,8 +8,8 @@ JavaScript Client Libraries
 
 The JavaScript Client Libraries are the recommended way to build a frontend for a DAML application.
 The :doc:`JavaScript Code Generator <daml2js>` can automatically generate JavaScript containing metadata about DAML packages that is required to use these libraries.
-We provide an integration for the `React <https://reactjs.org>`_ framework with the `@daml/react
-<daml-react/index.html>`_ library.  However, you can choose any JavaScript/TypeScript based framework
+We provide an integration for the `React <https://reactjs.org>`_ framework with the
+`@daml/react <daml-react/index.html>`_ library.  However, you can choose any JavaScript/TypeScript based framework
 and use the `@daml/ledger <daml-ledger/index.html>`_ library directly to connect and interact with a
 DAML ledger via its :ref:`HTTP JSON API <json-api>`.
 

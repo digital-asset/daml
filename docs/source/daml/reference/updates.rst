@@ -56,7 +56,7 @@ create
    create NameOfTemplate with exampleParameters
 
 - ``create`` function.
-- Creates an instance of that contract on the ledger. When a contract is committed to the ledger, it is given a unique contract identifier of type ``ContractId <name of template>``.
+- Creates a contract on the ledger. When a contract is committed to the ledger, it is given a unique contract identifier of type ``ContractId <name of template>``.
 
   Creating the contract returns that ``ContractId``.
 - Use ``with`` to specify the template parameters.
@@ -102,7 +102,7 @@ fetch
    fetchedContract <- fetch IdOfContract
 
 - ``fetch`` function.
-- Fetches the contract instance with that ID. Usually used with a bound variable, as in the example above.
+- Fetches the contract with that ID. Usually used with a bound variable, as in the example above.
 - Often used to check the details of a contract before exercising a choice on that contract. Also used when referring to some reference data.
 - ``fetch cid`` fails if ``cid`` is not the contract id of an active contract, and thus causes the entire transaction to abort.
 - The submitting party must be an observer or signatory on the contract, otherwise ``fetch`` fails, and similarly causes the entire transaction to abort.
@@ -117,7 +117,7 @@ fetchByKey
    fetchedContract <- fetchByKey @ContractType contractKey
 
 - ``fetchByKey`` function.
-- The same as ``fetch``, but fetches the contract instance with that :doc:`contract key </daml/reference/contract-keys>`, instead of the contract ID.
+- The same as ``fetch``, but fetches the contract with that :doc:`contract key </daml/reference/contract-keys>`, instead of the contract ID.
 - Like ``fetch``, ``fetchByKey`` needs to be authorized by at least one stakeholder of the contract.
 - Fails if no contract can be found.
 

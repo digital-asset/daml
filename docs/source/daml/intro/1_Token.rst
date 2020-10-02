@@ -67,7 +67,7 @@ DAML is whitespace-aware and uses layout to structure *blocks*. Everything that'
 Signatories
 -----------
 
-The ``signatory`` keyword specifies the *signatories* of a contract instance. These are the parties whose *authority* is required to create the contract or archive it again -- just like a real contract. Every contract must have at least one signatory.
+The ``signatory`` keyword specifies the *signatories* of a contract. These are the parties whose *authority* is required to create the contract or archive it again -- just like a real contract. Every contract must have at least one signatory.
 
 Furthermore, DAML ledgers *guarantee* that parties see all transactions where their authority is used. This means that signatories of a contract are guaranteed to see the creation and archival of that contract.
 

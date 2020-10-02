@@ -62,8 +62,8 @@ two forms:
 2. A pure expression ``expr`` of type ``a`` for some type ``a`` where
    ``a`` is an instance of ``Show``. This will evaluate ``expr`` and
    print the result. If you are only interest in pure expressions you
-   can also use DAML REPL :ref:`without connecting to a ledger
-   <repl-no-ledger>`.
+   can also use DAML REPL
+   :ref:`without connecting to a ledger <repl-no-ledger>`.
 
 3. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
    a variable name ``x`` to bind the result to

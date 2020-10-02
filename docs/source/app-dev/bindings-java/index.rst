@@ -131,7 +131,7 @@ Connecting securely
 ===================
 
 The Java bindings library lets you connect to a DAML Ledger via a secure connection. The builders created by
-``DamlLedgerClient.newBuilder`` default to a plaintext connection, but you can invoke ``withSslContext` to pass an ``SslContext``.
+``DamlLedgerClient.newBuilder`` default to a plaintext connection, but you can invoke ``withSslContext`` to pass an ``SslContext``.
 Using the default plaintext connection is useful only when connecting to a locally running Sandbox for development purposes.
 
 Secure connections to a DAML Ledger must be configured to use client authentication certificates, which can be provided by a Ledger Operator.

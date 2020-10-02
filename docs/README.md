@@ -13,6 +13,7 @@ To edit documentation:
 
   Don't forget you need to add your file to the `toctree` in `/docs/source/index.rst` *and* `/docs/configs/pdf/index.rst`.
 - **Make sure you preview** before you push.
+- Don't insert line-breaks inside inline literals. Building preview will treat this as an error.
 
 ### Generated documentation
 
