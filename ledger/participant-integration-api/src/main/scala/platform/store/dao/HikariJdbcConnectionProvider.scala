@@ -166,7 +166,7 @@ private[platform] object HikariJdbcConnectionProvider {
         jdbcUrl,
         maxConnections,
         maxConnections,
-        250.millis,
+        5000.millis,
         Some(metrics),
       )
       healthPoller <- ResourceOwner.forTimer(() =>
