@@ -406,7 +406,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
             match2(vv, v) {
               case "Submit" =>
                 m2c(
-                  "record with 2 fields", {
+                  "record with 3 or 4 fields", {
                     // For backwards compatibility we support SubmitCmd without a callstack.
                     case SRecord(
                         _,
@@ -462,7 +462,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 )
               case "SubmitMustFail" =>
                 m2c(
-                  "record with 2 fields", {
+                  "record with 3 or 4 fields", {
                     // For backwards compatibility we support SubmitCmd without a callstack.
                     case SRecord(
                         _,
@@ -515,7 +515,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 )
               case "AllocParty" =>
                 m2c(
-                  "record with 2 fields", {
+                  "record with 4 fields", {
                     case SRecord(
                         _,
                         _,
