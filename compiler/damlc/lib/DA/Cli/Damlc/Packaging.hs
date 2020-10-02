@@ -70,7 +70,7 @@ import SdkVersion
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
 createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion (SdkVersion.toGhcPkgVersion -> thisSdkVer)) modulePrefixes deps dataDeps
+createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion thisSdkVer) modulePrefixes deps dataDeps
   | null dataDeps && all (`elem` basePackages) deps =
     -- Initializing the package db is expensive since it requires calling GenerateStablePackages and GeneratePackageMap.
     --Therefore we only do it if we actually have a dependency.

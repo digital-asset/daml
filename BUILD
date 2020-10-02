@@ -105,8 +105,6 @@ genrule(
 module SdkVersion where
 
 import Module (stringToUnitId, UnitId)
-import qualified Data.List.Split as Split
-import qualified Data.List.Extra as List.Extra
 
 sdkVersion :: String
 sdkVersion = "{sdk}"
@@ -116,24 +114,6 @@ mvnVersion = "{mvn}"
 
 damlStdlib :: UnitId
 damlStdlib = stringToUnitId ("daml-stdlib-" ++ "{ghc}")
-
--- | Turns a SemVer string into one suitable for ghc-pkg
---
--- The DAML SDK uses semantic versioning, while internally we need a version
--- string that ghc-pkg can understand. We do that by removing the '-snapshot'
--- qualifier when present.
---
--- Expected version strings:
--- 0.13.51 -> release, no change
--- 0.13.51-snapshot.20200212.3024.04e6fa2c -> snapshot release, change to
---                                         0.13.51.20200212.3024 internally
--- This logic must stay in sync with bazel_tools/build_environment.bzl.
-toGhcPkgVersion :: String -> String
-toGhcPkgVersion rawVersion =
-    case Split.splitOn "-snapshot" rawVersion of
-      [v] -> v
-      [v, pr] -> v ++ List.Extra.dropEnd 9 pr
-      _ -> rawVersion
 EOF
     """.format(
         ghc = ghc_version,
