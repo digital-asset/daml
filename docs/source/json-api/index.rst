@@ -343,7 +343,7 @@ Examples
 Create a new Contract
 *********************
 
-To create an instance of an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
+To create an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
 .. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml

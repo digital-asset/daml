@@ -91,7 +91,7 @@ This example tests a contract that gives both parties an explicit opportunity to
    :language: daml
    :lines: 33-45
 
-In the first transaction of the scenario, party ``bankOfEngland`` (created using ``getParty "Bank of England"``) creates an instance of the ``CallablePayout`` contract with ``alice`` as the receiver and ``bankOfEngland`` as the giver.
+In the first transaction of the scenario, party ``bankOfEngland`` (created using ``getParty "Bank of England"``) creates a ``CallablePayout`` contract with ``alice`` as the receiver and ``bankOfEngland`` as the giver.
 
 When the contract is submitted to the ledger, it is given a unique contract identifier of type ``ContractId CallablePayout``. ``payAlice <-`` assigns that identifier to the variable ``payAlice``.
 

@@ -64,7 +64,7 @@ Signatory parties
    :end-before: -- end template sigs snippet
 
 - ``signatory`` keyword. After ``where``. Followed by at least one ``Party``.
-- Signatories are the parties (see the ``Party`` type) who must consent to the creation of an instance of this contract. They are the parties who would be put into an *obligable position* when this contract is created.
+- Signatories are the parties (see the ``Party`` type) who must consent to the creation of this contract. They are the parties who would be put into an *obligable position* when this contract is created.
 
   DAML won't let you put someone into an obligable position without their consent. So if the contract will cause obligations for a party, they *must* be a signatory. **If they haven't authorized it, you won't be able to create the contract.** In this situation, you may see errors like:
 
@@ -149,7 +149,7 @@ Contract keys and maintainers
    :end-before: -- end contract key snippet
 
 - ``key`` and ``maintainer`` keywords.
-- This feature lets you specify a "key" that you can use to uniquely identify an instance of this contract template.
+- This feature lets you specify a "key" that you can use to uniquely identify this contract as an instance of this template.
 - If you specify a ``key``, you must also specify a ``maintainer``. This is a ``Party`` that will ensure the uniqueness of all the keys it is aware of.
 
   Because of this, the ``key`` must include the ``maintainer`` ``Party`` or parties (for example, as part of a tuple or record), and the ``maintainer`` must be a signatory.

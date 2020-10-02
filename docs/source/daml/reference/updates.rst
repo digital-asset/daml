@@ -56,7 +56,7 @@ create
    create NameOfTemplate with exampleParameters
 
 - ``create`` function.
-- Creates an instance of that contract on the ledger. When a contract is committed to the ledger, it is given a unique contract identifier of type ``ContractId <name of template>``.
+- Creates a contract on the ledger. When a contract is committed to the ledger, it is given a unique contract identifier of type ``ContractId <name of template>``.
 
   Creating the contract returns that ``ContractId``.
 - Use ``with`` to specify the template parameters.
