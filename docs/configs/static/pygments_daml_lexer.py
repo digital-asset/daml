@@ -17,6 +17,7 @@ class DAMLLexer(HaskellLexer):
         'root': [
             (r'\b(%s)(?!\')\b' % '|'.join(daml_reserved), Keyword.Reserved),
             (r'\b(True|False)\b', Keyword.Constant),
+            (r'≡', Operator),
             inherit
         ]
     }
