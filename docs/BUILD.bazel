@@ -396,7 +396,7 @@ genrule(
         "//templates:create-daml-app-test-resources/index.test.ts",
         "@daml-cheat-sheet//:site",
         ":scripts/check-closing-quotes.sh",
-        ":scripts/check-closing-quotes.sh.allowlist",
+        ":scripts/check-closing-quotes.sh.allow",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -422,7 +422,7 @@ genrule(
         mkdir $$CODE_DIR/testing
         cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
 
-        if ! docs/scripts/check-closing-quotes.sh . docs/scripts/check-closing-quotes.sh.allowlist; then
+        if ! docs/scripts/check-closing-quotes.sh . docs/scripts/check-closing-quotes.sh.allow; then
             exit 1
         fi
 
