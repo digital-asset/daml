@@ -50,7 +50,7 @@ Submitting commands to the ledger
 Command submission service
 ==========================
 
-Use the **command submission service** to submit commands to the ledger. Commands either create a new contract instance, or exercise a choice on an existing contract.
+Use the **command submission service** to submit commands to the ledger. Commands either create a new contract, or exercise a choice on an existing contract.
 
 A call to the command submission service will return as soon as the ledger server has parsed the command, and has either accepted or rejected it. This does not mean the command has been executed, only that the server has looked at the command and decided that its format is acceptable, or has rejected it for syntactic or content reasons.
 

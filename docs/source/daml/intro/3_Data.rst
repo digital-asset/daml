@@ -12,7 +12,7 @@ This actually provides a useful way of thinking about templates: like tables in 
 
 - each template corresponds to a table
 - each field in the ``with`` block of a template corresponds to a column in that table
-- each contract instance of that type corresponds to a table row
+- each contract of that type corresponds to a table row
 
 In this section, you'll learn how to create rich data schemas for your ledger. Specifically you'll learn about:
 

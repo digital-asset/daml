@@ -192,7 +192,7 @@ Now everything is running, you can try out the quickstart application:
 
    This displays all available *contract templates*. Instances of contracts (or just *contracts*) are created from these templates. The names of the templates are of the format `module.template@hash`. Including the hash disambiguates templates, even when identical module and template names are used between packages.
 
-   On the far right, you see the number of *contract instances* that you can see for each template.
+   On the far right, you see the number of *contracts* that you can see for each template.
 
 #. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou:Iou`` row, filling it out as shown below and clicking **Submit**.
 
@@ -256,10 +256,10 @@ The *contract model* specifies the possible contracts, as well as the allowed tr
 The core concept in DAML is a *contract template* - you used them earlier to create contracts. Contract templates specify:
 
 - a type of contract that may exist on the ledger, including a corresponding data type
-- the *signatories*, who need to agree to the *creation* of a contract instance of that type
+- the *signatories*, who need to agree to the *creation* of a contract of that type
 - the *rights* or *choices* given to parties by a contract of that type
-- constraints or conditions on the data on a contract instance
-- additional parties, called observers, who can see the contract instance
+- constraints or conditions on the data on a contract
+- additional parties, called observers, who can see the contract
 
 For more information about DAML Ledgers, consult :ref:`da-ledgers` for an in-depth technical description.
 
@@ -283,7 +283,7 @@ Next, a template called `Iou` is declared together with its datatype. This templ
   :language: daml
   :lines: 9-15
 
-Conditions for the creation of a contract instance are specified using the `ensure` and `signatory` keywords:
+Conditions for the creation of a contract are specified using the `ensure` and `signatory` keywords:
 
 .. literalinclude:: quickstart/template-root/daml/Iou.daml
   :language: daml

@@ -20,7 +20,7 @@ Template name
 
 - This is the name of the template. It's preceded by ``template`` keyword. Must begin with a capital letter.
 - This is the highest level of nesting.
-- The name is used when :ref:`creating <daml-ref-create>` a contract instance of this template (usually, from within a choice).
+- The name is used when :ref:`creating <daml-ref-create>` a contract of this template (usually, from within a choice).
 
 .. _daml-ref-template-parameters:
 
@@ -33,7 +33,7 @@ Template parameters
    :end-before: -- end template params snippet
 
 - ``with`` keyword. The parameters are in the form of a :ref:`record type <daml-ref-record-types>`.
-- Passed in when :ref:`creating <daml-ref-create>` a contract instance from this template. These are then in scope inside the template body.
+- Passed in when :ref:`creating <daml-ref-create>` a contract from this template. These are then in scope inside the template body.
 - A template parameter can't have the same name as any :ref:`choice arguments <daml-ref-choice-arguments>` inside the template.
 - For all parties involved in the contract (whether they're a ``signatory``, ``observer``, or ``controller``) you must pass them in as parameters to the contract, whether individually or as a list (``[Party]``).
 
@@ -70,7 +70,7 @@ Signatory parties
 
   ``NameOfTemplate requires authorizers Party1,Party2,Party, but only Party1 were given.``
 - When a signatory consents to the contract creation, this means they also authorize the consequences of :ref:`choices <daml-ref-choices>` that can be exercised on this contract.
-- The contract instance is visible to all signatories (as well as the other stakeholders of the contract). That is, the compiler automatically adds signatories as observers.
+- The contract is visible to all signatories (as well as the other stakeholders of the contract). That is, the compiler automatically adds signatories as observers.
 - Each template **must** have at least one signatory. A signatory declaration consists of the `signatory` keyword followed by a comma-separated list of one or more expressions, each expression denoting a ``Party`` or collection thereof.
 
 .. _daml-ref-observers:
@@ -84,7 +84,7 @@ Observers
    :end-before: -- end template obs snippet
 
 - ``observer`` keyword. After ``where``. Followed by at least one ``Party``.
-- Observers are additional stakeholders, so the contract instance is visible to these parties (see the ``Party`` type).
+- Observers are additional stakeholders, so the contract is visible to these parties (see the ``Party`` type).
 - Optional. You can have many, either as a comma-separated list or reusing the keyword. You could pass in a list (of type ``[Party]``).
 - Use when a party needs visibility on a contract, or be informed or contract events, but is not a :ref:`signatory <daml-ref-signatories>` or :ref:`controller <daml-ref-controllers>`.
 - If you start your choice with ``choice`` rather than ``controller`` (see :ref:`daml-ref-choices` below), you must make sure to add any potential controller as an observer. Otherwise, they will not be able to exercise the choice, because they won't be able to see the contract.

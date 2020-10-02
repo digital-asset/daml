@@ -125,7 +125,7 @@ A choice body contains ``Update`` expressions, wrapped in a :ref:`do <daml-ref-d
 The update expressions are:
 
 :ref:`create <daml-ref-create>`
-    Create a new contract instance of this template.
+    Create a new contract of this template.
 
     ``create NameOfContract with contractArgument1 = value1; contractArgument2 = value2; ...``
 
@@ -135,7 +135,7 @@ The update expressions are:
     ``exercise idOfContract NameOfChoiceOnContract with choiceArgument1 = value1; choiceArgument2 = value 2; ...``
 
 :ref:`fetch <daml-ref-fetch>`
-    Fetch a contract instance using its ID. Often used with assert to check conditions on the contract’s content.
+    Fetch a contract using its ID. Often used with assert to check conditions on the contract’s content.
 
     ``fetchedContract <- fetch IdOfContract``
 

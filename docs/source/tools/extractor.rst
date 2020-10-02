@@ -328,7 +328,7 @@ Later you add a new field, ``displayName``::
 
 The hash of the new package with the update is ``1239d1c5df140425f01a5112325d2e4edf2b7ace223f8c1d2ebebe76a8ececfe``.
 
-There are contract instances of first version of the template which were created before the new field is added, and there are contract instances of the new version which were created since. Let’s say you have one instance of each::
+There are contracts of first version of the template which were created before the new field is added, and there are contracts of the new version which were created since. Let’s say you have one instance of each::
 
   {
     "owner":"Bob",
@@ -385,7 +385,7 @@ To have a consistent view of the two versions with a default value ``NULL`` for 
     AND
     template = 'My.Company.Finance.Account';
 
-Then, ``account_view will`` contain both contract instances:
+Then, ``account_view will`` contain both contracts:
 
 .. figure:: images/account.png
    :align: center
