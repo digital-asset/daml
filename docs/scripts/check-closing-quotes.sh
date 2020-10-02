@@ -2,31 +2,36 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-whitelist="$0.whitelist"
+# Check for invalid quote usage such as "variable `x``"
 
-echo Checking closing quotes '`' for all rst file.
+DIR="$1"
+WHITELIST="$2"
 
-errors=0
-
-while read file
-do
-  numberOfQuotes=$(egrep --invert-match --file="$whitelist" "$file" | grep --only-matching '`' | wc --lines)
-  if (( $numberOfQuotes % 2 ))
-  then
-    ((errors++))
-    echo "$file" : $numberOfQuotes
-    echo Suspicious lines:
-    awk -F '`' 'NF % 2 == 0 && NF > 0 ' < "$file"
-    echo
-  fi
-done <<< $(find -name '*rst')
-
-echo $errors errors found.
-echo "Note: errors are not detected if they are in the same line (of even number)."
-if [ $errors -gt 0 ]
+if [[ $# -ne 2 ]]
 then
-  echo
-  echo "If these errors are false positives, please add a regex to the whitelist in the file \`$whitelist'."
-  echo
+  echo "Usage: $0 directory whitelist"
+  exit 1
+fi
+
+if ! test -f "$WHITELIST"; then
+  echo ERROR: Whitelist file not found: "$WHITELIST"
+  exit 1
+fi
+
+ERRORS=0
+REGEX='^(?!([^`]*(((`[^`]*`)|(``[^`]*``))[^`]*)*)$$)'
+
+while read FILE; do
+  if grep --invert-match --file="$WHITELIST" "$FILE" | grep --quiet --perl-regexp "$REGEX"; then
+    echo Quotation error in "\`$FILE'":
+    grep --perl-regexp "$REGEX" "$FILE"
+    echo
+    ERRORS=$((ERRORS+1))
+  fi
+done <<< $(find "$DIR" -name '*.rst')
+
+if [ $ERRORS -gt 0 ]; then
+  echo "ERROR: $ERRORS file(s) found with errors, see above."
+  echo "You can add lines to \`$WHITELIST' to ignore false positives."
   exit 1
 fi
