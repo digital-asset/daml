@@ -5,16 +5,16 @@
 # Check for invalid quote usage such as "variable `x``"
 
 DIR="$1"
-WHITELIST="$2"
+ALLOWLIST="$2"
 
 if [[ $# -ne 2 ]]
 then
-  echo "Usage: $0 directory whitelist"
+  echo "Usage: $0 directory allow-list"
   exit 1
 fi
 
-if ! test -f "$WHITELIST"; then
-  echo ERROR: Whitelist file not found: "$WHITELIST"
+if ! test -f "$ALLOWLIST"; then
+  echo ERROR: Allow-list file not found: "$ALLOWLIST"
   exit 1
 fi
 
@@ -22,9 +22,9 @@ ERRORS=0
 REGEX='^(?!([^`]*(((`[^`]*`)|(``[^`]*``))[^`]*)*)$$)'
 
 while read FILE; do
-  if grep --invert-match --file="$WHITELIST" "$FILE" | grep --quiet --perl-regexp "$REGEX"; then
+  if grep --invert-match --file="$ALLOWLIST" "$FILE" | grep --quiet --perl-regexp "$REGEX"; then
     echo Quotation error in "\`$FILE'":
-    grep --invert-match --file="$WHITELIST" "$FILE" | grep --perl-regexp "$REGEX"
+    grep --invert-match --file="$ALLOWLIST" "$FILE" | grep --perl-regexp "$REGEX"
     echo
     ERRORS=$((ERRORS+1))
   fi
@@ -32,6 +32,6 @@ done <<< $(find "$DIR" -name '*.rst')
 
 if [ $ERRORS -gt 0 ]; then
   echo "ERROR: $ERRORS file(s) found with errors, see above."
-  echo "You can add lines to \`$WHITELIST' to ignore false positives."
+  echo "You can add lines to \`$ALLOWLIST' to ignore false positives."
   exit 1
 fi
