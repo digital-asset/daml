@@ -547,7 +547,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                     } yield v
                 }
               case "ListKnownParties" =>
-                m2c("record with 2 fields ") {
+                m2c("record with 2 fields") {
                   case SRecord(_, _, JavaList(SOptional(sParticipantName), continue)) => {
                     for {
                       participantName <- sParticipantName match {
