@@ -274,12 +274,10 @@ class Runner(
                 }
                 Right(evaluate(makeAppD(unitA, SUnit)))
             }
-            case _ => {
-              case _ =>
-                val msg = s"unrecognized TriggerF step $variant"
-                logger.error(msg)
-                throw new ConverterException(msg)
-            }
+            case _ =>
+              val msg = s"unrecognized TriggerF step $variant"
+              logger.error(msg)
+              throw new ConverterException(msg)
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
         case Right(Left(newState)) => Left(newState)
         case Left(e) => throw new ConverterException(e)
