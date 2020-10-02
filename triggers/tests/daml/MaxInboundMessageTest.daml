@@ -17,9 +17,9 @@ maxInboundMessageSizeTrigger = Trigger
   , heartbeat = None
   }
 
-maxInboundMessageSizeRule : Party -> ACS -> Time -> Map CommandId [Command] -> ()
+maxInboundMessageSizeRule : Party -> ACS -> Map CommandId [Command] -> ()
   -> TriggerA ()
-maxInboundMessageSizeRule party acs _ _ _
+maxInboundMessageSizeRule party acs _ _
   | [] <- getContracts @MessageSize acs =
       void $ emitCommands [createAndExerciseCmd (MessageSize { p = party }) (CreateN {n = 50000})] []
   | otherwise = pure ()

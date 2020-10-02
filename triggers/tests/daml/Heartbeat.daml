@@ -9,11 +9,11 @@ import Daml.Trigger.LowLevel
 
 test : Trigger Int
 test = Trigger
-  { initialState = \party _ _ -> (0, [])
-  , update = \_ msg count ->
-      case msg of
-        MHeartbeat -> (count + 1, [])
-        _ -> (count, [])
+  { initialState = \party _ -> pure 0
+  , update = \msg ->
+      modify (+ (case msg of
+                   MHeartbeat -> 1
+                   _ -> 0))
   , registeredTemplates = AllInDar
   , heartbeat = Some (convertMicrosecondsToRelTime 1)
   }

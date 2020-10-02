@@ -14,12 +14,10 @@ module Daml.Trigger.Internal
   , applyEvent
   , applyTransaction
   , runRule
-  , runTriggerA
   , TriggerAState (..)
   , TriggerState (..)
   ) where
 
-import DA.Action.State
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
@@ -49,8 +47,8 @@ data ACS = ACS
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
-newtype TriggerA a = TriggerA (State TriggerAState a)
-  deriving (Functor, Applicative, Action)
+newtype TriggerA a = TriggerA (TriggerRule TriggerAState a)
+  deriving (Functor, Applicative, Action, HasTime, ActionTrigger)
 
 -- Internal API
 
@@ -104,23 +102,24 @@ applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
 runRule
-  : (Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ())
-  -> Time
-  -> TriggerState s
-  -> (TriggerState s, [Commands])
-runRule rule time state =
-  let (_, aState) =
-        runTriggerA
-          (rule state.party state.acs time state.commandsInFlight state.userState)
-          (TriggerAState state.commandsInFlight [] state.acs.pendingContracts state.nextCommandId)
-      commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
-      acs = state.acs { pendingContracts = aState.pendingContracts }
-  in (state { nextCommandId = aState.nextCommandId, commandsInFlight, acs }, aState.emittedCommands)
+  : (Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ())
+  -> TriggerRule (TriggerState s) ()
+runRule rule = do
+  state <- get
+  TriggerRule . zoom zoomIn zoomOut . runTriggerRule . runTriggerA
+      $ rule state.party state.acs state.commandsInFlight state.userState
+  where zoomIn state = TriggerAState state.commandsInFlight [] state.acs.pendingContracts state.nextCommandId
+        zoomOut state aState =
+          let commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
+              acs = state.acs { pendingContracts = aState.pendingContracts }
+          in state { nextCommandId = aState.nextCommandId, commandsInFlight, acs }
 
-runTriggerA : TriggerA a -> TriggerAState -> (a, TriggerAState)
-runTriggerA (TriggerA f) s =
-  let (a, s') = runState f s
-  in (a, s' { emittedCommands = reverse s'.emittedCommands })
+runTriggerA : TriggerA a -> TriggerRule TriggerAState a
+runTriggerA (TriggerA f) = do
+  a <- f
+  s' <- get
+  put s' { emittedCommands = reverse s'.emittedCommands }
+  pure a
 
 data TriggerAState = TriggerAState
   { commandsInFlight : Map CommandId [Command]

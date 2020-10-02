@@ -46,6 +46,8 @@ import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.VersionTimeline
+import com.daml.script.converter.Converter.toContractId
+import com.daml.script.converter.ConverterException
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
@@ -682,7 +684,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                     for {
                       party <- Converter.toFuture(Converter.toParty(vals.get(0)))
                       tplId <- Converter.toFuture(Converter.typeRepToIdentifier(vals.get(1)))
-                      cid <- Converter.toFuture(Converter.toContractId(vals.get(2)))
+                      cid <- Converter.toFuture(toContractId(vals.get(2)))
                       client <- Converter.toFuture(clients.getPartyParticipant(Party(party)))
                       optR <- client.queryContractId(party, tplId, cid)
                       optR <- Converter.toFuture(

@@ -60,8 +60,8 @@ copyTrigger = Trigger
 -- TRIGGER_END
 
 -- RULE_SIGNATURE_BEGIN
-copyRule : Party -> ACS -> Time -> Map CommandId [Command] -> () -> TriggerA ()
-copyRule party acs _time commandsInFlight () = do
+copyRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
+copyRule party acs commandsInFlight () = do
 -- RULE_SIGNATURE_END
 -- ACS_QUERY_BEGIN
   let subscribers : [(ContractId Subscriber, Subscriber)] = getContracts @Subscriber acs

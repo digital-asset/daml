@@ -31,7 +31,7 @@ trigger : Trigger Int
 trigger = Trigger with
   initialize = const 0
   updateState = \acs _msg count -> length (getContracts @T acs)
-  rule = \party acs _time _commandsInFlight count -> do
+  rule = \party acs _commandsInFlight count -> do
     when (count == 1) do
       -- Create two additional T.
       dedupCreate T with party, count
