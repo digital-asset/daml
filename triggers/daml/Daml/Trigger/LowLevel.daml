@@ -43,7 +43,6 @@ module Daml.Trigger.LowLevel
   , zoom
   , submitCommands
   , simulateRule
-  , forwardPortInitialState
   , forwardPort
   ) where
 
@@ -334,15 +333,7 @@ instance HasTime (TriggerRule s) where
 submitCommands : ActionTrigger m => Commands -> m ()
 submitCommands cmds = liftTF (Submit (cmds, identity))
 
-type TriggerInitialState s = Party -> Time -> ActiveContracts -> (s, [Commands])
 type TriggerUpdate s = Time -> Message -> s -> (s, [Commands])
-
-forwardPortInitialState : TriggerInitialState s -> Party -> ActiveContracts -> TriggerSetup s
-forwardPortInitialState f p ac = do
-  time <- getTime
-  let (s, cmds) = f p time ac
-  mapA_ submitCommands cmds
-  pure s
 
 forwardPort : TriggerUpdate s -> Message -> TriggerRule s ()
 forwardPort f msg = do
