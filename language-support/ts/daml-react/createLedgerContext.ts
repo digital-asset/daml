@@ -3,7 +3,7 @@
 
 import React, {useContext, useEffect, useMemo, useState } from 'react';
 import { ContractId,Party, Template } from '@daml/types';
-import Ledger, { CreateEvent, Query } from '@daml/ledger';
+import Ledger, { CreateEvent, Query, Stream } from '@daml/ledger';
 
 /**
  * @internal
@@ -165,50 +165,68 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
     return result;
   }
 
-  function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
-    const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: true});
+  // private
+  interface StreamArgs<T extends object, K, I extends string, S, Result> {
+    name: string;
+    template: Template<T, K, I>;
+    init: Result;
+    mkStream: (state: DamlLedgerState) => [Stream<T, K, I, S>, object];
+    setLoading: (r: Result, loading: boolean) => Result;
+    setData: (r: Result, data: S) => Result;
+    deps: readonly unknown[];
+  }
+  function useStream<T extends object, K, I extends string, S, Result>({name, template, init, mkStream, setLoading, setData, deps}: StreamArgs<T, K, I, S, Result>): Result {
+    const [result, setResult] = useState<Result>(init);
     const state = useDamlState();
     useEffect(() => {
-      setResult({contracts: [], loading: true});
-      const query = queryFactory ? [queryFactory()] : [];
-      console.debug(`mount useStreamQuery(${template.templateId}, ...)`, query);
-      const stream = state.ledger.streamQueries(template, query);
-      stream.on('live', () => setResult(result => ({...result, loading: false})));
-      stream.on('change', contracts => setResult(result => ({...result, contracts})));
+      setResult(init);
+      const [stream, debugQuery] = mkStream(state);
+      console.debug(`mount ${name}(${template.templateId}, ...)`, debugQuery);
+      stream.on('live', () => setResult(result => setLoading(result, false)));
+      stream.on('change', contracts => setResult(result => setData(result, contracts)));
       stream.on('close', closeEvent => {
-        console.error('useStreamQuery: web socket closed', closeEvent);
-        setResult(result => ({...result, loading: true}));
+        console.error(`${name}: web socket closed`, closeEvent);
+        setResult(result => setLoading(result, true));
       });
       return (): void => {
-        console.debug(`unmount useStreamQuery(${template.templateId}, ...)`, query);
+        console.debug(`unmount ${name}(${template.templateId}, ...)`, debugQuery);
         stream.close();
       };
     // NOTE(MH): See note at the top of the file regarding "useEffect dependencies".
-    }, [state.ledger, template, ...(queryDeps ?? [])]);
+    }, [state.ledger, template, ...deps]);
     return result;
   }
 
+  function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
+    return useStream<T, K, I, readonly CreateEvent<T, K, I>[], QueryResult<T, K, I>>({
+      name: "useStreamQuery",
+      template,
+      init: {loading: true, contracts: []},
+      mkStream: (state) => {
+        const query = queryFactory ? [queryFactory()] : [];
+        const stream = state.ledger.streamQueries(template, query);
+        return [stream, query];
+      },
+      setLoading: (r, b) => ({...r, loading: b}),
+      setData: (r, d) => ({...r, contracts: d}),
+      deps: queryDeps ?? []
+    });
+  }
+
   function useStreamFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
-    const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: true});
-    const state = useDamlState();
-    useEffect(() => {
-      setResult({contract: null, loading: true});
-      const key = keyFactory();
-      console.debug(`mount useStreamFetchByKey(${template.templateId}, ...)`, key);
-      const stream = state.ledger.streamFetchByKeys(template, [key]);
-      stream.on('change', contracts => setResult(result => ({...result, contract: contracts[0]})));
-      stream.on('close', closeEvent => {
-        console.error('useStreamFetchByKey: web socket closed', closeEvent);
-        setResult(result => ({...result, loading: true}));
-      });
-      setResult(result => ({...result, loading: false}));
-      return (): void => {
-        console.debug(`unmount useStreamFetchByKey(${template.templateId}, ...)`, key);
-        stream.close();
-      };
-    // NOTE(MH): See note at the top of the file regarding "useEffect dependencies".
-    }, [state.ledger, template, ...keyDeps]);
-    return result;
+    return useStream<T, K, I, (CreateEvent<T, K, I> | null)[], FetchResult<T, K, I>>({
+      name: "useStreamFetchByKey",
+      template,
+      init: {loading: true, contract: null},
+      mkStream: (state) => {
+        const key = keyFactory();
+        const stream = state.ledger.streamFetchByKeys(template, [key]);
+        return [stream, key as unknown as object];
+      },
+      setLoading: (r, b) => ({...r, loading: b}),
+      setData: (r, d) => ({...r, contract: d[0]}),
+      deps: keyDeps
+    });
   }
 
   const useReload = (): () => void => {
