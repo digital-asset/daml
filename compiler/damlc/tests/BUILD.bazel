@@ -399,6 +399,7 @@ genrule(
     name = "repl-test",
     srcs = [
         "ReplTest.daml",
+        "Colliding.daml",
         "repl-test-indirect.dar",
     ],
     outs = ["repl-test.dar"],
@@ -407,6 +408,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location ReplTest.daml) $$TMP_DIR/daml
+      cp -L $(location Colliding.daml) $$TMP_DIR/daml
       cp -L $(location repl-test-indirect.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
