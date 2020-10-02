@@ -311,7 +311,7 @@ private[lf] object Anf {
       }
 
       case SELet(rhss, body) =>
-        val expanded = expandMultiLet(rhss.toList, body)
+        val expanded = expandMultiLet(rhss, body)
         Bounce(() => transformExp(depth, env, expanded, k)(transform))
 
       case SELet1General(rhs, body) =>

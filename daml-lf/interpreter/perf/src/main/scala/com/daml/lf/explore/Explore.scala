@@ -131,11 +131,16 @@ object PlaySpeedy {
       (
         "free", // let (a,b,c) = (30,100,21) in twice (\x -> x - (a-c)) b
         82,
-        SELet(
-          Array(num(30), num(100), num(21)),
-          SEApp(
-            twice,
-            Array(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)))) //100
+        SELet1General(
+          num(30),
+          SELet1General(
+            num(100),
+            SELet1General(
+              num(21),
+              SEApp(
+                twice,
+                Array(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)))) //100
+          ))
       )
     )
 

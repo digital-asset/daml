@@ -3,16 +3,13 @@
 
 package com.daml.oauth.server
 
+import java.util.Base64
+
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.model.Uri.Query
-import spray.json.{
-  DefaultJsonProtocol,
-  JsString,
-  JsValue,
-  JsonFormat,
-  RootJsonFormat,
-  deserializationError
-}
+import spray.json._
+
+import scala.util.Try
 
 object Request {
 
@@ -65,7 +62,23 @@ object Response {
       tokenType: String,
       expiresIn: Option[String],
       refreshToken: Option[String],
-      scope: Option[String])
+      scope: Option[String]) {
+    def toCookieValue: String = {
+      import JsonProtocol._
+      Base64.getUrlEncoder().encodeToString(this.toJson.compactPrint.getBytes)
+    }
+  }
+
+  object Token {
+    def fromCookieValue(s: String): Option[Token] = {
+      import JsonProtocol._
+      for {
+        bytes <- Try(Base64.getUrlDecoder().decode(s))
+        json <- Try(new String(bytes).parseJson)
+        token <- Try(json.convertTo[Token])
+      } yield token
+    }.toOption
+  }
 
 }
 
@@ -78,7 +91,19 @@ object JsonProtocol extends DefaultJsonProtocol {
     def write(uri: Uri) = JsString(uri.toString)
   }
   implicit val tokenReqFormat: RootJsonFormat[Request.Token] =
-    jsonFormat(Request.Token, "grant_type", "code", "redirect_uri", "client_id", "client_secret")
+    jsonFormat(
+      Request.Token.apply,
+      "grant_type",
+      "code",
+      "redirect_uri",
+      "client_id",
+      "client_secret")
   implicit val tokenRespFormat: RootJsonFormat[Response.Token] =
-    jsonFormat(Response.Token, "access_token", "token_type", "expires_in", "refresh_token", "scope")
+    jsonFormat(
+      Response.Token.apply,
+      "access_token",
+      "token_type",
+      "expires_in",
+      "refresh_token",
+      "scope")
 }

@@ -6,48 +6,47 @@ module DA.Bifunctor(Bifunctor(..)) where
 
 
 -- | A bifunctor is a type constructor that takes
--- two type arguments and is a functor in /both/ arguments. That
--- is, unlike with 'Functor', a type constructor such as 'Either'
--- does not need to be partially applied for a 'Bifunctor'
+-- two type arguments and is a functor in *both* arguments. That
+-- is, unlike with `Functor`, a type constructor such as `Either`
+-- does not need to be partially applied for a `Bifunctor`
 -- instance, and the methods in this class permit mapping
--- functions over the 'Left' value or the 'Right' value,
+-- functions over the Left value or the `Right` value,
 -- or both at the same time.
 --
 -- It is a bifunctor where both the first and second
 -- arguments are covariant.
 --
--- You can define a 'Bifunctor' by either defining 'bimap' or by
--- defining both 'first' and 'second'.
+-- You can define a `Bifunctor` by either defining bimap or by
+-- defining both first and second.
 --
--- If you supply 'bimap', you should ensure that:
---
--- ```
--- @'bimap' 'identity' 'identity' ≡ 'identity'@
--- ```
---
--- If you supply 'first' and 'second', ensure:
+-- If you supply bimap, you should ensure that:
 --
 -- ```
--- @
--- 'first' 'identity' ≡ 'identity'
--- 'second' 'identity' ≡ 'identity'
--- @
+-- bimap identity identity ≡ identity
+-- ```
+--
+-- If you supply first and second, ensure:
+--
+-- ```
+-- first identity ≡ identity
+-- second identity ≡ identity
+-- 
 -- ```
 --
 -- If you supply both, you should also ensure:
 --
 -- ```
--- @'bimap' f g ≡ 'first' f '.' 'second' g@
+-- bimap f g ≡ first f . second g
 -- ```
 --
 -- By parametricity, these will ensure that:
 --
 -- ```
--- @
--- 'bimap'  (f '.' g) (h '.' i) ≡ 'bimap' f h '.' 'bimap' g i
--- 'first'  (f '.' g) ≡ 'first'  f '.' 'first'  g
--- 'second' (f '.' g) ≡ 'second' f '.' 'second' g
--- @
+-- 
+-- bimap  (f . g) (h . i) ≡ bimap f h . bimap g i
+-- first  (f . g) ≡ first  f . first  g
+-- second (f . g) ≡ second f . second g
+-- 
 -- ```
 class Bifunctor p where
     {-# MINIMAL bimap | first, second #-}
@@ -55,7 +54,7 @@ class Bifunctor p where
     -- | Map over both arguments at the same time.
     --
     -- ```
-    -- @'bimap' f g ≡ 'first' f '.' 'second' g@
+    -- bimap f g ≡ first f . second g
     -- ```
     --
     -- Examples:
@@ -77,7 +76,7 @@ class Bifunctor p where
     -- | Map covariantly over the first argument.
     --
     -- ```
-    -- @'first' f ≡ 'bimap' f 'identity'@
+    -- first f ≡ bimap f identity
     -- ```
     --
     -- Examples:
@@ -96,7 +95,7 @@ class Bifunctor p where
     -- | Map covariantly over the second argument.
     --
     -- ```
-    -- @'second' ≡ 'bimap' 'identity'@
+    -- second ≡ bimap identity
     -- ```
     --
     -- Examples:

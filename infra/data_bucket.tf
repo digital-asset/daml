@@ -50,7 +50,6 @@ variable "appr" {
   default = [
     "user:andreas.herrmann@digitalasset.com",
     "user:gary.verhaegen@digitalasset.com",
-    "user:leonid.shlyapnikov@digitalasset.com",
     "user:moritz.kiefer@digitalasset.com",
     "user:stephen.compall@digitalasset.com",
   ]

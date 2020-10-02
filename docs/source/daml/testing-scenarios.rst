@@ -40,7 +40,7 @@ Transaction submission
 
 The :ref:`submit <daml-ref-commits>` function attempts to submit a transaction to the ledger on behalf of a ``Party``.
 
-For example, a transaction could be :ref:`creating <daml-ref-create>` a contract instance on the ledger, or :ref:`exercising <daml-ref-exercise>` a choice on an existing contract.
+For example, a transaction could be :ref:`creating <daml-ref-create>` a contract on the ledger, or :ref:`exercising <daml-ref-exercise>` a choice on an existing contract.
 
 Asserting transaction failure
 =============================
@@ -95,11 +95,11 @@ In the first transaction of the scenario, party ``bankOfEngland`` (created using
 
 When the contract is submitted to the ledger, it is given a unique contract identifier of type ``ContractId CallablePayout``. ``payAlice <-`` assigns that identifier to the variable ``payAlice``.
 
-In the second statement, ``exercise payAlice Call``, is an exercise of the ``Call`` choice on the contract instance identified by ``payAlice``. This causes a ``Payout`` agreement with her as the ``receiver`` to be written to the ledger.
+In the second statement, ``exercise payAlice Call``, is an exercise of the ``Call`` choice on the contract identified by ``payAlice``. This causes a ``Payout`` agreement with her as the ``receiver`` to be written to the ledger.
 
 The workflow described by the above scenario models both parties explicitly exercising their rights and accepting their obligations:
 
-- Party ``"Bank of England"`` is assumed to know the definition of the ``CallablePayout`` contract template and the consequences of submitting a contract instance to the ledger.
+- Party ``"Bank of England"`` is assumed to know the definition of the ``CallablePayout`` contract template and the consequences of submitting a contract to the ledger.
 - Party ``"Alice"`` is assumed to know the definition of the contract template, as well as the consequences of exercising the ``Call`` choice on it. If ``"Alice"`` does not want to receive five pounds, she can simply not exercise that choice.
 
 Example with submitMustFail
@@ -113,4 +113,4 @@ To test this expectation, use the ``submitMustFail`` function:
    :language: daml
    :lines: 56-73
 
-When the ``Call`` choice is exercised, the contract instance is archived. The ``fails`` keyword checks that if ``'Alice'`` submits ``exercise payAlice Call`` again, it would fail.
+When the ``Call`` choice is exercised, the contract is archived. The ``fails`` keyword checks that if ``'Alice'`` submits ``exercise payAlice Call`` again, it would fail.

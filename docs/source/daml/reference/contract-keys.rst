@@ -6,7 +6,7 @@
 Contract keys
 #############
 
-Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contract instances, using the parameters to the template - similar to a primary key for a database.
+Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contracts, using the parameters to the template - similar to a primary key for a database.
 
 You can use contract keys to stably refer to a contract, even through iterations of instances of it.
 
