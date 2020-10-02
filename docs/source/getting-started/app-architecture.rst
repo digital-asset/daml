@@ -44,7 +44,7 @@ In this case it is an identifier for the user and the list of users they are fol
 Both fields use the built-in ``Party`` type which lets us use them in the following clauses.
 
 2. The signatories and observers of the contract.
-The signatories are the parties whose authorization is required to create or archive instances of the contract template, in this case the user herself.
+The signatories are the parties whose authorization is required to create or archive contracts, in this case the user herself.
 The observers are the parties who are able to view the contract on the ledger.
 In this case all users that a particular user is following are able to see the user contract.
 

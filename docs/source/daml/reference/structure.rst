@@ -38,7 +38,7 @@ template body
     :ref:`signatories <daml-ref-signatories>`
         ``signatory`` keyword
 
-        Required. The parties (see the :ref:`Party <daml-ref-built-in-types>` type) who must consent to the creation of an instance of this contract. You won't be able to create an instance of this contract until all of these parties have authorized it.
+        Required. The parties (see the :ref:`Party <daml-ref-built-in-types>` type) who must consent to the creation of this contract. You won't be able to create this contract until all of these parties have authorized it.
 
     :ref:`observers <daml-ref-observers>`
     	``observer`` keyword
@@ -58,7 +58,7 @@ template body
     :ref:`a contract key <daml-ref-contract-keys>`
         ``key`` keyword
 
-        Optional. Lets you specify a combination of a party and other data that uniquely identifies an instance of this contract template. See :doc:`/daml/reference/contract-keys`.
+        Optional. Lets you specify a combination of a party and other data that uniquely identifies a contract of this template. See :doc:`/daml/reference/contract-keys`.
 
     :ref:`maintainers <daml-ref-maintainers>`
         ``maintainer`` keyword
