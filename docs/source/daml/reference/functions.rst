@@ -19,7 +19,7 @@ In :doc:`expressions`, the ``tubeSurfaceArea`` function was defined as:
    :language: daml
    :lines: 14-16
 
-You can define this function equivalently using lambdas, involving `\``, a sequence of parameters, and an arrow ``->`` as:
+You can define this function equivalently using lambdas, involving ``\``, a sequence of parameters, and an arrow ``->`` as:
 
 .. literalinclude:: ../code-snippets/TubeSurfaceArea2.daml
    :language: daml

@@ -7,8 +7,8 @@ Automating the Upgrade Process
 ##############################
 
 In this section, we are going to automate the upgrade of our coin
-process using :doc:`DAML Script</daml-script/index>` and :doc:`DAML
-Triggers </triggers/index>`. Note that automation for upgrades is
+process using :doc:`DAML Script</daml-script/index>` and
+:doc:`DAML Triggers </triggers/index>`. Note that automation for upgrades is
 specific to an individual application, just like the upgrade models.
 Nevertheless, we have found that the pattern shown here
 occurs frequently.
