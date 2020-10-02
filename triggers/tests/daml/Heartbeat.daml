@@ -10,10 +10,10 @@ import Daml.Trigger.LowLevel
 test : Trigger Int
 test = Trigger
   { initialState = \party _ -> pure 0
-  , update = forwardPort $ \_ msg count ->
-      case msg of
-        MHeartbeat -> (count + 1, [])
-        _ -> (count, [])
+  , update = \msg ->
+      modify (+ (case msg of
+                   MHeartbeat -> 1
+                   _ -> 0))
   , registeredTemplates = AllInDar
   , heartbeat = Some (convertMicrosecondsToRelTime 1)
   }
