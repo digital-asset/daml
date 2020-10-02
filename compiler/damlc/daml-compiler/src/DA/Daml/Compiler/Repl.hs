@@ -375,7 +375,7 @@ runRepl
     -> IO ()
 runRepl importPkgs opts replClient logger ideState = do
     imports <- loadPackages importPkgs replClient ideState
-    -- Typecheck ones to get the GlobalRdrEnv
+    -- Typecheck once to get the GlobalRdrEnv
     let initialLineNumber = 0
     dflags <- liftIO $
          hsc_dflags . hscEnv <$>
