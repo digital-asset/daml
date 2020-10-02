@@ -446,6 +446,9 @@ describe('useStreamFetchByKey', () => {
     const {result} = renderDamlHook(() => useStreamFetchByKey(Foo, () => key, [key]));
     expect(mockStreamFetchByKeys).toHaveBeenCalledTimes(1);
     expect(mockStreamFetchByKeys).toHaveBeenLastCalledWith(Foo, [key]);
+    expect(result.current).toEqual({contract: null, loading: true});
+
+    act(() => void emitter.emit('live'));
     expect(result.current).toEqual({contract: null, loading: false});
 
     act(() => void emitter.emit('change', [null]));
@@ -460,6 +463,9 @@ describe('useStreamFetchByKey', () => {
     const {result} = renderDamlHook(() => useStreamFetchByKey(Foo, () => key, [key]));
     expect(mockStreamFetchByKeys).toHaveBeenCalledTimes(1);
     expect(mockStreamFetchByKeys).toHaveBeenLastCalledWith(Foo, [key]);
+    expect(result.current).toEqual({contract: null, loading: true});
+
+    act(() => void emitter.emit('live'));
     expect(result.current).toEqual({contract: null, loading: false});
 
     act(() => void emitter.emit('change', [contract]));
@@ -469,7 +475,7 @@ describe('useStreamFetchByKey', () => {
   test('changed key triggers reload', () => {
     const contract = {k1 : 'Alice', k2: 'Bob'};
     const key1 = contract.k1;
-    const key2 = contract.k2
+    const key2 = contract.k2;
     const [stream, emitter] = mockStream();
     mockStreamFetchByKeys.mockReturnValueOnce(stream);
     const {result} = renderDamlHook(() => {
@@ -477,6 +483,7 @@ describe('useStreamFetchByKey', () => {
       const fetchResult = useStreamFetchByKey(Foo, () => key, [key]);
       return {fetchResult, key, setKey};
     })
+    act(() => void emitter.emit('live'));
     act(() => void emitter.emit('change', [contract]));
     expect(mockStreamFetchByKeys).toHaveBeenCalledTimes(1);
     expect(mockStreamFetchByKeys).toHaveBeenLastCalledWith(Foo, [key1]);
