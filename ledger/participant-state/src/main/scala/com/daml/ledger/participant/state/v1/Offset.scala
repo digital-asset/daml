@@ -1,49 +1,44 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
-import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.daml.lf.data.Ref
+import java.io.InputStream
+
+import com.daml.lf.data.{Bytes, Ref}
 
 /** Offsets into streams with hierarchical addressing.
   *
   * We use these [[Offset]]'s to address changes to the participant state.
-  * We allow for array of [[Long]] to allow for hierarchical addresses.
-  * These [[Long]] values are expected to be positive. Offsets are ordered by
-  * lexicographic ordering of the array elements.
+  * Offsets are opaque values that must be must be strictly
+  * increasing according to lexicographical ordering.
   *
-  * A typical use case for [[Offset]]s would be addressing a transaction in a
-  * blockchain by `[<blockheight>, <transactionId>]`. Depending on the
-  * structure of the underlying ledger these offsets are more or less
-  * nested, which is why we use an array of [[Long]]s. The expectation is
-  * though that there usually are few elements in the array.
+  * Ledger implementations are advised to future proof their design
+  * of offsets by reserving the first (few) bytes for a version
+  * indicator, followed by the specific offset scheme for that version.
+  * This way it is possible in the future to switch to a different versioning
+  * scheme, while making sure that previously created offsets are always
+  * less than newer offsets.
   *
   */
-final case class Offset(private val xs: Array[Long]) extends Ordered[Offset] {
-  def toLedgerString: Ref.LedgerString =
-    // It is safe to concatenate number and "-" to obtain a valid transactionId
-    Ref.LedgerString.assertFromString(components.mkString("-"))
+final case class Offset(bytes: Bytes) extends Ordered[Offset] {
+  override def compare(that: Offset): Int =
+    Bytes.ordering.compare(this.bytes, that.bytes)
 
-  override def toString: String = toLedgerString
+  def toByteArray: Array[Byte] = bytes.toByteArray
 
-  def components: Iterable[Long] = xs
+  def toInputStream: InputStream = bytes.toInputStream
 
-  override def equals(that: Any): Boolean = that match {
-    case o: Offset => this.compare(o) == 0
-    case _ => false
-  }
-
-  def compare(that: Offset): Int =
-    scala.math.Ordering.Iterable[Long].compare(this.xs.toIterable, that.xs.toIterable)
+  def toHexString: Ref.HexString = bytes.toHexString
 }
 
 object Offset {
 
-  /** Create an offset from a string of form 1-2-3. Throws
-    * NumberFormatException on misformatted strings.
-    */
-  def assertFromString(s: LedgerString): Offset =
-    Offset(s.split('-').map(_.toLong))
+  val beforeBegin: Offset = Offset.fromByteArray(Array.empty[Byte])
 
+  def fromByteArray(bytes: Array[Byte]) = new Offset(Bytes.fromByteArray(bytes))
+
+  def fromInputStream(is: InputStream) = new Offset(Bytes.fromInputStream(is))
+
+  def fromHexString(s: Ref.HexString) = new Offset(Bytes.fromHexString(s))
 }

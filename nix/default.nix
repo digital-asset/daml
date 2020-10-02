@@ -113,8 +113,6 @@ in rec {
 
     node2nix  = pkgs.nodePackages.node2nix;
 
-    live-server =
-      (import ./tools/live-server { inherit pkgs; nodejs = tools.node; }).live-server;
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 
@@ -139,12 +137,11 @@ in rec {
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 
-    sphinx-autobuild = import ./tools/sphinx-autobuild {
+    sphinx-autobuild = import ./tools/sphinx-autobuild/requirements.nix {
       inherit pkgs;
-      python37Packages = pkgs.python37Packages;
     };
 
-    sphinx183 = bazel_dependencies.sphinx183;
+    sphinx183 = bazel_dependencies.sphinx183-exts;
 
     convert = bazel_dependencies.imagemagick;
 
@@ -155,6 +152,8 @@ in rec {
     tred      = graphviz;
     unflatten = graphviz;
     circo     = graphviz;
+
+    pandoc = pkgs.pandoc;
 
     # Build tools
 
@@ -176,7 +175,6 @@ in rec {
           >&2 echo "Please run bazel inside of the dev-env"
           exit 1
       fi
-      export BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
@@ -189,19 +187,21 @@ in rec {
     # System tools
     shellcheck = pkgs.shellcheck;
     curl = bazel_dependencies.curl;
+    findutils = pkgs.findutils;
 
     patch = pkgs.patch;
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
 
     # String mangling tooling.
-    jo   = pkgs.jo;
     jq   = bazel_dependencies.jq;
     gawk = bazel_dependencies.gawk;
     sed = pkgs.gnused;
     base64 = pkgs.coreutils;
     sha1sum = pkgs.coreutils;
     xmlstarlet = pkgs.xmlstarlet;
+    grep = pkgs.gnugrep;
+    bc = pkgs.bc;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;
@@ -224,8 +224,9 @@ in rec {
     # Cloud tools
     aws = pkgs.awscli;
     gcloud = pkgs.google-cloud-sdk;
-    bq     = gcloud;
+    bq = gcloud;
     gsutil = gcloud;
+    docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
     # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version
@@ -246,8 +247,6 @@ in rec {
     cli-tools = {
       inherit (pkgs) coreutils nix-info getopt;
     };
-    # Used by CI
-    minio  = pkgs.minio;
   } // (if pkgs.stdenv.isLinux then {
     # The following packages are used for CI docker based builds
     bash = pkgs.bash;
@@ -257,11 +256,9 @@ in rec {
     cheat = pkgs.cheat;
     coreutils = pkgs.coreutils;
     dockerd = pkgs.docker;
-    findutils = pkgs.findutils;
     ftop = pkgs.ftop;
     gcc7 = pkgs.gcc7;
     glibc = pkgs.glibc;
-    gnugrep = pkgs.gnugrep;
     iputils = pkgs.iputils;
     less = pkgs.less;
     ltrace = pkgs.ltrace;

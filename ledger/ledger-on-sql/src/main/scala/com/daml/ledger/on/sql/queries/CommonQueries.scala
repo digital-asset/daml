@@ -1,21 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql.queries
 
-import java.io.InputStream
 import java.sql.Connection
-import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.kvutils.OffsetBuilder
+import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.google.protobuf.ByteString
 
 import scala.collection.{breakOut, immutable}
 import scala.util.Try
@@ -30,46 +26,33 @@ trait CommonQueries extends Queries {
   }
 
   override final def selectFromLog(
-      start: Index,
-      end: Index,
-  ): Try[immutable.Seq[(Index, LedgerEntry)]] = Try {
-    SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end ORDER BY sequence_no"
-      .as(
-        (long("sequence_no")
-          ~ get[Option[InputStream]]("entry_id")
-          ~ get[Option[Array[Byte]]]("envelope")
-          ~ get[Option[Long]]("heartbeat_timestamp")).map {
-          case index ~ Some(entryId) ~ Some(envelope) ~ None =>
-            index -> LedgerEntry.LedgerRecord(
-              Offset(Array(index)),
-              DamlLogEntryId.parseFrom(entryId),
-              envelope,
-            )
-          case index ~ None ~ None ~ Some(heartbeatTimestamp) =>
-            index -> LedgerEntry.Heartbeat(
-              Offset(Array(index)),
-              Instant.ofEpochMilli(heartbeatTimestamp),
-            )
-          case _ =>
-            throw new IllegalStateException(s"Invalid data in the $LogTable table.")
-        }.*,
-      )
+      startExclusive: Index,
+      endInclusive: Index,
+  ): Try[immutable.Seq[(Index, LedgerRecord)]] = Try {
+    SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no > $startExclusive AND sequence_no <= $endInclusive ORDER BY sequence_no"
+      .as((long("sequence_no") ~ getBytes("entry_id") ~ getBytes("envelope")).map {
+        case index ~ entryId ~ envelope =>
+          index -> LedgerRecord(OffsetBuilder.fromLong(index), entryId, envelope)
+      }.*)
   }
 
-  override final def selectStateValuesByKeys(keys: Seq[Key]): Try[immutable.Seq[Option[Value]]] =
+  override final def selectStateValuesByKeys(
+      keys: Iterable[Key],
+  ): Try[immutable.Seq[Option[Value]]] =
     Try {
-      val results = SQL"SELECT key, value FROM #$StateTable WHERE key IN ($keys)"
-        .fold(Map.newBuilder[ByteString, Array[Byte]], ColumnAliaser.empty)((builder, row) =>
-          builder += ByteString.readFrom(row[InputStream]("key")) -> row[Value]("value"))
-        .right
-        .get
-        .result()
-      keys.map(key => results.get(ByteString.copyFrom(key)))(breakOut)
+      val results =
+        SQL"SELECT key, value FROM #$StateTable WHERE key IN (${keys.toSeq})"
+          .fold(Map.newBuilder[Key, Value], ColumnAliaser.empty) { (builder, row) =>
+            builder += row("key") -> row("value")
+          }
+          .fold(exceptions => throw exceptions.head, _.result())
+      keys.map(results.get)(breakOut)
     }
 
-  override final def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit] = Try {
+  override final def updateState(stateUpdates: Iterable[(Key, Value)]): Try[Unit] = Try {
     executeBatchSql(updateStateQuery, stateUpdates.map {
-      case (key, value) => Seq[NamedParameter]("key" -> key, "value" -> value)
+      case (key, value) =>
+        Seq[NamedParameter]("key" -> key, "value" -> value)
     })
   }
 

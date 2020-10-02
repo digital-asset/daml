@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
@@ -9,12 +9,12 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
-import com.digitalasset.navigator.config.Arguments
-import com.digitalasset.navigator.store.Store._
+import com.daml.navigator.config.Arguments
+import com.daml.navigator.store.Store._
 import spray.json._
 import DefaultJsonProtocol._
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.time.TimeProviderType
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.time.TimeProviderType
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.ledger.api.health.ReportsHealth
+import com.daml.ledger.api.health.ReportsHealth
 
 /** An interface for reading the state of a ledger participant.
   *
@@ -42,7 +42,7 @@ trait ReadService extends ReportsHealth {
     *
     * 1. properties about the sequence of [[(Offset, Update)]] tuples
     *    in a stream read from the beginning, and
-    * 2. properties relating the streams obtained from two separate alls
+    * 2. properties relating the streams obtained from two separate calls
     *   to [[ReadService.stateUpdates]].
     *
     * The first class of properties are invariants of a single stream:
@@ -56,17 +56,28 @@ trait ReadService extends ReportsHealth {
     *   and [[Update.PublicPackageUpload]] updates for all packages referenced by
     *   the [[Update.TransactionAccepted]].
     *
-    * - *monotonic record time*: for any update `u1` with an associated record
-    *   time `rt1` before an update `u2` with an associated record time `rt2`
-    *   in the stream, it holds that `rt1 <= rt2`. The updates with an
-    *   associated record time are [[Update.Heartbeat]] and [[Update.TransactionAccepted]],
-    *   which both store the record time in the `recordTime` field.
+    * - *causal monotonicity*: given a [[Update.TransactionAccepted]] with an associated
+    *   ledger time `lt_tx`, it holds that `lt_tx >= lt_c` for all `c`, where `c` is a
+    *   contract used by the transaction and `lt_c` the ledger time of the
+    *   [[Update.TransactionAccepted]] that created the contract.
+    *   The ledger time of a transaction is specified in the corresponding [[TransactionMeta]]
+    *   meta-data.
+    *   Note that the ledger time of unrelated updates is not necessarily monotonically
+    *   increasing.
     *
-    * - *no duplicate transaction acceptance*: there are no two separate
-    *   [[Update.TransactionAccepted]] updates with associated [[SubmitterInfo]]
-    *   records that agree on the `submitter`, `applicationId` and
-    *   `commandId` fields.  This implies that transaction submissions must be
-    *   deduplicated w.r.t. the `(submitter, applicationId, commandId)` tuples.
+    * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
+    *   ledger time `lt_tx` and a record time `rt_tx`, it holds that
+    *   `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
+    *   are parameters specified in the ledger [[TimeModel]].
+    *
+    * - *command deduplication*: if there is a [[Update.TransactionAccepted]] with
+    *   an associated [[SubmitterInfo]] `info1`, then for every later
+    *   transaction with [[SubmitterInfo]] `info2` that agrees with
+    *   `info1` on the `submitter` and `commandId` fields and
+    *   was submitted before `info1.deduplicateUntil`,
+    *   a transaction may be rejected without a corresponding update being issued.
+    *   I.e., transactions may be deduplicated on the `(submitter, commandId)` tuple,
+    *   but only until the time specified in [[SubmitterInfo.deduplicateUntil]].
     *
     *   TODO (SM): we would like to weaken this requirement to allow multiple
     *   [[Update.TransactionAccepted]] updates provided
@@ -78,54 +89,31 @@ trait ReadService extends ReportsHealth {
     * - *rejection finality*: if there is a [[Update.CommandRejected]] update
     *   with [[SubmitterInfo]] `info`, then there is no later
     *   [[Update.TransactionAccepted]] with the same associated [[SubmitterInfo]]
-    *   `info`. Note that in contrast to *no duplicate transaction acceptance*
+    *   `info`. Note that in contrast to *command deduplication*
     *   this only holds wrt the full [[SubmitterInfo]], as a resubmission of a
-    *   transaction with a higher `maximumRecordTime` must be allowed.
-    *
-    * - *acceptance finality*: if there is a [[Update.TransactionAccepted]] with
-    *   an associated [[SubmitterInfo]] `info1`, then for every later
-    *   transaction with [[SubmitterInfo]] `info2` that agrees with
-    *   `info1` on the `submitter`, `applicationId`, and `commandId` fields,
-    *   a transaction will be rejected without a corresponding update being issued.
-    *   It is done so to avert potential DOS attacks and avoid ambiguity as to the
-    *   transaction status in the index database.
-    *
-    * - *maximum record time enforced*: for all [[Update.TransactionAccepted]]
-    *   updates `u` with associated [[SubmitterInfo]] `info`, it holds that
-    *   `u.recordTime <= info.maximumRecordTime`. Together with *monotonic
-    *   record time* this implies that transactions with a maximum record time
-    *   `mrt` will not be accepted after an update with an associated record
-    *   time larger than `mrt` has been observed.
+    *   transaction with a higher `deduplicateUntil` must be allowed.
     *
     * The second class of properties relates multiple calls to
     * [[stateUpdates]]s, and thereby provides constraints on which [[Update]]s
     * need to be persisted. Before explaining them in detail we provide
     * intuition.
     *
-    * All [[Update]]s other than [[Update.Heartbeat]] and [[Update.CommandRejected]] must
+    * All [[Update]]s other than [[Update.CommandRejected]] must
     * always be persisted by the backends implementing the [[ReadService]].
-    * For heartbeats and command rejections, the situation is more
-    * nuanced, as we want to provide the backends with additional
-    * implementation leeway.
+    * For rejections, the situation is more nuanced, as we want to provide
+    * the backends with additional implementation leeway.
     *
     * [[Update.CommandRejected]] messages are advisory messages to submitters of
     * transactions to inform them in a timely fashion that their transaction
-    * has been rejected. The failure of transactions submissions for which no
-    * explicit [[Update.CommandRejected]] message is provided can be detected via
-    * [[Update.Heartbeat]]s, as explained in the 'maximum record time enforced'
-    * property above. In that context, it is also such that only the latest
-    * [[Update.Heartbeat]] with the highest record time matters.
+    * has been rejected.
     *
     * Given this intuition for the desired mechanism, we advise participant
     * state implementations to aim to always provide timely
-    * [[Update.CommandRejected]] messages and regular heartbeats at a
-    * granularity that supports timely detection of maximum record time
-    * violation. Concrete values need to be recommended by implementors.
+    * [[Update.CommandRejected]] messages.
     *
-    * Implementations are free to not persist
-    * [[Update.CommandRejected]] and [[Update.Heartbeat]] updates provided their
-    * [[Offset]]s are not reused. This is relevant for the case where a
-    * consumer rebuilds his view of the state by starting from a fresh
+    * Implementations are free to not persist [[Update.CommandRejected]] updates
+    * provided their [[Offset]]s are not reused. This is relevant for the case
+    * where a consumer rebuilds his view of the state by starting from a fresh
     * call to [[ReadService.stateUpdates]]; e.g., because it or the
     * stream provider crashed.
     *
@@ -139,7 +127,7 @@ trait ReadService extends ReportsHealth {
     *   *strictly increasing [[Offset]]* this also implies that the order of
     *   elements present in both `s1` and `s2` cannot change.
     *
-    * - *persistent updates*: any update other than [[Update.Heartbeat]] and
+    * - *persistent updates*: any update other than
     *   [[Update.CommandRejected]] in `s2` must also be present in `s1`.
     *
     *
@@ -158,7 +146,7 @@ trait ReadService extends ReportsHealth {
     *   `A`, respectively `B`.
     * The projections of `tx1` and `tx2` to the nodes visible to both `A` and `B` is the same.
     *
-    * Note that the the transaction `tx1` associated to `tid` on `p1` is not required to be the same as
+    * Note that the transaction `tx1` associated to `tid` on `p1` is not required to be the same as
     * the transaction `tx2` associated to `tid` on `p2`, as these two participants do not necessarily
     * host the same parties; and some implementations ensure data segregation on the ledger. Requiring
     * only the projections to sets of parties to be equal leaves just enough leeway for this

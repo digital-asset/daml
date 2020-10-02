@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.json
+package com.daml.navigator.json
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.json.Util._
-import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model._
+import com.daml.navigator.json.Util._
+import com.daml.navigator.json.DamlLfCodec.JsonImplicits._
 import spray.json._
 
 /**
@@ -18,10 +18,6 @@ object ModelCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Constants used in the encoding
   // ------------------------------------------------------------------------------------------------------------------
-  private[this] final val propType: String = "type"
-  private[this] final val contractCreatedTag: String = "ContractCreated"
-  private[this] final val contractArchivedTag: String = "ContractArchived"
-  private[this] final val choiceExercisedTag: String = "ChoiceExercised"
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding

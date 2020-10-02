@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -26,8 +26,10 @@ da_scala_library(
         "//language-support/codegen-main:codegen-main-lib",
         "//ledger-service/http-json",
         "//ledger/sandbox",
+        "//ledger/sandbox-classic",
         "//navigator/backend:navigator-library",
         "//triggers/runner:trigger-runner-lib",
+        "//triggers/service:trigger-service",
         "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_spray_spray_json_2_12",
@@ -36,13 +38,12 @@ da_scala_library(
 
 da_scala_binary(
     name = "sdk",
-    main_class = "com.digitalasset.daml.sdk.SdkMain",
-    tags = ["maven_coordinates=com.digitalasset.daml.sdk:sdk:__VERSION__"],
+    main_class = "com.daml.sdk.SdkMain",
+    tags = ["maven_coordinates=com.daml:sdk:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":sdk-lib",
         "//navigator/backend:backend-resources",
         "//navigator/backend:frontend-resources",
-        "//navigator/backend:version-resource",
     ],
 )

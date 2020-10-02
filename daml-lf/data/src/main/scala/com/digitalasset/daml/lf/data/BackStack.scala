@@ -1,34 +1,31 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
-import scala.annotation.tailrec
 import BackStack.{BQ, BQAppend, BQEmpty, BQSnoc}
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 /** A stack which allows to snoc, append, and pop in constant time, and generate an ImmArray in linear time.
   */
-final class BackStack[+A] private (fq: BQ[A], len: Int) {
+final class BackStack[+A] private (fq: BQ[A], val length: Int) {
 
   /** O(1) */
-  def length: Int = len
-
-  /** O(1) */
-  def :+[B >: A](x: B): BackStack[B] = new BackStack(BQSnoc(fq, x), len + 1)
+  def :+[B >: A](x: B): BackStack[B] = new BackStack(BQSnoc(fq, x), length + 1)
 
   /** O(1) */
   def :++[B >: A](xs: ImmArray[B]): BackStack[B] =
     if (xs.length > 0) {
-      new BackStack(BQAppend(fq, xs), len + xs.length)
+      new BackStack(BQAppend(fq, xs), length + xs.length)
     } else {
       this
     }
 
   /** O(n) */
   def toImmArray: ImmArray[A] = {
-    val array = new mutable.ArraySeq[A](len)
+    val array = new mutable.ArraySeq[A](length)
 
     @tailrec
     def go(cursor: Int, fq: BQ[A]): Unit = fq match {
@@ -42,7 +39,8 @@ final class BackStack[+A] private (fq: BQ[A], len: Int) {
         }
         go(cursor - last.length, init)
     }
-    go(len - 1, fq)
+
+    go(length - 1, fq)
 
     ImmArray.unsafeFromArraySeq(array)
   }
@@ -61,15 +59,15 @@ final class BackStack[+A] private (fq: BQ[A], len: Int) {
 
   /** O(1) */
   def pop: Option[(BackStack[A], A)] = {
-    if (len > 0) {
+    if (length > 0) {
       fq match {
-        case BQEmpty => throw new RuntimeException(s"BackQueue has length $len but BQEmpty.")
-        case BQSnoc(init, last) => Some((new BackStack(init, len - 1), last))
+        case BQEmpty => throw new RuntimeException(s"BackQueue has length $length but BQEmpty.")
+        case BQSnoc(init, last) => Some((new BackStack(init, length - 1), last))
         case BQAppend(init, last) =>
           if (last.length > 1) {
-            Some((new BackStack(BQAppend(init, last.init), len - 1), last.last))
+            Some((new BackStack(BQAppend(init, last.init), length - 1), last.last))
           } else if (last.length > 0) {
-            Some((new BackStack(init, len - 1), last.last))
+            Some((new BackStack(init, length - 1), last.last))
           } else {
             throw new RuntimeException(s"BackQueue had BQPrepend with non-empty last: $last")
           }
@@ -85,10 +83,10 @@ final class BackStack[+A] private (fq: BQ[A], len: Int) {
   }
 
   /** O(1) */
-  def isEmpty: Boolean = len == 0
+  def isEmpty: Boolean = length == 0
 
   /** O(1) */
-  def nonEmpty: Boolean = len > 0
+  def nonEmpty: Boolean = length > 0
 
   /** O(1)
     *

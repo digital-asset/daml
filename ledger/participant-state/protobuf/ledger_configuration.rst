@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Ledger Configuration Specification
@@ -48,10 +48,13 @@ stale data.
 
 ``time_model`` is required.
 
-``authorized_participant_ids`` is optional. If non-empty, then configuration
-change originating from a participant that does not match any of the authorized
-participants field will be rejected.
-If unset, then change from any participant is accepted and that participant can set this field.
+*since version 2*
+
+``max_deduplication_time`` is required and must be set to a positive duration.
+This defines the maximum value for the corresponding ``deduplication_time``
+parameter of command submissions, i.e., the maximum time during which a command
+can be deduplicated.
+
 
 message LedgerTimeModel
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -59,7 +62,7 @@ message LedgerTimeModel
 *since version 1*
 
 Defines the ledger time model, which governs the rules for acceptable
-ledger effective time and maximum record time parameters that are part
+ledger time and maximum record time parameters that are part
 of transaction submission.
 
 As of version 1, these fields are included:

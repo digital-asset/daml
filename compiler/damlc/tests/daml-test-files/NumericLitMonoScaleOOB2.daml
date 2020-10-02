@@ -6,7 +6,7 @@
 -- conversion error even if we try to be clever.
 --
 -- @SINCE-LF 1.7
--- @ERROR type-level natural outside of supported range [0, 37]
+-- @ERROR range=17:0-17:8; type-level natural outside of supported range [0, 37]
 
 
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -10,16 +10,20 @@ load(
 da_scala_library(
     name = "ports",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset:ports:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ports:__VERSION__"],
     visibility = [
         "//visibility:public",
+    ],
+    deps = [
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 da_scala_test(
     name = "ports-tests",
-    srcs = glob(["src/test/suite/**/*.scala"]),
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
     deps = [
         ":ports",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

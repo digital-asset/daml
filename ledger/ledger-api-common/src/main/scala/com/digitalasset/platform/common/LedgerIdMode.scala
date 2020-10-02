@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.common
+package com.daml.platform.common
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.LedgerId
 
 sealed abstract class LedgerIdMode extends Product with Serializable {
   def or(other: => LedgerId): LedgerId

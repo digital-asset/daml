@@ -1,15 +1,21 @@
 sdk-version: __VERSION__
 name: quickstart
 source: daml
-scenario: Main:setup
+init-script: Main:initialize
 parties:
   - Alice
   - Bob
   - USD_Bank
   - EUR_Bank
 version: 0.0.1
-exposed-modules:
-  - Main
 dependencies:
   - daml-prim
   - daml-stdlib
+  - daml-script
+sandbox-options:
+  - --wall-clock-time
+codegen:
+  java:
+    package-prefix: com.daml.quickstart.model
+    output-directory: target/generated-sources/iou
+    decoderClass: com.daml.quickstart.iou.TemplateDecoder

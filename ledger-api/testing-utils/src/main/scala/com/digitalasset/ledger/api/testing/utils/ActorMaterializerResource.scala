@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.testing.utils
+package com.daml.ledger.api.testing.utils
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -9,7 +9,7 @@ import akka.stream.Materializer
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class ActorMaterializerResource(actorSystemName: String = "")
+final class ActorMaterializerResource(actorSystemName: String = "")
     extends ManagedResource[Materializer] {
   override protected def construct(): Materializer = {
     implicit val system: ActorSystem =

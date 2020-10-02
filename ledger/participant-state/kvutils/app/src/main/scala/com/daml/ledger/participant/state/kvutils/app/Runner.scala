@@ -1,29 +1,38 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.nio.file.Path
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.v1.SubmissionId
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.apiserver.StandaloneApiServer
-import com.digitalasset.platform.indexer.StandaloneIndexerServer
-import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
+import com.daml.lf.archive.DarReader
+import com.daml.lf.engine.Engine
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.JvmMetricSet
+import com.daml.platform.apiserver.StandaloneApiServer
+import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.platform.store.IndexMetadata
+import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.resources.akka.AkkaResourceOwner
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
-class Runner[T <: ReadWriteService, Extra](
+final class Runner[T <: ReadWriteService, Extra](
     name: String,
-    factory: LedgerFactory[ReadWriteService, Extra]) {
+    factory: LedgerFactory[ReadWriteService, Extra],
+) {
   def owner(args: Seq[String]): ResourceOwner[Unit] =
     Config
       .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
@@ -33,48 +42,112 @@ class Runner[T <: ReadWriteService, Extra](
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
       val config = factory.manipulateConfig(originalConfig)
 
-      implicit val system: ActorSystem = ActorSystem(
-        "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
-      implicit val materializer: Materializer = Materializer(system)
-
-      newLoggingContext { implicit logCtx =>
-        for {
-          // Take ownership of the actor system and materializer so they're cleaned up properly.
-          // This is necessary because we can't declare them as implicits in a `for` comprehension.
-          _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
-          _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
-
-          // initialize all configured participants
-          _ <- Resource.sequence(config.participants.map { participantConfig =>
-            for {
-              ledger <- factory.readWriteServiceOwner(config, participantConfig).acquire()
-              _ <- Resource.fromFuture(
-                Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
-              _ <- new StandaloneIndexerServer(
-                system,
-                readService = ledger,
-                factory.indexerConfig(participantConfig, config),
-                factory.indexerMetricRegistry(participantConfig, config),
-              ).acquire()
-              _ <- new StandaloneApiServer(
-                factory.apiServerConfig(participantConfig, config),
-                factory.commandConfig(config),
-                factory.submissionConfig(config),
-                readService = ledger,
-                writeService = ledger,
-                authService = factory.authService(config),
-                factory.apiServerMetricRegistry(participantConfig, config),
-                factory.timeServiceBackend(config),
-                config.seeding,
-              ).acquire()
-            } yield ()
-          })
-        } yield ()
+      config.mode match {
+        case Mode.DumpIndexMetadata(jdbcUrls) =>
+          dumpIndexMetadata(jdbcUrls)
+          sys.exit(0)
+        case Mode.Run =>
+          run(config)
       }
     }
   }
 
-  private def uploadDar(from: Path, to: ReadWriteService)(
+  private def dumpIndexMetadata(jdbcUrls: Seq[String])(
+      implicit executionContext: ExecutionContext,
+  ): Unit = {
+    val logger = ContextualizedLogger.get(this.getClass)
+    for (jdbcUrl <- jdbcUrls) {
+      newLoggingContext("jdbcUrl" -> jdbcUrl) { implicit loggingContext: LoggingContext =>
+        IndexMetadata.read(jdbcUrl).onComplete {
+          case Failure(exception) =>
+            logger.error("Error while retrieving the index metadata", exception)
+          case Success(metadata) =>
+            logger.warn(s"ledger_id: ${metadata.ledgerId}")
+            logger.warn(s"participant_id: ${metadata.participantId}")
+            logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
+            logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
+        }
+      }
+    }
+  }
+
+  private def run(config: Config[Extra])(
+      implicit executionContext: ExecutionContext,
+  ): Resource[Unit] = {
+
+    implicit val actorSystem: ActorSystem = ActorSystem(
+      "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
+    implicit val materializer: Materializer = Materializer(actorSystem)
+
+    // share engine between the kvutils committer backend and the ledger api server
+    // this avoids duplicate compilation of packages as well as keeping them in memory twice
+    // FIXME: https://github.com/digital-asset/daml/issues/5164
+    // This should be made configurable
+    val sharedEngine = Engine.DevEngine()
+
+    newLoggingContext { implicit loggingContext =>
+      for {
+        // Take ownership of the actor system and materializer so they're cleaned up properly.
+        // This is necessary because we can't declare them as implicits in a `for` comprehension.
+        _ <- AkkaResourceOwner.forActorSystem(() => actorSystem).acquire()
+        _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
+
+        // initialize all configured participants
+        _ <- Resource.sequence(config.participants.map { participantConfig =>
+          val metrics = factory.createMetrics(participantConfig, config)
+          metrics.registry.registerAll(new JvmMetricSet)
+          val lfValueTranslationCache =
+            LfValueTranslation.Cache.newInstrumentedInstance(
+              eventConfiguration = config.lfValueTranslationEventCache,
+              contractConfiguration = config.lfValueTranslationContractCache,
+              metrics = metrics,
+            )
+          for {
+            _ <- config.metricsReporter.fold(Resource.unit)(
+              reporter =>
+                ResourceOwner
+                  .forCloseable(() => reporter.register(metrics.registry))
+                  .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+                  .acquire())
+            ledger <- factory
+              .readWriteServiceOwner(config, participantConfig, sharedEngine)
+              .acquire()
+            readService = new TimedReadService(ledger, metrics)
+            writeService = new TimedWriteService(ledger, metrics)
+            healthChecks = new HealthChecks(
+              "read" -> readService,
+              "write" -> writeService,
+            )
+            _ <- Resource.fromFuture(
+              Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
+            _ <- new StandaloneIndexerServer(
+              readService = readService,
+              config = factory.indexerConfig(participantConfig, config),
+              metrics = metrics,
+              lfValueTranslationCache = lfValueTranslationCache,
+            ).acquire()
+            _ <- new StandaloneApiServer(
+              ledgerId = config.ledgerId,
+              config = factory.apiServerConfig(participantConfig, config),
+              commandConfig = factory.commandConfig(participantConfig, config),
+              partyConfig = factory.partyConfig(config),
+              ledgerConfig = factory.ledgerConfig(config),
+              optWriteService = Some(writeService),
+              authService = factory.authService(config),
+              healthChecks = healthChecks,
+              metrics = metrics,
+              timeServiceBackend = factory.timeServiceBackend(config),
+              otherInterceptors = factory.interceptors(config),
+              engine = sharedEngine,
+              lfValueTranslationCache = lfValueTranslationCache,
+            ).acquire()
+          } yield ()
+        })
+      } yield ()
+    }
+  }
+
+  private def uploadDar(from: Path, to: WritePackagesService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)

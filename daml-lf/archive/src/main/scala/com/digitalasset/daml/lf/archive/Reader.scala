@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package archive
 
 import java.io.InputStream
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
 abstract class Reader[+Pkg] {
@@ -123,7 +123,6 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
     import DamlLf.ArchivePayload.{SumCase => SC}
     import language.{LanguageMajorVersion => LMV}
     lf.getSumCase match {
-      case SC.DAML_LF_0 => LMV.V0
       case SC.DAML_LF_1 => LMV.V1
       case SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
     }

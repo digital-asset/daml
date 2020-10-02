@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.iface
+package com.daml.lf.iface
 package reader
 
-import com.digitalasset.daml.lf.data.Ref.{DottedName, Name}
+import com.daml.lf.data.Ref.{DottedName, Name}
 
 import scala.language.{higherKinds, implicitConversions}
 import scala.collection.immutable.Map
@@ -112,14 +112,14 @@ object Errors {
   private[reader] def traverseIndexedErrs[F[_]: Traverse, K, A, Loc: Order, E: Semigroup, B](
       map: F[(K, A)])(f: A => (Errors[Loc, E] \/ B))(
       implicit kloc: K => Loc): Errors[Loc, E] \/ F[B] =
-    map.traverseU { case (k, a) => locate(kloc(k), f(a)).validation }.disjunction
+    map.traverse { case (k, a) => locate(kloc(k), f(a)).validation }.disjunction
 
   /** Like `traverseIndexedErrs` for maps specifically. If result is
     * right, the keyset is guaranteed to be the same.
     */
   private[reader] def traverseIndexedErrsMap[K, A, Loc: Order, E: Semigroup, B](map: Map[K, A])(
       f: A => (Errors[Loc, E] \/ B))(implicit kloc: K => Loc): Errors[Loc, E] \/ Map[K, B] =
-    map.transform((k, a) => locate(kloc(k), f(a)).validation).sequenceU.disjunction
+    map.transform((k, a) => locate(kloc(k), f(a)).validation).sequence.disjunction
 
   private[reader] def stringReport[Loc, E](
       errors: Errors[Loc, E])(loc: Loc => Cord, msg: E => Cord): Cord = {

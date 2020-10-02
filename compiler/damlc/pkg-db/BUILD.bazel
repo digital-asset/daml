@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,13 +6,7 @@ load(
     "daml_package_db",
     "daml_package_rule",
 )
-
-DAML_LF_VERSIONS = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "1.dev",
-]
+load("//compiler/damlc:util.bzl", "DAML_LF_VERSIONS")
 
 daml_package_db(
     name = "package_db_for_daml-prim",

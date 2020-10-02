@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 data "google_project" "current" {
@@ -40,6 +40,9 @@ resource "google_storage_bucket" "default" {
   }
 
   website {
+    # This doesn't exist, but the property has to have a value, otherwise GCP
+    # sets a default one and Terraform never thinks the config applies cleanly.
+    # I miss AWS.
     main_page_suffix = "index.html"
   }
 

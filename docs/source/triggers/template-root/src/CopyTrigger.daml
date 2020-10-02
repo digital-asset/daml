@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -93,7 +93,7 @@ copyRule party acs _time commandsInFlight () = do
 -- ARCHIVE_COPIES_END
 
 -- ARCHIVE_COMMAND_BEGIN
-  forA archiveCopies $ \cid -> dedupExercise cid Archive
+  forA archiveCopies $ \cid -> emitCommands [exerciseCmd cid Archive] [toAnyContractId cid]
 -- ARCHIVE_COMMAND_END
 
 -- CREATE_COPIES_BEGIN

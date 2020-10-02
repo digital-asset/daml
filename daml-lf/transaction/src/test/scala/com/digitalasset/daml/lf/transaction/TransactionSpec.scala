@@ -1,21 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.daml.lf
+package transaction
 
 import scala.language.higherKinds
-import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.GenTransaction.{
+import com.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.daml.lf.transaction.GenTransaction.{
   AliasedNode,
   DanglingNodeId,
   NotWellFormedError,
-  OrphanedNode,
+  OrphanedNode
 }
-import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.value.{Value => V}
-import V.ContractInst
-import com.digitalasset.daml.lf.value.ValueGenerators.danglingRefGenNode
+import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
@@ -28,35 +27,87 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
   "isWellFormed" - {
     "detects dangling references in roots" in {
-      val tx = StringTransaction(HashMap.empty, ImmArray("1"))
-      tx.isWellFormed shouldBe Set(NotWellFormedError("1", DanglingNodeId))
+      val tx = mkTransaction(HashMap.empty, ImmArray(NodeId(1)))
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), DanglingNodeId))
     }
 
     "detects dangling references in children" in {
-      val tx = StringTransaction(HashMap("1" -> dummyExerciseNode(ImmArray("2"))), ImmArray("1"))
-      tx.isWellFormed shouldBe Set(NotWellFormedError("2", DanglingNodeId))
+      val tx = mkTransaction(
+        HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2)))),
+        ImmArray(NodeId(1)))
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(2), DanglingNodeId))
     }
 
     "detects cycles" in {
-      val tx = StringTransaction(HashMap("1" -> dummyExerciseNode(ImmArray("1"))), ImmArray("1"))
-      tx.isWellFormed shouldBe Set(NotWellFormedError("1", AliasedNode))
+      val tx = mkTransaction(
+        HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(1)))),
+        ImmArray(NodeId(1)))
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), AliasedNode))
     }
 
     "detects aliasing from roots and exercise" in {
-      val tx = StringTransaction(
+      val tx = mkTransaction(
         HashMap(
-          "0" -> dummyExerciseNode(ImmArray("1")),
-          "1" -> dummyExerciseNode(ImmArray("2")),
-          "2" -> dummyCreateNode,
+          NodeId(0) -> dummyExerciseNode("cid0", ImmArray(NodeId(1))),
+          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2))),
+          NodeId(2) -> dummyCreateNode("cid2"),
         ),
-        ImmArray("0", "2"),
+        ImmArray(NodeId(0), NodeId(2)),
       )
-      tx.isWellFormed shouldBe Set(NotWellFormedError("2", AliasedNode))
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(2), AliasedNode))
     }
 
     "detects orphans" in {
-      val tx = StringTransaction(HashMap("1" -> dummyCreateNode), ImmArray.empty)
-      tx.isWellFormed shouldBe Set(NotWellFormedError("1", OrphanedNode))
+      val tx = mkTransaction(HashMap(NodeId(1) -> dummyCreateNode("cid1")), ImmArray.empty)
+      tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), OrphanedNode))
+    }
+  }
+
+  "cids" - {
+
+    "collects contract IDs" in {
+      val tx = mkTransaction(
+        HashMap(
+          NodeId(0) -> dummyExerciseNode("cid0", ImmArray(NodeId(1))),
+          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2))),
+          NodeId(2) -> dummyCreateNode("cid2"),
+        ),
+        ImmArray(NodeId(0), NodeId(2)),
+      )
+
+      def collectCids(tx: Transaction): Set[V.ContractId] = {
+        val cids = Set.newBuilder[V.ContractId]
+        tx.foreach3(_ => (), cids += _, cids ++= _.cids)
+        cids.result()
+      }
+
+      collectCids(tx) shouldBe Set[V.ContractId]("cid0", "cid1", "cid2", dummyCid)
+
+    }
+
+  }
+
+  "foldInExecutionOrder" - {
+    "should traverse the transaction in execution order" in {
+
+      val tx = mkTransaction(
+        HashMap(
+          NodeId(0) -> dummyCreateNode("cid0"),
+          NodeId(1) -> dummyExerciseNode("cid0", ImmArray(NodeId(2))),
+          NodeId(2) -> dummyExerciseNode("cid1", ImmArray.empty),
+          NodeId(3) -> dummyCreateNode("cid2"),
+        ),
+        ImmArray(NodeId(0), NodeId(1), NodeId(3)),
+      )
+
+      val result = tx.foldInExecutionOrder(List.empty[String])(
+        (acc, nid, _) => s"exerciseBegin(${nid.index})" :: acc,
+        (acc, nid, _) => s"leaf(${nid.index})" :: acc,
+        (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
+      )
+
+      result.reverse.mkString(", ") shouldBe
+        "leaf(0), exerciseBegin(1), exerciseBegin(2), exerciseEnd(2), exerciseEnd(1), leaf(3)"
     }
   }
 
@@ -102,7 +153,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     "ignores location" in forAll(genEmptyNode) { n =>
       val withoutLocation = n match {
         case nc: CidVal[Node.NodeCreate] => nc copy (optLocation = None)
-        case nf: Node.NodeFetch[V.ContractId] => nf copy (optLocation = None)
+        case nf: Node.NodeFetch.WithTxValue[V.ContractId] => nf copy (optLocation = None)
         case ne: Node.NodeExercises.WithTxValue[Nothing, V.ContractId] =>
           ne copy (optLocation = None)
         case nl: CidVal[Node.NodeLookupByKey] => nl copy (optLocation = None)
@@ -111,26 +162,66 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
       isReplayedBy(n, withoutLocation) shouldBe true
     }
   }
+
+  "suffixCid" - {
+    "suffix non suffixed and only non suffixed contract ids" in {
+
+      val tx = mkTransaction(
+        HashMap(
+          NodeId(0) -> dummyCreateNode("cid1"),
+          NodeId(0) -> dummyExerciseNode("cid1", ImmArray(NodeId(0))),
+          NodeId(1) -> dummyExerciseNode("cid2", ImmArray(NodeId(1))),
+        ),
+        ImmArray(NodeId(0), NodeId(1)),
+      )
+
+      val suffix1 = Bytes.assertFromString("01")
+      val suffix2 = Bytes.assertFromString("02")
+
+      val cid1 = toCid("cid1")
+      val cid2 = toCid("cid2")
+
+      val mapping1: crypto.Hash => Bytes = Map(
+        cid1.discriminator -> suffix1,
+        cid2.discriminator -> suffix2,
+      )
+
+      val mapping2: V.ContractId => V.ContractId = Map(
+        cid1 -> V.ContractId.V1.assertBuild(cid1.discriminator, suffix1),
+        cid2 -> V.ContractId.V1.assertBuild(cid2.discriminator, suffix2),
+      )
+
+      dummyCreateNode("dd").coinst.suffixCid(mapping1)
+
+      val tx1 = tx.suffixCid(mapping1)
+      val tx2 = tx.suffixCid(mapping1)
+
+      tx1 shouldNot be(tx)
+      tx2 shouldBe tx1
+      tx1 shouldBe Right(tx.map3(identity, mapping2, _.map1(mapping2)))
+
+    }
+  }
 }
 
 object TransactionSpec {
-  private[this] type Value = V[V.AbsoluteContractId]
-  type StringTransaction = GenTransaction[String, V.AbsoluteContractId, Value]
-  def StringTransaction(
-      nodes: HashMap[String, GenNode[String, V.AbsoluteContractId, Value]],
-      roots: ImmArray[String],
-  ): StringTransaction = GenTransaction(nodes, roots)
+  private[this] type Value = V[V.ContractId]
+  type Transaction = GenTransaction[NodeId, V.ContractId, Value]
+  def mkTransaction(
+      nodes: HashMap[NodeId, GenNode[NodeId, V.ContractId, Value]],
+      roots: ImmArray[NodeId],
+  ): Transaction = GenTransaction(nodes, roots)
 
   def dummyExerciseNode(
-      children: ImmArray[String],
+      cid: V.ContractId,
+      children: ImmArray[NodeId],
       hasExerciseResult: Boolean = true,
-  ): NodeExercises[String, V.AbsoluteContractId, Value] =
+  ): NodeExercises[NodeId, V.ContractId, Value] =
     NodeExercises(
-      nodeSeed = None,
-      targetCoid = V.AbsoluteContractId(Ref.ContractIdString.assertFromString("dummyCoid")),
+      targetCoid = cid,
       templateId = Ref.Identifier(
-        PackageId.assertFromString("-dummyPkg-"),
-        QualifiedName.assertFromString("DummyModule:dummyName"),
+        Ref.PackageId.assertFromString("-dummyPkg-"),
+        Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
       ),
       choiceId = "dummyChoice",
       optLocation = None,
@@ -139,23 +230,27 @@ object TransactionSpec {
       chosenValue = V.ValueUnit,
       stakeholders = Set.empty,
       signatories = Set.empty,
-      controllers = Set.empty,
+      controllersDifferFromActors = false,
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       key = None,
     )
 
-  val dummyCreateNode: NodeCreate[V.AbsoluteContractId, Value] =
+  val dummyCid = V.ContractId.V1.assertBuild(
+    toCid("dummyCid").discriminator,
+    Bytes.assertFromString("f00d"),
+  )
+
+  def dummyCreateNode(cid: String): NodeCreate[V.ContractId, Value] =
     NodeCreate(
-      nodeSeed = None,
-      coid = V.AbsoluteContractId(Ref.ContractIdString.assertFromString("dummyCoid")),
-      coinst = ContractInst(
+      coid = toCid(cid),
+      coinst = V.ContractInst(
         Ref.Identifier(
-          PackageId.assertFromString("-dummyPkg-"),
-          QualifiedName.assertFromString("DummyModule:dummyName"),
+          Ref.PackageId.assertFromString("-dummyPkg-"),
+          Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
         ),
-        V.ValueUnit,
-        ("dummyAgreement"),
+        V.ValueContractId(dummyCid),
+        "dummyAgreement",
       ),
       optLocation = None,
       signatories = Set.empty,
@@ -163,6 +258,9 @@ object TransactionSpec {
       key = None,
     )
 
-  private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
+  implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
+
+  implicit def toCid(s: String): V.ContractId.V1 =
+    V.ContractId.V1(crypto.Hash.hashPrivateKey(s))
 
 }

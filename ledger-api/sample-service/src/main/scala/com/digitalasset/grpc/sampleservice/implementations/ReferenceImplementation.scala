@@ -1,15 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.sampleservice.implementations
+package com.daml.grpc.sampleservice.implementations
 
-import com.digitalasset.grpc.sampleservice.Responding
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloService
-import com.digitalasset.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.grpc.sampleservice.Responding
+import com.daml.platform.hello.HelloServiceGrpc.HelloService
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
 import scala.concurrent.ExecutionContext
+
 class ReferenceImplementation
     extends HelloService
     with Responding
@@ -23,13 +24,14 @@ class ReferenceImplementation
 
   override def serverStreaming(
       request: HelloRequest,
-      responseObserver: StreamObserver[HelloResponse]): Unit = {
+      responseObserver: StreamObserver[HelloResponse],
+  ): Unit = {
     validateRequest(request)
     for (i <- 1.to(request.reqInt)) responseObserver.onNext(HelloResponse(i))
     responseObserver.onCompleted()
   }
 
-  private def validateRequest(request: HelloRequest) =
+  private def validateRequest(request: HelloRequest): Unit =
     if (request.reqInt < 0)
       throw Status.INVALID_ARGUMENT
         .withDescription("request cannot be negative")

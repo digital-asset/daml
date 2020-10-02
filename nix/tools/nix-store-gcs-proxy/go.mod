@@ -1,5 +1,7 @@
 module github.com/digital-asset/daml/nix/tools/nix-store-gcs-proxy
 
+go 1.14
+
 require (
 	cloud.google.com/go v0.37.2
 	github.com/urfave/cli v1.20.0

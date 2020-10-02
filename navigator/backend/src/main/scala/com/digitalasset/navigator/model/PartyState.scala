@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
 import java.util.concurrent.atomic.AtomicReference
 
-import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.lf.{iface => DamlLfIface}
+import com.daml.ledger.api.refinements.ApiTypes
 
 import scalaz.Tag
 

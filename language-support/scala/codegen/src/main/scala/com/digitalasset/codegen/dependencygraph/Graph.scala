@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.dependencygraph
+package com.daml.codegen.dependencygraph
 
-import com.digitalasset.codegen.exception.UnsopportedTypeError
+import com.daml.codegen.exception.UnsopportedTypeError
 
 object Graph {
 
@@ -27,7 +27,7 @@ object Graph {
         node: NKA): (Seen, Vector[(K, NKA)], Boolean, List[UnsopportedTypeError]) = {
       if (seen.isDefinedAt(id) || stack(id)) (seen, Vector(), seen getOrElse (id, false), List())
       else {
-        val Node(_, deps, collectError) = node
+        val Node(_, deps, collectError @ _) = node
         val (newSeen, newEnts, missing, utes) = visitN(seen, stack + id, deps)
 
         if (missing.nonEmpty)

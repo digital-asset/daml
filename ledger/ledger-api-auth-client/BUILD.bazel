@@ -1,14 +1,14 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:java.bzl", "da_java_library")
 
 da_java_library(
     name = "ledger-api-auth-client",
-    srcs = glob(["src/main/java/com/digitalasset/ledger/api/auth/client/**/*.java"]),
+    srcs = glob(["src/main/java/com/daml/ledger/api/auth/client/**/*.java"]),
     tags = [
-        "javadoc_root_packages=com.digitalasset.ledger.api.auth.client",
-        "maven_coordinates=com.digitalasset.ledger:ledger-api-auth-client:__VERSION__",
+        "javadoc_root_packages=com.daml.ledger.api.auth.client",
+        "maven_coordinates=com.daml:ledger-api-auth-client:__VERSION__",
     ],
     visibility = [
         "//visibility:public",

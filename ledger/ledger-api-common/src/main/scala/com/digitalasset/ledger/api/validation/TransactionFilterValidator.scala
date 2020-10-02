@@ -1,17 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.InclusiveFilters
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.server.api.validation.FieldValidations._
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.InclusiveFilters
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
-import scalaz.Traverse
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
@@ -19,13 +16,12 @@ import scalaz.syntax.traverse._
 object TransactionFilterValidator {
 
   def validate(
-      txFilter: TransactionFilter,
-      fieldName: String): Either[StatusRuntimeException, domain.TransactionFilter] = {
+      txFilter: TransactionFilter): Either[StatusRuntimeException, domain.TransactionFilter] = {
     if (txFilter.filtersByParty.isEmpty) {
       Left(ErrorFactories.invalidArgument("filtersByParty cannot be empty"))
     } else {
       val convertedFilters =
-        txFilter.filtersByParty.toList.traverseU {
+        txFilter.filtersByParty.toList.traverse {
           case (k, v) =>
             for {
               key <- requireParty(k)
@@ -41,8 +37,7 @@ object TransactionFilterValidator {
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
           val validatedIdents =
-            Traverse[List].traverseU[Identifier, Either[StatusRuntimeException, Ref.Identifier]](
-              inclusive.templateIds.toList)((id: Identifier) => validateIdentifier(id))
+            inclusive.templateIds.toList traverse validateIdentifier
           validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet))))
       }
   }

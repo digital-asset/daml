@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Project.Consts
@@ -173,10 +173,10 @@ withProjectRoot mbProjectDir (ProjectCheck cmdName check) act = do
             when check $ do
                 hPutStrLn stderr (cmdName <> ": Not in project.")
                 exitFailure
-            act mbProjectPath pure
+            act Nothing pure
         Just projectPath -> do
             projectPath <- canonicalizePath projectPath
-            withCurrentDirectory projectPath $ act mbProjectPath $ \f -> do
+            withCurrentDirectory projectPath $ act (Just projectPath) $ \f -> do
                 absF <- canonicalizePath (previousCwd </> f)
                 pure (projectPath `makeRelative` absF)
 

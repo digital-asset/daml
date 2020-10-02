@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.api.util
+package com.daml.api.util
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.v1.value.Value
+import com.daml.ledger.api.v1.value.Value
 import com.google.protobuf.timestamp.Timestamp
 
 object TimestampConversion {

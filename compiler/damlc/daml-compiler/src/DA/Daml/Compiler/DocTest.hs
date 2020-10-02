@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Compiler.DocTest (docTest) where
@@ -26,7 +26,7 @@ import System.FilePath
 docTest :: IdeState -> [NormalizedFilePath] -> IO ()
 docTest ideState files = do
     ms <- runActionSync ideState (uses_ GenerateDocTestModule files)
-    let docTestFile m = toNormalizedFilePath $
+    let docTestFile m = toNormalizedFilePath' $
             genDir </>
             T.unpack (T.replace "." "/" (docTestModuleName $ genModuleName m)) -<.>
             "daml"

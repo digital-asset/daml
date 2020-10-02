@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ ERROR parse error on input ‘controller’
+-- @ ERROR range=15:0-15:10; parse error on input ‘controller’
 
 
 module NoControllerAsVar where

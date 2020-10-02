@@ -1,0 +1,35 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR exercise C on #1:1
+module TransientFailure where
+
+template T'
+  with
+    p: Party
+  where
+    signatory p
+    choice C : ()
+      controller p
+      do assert False
+
+template T
+  with
+    p: Party
+  where
+    signatory p
+    nonconsuming choice FailingTransient : ()
+      controller p
+      do cid <- create T' with p
+         exercise cid C
+
+testBio : Scenario ()
+testBio  = do
+  p <- getParty "p"
+  latestCid <- submit p do create T with p
+  -- This produces a failing transaction with a contract created
+  -- in the same transaction. In the past this resulted
+  -- in an exception in the scenario service when converting
+  -- between contract ids and node ids.
+  submit p do exercise latestCid FailingTransient
+  return ()

@@ -1,10 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphqless
+package com.daml.navigator.graphqless
 
 import sangria.schema._
 import shapeless._
+import com.github.ghik.silencer.silent
 
 import scala.reflect.ClassTag
 
@@ -18,6 +19,7 @@ object GraphQLObject {
 
 trait DerivedGraphQLObject {
 
+  @silent(" generic .*is never used") // used to calculate Repr0 tparam only
   implicit def caseClassGraphQLObject[C, Repr0 <: HList](
       implicit
       classTag: ClassTag[C],

@@ -16,13 +16,17 @@ let shared = rec {
     gzip
     imagemagick
     jdk8
+    jekyll
     jq
     netcat-gnu
     nodejs
+    openssl
+    gnupatch
     patchelf
     postgresql_9_6
     protobuf3_8
     python3
+    toxiproxy
     zip
     ;
 
@@ -62,13 +66,31 @@ let shared = rec {
 
   sass = pkgs.sass;
 
+  sphinx-copybutton = pkgs.python3Packages.buildPythonPackage rec {
+      pname = "sphinx-copybutton";
+      version = "0.2.12";
+
+      src = pkgs.python3Packages.fetchPypi {
+        inherit pname version;
+        sha256 = "0p1yls8pplfg59wzmb96m3pjcyr3202an1rcr5wn2jwqhqvqi4ll";
+      };
+      doCheck = false;
+      buildInputs = [sphinx183];
+  } ;
+
   # sphinx 2.2.2 causes build failures of //docs:pdf-docs.
+  # We override here rather than in nixpkgs.nix since GHC depends on sphinx
+  # and we don’t want to rebuild that unnecessarily.
   sphinx183 = pkgs.python3Packages.sphinx.overridePythonAttrs (attrs: rec {
     version = "1.8.3";
     src = attrs.src.override {
       inherit version;
       sha256 = "c4cb17ba44acffae3d3209646b6baec1e215cad3065e852c68cc569d4df1b9f8";
     };
+  });
+
+  sphinx183-exts = sphinx183.overridePythonAttrs (attrs: rec {
+    propagatedBuildInputs = attrs.propagatedBuildInputs ++ [sphinx-copybutton];
   });
 
   # Custom combination of latex packages for our latex needs
@@ -105,12 +127,15 @@ let shared = rec {
       titlesec
       tocbibind
       todonotes
+      transparent
       trimspaces
       varwidth
       wrapfig
       xargs
     ;
   };
+
+  z3 = pkgs.z3;
 
   bazel-cc-toolchain = pkgs.callPackage ./tools/bazel-cc-toolchain {};
 };

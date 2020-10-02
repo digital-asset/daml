@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger
 package participant.state.v1
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.Time.Timestamp
+import com.daml.daml_lf_dev.DamlLf
 
 /** An update to the (abstract) participant state.
   *
@@ -26,11 +26,6 @@ sealed trait Update extends Product with Serializable {
 }
 
 object Update {
-
-  /** Signal aliveness and the current record time.  */
-  final case class Heartbeat(recordTime: Timestamp) extends Update {
-    override def description: String = s"Heartbeat: $recordTime"
-  }
 
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(

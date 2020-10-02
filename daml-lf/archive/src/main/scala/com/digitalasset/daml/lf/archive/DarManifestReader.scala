@@ -1,13 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package archive
 
 import java.io.InputStream
 import java.util.jar.{Attributes, Manifest}
 
-import scala.collection.breakOut
 import scala.util.{Failure, Success, Try}
 
 object DarManifestReader {
@@ -26,8 +25,8 @@ object DarManifestReader {
   }
 
   private def dependencies(other: String, main: String): List[String] = {
-    val deps: List[String] = other.split(',').map(_.trim)(breakOut)
-    deps.filter(x => x != main)
+    val deps = other.split(',').view.map(_.trim)
+    deps.filter(x => x != main).toList
   }
 
   private def value(attributes: Attributes)(key: String): Try[String] =

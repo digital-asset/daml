@@ -1,11 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.language._
-import value.ValueVersions
+import com.daml.lf.language.LanguageMinorVersion.Dev
+import com.daml.lf.language._
+import value.{ValueVersion, ValueVersions}
 
 import scala.language.higherKinds
 import scalaz.{ICons, INil, NonEmptyList}
@@ -14,9 +15,8 @@ import scalaz.syntax.foldable._
 import org.scalacheck.Gen
 import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.PropertyChecks
-import scalaz.\&/.That
+import scalaz.\&/.Both
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks with Inside {
   import VersionTimeline._
   import VersionTimelineSpec._
@@ -66,7 +66,9 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
 
     "end with a dev version" in {
       inside(inAscendingOrder.last) {
-        case That(LanguageVersion(_, LanguageMinorVersion.Dev)) =>
+        case Both(
+            Both(ValueVersion("7"), TransactionVersion("11")),
+            LanguageVersion(LanguageVersion.Major.V1, Dev)) =>
       }
     }
 
@@ -187,7 +189,6 @@ object VersionTimelineSpec {
 
   private final case class Variety[A](gen: Gen[A])(implicit val sv: SubVersion[A])
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private val varieties = NonEmptyList[Variety[_]](
     Variety(Gen oneOf ValueVersions.acceptedVersions),
     Variety(Gen oneOf TransactionVersions.acceptedVersions),

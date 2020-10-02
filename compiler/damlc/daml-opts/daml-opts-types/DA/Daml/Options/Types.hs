@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -6,11 +6,12 @@
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
+    , EnableScripts(..)
     , SkipScenarioValidation(..)
     , DlintUsage(..)
     , Haddock(..)
     , IncrementalBuild(..)
-    , InferDependantPackages(..)
+    , IgnorePackageMetadata(..)
     , PackageFlag(..)
     , ModRenaming(..)
     , PackageArg(..)
@@ -35,6 +36,7 @@ import DA.Pretty
 import Data.Maybe
 import qualified Data.Text as T
 import Development.IDE.GHC.Util (prettyPrint)
+import Development.IDE.Types.Location
 import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import Module (UnitId, stringToUnitId)
 import qualified System.Directory as Dir
@@ -74,6 +76,9 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
     -- ^ Controls whether the scenario service is started.
+  , optEnableScripts :: EnableScripts
+    -- ^ Whether scripts should be run by the scenario service.
+    -- This will be switched to True by default once it has stabilized.
   , optSkipScenarioValidation :: SkipScenarioValidation
     -- ^ Controls whether the scenario service server run package validations.
     -- This is mostly used to run additional checks on CI while keeping the IDE fast.
@@ -92,14 +97,21 @@ data Options = Options
     -- ^ Enable CPP, by giving filepath to the executable.
   , optIncrementalBuild :: IncrementalBuild
   -- ^ Whether to do an incremental on-disk build as opposed to keeping everything in memory.
-  , optInferDependantPackages :: InferDependantPackages
-  -- ^ Whether to infer --package flags from deps/data-deps contained in daml.yaml
+  , optIgnorePackageMetadata :: IgnorePackageMetadata
+  -- ^ Whether to ignore the package metadata generated from the daml.yaml
+  -- This is set to True when building data-dependency packages where we
+  -- have precise package flags and don’t want to use the daml.yaml from the
+  -- main package.
+  , optEnableOfInterestRule :: Bool
+  -- ^ Whether we should enable the of interest rule that automatically compiles all
+  -- modules to DALFs or not. This is required in the IDE but we can disable it
+  -- in other cases, e.g., daml-docs.
   } deriving Show
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
 
-newtype InferDependantPackages = InferDependantPackages { getInferDependantPackages :: Bool }
+newtype IgnorePackageMetadata = IgnorePackageMetadata { getIgnorePackageMetadata :: Bool }
   deriving Show
 
 newtype Haddock = Haddock Bool
@@ -114,6 +126,9 @@ newtype SkipScenarioValidation = SkipScenarioValidation { getSkipScenarioValidat
   deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
+    deriving Show
+
+newtype EnableScripts = EnableScripts { getEnableScripts :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath
@@ -137,16 +152,16 @@ basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
 -- | Find the builtin package dbs if the exist.
-locateBuiltinPackageDbs :: Maybe FilePath -> IO [FilePath]
+locateBuiltinPackageDbs :: Maybe NormalizedFilePath -> IO [FilePath]
 locateBuiltinPackageDbs mbProjRoot = do
     -- package db for daml-stdlib and daml-prim
     internalPackageDb <- fmap (</> "pkg-db_dir") $ locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     -- If these directories do not exist, we just discard them.
-    filterM Dir.doesDirectoryExist (internalPackageDb : [projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
+    filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
 
 -- Given the target LF version and the package dbs specified by the user, return the versioned package dbs
 -- including builtin package dbs.
-getPackageDbs :: LF.Version -> Maybe FilePath -> [FilePath] -> IO [FilePath]
+getPackageDbs :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> IO [FilePath]
 getPackageDbs version mbProjRoot userPkgDbs = do
     builtinPkgDbs <- locateBuiltinPackageDbs mbProjRoot
     pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
@@ -167,6 +182,7 @@ defaultOptions mbVersion =
         , optDebug = False
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
+        , optEnableScripts = EnableScripts False
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
@@ -175,7 +191,8 @@ defaultOptions mbVersion =
         , optHaddock = Haddock False
         , optCppPath = Nothing
         , optIncrementalBuild = IncrementalBuild False
-        , optInferDependantPackages = InferDependantPackages True
+        , optIgnorePackageMetadata = IgnorePackageMetadata False
+        , optEnableOfInterestRule = True
         }
 
 getBaseDir :: IO FilePath

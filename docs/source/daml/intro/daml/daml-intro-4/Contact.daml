@@ -1,8 +1,10 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 module Contact where
+
+import Daml.Script
 
 -- CHOICE_BEGIN
 template Contact
@@ -36,12 +38,12 @@ template Contact
 -- DELEGATION_END
 
 -- CHOICE_TEST_BEGIN
-choice_test = scenario do
-  owner <- getParty "Alice"
-  party <- getParty "Bob"
+choice_test = do
+  owner <- allocateParty "Alice"
+  party <- allocateParty "Bob"
 
   contactCid <- submit owner do
-     create Contact with
+     createCmd Contact with
       owner
       party
       address = "1 Bobstreet"
@@ -50,25 +52,25 @@ choice_test = scenario do
   -- The bank can't change its own telephone number as the accountant controls
   -- that choice.
   submitMustFail party do
-    exercise contactCid UpdateTelephone with
+    exerciseCmd contactCid UpdateTelephone with
       newTelephone = "098 7654 321"
 
   newContactCid <- submit owner do
-    exercise contactCid UpdateTelephone with
+    exerciseCmd contactCid UpdateTelephone with
       newTelephone = "098 7654 321"
 
-  submit owner do
-    newContact <- fetch newContactCid
-    assert (newContact.telephone == "098 7654 321")
+  Some newContact <- queryContractId owner newContactCid
+
+  assert (newContact.telephone == "098 7654 321")
 -- CHOICE_TEST_END
 
 -- DELEGATION_TEST_BEGIN
   newContactCid <- submit party do
-    exercise newContactCid UpdateAddress with
+    exerciseCmd newContactCid UpdateAddress with
       newAddress = "1-10 Bobstreet"
 
-  submit owner do
-    newContact <- fetch newContactCid
-    assert (newContact.address == "1-10 Bobstreet")
+  Some newContact <- queryContractId owner newContactCid
+
+  assert (newContact.address == "1-10 Bobstreet")
 -- DELEGATION_TEST_END
 

@@ -1,23 +1,24 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.services.grpc
+package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
 }
-import com.digitalasset.ledger.api.v1.command_submission_service.{
+import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest => ApiSubmitRequest
 }
-import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.server.api.ProxyCloseable
-import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
+import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
+import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ProxyCloseable
+import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
@@ -25,25 +26,32 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.Future
 
 class GrpcCommandSubmissionService(
-    protected val service: CommandSubmissionService with AutoCloseable,
-    val ledgerId: LedgerId,
-    currentTime: () => Instant,
-    maxDeduplicationTime: () => Duration
+    override protected val service: CommandSubmissionService with AutoCloseable,
+    ledgerId: LedgerId,
+    currentLedgerTime: () => Instant,
+    currentUtcTime: () => Instant,
+    maxDeduplicationTime: () => Option[Duration],
+    metrics: Metrics,
 ) extends ApiCommandSubmissionService
     with ProxyCloseable
     with GrpcApiService {
 
   protected val logger: Logger = LoggerFactory.getLogger(ApiCommandSubmissionService.getClass)
 
-  private val validator =
-    new SubmitRequestValidator(new CommandsValidator(ledgerId))
+  private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
-    validator
-      .validate(request, currentTime(), maxDeduplicationTime())
-      .fold(
-        Future.failed,
-        service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
+    Timed.future(
+      metrics.daml.commands.submissions,
+      Timed
+        .value(
+          metrics.daml.commands.validation,
+          validator
+            .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()))
+        .fold(
+          Future.failed,
+          service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
+    )
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)

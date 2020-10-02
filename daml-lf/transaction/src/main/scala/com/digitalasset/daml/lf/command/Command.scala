@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package command
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.Ref._
+import com.daml.lf.value.Value
+import com.daml.lf.data.{ImmArray, Time}
 
 // ---------------------------------
 // Accepted commands coming from API
@@ -20,7 +20,7 @@ sealed trait Command extends Product with Serializable {
   *  @param templateId identifier of the template that the contract is instantiating
   *  @param argument value passed to the template
   */
-final case class CreateCommand(templateId: Identifier, argument: Value[Value.AbsoluteContractId])
+final case class CreateCommand(templateId: Identifier, argument: Value[Value.ContractId])
     extends Command
 
 /** Command for exercising a choice on an existing contract
@@ -32,9 +32,9 @@ final case class CreateCommand(templateId: Identifier, argument: Value[Value.Abs
   */
 final case class ExerciseCommand(
     templateId: Identifier,
-    contractId: ContractIdString,
+    contractId: Value.ContractId,
     choiceId: ChoiceName,
-    argument: Value[Value.AbsoluteContractId],
+    argument: Value[Value.ContractId],
 ) extends Command
 
 /** Command for exercising a choice on an existing contract specified by its key
@@ -46,9 +46,9 @@ final case class ExerciseCommand(
   */
 final case class ExerciseByKeyCommand(
     templateId: Identifier,
-    contractKey: Value[Value.AbsoluteContractId],
+    contractKey: Value[Value.ContractId],
     choiceId: ChoiceName,
-    argument: Value[Value.AbsoluteContractId],
+    argument: Value[Value.ContractId],
 ) extends Command
 
 /** Command for creating a contract and exercising a choice
@@ -61,9 +61,9 @@ final case class ExerciseByKeyCommand(
   */
 final case class CreateAndExerciseCommand(
     templateId: Identifier,
-    createArgument: Value[Value.AbsoluteContractId],
+    createArgument: Value[Value.ContractId],
     choiceId: ChoiceName,
-    choiceArgument: Value[Value.AbsoluteContractId],
+    choiceArgument: Value[Value.ContractId],
 ) extends Command
 
 /** Commands input adapted from ledger-api

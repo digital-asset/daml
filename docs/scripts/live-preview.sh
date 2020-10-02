@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+set -eou pipefail
 
-SCRIPT_DIR=$(dirname "$0")
+
+SCRIPT_DIR=$PWD/$(dirname "$0")
 cd $SCRIPT_DIR
 BUILD_DIR=$(cd ..; pwd)/build
 
@@ -14,7 +16,8 @@ cleanup()
   echo "Caught Signal ... cleaning up."
   rm -rf $BUILD_DIR
   cd $SCRIPT_DIR
-  rm -f ../source/daml/reference/base.rst
+  rm -rf ../source/getting-started/code
+  rm -rf ../source/daml/stdlib
   rm -f ../source/app-dev/grpc/proto-docs.rst
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
@@ -35,6 +38,11 @@ tar -zxf ../../bazel-bin/docs/da_theme.tar.gz -C $BUILD_DIR/theme
 cp ../../LICENSE ../source
 cp ../../NOTICES ../source
 
+# GSG source, while this is arguably part of --gen
+# it is quick enough and important enough to always include it.
+bazel build //templates:create-daml-app-docs
+mkdir -p $BUILD_DIR/source/getting-started/code/templates-tarball
+tar -zxf ../../bazel-bin/templates/create-daml-app-docs.tar.gz -C $BUILD_DIR/source/getting-started/code/templates-tarball/
 
 for arg in "$@"
 do
@@ -45,22 +53,23 @@ do
     fi
     if [ "$arg" = "--gen" ]; then
         # Hoogle
-        bazel build //compiler/damlc:daml-base-hoogle-docs
+        bazel build //compiler/damlc:daml-base-hoogle.txt
         mkdir -p $BUILD_DIR/gen/hoogle_db
         cp -L ../../bazel-bin/compiler/damlc/daml-base-hoogle.txt $BUILD_DIR/gen/hoogle_db/base.txt
 
         # Javadoc
-        bazel build //language-support/java:javadocs
+        bazel build //language-support/java:javadoc
         mkdir -p $BUILD_DIR/gen/app-dev/bindings-java
-        tar -zxf ../../bazel-bin/language-support/java/javadocs.tar.gz -C $BUILD_DIR/gen/app-dev/bindings-java
+        unzip ../../bazel-bin/language-support/java/javadoc.jar -d $BUILD_DIR/gen/app-dev/bindings-java/javadocs/
 
         # Proto-docs
         bazel build //ledger-api/grpc-definitions:docs
         cp -L ../../bazel-bin/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
 
         #StdLib
-        bazel build //compiler/damlc:daml-base-rst-docs
-        cp -L ../../bazel-bin/compiler/damlc/daml-base.rst ../source/daml/reference/base.rst
+        bazel build //compiler/damlc:daml-base-rst.tar.gz
+        tar xf ../../bazel-bin/compiler/damlc/daml-base-rst.tar.gz \
+            --strip-components 1 -C ../source/daml/stdlib
     fi
 done
 

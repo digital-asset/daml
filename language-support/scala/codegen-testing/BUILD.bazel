@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -14,7 +14,6 @@ da_scala_library(
         # Plugins have to be specified as JARs.
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    scalacopts = ["-Xsource:2.13"],
     visibility = [
         "//visibility:public",
     ],
@@ -37,7 +36,7 @@ testing_utils = [
     "src/test/scala/com/digitalasset/scalatest/CustomMatcher.scala",
     "src/test/scala/com/digitalasset/ledger/client/binding/encoding/LfTypeEncodingSpec.scala",
     "src/test/scala/com/digitalasset/ledger/client/binding/EncodingTestUtil.scala",
-    "src/test/scala/com/digitalasset/ledger/client/binding/ValueSpec.scala",
+    "src/test/scala/com/digitalasset/ledger/client/binding/ValueGen.scala",
 ]
 
 da_scala_library(
@@ -71,12 +70,18 @@ da_scala_test_suite(
         ],
         exclude = testing_utils,
     ),
-    scalacopts = ["-Xsource:2.13"],
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = [
+        "-P:silencer:checkUnused",
+    ],
     deps = [
         ":codegen-testing",
         ":codegen-testing-testing",
         "//language-support/scala/bindings",
         "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:org_apache_commons_commons_text",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",

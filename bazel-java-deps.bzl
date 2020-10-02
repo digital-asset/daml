@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
@@ -6,48 +6,33 @@
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:specs.bzl", "maven")
 
 def install_java_deps():
     maven_install(
         artifacts = [
             "ai.x:diff_2.12:2.0.1",
-            "args4j:args4j:2.33",
             "ch.qos.logback:logback-classic:1.2.3",
             "ch.qos.logback:logback-core:1.2.3",
-            "com.auth0:java-jwt:3.8.2",
-            "com.auth0:jwks-rsa:0.8.3",
+            "com.auth0:java-jwt:3.10.3",
+            "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_2.12:2.3.2",
-            "com.fasterxml.jackson.core:jackson-annotations:2.9.0",
-            "com.fasterxml.jackson.core:jackson-core:2.9.9",
-            "com.fasterxml.jackson.core:jackson-databind:2.9.9.3",
-            "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9",
-            "com.fasterxml.jackson.module:jackson-module-parameter-names:2.9.9",
-            "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.9.9",
-            "com.github.blemale:scaffeine_2.12:2.5.0",
-            "com.github.ghik:silencer-lib_2.12:1.3.1",
-            "com.github.ghik:silencer-plugin_2.12:1.3.1",
-            "com.github.mpilquist:simulacrum_2.12:0.10.0",
+            "com.github.ben-manes.caffeine:caffeine:2.8.0",
+            "com.github.ghik:silencer-lib_2.12.11:1.6.0",
+            "com.github.ghik:silencer-plugin_2.12.11:1.6.0",
             "com.github.pureconfig:pureconfig_2.12:0.8.0",
+            maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.8.0", neverlink = True),
             "com.github.scopt:scopt_2.12:3.7.1",
-            "com.github.stefanbirkner:system-rules:1.17.2",
-            "com.github.zafarkhaja:java-semver:0.9.0",
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",
-            "com.google.guava:guava:24.0-jre",
-            "com.google.j2objc:j2objc-annotations:1.1",
-            "com.google.protobuf:protobuf-java:3.8.0",
+            "com.google.guava:guava:29.0-jre",
             "com.h2database:h2:1.4.200",
             "com.lihaoyi:pprint_2.12:0.5.3",
             "commons-io:commons-io:2.5",
-            "com.sparkjava:spark-core:2.7.2",
+            "com.sparkjava:spark-core:2.9.1",
             "com.squareup:javapoet:1.11.1",
             "com.storm-enroute:scalameter_2.12:0.10.1",
             "com.storm-enroute:scalameter-core_2.12:0.10.1",
-            "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
-            "com.thesamet.scalapb:lenses_2.12:0.9.0",
-            "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
-            "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
-            "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
             "com.typesafe.akka:akka-actor_2.12:2.6.1",
             "com.typesafe.akka:akka-actor-typed_2.12:2.6.1",
             "com.typesafe.akka:akka-http_2.12:10.1.11",
@@ -60,30 +45,57 @@ def install_java_deps():
             "com.typesafe.play:anorm_2.12:2.5.3",
             "com.typesafe.play:anorm-akka_2.12:2.5.3",
             "com.typesafe.scala-logging:scala-logging_2.12:3.9.2",
-            "com.typesafe.slick:slick_2.12:3.3.0",
-            "com.typesafe.slick:slick-hikaricp_2.12:3.3.0",
             "com.zaxxer:HikariCP:3.2.0",
+            "eu.rekawek.toxiproxy:toxiproxy-java:2.1.3",
             "io.circe:circe-core_2.12:0.10.0",
             "io.circe:circe-generic_2.12:0.10.0",
             "io.circe:circe-parser_2.12:0.10.0",
             "io.circe:circe-yaml_2.12:0.10.0",
             "io.dropwizard.metrics:metrics-core:4.1.2",
+            "io.dropwizard.metrics:metrics-graphite:4.1.2",
             "io.dropwizard.metrics:metrics-jmx:4.1.2",
             "io.dropwizard.metrics:metrics-jvm:4.1.2",
-            "io.grpc:grpc-api:1.22.1",
-            "io.grpc:grpc-core:1.22.1",
-            "io.grpc:grpc-netty:1.22.1",
-            "io.grpc:grpc-protobuf:1.22.1",
-            "io.grpc:grpc-services:1.22.1",
-            "io.grpc:grpc-stub:1.22.1",
-            "io.netty:netty-codec-http2:4.1.37.Final",
-            "io.netty:netty-handler:4.1.37.Final",
-            "io.netty:netty-handler-proxy:4.1.37.Final",
-            "io.netty:netty-resolver:4.1.37.Final",
-            "io.netty:netty-tcnative-boringssl-static:2.0.25.Final",
-            "io.protostuff:protostuff-core:1.5.2",
+
+            # Bumping versions of io.grpc:* has a few implications:
+            # 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
+            #    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
+            #    ScalaPB also depends on a version of protobuf-java, but for the most part we expect here a
+            #    version mismatch between ScalaPBs declared protobuf-java dependency and the version on the
+            #    classpath doesn't matter.
+            #
+            # 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
+            # in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
+            #
+            # * io.grpc:grpc-netty
+            # * io.netty:netty-handler
+            # * io.netty:netty-tcnative-boringssl-static
+            #
+            # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
+            # need to be updated with careful consideration.
+            # grpc
+            "io.grpc:grpc-api:1.29.0",
+            "io.grpc:grpc-core:1.29.0",
+            "io.grpc:grpc-netty:1.29.0",
+            "io.grpc:grpc-protobuf:1.29.0",
+            "io.grpc:grpc-services:1.29.0",
+            "io.grpc:grpc-stub:1.29.0",
+            # netty
+            "io.netty:netty-codec-http2:4.1.48.Final",
+            "io.netty:netty-handler:4.1.48.Final",
+            "io.netty:netty-handler-proxy:4.1.48.Final",
+            "io.netty:netty-resolver:4.1.48.Final",
+            "io.netty:netty-tcnative-boringssl-static:2.0.30.Final",
+            # protobuf
+            "com.google.protobuf:protobuf-java:3.11.0",
+            #scalapb
+            "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
+            "com.thesamet.scalapb:lenses_2.12:0.9.0",
+            "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
+            "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
+            "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
+            # ---- end of grpc-protobuf-netty block
             "io.reactivex.rxjava2:rxjava:2.2.1",
-            "io.spray:spray-json_2.12:1.3.3",
+            "io.spray:spray-json_2.12:1.3.5",
             "io.zipkin.brave:brave:4.6.0",
             "io.zipkin.reporter:zipkin-sender-okhttp3:1.0.4",
             "javax.annotation:javax.annotation-api:1.2",
@@ -95,13 +107,11 @@ def install_java_deps():
             "org.apache.commons:commons-text:1.4",
             "org.awaitility:awaitility:3.1.6",
             "org.checkerframework:checker:2.5.4",
-            "org.flywaydb:flyway-core:6.2.0",
+            "org.flywaydb:flyway-core:6.5.0",
             "org.freemarker:freemarker-gae:2.3.28",
-            "org.gnieh:diffson-spray-json_2.12:3.1.0",
-            "org.hamcrest:hamcrest-all:1.3",
+            "org.gnieh:diffson-spray-json_2.12:3.1.1",
             "org.jline:jline:3.7.1",
             "org.jline:jline-reader:3.7.1",
-            "org.jooq:jool:0.9.11",
             "org.junit.jupiter:junit-jupiter-api:5.0.0",
             "org.junit.jupiter:junit-jupiter-engine:5.0.0",
             "org.junit.platform:junit-platform-engine:1.0.0",
@@ -109,25 +119,16 @@ def install_java_deps():
             "org.mockito:mockito-core:2.24.0",
             "org.mockito:mockito-inline:2.24.0",
             "org.mockito:mockito-scala_2.12:1.1.2",
-            "org.mongodb:bson:3.6.4",
-            "org.mongodb:casbah-commons_2.12.0-RC1:3.1.1",
-            "org.mongodb:casbah-core_2.12.0-RC1:3.1.1",
-            "org.mongodb:casbah-gridfs_2.12.0-RC1:3.1.1",
-            "org.mongodb:casbah-query_2.12.0-RC1:3.1.1",
-            "org.mongodb:mongodb-driver-async:3.6.4",
-            "org.mongodb:mongodb-driver-core:3.6.4",
             "org.pcollections:pcollections:2.1.3",
             "org.postgresql:postgresql:42.2.9",
             "org.reactivestreams:reactive-streams:1.0.2",
             "org.reactivestreams:reactive-streams-tck:1.0.2",
             "org.sangria-graphql:sangria_2.12:1.4.2",
-            "org.sangria-graphql:sangria-spray-json_2.12:1.0.1",
+            "org.sangria-graphql:sangria-spray-json_2.12:1.0.2",
             "org.scalacheck:scalacheck_2.12:1.14.0",
+            "org.scala-lang.modules:scala-collection-compat_2.12:2.1.6",
             "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0",
             "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
-            "org.scalameta:contrib_2.12:1.8.0",
-            "org.scalameta:paradise_2.12.6:3.0.0-M11",
-            "org.scalameta:scalameta_2.12:1.8.0",
             "org.scala-sbt:sbt:1.1.4",
             "org.scalactic:scalactic_2.12:3.0.5",
             "org.scalatest:scalatest_2.12:3.0.5",
@@ -138,13 +139,22 @@ def install_java_deps():
             "org.slf4j:slf4j-api:1.7.26",
             "org.slf4j:slf4j-simple:1.7.26",
             "org.spire-math:kind-projector_2.12:0.9.3",
-            "org.testcontainers:postgresql:1.4.2",
             "org.tpolecat:doobie-core_2.12:0.6.0",
             "org.tpolecat:doobie-postgres_2.12:0.6.0",
             "org.typelevel:paiges-core_2.12:0.2.1",
-            "org.wartremover:wartremover_2.12:2.2.0",
+            "org.wartremover:wartremover_2.12.11:2.4.9",
             "org.xerial:sqlite-jdbc:3.30.1",
-            "uk.co.datumedge:hamcrest-json:0.2",
+            # gatling dependencies
+            "io.gatling:gatling-app:3.3.1",
+            "io.gatling:gatling-core:3.3.1",
+            "io.gatling:gatling-commons:3.3.1",
+            "io.gatling:gatling-recorder:3.3.1",
+            "io.gatling:gatling-charts:3.3.1",
+            "io.gatling.highcharts:gatling-highcharts:3.3.1",
+            "io.gatling:gatling-http:3.3.1",
+            "io.gatling:gatling-http-client:3.3.1",
+            "com.fasterxml.jackson.core:jackson-core:2.11.2",
+            "com.fasterxml.jackson.core:jackson-databind:2.11.2",
         ],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install.json",
@@ -174,7 +184,7 @@ def install_java_deps():
         # from which they wish to import. This makes strict visibility
         # inconvenient as one would have to pin versions of transitive
         # dependencies in this file, which complicates version updates later
-        # on. Therfore, we don't enable strict visibility. This is the default.
+        # on. Therefore, we don't enable strict visibility. This is the default.
         # strict_visibility = True,
         version_conflict_policy = "pinned",
     )

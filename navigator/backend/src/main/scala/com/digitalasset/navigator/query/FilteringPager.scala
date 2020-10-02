@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.query
+package com.daml.navigator.query
 
-import com.digitalasset.navigator.dotnot.{OnTreeReady, PropertyCursor}
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.query.filter._
+import com.daml.navigator.dotnot.{OnTreeReady, PropertyCursor}
+import com.daml.navigator.model._
+import com.daml.navigator.query.filter._
 import com.typesafe.scalalogging.LazyLogging
 
 sealed abstract class FilteringPager[N <: Node[_]](

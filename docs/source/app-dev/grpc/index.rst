@@ -1,14 +1,10 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-The Ledger API using gRPC
-#########################
+.. _grpc:
 
-.. toctree::
-   :hidden:
-
-   proto-docs
-   daml-to-ledger-api
+gRPC
+####
 
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
@@ -17,7 +13,7 @@ If you're not familiar with gRPC and protobuf, we strongly recommend following t
 Getting started
 ***************
 
-You can either get the protobufs `from Bintray here <https://bintray.com/digitalassetsdk/DigitalAssetSDK/sdk-components#files/com%2Fdigitalasset%2Fledger-api-protos>`__, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
+You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
 
 Protobuf reference documentation
 ********************************
@@ -30,7 +26,7 @@ Example project
 We have an example project demonstrating the use of the Ledger API with gRPC. To get the example project, ``PingPongGrpc``:
 
 #. Configure your machine to use the example by following the instructions at :ref:`bindings-java-setup-maven`.
-#. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__. 
+#. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__.
 #. Follow the `setup instructions in the README <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__. Use ``examples.pingpong.grpc.PingPongGrpcMain`` as the main class.
 
 About the example project
@@ -75,9 +71,9 @@ Tor the standard error codes that the server or the client might return, see the
 For submitted commands, there are these response codes:
 
 ABORTED
-   The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission with updated Ledger Effective Time (LET) and Maximum Record Time (MRT) values.
+   The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission. In case of a time constraint violation, please refer to the section :ref:`Dealing with time <dealing-with-time>` on how to handle commands with long processing times.
 INVALID_ARGUMENT
-   The submission failed because of a client error. The platform will definitely reject resubmissions of the same command even with updated LET and MRT values.
+   The submission failed because of a client error. The platform will definitely reject resubmissions of the same command.
 OK, INTERNAL, UNKNOWN (when returned by the Command Submission Service)
    Assume that the command was accepted, and wait for the resulting completion or a timeout from the Command Completion Service.
 OK (when returned by the Command Service)

@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen
+package com.daml.lf.codegen
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{DottedName, QualifiedName, PackageId}
-import com.digitalasset.daml.lf.iface.{DefDataType, Interface, InterfaceType, Record, Variant}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{DottedName, QualifiedName, PackageId}
+import com.daml.lf.iface.{DefDataType, Interface, InterfaceType, Record, Variant}
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.mutable.ArrayBuffer

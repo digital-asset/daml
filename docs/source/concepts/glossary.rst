@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Glossary of concepts
@@ -68,7 +68,7 @@ A `choice <#choice>`__ marked **postconsuming** will not be `archived <#active-c
 Nonconsuming choice
 --------------------
 
-A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract <#contract>`__. 
+A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract <#contract>`__.
 
 Disjunction choice, flexible controllers
 ----------------------------------------
@@ -113,7 +113,7 @@ Controllers must be at least an `observer`_, otherwise they can't see the contra
 Stakeholder
 -----------
 
-**Stakeholder** is not a term used within the DAML language, but the concept refers to the `signatories <#signatory>`__ and `observers <#observer>`__ collectively. That is, it means all of the `parties <#party>`__ that are interested in a `contract <#contract>`__. 
+**Stakeholder** is not a term used within the DAML language, but the concept refers to the `signatories <#signatory>`__ and `observers <#observer>`__ collectively. That is, it means all of the `parties <#party>`__ that are interested in a `contract <#contract>`__.
 
 Maintainer
 ----------
@@ -167,14 +167,14 @@ Standard library
 
 The **DAML standard library** is a set of `DAML` functions, classes and more that make developing with DAML easier.
 
-For documentation, see :doc:`/daml/reference/base`. 
+For documentation, see :doc:`/daml/stdlib/index`.
 
 Agreement
 =========
 
 An **agreement** is part of a `contract <#contract>`__. It is text that explains what the contract represents.
 
-It can be used to clarify the legal intent of a contract, but this text isn't evaluated programmatically. 
+It can be used to clarify the legal intent of a contract, but this text isn't evaluated programmatically.
 
 See :doc:`/daml/reference/templates`.
 
@@ -305,7 +305,7 @@ Application, ledger client, integration
 
 **Application**, **ledger client** and **integration** are all terms for an application that sits on top of the `ledger <#ledger-daml-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
 
-There's a lot of information available about application development, starting with the :doc:`/app-dev/index` page.
+There's a lot of information available about application development, starting with the :doc:`/app-dev/app-arch` page.
 
 Ledger API
 ==========

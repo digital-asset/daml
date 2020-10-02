@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: updates
@@ -118,7 +118,8 @@ fetchByKey
 
 - ``fetchByKey`` function.
 - The same as ``fetch``, but fetches the contract with that :doc:`contract key </daml/reference/contract-keys>`, instead of the contract ID.
-- As well as the authorization that ``fetch`` requires, you also need authorization from one of the ``maintainers`` of the key.
+- Like ``fetch``, ``fetchByKey`` needs to be authorized by at least one stakeholder of the contract.
+- Fails if no contract can be found.
 
 .. _daml-ref-lookup-by-key:
 
@@ -131,8 +132,8 @@ lookupByKey
 
 - ``lookupByKey`` function.
 - Use this to confirm that a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
-- If it does exist, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``. If it returns ``None``, this guarantees that no contract has this key. This does **not** cause the transaction to abort.
-- **All** of the maintainers of the key must authorize the lookup (by either being signatories or by submitting the command to lookup), otherwise this will fail.
+- If the submitting party is a stakeholder of a matching contract, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``. Transactions may fail due to contention because the key changes between the lookup and committing the transaction, or becasue the submitter didn't know about the existence of a matching contract.
+- **All** of the maintainers of the key must authorize the lookup (by either being signatories or by submitting the command to lookup).
 
 .. _daml-ref-abort:
 
@@ -177,7 +178,7 @@ getTime
    currentTime <- getTime
 
 - ``getTime`` keyword.
-- Gets the ledger effective time. (You will usually want to immediately bind it to a variable in order to be able to access the value.)
+- Gets the ledger time. (You will usually want to immediately bind it to a variable in order to be able to access the value.)
 - Used to restrict when a choice can be made. For example, with an ``assert`` that the time is later than a certain time.
 
 Here's an example of a choice that uses a check on the current time:

@@ -1,15 +1,15 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_library")
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test")
 load("//bazel_tools:java.bzl", "da_java_library")
 
 da_java_library(
     name = "rs-grpc-bridge",
     srcs = glob(["src/main/java/**/*.java"]),
     tags = [
-        "javadoc_root_packages=com.digitalasset.grpc.adapter",
-        "maven_coordinates=com.digitalasset.ledger-api:rs-grpc-bridge:__VERSION__",
+        "javadoc_root_packages=com.daml.grpc.adapter",
+        "maven_coordinates=com.daml:rs-grpc-bridge:__VERSION__",
     ],
     visibility = [
         "//visibility:public",
@@ -24,20 +24,32 @@ da_java_library(
 )
 
 da_scala_library(
-    name = "rs-grpc-bridge-test",
+    name = "rs-grpc-bridge-test-lib",
     srcs = glob([
-        "src/test/java/**/*.java",
-        "src/test/scala/**/*.scala",
+        "src/test/lib/java/**/*.java",
     ]),
-    resource_strip_prefix = "ledger-api/rs-grpc-bridge/src/test/resources/",
-    resources = glob(["src/test/resources/**/*"]),
     visibility = [
         "//visibility:public",
     ],
     deps = [
         ":rs-grpc-bridge",
+    ],
+)
+
+da_scala_test(
+    name = "rs-grpc-bridge-test",
+    srcs = glob([
+        "src/test/suite/scala/**/*.scala",
+    ]),
+    resource_strip_prefix = "ledger-api/rs-grpc-bridge/src/test/suite/resources/",
+    resources = glob(["src/test/suite/resources/**/*"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":rs-grpc-bridge",
+        ":rs-grpc-bridge-test-lib",
         "//ledger-api/rs-grpc-testing-utils",
-        "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_reactivestreams_reactive_streams_examples",

@@ -1,10 +1,11 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+    "da_scala_test_suite",
     "lf_scalacopts",
 )
 
@@ -12,30 +13,32 @@ da_scala_library(
     name = "engine",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-engine:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-engine:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//daml-lf/validation",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )
 
-# TODO(JM): It would make sense to break up the tests
-# into individual targets (so that individual tests can
-# be cached!). There's the "da_scala_test_suite"
-# macro that will do that for you, but one should separate
-# the utilities from the tests.
-da_scala_test(
+da_scala_test_suite(
     name = "tests",
-    timeout = "moderate",
-    srcs = glob(["src/test/**/*.scala"]),
+    srcs = glob(
+        [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+        exclude = [
+            "src/test/**/LargeTransactionTest.scala",
+        ],
+    ),
     data = [
         "//daml-lf/tests:BasicTests.dar",
-        "//daml-lf/tests:LargeTransaction.dar",
         "//daml-lf/tests:Optional.dar",
     ],
     scalacopts = lf_scalacopts,
@@ -48,6 +51,35 @@ da_scala_test(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//daml-lf/transaction",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_storm_enroute_scalameter_core_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "test-large-transaction",
+    timeout = "moderate",
+    srcs = glob([
+        "src/test/**/LargeTransactionTest.scala",
+        "src/test/**/InMemoryPrivateLedgerData.scala",
+    ]),
+    data = [
+        "//daml-lf/tests:LargeTransaction.dar",
+    ],
+    # We setup a large heap size to reduce as much as possible GC overheads.
+    initial_heap_size = "2g",
+    max_heap_size = "2g",
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":engine",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_storm_enroute_scalameter_core_2_12",

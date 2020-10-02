@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -39,7 +39,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Unit) : Unit by party to
+                  choice Ch (self) (i : Unit) : Unit by party to
                     upure @Unit ()
                 }
             } ;
@@ -63,7 +63,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:R) : Unit by party to
+                  choice Ch (self) (i : Mod:R): Unit by party to
                     upure @Unit ()
                 }
             } ;
@@ -77,7 +77,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:R) : Unit by party to
+                  choice Ch (self) (i : Mod:R): Unit by party to
                     upure @Unit ()
                 }
             } ;
@@ -91,7 +91,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party ['Alice'] (Nil @Party),    // disallowed party literal 'Alice'
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:R) : Unit by 'Alice' to
+                  choice Ch (self) (i : Mod:R): Unit by 'Alice' to
                     upure @Unit ()
                 }
             } ;
@@ -105,7 +105,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                   observers Cons @Party [party] (Nil @Party),
                   agreement TO_TEXT_PARTY 'Alice',               // disallowed party literal 'Alice'
                   choices {
-                    choice Ch (i : Mod:R) : Unit by 'Alice' to
+                    choice Ch (self) (i : Mod:R): Unit by 'Alice' to
                       upure @Unit ()
                   }
               } ;
@@ -119,7 +119,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:R) : Party by party to
+                  choice Ch (self) (i : Mod:R): Party by party to
                      upure @Party 'Alice'                        // disallowed party literal 'Alice'
                 }
             } ;

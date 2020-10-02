@@ -1,174 +1,271 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.Repl (main) where
 
+import Control.Exception
 import Control.Monad.Extra
-import Control.Exception.Safe
 import DA.Bazel.Runfiles
-import DA.PortFile
-import Data.Foldable
+import DA.Test.Sandbox
+import Data.Aeson
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Map.Strict as Map
+import qualified Data.Text as T
+import DA.Test.Util
 import System.Environment.Blank
-import System.Exit
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
+import qualified Web.JWT as JWT
+
+testSecret :: String
+testSecret = "I_CAN_HAZ_SECRET"
+
+testLedgerId :: String
+testLedgerId = "replledger"
 
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
+    limitJvmMemory defaultJvmMemoryLimits
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
-    sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox" </> exe "sandbox-binary")
-    withTempFile $ \portFile ->
-        withBinaryFile nullDevice ReadWriteMode $ \devNull ->
-        defaultMain $ withResource (createSandbox devNull sandbox portFile testDar) destroySandbox $ \getSandbox ->
-        let testInteraction' testName steps =
-                testCase testName $ do
-                  p <- sandboxPort <$> getSandbox
-                  testInteraction damlc p scriptDar testDar steps
-        in testGroup "repl"
-            [ testInteraction' "create and query"
-                  [ input "alice <- allocateParty \"Alice\""
-                  , input "debug =<< query @T alice"
-                  , matchOutput "^.*: \\[\\]$"
-                  , input "submit alice $ createCmd (T alice alice)"
-                  , input "debug =<< query @T alice"
-                  , matchOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
-                  ]
-            , testInteraction' "propose and accept"
-                  [ input "alice <- allocateParty \"Alice\""
-                  , input "bob <- allocateParty \"Bob\""
-                  , input "submit alice $ createCmd (TProposal alice bob)"
-                  , input "props <- query @TProposal bob"
-                  , input "debug props"
-                  , matchOutput "^.*: \\[\\(<contract-id>,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
-                  , input "forA props $ \\(prop, _) -> submit bob $ exerciseCmd prop Accept"
-                  , input "debug =<< query @T bob"
-                  , matchOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
-                  , input "debug =<< query @TProposal bob"
-                  , matchOutput "^.*: \\[\\]$"
-                  ]
-            , testInteraction' "shadowing"
-                  [ input "x <- pure 1"
-                  , input "debug x"
-                  , matchOutput "^.*: 1$"
-                  , input "x <- pure $ x + x"
-                  , input "debug x"
-                  , matchOutput "^.*: 2$"
-                  ]
-            , testInteraction' "parse error"
-                  [ input "eaiu\\1"
-                  , matchOutput "^parse error.*$"
-                  , input "debug 1"
-                  , matchOutput "^.*: 1"
-                  ]
-            , testInteraction' "unsupported statement"
-                  [ input "(x, y) <- pure (1, 2)"
-                  , matchOutput "^Unsupported statement:.*$"
-                  , input "debug 1"
-                  , matchOutput "^.*: 1"
-                  ]
-            , testInteraction' "type error"
-                  [ input "1"
-                  -- TODO Make this less noisy
-                  , matchOutput "^File:.*$"
-                  , matchOutput "^Hidden:.*$"
-                  , matchOutput "^Range:.*$"
-                  , matchOutput "^Source:.*$"
-                  , matchOutput "^Severity:.*$"
-                  , matchOutput "^Message:.*$"
-                  , matchOutput "^.*error.*$"
-                  , matchOutput "^.*expected type .*Script _.* with actual type .*Int.*$"
-                  , matchOutput "^.*$"
-                  , matchOutput "^.*$"
-                  , matchOutput "^.*$"
-                  , matchOutput "^.*$"
-                  , input "debug 1"
-                  , matchOutput "^.*: 1"
-                  ]
-            , testInteraction' "script error"
-                  [ input "alice <- allocateParty \"Alice\""
-                  , input "bob <- allocateParty \"Bob\""
-                  , input "submit alice (createCmd (T alice bob))"
-                  , matchOutput "^.*Submit failed.*requires authorizers.*but only.*were given.*$"
-                  , input "debug 1"
-                  , matchOutput "^.*: 1"
-                  ]
+    certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
+    defaultMain $
+        testGroup "repl"
+            [ withSandbox defaultSandboxConf
+                  { dars = [testDar]
+                  , mbSharedSecret = Just testSecret
+                  , mbLedgerId = Just testLedgerId
+                  } $ \getSandboxPort ->
+              withTokenFile $ \getTokenFile ->
+                  authTests damlc scriptDar testDar getSandboxPort getTokenFile
+            , withSandbox defaultSandboxConf
+                  { dars = [testDar]
+                  , enableTls = True
+                  , mbClientAuth = Just None
+                  } $ \getSandboxPort ->
+                  tlsTests damlc scriptDar testDar getSandboxPort certDir
+            , withSandbox defaultSandboxConf
+                  { dars = [testDar]
+                  , mbLedgerId = Just testLedgerId
+                  , timeMode = Static
+                  } $ \getSandboxPort ->
+              staticTimeTests damlc scriptDar testDar getSandboxPort
+            , withSandbox defaultSandboxConf $ \getSandboxPort ->
+                  noPackageTests damlc scriptDar getSandboxPort
+            , withSandbox defaultSandboxConf
+                  { dars = [testDar]
+                  , mbLedgerId = Just testLedgerId
+                  } $ \getSandboxPort ->
+              importTests damlc scriptDar testDar getSandboxPort
+            , noLedgerTests damlc scriptDar
             ]
 
-testInteraction :: FilePath -> Int -> FilePath -> FilePath -> [Step] -> Assertion
-testInteraction damlc ledgerPort scriptDar testDar steps = withCreateProcess cp $ \mbIn mbOut _mbErr ph -> do
-    Just hIn <- pure mbIn
-    Just hOut <- pure mbOut
-    for_ [hIn, hOut] $ \h -> hSetBuffering h LineBuffering
-    for_ steps $ \step -> do
-        case step of
-            Input s -> do
-                readPrompt hOut
-                hPutStrLn hIn s
-            MatchOutput regex regexStr -> do
-                line <- hGetLine hOut
-                assertBool
-                    (show line <> " did not match " <> show regexStr)
-                    (matchTest regex line)
-    hClose hIn
-    exit <- waitForProcess ph
-    exit @?= ExitSuccess
-    where cp = (proc damlc
-              [ "repl"
-              , "--ledger-host=localhost"
-              , "--ledger-port"
-              , show ledgerPort
-              , "--script-lib"
-              , scriptDar
-              , testDar
-              ]) { std_in = CreatePipe, std_out = CreatePipe }
+withTokenFile :: (IO FilePath -> TestTree) -> TestTree
+withTokenFile f = withResource acquire release (f . fmap fst)
+  where
+    acquire = mask_ $ do
+        (file, delete) <- newTempFile
+        writeFile file jwtToken
+        pure (file, delete)
+    release = snd
 
-data Step
-    = Input String
-    -- ^ Input a line into the repl
-    | MatchOutput Regex String
-    -- ^ Match a line of output against a given regex.
-    -- The String is used for error messages since Regex
-    -- does not have a Show instance.
-
-input :: String -> Step
-input = Input
-
-matchOutput :: String -> Step
-matchOutput s = MatchOutput (makeRegex s) s
-
-readPrompt :: Handle -> Assertion
-readPrompt h = do
-    res <- replicateM 6 (hGetChar h)
-    res @?= "daml> "
-
-data SandboxResource = SandboxResource
-    { sandboxProcess :: (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
-    , sandboxPort :: Int
+jwtToken :: String
+jwtToken = T.unpack $ JWT.encodeSigned (JWT.HMACSecret $ BS.pack testSecret) mempty mempty
+    { JWT.unregisteredClaims = JWT.ClaimsMap $ Map.fromList
+          [ ( "https://daml.com/ledger-api"
+            , Object $ HashMap.fromList
+                  [ ("actAs", toJSON ["Alice" :: T.Text])
+                  , ("ledgerId", toJSON testLedgerId)
+                  , ("applicationId", "foobar")
+                  , ("admin", toJSON True)
+                  ]
+            )
+          ]
     }
 
-createSandbox :: Handle -> FilePath -> FilePath -> FilePath -> IO SandboxResource
-createSandbox devNull sandbox portFile dar = mask $ \unmask -> do
-    ph <- createProcess
-        (proc sandbox ["--port=0", "--port-file", portFile, "-w", dar])
-        { std_out = UseHandle devNull }
-    let waitForStart = do
-            port <- readPortFile maxRetries portFile
-            pure (SandboxResource ph port)
-    unmask (waitForStart `onException` cleanupProcess ph)
 
-destroySandbox :: SandboxResource -> IO ()
-destroySandbox = cleanupProcess . sandboxProcess
+authTests :: FilePath -> FilePath -> FilePath -> IO Int -> IO FilePath -> TestTree
+authTests damlc scriptDar testDar getSandboxPort getTokenFile = testGroup "auth"
+    [ testCase "successful connection" $ do
+        port <- getSandboxPort
+        tokenFile <- getTokenFile
+        testConnection damlc scriptDar testDar port (Just tokenFile) Nothing
+    ]
 
-nullDevice :: FilePath
-nullDevice
-    -- taken from typed-process
-    | isWindows = "\\\\.\\NUL"
-    | otherwise =  "/dev/null"
+tlsTests :: FilePath -> FilePath -> FilePath -> IO Int -> FilePath -> TestTree
+tlsTests damlc scriptDar testDar getSandboxPort certDir = testGroup "tls"
+    [ testCase "successful connection" $ do
+        port <- getSandboxPort
+        testConnection damlc scriptDar testDar port Nothing (Just (certDir </> "ca.crt"))
+    ]
+
+
+-- | A simple test to ensure that the connection works, functional tests
+-- should go in //compiler/damlc/tests:repl-functests
+testConnection
+    :: FilePath
+    -> FilePath
+    -> FilePath
+    -> Int
+    -> Maybe FilePath
+    -> Maybe FilePath
+    -> Assertion
+testConnection damlc scriptDar testDar ledgerPort mbTokenFile mbCaCrt = do
+    out <- readCreateProcess cp $ unlines
+        [ "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
+        , "debug =<< query @T alice"
+        ]
+    let regexString = "^daml> daml>.*: \\[\\]\ndaml> Goodbye.\n$" :: String
+    let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+    unless (matchTest regex out) $
+        assertFailure (show out <> " did not match " <> show regexString <> ".")
+    where cp = proc damlc $ concat
+                   [ [ "repl"
+                     , "--ledger-host=localhost"
+                     , "--ledger-port"
+                     , show ledgerPort
+                     , "--script-lib"
+                     , scriptDar
+                     , testDar
+                     , "--import"
+                     , "repl-test"
+                     ]
+                   , [ "--access-token-file=" <> tokenFile | Just tokenFile <- [mbTokenFile] ]
+                   , [ "--cacrt=" <> cacrt | Just cacrt <- [mbCaCrt] ]
+                   ]
+
+staticTimeTests :: FilePath -> FilePath -> FilePath -> IO Int -> TestTree
+staticTimeTests damlc scriptDar testDar getSandboxPort = testGroup "static-time"
+    [ testCase "setTime" $ do
+        port <- getSandboxPort
+        testSetTime damlc scriptDar testDar port
+    ]
+
+noPackageTests :: FilePath -> FilePath -> IO Int -> TestTree
+noPackageTests damlc scriptDar getSandboxPort = testGroup "static-time"
+    [ testCase "no package" $ do
+        port <- getSandboxPort
+        out <- readCreateProcess (cp port) $ unlines
+            [ "debug (1 + 1)"
+            ]
+        let regexString = "daml> \\[[^]]+\\]: 2\ndaml> Goodbye.\n$" :: String
+        let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+        unless (matchTest regex out) $
+            assertFailure (show out <> " did not match " <> show regexString <> ".")
+    ]
+    where cp port = proc damlc
+                   [ "repl"
+                   , "--ledger-host=localhost"
+                   , "--ledger-port"
+                   , show port
+                   , "--script-lib"
+                   , scriptDar
+                   ]
+
+noLedgerTests :: FilePath -> FilePath -> TestTree
+noLedgerTests damlc scriptDar = testGroup "no ledger"
+    [ testCase "no ledger" $ do
+          out <- readCreateProcess cp $ unlines
+              [ "1 + 1"
+              , "listKnownParties"
+              , "2 + 2"
+              ]
+          out @?= unlines
+            [ "daml> 2"
+            , "daml> java.lang.RuntimeException: No default participant"
+            , "daml> 4"
+            , "daml> Goodbye."
+            ]
+    ]
+  where
+    cp = proc damlc
+        [ "repl"
+        , "--script-lib"
+        , scriptDar
+        ]
+
+testSetTime
+    :: FilePath
+    -> FilePath
+    -> FilePath
+    -> Int
+    -> Assertion
+testSetTime damlc scriptDar testDar ledgerPort = do
+    out <- readCreateProcess cp $ unlines
+        [ "import DA.Assert"
+        , "import DA.Date"
+        , "import DA.Time"
+        , "expected <- pure (time (date 2000 Feb 2) 0 1 2)"
+        , "setTime expected"
+        , "actual <- getTime"
+        , "assertEq actual expected"
+        ]
+    let regexString = "^daml> daml> daml> daml> daml> daml> daml> daml> Goodbye.\n$" :: String
+    let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+    unless (matchTest regex out) $
+        assertFailure (show out <> " did not match " <> show regexString <> ".")
+    where cp = proc damlc
+                   [ "repl"
+                   , "--static-time"
+                   , "--ledger-host=localhost"
+                   , "--ledger-port"
+                   , show ledgerPort
+                   , "--script-lib"
+                   , scriptDar
+                   , testDar
+                   , "--import"
+                   , "repl-test"
+                   ]
+
+-- | Test the @--import@ flag
+importTests :: FilePath -> FilePath -> FilePath -> IO Int -> TestTree
+importTests damlc scriptDar testDar getSandboxPort = testGroup "import"
+    [ testCase "none" $ do
+        port <- getSandboxPort
+        testImport damlc scriptDar testDar port [] False
+    , testCase "unversioned" $ do
+        port <- getSandboxPort
+        testImport damlc scriptDar testDar port ["repl-test"] True
+    , testCase "versioned" $ do
+        port <- getSandboxPort
+        testImport damlc scriptDar testDar port ["repl-test-0.1.0"] True
+    ]
+
+testImport
+    :: FilePath
+    -> FilePath
+    -> FilePath
+    -> Int
+    -> [String]
+    -> Bool
+    -> Assertion
+testImport damlc scriptDar testDar ledgerPort imports successful = do
+    out <- readCreateProcess cp $ unlines
+        [ "alice <- allocateParty \"Alice\""
+        , "debug (T alice alice)"
+        ]
+    let regexString :: String
+        regexString
+          | successful = "^daml> daml> .*: T {proposer = '.*', accepter = '.*'}\ndaml> Goodbye.\n$"
+          | otherwise  = "^daml> daml> File: .*\nHidden: .*\nRange: .*\nSource: .*\nSeverity: DsError\nMessage: .*: error:Data constructor not in scope: T : Party -> Party -> .*\ndaml> Goodbye.\n$"
+    let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+    unless (matchTest regex out) $
+        assertFailure (show out <> " did not match " <> show regexString <> ".")
+    where cp = proc damlc $ concat
+                   [ [ "repl"
+                     , "--ledger-host=localhost"
+                     , "--ledger-port"
+                     , show ledgerPort
+                     , "--script-lib"
+                     , scriptDar
+                     , testDar
+                     ]
+                   , [ "--import=" <> pkg | pkg <- imports ]
+                   ]

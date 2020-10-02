@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth
+package com.daml.ledger.api.auth
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 
 /**
   * A claim is a single statement about what an authenticated user can do with the ledger API.
@@ -75,64 +75,85 @@ final case class ClaimReadAsParty(name: Ref.Party) extends Claim
   * +-------------------------------------+----------------------------+------------------------------------------+
   *
   * @param claims         List of [[Claim]]s describing the authorization this object describes.
-  * @param ledgerId       If set, the claims will only be valid on the given ledger.
-  * @param participantId  If set, the claims will only be valid on the given participant.
+  * @param ledgerId       If set, the claims will only be valid on the given ledger identifier.
+  * @param participantId  If set, the claims will only be valid on the given participant identifier.
+  * @param applicationId  If set, the claims will only be valid on the given application identifier.
   * @param expiration     If set, the claims will cease to be valid at the given time.
   */
 final case class Claims(
     claims: Seq[Claim],
     ledgerId: Option[String] = None,
     participantId: Option[String] = None,
+    applicationId: Option[String] = None,
     expiration: Option[Instant] = None,
 ) {
-  def validForLedger(id: String): Boolean =
-    ledgerId.forall(_ == id)
+  def validForLedger(id: String): Either[AuthorizationError, Unit] =
+    Either.cond(ledgerId.forall(_ == id), (), AuthorizationError.InvalidLedger(ledgerId.get, id))
 
-  def validForParticipant(id: String): Boolean =
-    participantId.forall(_ == id)
+  def validForParticipant(id: String): Either[AuthorizationError, Unit] =
+    Either.cond(
+      participantId.forall(_ == id),
+      (),
+      AuthorizationError.InvalidParticipant(participantId.get, id))
 
-  /** Returns false if the expiration timestamp exists and is greather than or equal to the current time */
-  def notExpired(now: Instant): Boolean =
-    expiration.forall(now.isBefore)
+  def validForApplication(id: String): Either[AuthorizationError, Unit] =
+    Either.cond(
+      applicationId.forall(_ == id),
+      (),
+      AuthorizationError.InvalidApplication(applicationId.get, id))
+
+  /** Returns false if the expiration timestamp exists and is greater than or equal to the current time */
+  def notExpired(now: Instant): Either[AuthorizationError, Unit] =
+    Either.cond(
+      expiration.forall(now.isBefore),
+      (),
+      AuthorizationError.Expired(expiration.get, now))
 
   /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
-  def isAdmin: Boolean =
-    claims.contains(ClaimAdmin)
+  def isAdmin: Either[AuthorizationError, Unit] =
+    Either.cond(claims.contains(ClaimAdmin), (), AuthorizationError.MissingAdminClaim)
 
   /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
-  def isPublic: Boolean =
-    claims.contains(ClaimPublic)
+  def isPublic: Either[AuthorizationError, Unit] =
+    Either.cond(claims.contains(ClaimPublic), (), AuthorizationError.MissingPublicClaim)
 
   /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
-  def canActAs(party: String): Boolean = {
-    claims.exists {
+  def canActAs(party: String): Either[AuthorizationError, Unit] = {
+    Either.cond(claims.exists {
       case ClaimActAsAnyParty => true
       case ClaimActAsParty(p) if p == party => true
       case _ => false
-    }
+    }, (), AuthorizationError.MissingActClaim(party))
   }
 
   /** Returns true if the set of claims authorizes the user to read data for the given party, unless the claims expired */
-  def canReadAs(party: String): Boolean = {
-    claims.exists {
-      case ClaimActAsAnyParty => true
-      case ClaimActAsParty(p) if p == party => true
-      case ClaimReadAsParty(p) if p == party => true
-      case _ => false
-    }
+  def canReadAs(party: String): Either[AuthorizationError, Unit] = {
+    Either.cond(
+      claims.exists {
+        case ClaimActAsAnyParty => true
+        case ClaimActAsParty(p) if p == party => true
+        case ClaimReadAsParty(p) if p == party => true
+        case _ => false
+      },
+      (),
+      AuthorizationError.MissingReadClaim(party)
+    )
   }
 }
 
 object Claims {
 
   /** A set of [[Claims]] that does not have any authorization */
-  val empty = Claims(List.empty[Claim], expiration = None, ledgerId = None, participantId = None)
+  val empty: Claims = Claims(
+    claims = List.empty[Claim],
+    ledgerId = None,
+    participantId = None,
+    applicationId = None,
+    expiration = None,
+  )
 
   /** A set of [[Claims]] that has all possible authorizations */
-  val wildcard = Claims(
-    List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty),
-    expiration = None,
-    ledgerId = None,
-    participantId = None)
+  val wildcard: Claims =
+    empty.copy(claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
 
 }

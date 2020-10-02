@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.digitalasset.http.util
+package com.daml.http.util
 
 import java.util.UUID
 
-import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, Party}
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.ledger.api.refinements.ApiTypes.{CommandId, Party}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.{v1 => lav1}
 
 object ClientUtil {
   def uniqueId(): String = UUID.randomUUID.toString

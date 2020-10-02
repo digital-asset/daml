@@ -1,33 +1,33 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer}
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.extractor.helpers.FutureUtil.toFuture
-import com.digitalasset.extractor.helpers.{TemplateIds, TransactionTreeTrimmer}
-import com.digitalasset.extractor.ledger.types.TransactionTree
-import com.digitalasset.extractor.ledger.types.TransactionTree._
-import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.extractor.writers.Writer.RefreshPackages
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.{v1 => api}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration._
-import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.service.LedgerReader
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.timer.RetryStrategy
+import com.daml.auth.TokenHolder
+import com.daml.extractor.Types._
+import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.daml.extractor.helpers.FutureUtil.toFuture
+import com.daml.extractor.helpers.TemplateIds
+import com.daml.extractor.ledger.types.TransactionTree
+import com.daml.extractor.ledger.types.TransactionTree._
+import com.daml.extractor.writers.Writer
+import com.daml.extractor.writers.Writer.RefreshPackages
+import com.daml.grpc.GrpcException
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.{v1 => api}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration._
+import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.service.LedgerReader
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.netty.NettyChannelBuilder
 import scalaz.\/
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
@@ -166,9 +166,6 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     val transactionFilter = selectTransactions(config.parties)
     logger.info(s"Setting transaction filter: ${transactionFilter}")
 
-    val trim: api.transaction.TransactionTree => api.transaction.TransactionTree =
-      TransactionTreeTrimmer.trim(parties, requestedTemplateIds)
-
     RestartSource
       .onFailuresWithBackoff(
         minBackoff = 3.seconds,
@@ -186,9 +183,8 @@ class Extractor[T](config: ExtractorConfig, target: T)(
             tokenHolder.flatMap(_.token)
           )
           .via(killSwitch.flow)
-          .map(trim)
           .collect {
-            case t if nonEmpty(t) => convertTransactionTree(t)
+            Function.unlift(convertTransactionTree(parties, requestedTemplateIds))
           }
           .mapAsync(parallelism = 1) { t =>
             writer
@@ -206,10 +202,15 @@ class Extractor[T](config: ExtractorConfig, target: T)(
       .void
   }
 
-  private def nonEmpty(t: api.transaction.TransactionTree): Boolean = t.eventsById.nonEmpty
-
-  private def convertTransactionTree(t: api.transaction.TransactionTree): TransactionTree =
-    t.convert.fold(e => throw DataIntegrityError(e), identity)
+  private def convertTransactionTree(parties: Set[String], templateIds: Set[Identifier])(
+      t: api.transaction.TransactionTree): Option[TransactionTree] = {
+    val tree = t.convert(parties, templateIds).fold(e => throw DataIntegrityError(e), identity)
+    if (tree.events.nonEmpty) {
+      Some(tree)
+    } else {
+      None
+    }
+  }
 
   /**
     * We encountered a transaction that reference a previously not witnessed type.
@@ -246,20 +247,20 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
   private def transactionHandled(t: TransactionTree): Future[Unit] = {
     startOffSet = LedgerOffset.Value.Absolute(t.offset)
-    Future.successful(())
+    Future.unit
   }
 
   private def createClient: Future[LedgerClient] =
-    LedgerClient.fromBuilder(
-      NettyChannelBuilder
-        .forAddress(config.ledgerHost, config.ledgerPort.value)
-        .maxInboundMessageSize(config.ledgerInboundMessageSizeMax),
+    LedgerClient.singleHost(
+      config.ledgerHost,
+      config.ledgerPort.value,
       LedgerClientConfiguration(
-        config.appId,
-        LedgerIdRequirement(ledgerId = "", enabled = false),
-        CommandClientConfiguration(1, 1, overrideTtl = true, java.time.Duration.ofSeconds(20L)),
+        applicationId = config.appId,
+        ledgerIdRequirement = LedgerIdRequirement.none,
+        commandClient = CommandClientConfiguration(1, 1, java.time.Duration.ofSeconds(20L)),
         sslContext = config.tlsConfig.client,
-        tokenHolder.flatMap(_.token)
+        token = tokenHolder.flatMap(_.token),
+        maxInboundMessageSize = config.ledgerInboundMessageSizeMax,
       )
     )
 

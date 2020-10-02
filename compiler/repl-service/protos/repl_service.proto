@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "com.digitalasset.daml.lf.repl";
+option java_package = "com.daml.lf.repl";
 option java_outer_classname = "ReplServiceProto";
 
 package replservice;
@@ -12,6 +12,7 @@ package replservice;
 service ReplService {
   rpc LoadPackage (LoadPackageRequest) returns (LoadPackageResponse);
   rpc RunScript (RunScriptRequest) returns (RunScriptResponse);
+  rpc ClearResults (ClearResultsRequest) returns (ClearResultsResponse);
 }
 
 message LoadPackageRequest {
@@ -24,7 +25,20 @@ message LoadPackageResponse {
 message RunScriptRequest {
   bytes daml_lf_1 = 1;
   string minor = 2;
+  enum Format {
+    TEXT_ONLY = 0;
+    JSON = 1;
+  }
+  Format format = 3;
 }
 
 message RunScriptResponse {
+  // Optional result, we render this on the client side.
+  string result = 1;
+}
+
+message ClearResultsRequest {
+}
+
+message ClearResultsResponse {
 }

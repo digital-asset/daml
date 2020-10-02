@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker.Error(
@@ -7,11 +7,14 @@ module DA.Daml.LF.TypeChecker.Error(
     TemplatePart(..),
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
-    errorLocation
+    errorLocation,
+    toDiagnostic,
     ) where
 
 import DA.Pretty
 import qualified Data.Text as T
+import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 import Numeric.Natural
 
 import DA.Daml.LF.Ast
@@ -99,6 +102,7 @@ data Error
   | EExpectedListType      !Type
   | EExpectedOptionalType  !Type
   | EEmptyCase
+  | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
   | EImportCycle           ![ModuleName] -- TODO: implement check for this error
   | ETypeSynCycle          ![TypeSynName]
@@ -257,6 +261,8 @@ instance Pretty Error where
     EExpectedListType foundType ->
       "expected list type, but found: " <> pretty foundType
     EEmptyCase -> "empty case"
+    EClashingPatternVariables varName ->
+      "the variable " <> pretty varName <> " is used more than once in the pattern"
     EExpectedTemplatableType tpl ->
       "expected monomorphic record type in template definition, but found:"
       <-> pretty tpl
@@ -319,3 +325,14 @@ instance Pretty Context where
       hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
       hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
+
+toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
+toDiagnostic sev err = Diagnostic
+    { _range = noRange
+    , _severity = Just sev
+    , _code = Nothing
+    , _tags = Nothing
+    , _source = Just "DAML-LF typechecker"
+    , _message = renderPretty err
+    , _relatedInformation = Nothing
+    }

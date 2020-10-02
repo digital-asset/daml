@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.test.runner
+package com.daml.navigator.test.runner
 
 import java.io.File
 
-import com.digitalasset.navigator.test.runner.Runner.LazyProcessLogger
+import com.daml.navigator.test.runner.Runner.LazyProcessLogger
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -30,7 +30,7 @@ object PackagedSandbox {
     private var sandboxProcess: Option[Process] = None
 
     private def locateSandboxJar(): File = {
-      val jarKey = "com.digitalasset.sandbox.jar"
+      val jarKey = "com.daml.sandbox.jar"
       Option(System.getProperty(jarKey))
         .map { path =>
           val sandboxJar = new File(path).getAbsoluteFile

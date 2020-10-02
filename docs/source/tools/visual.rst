@@ -1,8 +1,10 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Visualizing DAML Contracts
 ##########################
+
+Visualizing DAML Contracts is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
 
 You can generate visual graphs for the contracts in your DAML project. To do this:
 
@@ -15,7 +17,7 @@ You can generate visual graphs for the contracts in your DAML project. To do thi
 Example: Visualizing the Quickstart project
 ===========================================
 
-Here's an example visualization based on the :doc:`quickstart </getting-started/quickstart>`. You'll need to `install Graphviz <http://www.graphviz.org/download/>`_ to try this out.
+Here's an example visualization based on the :doc:`quickstart </app-dev/bindings-java/quickstart>`. You'll need to `install Graphviz <http://www.graphviz.org/download/>`_ to try this out.
 
 
 1. Generate the dar using ``daml build``

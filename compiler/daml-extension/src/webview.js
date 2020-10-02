@@ -1,9 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 const vscode = acquireVsCodeApi();
 function show_archived_changed() {
   document.body.classList.toggle('hide_archived', !document.getElementById('show_archived').checked);
+}
+function toggle_detailed_disclosure() {
+  document.body.classList.toggle('hidden_disclosure', !document.getElementById('show_detailed_disclosure').checked);
 }
 function toggle_view() {
   document.body.classList.toggle('hide_transaction');

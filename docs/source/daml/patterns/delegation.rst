@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Delegation
@@ -42,7 +42,7 @@ Delegation Contract
     :language: daml
     :lines: 74-76
 
-.. note:: The technique is likely to change in the future. DA is actively researching future language features for contract disclosure.
+.. note:: The technique is likely to change in the future. DAML is actively researching future language features for contract disclosure.
 
 .. figure:: images/delegation.png
 

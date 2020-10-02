@@ -1,31 +1,31 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.commands
+package com.daml.ledger.client.services.commands
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
+import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionEndResponse,
   CompletionStreamRequest
 }
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
-import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.digitalasset.util.Ctx
-import com.digitalasset.util.akkastreams.MaxInFlight
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.CommandClientConfiguration
+import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.util.Ctx
+import com.daml.util.akkastreams.MaxInFlight
+import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
@@ -39,22 +39,14 @@ import scalaz.syntax.tag._
   * @param ledgerId                 Will be applied to submitted commands.
   * @param applicationId            Will be applied to submitted commands.
   * @param config                   Options for changing behavior.
-  * @param timeProviderO            If defined, it will be used to override LET and MRT values on incoming commands.
-  *                                 Let will be set based on current time, and TTL will stay the same or be adjusted based on [[config]]
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class CommandClient(
     commandSubmissionService: CommandSubmissionServiceStub,
     commandCompletionService: CommandCompletionServiceStub,
     ledgerId: LedgerId,
     applicationId: String,
     config: CommandClientConfiguration,
-    timeProviderO: Option[TimeProvider] = None)(implicit esf: ExecutionSequencerFactory) {
-
-  private val commandUpdater =
-    new CommandUpdater(timeProviderO, config.ttl, config.overrideTtl)
-
-  private val logger = LoggerFactory.getLogger(getClass)
+    logger: Logger = LoggerFactory.getLogger(getClass))(implicit esf: ExecutionSequencerFactory) {
 
   /**
     * Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
@@ -63,10 +55,16 @@ final class CommandClient(
   def submitSingleCommand(
       submitRequest: SubmitRequest,
       token: Option[String] = None): Future[Empty] =
+    submit(token)(submitRequest)
+
+  private def submit(token: Option[String])(submitRequest: SubmitRequest): Future[Empty] = {
+    logger.debug(
+      "Invoking grpc-submission on commandId={}",
+      submitRequest.commands.map(_.commandId).getOrElse("no-command-id"))
     LedgerClient
       .stub(commandSubmissionService, token)
-      .submit(
-        submitRequest.copy(commands = submitRequest.commands.map(commandUpdater.applyOverrides)))
+      .submit(submitRequest)
+  }
 
   /**
     * Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
@@ -114,11 +112,10 @@ final class CommandClient(
       partyFilter(parties.toSet)
         .via(commandUpdaterFlow[Context])
         .viaMat(CommandTrackerFlow[Context, NotUsed](
-          CommandSubmissionFlow[(Context, String)](
-            LedgerClient.stub(commandSubmissionService, token).submit,
-            config.maxParallelSubmissions),
+          CommandSubmissionFlow[(Context, String)](submit(token), config.maxParallelSubmissions),
           offset => completionSource(parties, offset, token),
-          ledgerEnd.getOffset
+          ledgerEnd.getOffset,
+          () => config.defaultDeduplicationTime,
         ))(Keep.right)
     }
 
@@ -154,33 +151,20 @@ final class CommandClient(
         else if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)")
-        r.copy(commands = r.commands.map(commandUpdater.applyOverrides))
+        val updateDedupTime = commands.deduplicationTime.orElse(Some(Duration
+          .of(config.defaultDeduplicationTime.getSeconds, config.defaultDeduplicationTime.getNano)))
+        r.copy(commands = Some(commands.copy(deduplicationTime = updateDedupTime)))
       })
 
   def submissionFlow[Context](token: Option[String] = None)
     : Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, SubmitRequest]]
       .via(commandUpdaterFlow)
-      .via(
-        CommandSubmissionFlow[Context](
-          LedgerClient.stub(commandSubmissionService, token).submit,
-          config.maxParallelSubmissions))
+      .via(CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions))
   }
 
   def getCompletionEnd(token: Option[String] = None): Future[CompletionEndResponse] =
     LedgerClient
       .stub(commandCompletionService, token)
       .completionEnd(CompletionEndRequest(ledgerId.unwrap))
-
-  /**
-    * Returns a new CommandClient which will update ledger effective times and maximum record times based on the new time provider.
-    */
-  def withTimeProvider(newProvider: Option[TimeProvider]) =
-    new CommandClient(
-      commandSubmissionService,
-      commandCompletionService,
-      ledgerId,
-      applicationId,
-      config,
-      newProvider)
 }

@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 package traversable
 
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.language.Ast._
+import com.daml.lf.validation.Util._
 
 private[validation] object TypeTraversable {
   that =>
 
   private def toType(tyCon: TypeConApp): Type =
-    ((TTyCon(tyCon.tycon): Type) /: tyCon.args.iterator)(TApp)
+    (tyCon.args.iterator foldLeft (TTyCon(tyCon.tycon): Type))(TApp)
 
   private[validation] def foreach[U](typ: Type, f: Type => U): Unit =
     typ match {

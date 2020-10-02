@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console.commands
+package com.daml.navigator.console.commands
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.console.Pretty.prettyInstant
-import com.digitalasset.navigator.console._
-import com.digitalasset.navigator.model
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.console.Pretty.prettyInstant
+import com.daml.navigator.console._
+import com.daml.navigator.model
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 case object Transaction extends SimpleCommand {

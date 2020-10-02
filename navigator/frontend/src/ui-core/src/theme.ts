@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as styled from 'styled-components';
@@ -226,14 +226,6 @@ export const hardcodedStyle = {
   defaultDateFormat: 'YYYY-MM-DD',
 }
 
-export type StyledFunction<T> = styled.ThemedStyledFunction<T, ThemeInterface>;
-
-export function withProps<T, U extends HTMLElement = HTMLElement>(
-  styledFunction: StyledFunction<React.HTMLProps<U>>,
-): StyledFunction<T & React.HTMLProps<U>> {
-  return styledFunction;
-}
-
 // Re-export styled components parameterised with the theme type. This
 // particular patterns seems to have TypeScript produce the correct declaration
 // files. Some others didn't.
@@ -244,7 +236,6 @@ const typed: styled.ThemedStyledComponentsModule<ThemeInterface>
 export const {
   css,
   default: typedStyled,
-  injectGlobal,
   keyframes,
   ThemeProvider,
   withTheme,

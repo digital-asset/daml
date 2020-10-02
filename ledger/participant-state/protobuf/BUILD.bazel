@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:java.bzl", "da_java_proto_library")
@@ -15,7 +15,7 @@ proto_library(
 
 da_java_proto_library(
     name = "ledger_configuration_java_proto",
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-ledger-configuration-java-proto:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state-ledger-configuration-java-proto:__VERSION__"],
     visibility = ["//ledger:__subpackages__"],
     deps = [":ledger_configuration_proto"],
 )

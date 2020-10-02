@@ -1,11 +1,11 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
 
 da_haskell_binary(
-    name = "daml2ts",
+    name = "daml2js",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "aeson",
@@ -16,8 +16,10 @@ da_haskell_binary(
         "directory",
         "extra",
         "filepath",
+        "hashable",
         "lens",
         "optparse-applicative",
+        "process",
         "text",
         "unordered-containers",
         "zip-archive",
@@ -30,12 +32,13 @@ da_haskell_binary(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
 
 package_app(
-    name = "daml2ts-dist",
-    binary = ":daml2ts",
+    name = "daml2js-dist",
+    binary = ":daml2js",
     visibility = ["//visibility:public"],
 )

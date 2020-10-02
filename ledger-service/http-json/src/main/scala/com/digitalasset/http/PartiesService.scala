@@ -1,50 +1,98 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api
-import scalaz.OneAnd
+import com.daml.lf.data.Ref
+import com.daml.http.EndpointsCompanion.{Error, InvalidUserInput}
+import com.daml.http.util.FutureUtil._
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api
+import scalaz.std.option._
+import scalaz.std.scalaFuture._
+import scalaz.std.string._
+import scalaz.syntax.traverse._
+import scalaz.{EitherT, OneAnd, \/}
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
-class PartiesService(listAllParties: LedgerClientJwt.ListKnownParties)(
-    implicit ec: ExecutionContext) {
+class PartiesService(
+    listAllParties: LedgerClientJwt.ListKnownParties,
+    getParties: LedgerClientJwt.GetParties,
+    allocateParty: LedgerClientJwt.AllocateParty
+)(implicit ec: ExecutionContext) {
 
-  // TODO(Leo) memoize this calls or listAllParties()?
+  import PartiesService._
+
+  def allocate(
+      jwt: Jwt,
+      request: domain.AllocatePartyRequest
+  ): Future[Error \/ domain.PartyDetails] = {
+    val et: ET[domain.PartyDetails] = for {
+      idHint <- either(
+        request.identifierHint.traverse(toLedgerApi)
+      ): ET[Option[Ref.Party]]
+
+      apiParty <- rightT(
+        allocateParty(jwt, idHint, request.displayName)
+      ): ET[api.domain.PartyDetails]
+
+      domainParty = domain.PartyDetails.fromLedgerApi(apiParty)
+
+    } yield domainParty
+
+    et.run
+  }
+
   def allParties(jwt: Jwt): Future[List[domain.PartyDetails]] = {
     listAllParties(jwt).map(ps => ps.map(p => domain.PartyDetails.fromLedgerApi(p)))
   }
 
-  // TODO(Leo) memoize this calls or listAllParties()?
   def parties(
       jwt: Jwt,
       identifiers: OneAnd[Set, domain.Party]
-  ): Future[(Set[domain.PartyDetails], Set[domain.Party])] = {
-    val requested: Set[domain.Party] = identifiers.tail + identifiers.head
-    val strIds: Set[String] = domain.Party.unsubst(requested)
+  ): Future[Error \/ (Set[domain.PartyDetails], Set[domain.Party])] = {
+    val et: ET[(Set[domain.PartyDetails], Set[domain.Party])] = for {
+      apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
+      apiPartyDetails <- rightT(getParties(jwt, apiPartyIds)): ET[List[api.domain.PartyDetails]]
+      domainPartyDetails = apiPartyDetails.iterator
+        .map(domain.PartyDetails.fromLedgerApi)
+        .toSet: Set[domain.PartyDetails]
+    } yield (domainPartyDetails, findUnknownParties(domainPartyDetails, identifiers))
 
-    listAllParties(jwt).map { ps =>
-      val result: Set[domain.PartyDetails] = collectParties(ps, strIds)
-      (result, findUnknownParties(result, requested))
-    }
+    et.run
   }
-
-  private def collectParties(
-      xs: List[api.domain.PartyDetails],
-      requested: Set[String]
-  ): Set[domain.PartyDetails] =
-    xs.collect {
-      case p if requested(p.party) => domain.PartyDetails.fromLedgerApi(p)
-    }(breakOut)
 
   private def findUnknownParties(
       found: Set[domain.PartyDetails],
-      requested: Set[domain.Party]
-  ): Set[domain.Party] =
-    if (found.size == requested.size) Set.empty[domain.Party]
-    else requested -- found.map(_.identifier)
+      requested: OneAnd[Set, domain.Party]
+  ): Set[domain.Party] = {
+    import scalaz.std.iterable._
+    import scalaz.syntax.foldable._
+
+    val requestedSet: Set[domain.Party] = requested.toSet
+
+    if (found.size == requestedSet.size) Set.empty
+    else requestedSet -- found.map(_.identifier)
+  }
+}
+
+object PartiesService {
+  import com.daml.http.util.ErrorOps._
+
+  private type ET[A] = EitherT[Future, Error, A]
+
+  def toLedgerApiPartySet(
+      ps: OneAnd[Set, domain.Party]
+  ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
+    import scalaz.std.list._
+    val nel: OneAnd[List, domain.Party] = ps.copy(tail = ps.tail.toList)
+    val enel: InvalidUserInput \/ OneAnd[List, Ref.Party] = nel.traverse(toLedgerApi)
+    enel.map(xs => xs.copy(tail = xs.tail.toSet))
+  }
+
+  def toLedgerApi(p: domain.Party): InvalidUserInput \/ Ref.Party =
+    \/.fromEither(Ref.Party.fromString(domain.Party.unwrap(p)))
+      .liftErrS("PartiesService.toLedgerApi")(InvalidUserInput)
 
 }

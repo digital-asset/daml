@@ -1,33 +1,28 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
 import java.time.Instant
 
-import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.value.Value.ValueRecord
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.api.DomainMocks
-import com.digitalasset.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
-import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.{
-  List => ApiList,
-  Map => ApiMap,
-  Optional => ApiOptional,
-  _
-}
+import com.daml.api.util.DurationConversion
+import com.daml.api.util.TimestampConversion
+import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
+import com.daml.lf.data._
+import com.daml.lf.value.Value.ValueRecord
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.api.DomainMocks
+import com.daml.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
+import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
+import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.INVALID_ARGUMENT
+import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SubmitRequestValidatorTest
     extends WordSpec
     with ValidatorTestUtils
@@ -44,8 +39,6 @@ class SubmitRequestValidatorTest
     val applicationId = "applicationId"
     val commandId = "commandId"
     val submitter = "party"
-    val let = TimestampConversion.fromInstant(Instant.now)
-    val mrt = TimestampConversion.fromInstant(Instant.now)
     val deduplicationTime = new Duration().withSeconds(10)
     val command =
       Command(
@@ -57,37 +50,35 @@ class SubmitRequestValidatorTest
         )))
 
     val commands = Commands(
-      ledgerId.unwrap,
-      workflowId,
-      applicationId,
-      commandId,
-      submitter,
-      Some(let),
-      Some(mrt),
-      Seq(command),
-      Some(deduplicationTime)
+      ledgerId = ledgerId.unwrap,
+      workflowId = workflowId,
+      applicationId = applicationId,
+      commandId = commandId,
+      party = submitter,
+      commands = Seq(command),
+      deduplicationTime = Some(deduplicationTime),
+      minLedgerTimeAbs = None,
+      minLedgerTimeRel = None,
     )
   }
 
   object internal {
 
-    val let = TimestampConversion.toInstant(api.let)
-    val mrt = TimestampConversion.toInstant(api.mrt)
-    val submittedAt = Instant.EPOCH
+    val ledgerTime = Instant.EPOCH.plusSeconds(10)
+    val submittedAt = Instant.now
+    val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationTime = java.time.Duration.ofDays(1)
     val deduplicateUntil = submittedAt.plusSeconds(api.deduplicationTime.seconds)
 
     val emptyCommands = ApiCommands(
-      ledgerId,
-      Some(workflowId),
-      applicationId,
-      commandId,
-      DomainMocks.party,
-      let,
-      mrt,
+      ledgerId = ledgerId,
+      workflowId = Some(workflowId),
+      applicationId = applicationId,
+      commandId = commandId,
+      submitter = DomainMocks.party,
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
-      LfCommands(
+      commands = LfCommands(
         DomainMocks.party,
         ImmArray(
           LfCreateCommand(
@@ -106,16 +97,21 @@ class SubmitRequestValidatorTest
               ImmArray((Option(Ref.Name.assertFromString("something")), Lf.ValueTrue))
             )
           )),
-        Time.Timestamp.assertFromInstant(let),
+        Time.Timestamp.assertFromInstant(ledgerTime),
         workflowId.unwrap
       )
     )
   }
 
+  private[this] def withLedgerTime(commands: ApiCommands, let: Instant): ApiCommands =
+    commands.copy(
+      commands = commands.commands.copy(
+        ledgerEffectiveTime = Time.Timestamp.assertFromInstant(let),
+      ),
+    )
+
   val commandsValidator = new CommandsValidator(ledgerId)
   import ValueValidator.validateValue
-
-  def recordFieldWithValue(value: Value) = RecordField("label", Some(value))
 
   private def unexpectedError = sys.error("unexpected error")
 
@@ -125,8 +121,9 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withCommands(Seq.empty),
+            internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Missing field: commands"
         )
@@ -137,8 +134,9 @@ class SubmitRequestValidatorTest
           commandsValidator
             .validateCommands(
               api.commands.withLedgerId(""),
+              internal.ledgerTime,
               internal.submittedAt,
-              internal.maxDeduplicationTime),
+              Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Missing field: ledger_id"
         )
@@ -147,8 +145,9 @@ class SubmitRequestValidatorTest
       "tolerate a missing workflowId" in {
         commandsValidator.validateCommands(
           api.commands.withWorkflowId(""),
+          internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime) shouldEqual Right(
+          Some(internal.maxDeduplicationTime)) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
             commands = internal.emptyCommands.commands.copy(commandsReference = "")))
@@ -158,8 +157,9 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withApplicationId(""),
+            internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Missing field: application_id"
         )
@@ -169,8 +169,9 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withCommandId(""),
+            internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Missing field: command_id"
         )
@@ -181,42 +182,43 @@ class SubmitRequestValidatorTest
           commandsValidator
             .validateCommands(
               api.commands.withParty(""),
+              internal.ledgerTime,
               internal.submittedAt,
-              internal.maxDeduplicationTime),
+              Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           """Missing field: party"""
         )
       }
 
-      "not allow missing let" in {
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands.copy(ledgerEffectiveTime = None),
-            internal.submittedAt,
-            internal.maxDeduplicationTime),
-          INVALID_ARGUMENT,
-          "Missing field: ledger_effective_time"
-        )
-
+      "advance ledger time if minLedgerTimeAbs is set" in {
+        val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
+        commandsValidator.validateCommands(
+          api.commands.copy(
+            minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))),
+          internal.ledgerTime,
+          internal.submittedAt,
+          Some(internal.maxDeduplicationTime)
+        ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
-      "not allow missing mrt" in {
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands.copy(maximumRecordTime = None),
-            internal.submittedAt,
-            internal.maxDeduplicationTime),
-          INVALID_ARGUMENT,
-          "Missing field: maximum_record_time"
-        )
+      "advance ledger time if minLedgerTimeRel is set" in {
+        val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
+        commandsValidator.validateCommands(
+          api.commands.copy(
+            minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))),
+          internal.ledgerTime,
+          internal.submittedAt,
+          Some(internal.maxDeduplicationTime)
+        ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
       "not allow negative deduplication time" in {
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.copy(deduplicationTime = Some(Duration.of(-1, 0))),
+            internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Invalid field deduplication_time: Duration must be positive"
         )
@@ -227,8 +229,9 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.copy(deduplicationTime = Some(Duration.of(manySeconds, 0))),
+            internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           s"Invalid field deduplication_time: The given deduplication time of ${java.time.Duration
             .ofSeconds(manySeconds)} exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}"
@@ -238,10 +241,20 @@ class SubmitRequestValidatorTest
       "default to maximum deduplication time if deduplication time is missing" in {
         commandsValidator.validateCommands(
           api.commands.copy(deduplicationTime = None),
+          internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime) shouldEqual Right(
+          Some(internal.maxDeduplicationTime)) shouldEqual Right(
           internal.emptyCommands.copy(
             deduplicateUntil = internal.submittedAt.plus(internal.maxDeduplicationTime)))
+      }
+
+      "not allow missing ledger configuration" in {
+        requestMustFailWith(
+          commandsValidator
+            .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
+          UNAVAILABLE,
+          "The ledger configuration is not available."
+        )
       }
 
     }
@@ -249,10 +262,10 @@ class SubmitRequestValidatorTest
     "validating contractId values" should {
       "succeed" in {
 
-        val coid = Ref.ContractIdString.assertFromString("coid")
+        val coid = Ref.ContractIdString.assertFromString("#coid")
 
         val input = Value(Sum.ContractId(coid))
-        val expected = Lf.ValueContractId(Lf.AbsoluteContractId(coid))
+        val expected = Lf.ValueContractId(Lf.ContractId.V0(coid))
 
         validateValue(input) shouldEqual Right(expected)
       }
@@ -313,7 +326,7 @@ class SubmitRequestValidatorTest
           )
 
         forEvery(signs) { sign =>
-          forEvery(absoluteValues) { (absoluteValue, scale) =>
+          forEvery(absoluteValues) { (absoluteValue, _) =>
             val s = sign + absoluteValue
             val input = Value(Sum.Numeric(s))
             requestMustFailWith(
@@ -576,7 +589,7 @@ class SubmitRequestValidatorTest
     "validating map values" should {
       "convert empty maps" in {
         val input = Value(Sum.Map(ApiMap(List.empty)))
-        val expected = Lf.ValueTextMap(SortedLookupList.empty)
+        val expected = Lf.ValueTextMap(SortedLookupList.Empty)
         validateValue(input) shouldEqual Right(expected)
       }
 

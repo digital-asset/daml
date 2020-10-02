@@ -1,11 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import ImmArray.ImmArraySeq
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
+import org.scalacheck.util.Buildable
 import scalaz.{@@, Tag}
 
 object DataArbitrary {
@@ -36,4 +37,18 @@ object DataArbitrary {
       Tag
         .unsubst[String, Lambda[k => Gen[Map[k, A]]], APS](arbitrary[Map[String @@ APS, A]])
         .map(SortedLookupList(_)))
+
+  // The default collection instances don't make smaller-sized elements.
+  sealed trait Div3 // XXX in scala 2.13 consider a Nat tparam
+  private[this] def div3[T](g: Gen[T]): Gen[T] =
+    Gen sized (n => Gen resize (n / 3, g))
+
+  implicit def `arb container1 Div3`[C, T](
+      implicit t: C => Traversable[T],
+      b: Buildable[T, C],
+      a: Arbitrary[T]): Arbitrary[C @@ Div3] =
+    Tag subst Arbitrary(Gen buildableOf div3(a.arbitrary))
+
+  implicit def `arb SortedLookupList Div3`[A: Arbitrary]: Arbitrary[SortedLookupList[A] @@ Div3] =
+    Tag subst `arb SortedLookupList`(Arbitrary(div3(arbitrary[A])))
 }

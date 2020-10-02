@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
@@ -30,16 +30,16 @@ import qualified Data.Text.Lazy as Text (pack,unpack)
 
 import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.ActiveContractsService as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.CommandCompletionService as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.LedgerConfigurationService as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Testing.TimeService as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Commands as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Completion as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Transaction as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Value as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.LedgerOffset as LL
+import qualified Com.Daml.Ledger.Api.V1.ActiveContractsService as LL
+import qualified Com.Daml.Ledger.Api.V1.CommandCompletionService as LL
+import qualified Com.Daml.Ledger.Api.V1.LedgerConfigurationService as LL
+import qualified Com.Daml.Ledger.Api.V1.Testing.TimeService as LL
+import qualified Com.Daml.Ledger.Api.V1.Commands as LL
+import qualified Com.Daml.Ledger.Api.V1.Completion as LL
+import qualified Com.Daml.Ledger.Api.V1.Event as LL
+import qualified Com.Daml.Ledger.Api.V1.Transaction as LL
+import qualified Com.Daml.Ledger.Api.V1.Value as LL
+import qualified Com.Daml.Ledger.Api.V1.LedgerOffset as LL
 import qualified Data.Map as Map
 import qualified Proto3.Suite.Types as LL
 
@@ -71,10 +71,10 @@ lowerCommands = \case
         commandsApplicationId = unApplicationId aid,
         commandsCommandId = unCommandId cid,
         commandsParty = unParty party,
-        commandsLedgerEffectiveTime = Just (lowerTimestamp leTime),
-        commandsMaximumRecordTime = Just (lowerTimestamp mrTime),
         commandsDeduplicationTime = dedupTime,
-        commandsCommands = Vector.fromList $ map lowerCommand coms }
+        commandsCommands = Vector.fromList $ map lowerCommand coms,
+        commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
+        commandsMinLedgerTimeRel = minLeTimeRel }
 
 lowerCommand :: Command -> LL.Command
 lowerCommand = \case
@@ -223,9 +223,8 @@ raiseGetLedgerConfigurationResponse x =
 raiseLedgerConfiguration :: LL.LedgerConfiguration -> Perhaps LedgerConfiguration
 raiseLedgerConfiguration = \case
     LL.LedgerConfiguration{..} -> do
-        minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl
-        maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl
-        return $ LedgerConfiguration {minTtl,maxTtl}
+        maxDeduplicationTime <- perhaps "max_deduplication_time" ledgerConfigurationMaxDeduplicationTime
+        return $ LedgerConfiguration {maxDeduplicationTime}
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case

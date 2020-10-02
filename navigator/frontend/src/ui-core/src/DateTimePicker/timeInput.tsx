@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // This DateTimePicker code is based on the input-moment library.
@@ -126,7 +126,7 @@ export default class TimeInput extends React.Component<Props, State> {
     return (
       <TimeWrapper>
         <RoundInput
-          innerRef={(e) => {this.input = e}}
+          ref={(e) => {this.input = e}}
           value={displayValue}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             this.setState({value: e.target.value})}

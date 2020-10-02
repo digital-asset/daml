@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.Timer
 import java.util.concurrent.{CompletionStage, ExecutorService}
@@ -41,7 +41,7 @@ trait ResourceOwner[+A] {
   }
 
   /** @see [[Resource.withFilter()]] */
-  def withFilter(p: A => Boolean)(implicit executionContext: ExecutionContext): ResourceOwner[A] =
+  def withFilter(p: A => Boolean): ResourceOwner[A] =
     new ResourceOwner[A] {
       override def acquire()(implicit executionContext: ExecutionContext): Resource[A] =
         self.acquire().withFilter(p)
@@ -78,6 +78,9 @@ object ResourceOwner {
 
   def failed(throwable: Throwable): ResourceOwner[Nothing] =
     new FutureResourceOwner(() => Future.failed(throwable))
+
+  def forValue[T](acquire: () => T): ResourceOwner[T] =
+    new FutureResourceOwner(() => Future.successful(acquire()))
 
   def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
     new FutureResourceOwner(() => Future.fromTry(acquire()))

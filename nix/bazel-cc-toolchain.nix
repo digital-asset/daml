@@ -1,2 +1,1 @@
-{ system ? builtins.currentSystem }:
-(import ./bazel.nix { inherit system; }).bazel-cc-toolchain
+(import ./bazel.nix {}).bazel-cc-toolchain

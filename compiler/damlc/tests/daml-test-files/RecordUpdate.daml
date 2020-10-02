@@ -1,10 +1,10 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Evaluate
--- @INFO Use const
-
-
+-- @INFO range=43:17-43:41; Evaluate
+-- @INFO range=43:24-43:40; Use const
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["p_1_0"]) | .expr.rec_upd | (lf::get_field($pkg) == "x") and (.record.val | lf::get_value_name($pkg) == ["origin"]) and (.update.prim_lit.int64 == "1")
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["p_1_2"]) | .expr.rec_upd | (lf::get_field($pkg) == "y") and (.record.rec_upd | (lf::get_field($pkg) == "x") and (.record.val | lf::get_value_name($pkg) == ["origin"]) and (.update.prim_lit.int64 == "1")) and (.update.prim_lit.int64 == "2")
 
 module RecordUpdate where
 
@@ -51,3 +51,20 @@ main3 = scenario do
 
   let b = (1,2,"test")
   show b{_1=4, _3="new"} === "(4,2,\"new\")"
+
+-- NOTE(MH): Check that the code generated for record updates uses the
+-- `ERecUpd` AST node.
+data Point = Point with
+    x: Int
+    y: Int
+
+origin = Point with x = 0; y = 0
+
+-- NOTE(MH): We expect this to become
+-- `ERecUpd _ "x" (EVal ["origin"]) (EBuiltin (BEInt64 1))`
+-- modulo location information.
+p_1_0 = origin with x = 1
+-- NOTE(MH): We expect this to become
+-- `ERecUpd _ "y" (ERecUpd _ "x" (EVal ["origin"]) (EBuiltin (BEInt64 1))) (EBuiltin (BEInt64 2))`
+-- modulo location information.
+p_1_2 = origin with x = 1; y = 2

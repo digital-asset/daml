@@ -1,15 +1,16 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.ScenarioServiceClient
   ( Options(..)
-  , ScenarioServiceConfig
+  , ScenarioServiceConfig(..)
   , defaultScenarioServiceConfig
   , readScenarioServiceConfig
   , LowLevel.TimeoutSeconds
   , LowLevel.findServerJar
   , Handle
   , withScenarioService
+  , withScenarioService'
   , Context(..)
   , LowLevel.SkipValidation(..)
   , LowLevel.ContextId
@@ -17,6 +18,7 @@ module DA.Daml.LF.ScenarioServiceClient
   , deleteCtx
   , gcCtxs
   , runScenario
+  , runScript
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
   , LowLevel.ScenarioResult(..)
@@ -34,14 +36,18 @@ import Data.IORef
 import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.Set as S
+import qualified Data.Text as T
 import System.Directory
 
+import DA.Daml.Options.Types (EnableScenarioService(..))
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel
+
+import qualified DA.Service.Logger as Logger
 
 data Options = Options
   { optServerJar :: FilePath
@@ -52,12 +58,13 @@ data Options = Options
   , optLogError :: String -> IO ()
   }
 
-toLowLevelOpts :: Options -> LowLevel.Options
-toLowLevelOpts Options{..} =
+toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
+toLowLevelOpts optDamlLfVersion Options{..} =
     LowLevel.Options{..}
     where
         optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
+        optJvmOptions = cnfJvmOptions optScenarioServiceConfig
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -76,9 +83,10 @@ data Handle = Handle
 withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
-withScenarioService :: Options -> (Handle -> IO a) -> IO a
-withScenarioService hOptions f = do
-  LowLevel.withScenarioService (toLowLevelOpts hOptions) $ \hLowLevelHandle ->
+withScenarioService :: LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
+withScenarioService ver loggerH scenarioConfig f = do
+  hOptions <- getOptions
+  LowLevel.withScenarioService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
       bracket
          (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
          (LowLevel.deleteCtx hLowLevelHandle) $ \rootCtxId -> do
@@ -90,16 +98,40 @@ withScenarioService hOptions f = do
              f Handle {..} `finally`
                  -- Wait for gRPC requests to exit, otherwise gRPC gets very unhappy.
                  liftIO (waitQSemN hConcurrencySem $ optMaxConcurrency hOptions)
+  where getOptions = do
+            serverJar <- LowLevel.findServerJar
+            let ssLogHandle = Logger.tagHandle loggerH "ScenarioService"
+            let wrapLog f = f ssLogHandle . T.pack
+            pure Options
+                { optMaxConcurrency = 5
+                , optServerJar = serverJar
+                , optScenarioServiceConfig = scenarioConfig
+                , optLogInfo = wrapLog Logger.logInfo
+                , optLogError = wrapLog Logger.logError
+                }
+
+withScenarioService'
+    :: EnableScenarioService
+    -> LF.Version
+    -> Logger.Handle IO
+    -> ScenarioServiceConfig
+    -> (Maybe Handle -> IO a)
+    -> IO a
+withScenarioService' (EnableScenarioService enable) ver loggerH conf f
+    | enable = withScenarioService ver loggerH conf (f . Just)
+    | otherwise = f Nothing
 
 data ScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize :: Maybe Int -- In bytes
     , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
+    , cnfJvmOptions :: [String]
     } deriving Show
 
 defaultScenarioServiceConfig :: ScenarioServiceConfig
 defaultScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize = Nothing
     , cnfGrpcTimeout = Nothing
+    , cnfJvmOptions = []
     }
 
 readScenarioServiceConfig :: IO ScenarioServiceConfig
@@ -115,12 +147,12 @@ parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServic
 parseScenarioServiceConfig conf = do
     cnfGrpcMaxMessageSize <- queryProjectConfig ["scenario-service", "grpc-max-message-size"] conf
     cnfGrpcTimeout <- queryProjectConfig ["scenario-service", "grpc-timeout"] conf
+    cnfJvmOptions <- fromMaybe [] <$> queryProjectConfig ["scenario-service", "jvm-options"] conf
     pure ScenarioServiceConfig {..}
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
-  , ctxDamlLfVersion :: LF.Version
   , ctxSkipValidation :: LowLevel.SkipValidation
   }
 
@@ -143,7 +175,6 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       (S.toList unloadModules)
       loadPackages
       (S.toList unloadPackages)
-      ctxDamlLfVersion
       ctxSkipValidation
   rootCtxId <- readIORef hContextId
   runExceptT $ do
@@ -175,15 +206,21 @@ encodeModule v m = (Hash $ hash m', m')
   where m' = LowLevel.encodeScenarioModule v m
 
 runScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runScenario Handle{..} ctxId name = do
+runScenario h ctxId name = run (\h -> LowLevel.runScenario h ctxId name) h
+
+runScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runScript h ctxId name = run (\h -> LowLevel.runScript h ctxId name) h
+
+run :: (LowLevel.Handle -> IO (Either LowLevel.Error r)) -> Handle -> IO (Either LowLevel.Error r)
+run f Handle{..} = do
   resVar <- newEmptyMVar
-  -- When a scenario execution is aborted, we would like to be able to return
-  -- immediately. However, we cannot cancel the actual execution of the scenario.
+  -- When a scenario/script execution is aborted, we would like to be able to return
+  -- immediately. However, we cannot cancel the actual execution of the scenario/script.
   -- Therefore, we launch run the synchronous execution request in a separate thread
   -- that takes care of managing the semaphore. This thread keeps running
   -- even if `runScenario` was aborted (we cannot abort the FFI calls anyway)
   -- and ensures that we track the actual number of running executions rather
-  -- than the number of calls to `runScenario` that have not been canceled.
+  -- than the number of calls to `run` that have not been canceled.
   _ <- mask $ \restore -> do
       -- Rather than using a bracket in the new thread
       -- we can be a bit more clever and don’t even
@@ -191,7 +228,7 @@ runScenario Handle{..} ctxId name = do
       -- semaphore.
       waitQSemN hConcurrencySem 1
       _ <- forkIO $ do
-        r <- try $ restore $ LowLevel.runScenario hLowLevelHandle ctxId name
+        r <- try $ restore $ f hLowLevelHandle
         case r of
             Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
             Right r -> putMVar resVar r

@@ -11,3 +11,5 @@ dependencies:
   - daml-stdlib
   - daml-trigger
 # trigger-dependencies-end
+sandbox-options:
+  - --wall-clock-time

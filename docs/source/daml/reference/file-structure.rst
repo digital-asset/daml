@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: DAML file structure
@@ -11,7 +11,6 @@ This page gives reference information on the structure of DAML files outside of 
 File structure
 **************
 
-- Language version (``daml 1.2``).
 - This file's module name (``module NameOfThisFile where``).
 
   Part of a hierarchical module system to facilitate code reuse. Must be the same as the DAML file name, without the file extension.
@@ -50,6 +49,6 @@ Contract identifiers
 When an instance of a template (that is, a contract) is added to the ledger, it's assigned a unique identifier, of type ``ContractId <name of template>``.
 
 The runtime representation of these identifiers depends on the execution
-environment: a contract identifier from the Sandbox looks different to one on the DA Platform.
+environment: a contract identifier from the Sandbox may look different to ones on other DAML Ledgers.
 
 You can use ``==`` and ``/=`` on contract identifiers of the same type.

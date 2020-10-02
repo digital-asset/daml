@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.digitalasset.daml.lf.data.BackStack
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.transaction.BlindingInfo
-import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, Transaction}
+import com.daml.lf.data.BackStack
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{NodeId, Transaction}
 
 final case class ProjectionRoots(
     party: Party,
@@ -25,7 +25,7 @@ object Projections {
     * we keep an explicit list of roots for each party.
     */
   def computePerPartyProjectionRoots(
-      tx: Transaction,
+      tx: Transaction.Transaction,
       blindingInfo: BlindingInfo): List[ProjectionRoots] = {
 
     val perPartyRoots = tx.foldWithPathState(
@@ -34,7 +34,7 @@ object Projections {
       // parties this part of the tree has been disclosed to.
       pathState0 = Set.empty[Party]
     ) {
-      case (perPartyRoots, alreadyWitnessed, nodeId, node) =>
+      case (perPartyRoots, alreadyWitnessed, nodeId, node @ _) =>
         // Add this node as a root for each party that has not yet witnessed
         // the parent of this node (if there was one).
         // Note that we're using blinding info instead of repeating the authorization

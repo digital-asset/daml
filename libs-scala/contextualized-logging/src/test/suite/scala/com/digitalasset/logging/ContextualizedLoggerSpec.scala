@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.logging
+package com.daml.logging
 
 import org.mockito.ArgumentMatchersSugar
 import org.mockito.Mockito.{times, verify, when}
@@ -10,7 +10,6 @@ import org.scalatest.{FlatSpec, Matchers}
 import org.slf4j.event.{EventConstants, Level}
 import org.slf4j.{Logger, Marker}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class ContextualizedLoggerSpec
     extends FlatSpec
     with Matchers
@@ -20,20 +19,20 @@ final class ContextualizedLoggerSpec
   behavior of "ContextualizedLogger"
 
   it should "leave the logs unchanged if the logging context is empty" in
-    withEmptyContext { logger => implicit logCtx =>
+    withEmptyContext { logger => implicit loggingContext =>
       logger.info("foobar")
       verify(logger.withoutContext).info("foobar")
     }
 
   it should "decorate the logs with the provided context" in
-    withContext("id" -> "foobar") { logger => implicit logCtx =>
+    withContext("id" -> "foobar") { logger => implicit loggingContext =>
       logger.info("a")
       val m = logger.withoutContext
       verify(m).info(eqTo("a (context: {})"), toStringEqTo[AnyRef]("{id=foobar}"))
     }
 
   it should "pass the context via the markers if a throwable is provided" in
-    withContext("id" -> "foo") { logger => implicit logCtx =>
+    withContext("id" -> "foo") { logger => implicit loggingContext =>
       logger.error("a", new IllegalArgumentException("quux"))
       verify(logger.withoutContext).error(
         toStringEqTo[Marker]("{id=foo}"),
@@ -44,15 +43,15 @@ final class ContextualizedLoggerSpec
   def thisThrows(): String = throw new RuntimeException("failed on purpose")
 
   it should "construct log entries lazily based on the required level" in
-    withEmptyContext { logger => implicit logCtx =>
+    withEmptyContext { logger => implicit loggingContext =>
       noException should be thrownBy { logger.debug(s"${thisThrows()}") }
       verify(logger.withoutContext, times(0)).debug(any[String])
     }
 
   it should "always pick the context in the most specific scope" in
-    withContext("i1" -> "x") { logger => implicit logCtx =>
+    withContext("i1" -> "x") { logger => implicit loggingContext =>
       logger.info("a")
-      LoggingContext.withEnrichedLoggingContext("i2" -> "y") { implicit logCtx =>
+      LoggingContext.withEnrichedLoggingContext("i2" -> "y") { implicit loggingContext =>
         logger.info("b")
       }
       logger.info("c")
@@ -63,9 +62,9 @@ final class ContextualizedLoggerSpec
     }
 
   it should "override with values provided in a more specific scope" in
-    withContext("id" -> "foobar") { logger => implicit logCtx =>
+    withContext("id" -> "foobar") { logger => implicit loggingContext =>
       logger.info("a")
-      LoggingContext.withEnrichedLoggingContext("id" -> "quux") { implicit logCtx =>
+      LoggingContext.withEnrichedLoggingContext("id" -> "quux") { implicit loggingContext =>
         logger.info("b")
       }
       logger.info("c")
@@ -76,13 +75,13 @@ final class ContextualizedLoggerSpec
     }
 
   it should "pick the expected context also when executing in a future" in
-    withContext("id" -> "future") { logger => implicit logCtx =>
+    withContext("id" -> "future") { logger => implicit loggingContext =>
       import scala.concurrent.ExecutionContext.Implicits.global
       import scala.concurrent.duration.DurationInt
       import scala.concurrent.{Await, Future}
 
       val f1 = Future { logger.info("a") }
-      LoggingContext.withEnrichedLoggingContext("id" -> "next") { implicit logCtx =>
+      LoggingContext.withEnrichedLoggingContext("id" -> "next") { implicit loggingContext =>
         val f2 = Future { logger.info("b") }
         Await.result(Future.sequence(Seq(f1, f2)), 10.seconds)
       }
@@ -92,9 +91,9 @@ final class ContextualizedLoggerSpec
     }
 
   it should "drop the context if new context is provided at a more specific scope" in
-    withContext("id" -> "foobar") { logger => implicit logCtx =>
+    withContext("id" -> "foobar") { logger => implicit loggingContext =>
       logger.info("a")
-      LoggingContext.newLoggingContext { implicit logCtx =>
+      LoggingContext.newLoggingContext { implicit loggingContext =>
         logger.info("b")
       }
       logger.info("d")
@@ -111,7 +110,7 @@ final class ContextualizedLoggerSpec
     }
 
   it should "allows users to pick and choose between the contextualized logger and the underlying one" in
-    withContext("id" -> "foobar") { logger => implicit logCtx =>
+    withContext("id" -> "foobar") { logger => implicit loggingContext =>
       logger.withoutContext.info("a")
       logger.info("b")
       val m = logger.withoutContext

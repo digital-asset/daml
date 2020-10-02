@@ -1,0 +1,17 @@
+module MangledScenario' where
+
+template T'
+  with
+    p : Party
+  where
+    signatory p
+
+data NestedT
+  = T1 { t1 : Int }
+  | T2 { t2 : Int }
+
+mangled' = scenario do
+  alice <- getParty "Alice"
+  t' <- submit alice (create T' with p = alice)
+  submit alice (exercise t' Archive)
+  pure (T1 0)

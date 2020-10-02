@@ -5,6 +5,7 @@
 
 module Map where
 
+import DA.Foldable (forA_)
 import DA.Map as M
 import DA.Assert
 
@@ -17,7 +18,7 @@ testSize = scenario do
   3 === size (fromList ([(1, 2.0), (2, 9.0), (3, 2.2)] : [(Int, Decimal)]))
 
 testToList = scenario do
-  [(2, "a"), (5, "b"), (1, "c")] === toList (fromList [(2, "a"), (5, "b"), (1, "c")])
+  [(1, "c"), (2, "a"), (5, "b")] === toList (fromList [(2, "a"), (5, "b"), (1, "c")])
 
 testFromList = scenario do
   False === member 2 (fromList [(1, "a"), (3, "b"), (4, "c")])
@@ -45,22 +46,31 @@ testNull = scenario do
   True === M.null (fromList ([] : [(Int, Party)]))
 
 testInsert = scenario do
-  [(3,True),(1,True),(4,False),(2,False),(5,False)] === toList
+  [(1,True),(2,False),(3,True),(4,False),(5,False)] === toList
     (foldl (\a b -> uncurry insert b a) M.empty [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)])
 
 testFilterWithKey = scenario do
-  [(3, True), (1, True), (2, False)] === toList (M.filterWithKey (\k v -> k < 3 || v) (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
+  [(1, True), (2, False), (3, True)] === toList (M.filterWithKey (\k v -> k < 3 || v) (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
 
 testDelete = scenario do
-  [ (3, True), (4, False), (2, False), (5, False)] === toList (delete 1 (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
-  [(2, True), (1, False)] === toList (delete 3 (fromList [(2, False), (1, True), (2, True), (1, False)]))
+  [(2, False), (3, True), (4, False), (5, False)] === toList (delete 1 (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
+  [(1, False), (2, True)] === toList (delete 3 (fromList [(2, False), (1, True), (2, True), (1, False)]))
+
+testAlter = scenario do
+  let l1 = [(1, "a"), (2, "c"), (3, "b")]
+      m1 = fromList l1
+      extras = [(3, "bbb"), (5, "d"), (0, "e")]
+  (l1 <> extras) `forA_` \(k, v) -> do
+    m1 === M.alter identity k m1
+    M.insert k v m1 === M.alter (const (Some v)) k m1
+    M.delete k m1 === M.alter (const None) k m1
 
 testMerge = scenario do
   let m1 = fromList [(1, "bb"), (2, "dd"), (3, "aa"), (4, "cc"), (6, "ee")]
   let m2 = fromList [(1, "a"), (2, "c"), (3, "b"), (5, "d"), (0, "e")]
 
-  [] === toList (merge (\k v -> Some v) (\k v -> Some v) (\k v w -> Some v) M.empty (M.empty : Map Int Text))
-  [] === toList (merge (\k v -> Some v) (\k v -> Some v) (\k v w -> None) m1 m1)
-  [(1, "bb"), (3, "aa")] === toList (merge (\k v -> if v <= "bb" then Some v else None) (\k v -> Some v) (\k v w -> None) m1 M.empty)
-  [(1, "a"), (3, "b")] === toList (merge (\k v -> Some v) (\k v -> if v <= "bb" then Some v else None) (\k v w -> None) M.empty m2)
-  [(1,"bb"), (2,"dd"), (3,"aa")] === toList (merge (\k v -> None) (\k v -> None) (\k v w -> Some v) m1 m2)
+  [] === toList (merge (\_ v -> Some v) (\_ v -> Some v) (\_ v _ -> Some v) M.empty (M.empty : Map Int Text))
+  [] === toList (merge (\_ v -> Some v) (\_ v -> Some v) (\_ _ _ -> None) m1 m1)
+  [(1, "bb"), (3, "aa")] === toList (merge (\_ v -> if v <= "bb" then Some v else None) (\_ v -> Some v) (\_ _ _ -> None) m1 M.empty)
+  [(1, "a"), (3, "b")] === toList (merge (\_ v -> Some v) (\_ v -> if v <= "bb" then Some v else None) (\_ _ _ -> None) M.empty m2)
+  [(1,"bb"), (2,"dd"), (3,"aa")] === toList (merge (\_ _ -> None) (\_ _ -> None) (\_ v _ -> Some v) m1 m2)

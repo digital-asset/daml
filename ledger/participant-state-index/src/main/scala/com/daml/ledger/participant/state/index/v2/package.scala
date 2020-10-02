@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index
@@ -7,23 +7,23 @@ import java.time.{Duration, Instant}
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.ledger.api.domain._
+import com.daml.lf.data.Ref
+import com.daml.lf.value.Value
+import com.daml.ledger.api.domain._
 
-package object v2 {
+package v2 {
 
   object AcsUpdateEvent {
 
     final case class Create(
         transactionId: TransactionId,
         eventId: EventId,
-        contractId: Value.AbsoluteContractId,
+        contractId: Value.ContractId,
         templateId: Ref.Identifier,
-        argument: Value.VersionedValue[Value.AbsoluteContractId],
+        argument: Value.VersionedValue[Value.ContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Ref.Party],
-        contractKey: Option[Value.VersionedValue[Value.AbsoluteContractId]],
+        contractKey: Option[Value.VersionedValue[Value.ContractId]],
         signatories: Set[Ref.Party],
         observers: Set[Ref.Party],
         agreementText: String
@@ -88,7 +88,7 @@ package object v2 {
       recordTime: Instant,
       workflowId: WorkflowId)
 
-  final case class LedgerConfiguration(minTTL: Duration, maxTTL: Duration)
+  final case class LedgerConfiguration(maxDeduplicationTime: Duration)
 
   /** Meta-data of a DAML-LF package
     *
@@ -104,7 +104,8 @@ package object v2 {
   final case class PackageDetails(
       size: Long,
       knownSince: Instant,
-      sourceDescription: Option[String])
+      sourceDescription: Option[String],
+  )
 
   sealed abstract class CommandDeduplicationResult extends Product with Serializable
 

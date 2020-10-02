@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -47,6 +47,7 @@ module DA.Internal.LF
   , TypeRep
   ) where
 
+import GHC.Stack.Types (HasCallStack)
 import GHC.Types (Opaque, Symbol, primitive, magic)
 import DA.Internal.Prelude
 
@@ -84,7 +85,7 @@ partyToText = primitive @"BEToText"
 -- exists on a given ledger is to involve it in a contract.
 --
 -- This function, together with `partyToText`, forms an isomorphism between
--- valid party strings and and parties. In other words, the following equations hold:
+-- valid party strings and parties. In other words, the following equations hold:
 --
 -- ```
 -- ∀ p. partyFromText (partyToText p) = Some p
@@ -133,7 +134,21 @@ data Map a b =
 data ContractId a =
   ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
-instance Show (ContractId a) where show _ = "<contract-id>"
+#ifdef DAML_GENERIC_COMPARISON
+instance Ord (ContractId a) where
+  (<) = primitive @"BELess"
+  (<=) = primitive @"BELessEq"
+  (>) = primitive @"BEGreater"
+  (>=) = primitive @"BEGreaterEq"
+#endif
+instance Show (ContractId a) where
+#ifdef DAML_TO_TEXT_CONTRACT_ID
+  show cid = case primitive @"BEToTextContractId" cid of
+    None -> "<contract-id>"
+    Some t -> t
+#else
+  show _ = "<contract-id>"
+#endif
 
 -- | HIDE This is currently used in the internals of DAML script and DAML triggers
 -- but not really something that we want to expose to users.
@@ -205,13 +220,13 @@ class HasSubmit m cmds | m -> cmds, cmds -> m where
   -- from party `p` and returns the value returned by `cmds`.
   --
   -- If the transaction fails, `submit` also fails.
-  submit : Party -> cmds a -> m a
+  submit : HasCallStack => Party -> cmds a -> m a
 
   -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
   -- from party `p`.
   --
   -- It only succeeds if the submitting the transaction fails.
-  submitMustFail : Party -> cmds a -> m ()
+  submitMustFail : HasCallStack => Party -> cmds a -> m ()
 
 instance HasSubmit Scenario Update where
   submit = primitive @"SCommit"
@@ -232,15 +247,23 @@ data Pair (f1 : Symbol) (f2 : Symbol) a1 a2 = Pair Opaque
 unpackPair : forall f1 f2 a1 a2. Pair f1 f2 a1 a2 -> (a1, a2)
 unpackPair = magic @"unpackPair"
 
--- | Existential type that can wrap an arbitrary type.
+-- | HIDE Existential type that can wrap an arbitrary type.
 -- We do not expose this directly and instead only expose AnyTemplate and AnyChoice.
 data Any = Any Opaque
 
--- | Value-level representation of a type.
+-- | HIDE Value-level representation of a type.
 -- We do not expose this directly and instead only expose TemplateTypeRep.
 data TypeRep = TypeRep Opaque
 
 #ifdef DAML_TYPE_REP
 instance Eq TypeRep where
   (==) = primitive @"BEEqual"
+
+#ifdef DAML_GENERIC_COMPARISON
+instance Ord TypeRep where
+  (<=) = primitive @"BELessEq"
+  (>=) = primitive @"BEGreaterEq"
+  (<) = primitive @"BELess"
+  (>) = primitive @"BEGreater"
+#endif -- DAML_GENERIC_COMPARISON
 #endif

@@ -1,23 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.daml.lf.engine.script
 
 import java.io.File
 import java.time.Duration
-
-import com.digitalasset.platform.services.time.TimeProviderType
 
 case class TestConfig(
     darPath: File,
     ledgerHost: Option[String],
     ledgerPort: Option[Int],
     participantConfig: Option[File],
-    timeProviderType: TimeProviderType,
+    timeMode: ScriptTimeMode,
     commandTtl: Duration,
+    maxInboundMessageSize: Int,
 )
 
 object TestConfig {
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[TestConfig]("test-script") {
     head("test-script")
 
@@ -42,8 +42,8 @@ object TestConfig {
       .text("File containing the participant configuration in JSON format")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
+      .action { (_, c) =>
+        c.copy(timeMode = ScriptTimeMode.WallClock)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")
 
@@ -52,6 +52,12 @@ object TestConfig {
         c.copy(commandTtl = Duration.ofSeconds(t))
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
+
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
 
     help("help").text("Print this usage text")
 
@@ -73,8 +79,9 @@ object TestConfig {
         ledgerHost = None,
         ledgerPort = None,
         participantConfig = None,
-        timeProviderType = TimeProviderType.Static,
+        timeMode = ScriptTimeMode.Static,
         commandTtl = Duration.ofSeconds(30L),
+        maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
       )
     )
 }

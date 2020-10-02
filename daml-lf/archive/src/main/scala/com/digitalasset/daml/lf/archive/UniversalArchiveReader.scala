@@ -1,25 +1,25 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package archive
 
 import java.io._
 import java.util.zip.ZipInputStream
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.Ref
+import com.daml.lf.language.LanguageMajorVersion
+import com.daml.daml_lf_dev.DamlLf
 
 import scala.util.{Failure, Success, Try}
 
-import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
+import com.daml.lf.data.TryOps.Bracket.bracket
 
 /**
   * Can parse DARs and DALFs.
   * See factories:
-  * [[com.digitalasset.daml.lf.archive.UniversalArchiveReader]];
-  * [[com.digitalasset.daml.lf.archive.UniversalArchiveReaderWithVersion]]
+  * [[com.daml.lf.archive.UniversalArchiveReader]];
+  * [[com.daml.lf.archive.UniversalArchiveReaderWithVersion]]
   *
   * @param parseDar  function to parse a DAR file.
   * @param parseDalf function to parse a DALF input stream.
@@ -49,24 +49,32 @@ class UniversalArchiveReader[A](
 }
 
 /**
-  * Factory for [[com.digitalasset.daml.lf.archive.UniversalArchiveReader]] class.
+  * Factory for [[com.daml.lf.archive.UniversalArchiveReader]] class.
   */
 object UniversalArchiveReader {
-  def apply(): UniversalArchiveReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
-    new UniversalArchiveReader(parseDar(parseDalf), parseDalf)
+  def apply(entrySizeThreshold: Int = DarReader.EntrySizeThreshold)
+    : UniversalArchiveReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
+    new UniversalArchiveReader(parseDar(entrySizeThreshold, parseDalf), parseDalf)
+
+  def apply[A](
+      entrySizeThreshold: Int,
+      parseDalf: InputStream => Try[A]): UniversalArchiveReader[A] =
+    new UniversalArchiveReader[A](parseDar(entrySizeThreshold, parseDalf), parseDalf)
 
   def apply[A](parseDalf: InputStream => Try[A]): UniversalArchiveReader[A] =
-    new UniversalArchiveReader[A](parseDar(parseDalf), parseDalf)
+    new UniversalArchiveReader[A](parseDar(DarReader.EntrySizeThreshold, parseDalf), parseDalf)
 
   private def parseDalf(is: InputStream) = Try(Reader.decodeArchiveFromInputStream(is))
 
   private def parseDar[A](
-      parseDalf: InputStream => Try[A]): (String, ZipInputStream) => Try[Dar[A]] =
-    DarReader { case (_, is) => parseDalf(is) }.readArchive
+      entrySizeThreshold: Int,
+      parseDalf: InputStream => Try[A],
+  ): (String, ZipInputStream) => Try[Dar[A]] =
+    DarReader { case (_, is) => parseDalf(is) }.readArchive(_, _, entrySizeThreshold)
 }
 
 /**
-  * Factory for [[com.digitalasset.daml.lf.archive.UniversalArchiveReader]] class.
+  * Factory for [[com.daml.lf.archive.UniversalArchiveReader]] class.
   */
 object UniversalArchiveReaderWithVersion {
   def apply()

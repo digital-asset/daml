@@ -1,37 +1,27 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
-import com.digitalasset.daml.lf.value.Value.{
-  ContractId,
-  ContractInst,
-  NodeId,
-  RelativeContractId,
-  ValueText,
-  VersionedValue
-}
-import com.digitalasset.daml.lf.value.ValueVersions
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{BackStack, ImmArray}
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.Node
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import org.scalatest.{Matchers, WordSpec}
-
-import scala.collection.immutable.HashMap
 
 class ProjectionsSpec extends WordSpec with Matchers {
 
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
     Node.NodeCreate(
-      nodeSeed = None,
       coid = cid,
       coinst = ContractInst(
         Identifier(
           PackageId.assertFromString("some-package"),
           QualifiedName.assertFromString("Foo:Bar")),
-        VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
+        ValueText("foo"),
         "agreement"
       ),
       optLocation = None,
@@ -45,9 +35,8 @@ class ProjectionsSpec extends WordSpec with Matchers {
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      children: ImmArray[NodeId]) =
+  ) =
     Node.NodeExercises(
-      nodeSeed = None,
       targetCoid = target,
       templateId = Identifier(
         PackageId.assertFromString("some-package"),
@@ -56,10 +45,10 @@ class ProjectionsSpec extends WordSpec with Matchers {
       optLocation = None,
       consuming = true,
       actingParties = actingParties,
-      chosenValue = VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
+      chosenValue = ValueText("foo"),
       stakeholders = stakeholders,
       signatories = signatories,
-      children = children,
+      children = ImmArray.empty,
       exerciseResult = None,
       key = None
     )
@@ -72,18 +61,18 @@ class ProjectionsSpec extends WordSpec with Matchers {
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {
-      val emptyTransaction: Transaction = GenTransaction(HashMap.empty, ImmArray.empty)
-      project(emptyTransaction) shouldBe List.empty
+      project(TransactionBuilder.Empty) shouldBe List.empty
     }
 
     "yield two projection roots for single root transaction with two parties" in {
-      val nid = NodeId(1)
-      val root = makeCreateNode(
-        RelativeContractId(nid),
-        Set(Party.assertFromString("Alice")),
-        Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
-      val tx =
-        GenTransaction(nodes = HashMap(nid -> root), roots = ImmArray(nid))
+      val builder = TransactionBuilder()
+      val nid = builder.add(
+        makeCreateNode(
+          builder.newCid,
+          Set(Party.assertFromString("Alice")),
+          Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
+      )
+      val tx = builder.build()
 
       project(tx) shouldBe List(
         ProjectionRoots(Party.assertFromString("Alice"), BackStack(nid)),
@@ -92,40 +81,37 @@ class ProjectionsSpec extends WordSpec with Matchers {
     }
 
     "yield proper projection roots in complex transaction" in {
-      val nid1 = NodeId(1)
-      val nid2 = NodeId(2)
-      val nid3 = NodeId(3)
-      val nid4 = NodeId(4)
+      val builder = TransactionBuilder()
 
       // Alice creates an "offer contract" to Bob as part of her workflow.
       // Alice sees both the exercise and the create, and Bob only
       // sees the offer.
       val create = makeCreateNode(
-        RelativeContractId(nid2),
+        builder.newCid,
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Bob")))
       val exe = makeExeNode(
-        RelativeContractId(nid1),
+        builder.newCid,
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice")),
-        ImmArray(nid2)
       )
       val bobCreate = makeCreateNode(
-        RelativeContractId(nid3),
+        builder.newCid,
         Set(Party.assertFromString("Bob")),
         Set(Party.assertFromString("Bob")))
 
       val charlieCreate = makeCreateNode(
-        RelativeContractId(nid4),
+        builder.newCid,
         Set(Party.assertFromString("Charlie")),
         Set(Party.assertFromString("Charlie")))
 
-      val tx =
-        GenTransaction(
-          nodes = HashMap(nid1 -> exe, nid2 -> create, nid3 -> bobCreate, nid4 -> charlieCreate),
-          roots = ImmArray(nid1, nid3, nid4),
-        )
+      val nid1 = builder.add(exe)
+      val nid2 = builder.add(create, nid1)
+      val nid3 = builder.add(bobCreate)
+      val nid4 = builder.add(charlieCreate)
+
+      val tx = builder.build()
 
       project(tx) shouldBe List(
         // Alice should see the exercise as the root.

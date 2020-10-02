@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -76,13 +76,15 @@ newtype UserCommandArgs = UserCommandArgs
 
 -- | Command-line options for daml version command.
 data VersionOptions = VersionOptions
-    { vAll :: Bool -- ^ list all available versions
+    { vAll :: Bool -- ^ show all versions (stable + snapshot)
+    , vSnapshots :: Bool -- ^ show all snapshot versions
     , vAssistant :: Bool -- ^ show assistant version
     } deriving (Eq, Show)
 
 -- | Command-line options for daml install command.
 data InstallOptions = InstallOptions
     { iTargetM :: Maybe RawInstallTarget -- ^ version to install
+    , iSnapshots :: Bool -- ^ include snapshots for latest target
     , iAssistant :: InstallAssistant -- ^ install the assistant
     , iActivate :: ActivateInstall -- ^ install the assistant if true (deprecated, delete with 0.14.x)
     , iForce :: ForceInstall -- ^ force reinstall if already installed

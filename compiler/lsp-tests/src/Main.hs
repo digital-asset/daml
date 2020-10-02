@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -41,6 +41,8 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
+    scriptDarPath <- locateRunfiles $
+        mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
     let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps' dir s
         runScenarios s
             -- We are currently seeing issues with GRPC FFI calls which make everything
@@ -53,10 +55,13 @@ main = do
         [ diagnosticTests run runScenarios
         , requestTests run runScenarios
         , scenarioTests runScenarios
+        , scriptTests damlcPath scriptDarPath
         , stressTests run runScenarios
         , executeCommandTests run runScenarios
         , regressionTests run runScenarios
+        , includePathTests damlcPath
         , multiPackageTests damlcPath
+        , completionTests run runScenarios
         ]
 
 conf :: SessionConfig
@@ -73,27 +78,23 @@ diagnosticTests
 diagnosticTests run runScenarios = testGroup "diagnostics"
     [ testCase "diagnostics disappear after error is fixed" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Test where"
+              [ "module Test where"
               , "f 1"
               ]
-          expectDiagnostics [("Test.daml", [(DsError, (2, 0), "Parse error")])]
+          expectDiagnostics [("Test.daml", [(DsError, (1, 0), "Parse error")])]
           replaceDoc test $ T.unlines
-              [ "daml 1.2"
-              , "module Test where"
+              [ "module Test where"
               , "f = ()"
               ]
           expectDiagnostics [("Test.daml", [])]
           closeDoc test
     , testCase "lower-case drive" $ run $ do
           let aContent = T.unlines
-                [ "daml 1.2"
-                , "module A.A where"
+                [ "module A.A where"
                 , "import A.B ()"
                 ]
               bContent = T.unlines
-                [ "daml 1.2"
-                , "module A.B where"
+                [ "module A.B where"
                 , "import DA.List"
                 ]
           uriB <- getDocUri "A/B.daml"
@@ -122,103 +123,92 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
           closeDoc a
     , testCase "diagnostics appear after introducing an error" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Test where"
+              [ "module Test where"
               , "f = ()"
               ]
           replaceDoc test $ T.unlines
-              [ "daml 1.2"
-              , "module Test where"
+              [ "module Test where"
               , "f 1"
               ]
-          expectDiagnostics [("Test.daml", [(DsError, (2, 0), "Parse error")])]
+          expectDiagnostics [("Test.daml", [(DsError, (1, 0), "Parse error")])]
           closeDoc test
     , testCase "percent encoding does not matter" $ run $ do
           Just uri <- parseURI . T.unpack . getUri <$> getDocUri "Test.daml"
           let weirdUri = Uri $ T.pack $ "file://" <> escapeURIString (== '/') (uriPath uri)
           let item = TextDocumentItem weirdUri (T.pack damlId) 0 $ T.unlines
-                  [ "daml 1.2"
-                  , "module Test where"
+                  [ "module Test where"
                   , "f = ()"
                   ]
           sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams item)
           let test = TextDocumentIdentifier weirdUri
           replaceDoc test $ T.unlines
-              [ "daml 1.2"
-              , "module Test where"
+              [ "module Test where"
               , "f 1"
               ]
-          expectDiagnostics [("Test.daml", [(DsError, (2, 0), "Parse error")])]
+          expectDiagnostics [("Test.daml", [(DsError, (1, 0), "Parse error")])]
           closeDoc test
     , testCase "failed name resolution" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "add : Int -> Int -> Int"
               , "add a b = ab + b"
               , "succ : Int -> Int"
-              , "succ a = abdd 1 a"
+              , "succ = abdd 1"
               ]
           expectDiagnostics
               [ ( "Main.daml"
-                , [ (DsError, (3, 10), "Variable not in scope: ab")
-                  , (DsError, (5, 9), "Variable not in scope: abdd")
+                , [ (DsError, (2, 10), "Variable not in scope: ab")
+                  , (DsError, (4, 7), "Variable not in scope: abdd")
                   ]
                 )
               ]
           closeDoc main'
     , testCase "import cycle" $ run $ do
           let aContent = T.unlines
-                  [ "daml 1.2"
-                  , "module A where"
+                  [ "module A where"
                   , "import B"
                   ]
               bContent = T.unlines
-                  [ "daml 1.2"
-                  , "module B where"
+                  [ "module B where"
                   , "import A"
                   ]
           [a, b] <- openDocs damlId [("A.daml", aContent), ("B.daml", bContent)]
           expectDiagnostics
               [ ( "A.daml"
-                , [(DsError, (2, 7), "Cyclic module dependency between A, B")]
+                , [(DsError, (1, 7), "Cyclic module dependency between A, B")]
                 )
               , ( "B.daml"
-                , [(DsError, (2, 7), "Cyclic module dependency between A, B")]
+                , [(DsError, (1, 7), "Cyclic module dependency between A, B")]
                 )
               ]
           closeDoc b
           closeDoc a
     , testCase "import error" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "import Oops"
               ]
           expectDiagnostics
-              [("Main.daml", [(DsError, (2, 7), "Could not find module 'Oops'")])]
+              [("Main.daml", [(DsError, (1, 7), "Could not find module 'Oops'")])]
           closeDoc main'
     , testCase "multi module funny" $ run $ do
           libsC <- openDoc' "Libs/C.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Libs.C where"
+              [ "module Libs.C where"
               ]
           libsB <- openDoc' "Libs/B.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Libs.B where"
+              [ "module Libs.B where"
               , "import Libs.C"
               ]
           libsA <- openDoc' "Libs/A.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Libs.A where"
+              [ "module Libs.A where"
               , "import C"
               ]
           expectDiagnostics
               [ ( "Libs/A.daml"
-                , [(DsError, (2, 7), "Could not find module 'C'")]
+                , [(DsError, (1, 7), "Could not find module 'C'")]
                 )
               , ( "Libs/B.daml"
-                , [(DsWarning, (2, 0), "import of 'Libs.C' is redundant")]
+                , [(DsWarning, (1, 0), "import of 'Libs.C' is redundant")]
                 )
               ]
           closeDoc libsA
@@ -226,22 +216,20 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
           closeDoc libsC
     , testCase "parse error" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Test where"
+              [ "module Test where"
               , "f 1"
               ]
-          expectDiagnostics [("Test.daml", [(DsError, (2, 0), "Parse error")])]
+          expectDiagnostics [("Test.daml", [(DsError, (1, 0), "Parse error")])]
           closeDoc test
     , testCase "type error" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "oops = 1 + \"foo\""
               ]
           expectDiagnostics
               [ ( "Main.daml"
                 , [ ( DsError
-                    , (2, 11)
+                    , (1, 11)
                     , "Couldn't match expected type 'Int' with actual type 'Text'"
                     )
                   ]
@@ -250,8 +238,7 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
           closeDoc main'
     , testCase "scenario error" $ runScenarios $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "template Agree with p1 : Party; p2 : Party where"
               , "  signatory [p1, p2]"
               , "myScenario = scenario do"
@@ -261,7 +248,7 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               ]
           expectDiagnostics
               [ ( "Main.daml"
-                , [(DsError, (4, 0), "missing authorization from 'Alice'")]
+                , [(DsError, (3, 0), "missing authorization from 'Alice'")]
                 )
               ]
           closeDoc main'
@@ -275,8 +262,7 @@ requestTests
 requestTests run _runScenarios = testGroup "requests"
     [ testCase "code-lenses" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "single = scenario do"
               , "  assert (True == True)"
               ]
@@ -284,7 +270,7 @@ requestTests run _runScenarios = testGroup "requests"
           Just escapedFp <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (main' ^. uri)
           liftIO $ lenses @?=
               [ CodeLens
-                    { _range = Range (Position 2 0) (Position 2 6)
+                    { _range = Range (Position 1 0) (Position 1 6)
                     , _command = Just $ Command
                           { _title = "Scenario results"
                           , _command = "daml.showResource"
@@ -300,8 +286,7 @@ requestTests run _runScenarios = testGroup "requests"
           closeDoc main'
     , testCase "stale code-lenses" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "single = scenario do"
               , "  assert True"
               ]
@@ -320,20 +305,19 @@ requestTests run _runScenarios = testGroup "requests"
                           }
                     , _xdata = Nothing
                     }
-          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
-          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 3 23) (Position 3 23))) Nothing "+"]
-          expectDiagnostics [("Main.daml", [(DsError, (4, 0), "Parse error")])]
+          liftIO $ lenses @?= [codeLens (Range (Position 1 0) (Position 1 6))]
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 2 23) (Position 2 23))) Nothing "+"]
+          expectDiagnostics [("Main.daml", [(DsError, (3, 0), "Parse error")])]
           lenses <- getCodeLenses main'
-          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
+          liftIO $ lenses @?= [codeLens (Range (Position 1 0) (Position 1 6))]
           -- Shift code lenses down
-          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 1 0) (Position 1 0))) Nothing "\n\n"]
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 0 0) (Position 0 0))) Nothing "\n\n"]
           lenses <- getCodeLenses main'
-          liftIO $ lenses @?= [codeLens (Range (Position 4 0) (Position 4 6))]
+          liftIO $ lenses @?= [codeLens (Range (Position 3 0) (Position 3 6))]
           closeDoc main'
     , testCase "type on hover: name" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "add : Int -> Int -> Int"
               , "add a b = a + b"
               , "template DoStuff with party : Party where"
@@ -344,7 +328,7 @@ requestTests run _runScenarios = testGroup "requests"
               , "        do pure (add 5 number)"
               ]
           Just fp <- pure $ uriToFilePath (main' ^. uri)
-          r <- getHover main' (Position 9 19)
+          r <- getHover main' (Position 8 19)
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
@@ -352,19 +336,18 @@ requestTests run _runScenarios = testGroup "requests"
                     , ": Int -> Int -> Int"
                     , "```"
                     , "*\t*\t*"
-                    , "*Defined at " <> T.pack fp <> ":4:1*"
+                    , "*Defined at " <> T.pack fp <> ":3:1*"
                     ]
-              , _range = Just $ Range (Position 9 17) (Position 9 20)
+              , _range = Just $ Range (Position 8 17) (Position 8 20)
               }
           closeDoc main'
 
     , testCase "type on hover: literal" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "simple arg1 = let xlocal = 1.0 in xlocal + arg1"
               ]
-          r <- getHover main' (Position 2 27)
+          r <- getHover main' (Position 1 27)
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
@@ -374,18 +357,16 @@ requestTests run _runScenarios = testGroup "requests"
                     , "```"
                     , "*\t*\t*"
                     ]
-              , _range = Just $ Range (Position 2 27) (Position 2 30)
+              , _range = Just $ Range (Position 1 27) (Position 1 30)
               }
           closeDoc main'
     , testCase "definition" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Test where"
+              [ "module Test where"
               , "answerFromTest = 42"
               ]
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "import Test"
               , "bar = answerFromTest"
               , "foo thisIsAParam = thisIsAParam <> \" concatenated with a Text.\""
@@ -402,20 +383,20 @@ requestTests run _runScenarios = testGroup "requests"
               , "           pure ()"
               ]
           -- thisIsAParam
-          locs <- getDefinitions main' (Position 4 24)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 4 4) (Position 4 16))]
+          locs <- getDefinitions main' (Position 3 24)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 3 4) (Position 3 16))]
           -- letParam
-          locs <- getDefinitions main' (Position 5 37)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 5 16) (Position 5 24))]
+          locs <- getDefinitions main' (Position 4 37)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 4 16) (Position 4 24))]
           -- import Test
-          locs <- getDefinitions main' (Position 2 10)
+          locs <- getDefinitions main' (Position 1 10)
           liftIO $ locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
           -- use of `bar` in template
-          locs <- getDefinitions main' (Position 14 20)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 3 0) (Position 3 3))]
+          locs <- getDefinitions main' (Position 13 20)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
           -- answerFromTest
-          locs <- getDefinitions main' (Position 3 8)
-          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 2 0) (Position 2 14))]
+          locs <- getDefinitions main' (Position 2 8)
+          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
           closeDoc main'
           closeDoc test
     ]
@@ -424,15 +405,14 @@ scenarioTests :: (Session () -> IO ()) -> TestTree
 scenarioTests run = testGroup "scenarios"
     [ testCase "opening codelens produces a notification" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "main = scenario $ assert (True == True)"
               ]
           lenses <- getCodeLenses main'
           uri <- scenarioUri "Main.daml" "main"
           liftIO $ lenses @?=
               [ CodeLens
-                    { _range = Range (Position 2 0) (Position 2 4)
+                    { _range = Range (Position 1 0) (Position 1 4)
                     , _command = Just $ Command
                           { _title = "Scenario results"
                           , _command = "daml.showResource"
@@ -449,8 +429,7 @@ scenarioTests run = testGroup "scenarios"
           closeDoc mainScenario
     , testCase "scenario ok" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "main = scenario $ pure \"ok\""
               ]
           scenario <- openScenario "Main.daml" "main"
@@ -459,22 +438,122 @@ scenarioTests run = testGroup "scenarios"
           closeDoc main'
     , testCase "spaces in path" $ run $ do
           main' <- openDoc' "spaces in path/Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
               , "main = scenario $ pure \"ok\""
               ]
           scenario <- openScenario "spaces in path/Main.daml" "main"
           expectScenarioContent "Return value: &quot;ok&quot"
           closeDoc scenario
           closeDoc main'
+    , testCase "submit location" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "module Main where"
+              , "template T with party : Party where signatory party"
+              , "main = scenario $ do"
+              , "  alice <- getParty \"Alice\""
+              , "  submit alice do create (T alice)"
+              , "  submitCreateT alice"
+              , "submitCreateT party = submit party do create (T party)"
+              ]
+          script <- openScenario "Main.daml" "main"
+          expectScenarioContentMatch "title=\"Main:5:3\">Main:5:3</a>.*title=\"Main:7:1\">Main:7:1</a>"
+          closeDoc script
+          closeDoc main'
     ]
+
+scriptTests :: FilePath -> FilePath -> TestTree
+scriptTests damlcPath scriptDarPath = testGroup "scripts"
+    [ testCase "opening codelens produces a notification" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "main : Script ()"
+              , "main = assert (True == True)"
+              ]
+          lenses <- getCodeLenses main'
+          uri <- scriptUri "Main.daml" "main"
+          liftIO $ lenses @?=
+              [ CodeLens
+                    { _range = Range (Position 4 0) (Position 4 4)
+                    , _command = Just $ Command
+                          { _title = "Script results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Script: main"
+                              ,  toJSON uri
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+              ]
+          mainScript <- openScript "Main.daml" "main"
+          _ <- waitForScriptDidChange
+          closeDoc mainScript
+    , testCase "script ok" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "main : Script String"
+              , "main = pure \"ok\""
+              ]
+          script <- openScript "Main.daml" "main"
+          expectScriptContent "Return value: &quot;ok&quot"
+          closeDoc script
+          closeDoc main'
+    , testCase "spaces in path" $ run $ do
+          main' <- openDoc' "spaces in path/Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "main : Script String"
+              , "main = pure \"ok\""
+              ]
+          script <- openScript "spaces in path/Main.daml" "main"
+          expectScriptContent "Return value: &quot;ok&quot"
+          closeDoc script
+          closeDoc main'
+    , testCase "submit location" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "template T with party : Party where signatory party"
+              , "main : Script (ContractId T)"
+              , "main = do"
+              , "  alice <- allocateParty \"Alice\""
+              , "  submit alice do createCmd (T alice)"
+              , "  submitCreateT alice"
+              , "submitCreateT party = submit party do createCmd (T party)"
+              ]
+          script <- openScript "Main.daml" "main"
+          expectScriptContentMatch "title=\"Main:8:3\">Main:8:3</a>.*title=\"Main:10:23\">Main:10:23</a>"
+          closeDoc script
+          closeDoc main'
+    ]
+  where
+    run s | isWindows = pure ()
+          | otherwise = withTempDir $ \dir -> do
+        copyFile scriptDarPath (dir </> "daml-script.dar")
+        writeFileUTF8 (dir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: script-test"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies:"
+            , "- daml-prim"
+            , "- daml-stdlib"
+            , "- daml-script.dar"
+            ]
+        withCurrentDirectory dir $
+            runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
 
 executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
 executeCommandTests run _ = testGroup "execute command"
     [ testCase "execute commands" $ run $ do
-        main' <- openDoc' "Main.daml" damlId $ T.unlines
-            [ "daml 1.2"
-            , "module Coin where"
+        main' <- openDoc' "Coin.daml" damlId $ T.unlines
+            [ "module Coin where"
             , "template Coin"
             , "  with"
             , "    owner : Party"
@@ -491,9 +570,8 @@ executeCommandTests run _ = testGroup "execute command"
         liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
         closeDoc main'
     , testCase "Invalid commands result in error"  $ run $ do
-        main' <- openDoc' "Main.daml" damlId $ T.unlines
-            [ "daml 1.2"
-            , "module Empty where"
+        main' <- openDoc' "Empty.daml" damlId $ T.unlines
+            [ "module Empty where"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
@@ -522,8 +600,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
             fooValue i = T.pack (show (i `div` 2))
                       <> if even i then "" else ".5"
             fooContent i = T.unlines
-                [ "daml 1.2"
-                , "module Foo where"
+                [ "module Foo where"
                 , "foo : Int"
                 , "foo = " <> fooValue i
                 ]
@@ -557,7 +634,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
         foos <- forM [1 .. 10 :: Int] $ \i ->
             makeModule ("Foo" ++ show i) ["foo  10"]
         expectDiagnostics
-            [ ("Foo" ++ show i ++ ".daml", [(DsError, (2, 0), "Parse error")])
+            [ ("Foo" ++ show i ++ ".daml", [(DsError, (1, 0), "Parse error")])
             | i <- [1 .. 10 :: Int]
             ]
         forM_ (zip [1 .. 10 :: Int] foos) $ \(i, foo) ->
@@ -588,7 +665,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
             , "foo0 = foo1"
             ]
         withTimeout 90 $ do
-            expectDiagnostics [("Foo0.daml", [(DsError, (4, 7), "Couldn't match expected type")])]
+            expectDiagnostics [("Foo0.daml", [(DsError, (3, 7), "Couldn't match expected type")])]
             void $ replaceDoc foo0 $ moduleContent "Foo0"
                 [ "import Foo1"
                 , "foo0 : Bool"
@@ -600,8 +677,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
   where
     moduleContent :: String -> [T.Text] -> T.Text
     moduleContent name lines = T.unlines $
-        [ "daml 1.2"
-        , "module " <> T.pack name <> " where"
+        [ "module " <> T.pack name <> " where"
         ] ++ lines
     makeModule :: String -> [T.Text] -> Session TextDocumentIdentifier
     makeModule name lines = openDoc' (name ++ ".daml") damlId $
@@ -617,26 +693,75 @@ regressionTests run _runScenarios = testGroup "regression"
         -- since we used a function from GHCi in ghcide.
         foo <- openDoc' "Foo.daml" damlId $ T.unlines
             [ "{-# OPTIONS_GHC -Wall #-}"
-            , "daml 1.2"
             , "module Foo where"
             , "import DA.List"
             , ""
             ]
-        expectDiagnostics [("Foo.daml", [(DsWarning, (3,0), "redundant")])]
-        completions <- getCompletions foo (Position 3 1)
+        expectDiagnostics [("Foo.daml", [(DsWarning, (2,0), "redundant")])]
+        completions <- getCompletions foo (Position 2 1)
         liftIO $
             assertBool ("DA.List and DA.Internal.RebindableSyntax should be in " <> show completions) $
-            mkCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
-            mkCompletion "DA.List" `elem` completions
-        changeDoc foo [TextDocumentContentChangeEvent (Just (Range (Position 3 0) (Position 3 1))) Nothing "Syntax"]
-        expectDiagnostics [("Foo.daml", [(DsError, (3,0), "Parse error")])]
-        completions <- getCompletions foo (Position 3 6)
-        liftIO $ completions @?= [mkCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
+            mkModuleCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
+            mkModuleCompletion "DA.List" `elem` completions
+        changeDoc foo [TextDocumentContentChangeEvent (Just (Range (Position 2 0) (Position 2 1))) Nothing "Syntax"]
+        expectDiagnostics [("Foo.daml", [(DsError, (2,0), "Parse error")])]
+        completions <- getCompletions foo (Position 2 6)
+        liftIO $ completions @?= [mkModuleCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
   ]
-  where mkCompletion mod = CompletionItem
-          { _label = mod
-          , _kind = Just CiModule
-          , _detail = Just mod
+
+completionTests
+    :: (Session () -> IO ())
+    -> (Session () -> IO ())
+    -> TestTree
+completionTests run _runScenarios = testGroup "completion"
+    [ testCase "type signature" $ run $ do
+          foo <- openDoc' "Foo.daml" damlId $ T.unlines
+              [ "module Foo where"
+              ]
+          -- Request completions to ensure that the module has been typechecked
+          _ <- getCompletions foo (Position 0 1)
+          changeDoc foo
+              [ TextDocumentContentChangeEvent Nothing Nothing $ T.unlines
+                    [ "module Foo where"
+                    , "f : Part"
+                    ]
+              ]
+          completions <- getCompletions foo (Position 1 8)
+          liftIO $
+              map (set documentation Nothing) completions @?=
+              [ mkTypeCompletion "Party"
+              , mkTypeCompletion "IsParties"
+              ]
+    , testCase "with keyword" $ run $ do
+          foo <- openDoc' "Foo.daml" damlId $ T.unlines
+              [ "module Foo where"
+              ]
+          -- Request completions to ensure that the module has been typechecked
+          _ <- getCompletions foo (Position 0 1)
+          changeDoc foo
+              [ TextDocumentContentChangeEvent Nothing Nothing $ T.unlines
+                    [ "module Foo where"
+                    , "f = R wit"
+                    ]
+              ]
+          completions <- getCompletions foo (Position 1 9)
+          liftIO $ assertBool ("`with` should be in " <> show completions) $
+              mkKeywordCompletion "with" `elem` completions
+    , testCase "no prefix" $ run $ do
+            foo <- openDoc' "Foo.daml" damlId $ T.unlines
+                [ "module Foo where" ]
+            completions <- getCompletions foo (Position 0 0)
+            -- We just want to verify that this no longer results in a
+            -- crash (before haskell-lsp 0.21 it did crash).
+            liftIO $ assertBool "Expected completions to be non-empty"
+                (not $ null completions)
+    ]
+
+defaultCompletion :: T.Text -> CompletionItem
+defaultCompletion label = CompletionItem
+          { _label = label
+          , _kind = Nothing
+          , _detail = Nothing
           , _documentation = Nothing
           , _deprecated = Nothing
           , _preselect = Nothing
@@ -649,10 +774,71 @@ regressionTests run _runScenarios = testGroup "regression"
           , _commitCharacters = Nothing
           , _command = Nothing
           , _xdata = Nothing
+          , _tags = List []
           }
 
+mkTypeCompletion :: T.Text -> CompletionItem
+mkTypeCompletion label =
+    defaultCompletion label &
+    insertTextFormat ?~ PlainText &
+    kind ?~ CiStruct
+
+mkModuleCompletion :: T.Text -> CompletionItem
+mkModuleCompletion label =
+    defaultCompletion label &
+    kind ?~ CiModule &
+    detail ?~ label
+
+mkKeywordCompletion :: T.Text -> CompletionItem
+mkKeywordCompletion label =
+    defaultCompletion label &
+    kind ?~ CiKeyword
+
+includePathTests :: FilePath -> TestTree
+includePathTests damlc = testGroup "include-path"
+    [ testCase "IDE in root directory" $ withTempDir $ \dir -> do
+          createDirectory (dir </> "src1")
+          createDirectory (dir </> "src2")
+          writeFileUTF8 (dir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: a"
+              , "version: 0.0.1"
+              , "source: src1/Root.daml"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "build-options:"
+              , "- --include=src1/"
+              , "- --include=src2/"
+              ]
+          writeFileUTF8 (dir </> "src1" </> "A.daml") $ unlines
+              [ "module A where"
+              , "data A = A Text"
+              ]
+          writeFileUTF8 (dir </> "src2" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import A"
+              , "a = A \"abc\""
+              , "test = scenario $ assert False"
+              ]
+          writeFileUTF8 (dir </> "src1" </> "Root.daml") $ unlines
+              [ "module Root where"
+              , "import A ()"
+              , "import B ()"
+              , "test = scenario $ assert False"
+              ]
+          withCurrentDirectory dir $
+            runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' dir $ do
+              _docB <- openDoc "src2/B.daml" "daml"
+              -- If we get a scenario result, we managed to build a DALF which
+              -- is what we really want to check here.
+              expectDiagnostics [ ("src2/B.daml", [(DsError, (3,0), "Assertion failed")]) ]
+              _docRoot <- openDoc "src1/Root.daml" "daml"
+              expectDiagnostics [ ("src1/Root.daml", [(DsError, (3,0), "Assertion failed")]) ]
+    ]
+
 multiPackageTests :: FilePath -> TestTree
-multiPackageTests damlc = testGroup "multi-package"
+multiPackageTests damlc
+  | isWindows = testGroup "multi-package (skipped)" [] -- see issue #4904
+  | otherwise = testGroup "multi-package"
     [ testCaseSteps "IDE in root directory" $ \step -> withTempDir $ \dir -> do
           step "build a"
           createDirectoryIfMissing True (dir </> "a")
@@ -664,7 +850,7 @@ multiPackageTests damlc = testGroup "multi-package"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
           writeFileUTF8 (dir </> "a" </> "A.daml") $ unlines
-              [ "daml 1.2 module A where"
+              [ "module A where"
               , "data A = A"
               , "a = A"
               ]
@@ -679,7 +865,7 @@ multiPackageTests damlc = testGroup "multi-package"
               , "dependencies: [daml-prim, daml-stdlib, " <> show (".." </> "a" </> "a.dar") <> "]"
               ]
           writeFileUTF8 (dir </> "b" </> "B.daml") $ unlines
-              [ "daml 1.2 module B where"
+              [ "module B where"
               , "import A"
               , "f : Scenario A"
               , "f = pure a"
@@ -733,7 +919,7 @@ multiPackageTests damlc = testGroup "multi-package"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
           writeFileUTF8 (dir </> "a" </> "A.daml") $ unlines
-              [ "daml 1.2 module A where"
+              [ "module A where"
               , "data A = A"
               , "a = A"
               ]
@@ -748,7 +934,7 @@ multiPackageTests damlc = testGroup "multi-package"
               , "dependencies: [daml-prim, daml-stdlib, " <> show (".." </> "a" </> "a.dar") <> "]"
               ]
           writeFileUTF8 (dir </> "b" </> "B.daml") $ unlines
-              [ "daml 1.2 module B where"
+              [ "module B where"
               , "import A"
               , "f : Scenario A"
               , "f = pure a"

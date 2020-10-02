@@ -1,14 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java
+package com.daml.lf.codegen.backend.java
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
 import org.scalatest.{FlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class ObjectMethodsSpec extends FlatSpec with Matchers {
 
   val Vector(equalsSpec, hashCodeSpec, toStringSpec) =

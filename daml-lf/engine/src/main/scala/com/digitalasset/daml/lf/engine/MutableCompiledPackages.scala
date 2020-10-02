@@ -1,20 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf
+package engine
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.Ast.Package
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.speedy.Compiler
 
 /** Trait that extends [[CompiledPackages]] with the ability to
   * add new packages.
   */
-trait MutableCompiledPackages extends CompiledPackages {
+abstract class MutableCompiledPackages(
+    compilerConfig: Compiler.Config,
+) extends CompiledPackages(compilerConfig) {
 
-  /** Add a new package and compile it to internal form. If package
-    * depends on another package the call may return with [[ResultNeedPackage]].
-    */
   def addPackage(pkgId: PackageId, pkg: Package): Result[Unit]
 
   /** Get the transitive dependencies of the given package.

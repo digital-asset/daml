@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,14 +12,12 @@ da_scala_library(
     name = "validation",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-validation:__VERSION__"],
-    visibility = [
-        "//compiler/scenario-service:__subpackages__",
-        "//daml-lf:__subpackages__",
-    ],
+    tags = ["maven_coordinates=com.daml:daml-lf-validation:__VERSION__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

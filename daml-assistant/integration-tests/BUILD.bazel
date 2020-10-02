@@ -1,6 +1,6 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-load("//bazel_tools:haskell.bzl", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
 
@@ -27,65 +27,107 @@ genrule(
       set -euo pipefail
       TMP_DIR=$$(mktemp -d)
       MVN_DB="$$TMP_DIR/m2"
+      MVN=($(locations @mvn_dev_env//:mvn))
+      MVN="$${{MVN[0]}}"
       install_mvn() {{
-          $(location @mvn_dev_env//:mvn) -q install:install-file \
-          -Dmaven.repo.local=$$MVN_DB \
-          "-DgroupId=$$1" \
-          "-DartifactId=$$2" \
-          "-Dfile=$$3" \
-          "-DpomFile=$$4" \
-          -Dpackaging=jar \
+          "$$MVN" -q install:install-file \\
+          -Dmaven.repo.local=$$MVN_DB \\
+          "-DgroupId=$$1" \\
+          "-DartifactId=$$2" \\
+          "-Dfile=$$3" \\
+          "-DpomFile=$$4" \\
+          -Dpackaging=jar \\
           -Dversion={mvn}
       }}
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
-      install_mvn \
-        "com.digitalasset" "daml-lf-archive" \
-        $(location //daml-lf/archive:daml_lf_dev_archive_java_proto) \
+      install_mvn \\
+        "com.daml" "daml-lf-archive" \\
+        $(location //daml-lf/archive:daml_lf_dev_archive_java_proto) \\
         $(location //daml-lf/archive:daml_lf_dev_archive_java_proto_pom)
-      install_mvn \
-        "com.daml.ledger" "bindings-java" \
-        $(location //language-support/java/bindings:libbindings-java.jar) \
+      install_mvn \\
+        "com.daml" "bindings-java" \\
+        $(location //language-support/java/bindings:libbindings-java.jar) \\
         $(location //language-support/java/bindings:bindings-java_pom.xml)
-      install_mvn \
-        "com.daml.ledger" "bindings-rxjava" \
-        $(location //language-support/java/bindings-rxjava:libbindings-rxjava.jar) \
+      install_mvn \\
+        "com.daml" "bindings-rxjava" \\
+        $(location //language-support/java/bindings-rxjava:libbindings-rxjava.jar) \\
         $(location //language-support/java/bindings-rxjava:bindings-rxjava_pom.xml)
-      install_mvn \
-        "com.daml.java" "codegen" \
-        $(location //language-support/java/codegen:shaded_binary.jar) \
+      install_mvn \\
+        "com.daml" "codegen-java" \\
+        $(location //language-support/java/codegen:shaded_binary.jar) \\
         $(location //language-support/java/codegen:shaded_binary_pom.xml)
-      install_mvn \
-        "com.digitalasset.ledger-api" "rs-grpc-bridge" \
-        $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \
+      install_mvn \\
+        "com.daml" "rs-grpc-bridge" \\
+        $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \\
         $(location //ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
-      install_mvn \
-        "com.digitalasset.ledger" "ledger-api-auth-client" \
-        $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \
+      install_mvn \\
+        "com.daml" "ledger-api-auth-client" \\
+        $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \\
         $(location //ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml)
-      $(location @mvn_dev_env//:mvn) -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
-      tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
+      "$$MVN" -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
+      $(execpath //bazel_tools/sh:mktar) $@ -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
     """.format(mvn = mvn_version),
+    tools = ["//bazel_tools/sh:mktar"],
+)
+
+ts_libraries = [
+    "//language-support/ts/daml-types:npm_package",
+    "//language-support/ts/daml-ledger:npm_package",
+    "//language-support/ts/daml-react:npm_package",
+]
+
+create_daml_app_resources = [
+    "//templates:create-daml-app-test-resources/messaging.patch",
+    "//templates:create-daml-app-test-resources/testDeps.json",
+    "//templates:create-daml-app-test-resources/index.test.ts",
+]
+
+da_haskell_library(
+    name = "integration-test-utils",
+    srcs = ["src/DA/Daml/Assistant/IntegrationTestUtils.hs"],
+    hackage_deps = [
+        "base",
+        "conduit",
+        "conduit-extra",
+        "extra",
+        "filepath",
+        "tasty",
+        "text",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
 )
 
 da_haskell_test(
     name = "integration-tests",
     timeout = "long",
-    srcs = glob(["src/**/*.hs"]),
+    srcs = [
+        "src/DA/Daml/Assistant/FreePort.hs",
+        "src/DA/Daml/Assistant/IntegrationTests.hs",
+    ],
+    args = [
+        "$(location //:yarn)",
+    ],
     data = [
         ":integration-tests-mvn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
-    ],
+    ] + ([] if is_windows else ts_libraries),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [
         "aeson",
         "async",
         "base",
-        "bytestring",
         "conduit",
         "conduit-extra",
         "containers",
@@ -95,9 +137,7 @@ da_haskell_test(
         "http-client",
         "http-types",
         "jwt",
-        "main-tester",
         "network",
-        "unix-compat",
         "unordered-containers",
         "process",
         "tar",
@@ -105,15 +145,88 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "text",
-        "zip-archive",
     ],
     main_function = "DA.Daml.Assistant.IntegrationTests.main",
     visibility = ["//visibility:public"],
     deps = [
+        ":integration-test-utils",
         "//:sdk-version-hs-lib",
-        "//compiler/damlc/daml-opts:daml-opts-types",
         "//daml-assistant/daml-helper:daml-helper-lib",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
+)
+
+da_haskell_library(
+    name = "create-daml-app-tests-lib",
+    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTests.hs"],
+    data = [
+        "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "//:yarn",
+        "@patch_dev_env//:patch",
+    ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
+    hackage_deps = [
+        "aeson",
+        "aeson-extra",
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "tagged",
+        "tasty",
+        "tasty-hunit",
+        "unordered-containers",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":integration-test-utils",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "create-daml-app-tests",
+    timeout = "long",
+    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
+    args = [
+        "$(location @nodejs//:npm_bin)",
+        "$(location @nodejs//:node_bin)",
+    ],
+    data = [
+        "@nodejs//:node_bin",
+        "@nodejs//:npm_bin",
+    ],
+    hackage_deps = ["base"],
+    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
+    # Exclusive until we stop hardcoding port numbers in index.test.ts
+    tags = ["exclusive"],
+    deps = [":create-daml-app-tests-lib"],
+)
+
+da_haskell_test(
+    name = "create-daml-app-tests-proj-name",
+    timeout = "long",
+    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
+    args = [
+        "$(location @nodejs//:npm_bin)",
+        "$(location @nodejs//:node_bin)",
+        "--project-name",
+        "not-create-daml-app",
+    ],
+    data = [
+        "@nodejs//:node_bin",
+        "@nodejs//:npm_bin",
+    ],
+    hackage_deps = ["base"],
+    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
+    # Exclusive until we stop hardcoding port numbers in index.test.ts
+    tags = ["exclusive"],
+    deps = [":create-daml-app-tests-lib"],
 )

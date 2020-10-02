@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -326,6 +326,33 @@ template WithKey
           n : Int
         do pure (n + k)
 
+template FetcherByKey
+  with p: Party
+
+  where
+    signatory p
+
+    controller p can
+      nonconsuming Fetch : WithKey
+        with
+          n : Int
+        do
+          (_, c) <- fetchByKey @WithKey (p, n)
+          pure c
+
+template LookerUpByKey
+  with p: Party
+  where
+    signatory p
+
+    controller p can
+      nonconsuming Lookup : Optional (ContractId WithKey)
+        with
+          n : Int
+        do
+          lookupByKey @WithKey (p, n)
+
+
 test_failedAuths = scenario do
   alice <- getParty "alice"
   bob <- getParty "bob"
@@ -356,6 +383,29 @@ template Fetcher
       DoFetch : Fetched
         with cid : ContractId Fetched
         do fetch cid
+
+
+template Forkable
+  with
+    party: Party
+    parent: Optional (ContractId Forkable)
+  where
+    signatory party
+
+    controller party can
+      Fork: [ContractId Forkable]
+        with n: Int
+          do
+            if (n == 0) then
+               pure [self]
+            else
+              do
+                c1 <- create Forkable with party = party, parent = Some self
+                l1 <- exercise c1 Fork with n = n-1
+                c2 <- create Forkable with party = party, parent = Some self
+                l2 <- exercise c2 Fork with n = n-1
+                pure (l1 ++ l2)
+
 
 data Nesting0 = Nesting0 {x: Nesting1}
 data Nesting1 = Nesting1 {x: Nesting2}
@@ -521,4 +571,21 @@ template TimeGetter with
         do
           pure $ product [1, 2, 3]
 
+template ComputeContractKeyAfterEnsureClause with
+    owner: Party
+  where
+    signatory owner
+    ensure False
+    key (error "Boom"): Party
+    maintainer key
 
+template ComputeContractKeyWhenExecutingCreate with
+    owner: Party
+  where
+    signatory owner
+
+    nonconsuming choice DontExecuteCreate: ()
+      controller owner
+      do
+        let _ignore = create ComputeContractKeyAfterEnsureClause with owner
+        pure ()

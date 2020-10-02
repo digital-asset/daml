@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
 
-import com.digitalasset.http.ErrorMessages.cannotResolveTemplateId
-import com.digitalasset.http.domain.HasTemplateId
-import com.digitalasset.http.json.JsValueToApiValueConverter.mustBeApiRecord
-import com.digitalasset.http.{PackageService, domain}
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.http.ErrorMessages.cannotResolveTemplateId
+import com.daml.http.domain.HasTemplateId
+import com.daml.http.json.JsValueToApiValueConverter.mustBeApiRecord
+import com.daml.http.{PackageService, domain}
+import com.daml.ledger.api.{v1 => lav1}
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -26,9 +26,8 @@ class DomainJsonDecoder(
     jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue
 ) {
 
-  import com.digitalasset.http.util.ErrorOps._
+  import com.daml.http.util.ErrorOps._
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeCreateCommand(a: JsValue)(implicit ev1: JsonReader[domain.CreateCommand[JsValue]])
     : JsonError \/ domain.CreateCommand[lav1.value.Record] = {
     val err = "DomainJsonDecoder_decodeCreateCommand"
@@ -43,7 +42,6 @@ class DomainJsonDecoder(
     } yield fv
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsValue]): JsonError \/ F[lav1.value.Value] = {
     for {
@@ -52,7 +50,6 @@ class DomainJsonDecoder(
     } yield apiValue
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeUnderlyingValuesToLf[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsValue]): JsonError \/ F[domain.LfValue] = {
     for {
@@ -87,7 +84,6 @@ class DomainJsonDecoder(
         \/-(c)
     }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeExerciseCommand(a: JsValue)(
       implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])
     : JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
@@ -106,7 +102,6 @@ class DomainJsonDecoder(
 
     } yield cmd1
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeCreateAndExerciseCommand(a: JsValue)(
       implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
     : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] = {

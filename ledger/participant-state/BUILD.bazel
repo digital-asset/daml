@@ -1,17 +1,17 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
     name = "participant-state",
     srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -32,13 +32,21 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+filegroup(
+    name = "sources",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = ["//visibility:public"],
+)
+
+da_scala_test_suite(
     name = "participant-state-tests",
     size = "small",
-    srcs = glob(["src/test/suite/**/*.scala"]),
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
     resources = glob(["src/test/resources/*"]),
     deps = [
         ":participant-state",
+        "//daml-lf/transaction",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

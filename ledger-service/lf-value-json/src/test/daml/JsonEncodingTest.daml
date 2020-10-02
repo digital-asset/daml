@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -9,6 +9,8 @@ data Foo = Bar Int | Baz BazRecord | Qux
 
 data BazRecord = BazRecord { baz : Text }
     deriving (Eq, Show)
+
+data Person = Person { name : Text, age: Int, address: Text }
 
 data AccountStatus = Enabled Time | Disabled Time
   deriving (Eq, Show)

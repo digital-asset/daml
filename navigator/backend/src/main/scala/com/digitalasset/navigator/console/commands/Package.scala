@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console.commands
+package com.daml.navigator.console.commands
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.navigator.console._
+import com.daml.lf.data.Ref.PackageId
+import com.daml.navigator.console._
 
 case object Package extends SimpleCommand {
   def name: String = "package"

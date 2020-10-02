@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console
+package com.daml.navigator.console
 
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model
+import com.daml.lf.value.{Value => V}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -132,14 +132,11 @@ object Pretty {
       val id = model
         .DamlLfIdentifier(typeCon.name.identifier.packageId, typeCon.name.identifier.qualifiedName)
       if (doNotExpand.contains(id)) {
-        // val dt = typeCon.instantiate(typeDefs(id).get)
-        val dt = model.damlLfInstantiate(typeCon, typeDefs(id).get)
         (Some(typeCon.name.identifier.qualifiedName.name.toString), PrettyPrimitive("..."))
       } else {
         // Once a type is instantiated, do not instantiate it in any child node.
         // Required to prevent infinite expansion of recursive types.
-        // val dt = typeCon.instantiate(typeDefs(id).get)
-        val dt = model.damlLfInstantiate(typeCon, typeDefs(id).get)
+        val dt = typeCon.instantiate(typeDefs(id).get)
         (
           Some(typeCon.name.identifier.qualifiedName.name.toString),
           damlLfDataType(dt, typeDefs, doNotExpand + id))
@@ -203,11 +200,10 @@ object Pretty {
   def damlLfDefDataType(
       id: model.DamlLfIdentifier,
       typeDefs: model.DamlLfIdentifier => Option[model.DamlLfDefDataType],
-      doNotExpand: Set[model.DamlLfIdentifier] = Set.empty
   ): PrettyNode = {
     val ddt = typeDefs(id)
     ddt match {
-      case Some(model.DamlLfDefDataType(tv, dt)) =>
+      case Some(model.DamlLfDefDataType(tv @ _, dt)) =>
         damlLfDataType(dt, typeDefs, Set.empty)
       case None =>
         PrettyPrimitive(s"??? [${id.qualifiedName.name}]")
@@ -216,18 +212,18 @@ object Pretty {
 
   /** Creates a JSON-like object that describes an argument value */
   def argument(arg: model.ApiValue): PrettyNode = arg match {
-    case V.ValueRecord(id, fields) =>
+    case V.ValueRecord(id @ _, fields) =>
       PrettyObject(
         fields.iterator.zipWithIndex.map {
           case ((flabel, fvalue), ix) =>
             PrettyField(flabel getOrElse (ix: Int).toString, argument(fvalue))
         }.toSeq: _*
       )
-    case V.ValueVariant(id, constructor, value) =>
+    case V.ValueVariant(id @ _, constructor, value) =>
       PrettyObject(
         PrettyField(constructor, argument(value))
       )
-    case V.ValueEnum(id, constructor) =>
+    case V.ValueEnum(id @ _, constructor) =>
       PrettyPrimitive(constructor)
     case V.ValueList(elements) =>
       PrettyArray(
@@ -256,7 +252,6 @@ object Pretty {
             PrettyField("value", argument(value))
           )
       }: _*)
-    case _: model.ApiImpossible => sys.error("impossible! structs are not serializable")
   }
 
   /** Outputs an object in YAML format */
@@ -284,9 +279,9 @@ object Pretty {
               else
                 f.name + ":"
             val right = f.value match {
-              case n: PrettyPrimitive => s" ${go(f.value, i + 1)}"
-              case n: PrettyArray => "\n" + indent * i + go(f.value, i)
-              case n: PrettyObject => "\n" + indent * (i + 1) + go(f.value, i + 1)
+              case _: PrettyPrimitive => s" ${go(f.value, i + 1)}"
+              case _: PrettyArray => "\n" + indent * i + go(f.value, i)
+              case _: PrettyObject => "\n" + indent * (i + 1) + go(f.value, i + 1)
             }
             left + right
           })

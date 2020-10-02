@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Compiler.Validate (validateDar) where
@@ -11,17 +11,17 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Optics as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Text as T
+import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Lens
 
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.Ast.World (initWorldSelf)
-import DA.Pretty (renderPretty)
 import qualified DA.Daml.LF.TypeChecker as TC (checkPackage)
-import qualified DA.Daml.LF.TypeChecker.Error as TC
-
 
 data ValidationError
   = VeArchiveError FilePath Archive.ArchiveError
-  | VeTypeError TC.Error
+  | VeTypeError [Diagnostic]
 
 instance Show ValidationError where
   show = \case
@@ -29,10 +29,13 @@ instance Show ValidationError where
       [ "Invalid DAR."
       , "DALF entry cannot be decoded: " <> fp
       , show err ]
-    VeTypeError err -> unlines
+    VeTypeError diags -> unlines $
       [ "Invalid DAR."
       , "The DAR is not well typed."
-      , renderPretty err ]
+      ] <> map (T.unpack . view message) diags
+      -- Right now we treat all diagnostics the same
+      -- for the purposes of validation and do not
+      -- differentiate between warnings and errors.
 
 
 validationError :: ValidationError -> IO a
@@ -56,8 +59,8 @@ validateWellTyped extPackages = do
     let world = initWorldSelf extPackages self
     let version = LF.packageLfVersion self
     case TC.checkPackage world version of
-      Right () -> return ()
-      Left err -> validationError $ VeTypeError err
+        [] -> pure ()
+        diags -> validationError (VeTypeError diags)
 
 decodeDalfEntry :: Archive.DecodingMode -> ZipArchive.Entry -> IO LF.ExternalPackage
 decodeDalfEntry decodeAs entry = do

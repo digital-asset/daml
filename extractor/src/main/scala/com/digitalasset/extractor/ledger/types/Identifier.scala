@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.ledger.types
+package com.daml.extractor.ledger.types
 
-import com.digitalasset.ledger.api.{v1 => api}
+import com.daml.ledger.api.{v1 => api}
 
 final case class Identifier(packageId: String, name: String)
 

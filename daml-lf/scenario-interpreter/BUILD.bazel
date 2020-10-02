@@ -1,26 +1,33 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_library",
+    "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
 )
 
 da_scala_library(
     name = "scenario-interpreter",
     srcs = glob(["src/main/**/*.scala"]),
-    main_class = "com.digitalasset.daml.lf.speedy.Main",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-scenario-interpreter:__VERSION__"],
+    main_class = "com.daml.lf.speedy.Main",
+    tags = ["maven_coordinates=com.daml:daml-lf-scenario-interpreter:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/interpreter",
+        "//daml-lf/language",
         "//daml-lf/transaction",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -34,5 +41,44 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/transaction",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
+)
+
+daml_compile(
+    name = "CollectAuthority",
+    srcs = ["src/perf/resources/damls/CollectAuthority.daml"],
+    visibility = ["//visibility:public"],
+)
+
+da_scala_benchmark_jmh(
+    name = "scenario-perf",
+    srcs = glob(["src/perf/benches/**/*.scala"]),
+    data = [
+        ":CollectAuthority.dar",
+        ":CollectAuthority.dar.pp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "scenario-perf-test",
+    args = [
+        "-f",
+        "0",
+    ],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [":scenario-perf"],
 )

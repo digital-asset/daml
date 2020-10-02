@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -6,6 +6,7 @@ module DA.Daml.Doc.Render.Markdown
   ( renderMd
   ) where
 
+import DA.Daml.Doc.Anchor
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util (adjust, escapeText)
 import DA.Daml.Doc.Render.Monoid
@@ -24,6 +25,12 @@ renderMd env = \case
     RenderParagraph text -> [renderMdText env text]
     RenderDocs docText -> T.lines . unDocText $ docText
     RenderAnchor anchor -> [anchorTag anchor]
+    RenderIndex moduleNames ->
+        [ "* " <> renderMdLink env
+                (Reference Nothing (moduleAnchor moduleName))
+                (unModulename moduleName)
+        | moduleName <- moduleNames
+        ]
 
 renderMdWithAnchor :: RenderEnv -> Anchor -> RenderOut -> [T.Text]
 renderMdWithAnchor env anchor = \case
@@ -47,17 +54,20 @@ renderMdText env = \case
     RenderConcat ts -> mconcatMap (renderMdText env) ts
     RenderPlain text -> escapeMd text
     RenderStrong text -> T.concat ["**", escapeMd text, "**"]
-    RenderLink ref text ->
-        case lookupReference env ref of
-            Nothing -> escapeMd text
-            Just anchorLoc -> T.concat
-                [ "["
-                , escapeMd text
-                , "]("
-                , anchorHyperlink anchorLoc (referenceAnchor ref)
-                , ")"]
+    RenderLink ref text -> renderMdLink env ref text
     RenderDocsInline docText ->
         T.unwords . T.lines . unDocText $ docText
+
+renderMdLink :: RenderEnv -> Reference -> T.Text -> T.Text
+renderMdLink env ref text =
+    case lookupReference env ref of
+        Nothing -> escapeMd text
+        Just anchorLoc -> T.concat
+            [ "["
+            , escapeMd text
+            , "]("
+            , anchorHyperlink anchorLoc (referenceAnchor ref)
+            , ")"]
 
 anchorTag :: Anchor -> T.Text
 anchorTag (Anchor anchor) = T.concat ["<a name=\"", anchor, "\"></a>"]

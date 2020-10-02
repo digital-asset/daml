@@ -1,9 +1,9 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Ledger ( -- High level interface to the Ledger API
 
-    Port(..), Host(..), ClientConfig(..),
+    Port(..), Host(..), ClientConfig(..), ClientSSLConfig(..), ClientSSLKeyCertPair(..),
 
     module DA.Ledger.LedgerService,
     module DA.Ledger.PastAndFuture,
@@ -26,6 +26,7 @@ module DA.Ledger ( -- High level interface to the Ledger API
     ) where
 
 import Network.GRPC.HighLevel.Generated(Port(..),Host(..),ClientConfig(..))
+import Network.GRPC.HighLevel.Client (ClientSSLConfig(..), ClientSSLKeyCertPair(..))
 import DA.Ledger.LedgerService
 import DA.Ledger.PastAndFuture
 import DA.Ledger.Services
@@ -34,15 +35,16 @@ import DA.Ledger.Types
 
 import UnliftIO (liftIO,timeout,bracket)
 
+-- | Note: This does not enable TLS
 configOfPort :: Port -> ClientConfig
-configOfPort = configOfHostAndPort "localhost"
+configOfPort port = configOfHostAndPort "localhost" port Nothing
 
-configOfHostAndPort :: Host -> Port -> ClientConfig
-configOfHostAndPort host port =
+configOfHostAndPort :: Host -> Port -> Maybe ClientSSLConfig -> ClientConfig
+configOfHostAndPort host port sslConfig =
     ClientConfig { clientServerHost = host
                  , clientServerPort = port
                  , clientArgs = []
-                 , clientSSLConfig = Nothing
+                 , clientSSLConfig = sslConfig
                  , clientAuthority = Nothing
                  }
 

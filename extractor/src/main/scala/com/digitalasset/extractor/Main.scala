@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
-import com.digitalasset.extractor.config.ConfigParser
+import com.daml.extractor.config.ConfigParser
 import com.typesafe.scalalogging.StrictLogging
 
 object Main extends App with StrictLogging {

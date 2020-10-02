@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
@@ -7,22 +7,34 @@ module Daml.Script
   , submit
   , submitMustFail
   , query
+  , queryContractId
+  , queryContractKey
+  , queryFilter
   , PartyIdHint (..)
   , ParticipantName (..)
+  , PartyDetails(..)
   , allocateParty
   , allocatePartyWithHint
   , allocatePartyOn
   , allocatePartyWithHintOn
+  , listKnownParties
+  , listKnownPartiesOn
   , Commands
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
   , createAndExerciseCmd
+  , archiveCmd
   , getTime
+  , setTime
+  , passTime
   , sleep
+  , script
   ) where
 
+import DA.Functor
 import DA.Optional
+import DA.Stack
 import DA.Time
 
 -- | A free monad
@@ -70,15 +82,21 @@ data CommandsF a
 -- If you enable the `ApplicativeDo` extension by adding
 -- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
 -- use `do`-notation but the individual commands must not depend
--- on each other.
+-- on each other and the last statement in a `do` block
+-- must be of the form ``return expr`` or ``pure expr``.
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
 
 data ScriptF a
   = Submit (SubmitCmd a)
+  | SubmitMustFail (SubmitMustFailCmd a)
   | Query (QueryACS a)
+  | QueryContractId (QueryContractIdPayload a)
+  | QueryContractKey (QueryContractKeyPayload a)
   | AllocParty (AllocateParty a)
+  | ListKnownParties (ListKnownPartiesPayload a)
   | GetTime (Time -> a)
+  | SetTime (SetTimePayload a)
   | Sleep (SleepRec a)
   deriving Functor
 
@@ -91,13 +109,92 @@ data QueryACS a = QueryACS
 -- | Query the set of active contracts of the template
 -- that are visible to the given party.
 query : forall t. Template t => Party -> Script [(ContractId t, t)]
-query p = Script $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
+query p = lift $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
+
+-- | Query the set of active contracts of the template
+-- that are visible to the given party and match the given predicate.
+queryFilter : Template c => Party -> (c -> Bool) -> Script [(ContractId c, c)]
+queryFilter p f = filter (\(_, c) -> f c) <$> query p
+
+data QueryContractIdPayload a = QueryContractIdPayload
+  { party : Party
+  , tplId : TemplateTypeRep
+  , cid : ContractId ()
+  , continue : Optional AnyTemplate -> a
+  } deriving Functor
+
+-- | Query for the contract with the given contract id.
+--
+-- Returns `None` if there is no active contract the party is a stakeholder on.
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractId : forall t. Template t => Party -> ContractId t -> Script (Optional t)
+queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
+  party = p
+  tplId = templateTypeRep @t
+  cid = coerceContractId c
+  continue = pure . fmap (fromSome . fromAnyTemplate)
+
+data QueryContractKeyPayload a = QueryContractKeyPayload
+  { party : Party
+  , tplId : TemplateTypeRep
+  , key : AnyContractKey
+  , continue : Optional (ContractId (), AnyTemplate) -> a
+  } deriving Functor
+
+-- Returns `None` if there is no active contract with the given key that
+-- the party is a stakeholder on.
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractKey : forall t k. TemplateKey t k => Party -> k -> Script (Optional (ContractId t, t))
+queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
+  party = p
+  tplId = templateTypeRep @t
+  key = toAnyContractKey @t k
+  continue = pure . fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
+
+data SetTimePayload a = SetTimePayload
+  with
+    time : Time
+    continue : () -> a
+  deriving Functor
+
+-- | Set the time via the time service.
+--
+-- This is only supported in static time mode when running over the gRPC API
+-- and in DAML Studio.
+--
+-- Note that the ledger time service does not support going backwards in time.
+-- However, you can go back in time in DAML Studio.
+setTime : Time -> Script ()
+setTime time = lift $ Free $ SetTime $ SetTimePayload with
+  time
+  continue = pure
+
+-- | Advance ledger time by the given interval.
+--
+-- Only supported in static time mode when running over the gRPC API
+-- and in DAML Studio. Note that this is not an atomic operation over the
+-- gRPC API so no other clients should try to change time while this is
+-- running.
+--
+-- Note that the ledger time service does not support going backwards in time.
+-- However, you can go back in time in DAML Studio.
+passTime : RelTime -> Script ()
+passTime rt = do
+  t <- getTime
+  setTime (addRelTime t rt)
 
 data AllocateParty a = AllocateParty
   { displayName : Text
   , idHint : Text
   , participant : Optional Text
   , continue : Party -> a
+  } deriving Functor
+
+data ListKnownPartiesPayload a = ListKnownPartiesPayload
+  { participant : Optional Text
+  , continue : [PartyDetails] -> a
   } deriving Functor
 
 data SleepRec a = SleepRec
@@ -114,7 +211,7 @@ newtype ParticipantName = ParticipantName { participantName : Text }
 -- | Allocate a party with the given display name
 -- using the party management service.
 allocateParty : Text -> Script Party
-allocateParty displayName = Script $ Free $ AllocParty $ AllocateParty
+allocateParty displayName = lift $ Free $ AllocParty $ AllocateParty
   { displayName
   , idHint = ""
   , participant = None
@@ -124,7 +221,7 @@ allocateParty displayName = Script $ Free $ AllocParty $ AllocateParty
 -- | Allocate a party with the given display name and id hint
 -- using the party management service.
 allocatePartyWithHint : Text -> PartyIdHint -> Script Party
-allocatePartyWithHint displayName (PartyIdHint idHint) = Script $ Free $ AllocParty $ AllocateParty
+allocatePartyWithHint displayName (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty
   { displayName
   , idHint = idHint
   , participant = None
@@ -134,7 +231,7 @@ allocatePartyWithHint displayName (PartyIdHint idHint) = Script $ Free $ AllocPa
 -- | Allocate a party with the given display name
 -- on the specified participant using the party management service.
 allocatePartyOn : Text -> ParticipantName -> Script Party
-allocatePartyOn displayName (ParticipantName participant) = Script $ Free $ AllocParty $ AllocateParty
+allocatePartyOn displayName (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty
   { displayName
   , idHint = ""
   , participant = Some participant
@@ -144,16 +241,47 @@ allocatePartyOn displayName (ParticipantName participant) = Script $ Free $ Allo
 -- | Allocate a party with the given display name and id hint
 -- on the specified participant using the party management service.
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
-allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = Script $ Free $ AllocParty $ AllocateParty
+allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty
   { displayName
   , idHint = idHint
   , participant = Some participant
   , continue = pure
   }
 
--- | In wallclock mode, this is UTC time. In static time mode, this is the UNIX epoch.
+-- | List the parties known to the default participant.
+listKnownParties : Script [PartyDetails]
+listKnownParties =
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload
+    { participant = None
+    , continue = pure
+    }
+
+-- | List the parties known to the given participant.
+listKnownPartiesOn : ParticipantName -> Script [PartyDetails]
+listKnownPartiesOn (ParticipantName participant) =
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload
+    { participant = Some participant
+    , continue = pure
+    }
+
+-- | The party details returned by the party management service.
+data PartyDetails = PartyDetails
+  with
+    party : Party -- ^ Party id
+    displayName : Optional Text -- ^ Optional display name
+    isLocal : Bool -- ^ True if party is hosted by the backing participant.
+  deriving (Eq, Ord, Show)
+
+-- | In wallclock mode, this is the current UTC time both over gRPC and over the JSON API.
+--
+-- In static time mode over gRPC, this will
+-- query the ledger time service for the current time when running over
+-- gRPC.
+--
+-- In static time mode over the JSON API, it will always
+-- return the Unix epoch.
 instance HasTime Script where
-  getTime = Script $ Free (GetTime pure)
+  getTime = lift $ Free (GetTime pure)
 
 -- | Sleep for the given duration.
 --
@@ -162,14 +290,23 @@ instance HasTime Script where
 --
 -- Note that this will sleep for the same duration in both wallcock and static time mode.
 sleep : RelTime -> Script ()
-sleep duration = Script $ Free (Sleep $ SleepRec duration pure)
+sleep duration = lift $ Free (Sleep $ SleepRec duration pure)
 
 data SubmitFailure = SubmitFailure
   { status : Int
   , description : Text
   }
 
-data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a }
+-- | Details of the @submit@ command.
+--
+-- The @handleFailure@ field is kept on @submit@ for backwards compatibility.
+-- Older versions of the DAML SDK didn't distinguish @Submit@ and
+-- @SubmitMustFail@ in the script runner.
+data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a, locations : [(Text, SrcLoc)] }
+  deriving Functor
+
+-- | Details of the @submitMustFail@ command.
+data SubmitMustFailCmd a = SubmitMustFailCmd { party : Party, commands : Commands a, continue : () -> a, locations : [(Text, SrcLoc)] }
   deriving Functor
 
 -- | Submit the commands as a single transaction.
@@ -177,19 +314,29 @@ data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailu
 -- This will error if the submission fails.
 
 instance HasSubmit Script Commands where
-  submit p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
+  submit p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail (getCallStack callStack))
     where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
 
-  submitMustFail p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
-    where fail _ = error "Expected submit to fail but it succeeded"
+  submitMustFail p cmds = lift $ Free (fmap pure $ SubmitMustFail $ SubmitMustFailCmd p (void cmds) (const ()) (getCallStack callStack))
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
-newtype Script a = Script (Free ScriptF a)
-  deriving (Functor, Applicative, Action)
+data Script a = Script with
+    runScript : () -> (Free ScriptF (a, ()))
+    -- We use an inlined StateT () to separate evaluation of
+    -- something of type Script from execution and to ensure
+    -- proper sequencing of evaluation. This is mainly so that `debug` does something
+    -- slightly more sensible.
+    dummy : ()
+    -- Dummy field to make sure damlc does not consider this an old-style
+    -- typeclass.
+  deriving Functor
 
 instance CanAbort Script where
-  abort = error
+  abort s = Script (\_ -> error s) ()
+
+instance ActionFail Script where
+  fail = abort
 
 data LedgerValue = LedgerValue {}
 
@@ -211,3 +358,41 @@ exerciseByKeyCmd key arg = Commands $ Ap (\f -> f (ExerciseByKey (templateTypeRe
 -- | Create a contract and exercise a choice on it in the same transacton.
 createAndExerciseCmd : forall t c r. Choice t c r => t -> c -> Commands r
 createAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise (toAnyTemplate tplArg) (toAnyChoice @t choiceArg) identity) (pure fromLedgerValue))
+
+-- | Archive the given contract.
+--
+-- `archiveCmd cid` is equivalent to `exerciseCmd cid Archive`.
+archiveCmd : Choice t Archive () => ContractId t -> Commands ()
+archiveCmd cid = exerciseCmd cid Archive
+
+instance Applicative Script where
+    pure a = Script (\s -> return (a, s)) ()
+
+    Script mf _ <*> Script mx _ = Script with
+      runScript = \ s -> do
+        (f, s') <- mf s
+        (x, s'') <- mx s'
+        return (f x, s'')
+      dummy = ()
+
+instance Action Script where
+    m >>= k  = Script with
+      runScript = \ s -> do
+        (a, s') <- runScript m s
+        runScript (k a) s'
+      dummy = ()
+
+lift : Free ScriptF a -> Script a
+lift m = Script with
+  runScript = \s -> do
+    a <- m
+    pure (a, s)
+  dummy = ()
+
+-- | Convenience helper to declare you are writing a Script.
+--
+-- This is only useful for readability and to improve type inference.
+-- Any expression of type `Script a` is a valid script regardless of whether
+-- it is implemented using `script` or not.
+script : Script a -> Script a
+script = identity

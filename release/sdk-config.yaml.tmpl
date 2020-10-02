@@ -10,6 +10,11 @@ commands:
   desc: "Create a new DAML project"
   args: ["new"]
   completion: true
+- name: create-daml-app
+  path: daml-helper/daml-helper
+  desc: "Create a new DAML project based on create-daml-app"
+  args: ["create-daml-app"]
+  completion: true
 - name: init
   path: daml-helper/daml-helper
   desc: "Configure a folder as a DAML project"
@@ -41,19 +46,23 @@ commands:
   completion: true
 - name: sandbox
   path: daml-helper/daml-helper
-  desc: "Launch the Sandbox"
-  args: ["run-jar", "--logback-config=daml-sdk/sandbox-logback.xml", "daml-sdk/daml-sdk.jar", "sandbox"]
+  desc: "Launch Sandbox"
+  args: ["run-platform-jar", "--logback-config=sandbox-logback.xml", "sandbox"]
+- name: sandbox-classic
+  path: daml-helper/daml-helper
+  desc: "Deprecated. Launch Sandbox Classic (the default Sandbox implementation for SDK <= 0.13.55)"
+  args: ["run-platform-jar", "--logback-config=sandbox-logback.xml", "sandbox-classic"]
 - name: navigator
   path: daml-helper/daml-helper
   desc: "Launch the Navigator"
   args: ["run-jar", "--logback-config=daml-sdk/navigator-logback.xml", "daml-sdk/daml-sdk.jar", "navigator"]
 - name: extractor
   path: daml-helper/daml-helper
-  desc: "Launch the Extractor"
+  desc: "Launch the Extractor (early access)"
   args: ["run-jar", "--logback-config=daml-sdk/extractor-logback.xml", "daml-sdk/daml-sdk.jar", "extractor"]
 - name: ledger
   path: daml-helper/daml-helper
-  desc: "Interact with a DAML ledger (experimental)"
+  desc: "Interact with a DAML ledger"
   args: ["ledger"]
   completion: true
 - name: codegen
@@ -63,7 +72,7 @@ commands:
   completion: true
 - name: deploy
   path: daml-helper/daml-helper
-  desc: "Deploy DAML project to a ledger (experimental)"
+  desc: "Deploy DAML project to a ledger"
   args: ["deploy"]
   completion: true
 - name: ide
@@ -71,21 +80,25 @@ commands:
   args: ["lax", "ide"]
 - name: json-api
   path: daml-helper/daml-helper
-  desc: "Launch the HTTP JSON API (experimental)"
-  args: ["run-jar", "--logback-config=daml-sdk/json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
+  desc: "Launch the HTTP JSON API"
+  args: ["run-platform-jar", "--logback-config=json-api-logback.xml", "json-api"]
+- name: trigger-service
+  path: daml-helper/daml-helper
+  desc: "Launch the trigger service (early access)"
+  args: ["run-jar", "--logback-config=daml-sdk/trigger-service-logback.xml", "daml-sdk/daml-sdk.jar", "trigger-service"]
 - name: trigger
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/trigger-logback.xml", "daml-sdk/daml-sdk.jar", "trigger"]
-  desc: "Run a DAML trigger (experimental)"
+  desc: "Run a DAML trigger (early access)"
 - name: script
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/script-logback.xml", "daml-sdk/daml-sdk.jar", "script"]
-  desc: "Run a DAML script (experimental)"
+  desc: "Run a DAML script"
 - name: test-script
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/test-script-logback.xml", "daml-sdk/daml-sdk.jar", "test-script"]
-  desc: "Run a DAML script tests (experimental)"
+  desc: "Run all DAML script tests in a DAR"
 - name: repl
   path: damlc/damlc
   args: ["repl"]
-  desc: "Launch the DAML REPL (experimental)"
+  desc: "Launch the DAML REPL"

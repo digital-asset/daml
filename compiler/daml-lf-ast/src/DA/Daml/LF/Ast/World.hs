@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell #-}
@@ -7,6 +7,7 @@ module DA.Daml.LF.Ast.World(
     World,
     DalfPackage(..),
     getWorldSelf,
+    getWorldImported,
     initWorld,
     initWorldSelf,
     extendWorldSelf,
@@ -42,10 +43,12 @@ data World = World
   , _worldSelf :: Package
   }
 
+
 getWorldSelf :: World -> Package
 getWorldSelf = _worldSelf
 
-makeLensesFor [("_worldSelf","worldSelf")] ''World
+getWorldImported :: World -> [ExternalPackage]
+getWorldImported world = map (uncurry ExternalPackage) $ HMS.toList (_worldImported world)
 
 -- | A package where all references to `PRSelf` have been rewritten
 -- to `PRImport`.
@@ -55,6 +58,8 @@ data ExternalPackage = ExternalPackage
   } deriving (Show, Eq, Generic)
 
 instance NFData ExternalPackage
+
+makeLensesFor [("_worldSelf","worldSelf")] ''World
 
 data DalfPackage = DalfPackage
     { dalfPackageId :: PackageId

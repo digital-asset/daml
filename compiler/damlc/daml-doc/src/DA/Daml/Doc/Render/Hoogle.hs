@@ -1,16 +1,22 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 module DA.Daml.Doc.Render.Hoogle
-  ( renderSimpleHoogle
-  ) where
+    ( HoogleEnv (..)
+    , renderSimpleHoogle
+    ) where
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
 
-import           Data.Maybe
+import Data.Maybe
+import qualified Data.HashMap.Strict as HMS
 import qualified Data.Text as T
+
+newtype HoogleEnv = HoogleEnv
+    { he_anchorTable :: HMS.HashMap Anchor T.Text
+    }
 
 -- | Convert a markdown comment into hoogle text.
 hooglify :: Maybe DocText -> [T.Text]
@@ -21,44 +27,46 @@ hooglify (Just md) =
         (x:xs) -> ("-- | " <>  x)
             : map ("--   " <>) xs
 
-urlTag :: Maybe Anchor -> T.Text
-urlTag Nothing = ""
-urlTag (Just (Anchor t)) = "@url https://docs.daml.com/daml/reference/base.html#" <> t
+urlTag :: HoogleEnv -> Maybe Anchor -> T.Text
+urlTag env anchorM = fromMaybe "" $ do
+    anchor <- anchorM
+    url <- HMS.lookup anchor (he_anchorTable env)
+    pure ("@url " <> url)
 
-renderSimpleHoogle :: ModuleDoc -> T.Text
-renderSimpleHoogle ModuleDoc{..}
+renderSimpleHoogle :: HoogleEnv -> ModuleDoc -> T.Text
+renderSimpleHoogle _env ModuleDoc{..}
   | null md_classes && null md_adts &&
     null md_functions && isNothing md_descr = T.empty
-renderSimpleHoogle ModuleDoc{..} = T.unlines . concat $
+renderSimpleHoogle env ModuleDoc{..} = T.unlines . concat $
   [ hooglify md_descr
-  , [ urlTag md_anchor
+  , [ urlTag env md_anchor
     , "module " <> unModulename md_name
     , "" ]
-  , concatMap adt2hoogle md_adts
-  , concatMap cls2hoogle md_classes
-  , concatMap fct2hoogle md_functions
+  , concatMap (adt2hoogle env) md_adts
+  , concatMap (cls2hoogle env) md_classes
+  , concatMap (fct2hoogle env) md_functions
   ]
 
-adt2hoogle :: ADTDoc -> [T.Text]
-adt2hoogle TypeSynDoc{..} = concat
+adt2hoogle :: HoogleEnv ->  ADTDoc -> [T.Text]
+adt2hoogle env TypeSynDoc{..} = concat
     [ hooglify ad_descr
-    , [ urlTag ad_anchor
+    , [ urlTag env ad_anchor
       , T.unwords ("type" : wrapOp (unTypename ad_name) :
           ad_args ++ ["=", type2hoogle ad_rhs])
       , "" ]
     ]
-adt2hoogle ADTDoc{..} = concat
+adt2hoogle env ADTDoc{..} = concat
     [ hooglify ad_descr
-    , [ urlTag ad_anchor
+    , [ urlTag env ad_anchor
       , T.unwords ("data" : wrapOp (unTypename ad_name) : ad_args)
       , "" ]
-    , concatMap (adtConstr2hoogle ad_name) ad_constrs
+    , concatMap (adtConstr2hoogle env ad_name) ad_constrs
     ]
 
-adtConstr2hoogle :: Typename -> ADTConstr -> [T.Text]
-adtConstr2hoogle typename PrefixC{..} = concat
+adtConstr2hoogle :: HoogleEnv -> Typename -> ADTConstr -> [T.Text]
+adtConstr2hoogle env typename PrefixC{..} = concat
     [ hooglify ac_descr
-    , [ urlTag ac_anchor
+    , [ urlTag env ac_anchor
       , T.unwords
             [ wrapOp (unTypename ac_name)
             , "::"
@@ -66,9 +74,9 @@ adtConstr2hoogle typename PrefixC{..} = concat
             ]
       , "" ]
     ]
-adtConstr2hoogle typename RecordC{..} = concat
+adtConstr2hoogle env typename RecordC{..} = concat
     [ hooglify ac_descr
-    , [ urlTag ac_anchor
+    , [ urlTag env ac_anchor
       , T.unwords
             [ wrapOp (unTypename ac_name)
             , "::"
@@ -93,22 +101,22 @@ fieldDoc2hoogle typename FieldDoc{..} = concat
     ]
 
 
-cls2hoogle :: ClassDoc -> [T.Text]
-cls2hoogle ClassDoc{..} = concat
+cls2hoogle :: HoogleEnv -> ClassDoc -> [T.Text]
+cls2hoogle env ClassDoc{..} = concat
     [ hooglify cl_descr
-    , [ urlTag cl_anchor
+    , [ urlTag env cl_anchor
       , T.unwords $ ["class"]
                  ++ maybe [] ((:["=>"]) . type2hoogle) cl_super
                  ++ wrapOp (unTypename cl_name) : cl_args
       , "" ]
-    , concatMap classMethod2hoogle cl_methods
+    , concatMap (classMethod2hoogle env) cl_methods
     ]
 
-classMethod2hoogle :: ClassMethodDoc -> [T.Text]
-classMethod2hoogle ClassMethodDoc{..} | cm_isDefault = [] -- hide default methods from hoogle search
-classMethod2hoogle ClassMethodDoc{..} = concat
+classMethod2hoogle :: HoogleEnv -> ClassMethodDoc -> [T.Text]
+classMethod2hoogle _env ClassMethodDoc{..} | cm_isDefault = [] -- hide default methods from hoogle search
+classMethod2hoogle env ClassMethodDoc{..} = concat
     [ hooglify cm_descr
-    , [ urlTag cm_anchor
+    , [ urlTag env cm_anchor
       , T.unwords . concat $
           [ [wrapOp (unFieldname cm_name), "::"]
           , maybe [] ((:["=>"]) . type2hoogle) cm_globalContext
@@ -117,10 +125,10 @@ classMethod2hoogle ClassMethodDoc{..} = concat
       , "" ]
     ]
 
-fct2hoogle :: FunctionDoc -> [T.Text]
-fct2hoogle FunctionDoc{..} = concat
+fct2hoogle :: HoogleEnv -> FunctionDoc -> [T.Text]
+fct2hoogle env FunctionDoc{..} = concat
     [ hooglify fct_descr
-    , [ urlTag fct_anchor
+    , [ urlTag env fct_anchor
       , T.unwords . concat $
           [ [wrapOp (unFieldname fct_name), "::"]
           , maybe [] ((:["=>"]) . type2hoogle) fct_context

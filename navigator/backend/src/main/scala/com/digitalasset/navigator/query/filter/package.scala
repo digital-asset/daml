@@ -1,12 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.query
+package com.daml.navigator.query
 
-import com.digitalasset.navigator.dotnot._
-import com.digitalasset.navigator.model._
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
+import com.daml.navigator.dotnot._
+import com.daml.navigator.model._
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.json.ApiValueImplicits._
+import com.github.ghik.silencer.silent
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -43,7 +44,7 @@ package object filter {
       parameter match {
         case tc: DamlLfTypeCon =>
           val nextOrResult =
-            (ps(tc.name.identifier).map(damlLfInstantiate(tc, _)), cursor.next) match {
+            (ps(tc.name.identifier).map(tc.instantiate(_)), cursor.next) match {
               case (Some(DamlLfRecord(fields)), Some(nextCursor)) =>
                 fields
                   .collectFirst {
@@ -102,6 +103,7 @@ package object filter {
     rootArgument.fold[Either[DotNotFailure, Boolean]](Right(false))(
       checkValue(_, cursor, expectedValue, ps))
 
+  @silent(" ps .* is never used") // conform to opaque's signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,
@@ -161,7 +163,7 @@ package object filter {
             case Some(nextCursor) =>
               Try(nextCursor.current.toInt) match {
                 case Success(index) => loop(elements.slowApply(index), nextCursor)
-                case Failure(e) =>
+                case Failure(_) =>
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
           }

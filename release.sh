@@ -1,29 +1,50 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
 set -euo pipefail
 
-CURRENT=$(cat LATEST | awk '{print $2}')
-STABLE_REGEX="\d+\.\d+\.\d+"
-VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+\.[0-9a-f]{8})?$"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-check() {
-    if ! echo $CURRENT | grep -q -P $VERSION_REGEX; then
-        echo "Invalid version number in LATEST file, needs manual correction."
-        exit 1
-    else
-        echo -n "Valid version number ("
-        if is_stable $CURRENT; then
-            echo -n "stable"
-        else
-            echo -n "snapshot"
-        fi
-        echo ")."
-    fi
+uhoh() {
+    echo "
+    It looks like this script failed to complete. Please check the status
+    of the LATEST file and consider running this script again."
 }
 
+trap uhoh EXIT
+
+STABLE_REGEX="\d+\.\d+\.\d+"
+VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+(\.\d+)?\.[0-9a-f]{8})?$"
+
+function file_ends_with_newline() {
+    [[ $(tail -c1 "$1" | wc -l) -gt 0 ]]
+}
+
+check() {
+    local sha ver ver_sha
+    if ! file_ends_with_newline LATEST; then
+        echo "LATEST file does not end with newline. Please correct."
+        exit 1
+    fi
+    while read line; do
+        sha=$(echo "$line" | gawk '{print $1}')
+        ver=$(echo "$line" | gawk '{print $2}')
+        if ! echo "$ver" | grep -q -P $VERSION_REGEX; then
+            echo "Invalid version number in LATEST file, needs manual correction."
+            echo "Offending version: '$ver'."
+            exit 1
+        fi
+        if ! is_stable $ver; then
+            ver_sha=$(echo $ver | sed 's/.*\.//')
+            if ! [ "${sha:0:8}" = "$ver_sha" ]; then
+                echo "$ver does not match $sha, please correct. ($ver_sha != ${sha:0:8})"
+                exit 1
+            fi
+        fi
+    done < LATEST
+}
 
 is_stable() {
     local version="$1"
@@ -31,52 +52,118 @@ is_stable() {
 }
 
 make_snapshot() {
-    local sha=$1
-    local commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
-    local number_of_commits=$(git rev-list --count $sha)
-    local commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    local prerelease="snapshot.$commit_date.$number_of_commits.$commit_sha_8"
-    if is_stable "$CURRENT"; then
-        local stable="$CURRENT"
-    else
-        local stable=$(echo "$CURRENT" | grep -o -P "^$STABLE_REGEX")
-    fi
-    echo "$sha $stable-$prerelease" > LATEST
-    echo "Updated LATEST file."
+    local sha prefix commit_date number_of_commits commit_sha_8
+    sha=$1
+    prefix=$2
+    commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
+    number_of_commits=$(git rev-list --count $sha)
+    commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
+    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.$commit_sha_8"
 }
 
 display_help() {
     cat <<EOF
-This script is meant to help with managing the LATEST file. Usage:
+This script is meant to help with managing releases. Usage:
 
-$0 snapshot SHA
-        Updates the LATEST file to point to the given SHA (which must be a
-        valid git reference to a commit on origin/master). If the current
-        version defined in LATEST is already a snapshot, keeps the stable part
-        of the version unchanged; otherwise, increments the patch number.
+$0 snapshot SHA PREFIX
+        Prints the snapshot line for commit SHA as a release candidate for
+        version PREFIX. For example:
+
+        $ $0 snapshot cc880e2 0.1.2
+        cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
+
+        Any non-ambiguous git commit reference can be given as SHA.
+
+$0 new snapshot
+        Updates LATEST to add current commit as a new snapshot. Figures out
+        prefix version by keeping the same if the first line in LATEST is a
+        snapshot, and incrementing minor if the first line is stable.
+
+$0 check
+        Checks that each line of the LATEST file is well-formed.
 
 Any other invocation will display this help message.
-
-Note: at the moment, changing the version string for a stable release is left
-as a manual exercice, but that may change in the future.
 EOF
+}
+
+if [ -z "${1+x}" ]; then
+    display_help
+    exit 1
+fi
+
+commit_belongs_to_release_branch() {
+    local sha branches
+    sha=$1
+    branches="$(git branch --contains $sha --format='%(refname:short)')"
+    for branch in $branches; do
+        if [ "$branch" = "master" ] || [ "${branch:0:8}" = "release/" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+new_snapshot () {
+    local sha latest latest_prefix prefix new_line tmp
+    sha=$(git rev-parse HEAD)
+    if ! commit_belongs_to_release_branch $sha; then
+        echo "WARNING: Commit does not belong to a release branch."
+    fi
+    latest=$(head -1 LATEST | awk '{print $2}')
+    latest_prefix=$(echo $latest | grep -o -P "$STABLE_REGEX" | head -1)
+    if is_stable $latest; then
+        # As part of our normal processes, this case should never happen.
+        # Versions in the LATEST file are supposed to be ordered (highest
+        # version at the top), and we're supposed to start creating 1.5
+        # snapshots before we have fully settled on the 1.4 stable. So the
+        # normal case for the top two lines of the LATEST file is either two
+        # snapshots or one snapshot then one stable.
+        #
+        # Still, if it does encounter that case, the only sensible thing the
+        # script can do is bump the version. (Well, or exit 1, I guess.)
+        prefix=$(echo $latest_prefix | jq -Rr '. | split(".") | [.[0], (.[1] | tonumber + 1 | tostring), "0"] | join(".")')
+    else
+        prefix=$latest_prefix
+    fi
+    new_line=$(make_snapshot $sha $prefix)
+    tmp=$(mktemp)
+    cp LATEST $tmp
+    if is_stable $latest; then
+        # This case should not happen (see above), but if it does, we need to
+        # add the new snapshot while keeping the existing stable.
+        cat <(echo $new_line) $tmp > LATEST
+    else
+        # This is the only case consistent with all of our other processes
+        # working as expected: top of LATEST is a snapshot and we replace it
+        # with the new one.
+        cat <(echo $new_line) <(tail -n +2 $tmp) > LATEST
+    fi
 }
 
 case $1 in
     snapshot)
-        check
-        git fetch origin master 1>/dev/null 2>&1
-        if [ -n "${2+x}" ] && git merge-base --is-ancestor $2 origin/master >/dev/null; then
-            make_snapshot $(git rev-parse $2)
+        if [ -n "${2+x}" ] && [ -n "${3+x}" ]; then
+            if ! commit_belongs_to_release_branch $2; then
+                echo "WARNING: Commit does not belong to a release branch."
+            fi
+            make_snapshot $(git rev-parse $2) $3
         else
             display_help
         fi
-        ;;
+    ;;
+    new)
+        if [ $# -eq 2 ] && [ "$2" == 'snapshot' ]; then
+            new_snapshot
+        else
+            display_help
+        fi
+    ;;
     check)
         check
-        ;;
+    ;;
     *)
         display_help
-        ;;
+    ;;
 esac
 
+trap - EXIT

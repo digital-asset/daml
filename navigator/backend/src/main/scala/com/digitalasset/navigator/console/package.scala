@@ -1,9 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import scala.util.Try
+
+package console {
+  case class CommandError(message: String, reason: Option[Throwable]) extends Throwable {
+    override def getMessage: String = message
+  }
+}
 
 package object console {
 
@@ -12,10 +18,6 @@ package object console {
 
   /** Given the full commmand name, print some help */
   type Help = List[String] => Unit
-
-  case class CommandError(message: String, reason: Option[Throwable]) extends Throwable {
-    override def getMessage: String = message
-  }
 
   final implicit class CommandTryOps[T](val value: Try[T]) extends AnyVal {
     def ~>(msg: String): Either[CommandError, T] =

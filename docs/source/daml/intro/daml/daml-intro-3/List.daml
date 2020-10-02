@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -6,8 +6,9 @@ module List where
 
 -- LIST_TEST_BEGIN
 import DA.List
+import Daml.Script
 
-list_test = scenario do
+list_test = script do
   let
     empty : [Int] = []
     one = [1]

@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.services.grpc
+package com.daml.platform.server.api.services.grpc
 
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.grpc.adapter.server.rs.MockServerCallStreamObserver
-import com.digitalasset.ledger.api.health._
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService._
-import com.digitalasset.platform.server.api.services.grpc.GrpcHealthServiceSpec._
+import com.daml.grpc.GrpcException
+import com.daml.grpc.adapter.server.rs.MockServerCallStreamObserver
+import com.daml.ledger.api.health._
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.platform.server.api.services.grpc.GrpcHealthService._
+import com.daml.platform.server.api.services.grpc.GrpcHealthServiceSpec._
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}

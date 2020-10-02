@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.List.Total
@@ -28,7 +28,7 @@ last : ActionFail m => [a] -> m a
 last = foldl1 (flip const)
 
 init : ActionFail m => [a] -> m [a]
-init [x]     = pure []
+init [_]     = pure []
 init (x::xs) = do i <- init xs; pure (x :: i)
 init []      = fail "init: empty list"
 

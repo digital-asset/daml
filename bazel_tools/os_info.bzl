@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
@@ -8,6 +8,7 @@ cpu_value = "{CPU_VALUE}"
 is_darwin = cpu_value == "darwin"
 is_linux = cpu_value == "k8"
 is_windows = cpu_value == "x64_windows"
+os_name = "macos" if is_darwin else "linux" if is_linux else "windows"
 """
 
 def _os_info_impl(repository_ctx):

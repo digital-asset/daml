@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Proto3.Encode
@@ -6,7 +6,7 @@ module DA.Daml.LF.Proto3.Encode
   ) where
 
 import qualified Data.Text.Lazy as TL
-import Com.Digitalasset.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
+import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
 import DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 

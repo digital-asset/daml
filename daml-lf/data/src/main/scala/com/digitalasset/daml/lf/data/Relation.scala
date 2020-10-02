@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
-import scala.collection.immutable.Map
+import scala.collection.{mutable, immutable}
 
 object Relation {
 
@@ -15,26 +15,35 @@ object Relation {
   // as the same
   // this fits our purposes for the moment
   /** A Relation. */
-  type Relation[A, B] = Map[A, Set[B]]
+  type Relation[A, B] = immutable.Map[A, Set[B]]
 
   object Relation {
-    def union[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] = {
-      r2.foldLeft(r1) {
-        case (acc, (a, bs)) =>
-          acc.updated(a, acc.getOrElse(a, Set.empty[B]).union(bs))
-      }
-    }
+    def merge[A, B](r: Relation[A, B], pair: (A, Set[B])): Relation[A, B] =
+      r.updated(pair._1, r.getOrElse(pair._1, Set.empty[B]).union(pair._2))
+
+    def union[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] =
+      r2.foldLeft(r1)(merge)
+
+    def diff[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] =
+      r1.map { case (a, bs) => a -> r2.get(a).fold(bs)(bs diff _) }
 
     def invert[A, B](relation: Relation[A, B]): Relation[B, A] = {
-      import scala.collection.mutable.{Map => MutMap}
-      val mutMap = MutMap[B, Set[A]]() withDefaultValue Set()
+      val result = mutable.Map[B, Set[A]]() withDefaultValue Set()
       relation.foreach {
         case (a, bs) =>
-          bs.foreach(b => mutMap(b) = mutMap(b) + a)
+          bs.foreach(b => result(b) = result(b) + a)
       }
-
-      mutMap.toMap
+      result.toMap
     }
+
+    def flatten[A, B](relation: Relation[A, B]): Iterator[(A, B)] =
+      for {
+        kvs <- relation.iterator
+        value <- kvs._2
+      } yield (kvs._1, value)
+
+    def mapKeys[A, K, B](r: Relation[A, B])(f: A => K): Relation[K, B] =
+      r.map { case (a, b) => f(a) -> b }
   }
 
 }

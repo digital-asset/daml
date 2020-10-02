@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.GenerateSimpleDalf (main) where
 
@@ -13,7 +13,6 @@ import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.World
 import DA.Daml.LF.Proto3.Archive
 import DA.Daml.LF.TypeChecker
-import DA.Pretty
 
 -- | This tool generates a simple DALF file and writes it to the first
 -- argument given on the command line. This DALF is intended to be used
@@ -113,13 +112,15 @@ main = do
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]
             }
-    either (error . renderPretty) pure $ checkModule (initWorld [] version) version mod
+    case checkModule (initWorld [] version) version mod of
+        [] -> pure ()
+        diags -> error $ show diags
     let pkg = Package
             { packageLfVersion = version
             , packageModules = NM.fromList [mod]
             , packageMetadata = Nothing
             }
-    let (bytes, hash) = encodeArchiveAndHash pkg
+    let (bytes, PackageId hash) = encodeArchiveAndHash pkg
     BSL.writeFile file bytes
     T.putStrLn hash
     pure ()

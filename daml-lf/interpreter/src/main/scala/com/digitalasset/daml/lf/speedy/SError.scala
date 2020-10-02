@@ -1,14 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.daml.lf.VersionRange
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
+import com.daml.lf.ledger.EventId
+import com.daml.lf.ledger.FailedAuthorization
+import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
+import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.value.Value.ContractId
+import com.daml.lf.scenario.ScenarioLedger
 
 object SError {
 
@@ -23,13 +26,18 @@ object SError {
     override def toString = "CRASH: " + reason
   }
 
+  /** Operation is only supported in on-ledger mode but was
+    * called in off-ledger mode.
+    */
+  final case class SRequiresOnLedger(operation: String) extends SError
+
   def crash[A](reason: String): A =
     throw SErrorCrash(reason)
 
   /** DAML exceptions that can be caught. These include
     * arithmetic errors, call to error builtin or update
     * errors. */
-  sealed trait SErrorDamlException extends SError
+  sealed abstract class SErrorDamlException extends SError
 
   /** Arithmetic error such as division by zero */
   final case class DamlEArithmeticError(message: String) extends SErrorDamlException {
@@ -47,7 +55,7 @@ object SError {
   final case class DamlETemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
-      arg: Transaction.Value[ContractId],
+      arg: Value[ContractId],
   ) extends SErrorDamlException
 
   /** A fetch or an exercise on a transaction-local contract that has already
@@ -55,7 +63,7 @@ object SError {
   final case class DamlELocalContractNotActive(
       coid: ContractId,
       templateId: TypeConName,
-      consumedBy: Transaction.NodeId,
+      consumedBy: NodeId,
   ) extends SErrorDamlException
 
   /** Error during an operation on the update transaction. */
@@ -63,28 +71,19 @@ object SError {
       reason: String,
   ) extends SErrorDamlException
 
-  /** The submitter was not in the key maintainers on lookup.
-    * See <https://github.com/digital-asset/daml/issues/1866>.
-    */
-  final case class DamlESubmitterNotInMaintainers(
-      templateId: TypeConName,
-      submitter: Party,
-      maintainers: Set[Party],
-  ) extends SErrorDamlException
-
   /** Errors from scenario interpretation. */
   sealed trait SErrorScenario extends SError
 
   final case class ScenarioErrorContractNotEffective(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
       effectiveAt: Time.Timestamp,
   ) extends SErrorScenario
 
   final case class ScenarioErrorContractNotActive(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
-      consumedBy: Ledger.ScenarioNodeId,
+      consumedBy: EventId,
   ) extends SErrorScenario
 
   /** We tried to fetch / exercise a contract of the wrong type --
@@ -96,21 +95,52 @@ object SError {
       actual: TypeConName,
   ) extends SErrorDamlException
 
+  /** We tried to fetch data with disallowed value version --
+    *  see <https://github.com/digital-asset/daml/issues/5164>
+    */
+  final case class DamlEDisallowedInputValueVersion(
+      allowed: VersionRange[ValueVersion],
+      actual: ValueVersion,
+  ) extends SErrorDamlException
+
+  /** There was an authorization failure during execution. */
+  final case class DamlEFailedAuthorization(
+      nid: NodeId,
+      fa: FailedAuthorization,
+  ) extends SErrorDamlException
+
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'. */
   final case class ScenarioErrorContractNotVisible(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
       committer: Party,
       observers: Set[Party],
   ) extends SErrorScenario
 
-  /** The commit of the transaction failed due to authorization errors. */
-  final case class ScenarioErrorCommitError(commitError: Ledger.CommitError) extends SErrorScenario
+  /** A fetchByKey or lookupByKey was being made against a key
+    * for which the contract exists but has not
+    * been disclosed to 'committer'. */
+  final case class ScenarioErrorContractKeyNotVisible(
+      coid: ContractId,
+      key: GlobalKey,
+      committer: Party,
+      stakeholders: Set[Party],
+  ) extends SErrorScenario
+
+  /** The transaction failed due to a commit error */
+  final case class ScenarioErrorCommitError(commitError: ScenarioLedger.CommitError)
+      extends SErrorScenario
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
-  final case class ScenarioErrorMustFailSucceeded(tx: Transaction) extends SErrorScenario
+  final case class ScenarioErrorMustFailSucceeded(tx: Tx.Transaction) extends SErrorScenario
 
   /** Invalid party name supplied to 'getParty'. */
   final case class ScenarioErrorInvalidPartyName(name: String, msg: String) extends SErrorScenario
+
+  /** Tried to allocate a party that already exists. */
+  final case class ScenarioErrorPartyAlreadyExists(name: String) extends SErrorScenario
+
+  final case class ScenarioErrorSerializationError(msg: String) extends SErrorScenario
+
 }

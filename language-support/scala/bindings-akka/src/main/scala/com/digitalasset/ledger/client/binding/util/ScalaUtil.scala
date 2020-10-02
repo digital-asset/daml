@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.util
+package com.daml.ledger.client.binding.util
 
 import java.util.concurrent.{ScheduledExecutorService, ScheduledFuture, TimeUnit}
 

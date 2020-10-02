@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # hlint configuration file
@@ -117,12 +117,11 @@
     - hint: {lhs: "[] == x", rhs: null x}
     - hint: {lhs: length x /= 0, rhs: not (null x), name: Use null}
     - hint: {lhs: 0 /= length x, rhs: not (null x), name: Use null}
-    - hint: {lhs: "\\x -> [x]", rhs: "(:[])", name: "Use :"}
+    - hint: {lhs: "\\x -> [x]", rhs: "(::[])", name: "Use ::"}
     - warn: {lhs: map (uncurry f) (zip x y), rhs: zipWith f x y}
     - hint: {lhs: map f (zip x y), rhs: zipWith (curry f) x y, side: isVar f}
     - warn: {lhs: not (elem x y), rhs: notElem x y}
     - hint: {lhs: foldr f z (map g x), rhs: foldr (f . g) z x, name: Fuse foldr/map}
-    - warn: {lhs: "x ++ concatMap (' ':) y", rhs: "unwords (x:y)"}
     - warn: {lhs: intercalate " ", rhs: unwords}
     - hint: {lhs: concat (intersperse x y), rhs: intercalate x y, side: notEq x " "}
     - hint: {lhs: concat (intersperse " " x), rhs: unwords x}
@@ -194,7 +193,7 @@
     - warn: {lhs: intersectBy (==), rhs: intersect}
     - warn: {lhs: maximumBy compare, rhs: maximum}
     - warn: {lhs: minimumBy compare, rhs: minimum}
-    - warn: {lhs: nubBy (==), rhs: nub}
+    - warn: {lhs: dedupBy compare, rhs: dedup}
     - warn: {lhs: sortBy compare, rhs: sort}
     - warn: {lhs: unionBy (==), rhs: union}
 
@@ -240,10 +239,11 @@
     - warn: {lhs: identity x, rhs: x, side: not (isTypeApp x)}
     - warn: {lhs: identity . x, rhs: x, name: Redundant identity}
     - warn: {lhs: x . identity, rhs: x, name: Redundant identity}
-    - warn: {lhs: "((,) x)", rhs: "(_noParen_ x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
-    - warn: {lhs: "flip (,) x", rhs: "(,_noParen_ x)", name: Use tuple-section, note: RequiresExtension TupleSections}
-    - warn: {lhs: "\\y -> (x,y)", rhs: "(x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
-    - warn: {lhs: "\\y -> (y,x)", rhs: "(,x)", name: Use tuple-section, note: RequiresExtension TupleSections}
+    # Disabled since we do not want to confuse users with more syntax than necessary.
+    # - warn: {lhs: "((,) x)", rhs: "(_noParen_ x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
+    # - warn: {lhs: "flip (,) x", rhs: "(,_noParen_ x)", name: Use tuple-section, note: RequiresExtension TupleSections}
+    # - warn: {lhs: "\\y -> (x,y)", rhs: "(x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
+    # - warn: {lhs: "\\y -> (y,x)", rhs: "(,x)", name: Use tuple-section, note: RequiresExtension TupleSections}
 
     # CHAR
 
@@ -301,12 +301,14 @@
     - warn: {lhs: second g1 (bimap f g2 x), rhs: bimap f (g1 . g2) x}
     - warn: {lhs: bimap f1 g (first f2 x), rhs: bimap (f1 . f2) g x}
     - warn: {lhs: bimap f g1 (second g2 x), rhs: bimap f (g1 . g2) x}
-    - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: DA.Bifunctor.bimap f g}
-    - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: DA.Bifunctor.first f}
-    - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: DA.Bifunctor.second f}
-    - hint: {lhs: "(f (fst x), g (snd x))", rhs: DA.Bifunctor.bimap f g x}
-    - hint: {lhs: "(f (fst x), snd x)", rhs: DA.Bifunctor.first f x}
-    - hint: {lhs: "(fst x, g (snd x))", rhs: DA.Bifunctor.second g x}
+    # We disable those rules since nobody should have to understand bifunctors
+    # to use DAML.
+    # - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: DA.Bifunctor.bimap f g}
+    # - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: DA.Bifunctor.first f}
+    # - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: DA.Bifunctor.second f}
+    # - hint: {lhs: "(f (fst x), g (snd x))", rhs: DA.Bifunctor.bimap f g x}
+    # - hint: {lhs: "(f (fst x), snd x)", rhs: DA.Bifunctor.first f x}
+    # - hint: {lhs: "(fst x, g (snd x))", rhs: DA.Bifunctor.second g x}
 
     # FUNCTOR
 
@@ -390,13 +392,10 @@
 
     # MONAD LIST
 
-    - warn: {lhs: fmap unzip (mapA f x), rhs: DA.Action.mapAndUnzipM f x}
-    - warn: {lhs: sequence (zipWith f x y), rhs: DA.Action.zipWithM f x y}
-    - warn: {lhs: sequence_ (zipWith f x y), rhs: DA.Action.zipWithM_ f x y}
-    - warn: {lhs: sequence (replicate n x), rhs: DA.Action.replicateM n x}
-    - warn: {lhs: sequence_ (replicate n x), rhs: DA.Action.replicateM_ n x}
-    - warn: {lhs: mapA f (replicate n x), rhs: DA.Action.replicateM n (f x)}
-    - warn: {lhs: mapA_ f (replicate n x), rhs: DA.Action.replicateM_ n (f x)}
+    - warn: {lhs: sequence (replicate n x), rhs: DA.Action.replicateA n x}
+    - warn: {lhs: sequence_ (replicate n x), rhs: DA.Action.replicateA_ n x}
+    - warn: {lhs: mapA f (replicate n x), rhs: DA.Action.replicateA n (f x)}
+    - warn: {lhs: mapA_ f (replicate n x), rhs: DA.Action.replicateA_ n (f x)}
     - warn: {lhs: mapA f (map g x), rhs: mapA (f . g) x, name: Fuse mapA/map}
     - warn: {lhs: mapA_ f (map g x), rhs: mapA_ (f . g) x, name: Fuse mapA_/map}
     - warn: {lhs: traverse f (map g x), rhs: traverse (f . g) x, name: Fuse traverse/map}
@@ -438,7 +437,7 @@
     - warn: {lhs: optional True (/= x), rhs: (/= Some x)}
     - warn: {lhs: not (isNone x), rhs: isSome x}
     - warn: {lhs: not (isSome x), rhs: isNone x}
-    - warn: {lhs: "optional [] (:[])", rhs: optionalToList}
+    - warn: {lhs: "optional [] (::[])", rhs: optionalToList}
     - warn: {lhs: catOptionals (map f x), rhs: mapOptional f x}
     - warn: {lhs: catOptionals (fmap f x), rhs: mapOptional f x}
     - hint: {lhs: case x of None -> y; Some a -> a , rhs: DA.Optional.fromOptional y x, side: isAtom y, name: Replace case with fromOptional}
@@ -664,6 +663,10 @@
 
 # Not popular or useful
 - ignore: {name: Use camelCase}
+# Interacts badly with desugaring and the hack for
+# -Wunused-matches. Also, it's generally considered by Neil to be
+# dodgy.
+- ignore: {name: Reduce duplication}
 # Not relevant to DAML
 - ignore: {name: Use newtype instead of data}
 # Don't warn on redundant parens or $
@@ -671,4 +674,9 @@
 - ignore: {name: Redundant $}
 # Don't warn on redundant do (DAML choice syntax *mandates* 'do'!)
 - ignore: {name: Redundant do}
-
+# Not helpful for beginner DAML programmers
+- ignore: {name: Eta reduce}
+- ignore: {name: Avoid lambda}
+# Disabled to avoid introducing even more syntax.
+- ignore: {name: Use tuple-section}
+- ignore: {name: Use lambda-case}

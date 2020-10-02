@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 locals {
@@ -15,7 +15,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
   # -5 for the random postfix:
   base_instance_name = "vsts-win"
 
-  region      = "${local.region}"
+  region      = "us-east1"
   target_size = 6
 
   version {
@@ -38,7 +38,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
 
 resource "google_compute_instance_template" "vsts-agent-windows" {
   name_prefix  = "vsts-agent-windows-"
-  machine_type = "n1-standard-8"
+  machine_type = "c2-standard-8"
   labels       = "${local.labels}"
 
   disk {
@@ -61,7 +61,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
 
   metadata {
     // Prepare the machine
-    sysprep-specialize-script-ps1 = <<SYSPREP_SPECIALIZE
+    windows-startup-script-ps1 = <<SYSPREP_SPECIALIZE
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
@@ -107,7 +107,7 @@ $partition | Set-Content C:\diskpart.txt
 & diskpart /s C:\diskpart.txt 2>&1 | %{ "$_" }
 
 # Create a temporary and random password for the VSTS user, forget about it once this script has finished running
-$Username = "VssAdministrator"
+$Username = "u"
 $Account = "$env:COMPUTERNAME\$Username"
 Add-Type -AssemblyName System.Web
 $Password = [System.Web.Security.Membership]::GeneratePassword(24, 0)
@@ -128,7 +128,11 @@ net start winrm
 
 echo "== Installing the VSTS agent"
 
-choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a'"
+New-Item -ItemType Directory -Path 'C:\agent'
+Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=default'
+
+$MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
+choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"
 echo OK
 SYSPREP_SPECIALIZE
 

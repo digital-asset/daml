@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -18,14 +18,17 @@ da_scala_test_suite(
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-on-memory",
+        "//ledger/metrics",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
-        "//ledger/sandbox:ledger-api-server",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",

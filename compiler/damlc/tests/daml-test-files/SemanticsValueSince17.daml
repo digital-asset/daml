@@ -1,0 +1,10 @@
+
+-- | Tests new "value cases" available since DAML 1.7
+--
+-- @SINCE-LF 1.7
+module SemanticsValueSince17 where
+
+main = scenario do
+    let x : forall (n:GHC.Types.Nat). Numeric n
+        x = error "ValExpTyAbsNat"
+    pure ()

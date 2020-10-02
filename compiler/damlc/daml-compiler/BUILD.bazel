@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -26,16 +26,18 @@ da_haskell_library(
         "haskell-lsp",
         "lens",
         "mtl",
+        "repline",
         "resourcet",
         "safe",
         "safe-exceptions",
+        "semigroupoids",
         "shake",
         "text",
         "time",
         "transformers",
+        "uniplate",
         "unordered-containers",
         "utf8-string",
-        "yaml",
         "zip",
         "zip-archive",
     ],
@@ -52,10 +54,13 @@ da_haskell_library(
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-preprocessor",
+        "//compiler/damlc/daml-rule-types",
         "//compiler/repl-service/client",
         "//compiler/scenario-service/client",
         "//daml-assistant:daml-project-config",
+        "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/da-hs-base",
     ],
 )

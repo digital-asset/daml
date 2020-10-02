@@ -1,11 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 
 import scalaz.NonEmptyList
-
-import scala.collection.breakOut
 
 abstract class LfVersions[V](versionsAscending: NonEmptyList[V])(protoValue: V => String) {
 
@@ -14,7 +12,7 @@ abstract class LfVersions[V](versionsAscending: NonEmptyList[V])(protoValue: V =
   val acceptedVersions: List[V] = versionsAscending.list.toList
 
   private val acceptedVersionsMap: Map[String, V] =
-    acceptedVersions.map(v => (protoValue(v), v))(breakOut)
+    acceptedVersions.iterator.map(v => (protoValue(v), v)).toMap
 
   def isAcceptedVersion(version: String): Option[V] = acceptedVersionsMap.get(version)
 

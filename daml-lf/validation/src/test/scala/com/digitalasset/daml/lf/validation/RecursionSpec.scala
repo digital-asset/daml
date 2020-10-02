@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -22,7 +22,7 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
          }
        """
 
-    Recursion.checkPackage(defaultPackageId, p.modules)
+    Recursion.checkPackage(defaultPackageId, p)
 
   }
 
@@ -61,11 +61,9 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
         ${module("E", "E")}
        """
 
-    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
-    an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
-    an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
+    Recursion.checkPackage(defaultPackageId, negativeCase)
+    an[EImportCycle] should be thrownBy Recursion.checkPackage(defaultPackageId, positiveCase1)
+    an[EImportCycle] should be thrownBy Recursion.checkPackage(defaultPackageId, positiveCase2)
 
   }
 
@@ -98,11 +96,9 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
          }
        """
 
-    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
-    an[ETypeSynCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
-    an[ETypeSynCycle] should be thrownBy
-      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
+    Recursion.checkPackage(defaultPackageId, negativeCase)
+    an[ETypeSynCycle] should be thrownBy Recursion.checkPackage(defaultPackageId, positiveCase1)
+    an[ETypeSynCycle] should be thrownBy Recursion.checkPackage(defaultPackageId, positiveCase2)
 
   }
 

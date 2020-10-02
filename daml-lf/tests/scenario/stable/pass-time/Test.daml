@@ -1,0 +1,15 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Test where
+
+import DA.Time
+
+run = scenario do
+  t0 <- getTime
+  t1 <- pass (seconds 100)
+  t2 <- getTime
+
+  assert (t1 == addRelTime t0 (seconds 100))
+  assert (t1 == t2)

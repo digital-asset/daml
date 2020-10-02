@@ -1,22 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.refinements.ApiTypes
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.Product",
-    "org.wartremover.warts.Serializable"))
+@SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 class LedgerSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+  import com.daml.navigator.{DamlConstants => C}
 
   private val party = ApiTypes.Party("party")
 
@@ -28,14 +24,14 @@ class LedgerSpec extends WordSpec with Matchers {
   private val bob = ApiTypes.Party("Bob")
   private val charlie = ApiTypes.Party("Charlie")
 
-  def transaction(id: String): Transaction =
+  private def transaction(id: String): Transaction =
     Transaction(
       ApiTypes.TransactionId(id),
       Some(ApiTypes.CommandId("commandId")),
       Instant.now(),
       "0",
       List.empty)
-  def contract(id: String): Contract =
+  private def contract(id: String): Contract =
     Contract(
       ApiTypes.ContractId(id),
       template,
@@ -44,7 +40,6 @@ class LedgerSpec extends WordSpec with Matchers {
       List(alice),
       List(bob, charlie),
       None)
-  def error(commandId: String): CommandStatusError = CommandStatusError("code", "details")
 
   "A ledger with existing contracts" when {
     val subject = Ledger(alice, None, false).withTransaction(

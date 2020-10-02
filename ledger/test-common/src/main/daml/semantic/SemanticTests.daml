@@ -1,0 +1,179 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+-- These DAML scenarios test, where possible, the semantics of the underlying Ledger API implementation
+-- with respect to consistency, authorization and privacy (including divulgence).
+--
+-- Notes: many of the ledger model properties are correct-by-construction
+-- in DAML, therefore we do not test model conformance such as the behavior
+-- of malformed transactions or transactions with exercise before create
+-- inconsistency.
+module SemanticTests where
+
+------------------------------------------------------------
+-- Consistency testing templates
+
+data Amount = Amount {value: Decimal; currency: Text} deriving (Eq, Show)
+
+amountAsText (amount : Amount) : Text = show amount.value <> amount.currency
+
+template GetCash
+ with
+   payer: Party
+   owner: Party
+   amount: Amount
+ where
+   signatory payer, owner
+   agreement
+     show payer <> " pays " <> amountAsText amount <>" to " <> show owner
+
+template Iou
+ with
+   payer: Party
+   owner: Party
+   amount: Amount
+ where
+   signatory payer
+   controller owner can
+     Call: ContractId GetCash
+       do create GetCash with payer; owner; amount
+     Transfer: ContractId Iou with newOwner: Party
+       do create Iou with payer; owner = newOwner; amount
+
+-- Needed to test fetch via the Ledger API
+template FetchIou
+  with
+    fetcher : Party
+    iouCid : ContractId Iou
+  where
+    signatory fetcher
+    controller fetcher can
+      FetchIou_Fetch: Iou
+        do fetch iouCid
+
+template SharedContract
+ with
+   payer: Party
+   owner1: Party
+   owner2: Party
+ where
+   signatory payer
+   controller owner1 can
+       SharedContract_Consume1: () do pure ()
+   controller owner2 can
+       SharedContract_Consume2: () do pure ()
+   controller [owner1, owner2] can
+       SharedContract_BothConsume: () do pure ()
+
+------------------------------------------------------------
+-- Authorization testing templates
+
+template PaintOffer
+  with
+    painter : Party
+    houseOwner : Party
+    obligor : Party
+    amount: Amount
+  where
+    signatory painter
+    controller houseOwner can
+      PaintOffer_Accept: (ContractId Iou, ContractId PaintAgree)
+        with iouCid: ContractId Iou
+          do (,) <$> exercise iouCid Transfer with newOwner = painter
+                 <*> create PaintAgree with painter; houseOwner
+      PaintOffer_Counter: ContractId PaintCounterOffer
+        with iouCid: ContractId Iou
+          do iou <- fetch iouCid
+             assert $ obligor == iou.payer
+             assert $ houseOwner == iou.owner
+             create PaintCounterOffer with iouCid; painter; houseOwner; obligor; amount = iou.amount
+
+-- Needed to test fetch via the Ledger API
+template FetchPaintOffer
+  with
+    fetcher : Party
+    offerCid : ContractId PaintOffer
+  where
+    signatory fetcher
+    controller fetcher can
+      FetchPaintOffer_Fetch: PaintOffer
+          do fetch offerCid
+
+template PaintCounterOffer
+  with
+    iouCid : ContractId Iou
+    painter : Party
+    houseOwner : Party
+    obligor : Party
+    amount: Amount
+  where
+    signatory houseOwner
+    controller painter can
+      PaintCounterOffer_Accept: (ContractId Iou, ContractId PaintAgree)
+        do offerCid <- create PaintOffer with painter; houseOwner; obligor; amount
+           -- This is delegation, the painter exercises the offer on behalf of the houseOwner.
+           exercise offerCid PaintOffer_Accept with iouCid
+
+template PaintAgree
+  with
+    painter : Party
+    houseOwner : Party
+  where
+    signatory painter, houseOwner
+
+-- Needed to test fetch via the Ledger API
+template FetchPaintAgree
+  with
+    fetcher : Party
+    agreeCid : ContractId PaintAgree
+  where
+    signatory fetcher
+    controller fetcher can
+      FetchPaintAgree_Fetch: PaintAgree
+        do fetch agreeCid
+
+------------------------------------------------------------
+-- Divulgence testing templates
+
+template Token
+  with
+    issuer: Party
+    owner: Party
+    id: Int
+  where
+    signatory issuer
+    observer owner
+
+    controller owner can
+      Token_Transfer : ContractId Token
+        with newOwner : Party
+        do create Token with issuer; owner = newOwner; id
+
+      Token_Consume: () do pure ()
+
+template Delegation
+  with
+    owner: Party
+    delegate: Party
+  where
+    signatory owner
+    observer delegate
+
+    controller delegate can
+      Delegation_Token_Consume: ()
+        with tokenId: ContractId Token
+        do exercise tokenId Token_Consume
+
+    controller owner can
+      -- Divulgance to delegate as a consuming choice is
+      -- visible to the observer.
+      Delegation_Divulge_Token: ()
+        with tokenId: ContractId Token
+        do fetch tokenId
+           pure ()
+
+      nonconsuming Delegation_Wrong_Divulge_Token: ()
+        with tokenId: ContractId Token
+        do fetch tokenId
+           pure ()

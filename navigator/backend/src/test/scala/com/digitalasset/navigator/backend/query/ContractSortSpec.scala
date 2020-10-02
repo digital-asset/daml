@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.query
+package com.daml.navigator.query
 
 import org.scalatest.{FlatSpec, Matchers}
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.daml.lf.value.Value.{ValueText, ValueInt64}
-import com.digitalasset.navigator.model._
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.lf.value.Value.{ValueText, ValueInt64}
+import com.daml.navigator.model._
 import scalaz.syntax.tag._
-import com.digitalasset.navigator.DamlConstants.singletonRecord
-import com.digitalasset.navigator.query.SortDirection.{ASCENDING, DESCENDING}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.navigator.DamlConstants.singletonRecord
+import com.daml.navigator.query.SortDirection.{ASCENDING, DESCENDING}
+import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.Tag
 
 class ContractSortSpec extends FlatSpec with Matchers {

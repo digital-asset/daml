@@ -4,9 +4,9 @@
 {-# OPTIONS_GHC -Wincomplete-patterns -Woverlapping-patterns #-}
 -- Check that warnings from desugarer, like incomplete/overlapping pattern
 -- match warnings, show up when we turn them on.
--- @WARN range=14:21-15:14; Pattern match(es) are non-exhaustive
--- @WARN range=18:1-19:21; Pattern match(es) are non-exhaustive
--- @WARN range=24:3-24:14; Pattern match is redundant
+-- @WARN range=14:20-15:13; Pattern match(es) are non-exhaustive
+-- @WARN range=18:0-19:20; Pattern match(es) are non-exhaustive
+-- @WARN range=24:2-24:13; Pattern match is redundant
 
 module DesugarWarnings where
 

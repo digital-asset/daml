@@ -1,18 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api
+package com.daml.ledger.api
 
 import java.time.Instant
 
 import brave.propagation.TraceContext
+import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.value.{Value => Lf}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
@@ -80,7 +79,7 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        createArguments: ValueRecord[AbsoluteContractId],
+        createArguments: Lf.ValueRecord[ContractId],
         witnessParties: immutable.Set[Ref.Party],
         signatories: immutable.Set[Ref.Party],
         observers: immutable.Set[Ref.Party],
@@ -191,13 +190,6 @@ object domain {
       */
     final case class OutOfQuota(description: String) extends RejectionReason
 
-    /** The transaction submission timed out.
-      *
-      * This means the 'maximumRecordTime' was smaller than the recordTime seen
-      * in an event in the Participant node.
-      */
-    final case class TimedOut(description: String) extends RejectionReason
-
     /** The transaction submission was disputed.
       *
       * This means that the underlying ledger and its validation logic
@@ -210,9 +202,12 @@ object domain {
 
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
 
+    /** The ledger time of the submission violated some constraint on the ledger time.
+      */
+    final case class InvalidLedgerTime(description: String) extends RejectionReason
   }
 
-  type Value = Lf[Lf.AbsoluteContractId]
+  type Value = Lf[Lf.ContractId]
 
   final case class RecordField(label: Option[Label], value: Value)
 
@@ -267,16 +262,12 @@ object domain {
   type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
-  sealed trait AbsoluteNodeIdTag
-
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
       submitter: Ref.Party,
-      ledgerEffectiveTime: Instant,
-      maximumRecordTime: Instant,
       submittedAt: Instant,
       deduplicateUntil: Instant,
       commands: LfCommands)
@@ -293,14 +284,12 @@ object domain {
   object PartyEntry {
     final case class AllocationAccepted(
         submissionId: Option[String],
-        participantId: ParticipantId,
-        partyDetails: PartyDetails
+        partyDetails: PartyDetails,
     ) extends PartyEntry
 
     final case class AllocationRejected(
         submissionId: String,
-        participantId: ParticipantId,
-        reason: String
+        reason: String,
     ) extends PartyEntry
   }
 
@@ -310,15 +299,13 @@ object domain {
 
     final case class Accepted(
         submissionId: String,
-        participantId: ParticipantId,
         configuration: Configuration,
     ) extends ConfigurationEntry
 
     final case class Rejected(
         submissionId: String,
-        participantId: ParticipantId,
         rejectionReason: String,
-        proposedConfiguration: Configuration
+        proposedConfiguration: Configuration,
     ) extends ConfigurationEntry
   }
 

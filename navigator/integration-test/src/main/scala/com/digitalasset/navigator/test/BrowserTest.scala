@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.test
+package com.daml.navigator.test
 
 import java.net.URL
 import java.util.UUID
 
-import com.digitalasset.navigator.test.config.Arguments
+import com.daml.navigator.test.config.Arguments
 import com.typesafe.scalalogging.LazyLogging
 import org.openqa.selenium.{JavascriptExecutor, WebDriver}
 import org.openqa.selenium.remote.DesiredCapabilities
@@ -117,7 +117,6 @@ class BrowserTest(args: Arguments)
   private val setTimeButton = xpath("//button[span='Set']")
   private val specificDate = xpath("//tbody/tr[2]/td[2]")
   private val specificDateLabel = xpath("//button/span[contains(text(), '1970-01-05')]")
-  private val rightOfUse = xpath("//div/div/div[starts-with(span,'Main:RightOfUse')]")
   private val rightOfUseAgreement = xpath(
     "//div/div/div[starts-with(span,'Main:RightOfUseAgreement')]")
   private val rightOfUseOffer = xpath("//div/div/div[starts-with(span,'Main:RightOfUseOffer')]")
@@ -173,19 +172,6 @@ class BrowserTest(args: Arguments)
 
   private def doClick(query: Query): Unit = {
     click on query
-    ()
-  }
-
-  private def scrollToBottom(js: JavascriptExecutor, css: String): Unit = {
-    js.executeScript(s"""
-      var element = document.querySelector("$css");
-      if (element) {
-        console.log("ScrollToBottom: scrolling '$css' to " + element.scrollHeight)
-        element.scrollTop = element.scrollHeight;
-      } else {
-        console.error("ScrollToBottom: could not find element '$css'")
-      }
-    """)
     ()
   }
 

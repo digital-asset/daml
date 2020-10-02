@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- Test that overflowing integer literals are detected at compile time.
--- @ ERROR Int literal out of bounds
+-- @ ERROR range=10:0-10:6; Int literal out of bounds
 
 module IntBoundsUpper where
 

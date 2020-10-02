@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.testing.postgresql
+package com.daml.testing.postgresql
 
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.bazeltools.BazelRunfiles.rlocation
 
 private case class Tool private[postgresql] (name: String) {
 
@@ -23,7 +23,8 @@ private[postgresql] object Tool {
     else
       ""
 
-  val createdb = Tool("createdb")
-  val initdb = Tool("initdb")
-  val pg_ctl = Tool("pg_ctl")
+  val createdb: Tool = Tool("createdb")
+  val dropdb: Tool = Tool("dropdb")
+  val initdb: Tool = Tool("initdb")
+  val pg_ctl: Tool = Tool("pg_ctl")
 }

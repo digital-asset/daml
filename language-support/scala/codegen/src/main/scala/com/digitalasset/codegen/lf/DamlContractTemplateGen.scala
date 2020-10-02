@@ -1,14 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
 import java.io.File
 
-import com.digitalasset.codegen.Util
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.daml.codegen.Util
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{Identifier, QualifiedName}
 import com.typesafe.scalalogging.Logger
+import scalaz.syntax.std.option._
 
 import scala.reflect.runtime.universe._
 
@@ -70,13 +71,14 @@ object DamlContractTemplateGen {
     def consumingChoicesMethod = LFUtil.genConsumingChoicesMethod(templateInterface.template)
 
     val Identifier(_, QualifiedName(moduleName, baseName)) = templateId
-    val packageIdRef = PackageIDsGen.reference(util)(moduleName)
+    val packageIdRef = PackageIDsGen.reference(moduleName)
 
     def templateObjectMembers = Seq(
       q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})",
       q"""implicit final class ${TypeName(s"${contractName.name} syntax")}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
             ..$templateChoiceMethods
           }""",
+      q"type key = ${templateInterface.template.key.cata(util.genTypeToScalaType, LFUtil.nothingType)}",
       consumingChoicesMethod,
       toNamedArgumentsMethod,
       fromNamedArgumentsMethod

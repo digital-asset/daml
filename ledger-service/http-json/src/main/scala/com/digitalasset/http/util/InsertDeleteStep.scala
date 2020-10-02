@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 package util
 
-import com.digitalasset.http.dbbackend.Queries.DBContract
-import com.digitalasset.ledger.api.v1.{event => evv1}
+import com.daml.http.dbbackend.Queries.DBContract
+import com.daml.ledger.api.v1.{event => evv1}
 
 import scalaz.{Monoid, \/, \/-}
 import scalaz.syntax.tag._
@@ -41,7 +41,6 @@ private[http] final case class InsertDeleteStep[+D, +C](
   }
 
   /** Results undefined if cid(cc) != cid(c) */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
       implicit LDS: CanBuildFrom[Map[String, D], LD, LDS],
   ): (LDS, Inserts[LC], InsertDeleteStep[DD, CC]) = {

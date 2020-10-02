@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
-import com.digitalasset.navigator.model.PartyState
+import com.daml.navigator.model.PartyState
 import org.scalatest.{FlatSpec, Matchers}
 import SessionJsonProtocol.userWriter
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.refinements.ApiTypes
 import spray.json.{JsBoolean, JsObject, JsString}
 
 class SessionJsonProtocolTest extends FlatSpec with Matchers {

@@ -1,11 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 
 sealed abstract class LookupError extends Product with Serializable {
   def pretty: String
@@ -158,6 +159,7 @@ abstract class ValidationError extends java.lang.RuntimeException with Product w
   def context: Context
   override def toString: String = productPrefix + productIterator.mkString("(", ", ", ")")
   def pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
+  override def getMessage: String = pretty
   protected def prettyInternal: String
 }
 
@@ -308,11 +310,14 @@ final case class EExpectedOptionType(context: Context, typ: Type) extends Valida
 final case class EEmptyCase(context: Context) extends ValidationError {
   protected def prettyInternal: String = "empty case"
 }
+final case class EClashingPatternVariables(context: Context, varName: ExprVarName)
+    extends ValidationError {
+  protected def prettyInternal: String = s"$varName is used more than one in pattern"
+}
 final case class EExpectedTemplatableType(context: Context, conName: TypeConName)
     extends ValidationError {
   protected def prettyInternal: String =
     s"expected monomorphic record type in template definition, but found: ${conName.qualifiedName}"
-
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
@@ -363,4 +368,21 @@ final case class ECollision(
 
   override protected def prettyInternal: String =
     s"collision between ${entity1.pretty} and ${entity2.pretty}"
+}
+
+final case class EModuleVersionDependencies(
+    pkgId: PackageId,
+    pkgLangVersion: LanguageVersion,
+    depPkgId: PackageId,
+    dependencyLangVersion: LanguageVersion,
+) extends ValidationError {
+  import com.daml.lf.transaction.VersionTimeline.Implicits._
+
+  assert(pkgId != depPkgId)
+  assert(pkgLangVersion precedes dependencyLangVersion)
+
+  override protected def prettyInternal: String =
+    s"package $pkgId using version $pkgLangVersion depends on package $depPkgId using newer version $dependencyLangVersion"
+
+  override def context: Context = NoContext
 }

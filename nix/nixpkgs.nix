@@ -8,6 +8,7 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
+    nodejs = pkgs.nodejs-12_x;
     grpc = pkgs.grpc.overrideAttrs (oldAttrs: {
       version = "1.23.1";
       src = pkgs.fetchFromGitHub {
@@ -19,7 +20,11 @@ let
       };
       # Upstream nixpkgs applies patches that are incompatbile with our version
       # of grpc. So, we disable them.
-      patches = [];
+      patches = [
+        # Fix glibc version conflict.
+        ./grpc-Fix-gettid-naming-conflict.patch
+        ./grpc-Rename-gettid-functions.patch
+      ];
     });
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
@@ -27,6 +32,28 @@ let
         PREFIX=$out make install
         wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_9_6}/bin:$out/bin
       '';
+    });
+    bazel = pkgs.bazel.overrideAttrs(oldAttrs: {
+      patches = oldAttrs.patches ++ [
+        # Note (MK)
+        # This patch enables caching of tests marked as `exclusive`. It got apparently
+        # rolled back because it caused problems internally at Google but it’s unclear
+        # what is actually failing and it seems to work fine for us.
+        # See https://github.com/bazelbuild/bazel/pull/8983/files#diff-107db037d4a55f2421fed9ed5c6cc31b
+        # for the only change that actually affects the code in this patch. The rest is tests
+        # and/or documentation.
+        (pkgs.fetchurl {
+          url = "https://patch-diff.githubusercontent.com/raw/bazelbuild/bazel/pull/8983.patch";
+          sha256 = "1j25bycn9q7536ab3ln6yi6zpzv2b25fwdyxbgnalkpl2dz9idb7";
+        })
+      ];
+    });
+    scala_2_12 = pkgs.scala_2_12.overrideAttrs (oldAttrs: rec {
+      name = "scala-2.12.11";
+      src = pkgs.fetchurl {
+        url = "https://www.scala-lang.org/files/archive/${name}.tgz";
+        sha256 = "25afefb0f1a8c2cdc2a35eb7166de2276a4a1f95986d9bfbe18c60183ab36b85";
+      };
     });
   };
 

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
@@ -12,54 +12,49 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.Update.Heartbeat
+import com.daml.ledger.on.memory
+import com.daml.ledger.participant.state.kvutils.api.{
+  BatchingLedgerWriterConfig,
+  KeyValueParticipantState
+}
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.digitalasset.platform.testing.LogCollector
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.timer.RetryStrategy
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString
+import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
+import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.testing.LogCollector
+import com.daml.resources.ResourceOwner
+import com.daml.resources.akka.AkkaResourceOwner
+import com.daml.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
   private[this] var testId: UUID = _
 
-  private[this] implicit var actorSystem: ActorSystem = _
-  private[this] implicit var materializer: Materializer = _
-
   override def beforeEach(): Unit = {
     super.beforeEach()
     testId = UUID.randomUUID()
-    actorSystem = ActorSystem(getClass.getSimpleName)
-    materializer = Materializer(actorSystem)
     LogCollector.clear[this.type]
-  }
-
-  override def afterEach(): Unit = {
-    materializer.shutdown()
-    Await.result(actorSystem.terminate(), 10.seconds)
-    super.afterEach()
   }
 
   private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, RecoveringIndexer]
 
   "indexer" should {
-    "index the participant state" in newLoggingContext { implicit logCtx =>
-      participantServer(simpleParticipantState)
+    "index the participant state" in newLoggingContext { implicit loggingContext =>
+      participantServer(SimpleParticipantState)
         .use { participantState =>
           for {
             _ <- participantState
@@ -71,7 +66,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
               .toScala
             _ <- index.use { ledgerDao =>
               eventually { (_, _) =>
-                ledgerDao.getParties
+                ledgerDao
+                  .listKnownParties()
                   .map(parties => parties.map(_.displayName))
                   .map(_ shouldBe Seq(Some("Alice")))
               }
@@ -90,9 +86,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     }
 
     "index the participant state, even on spurious failures" in newLoggingContext {
-      implicit logCtx =>
-        participantServer((ledgerId, participantId) =>
-          simpleParticipantState(ledgerId, participantId).map(failingOften))
+      implicit loggingContext =>
+        participantServer(ParticipantStateThatFailsOften)
           .use { participantState =>
             for {
               _ <- participantState
@@ -118,7 +113,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
                 .toScala
               _ <- index.use { ledgerDao =>
                 eventually { (_, _) =>
-                  ledgerDao.getParties
+                  ledgerDao
+                    .listKnownParties()
                     .map(parties => parties.map(_.displayName))
                     .map(_ shouldBe Seq(Some("Alice"), Some("Bob"), Some("Carol")))
                 }
@@ -145,113 +141,139 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
           }
     }
 
-    "stop when the kill switch is hit after a failure" in newLoggingContext { implicit logCtx =>
-      participantServer(
-        (ledgerId, participantId) =>
-          simpleParticipantState(ledgerId, participantId).map(failingOften),
-        restartDelay = 10.seconds,
-      ).use { participantState =>
-          for {
-            _ <- participantState
-              .allocateParty(
-                hint = Some(Ref.Party.assertFromString("alice")),
-                displayName = Some("Alice"),
-                submissionId = randomSubmissionId(),
-              )
-              .toScala
-            _ <- eventually { (_, _) =>
-              Future.fromTry(Try(readLog().take(3) should contain theSameElementsInOrderAs Seq(
-                Level.INFO -> "Starting Indexer Server",
-                Level.INFO -> "Started Indexer Server",
-                Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
-              )))
-            }
-          } yield Instant.now()
-        }
-        .map { timeBeforeStop =>
-          val timeAfterStop = Instant.now()
-          SECONDS.between(timeBeforeStop, timeAfterStop) should be <= 5L
-          // stopping the server and logging the error can happen in either order
-          readLog() should contain theSameElementsInOrderAs Seq(
-            Level.INFO -> "Starting Indexer Server",
-            Level.INFO -> "Started Indexer Server",
-            Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
-            Level.INFO -> "Stopping Indexer Server",
-            Level.INFO -> "Indexer Server was stopped; cancelling the restart",
-            Level.INFO -> "Stopped Indexer Server",
-          )
-        }
+    "stop when the kill switch is hit after a failure" in newLoggingContext {
+      implicit loggingContext =>
+        participantServer(ParticipantStateThatFailsOften, restartDelay = 10.seconds)
+          .use { participantState =>
+            for {
+              _ <- participantState
+                .allocateParty(
+                  hint = Some(Ref.Party.assertFromString("alice")),
+                  displayName = Some("Alice"),
+                  submissionId = randomSubmissionId(),
+                )
+                .toScala
+              _ <- eventually { (_, _) =>
+                Future.fromTry(Try(readLog().take(3) should contain theSameElementsInOrderAs Seq(
+                  Level.INFO -> "Starting Indexer Server",
+                  Level.INFO -> "Started Indexer Server",
+                  Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
+                )))
+              }
+            } yield Instant.now()
+          }
+          .map { timeBeforeStop =>
+            val timeAfterStop = Instant.now()
+            SECONDS.between(timeBeforeStop, timeAfterStop) should be <= 5L
+            // stopping the server and logging the error can happen in either order
+            readLog() should contain theSameElementsInOrderAs Seq(
+              Level.INFO -> "Starting Indexer Server",
+              Level.INFO -> "Started Indexer Server",
+              Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
+              Level.INFO -> "Stopping Indexer Server",
+              Level.INFO -> "Indexer Server was stopped; cancelling the restart",
+              Level.INFO -> "Stopped Indexer Server",
+            )
+          }
     }
   }
 
-  private def simpleParticipantState(
-      ledgerId: Option[LedgerId],
-      participantId: ParticipantId,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
-    InMemoryLedgerReaderWriter
-      .singleParticipantOwner(ledgerId, participantId)
-      .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
-
   private def participantServer(
-      newParticipantState: (Option[LedgerId], ParticipantId) => ResourceOwner[ParticipantState],
+      newParticipantState: ParticipantStateFactory,
       restartDelay: FiniteDuration = 100.millis,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] = {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] = {
     val ledgerId = LedgerString.assertFromString(s"ledger-$testId")
     val participantId = ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
     for {
-      participantState <- newParticipantState(Some(ledgerId), participantId)
       actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem())
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
-        actorSystem,
-        participantState,
-        IndexerConfig(
+        readService = participantState,
+        config = IndexerConfig(
           participantId,
           jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
-        new MetricRegistry,
-      )
+        metrics = new Metrics(new MetricRegistry),
+        lfValueTranslationCache = LfValueTranslation.Cache.none,
+      )(materializer, loggingContext)
     } yield participantState
   }
 
-  private def index(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
+  private def index(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val jdbcUrl =
-      s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    JdbcLedgerDao.owner(jdbcUrl, new MetricRegistry, ExecutionContext.global)
+      s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
+    JdbcLedgerDao.writeOwner(
+      serverRole = ServerRole.Testing(getClass),
+      jdbcUrl = jdbcUrl,
+      eventsPageSize = 100,
+      metrics = new Metrics(new MetricRegistry),
+      lfValueTranslationCache = LfValueTranslation.Cache.none,
+    )
   }
 }
 
 object RecoveringIndexerIntegrationSpec {
+
   private type ParticipantState = ReadService with WriteService
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
-  private def randomSubmissionId(): LedgerString =
-    LedgerString.assertFromString(UUID.randomUUID().toString)
+  private def randomSubmissionId(): SubmissionId =
+    SubmissionId.assertFromString(UUID.randomUUID().toString)
 
-  // This spy inserts a failure after each state update to force the RecoveringIndexer to restart.
-  private def failingOften(delegate: ParticipantState): ParticipantState = {
-    var lastFailure: Option[Offset] = None
-    val failingParticipantState = spy(delegate)
-    doAnswer(invocation => {
-      val beginAfter = invocation.getArgument[Option[Offset]](0)
-      delegate.stateUpdates(beginAfter).flatMapConcat {
-        case value @ (_, Heartbeat(_)) =>
-          Source.single(value)
-        case value @ (offset, _) =>
-          if (lastFailure.isEmpty || lastFailure.get < offset) {
-            lastFailure = Some(offset)
-            Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
-          } else {
-            Source.single(value)
-          }
-      }
-    }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
-    failingParticipantState
+  private trait ParticipantStateFactory {
+    def apply(ledgerId: LedgerId, participantId: ParticipantId)(
+        implicit materializer: Materializer,
+        loggingContext: LoggingContext,
+    ): ResourceOwner[ParticipantState]
   }
 
-  private class StateUpdatesFailedException extends RuntimeException("State updates failed.")
+  private object SimpleParticipantState extends ParticipantStateFactory {
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
+        implicit materializer: Materializer,
+        loggingContext: LoggingContext,
+    ): ResourceOwner[ParticipantState] = {
+      val metrics = new Metrics(new MetricRegistry)
+      new memory.InMemoryLedgerReaderWriter.SingleParticipantBatchingOwner(
+        ledgerId,
+        BatchingLedgerWriterConfig.reasonableDefault,
+        participantId,
+        metrics = metrics,
+        engine = Engine.DevEngine()
+      ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+    }
+  }
+
+  private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
+        implicit materializer: Materializer,
+        loggingContext: LoggingContext,
+    ): ResourceOwner[ParticipantState] =
+      SimpleParticipantState(ledgerId, participantId)
+        .map { delegate =>
+          var lastFailure: Option[Offset] = None
+          // This spy inserts a failure after each state update to force the indexer to restart.
+          val failingParticipantState = spy(delegate)
+          doAnswer(invocation => {
+            val beginAfter = invocation.getArgument[Option[Offset]](0)
+            delegate.stateUpdates(beginAfter).flatMapConcat {
+              case value @ (offset, _) =>
+                if (lastFailure.isEmpty || lastFailure.get < offset) {
+                  lastFailure = Some(offset)
+                  Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
+                } else {
+                  Source.single(value)
+                }
+            }
+          }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
+          failingParticipantState
+        }
+
+    private class StateUpdatesFailedException extends RuntimeException("State updates failed.")
+  }
 }

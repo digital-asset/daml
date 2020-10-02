@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -205,14 +205,20 @@ dropWhile p = implode . P.dropWhile p . explode
 dropWhileEnd : (Text -> Bool) -> Text -> Text
 dropWhileEnd p = implode . L.dropWhileEnd p . explode
 
+-- Separate function because recursion is only allowed at the top-level and we
+-- don't want to pay for many implode/explode operations.
+-- This shoud not be exported.
+splitOnHelper : [Text] -> [Text] -> [Text]
+splitOnHelper s t =
+    case L.stripInfix s t of
+        None -> [implode t]
+        Some (before, after) -> implode before :: splitOnHelper s after
+
 -- | Break a text into pieces separated by the first text argument
 -- (which cannot be empty), consuming the delimiter.
 splitOn : Text -> Text -> [Text]
 splitOn "" t' = [t']
-splitOn _ "" = [""]
-splitOn (explode -> s) (explode -> t) =
-  let fixit = if L.isSuffixOf s t then (++ [""]) else identity
-  in fixit $ implode <$> L.repeatedly (fmap (L.dropPrefix s) . L.breakOn s) t
+splitOn s t = splitOnHelper (explode s) (explode t)
 
 -- | Split a text before a given position so that for `0 <= n <= length t`,
 -- `length (fst (splitAt n t)) == n`.

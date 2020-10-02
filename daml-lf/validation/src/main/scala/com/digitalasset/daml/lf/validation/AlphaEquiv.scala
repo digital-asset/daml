@@ -1,10 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.language.Ast._
 
 private[validation] object AlphaEquiv {
 
@@ -31,7 +30,7 @@ private[validation] object AlphaEquiv {
             binderDepthRhs + (varName2 -> currentDepth)
           ).alphaEquiv(b1, b2)
       case (TStruct(fs1), TStruct(fs2)) =>
-        (fs1.keys sameElements fs1.keys) &&
+        (fs1.names sameElements fs2.names) &&
           (fs1.values zip fs2.values).forall((alphaEquiv _).tupled)
       case _ => false
     }

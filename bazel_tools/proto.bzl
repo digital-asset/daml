@@ -1,7 +1,7 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 # taken from rules_proto:
 # https://github.com/stackb/rules_proto/blob/f5d6eea6a4528bef3c1d3a44d486b51a214d61c2/compile.bzl#L369-L393
@@ -42,7 +42,7 @@ def _proto_gen_impl(ctx):
 
     sources_out = ctx.actions.declare_directory(ctx.attr.name + "-sources")
 
-    descriptor_set_delim = "\;" if _is_windows(ctx) else ":"
+    descriptor_set_delim = "\\;" if _is_windows(ctx) else ":"
 
     args = []
     args += [

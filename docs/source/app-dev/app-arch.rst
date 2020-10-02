@@ -1,295 +1,210 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Application architecture guide
-#########################################
+.. _recommended-architecture:
 
-This document is a guide to building applications that interact with a DA ledger deployment (the 'ledger'). It:
+Application architecture
+########################
 
-- describes the characteristics of the ledger API, how this affects the way an application is built (the 'application architecture'), and why it is important to understand this when building applications
-- describes the resources in the SDK to help with this task
-- gives some guidelines to help you build correct, performant, and maintainable applications using all of the supported languages
+This section describes our recommended design of a full-stack DAML application.
 
-Categories of application
-*************************
+.. image:: ./recommended_architecture.svg
 
-Applications that interact with the ledger normally fall into four categories:
+The above image shows the recommended architecture. Of course there are many ways how you can change
+the architecture and technology stack to fit your needs, which we'll mention in the corresponding
+sections.
 
-.. list-table:: Categories of application
-   :header-rows: 1
+To get started quickly with the recommended application architecture clone the
+``create-daml-app`` application template:
 
-   * - Category
-     - Receives transactions?
-     - Sends commands?
-     - Example
-   * - Source
-     - No
-     - Yes
-     - An injector that reads new contracts from a file and injects them into the system.
-   * - Sink
-     - Yes
-     - No
-     - A reader that pipes data from the ledger into an SQL database.
-   * - Automation
-     - Yes
-     - Yes, responding to transactions
-     - Automatic trade registration.
-   * - Interactive
-     - Yes (and displays to user)
-     - Yes, based on user input
-     - DA’s :doc:`Navigator </tools/navigator/index>`, which lets you see and interact with the ledger
+.. code-block:: bash
 
-Additionally, applications can be written in two different styles:
+  git clone https://github.com/digital-asset/create-daml-app
 
--  Event-driven - applications base their actions on individual ledger events only.
--  State-driven - applications base their actions on some model of all contracts active on the ledger.
+``create-daml-app`` is a small, but fully functional demo application implementing the recommended
+architecture, providing you with an excellent starting point for your own application. It showcases
 
-Event-driven applications
-=========================
+- using DAML React libraries
+- quick iteration against the :ref:`DAML Ledger Sandbox <sandbox-manual>`.
+- authorization
+- deploying your application in the cloud as a Docker container
 
-**Event-driven** applications react to events on the the ledger and generate commands and other outputs on a per-event basis. They do not require access to ledger state beyond the event they are reacting to.
+Backend
+~~~~~~~
 
-Examples are sink applications that read the ledger and dump events to an external store (e.g. an external (reporting) database).
+The backend for your application can be any DAML ledger implementation running your DAR (:ref:`DAML
+Archive <dar-file-dalf-file>`) file.
 
-State-driven applications
-=========================
+We recommend using the :ref:`DAML JSON API <json-api>` as an interface to your frontend. It is
+served by the HTTP JSON API server connected to the ledger API server. It provides simple HTTP
+endpoints to interact with the ledger via GET/POST requests. However, if you prefer, you can also
+use the :ref:`gRPC API <grpc>` directly.
 
-**State-driven** applications build up a real-time view of the ledger state by reading events and recording contract create and archive events. They then generate commands based on a given state, not just single events.
+When you use the ``create-daml-app`` template application, you can start a local sandbox together
+with a JSON API server by running
 
-Examples of these are automation and interactive applications that let a user or code react to complex state on the ledger (e.g. the DA Navigator tool).
+.. code-block:: bash
 
-Which approach to take
-======================
+  daml start --start-navigator=no
 
-For all except the simplest applications, we generally recommend the state-driven approach. State-driven applications are easier to reason about when determining correctness, so this makes design and implementation easier.
+in the root of the project. This is the most simple DAML ledger implementation. Once your
+application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
+your frontend and DAML artifacts of your project to a production ledger. See :ref:`Deploying to DAML
+Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
-In practice, most applications are actually a mixture of the two styles, with one predominating. It is easier to add some event handling to a state-driven application, so it is better to start with that style.
+Frontend
+~~~~~~~~
 
-Structuring an application
-**************************
+We recommended building your frontend with the `React <https://reactjs.org>`_ framework. However,
+you can choose virtually any language for your frontend and interact with the ledger via :ref:`HTTP
+JSON <json-api>` endpoints. In addition, we provide support libraries for :ref:`Java
+<java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the :ref:`gRPC API
+<grpc>` directly.
 
-Although applications that communicate with the ledger have many purposes, they generally have some common features, usually related to their style: event-driven or state-driven. This section describes these commonalities, and the major functions of each of these styles.
 
-In particular, all applications need to handle the asynchronous nature of the ledger API. The most important consequence of this is that applications must be multi-threaded. This is because of the asynchronous, separate streams of commands, transaction and completion events.
+We provide two libraries to build your React frontend for a DAML application.
 
-Although you can choose to do this in several ways, from bare threads (such as a Java Thread) through thread libraries, generally the most effective way of handling this is by adopting a reactive architecture, often using a library such as `RxJava <https://github.com/ReactiveX/RxJava>`__.
++--------------------------------------------------------------+--------------------------------------------------------------------------+
+| Name                                                         | Summary                                                                  |
++==============================================================+==========================================================================+
+| `@daml/react <https://www.npmjs.com/package/@daml/react>`_   | React hooks to query/create/exercise DAML contracts                      |
++--------------------------------------------------------------+--------------------------------------------------------------------------+
+| `@daml/ledger <https://www.npmjs.com/package/@daml/ledger>`_ | DAML ledger object to connect and directly submit commands to the ledger |
++--------------------------------------------------------------+--------------------------------------------------------------------------+
 
-All the language bindings support this reactive pattern as a fundamental requirement.
+You can install any of these libraries by running ``npm install <library>`` in the ``ui`` directory of
+your project, e.g. ``npm install @daml/react``. Please explore the ``create-daml-app`` example project
+to see the usage of these libraries.
 
-.. _event-driven-applications-1:
+To make your life easy when interacting with the ledger, the DAML assistant can generate JavaScript
+libraries with TypeScript typings from the data types declared in the deployed DAR.
 
-Structuring event-driven applications
-=====================================
+.. code-block:: bash
 
-Event-driven applications read a stream of transaction events from the ledger, and convert them to some other representation. This may be a record on a database, some update of a UI, or a differently formatted message that is sent to an upstream process. It may also be a command that transforms the ledger.
+  daml codegen js .daml/dist/<your-project-name.dar> -o ui/daml.js
 
-The critical thing here is that each event is processed in isolation - the application does not need to keep any application-related state between each event. It is this that differentiates it from a state-driven application.
+This command will generate a JavaScript library for each DALF in you DAR, containing metadata about
+types and templates in the DALF and TypeScript typings them. In ``create-daml-app``, ``ui/package.json`` refers to these
+libraries via the ``"create-daml-app": "file:../daml.js/create-daml-app-0.1.0"`` entry in the
+``dependencies`` field.
 
-To do this, the application should:
+If you choose a different JavaScript based frontend framework, the packages ``@daml/ledger``,
+``@daml/types`` and the generated ``daml.js`` libraries provide you with the necessary code to
+connect and issue commands against your ledger.
 
-1. Create a connection to the Transaction Service, and instantiate a stream handler to handle the new event stream. By default, this will read events from the beginning of the ledger. This is usually not what is wanted, as it may replay already processed transactions. In this case, the application can request the stream from the current ledger end. This will, however, cause any events between the last read point and the current ledger end to be missed. If the application must start reading from the point it last stopped, it must record that point and explicitly restart the event stream from there.
+Authorization
+~~~~~~~~~~~~~
 
-2. Optionally, create a connection to the Command Submission Service to send any required commands back to the ledger.
+When you deploy your application to a production ledger, you need to authenticate the identities of
+your users.
 
-3. Act on the content of events (type, content) to perform any action required by the application e.g. writing a database record or generating and submitting a command.
+DAML ledgers support a unified interface for authorization of commands. Some DAML ledgers, like for
+example https://projectdabl.com, offer integrated authentication and authorization, but you can also
+use an external service provider like https://auth0.com. The DAML react libraries support interfacing
+with a DAML ledger that validates authorization of incoming requests. Simply initialize your
+``DamlLedger`` object with the token obtained by the respective token issuer. How authorization works and the
+form of the required tokens is described in the :ref:`Authorization <authorization>` section.
 
-.. _state-driven-applications-1:
+Developer workflow
+~~~~~~~~~~~~~~~~~~
 
-Structuring state-driven applications
-=====================================
+The DAML SDK enables a local development environment with fast iteration cycles. If you run
+``daml-reload-on-change.sh`` of the ``create-daml-app``, a local DAML sandbox ledger is started that
+is updated with your most recent DAML code on any change. Next, you can start your frontend in
+development mode by changing to your ``ui`` directory and run ``npm start``. This will reload your
+frontend whenever you make changes to it. You can add unit tests for your DAML models by writing
+:ref:`DAML scenarios <testing-using-scenarios>`. These will also be reevaluated on change.  A
+typical DAML developer workflow is to
 
-State-driven applications read a stream of events from the ledger, examine them and build up an application-specific view of the ledger state based on the events type and content. This involves storing some representation of existing contracts on a Create event, and removing them on an Archive event. To be able to remove a contract from the state, they are indexed by :ref:`contractId <com.digitalasset.ledger.api.v1.CreatedEvent.contract_id>`.
+  #. Make a small change to your DAML data model
+  #. Optionally test your DAML code and with :ref:`scenarios <testing-using-scenarios>`
+  #. Edit your React components to be aligned with changes made in DAML code
+  #. Extend the UI to make use of the newly introduced feature
+  #. Make further changes either to your DAML and/or React code until you're happy with what you've developed
 
-This is the most basic kind of update, but other types are also possible. For example, counting the number of a certain type of contract, and establishing relationships between contracts based on business-level keys.
+.. image:: ./developer_workflow.svg
 
-The core of the application is then to write an algorithm that examines the overall state, and generates a set of commands to transform the ledger, based on that state.
+.. _command-deduplication:
 
-If the result of this algorithm depends purely on the current ledger state (and not, for instance, on the event history), you should consider this as a pure function between ledger state and command set, and structure the design of an application accordingly. This is highlighted in the `language bindings <#application-libraries>`__.
-
-To do this, the application should:
-
-1. Obtain the initial state of the ledger by using the Active Contracts service, processing each event received to create an initial application state.
-
-2. Create a connection to the Transaction Service to receive new events from that initial state, and instantiate a stream handler to process them.
-
-3. Create a connection to the Command Submission Service to send commands.
-
-4. Create a connection to the Command Completion Service, and set up a stream handler to handle completions.
-
-5. Read the event stream and process each event to update its view of the ledger state.
-
-   To make accessing and examining this state easier, this often involves turning the generic description of create contracts into instances of structures (such as class instances that are more appropriate for the language being used. This also allows the application to ignore contract data it does not need.
-
-6. Examine the state at regular intervals (often after receiving and processing each transaction event) and send commands back to the ledger on significant changes.
-
-7. Maintain a record of **pending contracts**: contracts that will be archived by these commands, but whose completion has not been received.
-
-   Because of the asynchronous nature of the API, these contracts will not exist on the ledger at some point after the command has been submitted, but will exist in the application state until the corresponding archive event has been received. Until that happens, the application must ensure that these **pending contracts** are not considered part of the application state, even though their archives have not yet been received. Processing and maintaining this pending set is a crucial part of a state-driven application.
-
-8. Examine command completions, and handle any command errors. As well as application defined needs (such as command re-submission and de-duplications), this must also include handling command errors as described `Common tasks <#common-tasks>`__, and also consider the pending set. Exercise commands that fail mean that contracts that are marked as pending will now not be archived (the application will not receive any archive events for them) and must be returned to the application state.
-
-Common tasks
-============
-
-Both styles of applications will take the following steps:
-
--  Define an **applicationId** - this identifies the application to the ledger server.
--  Connect to the ledger (including handling authentication). This creates a client interface object that allows creation of the stream connection described in `Structuring an application <#structuring-an-application>`__.
--  Handle execution errors. Because these are received asynchronously, the application will need to keep a record of commands in flight - those sent but not yet indicated complete (via an event). Correlate commands and completions via an application-defined :ref:`commandId <com.digitalasset.ledger.api.v1.Commands.command_id>`. Categorize different sets of commands with a :ref:`workflowId <com.digitalasset.ledger.api.v1.Commands.workflow_id>`.
-- Handle lost commands. The ledger server does not guarantee that all commands submitted to it will be executed. This means that a command submission will not result in a corresponding completion, and some other mechanism must be employed to detect this. This is done using the values of Ledger Effective Time (LET) and Maximum Record Time (MRT). The server does guarantee that if a command is executed, it will be executed within a time window between the LET and MRT specified in the command submission. Since the value of the ledger time at which a command is executed is returned with every completion, reception of a completion with a record time that is greater than the MRT of any pending command guarantees that the pending command will not be executed, and can be considered lost.
--  Have a policy regarding command resubmission. In what situations should failing commands be re-submitted? Duplicate commands must be avoided in some situations - what state must be kept to implement this?
--  Access auxiliary services such as the time service and package service. The `time service <#time-service>`__ will be used to determine Ledger Effective Time value for command submission, and the package service will be used to determine packageId, used in creating a connection, as well as metadata that allows creation events to be turned in to application domain objects.
-
-Application libraries
+Command deduplication
 *********************
 
-We provide several libraries and tools that support the task of building applications. Some of this is provided by the API (e.g. the Active Contracts Service), but mostly is provided by several language binding libraries.
+The interaction of a DAML application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
 
-Java
-====
+There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
 
-The Java API bindings have three levels:
+If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
+DAML ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal this problem.
 
--  A low-level Data Layer, including Java classes generated from the gRPC protocol definition files and thin layer of support classes. These provide a builder pattern for constructing protocol items, and blocking and non-blocking interfaces for sending and receiving requests and responses.
--  A Reactive Streams interface, exposing all API endpoints as `RxJava <https://github.com/ReactiveX/RxJava>`__ `Flowables <http://reactivex.io/RxJava/javadoc/io/reactivex/Flowable.html>`__.
--  A Reactive Components API that uses the above to provide high-level facilities for building state-driven applications.
+For each command applications provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
+The ledger will then guarantee that commands for the same submitting party and command ID will be ignored within the deduplication time window.
 
-For more information on these, see the documentation: a :doc:`tutorial/description </app-dev/bindings-java/index>` and the `JavaDoc reference </app-dev/bindings-java/javadocs/index.html>`__.
+To use command deduplication, you should:
 
-This API allows a Java application to accomplish all the steps detailed in `Application Structure <#structuring-an-application>`__. In particular, the `Bot <../../app-dev/bindings-java/javadocs/com/daml/ledger/rxjava/components/Bot.html>`__ abstraction fully supports building of state-driven applications. This is described further in `Architectural Guidance <#architecture-guidance>`__, below.
+- Use generous values for the deduplication time. It should be large enough such that you can assume the command was permanently lost if the deduplication time has passed and you still don’t observe any effect of the command on the ledger (i.e. you don't see a transaction with the command ID via the :ref:`transaction service <transaction-service>`).
+- Make sure you set command IDs deterministically, that is to say: the "same" command must use the same command ID. This is useful for the recovery procedure after an application crash/restart, in which the application inspects the state of the ledger (e.g. via the :ref:`Active contracts service <active-contract-service>`) and sends commands to the ledger. When using deterministic command IDs, any commands that had been sent before the application restart will be discarded by the ledger to avoid duplicate submissions.
+- If you are not sure whether a command was submitted successfully, just resubmit it. If the new command was submitted within the deduplication time window, the duplicate submission will safely be ignored. If the deduplication time window has passed, you can assume the command was lost or rejected and a new submission is justified.
 
-Scala
-=====
 
-The Java libraries above are compatible with Scala and can be used directly.
+For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
 
-gRPC
-====
 
-We provides the full details of the gRPC service and protocol definitions. These can be compiled to a variety of target languages using the open-source `protobuf and gRPC tools <https://grpc.io/docs/>`__. This allows an application to attach to an interface at the same level as the provided Data Layer Java bindings.
+.. _failing-over-between-ledger-api-endpoints:
 
-Architecture guidance
-*********************
+Failing over between Ledger API endpoints
+*****************************************
 
-This section presents some suggestions and guidance for building successful applications.
+Some DAML Ledgers support exposing multiple eventually consistent Ledger API
+endpoints where command deduplication works across these Ledger API endpoints.
+For example, these endpoints might be hosted by separate Ledger API servers
+that replicate the same data and host the same parties. Contact your ledger
+operator to find out whether this applies to your ledger.
 
-Use a reactive architecture and libraries
-=========================================
+Below we describe how you can build your application such that it can switch
+between such eventually consistent Ledger API endpoints to tolerate server
+failures. You can do this using the following two steps.
 
-In general, you should consider using a reactive architecture for your application. This has a number of advantages:
+First, your application must keep track of the last ledger offset received
+from the :ref:`transaction service <transaction-service>` or the :ref:`command
+completion service <command-completion-service>`.  When switching to a new
+Ledger API endpoint, it must resume consumption of the transaction (tree)
+and/or the command completion streams starting from this last received
+offset.
 
--  It matches well to the streaming nature of the ledger API.
--  It will handle all the multi-threading issues, providing you with sequential model to implement your application code.
--  It allows for several implementation strategies that are inherently scalable e.g. RxJava, Akka Streams/Actors, RxJS, RxPy etc.
+Second, your application must retry on ``OUT_OF_RANGE`` errors (see `gRPC
+status codes <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_)
+received from a stream subscription -- using an appropriate backoff strategy
+to avoid overloading the server. Such errors can be raised because of eventual
+consistency. The Ledger API endpoint that the application is newly subscribing
+to might be behind the endpoint that it subscribed to before the switch, and
+needs time to catch up. Thanks to eventual consistency this is guaranteed to
+happen at some point in the future.
 
-Prefer a state-driven approach
-==============================
+Once the application successfully subscribes to its required streams on the
+new endpoint, it will resume normal operation.
 
-For all but the simplest applications, the state-driven approach has several advantages:
 
--  It's easier to add direct event handling to state-driven applications than the reverse.
--  Most applications have to keep some state.
--  DigitalAsset language bindings directly support the pattern, and provide libraries that handle many of the required tasks.
+.. _dealing-with-time:
 
-Consider a state-driven application as a function of state to commands
-======================================================================
+Dealing with time
+*****************
 
-As far as possible, aim to encode the core application as a function between application state and generated commands. This helps because:
+The DAML language contains a function :ref:`getTime <daml-ref-gettime>` which returns a rough estimate of “current time” called *Ledger Time*. The notion of time comes with a lot of problems in a distributed setting: different participants might run different clocks, there may be latencies due to calculation and network, clocks may drift against each other over time, etc.
 
--  It separates the application into separate stages of event transformation, state update and command generation.
--  The command generation is the core of the application - implementing as a pure function makes it easy to reason about, and thus reduces bugs and fosters correctness.
--  Doing this will also require that the application is structured so that the state examined by that function is stable - that is, not subject to an update while the function is running. This is one of the things that makes the function, and hence the application, easier to reason about.
+In order to provide a useful notion of time in DAML without incurring severe performance or liveness penalties, DAML has two notions of time: *Ledger Time* and *Record Time*:
 
-The Java Reactive Components library provides an abstraction and framework that directly supports this. It provides a `Bot <../../app-dev/bindings-java/javadocs/com/daml/ledger/rxjava/components/Bot.html>`__ abstraction that handles much of work of doing this, and allows the command generation function to be represented as an actual Java function, and wired into the framework, along with a transform function that allows the state objects to be Java classes that better represent the underlying contracts.
+- As part of command interpretation, each transaction is automatically assigned a *Ledger Time* by the participant server.
+- All calls to ``getTime`` within a transaction return the *Ledger Time* assigned to that transaction.
+- *Ledger Time* is chosen (and validated) to respect Causal Monotonicity: The Create action on a contract *c* always precedes all other actions on *c* in Ledger Time.
+- As part of the commit/synchronization protocol of the underlying infrastructure, every transaction is assigned a *Record Time*, which can be thought of as the infrastructures "system time". It's the best available notion of "real time", but the only guarantees on it are the guarantees the underlying infrastructure can give. It is also not known at interpretation time.
+- *Ledger Time* is kept close to "real time" by bounding it against *Record Time*. Transactions where *Ledger* and *Record Time* are too far apart are rejected.
 
-This allows you to reduce the work of building an application to the following tasks:
+Some commands might take a long time to process, and by the time the resulting transaction is about to be committed to the ledger, it might violate the condition that *Ledger Time* should  be reasonably close to *Record Time* (even when considering the ledger's tolerance interval). To avoid such problems, applications can set the optional parameters :ref:`min_ledger_time_abs <com.daml.ledger.api.v1.Commands.min_ledger_time_abs>` or :ref:`min_ledger_time_rel <com.daml.ledger.api.v1.Commands.min_ledger_time_rel>` that specify (in absolute or relative terms) the minimal *Ledger Time* for the transaction. The ledger will then process the command, but wait with committing the resulting transaction until *Ledger Time* fits within the ledger's tolerance interval.
 
--  Define the Bot function.
--  Define the event transformation.
--  Define setup tasks such as disposing of command failure, connecting to the ledger and obtaining ledger- and package- IDs.
+How is this used in practice?
 
-The framework handles much of the work of building a state-driven application. It handles the streams of events and completions, transforming events into domain objects (via the provided event transform function) and storing them in a `LedgerView <../../app-dev/bindings-java/javadocs/com/daml/ledger/rxjava/components/LedgerViewFlowable.LedgerView.html>`__ object. This is then passed to the Bot function (provided by the application), which generates a set of commands and a pending set. The commands are sent back to the ledger, and the pending set, along with the commandId that identifies it, is held by the framework (`LedgerViewFlowable <../../app-dev/bindings-java/javadocs/com/daml/ledger/rxjava/components/LedgerViewFlowable.html>`__). This allows it to handle all command completion events.
+- Be aware that ``getTime`` is only reasonably close to real time, and not completely monotonic. Avoid DAML workflows that rely on very accurate time measurements or high frequency time changes.
+- Set ``min_ledger_time_abs`` or ``min_ledger_time_rel`` if the duration of command interpretation and transmission is likely to take a long time relative to the tolerance interval set by the ledger.
+- In some corner cases, the participant node may be unable to determine a suitable Ledger Time by itself. If you get an error that no Ledger Time could be found, check whether you have contention on any contract referenced by your command or whether the referenced contracts are sensitive to small changes of ``getTime``.
 
-|image0|
-
-Full details of the framework are available in the links described in the `Java library <#java>`__ above.
-
-Commonly used types
-*******************
-
-Primitive and structured types (records, variants and lists) appearing in the contract constructors and choice arguments are compatible with the types defined in the current version of DAML-LF (v1). They appear in the submitted commands and in the event streams.
-
-There are some identifier fields that are represented as strings in the protobuf messages. They are opaque: you shouldn't interpret them in client code, except by comparing them for equality. They include:
-
--  Transaction IDs
--  Event IDs
--  Contract IDs
--  Package IDs (part of template identifiers)
-
-There are some other identifiers that are determined by your client code. These aren't interpreted by the server, and are transparently passed to the responses. They include:
-
-- Command IDs: used to uniquely identify a command and to match it against its response.
-- Application ID: used to uniquely identify client process talking to the server. You could use a combination of submitting party, command ID, and application ID for deduplication of commands.
-- Workflow IDs: identify chains of transactions. You can use these to correlate transactions sent across time spans and by different parties.
-
-.. |image0| image:: images/BotFlow.png
-   :width: 6.5in
-   :height: 3.69444in
-
-Testing
-=======
-
-Testing is fundamental to ensure correctness and improve maintainability.
-
-Testing is usually divided into different categories according to its scope and aim:
-
-- unit testing verifies single properties of individual components
-- integration testing verifies that an aggregation of components behaves as expected
-- acceptance testing checks that the overall behavior of a whole system satisfies certain criteria
-
-Both tests in the small scale (unit testing) and large (acceptance testing) tend to be specific to the given component or system under test.
-
-This chapter focuses on providing portable approaches and techniques to perform integration testing between your components and an actual running ledger.
-
-Test the business logic with a ledger
-*************************************
-
-In production, your application is going to interact with a DAML model deployed on an actual ledger. Each model is usually specific to a business need and describes specific workflows.
-
-Mocking a ledger response is usually not desirable to test the business logic, because so much of it is encapsulated in the DAML model. This makes integration testing with an actual running ledger fundamental to evaluating the correctness of an application.
-
-This is usually achieved by running a ledger as part of the test process and running several tests against it, possibly coordinated by a test framework. Since the in-memory sandbox shipped as part of the SDK is a full-fledged implementation of a DAML ledger, it's usually the tool of choice for these tests. Please note that this does not replace acceptance tests with the actual ledger implementation that your application aims to use in production. Whatever your choice is, sharing a single ledger to run several tests is a suggested best practice.
-
-Share the ledger
-****************
-
-Sharing a ledger is useful because booting a ledger and loading DAML code into it takes time. As you're likely to have a lot of very short tests in order to properly test your application the total running time of these would be severely impacted if you ran a new ledger for every test.
-
-Tests must thus be designed to not interfere with each other. Both the transaction and the active contract service offer the possibility of filtering by party. Parties can thus be used as a way to isolate tests.
-
-You can use the party management service to allocate new parties and use them to test your application. You can also limit the number of transactions read from the ledger by reading the current offset of the ledger end before the test starts, since no transactions can possibly appear for the newly allocated parties before this time.
-
-In summary:
-
-1. retrieve the current offset of the ledger end before the test starts
-
-1. use the party management service to allocate the parties needed by the test
-
-1. whenever you issue a command, issue it as one of the parties allocated for this test
-
-1. whenever you need to get the set of active contracts or a stream of transactions, always filter by one or more of the parties allocated for this test
-
-This isolation between instances of tests also means that different tests can be run completely in parallel with respect to each other, possibly improving on the overall running time of your test suite.
-
-Reset if you need to
-********************
-
-It may be the case that you are running a very high number of tests, verifying the ins and outs of a very complex application interacting with an equally complex DAML model.
-
-If that's the case, the leak of resources caused by the approach to test isolation mentioned above can become counterproductive, causing slow-downs or even crashes as the ledger backing your test suite has to keep track of more parties and more transactions that are actually no longer relevant after the test itself finishes.
-
-As a last resort for these cases, your tests can use the reset service, which ledger implementations can optionally expose for testing.
-
-The reset service has a single ``reset`` method that will cause all the accumulated state to be dropped, including all active contracts, the entire history of transactions and all allocated users. Only the DAML packages loaded in the ledger are preserved, thereby saving the time needed for reloading them as opposed to simply spinning up a new ledger.
-
-The reset service momentarily shuts down the gRPC channel it communicates over, so your testing infrastructure must take this into account and, when the ``reset`` is invoked, must ensure that tests are temporarily suspended as attempts to reconnect with the rebooted ledger are performed. There is no guarantee as to how long the reset will take, so this should also be taken into account when attempting to reconnect.
+For more details, see :ref:`Background concepts - time <time>`.

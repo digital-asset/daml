@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.validation
+package com.daml.platform.server.api.validation
 
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.server.api.ApiException
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.platform.server.api.ApiException
 import io.grpc.{Status, StatusRuntimeException}
 
 import scalaz.syntax.tag._
@@ -25,6 +25,9 @@ trait ErrorFactories {
   def invalidField(fieldName: String, message: String) =
     grpcError(Status.INVALID_ARGUMENT.withDescription(s"Invalid field $fieldName: $message"))
 
+  def outOfRange(description: String): StatusRuntimeException =
+    grpcError(Status.OUT_OF_RANGE.withDescription(description))
+
   def notFound(target: String): StatusRuntimeException =
     grpcError(Status.NOT_FOUND.withDescription(s"$target not found."))
 
@@ -42,6 +45,9 @@ trait ErrorFactories {
 
   def unauthenticated(): StatusRuntimeException =
     grpcError(Status.UNAUTHENTICATED)
+
+  def missingLedgerConfig(): StatusRuntimeException =
+    grpcError(Status.UNAVAILABLE.withDescription("The ledger configuration is not available."))
 
   def resourceExhausted(description: String): StatusRuntimeException =
     grpcError(Status.RESOURCE_EXHAUSTED.withDescription(description))

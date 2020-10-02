@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
 import java.io.File
 
-import com.digitalasset.codegen.Util
-import com.digitalasset.codegen.lf.LFUtil.{TupleNesting, escapeIfReservedName}
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.codegen.Util
+import com.daml.codegen.lf.LFUtil.{TupleNesting, escapeIfReservedName}
+import com.daml.lf.iface
+import com.daml.lf.data.Ref
 import com.typesafe.scalalogging.Logger
 import scalaz.{-\/, \/, \/-}
 
@@ -87,7 +87,7 @@ object DamlDataTypeGen {
       else
         (tq"$domainApiAlias.ValueRef", tq"$domainApiAlias.ValueRefCompanion")
 
-    val packageIdRef = PackageIDsGen.reference(util)(moduleName)
+    val packageIdRef = PackageIDsGen.reference(moduleName)
     val idField =
       if (isTemplate) None
       else Some(q"""
@@ -95,10 +95,8 @@ object DamlDataTypeGen {
         ` mkDataTypeId`($packageIdRef, ${moduleName.dottedName}, ${baseName.dottedName})
     """)
 
-    /**
-      *  These implicit values are used as "evidence" in the ArgumentValueFormat
-      *  type class instances of polymorphic types.
-      */
+    // These implicit values are used as "evidence" in the ArgumentValueFormat
+    // type class instances of polymorphic types.
     val typeParamEvidences: List[Tree] = typeVars
       .filter(typeVarsInUse.contains)
       .zipWithIndex
@@ -135,13 +133,11 @@ object DamlDataTypeGen {
           $valueInstanceExpr"""
     }
 
-    /**
-      *  The generated class for a DAML enum type contains:
-      *  - the definition of a "Value" trait
-      *  - the definition of a _case object_ for each constructor of the DAML enum
-      *  - A type class instance (i.e. implicit object) for serializing/deserializing
-      *    to/from the ArgumentValue type (see typed-ledger-api project)
-      */
+    // The generated class for a DAML enum type contains:
+    //  - the definition of a "Value" trait
+    //  - the definition of a _case object_ for each constructor of the DAML enum
+    //  - A type class instance (i.e. implicit object) for serializing/deserializing
+    //    to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlEnumType(constructors: List[Ref.Name]): (Set[Tree], (Tree, Tree)) = {
       val className = damlScalaName.name.capitalize
 
@@ -180,15 +176,13 @@ object DamlDataTypeGen {
 
     }
 
-    /**
-      *  The generated class for a DAML variant type contains:
-      *  - the definition of a "Value" trait
-      *  - the definition of a _case class_ for each variant constructor of the DAML variant
-      *  - "smart constructors" that create values for each constructor automatically up-casting
-      *     to the Value (trait) type
-      *  - A type class instance (i.e. implicit object) for serializing/deserializing
-      *    to/from the ArgumentValue type (see typed-ledger-api project)
-      */
+    // The generated class for a DAML variant type contains:
+    // - the definition of a "Value" trait
+    // - the definition of a _case class_ for each variant constructor of the DAML variant
+    // - "smart constructors" that create values for each constructor automatically up-casting
+    //    to the Value (trait) type
+    // - A type class instance (i.e. implicit object) for serializing/deserializing
+    //   to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlVariantType(fields: List[(Ref.Name, VariantField)]): (Tree, Tree) = {
       lazy val damlVariant =
         if (fields.isEmpty) damlVariantZeroFields
@@ -327,12 +321,10 @@ object DamlDataTypeGen {
       damlVariant
     }
 
-    /**
-      *  The generated class for a DAML record type contains:
-      *  - the definition of a "Value" case class that contains all the DAML record fields/types.
-      *  - An type class instance (i.e. implicit object) for serializing/deserializing
-      *    to/from the ArgumentValue type (see typed-ledger-api project)
-      */
+    // The generated class for a DAML record type contains:
+    // - the definition of a "Value" case class that contains all the DAML record fields/types.
+    // - An type class instance (i.e. implicit object) for serializing/deserializing
+    //   to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlRecordType(fields: Seq[FieldWithType]): (Tree, Tree) = {
 
       lazy val damlRecord = {
@@ -381,7 +373,7 @@ object DamlDataTypeGen {
 
         lazy val typeObjectCase = if (fields.isEmpty) {
           q"""
-            {_ => _root_.scala.Some(${TermName(damlScalaName.name)}())}
+            {_root_.scala.Function const _root_.scala.Some(${TermName(damlScalaName.name)}())}
           """
         } else {
           val decodeFields =
@@ -503,7 +495,7 @@ object DamlDataTypeGen {
           override def encoding(lte: $domainApiAlias.encoding.LfTypeEncoding
                               )(...${if (isTemplate) Seq(q"$view: view[lte.Field]") else Seq.empty}
                               ): lte.Out[$appliedValueType] = {
-            ..${if (isTemplate) Seq.empty else Seq(viewDef)}
+            ..${if (isTemplate || fieldDefs.isEmpty) Seq.empty else Seq(viewDef)}
             $generateEncodingBody
           }
          """

@@ -1,15 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.conf
+package com.daml.lf.codegen.conf
 
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
+import com.daml.buildinfo.BuildInfo
 import scopt.{OptionParser, Read}
-
-import scala.io.Source
-import scala.util.Try
 
 /**
   *
@@ -35,7 +33,7 @@ object Conf {
     parser.parse(args, Conf(Map.empty, Paths.get(".")))
 
   def parser: OptionParser[Conf] = new scopt.OptionParser[Conf]("codegen") {
-    head("codegen", Version)
+    head("codegen", BuildInfo.Version)
     note("Code generator for the DAML ledger bindings.\n")
 
     arg[(Path, Option[String])]("<DAR-file[=package-prefix]>...")(
@@ -103,9 +101,5 @@ object Conf {
         }
       }
     }
-
-  lazy val Version: String =
-    Try(Source.fromResource("MVN_VERSION").getLines.reduce((t, u) => t + u).trim)
-      .getOrElse("{component version not found on classpath}")
 
 }

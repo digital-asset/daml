@@ -1,9 +1,11 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
 )
 load(
     "//bazel_tools/client_server:client_server_test.bzl",
@@ -11,21 +13,30 @@ load(
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
 
-genrule(
-    name = "acs",
-    srcs =
-        glob(["**/*.daml"]) + [
-            "//triggers/daml:daml-trigger.dar",
-            "//docs:source/triggers/template-root/src/CopyTrigger.daml",
-        ],
-    outs = ["acs.dar"],
-    cmd = """
+DAML_LF_VERSIONS = [
+    "1.dev",
+    "",  # SDK default
+]
+
+[
+    genrule(
+        name = "acs" + suffix,
+        srcs =
+            glob(["**/*.daml"]) + [
+                "//triggers/daml:daml-trigger%s.dar" % suffix,
+                "//daml-script/daml:daml-script%s.dar" % suffix,
+                "//docs:source/triggers/template-root/src/CopyTrigger.daml",
+            ],
+        outs = ["acs%s.dar" % suffix],
+        cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ACS.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Retry.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ExerciseByKey.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/CreateAndExercise.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MaxInboundMessageTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Numeric.daml) $$TMP_DIR/daml
       cp -L $(location :daml/CommandId.daml) $$TMP_DIR/daml
       cp -L $(location :daml/PendingSet.daml) $$TMP_DIR/daml
@@ -33,7 +44,8 @@ genrule(
       cp -L $(location :daml/Time.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Heartbeat.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
+      cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
+      cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: acs
@@ -43,20 +55,31 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - daml-trigger.dar
+  - daml-script.dar
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
+      test -z "{lf_version}" || echo "build-options: [--target={lf_version}]" >> $$TMP_DIR/daml.yaml
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location acs{suffix}.dar)
       rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
+    """.format(
+            sdk = sdk_version,
+            lf_version = lf_version,
+            suffix = suffix,
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for lf_version in DAML_LF_VERSIONS
+    for suffix in [("-" + lf_version) if lf_version else ""]
+]
 
-da_scala_binary(
-    name = "test_client",
-    srcs = glob(["src/**/*.scala"]),
-    main_class = "com.digitalasset.daml.lf.engine.trigger.test.TestMain",
-    resources = ["//triggers/runner:src/main/resources/logback.xml"],
+da_scala_library(
+    name = "test-utils",
+    srcs = [
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
+    ],
     deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
@@ -66,90 +89,71 @@ da_scala_binary(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//libs-scala/auth-utils",
+        "//ledger/ledger-api-domain",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
         "//triggers/runner:trigger-runner-lib",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
-client_server_test(
-    name = "test_static_time",
-    timeout = "long",
-    client = ":test_client",
-    client_files = ["$(rootpath :acs.dar)"],
-    data = [":acs.dar"],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = ["--port=0"],
-    server_files = ["$(rootpath :acs.dar)"],
-)
-
-client_server_test(
-    name = "test_wallclock_time",
-    timeout = "long",
-    client = ":test_client",
-    client_args = ["-w"],
-    client_files = ["$(rootpath :acs.dar)"],
-    data = [":acs.dar"],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "-w",
-        "--port=0",
-    ],
-    server_files = ["$(rootpath :acs.dar)"],
-)
-
-AUTH_TOKEN = "I_CAN_HAZ_AUTH"
-
-# This is a genrule so we can replace it by something nicer that actually generates the token
-# from some readable input so we can change it more easily.
-# For now, this corresponds to a token that has admin set to false
-# and actAs to Alice1, …, Alice100
-genrule(
-    name = "test-auth-token",
-    outs = ["test-auth-token.jwt"],
-    cmd = """
-      cat <<EOF > $(location test-auth-token.jwt)
-Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3RBcyI6WyJBbGljZTEiLCJBbGljZTIiLCJBbGljZTMiLCJBbGljZTQiLCJBbGljZTUiLCJBbGljZTYiLCJBbGljZTciLCJBbGljZTgiLCJBbGljZTkiLCJBbGljZTEwIiwiQWxpY2UxMSIsIkFsaWNlMTIiLCJBbGljZTEzIiwiQWxpY2UxNCIsIkFsaWNlMTUiLCJBbGljZTE2IiwiQWxpY2UxNyIsIkFsaWNlMTgiLCJBbGljZTE5IiwiQWxpY2UyMCIsIkFsaWNlMjEiLCJBbGljZTIyIiwiQWxpY2UyMyIsIkFsaWNlMjQiLCJBbGljZTI1IiwiQWxpY2UyNiIsIkFsaWNlMjciLCJBbGljZTI4IiwiQWxpY2UyOSIsIkFsaWNlMzAiLCJBbGljZTMxIiwiQWxpY2UzMiIsIkFsaWNlMzMiLCJBbGljZTM0IiwiQWxpY2UzNSIsIkFsaWNlMzYiLCJBbGljZTM3IiwiQWxpY2UzOCIsIkFsaWNlMzkiLCJBbGljZTQwIiwiQWxpY2U0MSIsIkFsaWNlNDIiLCJBbGljZTQzIiwiQWxpY2U0NCIsIkFsaWNlNDUiLCJBbGljZTQ2IiwiQWxpY2U0NyIsIkFsaWNlNDgiLCJBbGljZTQ5IiwiQWxpY2U1MCIsIkFsaWNlNTEiLCJBbGljZTUyIiwiQWxpY2U1MyIsIkFsaWNlNTQiLCJBbGljZTU1IiwiQWxpY2U1NiIsIkFsaWNlNTciLCJBbGljZTU4IiwiQWxpY2U1OSIsIkFsaWNlNjAiLCJBbGljZTYxIiwiQWxpY2U2MiIsIkFsaWNlNjMiLCJBbGljZTY0IiwiQWxpY2U2NSIsIkFsaWNlNjYiLCJBbGljZTY3IiwiQWxpY2U2OCIsIkFsaWNlNjkiLCJBbGljZTcwIiwiQWxpY2U3MSIsIkFsaWNlNzIiLCJBbGljZTczIiwiQWxpY2U3NCIsIkFsaWNlNzUiLCJBbGljZTc2IiwiQWxpY2U3NyIsIkFsaWNlNzgiLCJBbGljZTc5IiwiQWxpY2U4MCIsIkFsaWNlODEiLCJBbGljZTgyIiwiQWxpY2U4MyIsIkFsaWNlODQiLCJBbGljZTg1IiwiQWxpY2U4NiIsIkFsaWNlODciLCJBbGljZTg4IiwiQWxpY2U4OSIsIkFsaWNlOTAiLCJBbGljZTkxIiwiQWxpY2U5MiIsIkFsaWNlOTMiLCJBbGljZTk0IiwiQWxpY2U5NSIsIkFsaWNlOTYiLCJBbGljZTk3IiwiQWxpY2U5OCIsIkFsaWNlOTkiLCJBbGljZTEwMCJdfQ.p78Bgrx0kX2tPwXoc2p5Uz22HifzfELjnmf7XwmCI4k
-EOF
-    """,
-)
-
-client_server_test(
-    name = "test_static_time_authenticated",
-    timeout = "long",
-    client = ":test_client",
-    client_args = ["--access-token-file"],
-    client_files = [
-        "$(rootpath :test-auth-token.jwt)",
-        "$(rootpath :acs.dar)",
-    ],
-    data = [
-        ":acs.dar",
-        ":test-auth-token.jwt",
-    ],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "--port=0",
-        "--auth-jwt-hs256-unsafe={}".format(AUTH_TOKEN),
-    ],
-    server_files = ["$(rootpath :acs.dar)"],
-)
-
-sh_test(
-    name = "list-triggers",
-    srcs = ["list-triggers.sh"],
-    args = [
-        "$(location //triggers/runner:trigger-runner)",
-        "$(location :acs.dar)",
-    ],
-    data = [
-        ":acs.dar",
-        "//triggers/runner:trigger-runner",
-    ],
-    deps = [
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
+# For now turning this into a scala_test_suite has too much overhead and ends up making
+# things slower rather than faster. Once we have more tests, we might want to reconsider.
+[
+    da_scala_test(
+        name = "trigger-integration-tests" + suffix,
+        srcs = [
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
+        ],
+        data = [
+            ":acs%s.dar" % suffix,
+            "//ledger/test-common/test-certificates",
+        ],
+        resources = ["//triggers/runner:src/main/resources/logback.xml"],
+        deps = [
+            ":test-utils",
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/data",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//language-support/scala/bindings",
+            "//language-support/scala/bindings-akka",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
+            "//ledger/caching",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-api-common",
+            "//ledger/ledger-api-domain",
+            "//ledger/participant-integration-api",
+            "//ledger/participant-state",
+            "//ledger/sandbox-classic",
+            "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+            "//ledger/sandbox-common",
+            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+            "//ledger/test-common",
+            "//libs-scala/ports",
+            "//libs-scala/resources",
+            "//triggers/runner:trigger-runner-lib",
+            "@maven//:com_typesafe_akka_akka_stream_2_12",
+            "@maven//:org_scalaz_scalaz_core_2_12",
+        ],
+    )
+    for lf_version in DAML_LF_VERSIONS
+    for suffix in [("-" + lf_version) if lf_version else ""]
+]

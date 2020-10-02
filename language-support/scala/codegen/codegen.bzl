@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 def _dar_to_scala_impl(ctx):
@@ -65,7 +65,7 @@ dar_to_scala = rule(
         ),
         "package_prefix": attr.string(
             mandatory = True,
-            doc = "Package name e.g. 'com.digitalasset.mypackage'.",
+            doc = "Package name e.g. 'com.daml.mypackage'.",
         ),
         "verbosity": attr.int(
             default = 2,

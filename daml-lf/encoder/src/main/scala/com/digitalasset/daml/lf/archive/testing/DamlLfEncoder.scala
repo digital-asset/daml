@@ -1,24 +1,24 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive.testing
+package com.daml.lf.archive.testing
 
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import java.util.zip.ZipEntry
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parseModules}
-import com.digitalasset.daml.lf.validation.Validation
+import com.daml.lf.data.Ref
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.testing.parser.{ParserParameters, parseModules}
+import com.daml.lf.validation.Validation
 
 import scala.annotation.tailrec
 import scala.collection.breakOut
 import scala.io.Source
 import scala.util.control.NonFatal
 
-private[digitalasset] object DamlLfEncoder extends App {
+private[daml] object DamlLfEncoder extends App {
 
   import Encode._
 
@@ -66,7 +66,11 @@ private[digitalasset] object DamlLfEncoder extends App {
             Ref.PackageVersion.assertFromString("1.0.0")))
       } else None
 
-    val pkgs = Map(pkgId -> Ast.Package(modules, Set.empty[Ref.PackageId], metadata))
+    val pkgs =
+      Map(
+        pkgId ->
+          Ast.Package(modules, Set.empty[Ref.PackageId], parserParameters.languageVersion, metadata)
+      )
 
     Validation.checkPackage(pkgs, pkgId).left.foreach(e => error(e.pretty))
 

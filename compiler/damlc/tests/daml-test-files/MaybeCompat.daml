@@ -1,11 +1,11 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @WARN range=14:12-14:17; Maybe
--- @WARN range=17:12-17:17; maybe
--- @WARN range=17:29-17:36; Nothing
--- @WARN range=18:12-18:20; fromSome
--- @WARN range=18:22-18:26; Just
+-- @WARN range=14:11-14:16; Maybe
+-- @WARN range=17:11-17:16; maybe
+-- @WARN range=17:28-17:35; Nothing
+-- @WARN range=18:11-18:19; fromSome
+-- @WARN range=18:21-18:25; Just
 
 module MaybeCompat where
 import DA.Maybe

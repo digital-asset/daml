@@ -1,8 +1,5 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
-
 module Test where
 
 double : Int -> Int
 double x = 2 * x
+

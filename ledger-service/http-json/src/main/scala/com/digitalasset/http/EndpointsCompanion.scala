@@ -1,18 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.http.scaladsl.model._
 import akka.util.ByteString
-import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.ResponseFormats
-import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
-import com.digitalasset.ledger.api.auth.AuthServiceJWTCodec
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.http.domain.JwtPayload
+import com.daml.http.json.SprayJson
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.ledger.api.auth.AuthServiceJWTCodec
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, Show, \/}
-import spray.json.{JsArray, JsString, JsValue}
+import spray.json.JsValue
 
 import scala.concurrent.Future
 
@@ -20,15 +20,15 @@ object EndpointsCompanion {
 
   type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
 
-  sealed abstract class Error(message: String) extends Product with Serializable
+  sealed abstract class Error extends Product with Serializable
 
-  final case class InvalidUserInput(message: String) extends Error(message)
+  final case class InvalidUserInput(message: String) extends Error
 
-  final case class Unauthorized(message: String) extends Error(message)
+  final case class Unauthorized(message: String) extends Error
 
-  final case class ServerError(message: String) extends Error(message)
+  final case class ServerError(message: String) extends Error
 
-  final case class NotFound(message: String) extends Error(message)
+  final case class NotFound(message: String) extends Error
 
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
@@ -44,23 +44,20 @@ object EndpointsCompanion {
       Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
   }
 
-  private[http] def httpResponseOk(data: JsValue): HttpResponse =
-    httpResponse(StatusCodes.OK, ResponseFormats.resultJsObject(data))
-
   private[http] def httpResponseError(error: Error): HttpResponse = {
-    import com.digitalasset.http.json.JsonProtocol._
+    import com.daml.http.json.JsonProtocol._
     val resp = errorResponse(error)
-    httpResponse(resp.status, resp.toJson)
+    httpResponse(resp.status, SprayJson.encodeUnsafe(resp))
   }
 
-  private[http] def errorResponse(error: Error): domain.ErrorResponse[JsValue] = {
+  private[http] def errorResponse(error: Error): domain.ErrorResponse = {
     val (status, errorMsg): (StatusCode, String) = error match {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ServerError(e) => StatusCodes.InternalServerError -> e
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }
-    domain.ErrorResponse(errors = JsArray(JsString(errorMsg)), status = status)
+    domain.ErrorResponse(errors = List(errorMsg), warnings = None, status = status)
   }
 
   private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {

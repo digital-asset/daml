@@ -1,17 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import java.util.Optional
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.CreatedEvent
-import com.daml.ledger.javaapi.data.codegen.{ContractId => CodegenContractId}
-import com.digitalasset.daml.lf.codegen.TypeWithContext
-import com.digitalasset.daml.lf.codegen.backend.java.ObjectMethods
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.iface._
+import com.daml.lf.codegen.TypeWithContext
+import com.daml.lf.codegen.backend.java.ObjectMethods
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -29,7 +28,7 @@ private[inner] object TemplateClass extends StrictLogging {
     TrackLineage.of("template", typeWithContext.name) {
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       logger.info("Start")
-      val staticCreateMethod = generateStaticCreateMethod(fields, className, packagePrefixes)
+      val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
       val templateType = TypeSpec
         .classBuilder(className)
@@ -152,8 +151,6 @@ private[inner] object TemplateClass extends StrictLogging {
       .addMethod(
         generateFromCreatedEvent(
           contractClassName,
-          templateClassName,
-          contractIdClassName,
           key,
           packagePrefixes
         ))
@@ -245,8 +242,6 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private[inner] def generateFromCreatedEvent(
       className: ClassName,
-      templateClassName: ClassName,
-      idClassName: ClassName,
       maybeContractKeyType: Option[Type],
       packagePrefixes: Map[PackageId, String]) = {
 
@@ -255,7 +250,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .methodBuilder("fromCreatedEvent")
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
         .returns(className)
-        .addParameter(classOf[CreatedEvent], "event")
+        .addParameter(classOf[javaapi.data.CreatedEvent], "event")
 
     val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyType
       .map(getContractKey(_, packagePrefixes))
@@ -275,10 +270,7 @@ private[inner] object TemplateClass extends StrictLogging {
         name)
       .build()
 
-  private def generateStaticCreateMethod(
-      fields: Fields,
-      name: ClassName,
-      packagePrefixes: Map[PackageId, String]): MethodSpec =
+  private def generateStaticCreateMethod(fields: Fields, name: ClassName): MethodSpec =
     fields
       .foldLeft(
         MethodSpec
@@ -295,7 +287,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private def generateIdClass(
       templateClassName: ClassName,
-      choices: Map[ChoiceName, TemplateChoice[com.digitalasset.daml.lf.iface.Type]],
+      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String]): TypeSpec = {
@@ -304,7 +296,7 @@ private[inner] object TemplateClass extends StrictLogging {
       TypeSpec
         .classBuilder("ContractId")
         .superclass(ParameterizedTypeName
-          .get(ClassName.get(classOf[CodegenContractId[_]]), templateClassName))
+          .get(ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]), templateClassName))
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
     val constructor =
       MethodSpec
@@ -439,7 +431,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private def generateCreateAndExerciseMethods(
       templateClassName: ClassName,
-      choices: Map[ChoiceName, TemplateChoice[com.digitalasset.daml.lf.iface.Type]],
+      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String]) = {
@@ -471,16 +463,33 @@ private[inner] object TemplateClass extends StrictLogging {
       .returns(classOf[javaapi.data.CreateAndExerciseCommand])
     val javaType = toJavaTypeName(choice.param, packagePrefixes)
     createAndExerciseChoiceBuilder.addParameter(javaType, "arg")
-    val choiceArgument = choice.param match {
-      case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
+    choice.param match {
+      case TypeCon(_, _) =>
+        createAndExerciseChoiceBuilder.addStatement(
+          "$T argValue = arg.toValue()",
+          classOf[javaapi.data.Value],
+        )
+      case TypePrim(PrimType.Unit, ImmArraySeq()) =>
+        createAndExerciseChoiceBuilder
+          .addStatement(
+            "$T argValue = $T.getInstance()",
+            classOf[javaapi.data.Value],
+            classOf[javaapi.data.Unit],
+          )
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
+        createAndExerciseChoiceBuilder
+          .addStatement(
+            "$T argValue = new $T(arg)",
+            classOf[javaapi.data.Value],
+            toAPITypeName(choice.param),
+          )
     }
     createAndExerciseChoiceBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, this.toValue(), $S, $L)",
+      "return new $T($T.TEMPLATE_ID, this.toValue(), $S, argValue)",
       classOf[javaapi.data.CreateAndExerciseCommand],
       templateClassName,
       choiceName,
-      choiceArgument)
+    )
     createAndExerciseChoiceBuilder.build()
   }
 
@@ -518,16 +527,33 @@ private[inner] object TemplateClass extends StrictLogging {
       .returns(classOf[javaapi.data.ExerciseCommand])
     val javaType = toJavaTypeName(choice.param, packagePrefixes)
     exerciseChoiceBuilder.addParameter(javaType, "arg")
-    val choiceArgument = choice.param match {
-      case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
+    choice.param match {
+      case TypeCon(_, _) =>
+        exerciseChoiceBuilder.addStatement(
+          "$T argValue = arg.toValue()",
+          classOf[javaapi.data.Value],
+        )
+      case TypePrim(PrimType.Unit, ImmArraySeq()) =>
+        exerciseChoiceBuilder
+          .addStatement(
+            "$T argValue = $T.getInstance()",
+            classOf[javaapi.data.Value],
+            classOf[javaapi.data.Unit],
+          )
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
+        exerciseChoiceBuilder
+          .addStatement(
+            "$T argValue = new $T(arg)",
+            classOf[javaapi.data.Value],
+            toAPITypeName(choice.param),
+          )
     }
     exerciseChoiceBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, this.contractId, $S, $L)",
+      "return new $T($T.TEMPLATE_ID, this.contractId, $S, argValue)",
       classOf[javaapi.data.ExerciseCommand],
       templateClassName,
       choiceName,
-      choiceArgument)
+    )
     exerciseChoiceBuilder.build()
   }
 

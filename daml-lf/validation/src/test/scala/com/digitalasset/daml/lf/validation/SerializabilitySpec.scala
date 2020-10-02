@@ -1,14 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPackageId
-import com.digitalasset.daml.lf.validation.SpecUtil._
+import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -158,7 +157,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
               observers Nil @Party,
               agreement "Agreement",
               choices {
-                choice Ch (i : Mod:SerializableType) : Mod:SerializableType by $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
+                choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType by $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
               }
             } ;
           }
@@ -172,7 +171,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:SerializableType) :
+                  choice Ch (self) (i : Mod:SerializableType) :
                     Mod:SerializableType by $partiesAlice
                       to upure @Mod:SerializableType (Mod:SerializableType {})
                 }
@@ -189,7 +188,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:UnserializableType) :     // disallowed unserializable type
+                  choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
                    Unit by $partiesAlice to
                        upure @Unit ()
                 }
@@ -205,7 +204,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:SerializableType) :
+                  choice Ch (self) (i : Mod:SerializableType) :
                     Mod:UnserializableType by $partiesAlice to       // disallowed unserializable type
                        upure @Mod:UnserializableType (Mod:UnserializableType {})
                 }
@@ -296,7 +295,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
       )
 
       forEvery(versions) { version =>
-        val pkg = pkg0.updateVersion(version)
+        val pkg = pkg0.copy(languageVersion = version)
         forEvery(testCases) { (modName: String, shouldFail: LanguageVersion => Boolean) =>
           if (shouldFail(version)) {
             an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
@@ -322,7 +321,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
             observers Cons @Party ['Alice'] (Nil @Party),
             agreement "Agreement",
             choices {
-              choice Ch (x: Int64) : Decimal by 'Bob' to upure @Int64 (DECIMAL_TO_INT64 x)
+              choice Ch (self) (x: Int64) : Decimal by 'Bob' to upure @Int64 (DECIMAL_TO_INT64 x)
             }
           } ;
 

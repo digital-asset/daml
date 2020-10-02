@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components
@@ -32,7 +32,6 @@ class LedgerViewSpec extends FlatSpec with Matchers {
     val state = LedgerViewFlowable.LedgerView.create[Unit]()
     val tid = templateId()
     val cid = contractId()
-    val commId = commandId()
     val newState = state.addActiveContract(tid, cid, ()).archiveContract(tid, cid)
     newState.getContracts(tid) shouldBe HashTreePMap.empty()
   }

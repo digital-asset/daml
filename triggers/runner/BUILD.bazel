@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,11 +7,15 @@ load(
     "da_scala_library",
 )
 
+tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+    "NonUnitStatements",
+]]
+
 da_scala_library(
     name = "trigger-runner-lib",
-    srcs = glob(["src/main/scala/**/*.scala"]) + [":src/main/com/digitalasset/daml/lf/engine/trigger/TriggerPackageIds.scala"],
-    generated_srcs = [":src/main/com/digitalasset/daml/lf/engine/trigger/TriggerPackageIds.scala"],
-    tags = ["maven_coordinates=com.digitalasset.daml.lf.engine.trigger:runner:__VERSION__"],
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = tsvc_main_scalacopts,
+    tags = ["maven_coordinates=com.daml:trigger-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -24,8 +28,10 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -33,32 +39,9 @@ da_scala_library(
     ],
 )
 
-# This genrule generates a Scala file containing the package id of the trigger library
-# at build time. We use that to detect mismatches and warn the user about it.
-genrule(
-    name = "trigger-package-id",
-    srcs = [
-        "//triggers/daml:daml-trigger.dar",
-        "//compiler/damlc",
-    ],
-    outs = ["src/main/com/digitalasset/daml/lf/engine/trigger/TriggerPackageIds.scala"],
-    cmd = """
-      PACKAGE_ID=$$($(location //compiler/damlc) inspect-dar $(location //triggers/daml:daml-trigger.dar) | awk '/daml-trigger-[^-]*-([a..f]|[0..9])*/ {print $$2}')
-      cat << EOF > $(location src/main/com/digitalasset/daml/lf/engine/trigger/TriggerPackageIds.scala)
-package com.digitalasset.daml.lf.engine
-
-import com.digitalasset.daml.lf.data.Ref.PackageId
-
-package object trigger {
-  val EXPECTED_TRIGGER_PACKAGE_ID = PackageId.assertFromString($$PACKAGE_ID)
-}
-EOF
-    """,
-)
-
 da_scala_binary(
     name = "trigger-runner",
-    main_class = "com.digitalasset.daml.lf.engine.trigger.RunnerMain",
+    main_class = "com.daml.lf.engine.trigger.RunnerMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [":trigger-runner-lib"],

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,11 +11,6 @@ load(
 navigator_scalacopts = [
     "-Xelide-below",
     "CONFIG",
-    "-Xsource:2.13",
-]
-
-common_jvm_flags = [
-    "-Xmx2G",
 ]
 
 # All frontend resource files.
@@ -30,15 +25,6 @@ java_import(
     visibility = ["//visibility:public"],
 )
 
-# Version file, as a top level resources.
-java_library(
-    name = "version-resource",
-    resources = [
-        "//:MVN_VERSION",
-    ],
-    visibility = ["//visibility:public"],
-)
-
 # Static backend resources.
 java_library(
     name = "backend-resources",
@@ -49,9 +35,12 @@ java_library(
 da_scala_library(
     name = "navigator-library",
     srcs = glob([
-        "src/main/scala/com/digitalasset/navigator/**/*.scala",
+        "src/main/scala/**/*.scala",
     ]),
-    scalacopts = navigator_scalacopts,
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = navigator_scalacopts + ["-P:silencer:checkUnused"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -73,8 +62,10 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//libs-scala/build-info",
         "//libs-scala/grpc-utils",
         "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_github_pureconfig_pureconfig_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
@@ -134,9 +125,9 @@ da_scala_library(
 
 da_scala_binary(
     name = "navigator-binary",
-    main_class = "com.digitalasset.navigator.NavigatorBackend",
+    main_class = "com.daml.navigator.NavigatorBackend",
     tags = [
-        "maven_coordinates=com.digitalasset:navigator:__VERSION__",
+        "maven_coordinates=com.daml:navigator:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = [
@@ -146,7 +137,6 @@ da_scala_binary(
         ":backend-resources",
         ":frontend-resources",
         ":navigator-library",
-        ":version-resource",
     ],
 )
 
@@ -168,13 +158,13 @@ da_scala_test_suite(
         ":navigator-library",
         ":navigator-tests-library",
         ":test-resources",
-        ":version-resource",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-service/lf-value-json",
         "//ledger/ledger-api-common",
+        "//libs-scala/build-info",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",

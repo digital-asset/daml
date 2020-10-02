@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -58,8 +58,6 @@ template Helper
         do
           time <- getTime
 
-          someDate <- pure $ date 2018 May 14
-
           let settleDvp (dvpAllocatedCid: DvpAllocatedId) (prev: HandleBondResult) = do
               dvpAllocated <- fetch dvpAllocatedCid
               assertMsg "settlement time is in the future" $ dvpAllocated.c.settleTime <= time
@@ -77,7 +75,7 @@ main = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
 
-  now <- passToDate $ date 2018 May 14
+  _ <- passToDate $ date 2018 May 14
 
   cashAlice1Cid <- submit acmeBank do
     create CashTransferRequest with

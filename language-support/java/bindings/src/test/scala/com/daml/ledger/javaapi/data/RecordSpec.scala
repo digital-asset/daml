@@ -1,16 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data
 
 import java.util.Collections
 
-import com.digitalasset.ledger.api.v1.ValueOuterClass
+import com.daml.ledger.api.v1.ValueOuterClass
 import org.scalatest.{FlatSpec, Matchers}
 
 import collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class RecordSpec extends FlatSpec with Matchers {
 
   behavior of "Record.fromProto"
@@ -22,6 +21,13 @@ class RecordSpec extends FlatSpec with Matchers {
     record.getFields shouldBe empty
     record.getFieldsMap shouldBe empty
   }
+
+  // XXX SC remove in 2.13; see notes in ConfSpec
+  import scala.collection.GenTraversable, org.scalatest.enablers.Aggregating
+  private[this] implicit def `fixed sig aggregatingNatureOfGenTraversable`[
+      E: org.scalactic.Equality,
+      TRAV]: Aggregating[TRAV with GenTraversable[E]] =
+    Aggregating.aggregatingNatureOfGenTraversable[E, GenTraversable]
 
   it should "build a record with an empty field map if there are no labels" in {
     val fields = List(

@@ -1,8 +1,25 @@
-#!/bin/bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+#!/usr/bin/env bash
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-set -euo pipefail
+set -eou pipefail
+
+# It's sometimes useful to be able to run this test in a filesystem
+# that one can inspect.
+if [[ -z "${BUILD_AND_LINT_TMP_DIR:-}" ]];
+then
+    TMP_DIR=$(mktemp -d)
+    cleanup() {
+        cd /
+        rm -rf $TMP_DIR
+    }
+    trap cleanup EXIT
+else
+    TMP_DIR="$BUILD_AND_LINT_TMP_DIR"
+    rm -rf $TMP_DIR && mkdir -p $TMP_DIR
+fi
+export YARN_CACHE_FOLDER=$TMP_DIR/yarn
+echo "Temp directory : $TMP_DIR"
 
 # --- begin runfiles.bash initialization v2 ---
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -28,15 +45,10 @@ PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$7")
 TS_DIR=$(dirname $PACKAGE_JSON)
 DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
 DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$9")
+SDK_VERSION=${10}
 
-TMP_DIR=$(mktemp -d)
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
-cleanup() {
-  cd /
-  rm -rf $TMP_DIR
-}
-trap cleanup EXIT
 
 mkdir -p $TMP_DAML_TYPES
 mkdir -p $TMP_DAML_LEDGER
@@ -47,9 +59,14 @@ cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
 
 cd $TMP_DIR
 
-$DAML2TS -o daml2ts $DAR -p $TMP_DIR/package.json
-$YARN install --frozen-lockfile
-$YARN workspaces run build
-$YARN workspaces run lint
-cd build-and-lint
+# Call daml2js.
+PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2js $DAR
+
+# Build, lint, test.
+cd build-and-lint-test
+$YARN install --pure-lockfile > /dev/null
+$YARN run build
+$YARN run lint
+# Invoke 'yarn test'. Control is thereby passed to
+# 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
 JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test

@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen;
+package com.daml.codegen;
 
-import com.digitalasset.ledger.api.v1.event.CreatedEvent;
-import com.digitalasset.ledger.api.v1.value.Value;
-import com.digitalasset.ledger.client.binding.Contract;
-import com.digitalasset.ledger.client.binding.DomainCommand;
-import com.digitalasset.ledger.client.binding.EventDecoderApi;
-import com.digitalasset.ledger.client.binding.Template;
-import com.digitalasset.ledger.client.binding.TemplateCompanion;
-import com.digitalasset.sample.EventDecoder$;
-import com.digitalasset.sample.MyMain.*;
+import com.daml.ledger.api.v1.event.CreatedEvent;
+import com.daml.ledger.api.v1.value.Value;
+import com.daml.ledger.client.binding.Contract;
+import com.daml.ledger.client.binding.DomainCommand;
+import com.daml.ledger.client.binding.EventDecoderApi;
+import com.daml.ledger.client.binding.Template;
+import com.daml.ledger.client.binding.TemplateCompanion;
+import com.daml.sample.EventDecoder$;
+import com.daml.sample.MyMain.*;
 
 import scala.collection.immutable.Seq;
 

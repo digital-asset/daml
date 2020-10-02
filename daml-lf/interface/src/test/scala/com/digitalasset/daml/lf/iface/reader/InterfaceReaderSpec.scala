@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package iface
 package reader
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{DottedName, QualifiedName}
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{DottedName, QualifiedName}
+import com.daml.lf.language.Ast
 import org.scalatest.{Inside, Matchers, WordSpec}
 
 import scala.language.implicitConversions
@@ -151,8 +151,8 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       moduleName,
       Map(dataName -> dfn),
       Map.empty,
-      LanguageVersion.defaultV1,
-      Ast.FeatureFlags.default)
+      Ast.FeatureFlags.default,
+    )
 
   private def dottedName(segments: Iterable[String]): DottedName =
     DottedName.assertFromSegments(segments)
@@ -164,7 +164,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     field -> Ast.TVar(var_)
 
   private def primField(field: Ref.Name, primType: Ast.BuiltinType, args: Ast.Type*) =
-    field -> ((Ast.TBuiltin(primType): Ast.Type) /: args)(Ast.TApp)
+    field -> (args foldLeft (Ast.TBuiltin(primType): Ast.Type))(Ast.TApp)
 
   private def typeConstructorField(field: Ast.FieldName, segments: List[String]) =
     field -> typeConName(segments)

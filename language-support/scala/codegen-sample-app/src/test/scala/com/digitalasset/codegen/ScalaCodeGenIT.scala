@@ -1,42 +1,40 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
 import java.io.File
 import java.time.Instant
 import java.util.UUID
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.codegen.util.TestUtil.{TestContext, requiredResource}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Commands
-import com.digitalasset.ledger.api.v1.event.Event
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.package_service.ListPackagesResponse
-import com.digitalasset.ledger.api.v1.trace_context.TraceContext
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.binding.DomainTransactionMapper.DecoderType
-import com.digitalasset.ledger.client.binding.{Contract, Template, Primitive => P}
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.event.Event
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.package_service.ListPackagesResponse
+import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
+import com.daml.ledger.client.binding.{Contract, Template, Primitive => P}
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.sample.MyMain.{CallablePayout, MkListExample, PayOut}
-import com.digitalasset.sample.{EventDecoder, MyMain, MySecondMain}
-import com.digitalasset.util.Ctx
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
+import com.daml.sample.{EventDecoder, MyMain, MySecondMain}
+import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalatest._
@@ -48,9 +46,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ScalaCodeGenIT
-    extends AsyncWordSpec
+    extends WordSpec
     with Matchers
     with ScalaFutures
     with Inside
@@ -62,7 +59,7 @@ class ScalaCodeGenIT
   override implicit lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
 
-  override implicit def executionContext: ExecutionContext = ExecutionContext.global
+  implicit def executionContext: ExecutionContext = ExecutionContext.global
 
   override protected def packageFiles: List[File] = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
@@ -72,7 +69,6 @@ class ScalaCodeGenIT
   private val ledgerId = this.getClass.getSimpleName
   private val applicationId = ledgerId + "-client"
   private val decoder: DecoderType = EventDecoder.createdEventToContractRef
-  private val timeProvider = TimeProvider.UTC
   private val traceContext = TraceContext(1L, 2L, 3L, Some(4L))
 
   private val alice = P.Party("Alice")
@@ -90,7 +86,7 @@ class ScalaCodeGenIT
 
   private val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId,
-    ledgerIdRequirement = LedgerIdRequirement(ledgerId, enabled = true),
+    ledgerIdRequirement = LedgerIdRequirement.matching(ledgerId),
     commandClient = CommandClientConfiguration.default,
     sslContext = None
   )
@@ -132,7 +128,7 @@ class ScalaCodeGenIT
   }
 
   "alice creates TemplateWithSelfReference contract and receives corresponding event" in {
-    import com.digitalasset.sample.MyMain
+    import com.daml.sample.MyMain
     val parent = MyMain.Maybe.Nothing(())
     val contract = MyMain.TemplateWithSelfReference(alice, parent)
     testCreateContractAndReceiveEvent(contract, alice)
@@ -313,72 +309,72 @@ class ScalaCodeGenIT
   }
 
   "alice creates Maybes contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.Maybes].sample getOrElse sys.error("random Maybes failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates TextMapInt contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.TextMapInt].sample getOrElse sys.error("random TexMap failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates OptTextMapInt contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.OptTextMapInt].sample getOrElse sys.error(
       "random OptTextMapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates TextMapTextMapInt contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.TextMapTextMapInt].sample getOrElse sys.error(
       "random TextMapTextMapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates TextMapText contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.TextMapText].sample getOrElse sys.error(
       "random TextMapText failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates ListTextMapInt contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.ListTextMapInt].sample getOrElse sys.error(
       "random ListTextMapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates OptMapInt contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.OptMapInt].sample getOrElse sys.error("random OptMapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates ListMapInt contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.ListMapInt].sample getOrElse sys.error(
       "random ListMapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates MapMapInt contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.MapMapInt].sample getOrElse sys.error("random MapMapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates MapInt contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.MapInt].sample getOrElse sys.error("random MapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates DummyTemplateFromAnotherDar contract and receives corresponding event" in {
-    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MySecondMain.DummyTemplateFromAnotherDar].sample getOrElse sys.error(
       "random DummyTemplateFromAnotherDar failed")
     testCreateContractAndReceiveEvent(contract copy (owner = alice), alice)
@@ -448,15 +444,12 @@ class ScalaCodeGenIT
       party: P.Party,
       seq: P.Update[_]*): SubmitRequest = {
 
-    val now = timeProvider.getCurrentTime
     val commands = Commands(
       ledgerId = ledger.ledgerId.unwrap,
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = applicationId,
       commandId = CommandId.unwrap(commandId),
       party = P.Party.unwrap(party),
-      ledgerEffectiveTime = Some(fromInstant(now)),
-      maximumRecordTime = Some(fromInstant(now.plus(java.time.Duration.ofSeconds(2)))),
       commands = seq.map(_.command)
     )
     SubmitRequest(Some(commands), Some(traceContext))

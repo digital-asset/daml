@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Logic -  Propositional calculus.
@@ -90,7 +90,7 @@ toNNF f = f
 -- (see https://en.wikipedia.org/wiki/Disjunctive_normal_form).
 toDNF : Formula t -> Formula t
 toDNF f = case f of
-  f@(Proposition p) -> Disjunction [Conjunction [f]]
+  f@(Proposition _) -> Disjunction [Conjunction [f]]
   Disjunction ds -> Disjunction $ concatMap (disjuncts . toDNF) ds
   Conjunction cs -> Disjunction $ map Conjunction regroupedcs
     where

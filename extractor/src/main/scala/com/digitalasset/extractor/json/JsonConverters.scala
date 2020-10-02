@@ -1,30 +1,27 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.json
+package com.daml.extractor.json
 
-import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
-import com.digitalasset.extractor.ledger.types.LedgerValue._
-import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
+import com.daml.lf.data.{ImmArray, SortedLookupList}
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.extractor.ledger.types.{Identifier, LedgerValue}
+import com.daml.extractor.ledger.types.LedgerValue._
+import com.daml.extractor.writers.postgresql.DataFormatState.MultiTableState
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.generic.semiauto._
 import io.circe.syntax._
+import scalaz.std.string._
 
 object JsonConverters {
+  import ApiCodecCompressed.JsonImplicits.StringJsonFormat
   private[this] object LfValueSprayEnc
       extends ApiCodecCompressed[String](
         encodeDecimalAsString = true,
         encodeInt64AsString = false
-      ) {
-    import spray.json._, ApiCodecCompressed.JsonImplicits.StringJsonFormat
-    override protected[this] def apiContractIdToJsValue(v: String): JsValue = JsString(v)
-    override protected[this] def jsValueToApiContractId(value: JsValue): String =
-      value.convertTo[String]
-  }
+      )
 
   private[this] def sprayToCirce(s: spray.json.JsValue): Json = {
     import spray.{json => sj}

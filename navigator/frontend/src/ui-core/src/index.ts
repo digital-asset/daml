@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 export { Guide, Section } from './Guide';
@@ -24,7 +24,6 @@ export {
   defaultTheme,
   ThemeProvider,
   ThemeInterface,
-  withProps as styledWithProps,
 } from './theme';
 export {
   default as ContractTable,

@@ -1,0 +1,47 @@
+
+-- | This module checks that what is considered a value in
+-- the operational semantics of DAML-LF matches what is
+-- treated as a value in DAML.
+--
+-- According to the spec, a value is "an expression which does not
+-- need to be evaluated further". Any unevaluated subexpressions
+-- in a value should remain unevaluated. In particular, this
+-- includes:
+--
+-- * term lambdas
+-- * type lambdas where the parameter has kind 'nat'
+-- * updates with 'bind' or 'embed_expr'
+-- * scenarios with 'sbind' or 'sembed_expr'
+--
+-- Where we can, we test this from DAML by using values with
+-- embedded error expressions. The value should evaluate without
+-- raising an error.
+--
+-- Any errors here are tagged with the name of the rule in
+-- the semantics that they violate.
+--
+-- See the sister module, SemanticsValueSince17, for the missing
+-- ValExpTyAbsNat case.
+module SemanticsValue where
+
+main = scenario do
+    let _ : Int -> Int = (\ (x : Int) -> error "ValExpAbs")
+    -- ValExpTyAbsNat is tested in SemanticsValueSince17
+    let _ : Update Int = do
+        _ <- pure ()
+        error "ValUpdateBind"
+    p <- getParty "Alice"
+    let _ : Scenario Int = submit p do
+        error "ValUpdateEmbedExpr (1)"
+    let _ : Scenario () = submitMustFail p do
+        error "ValUpdateEmbedExpr (2)"
+        -- ^ damlc uses 'embed_expr' when compiling a submit
+        -- or a submitMustFail ... however, this may interact
+        -- with the semantics of 'commit', so we should also
+        -- implement a more direct test in the LF interpreter.
+    let _ : Scenario () = do
+        _ <- pure ()
+        error "ValScenarioBind"
+    -- cannot test ValScenarioEmbedExpr from DAML, since
+    -- the compiler does not generate it.
+    pure ()

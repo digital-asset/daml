@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.daml.lf.archive
 package testing
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
-import com.digitalasset.daml_lf_dev.{DamlLf1 => PLF}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -16,7 +16,7 @@ import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 // Important: do not use this in production code. It is designed for testing only.
-private[digitalasset] class EncodeV1(val minor: LV.Minor) {
+private[daml] class EncodeV1(val minor: LV.Minor) {
 
   import EncodeV1._
   import Encode._
@@ -262,7 +262,8 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
             PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body))
         case TStruct(fields) =>
           expect(args.isEmpty)
-          builder.setStruct(PLF.Type.Struct.newBuilder().accumulateLeft(fields)(_ addFields _))
+          builder.setStruct(
+            PLF.Type.Struct.newBuilder().accumulateLeft(fields.toImmArray)(_ addFields _))
         case TSynApp(name, args) =>
           val b = PLF.Type.Syn.newBuilder()
           b.setTysyn(name)
@@ -662,7 +663,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       setString(name, b.setNameStr, b.setNameInternedStr)
       b.setConsuming(choice.consuming)
       b.setControllers(choice.controllers)
-      b.setArgBinder(choice.argBinder._1.getOrElse("") -> choice.argBinder._2)
+      b.setArgBinder(choice.argBinder._1 -> choice.argBinder._2)
       b.setRetType(choice.returnType)
       b.setUpdate(choice.update)
       setString(choice.selfBinder, b.setSelfBinderStr, b.setSelfBinderInternedStr)
@@ -736,19 +737,19 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
 
 object EncodeV1 {
 
-  private sealed abstract class LeftRecMatcher[Left, Right] {
-    def unapply(arg: Left): Option[(Left, ImmArray[Right])]
+  private sealed abstract class LeftRecMatcher[L, R] {
+    def unapply(arg: L): Option[(L, ImmArray[R])]
   }
 
   private object LeftRecMatcher {
-    def apply[Left, Right](
-        split: PartialFunction[Left, (Left, Right)]
-    ): LeftRecMatcher[Left, Right] = new LeftRecMatcher[Left, Right] {
+    def apply[L, R](
+        split: PartialFunction[L, (L, R)]
+    ): LeftRecMatcher[L, R] = new LeftRecMatcher[L, R] {
       @tailrec
       private def go(
-          x: Left,
-          stack: FrontStack[Right] = FrontStack.empty
-      ): Option[(Left, ImmArray[Right])] =
+          x: L,
+          stack: FrontStack[R] = FrontStack.empty
+      ): Option[(L, ImmArray[R])] =
         if (split.isDefinedAt(x)) {
           val (left, right) = split(x)
           go(left, right +: stack)
@@ -759,24 +760,24 @@ object EncodeV1 {
         }
 
       @inline
-      final def unapply(arg: Left): Option[(Left, ImmArray[Right])] = go(x = arg)
+      final def unapply(arg: L): Option[(L, ImmArray[R])] = go(x = arg)
     }
   }
 
-  private sealed abstract class RightRecMatcher[Left, Right] {
-    def unapply(arg: Right): Option[(ImmArray[Left], Right)]
+  private sealed abstract class RightRecMatcher[L, R] {
+    def unapply(arg: R): Option[(ImmArray[L], R)]
   }
 
   private object RightRecMatcher {
-    def apply[Left, Right](
-        split: PartialFunction[Right, (Left, Right)]
-    ): RightRecMatcher[Left, Right] = new RightRecMatcher[Left, Right] {
+    def apply[L, R](
+        split: PartialFunction[R, (L, R)]
+    ): RightRecMatcher[L, R] = new RightRecMatcher[L, R] {
 
       @tailrec
       private def go(
-          stack: BackStack[Left] = BackStack.empty,
-          x: Right
-      ): Option[(ImmArray[Left], Right)] =
+          stack: BackStack[L] = BackStack.empty,
+          x: R
+      ): Option[(ImmArray[L], R)] =
         if (split.isDefinedAt(x)) {
           val (left, right) = split(x)
           go(stack :+ left, right)
@@ -787,7 +788,7 @@ object EncodeV1 {
         }
 
       @inline
-      final def unapply(arg: Right): Option[(ImmArray[Left], Right)] = go(x = arg)
+      final def unapply(arg: R): Option[(ImmArray[L], R)] = go(x = arg)
     }
   }
 

@@ -1,4 +1,4 @@
-<!-- Copyright (c) 2020 The DAML Authors. All rights reserved. -->
+<!-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 {# TEMPLATE VAR SETTINGS #}
@@ -119,9 +119,6 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{{ pathto('_static/images/favicon/favicon-32x32.png', 1) }}">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ pathto('_static/images/favicon/favicon-16x16.png', 1) }}">
 
-  <!-- Start of HubSpot Embed Code -->
-  <script type="text/javascript" id="hs-script-loader" async defer src="//js.hs-scripts.com/5388578.js"></script>
-  <!-- End of HubSpot Embed Code -->
   <!-- Google Tag Manager -->
   <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -213,14 +210,6 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             {%- block document %}
             <div itemprop="articleBody">
-              {%- if url_root != './' %}
-                <div id="feedback-container">
-                  <div id="inpageContent"></div>
-                  <a onclick='srv.openModal(true, "708a82385638b3e808089a278636337b67cb4901")'>Detailed Feedback</a>
-                </div>
-              {% else %}
-                <div id="inpageContent" style="display: none;"></div>
-              {% endif %}
               {%- if url_root == './' and activePage != 'search.html' %}
                 {% include "boxes.html" %}
               {% else %}
@@ -233,6 +222,9 @@
               {% block comments %}{% endblock %}
             </div>
             {% endif%}
+            {% if url_root != './' %}
+              {% include "footer.html" %}
+            {% endif %}
           </div>
           {%- endblock %}
         </div>
@@ -249,7 +241,7 @@
       });
   </script>
 
-  {# Do not conflict with RTD insertion of analytics script #}
+{# Do not conflict with RTD insertion of analytics script #}
   {% if not READTHEDOCS %}
     {% if theme_analytics_id %}
     <!-- Theme Analytics -->
@@ -268,7 +260,11 @@
     {% endif %}
   {% endif %}
 
-  {%- block footer %} {% endblock %}
+  {%- if url_root != './' %}
+  <div id="inpageContent"></div>
+  {% else %}
+  <div id="inpageContent" style="display: none;"></div>
+  {% endif %}
 
 </body>
 </html>

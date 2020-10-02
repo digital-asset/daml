@@ -1,15 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionConfiguration
+import com.daml.ledger.api.tls.TlsConfiguration
 
-private[testtool] final case class LedgerSessionConfiguration(
-    participants: Vector[(String, Int)],
-    shuffleParticipants: Boolean,
+private[testtool] final class LedgerSessionConfiguration(
+    participantAddresses: Vector[(String, Int)],
     ssl: Option[TlsConfiguration],
-    commandTtlFactor: Double,
-    loadScaleFactor: Double,
-    waitForParties: Boolean /** Allow synchronizing party allocation across participants */
-)
+    partyAllocation: PartyAllocationConfiguration,
+    val shuffleParticipants: Boolean,
+) {
+  val participants: Vector[ParticipantSessionConfiguration] =
+    for ((host, port) <- participantAddresses)
+      yield ParticipantSessionConfiguration(host, port, ssl, partyAllocation)
+}

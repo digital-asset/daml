@@ -1,7 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
+
+import com.daml.lf.value.Value.ContractId
+
 import scala.collection.TraversableLike
 import scala.collection.generic.CanBuildFrom
 
@@ -23,4 +26,11 @@ package object transaction {
       }
       Right(b.result())
     }
+
+  val SubmittedTransaction = DiscriminatedSubtype[VersionedTransaction[NodeId, ContractId]]
+  type SubmittedTransaction = SubmittedTransaction.T
+
+  val CommittedTransaction = DiscriminatedSubtype[VersionedTransaction[NodeId, ContractId]]
+  type CommittedTransaction = CommittedTransaction.T
+
 }

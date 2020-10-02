@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
@@ -20,14 +20,14 @@ import akka.http.scaladsl.settings.RoutingSettings
 import akka.pattern.ask
 import akka.stream.Materializer
 import akka.util.Timeout
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.navigator.SessionJsonProtocol._
-import com.digitalasset.navigator.config._
-import com.digitalasset.navigator.graphql.GraphQLContext
-import com.digitalasset.navigator.graphqless.GraphQLObject
-import com.digitalasset.navigator.model.{Ledger, PackageRegistry}
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.store.platform.PlatformStore
+import com.daml.grpc.GrpcException
+import com.daml.navigator.SessionJsonProtocol._
+import com.daml.navigator.config._
+import com.daml.navigator.graphql.GraphQLContext
+import com.daml.navigator.graphqless.GraphQLObject
+import com.daml.navigator.model.{Ledger, PackageRegistry}
+import com.daml.navigator.store.Store._
+import com.daml.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
 import org.slf4j.LoggerFactory
 import sangria.schema._
@@ -44,7 +44,6 @@ import scala.util.{Failure, Success, Try}
   * A new UI backend can be implemented by extending [[UIBackend]] and by providing
   * the [[customEndpoints]], [[customRoutes]], [[applicationInfo]] definitions.
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Option2Iterable"))
 abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
   def customEndpoints: Set[CustomEndpoint[_]]
@@ -78,7 +77,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       case Cookie(cookies) =>
         cookies
           .filter(_.name == "session-id")
-          .flatMap(cookiePair => Session.current(cookiePair.value).map(cookiePair.value -> _))
+          .flatMap(cookiePair =>
+            Session.current(cookiePair.value).map(cookiePair.value -> _).toList)
           .headOption
       case _ =>
         None
@@ -323,7 +323,6 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
   * Note that two `CustomEndpoint`s are considered equal if their `endpointName`s are the same to simplify
   * registering new `CustomEndpoint`s and validate them
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class CustomEndpoint[T](implicit tGraphQL: GraphQLObject[T]) {
 
   /** The endpoint to be used as GraphQL top-level for the data served by this */

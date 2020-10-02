@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | List
@@ -230,7 +230,7 @@ replace : Eq a => [a] -> [a] -> [a] -> [a]
 replace [] _ xs = xs
 replace from to xs | Some xs <- stripPrefix from xs = to ++ replace from to xs
 replace from to (x :: xs) = x :: replace from to xs
-replace from to [] = []
+replace _ _ [] = []
 
 -- | Drops the given prefix from a list. It returns the original
 -- sequence if the sequence doesn't start with the given prefix.
@@ -269,7 +269,7 @@ stripSuffix a b = reverse <$> stripPrefix (reverse a) (reverse b)
 stripInfix : Eq a => [a] -> [a] -> Optional ([a], [a])
 stripInfix a b
   | Some rest <- stripPrefix a b = Some ([], rest)
-stripInfix a [] = None
+stripInfix _ [] = None
 stripInfix a (b::bs) = first (b::) <$> stripInfix a bs
 
 -- | The `isPrefixOf` function takes two lists and returns `True` if
@@ -354,7 +354,7 @@ breakEnd f = swap . both reverse . break f . reverse
 -- *without* the match, use `stripInfix`.
 breakOn : Eq a => [a] -> [a] -> ([a], [a])
 breakOn needle haystack | needle `isPrefixOf` haystack = ([], haystack)
-breakOn needle [] = ([], [])
+breakOn _ [] = ([], [])
 breakOn needle (x::xs) = first (x::) $ breakOn needle xs
 
 -- | Similar to `breakOn`, but searches from the end of the
@@ -406,7 +406,7 @@ last [] = error "last: empty list"
 -- | Return all the elements of a list except the last one. The list
 -- must be non-empty.
 init : [a] -> [a]
-init [x] = []
+init [_] = []
 init (x :: xs) = x :: init xs
 init [] = error "init: empty list"
 

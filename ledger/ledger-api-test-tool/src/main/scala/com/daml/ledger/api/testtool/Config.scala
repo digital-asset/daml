@@ -1,48 +1,52 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
 
 import java.io.File
+import java.nio.file.Path
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
+import com.daml.ledger.api.tls.TlsConfiguration
 
 final case class Config(
     participants: Vector[(String, Int)],
     darPackages: List[File],
     mustFail: Boolean,
     verbose: Boolean,
-    commandSubmissionTtlScaleFactor: Double,
     timeoutScaleFactor: Double,
-    loadScaleFactor: Double,
     concurrentTestRuns: Int,
     extract: Boolean,
     tlsConfig: Option[TlsConfiguration],
     excluded: Set[String],
     included: Set[String],
+    performanceTests: Set[String],
+    performanceTestsReport: Option[Path],
     listTests: Boolean,
-    allTests: Boolean,
-    waitForParties: Boolean,
+    listTestSuites: Boolean,
     shuffleParticipants: Boolean,
+    partyAllocation: PartyAllocationConfiguration,
+    ledgerClockGranularityMs: Int,
 )
 
 object Config {
-  val default = Config(
+  val default: Config = Config(
     participants = Vector.empty,
     darPackages = Nil,
     mustFail = false,
     verbose = false,
-    commandSubmissionTtlScaleFactor = 1.0,
     timeoutScaleFactor = 1.0,
-    loadScaleFactor = 1.0,
     concurrentTestRuns = Runtime.getRuntime.availableProcessors(),
     extract = false,
     tlsConfig = None,
     excluded = Set.empty,
     included = Set.empty,
+    performanceTests = Set.empty,
+    performanceTestsReport = None,
     listTests = false,
-    allTests = false,
-    waitForParties = true,
-    shuffleParticipants = false
+    listTestSuites = false,
+    shuffleParticipants = false,
+    partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
+    ledgerClockGranularityMs = 10000,
   )
 }

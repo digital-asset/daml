@@ -125,6 +125,7 @@ stack_snapshot(
         "proto3-suite": "@proto3_suite//:proto3-suite",
     },
     local_snapshot = "//:stack-snapshot.yaml",
+    stack_snapshot_json = "//:stackage_snapshot.json",
     flags = {
         "integer-logarithms": ["-integer-gmp"],
         "text": ["integer-simple"],
@@ -136,7 +137,6 @@ stack_snapshot(
         ...
     ],
     deps = {
-        "bzlib-conduit": ["@bzip2//:libbz2"],
         "digest": ["@com_github_madler_zlib//:libz"],
         "zlib": ["@com_github_madler_zlib//:libz"],
     },
@@ -148,6 +148,20 @@ custom stack snapshot defined in `stack-snapshot.yaml`. The items listed in the
 custom snapshot and will be built using the `Cabal` library. Additionally, we
 can provide custom Bazel build definitions for packages using the
 `vendored_packages` attribute.
+
+The packages are pinned by the Stackage snapshot, in this case a
+`local_snapshot` and in the lock-file defined by `stack_snapshot_json`. If you
+wish to update packages, then you need to change the `packages` and
+`local_snapshot` attributes accordingly and afterwards execute the following
+command on Unix and Windows to update the lock-files:
+```
+bazel run @stackage-unpinned//:pin
+```
+
+You can use the ad-hoc Windows machines as described in the [release
+documentation][windows-ad-hoc] to get access to a Windows machine.
+
+[windows-ad-hoc]: ./release/RELEASE.md#tips-for-windows-testing-in-an-ad-hoc-machine
 
 The `flags` attribute can be used to override default Cabal flags. The `tools`
 attribute defines Bazel targets for known Cabal tools, e.g. `alex`, `happy`, or
@@ -225,6 +239,23 @@ alias(
   actual = "//compiler/damlc"
 )
 ```
+
+## Editor integration
+
+The `daml` repository is configured to support [`ghcide`][ghcide] with Bazel
+and the `ghcide` executable is provided by the `dev-env`. Take a look at the
+[setup section][ghcide_setup] for example configurations for various editors.
+`ghcide` has to be built with the same `ghc` as the project you're working on.
+Be sure to either point your editor to the `dev-env` provided `ghcide` by
+absolute path, or make sure that the `dev-env` provided `ghcide` is in `$PATH`
+for your editor.
+
+Note, `ghcide` itself is built by Bazel and to load a target into the editor
+some of its dependencies have to be built by Bazel. This means that start-up
+may take some time if the required artifacts are not built or cached already.
+
+[ghcide]: https://github.com/digital-asset/ghcide
+[ghcide_setup]: https://github.com/digital-asset/ghcide#using-with-vs-code
 
 ## Further reading:
 

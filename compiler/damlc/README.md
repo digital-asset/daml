@@ -61,8 +61,8 @@ This is a tiny wrapper around `lib` to produce the `damlc` executable.
 When working on the compiler:
 
 ```
-da-ghcid //compiler/damlc/tests:integration-dev --reload=compiler/damlc/tests/daml-test-files --test=":main --pattern="
-bazel run //compiler/damlc/tests:integration-dev -- --pattern=
+da-ghcid //compiler/damlc/tests:integration-v1dev --reload=compiler/damlc/tests/daml-test-files --test=":main --pattern="
+bazel run //compiler/damlc/tests:integration-v1dev -- --pattern=
 bazel run damlc -- compile $PWD/MyDaml12File.daml
 ```
 
@@ -96,9 +96,10 @@ to accept the current documentation as new golden files.
 Standard library docs are exposed under the bazel rules which you can build with:
 
 ```
-bazel build //compiler/damlc:daml-base-rst-docs
-bazel build //compiler/damlc:daml-base-hoogle-docs
+bazel build //compiler/damlc:daml-base-docs
 ```
+
+This creates a tarball containing RST (ReStructured Text) docs, and a hoogle database.
 
 ## DAML Packages and Database
 

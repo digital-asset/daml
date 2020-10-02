@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -82,7 +82,7 @@ showList__ _     []     s = "[]" ++ s
 showList__ showx (x::xs) s = "[" ++ showx x (showl showx xs s)
 
 showl : (a -> ShowS) -> [a] -> ShowS
-showl showx []      s = "]" ++ s
+showl _ []      s = "]" ++ s
 showl showx (y::ys) s = "," ++ showx y (showl showx ys s)
 
 
@@ -106,6 +106,7 @@ showCommaSpace : ShowS
 showCommaSpace = showString ", "
 
 deriving instance Show ()
+deriving instance Show Ordering
 deriving instance Show Bool
 deriving instance (Show a, Show b) => Show (Either a b)
 

@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.lang
 
 import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.TestSink
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.awaitility.Awaitility.await
 import org.awaitility.Duration
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
@@ -15,7 +15,6 @@ import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{FutureOutcome, Matchers, fixture}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SignalDispatcherTest
     extends fixture.AsyncWordSpec
     with Matchers

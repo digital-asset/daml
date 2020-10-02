@@ -1,33 +1,29 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.daml.lf.engine.script
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
 import akka.stream._
-import java.time.Instant
+import java.nio.file.Files
+import scala.collection.JavaConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.io.Source
+import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.auth.TokenHolder
+import com.daml.lf.archive.{Dar, DarReader}
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.iface.EnvironmentInterface
+import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.language.Ast.Package
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.auth.TokenHolder
 
 object RunnerMain {
 
@@ -44,31 +40,9 @@ object RunnerMain {
         val scriptId: Identifier =
           Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 
-        val applicationId = ApplicationId("Script Runner")
-        // Note (MK): For now, we only support using a single-token for everything.
-        // We might want to extend this to allow for multiple tokens, e.g., one token per party +
-        // one admin token for allocating parties.
-        val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
-        val clientConfig = LedgerClientConfiguration(
-          applicationId = ApplicationId.unwrap(applicationId),
-          ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-          commandClient = CommandClientConfiguration.default,
-          sslContext = None,
-          token = tokenHolder.flatMap(_.token),
-        )
-        val timeProvider: TimeProvider =
-          config.timeProviderType match {
-            case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
-            case TimeProviderType.WallClock => TimeProvider.UTC
-            case _ =>
-              throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
-          }
-        val commandUpdater = new CommandUpdater(
-          timeProviderO = Some(timeProvider),
-          ttl = config.commandTtl,
-          overrideTtl = true)
+        val timeMode: ScriptTimeMode = config.timeMode.getOrElse(RunnerConfig.DefaultTimeMode)
 
-        val system: ActorSystem = ActorSystem("ScriptRunner")
+        implicit val system: ActorSystem = ActorSystem("ScriptRunner")
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
         implicit val ec: ExecutionContext = system.dispatcher
@@ -84,9 +58,11 @@ object RunnerMain {
           fileContent.parseJson
         })
 
-        val runner = new Runner(dar, applicationId, commandUpdater, timeProvider)
         val participantParams = config.participantConfig match {
           case Some(file) => {
+            // We allow specifying --access-token-file/--application-id together with
+            // --participant-config and use the values as the default for
+            // all participants that do not specify an explicit token.
             val source = Source.fromFile(file)
             val fileContent = try {
               source.mkString
@@ -94,22 +70,53 @@ object RunnerMain {
               source.close
             }
             val jsVal = fileContent.parseJson
+            val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
             import ParticipantsJsonProtocol._
-            jsVal.convertTo[Participants[ApiParameters]]
+            jsVal
+              .convertTo[Participants[ApiParameters]]
+              .map(
+                params =>
+                  params.copy(
+                    access_token = params.access_token.orElse(token),
+                    application_id = params.application_id.orElse(config.applicationId)))
           }
           case None =>
+            val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
             Participants(
-              default_participant =
-                Some(ApiParameters(config.ledgerHost.get, config.ledgerPort.get)),
+              default_participant = Some(
+                ApiParameters(
+                  config.ledgerHost.get,
+                  config.ledgerPort.get,
+                  tokenHolder.flatMap(_.token),
+                  config.applicationId)),
               participants = Map.empty,
-              party_participants = Map.empty)
+              party_participants = Map.empty
+            )
         }
         val flow: Future[Unit] = for {
-          clients <- Runner.connect(participantParams, clientConfig)
-          _ <- runner.run(clients, scriptId, inputValue)
+
+          clients <- if (config.jsonApi) {
+            val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+            val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+            Runner.jsonClients(participantParams, envIface)
+          } else {
+            Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
+          }
+          result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
+          _ <- Future {
+            config.outputFile.foreach { outputFile =>
+              val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
+              Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
+            }
+          }
         } yield ()
 
-        flow.onComplete(_ => system.terminate())
+        flow.onComplete(_ =>
+          if (config.jsonApi) {
+            Http().shutdownAllConnectionPools().flatMap { case () => system.terminate() }
+          } else {
+            system.terminate()
+        })
         Await.result(flow, Duration.Inf)
       }
     }

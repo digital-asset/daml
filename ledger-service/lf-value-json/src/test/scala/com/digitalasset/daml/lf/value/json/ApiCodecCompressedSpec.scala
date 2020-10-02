@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value.json
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.daml.bazeltools.BazelRunfiles._
 import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
+import value.test.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
-import com.digitalasset.ledger.service.MetadataReader
+import com.daml.ledger.service.MetadataReader
 import org.scalactic.source
 import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
@@ -17,11 +17,13 @@ import org.scalacheck.{Arbitrary, Gen}
 import shapeless.{Coproduct => HSum}
 import shapeless.record.{Record => HRecord}
 import spray.json._
+import scalaz.Order
+import scalaz.std.string._
 import scalaz.syntax.show._
 
 import scala.util.{Success, Try}
+import scala.util.Random.shuffle
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ApiCodecCompressedSpec
     extends WordSpec
     with Matchers
@@ -152,7 +154,7 @@ class ApiCodecCompressedSpec
 
       "work for many, many values in raw format" in forAll(genAddend, minSuccessful(100)) { va =>
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
         forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
           roundtrip(va)(v) should ===(Some(v))
         }
@@ -174,9 +176,40 @@ class ApiCodecCompressedSpec
       "handle lists of optionals" in {
         val va = VA.optional(VA.optional(VA.list(VA.optional(VA.optional(VA.int64)))))
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
         forAll(minSuccessful(1000)) { v: va.Inj[Cid] =>
           roundtrip(va)(v) should ===(Some(v))
+        }
+      }
+
+      "ignore order in maps" in forAll(genAddend, minSuccessful(20)) { kva =>
+        val mapVa = VA.genMap(kva, VA.int64)
+        import mapVa.{injarb, injshrink}
+        implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
+        forAll(minSuccessful(50)) { map: mapVa.Inj[Cid] =>
+          val canonical = mapVa.inj(map)
+          val jsEnc = inside(apiValueToJsValue(canonical)) {
+            case JsArray(elements) => elements
+          }
+          jsValueToApiValue(JsArray(shuffle(jsEnc)), mapVa.t, typeLookup) should ===(canonical)
+        }
+      }
+
+      "fail on map duplicate keys" in forAll(genAddend, minSuccessful(20)) { kva =>
+        val mapVa = VA.genMap(kva, VA.int64)
+        implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
+        import kva.{injarb, injshrink}, mapVa.{injarb => maparb, injshrink => mapshrink}
+        forAll(minSuccessful(50)) { (k: kva.Inj[Cid], v: VA.int64.Inj[Cid], map: mapVa.Inj[Cid]) =>
+          val canonical = mapVa.inj(map updated (k, v))
+          val jsEnc = inside(apiValueToJsValue(canonical)) {
+            case JsArray(elements) => elements
+          }
+          val broken = JsArray(
+            shuffle(jsEnc :+ JsArray(Seq(kva.inj(k), VA.int64.inj(v)) map apiValueToJsValue: _*)))
+          val err = the[DeserializationException] thrownBy {
+            jsValueToApiValue(broken, mapVa.t, typeLookup)
+          }
+          err.msg should startWith("duplicate key: ")
         }
       }
 
@@ -268,6 +301,7 @@ class ApiCodecCompressedSpec
       c("true", VA.bool)(true),
       cn("""["1", "2", "3"]""", "[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3)),
       c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(SortedLookupList(Map("a" -> "b", "c" -> "d"))),
+      c("""[["a", "b"], ["c", "d"]]""", VA.genMap(VA.text, VA.text))(Map("a" -> "b", "c" -> "d")),
       cn("\"42\"", "42", VA.optional(VA.int64))(Some(42)),
       c("null", VA.optional(VA.int64))(None),
       c("null", VAs.ooi)(None),
@@ -285,16 +319,19 @@ class ApiCodecCompressedSpec
     )
 
     val failures = Table(
-      ("JSON", "type"),
-      ("42.3", VA.int64),
-      ("\"42.3\"", VA.int64),
-      ("9223372036854775808", VA.int64),
-      ("-9223372036854775809", VA.int64),
-      ("\"garbage\"", VA.int64),
-      ("\"   42 \"", VA.int64),
-      ("\"1970-01-01T00:00:00\"", VA.timestamp),
-      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp),
-      ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp),
+      ("JSON", "type", "errorSubstring"),
+      ("42.3", VA.int64, ""),
+      ("\"42.3\"", VA.int64, ""),
+      ("9223372036854775808", VA.int64, ""),
+      ("-9223372036854775809", VA.int64, ""),
+      ("\"garbage\"", VA.int64, ""),
+      ("\"   42 \"", VA.int64, ""),
+      ("\"1970-01-01T00:00:00\"", VA.timestamp, ""),
+      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp, ""),
+      ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp, ""),
+      ("""{"a": "b", "c": "d"}""", VA.genMap(VA.text, VA.text), ""),
+      ("\"\"", VA.party, "DAML LF Party is empty"),
+      (List.fill(256)('a').mkString("\"", "", "\""), VA.party, "DAML LF Party is too long"),
     )
 
     "dealing with particular formats" should {
@@ -314,15 +351,16 @@ class ApiCodecCompressedSpec
           }
       }
 
-      "fail in cases" in forEvery(failures) { (serialized, typ) =>
+      "fail in cases" in forEvery(failures) { (serialized, typ, errorSubstring) =>
         val json = serialized.parseJson // we don't test *the JSON decoder*
-        a[DeserializationException] shouldBe thrownBy {
+        val exception = the[DeserializationException] thrownBy {
           jsValueToApiValue(json, typ.t, typeLookup)
         }
+        exception.getMessage should include(errorSubstring)
       }
     }
 
-    import com.digitalasset.daml.lf.value.{Value => LfValue}
+    import com.daml.lf.value.{Value => LfValue}
     import ApiCodecCompressed.JsonImplicits._
 
     val packageId: Ref.PackageId = mustBeOne(
@@ -352,6 +390,37 @@ class ApiCodecCompressedSpec
     val bazRecordId =
       Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:BazRecord"))
 
+    "dealing with LF Record" should {
+      val lfType = (n: String) =>
+        Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:" + n))
+      val decode = (typeId: Ref.Identifier, json: String) =>
+        jsValueToApiValue(json.parseJson, typeId, darTypeLookup)
+      val person = (name: String, age: Long, address: String) => {
+        val attr = (n: String) => Some(Ref.Name.assertFromString(n))
+        LfValue.ValueRecord(
+          Some(lfType("Person")),
+          ImmArray(
+            (attr("name"), LfValue.ValueText(name)),
+            (attr("age"), LfValue.ValueInt64(age)),
+            (attr("address"), LfValue.ValueText(address)))
+        )
+      }
+      "decode a JSON array of the right length" in {
+        decode(lfType("Person"), """["Joe Smith", 20, "1st Street"]""")
+          .shouldBe(person("Joe Smith", 20, "1st Street"))
+      }
+      "fail to decode if missing fields" in {
+        the[DeserializationException].thrownBy {
+          decode(lfType("Person"), """["Joe Smith", 21]""")
+        }.getMessage should include("expected 3, found 2")
+      }
+      "fail to decode if extra fields" in {
+        the[DeserializationException].thrownBy {
+          decode(lfType("Person"), """["Joe Smith", 21, "1st Street", "Arizona"]""")
+        }.getMessage should include("expected 3, found 4")
+      }
+    }
+
     "dealing with LF Variant" should {
       "encode Foo/Baz to JSON" in {
         val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
@@ -376,7 +445,7 @@ class ApiCodecCompressedSpec
         (writer.write(quxVariant): JsValue) shouldBe ("""{"tag":"Qux", "value":{}}""".parseJson: JsValue)
       }
 
-      "fail decoding Foo/Qux from JSON if 'value' filed is missing" in {
+      "fail decoding Foo/Qux from JSON if 'value' field is missing" in {
         assertThrows[spray.json.DeserializationException] {
           jsValueToApiValue(
             """{"tag":"Qux"}""".parseJson,

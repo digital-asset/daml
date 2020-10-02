@@ -1,29 +1,28 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import java.nio.file.Files
-import java.time.temporal.ChronoUnit
-import java.time.{Duration, Instant}
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.extractor.ledger.types.TransactionTree
-import com.digitalasset.extractor.targets.TextPrintTarget
-import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.ledger.api.auth.AuthServiceJWTPayload
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.platform.sandbox.services.{SandboxFixtureWithAuth, TestCommands}
-import com.digitalasset.timer.Delayed
-import com.google.protobuf.timestamp.Timestamp
+import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.daml.extractor.ledger.types.TransactionTree
+import com.daml.extractor.targets.TextPrintTarget
+import com.daml.extractor.writers.Writer
+import com.daml.grpc.GrpcException
+import com.daml.ledger.api.auth.AuthServiceJWTPayload
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.services.commands.SynchronousCommandClient
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.lf.data.Ref.Party
+import com.daml.platform.sandbox.SandboxRequiringAuthorization
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.timer.Delayed
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.slf4j.LoggerFactory
 import scalaz.{OneAnd, \/}
@@ -36,24 +35,15 @@ import scala.util.{Failure, Success}
 
 final class AuthSpec
     extends AsyncFlatSpec
-    with SandboxFixtureWithAuth
+    with SandboxFixture
+    with SandboxRequiringAuthorization
     with SuiteResourceManagementAroundAll
     with Matchers
     with TestCommands {
 
   private def newSyncClient = new SynchronousCommandClient(CommandServiceGrpc.stub(channel))
 
-  private lazy val dummyRequest = {
-    // we need to adjust the time of the request because we pass 10
-    // days in the test scenario.
-    val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)
-    val let = Timestamp(letInstant.getEpochSecond, letInstant.getNano)
-    val mrt = Timestamp(let.seconds + 30L, let.nanos)
-    dummyCommands(wrappedLedgerId, "commandId1").update(
-      _.commands.ledgerEffectiveTime := let,
-      _.commands.maximumRecordTime := mrt
-    )
-  }
+  private lazy val dummyRequest = dummyCommands(wrappedLedgerId, "commandId1")
 
   private val operator = "OPERATOR"
   private val operatorPayload = AuthServiceJWTPayload(
@@ -127,11 +117,15 @@ final class AuthSpec
         (_, _, _) =>
           new Writer {
             private val lastOffset = new AtomicReference[String]
-            override def init(): Future[Unit] = Future.successful(())
+
+            override def init(): Future[Unit] = Future.unit
+
             override def handlePackages(packageStore: PackageStore): Future[Unit] =
-              Future.successful(())
+              Future.unit
+
             override def handleTransaction(
-                transaction: TransactionTree): Future[Writer.RefreshPackages \/ Unit] = {
+                transaction: TransactionTree
+            ): Future[Writer.RefreshPackages \/ Unit] = {
               Future.successful {
                 \/.right {
                   lastOffset.set {

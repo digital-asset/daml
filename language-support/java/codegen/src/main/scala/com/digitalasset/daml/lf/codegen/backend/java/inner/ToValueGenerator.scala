@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.digitalasset.daml.lf.codegen.backend.java.{JavaEscaper, Types}
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface._
+import com.daml.lf.codegen.backend.java.{JavaEscaper, Types}
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface._
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
 
@@ -26,7 +26,6 @@ import scala.collection.JavaConverters._
   * method it's overloading, meaning that the return type will be
   * boxed even if it's a DAML-LF primitive
   */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 object ToValueGenerator {
 
   import Types._

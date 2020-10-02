@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,13 +12,12 @@ da_scala_library(
     name = "db-backend",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
     scalacopts = [
-        "-Xsource:2.13",
         "-P:silencer:checkUnused",
     ] + lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset.ledger-service:db-backend:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:http-json-db-backend:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -28,7 +27,7 @@ da_scala_library(
     ],
     deps = [
         "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_ghik_silencer_lib_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -45,16 +44,17 @@ da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    scalacopts = lf_scalacopts,
     # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":db-backend",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_ghik_silencer_lib_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:com_typesafe_akka_akka_slf4j_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",

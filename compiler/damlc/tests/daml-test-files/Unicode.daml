@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ ERROR ⛄ ¯\_(ツ)_/¯
+-- @ERROR range=9:0-9:4; ⛄ ¯\_(ツ)_/¯
 
 
 module Unicode where

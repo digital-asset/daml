@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
@@ -6,13 +6,13 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala
 da_scala_library(
     name = "rs-grpc-akka",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger-api:rs-grpc-akka:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:rs-grpc-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//ledger-api/rs-grpc-bridge",
-        "//libs-scala/direct-execution-context",
+        "//libs-scala/concurrent",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_grpc_grpc_stub",
@@ -29,6 +29,9 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    visibility = [
+        "//:__subpackages__",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_grpc_grpc_netty",
@@ -36,7 +39,7 @@ da_scala_library(
     deps = [
         ":rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge-test",
+        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge-test-lib",
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -79,7 +82,7 @@ da_scala_test_suite(
 da_scala_binary(
     name = "rs-grpc-akka-perf",
     srcs = glob(["src/perf/**/*.scala"]),
-    main_class = "com.digitalasset.grpc.adapter.ServerStreamingBenchmark",
+    main_class = "com.daml.grpc.adapter.ServerStreamingBenchmark",
     deps = [
         ":rs-grpc-akka",
         ":rs-grpc-akka-tests-lib",

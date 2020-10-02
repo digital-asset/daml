@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // This DateTimePicker code is based on the input-moment library.
@@ -33,21 +33,21 @@ const CalendarCell = styled.td`
   cursor: pointer;
 `
 
-const SelectedDay = CalendarCell.extend`
+const SelectedDay = styled(CalendarCell)`
   color: ${({theme}) => theme.colorPrimary[1]};
   background-color: ${({theme}) => theme.colorPrimary[0]};
 `;
 
-const DefaultDay = CalendarCell.extend`
+const DefaultDay = styled(CalendarCell)`
   color: ${({theme}) => theme.colorForeground};
   font-weight: 700;
 `;
 
-const OtherMonthDay = CalendarCell.extend`
+const OtherMonthDay = styled(CalendarCell)`
   color: ${({theme}) => theme.colorFaded};
 `;
 
-const ThisMonthDay = CalendarCell.extend`
+const ThisMonthDay = styled(CalendarCell)`
   color: ${({theme}) => theme.colorForeground};
 `;
 

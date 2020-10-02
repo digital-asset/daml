@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -16,6 +16,8 @@ import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
 import qualified "ghc-lib-parser" SrcLoc as GHC
 import qualified "ghc-lib-parser" Module as GHC
+import qualified "ghc-lib-parser" RdrName as GHC
+import qualified "ghc-lib-parser" OccName as GHC
 import qualified "ghc-lib-parser" FastString as GHC
 import Outputable
 
@@ -49,6 +51,7 @@ mayImportInternal =
         , "DA.Generics"
         , "DA.Text"
         , "DA.Numeric"
+        , "DA.Stack"
 
         -- These modules are just listed to disable the record preprocessor.
         , "DA.NonEmpty.Types"
@@ -60,8 +63,8 @@ damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedSource -> IdePreprocessedSourc
 damlPreprocessor mbUnitId x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = checkModuleName x
-        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
+        { preprocWarnings = checkDamlHeader x ++ checkVariantUnitConstructors x
+        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
     where
@@ -106,7 +109,7 @@ checkModuleName (GHC.L _ m)
     , expected <- GHC.moduleNameSlashes modName ++ ".daml"
     , Just actual <- GHC.unpackFS <$> GHC.srcSpanFileName_maybe nameLoc
     , not (splitDirectories expected `isSuffixOf` splitDirectories actual)
-    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.daml.com/daml/reference/file-structure.html]. This rule will be enforced in a future SDK version. Please change the filename to " ++ expected ++ " in preparation.")]
+    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.daml.com/daml/reference/file-structure.html]. Please change the filename to " ++ expected ++ ".")]
 
     | otherwise
     = []
@@ -117,6 +120,71 @@ checkImports x =
     [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
     | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isInternal m]
 
+-- | Emit a warning if the "daml 1.2" version header is present.
+checkDamlHeader :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkDamlHeader (GHC.L _ m)
+    | Just (GHC.L ss doc) <- GHC.hsmodHaddockModHeader m
+    , "HAS_DAML_VERSION_HEADER" `isPrefixOf` GHC.unpackHDS doc
+    = [(ss, "The \"daml 1.2\" version header is deprecated, please remove it.")]
+
+    | otherwise
+    = []
+
+-- | Emit a warning if a variant constructor has a single argument of unit type '()'.
+-- See issue #7207.
+checkVariantUnitConstructors :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkVariantUnitConstructors (GHC.L _ m) =
+    [ let tyNameStr = GHC.occNameString (GHC.rdrNameOcc (GHC.unLoc ltyName))
+          conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
+      in (ss, message tyNameStr conNameStr)
+    | GHC.L ss (GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn}) <- GHC.hsmodDecls m
+    , GHC.HsDataDefn{dd_cons=cons} <- [dataDefn]
+    , length cons > 1
+    , GHC.L _ con <- cons
+    , GHC.PrefixCon [GHC.L _ (GHC.HsTupleTy _ _ [])] <- [GHC.con_args con]
+    , GHC.L _ conName <- GHC.getConNames con
+    ]
+  where
+    message tyNameStr conNameStr = unwords
+      [ "Variant type", tyNameStr, "constructor", conNameStr
+      , "has a single argument of type (). The argument will not be"
+      , "preserved when importing this package via data-dependencies."
+      , "Possible solution: Remove the constructor's argument." ]
+
+-- | Emit an error if a record constructor name does not match the record type name.
+-- See issue #4718.
+checkRecordConstructor :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
+  where
+    getRecordError :: GHC.LHsDecl GHC.GhcPs -> Maybe (GHC.SrcSpan, String)
+    getRecordError (GHC.L ss decl)
+        | GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn} <- decl
+        , GHC.HsDataDefn{dd_ND=nd, dd_cons=[con]} <- dataDefn
+        , isNewType nd || isRecCon (GHC.con_args (GHC.unLoc con))
+        , GHC.L _ tyName <- ltyName
+        , [GHC.L _ conName] <- GHC.getConNames (GHC.unLoc con)
+        , let tyNameStr = GHC.occNameString (GHC.rdrNameOcc tyName)
+        , let conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
+        , tyNameStr /= conNameStr
+        = Just (ss, message nd tyNameStr conNameStr)
+
+        | otherwise
+        = Nothing
+
+    isNewType :: GHC.NewOrData -> Bool
+    isNewType = (GHC.NewType ==)
+
+    isRecCon :: GHC.HsConDeclDetails GHC.GhcPs -> Bool
+    isRecCon = \case
+        GHC.RecCon{} -> True
+        _ -> False
+
+    message :: GHC.NewOrData -> String -> String -> String
+    message nd tyNameStr conNameStr = unwords
+        [ if isNewType nd then "Newtype" else "Record type"
+        , tyNameStr, "has constructor", conNameStr
+        , "with different name."
+        , "Possible solution: Change the constructor name to", tyNameStr ]
 
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -50,7 +50,7 @@ const popoverTarget = (
 
 export default class PopoverGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = {
       isOpen: false,
       arrow: true,

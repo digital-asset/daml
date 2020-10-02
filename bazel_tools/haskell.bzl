@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -53,6 +53,7 @@ common_haskell_flags = [
     "-Wincomplete-uni-patterns",
     "-Wno-name-shadowing",
     "-fno-omit-yields",
+    "-fno-ignore-asserts",
     "-threaded",
     "-rtsopts",
 
@@ -247,10 +248,6 @@ def da_haskell_repl(**kwargs):
             "//conditions:default": False,
         }),
         experimental_from_binary = ["//nix/..."],
-        ghci_repl_wrapper = select({
-            "//:hie_bios_ghci": "//bazel_tools:ghci-template.sh",
-            "//conditions:default": "@rules_haskell//haskell:private/ghci_repl_wrapper.sh",
-        }),
         repl_ghci_args = [
             "-fexternal-interpreter",
             "-j",

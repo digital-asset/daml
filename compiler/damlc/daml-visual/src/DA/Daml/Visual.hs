@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 -- | Main entry-point of the DAML compiler
@@ -12,7 +12,7 @@ module DA.Daml.Visual
   , SubGraph(..)
   , ChoiceDetails(..)
   , dotFileGen
-  , graphFromModule
+  , graphFromWorld
   , execVisualHtml
   ) where
 
@@ -20,7 +20,6 @@ module DA.Daml.Visual
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.World as AST
 import DA.Daml.LF.Reader
-import Data.Bifunctor (bimap)
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
@@ -31,6 +30,7 @@ import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import Data.Tuple.Extra (both)
 import GHC.Generics
 import Data.Aeson
 import Text.Mustache
@@ -41,32 +41,33 @@ import DA.Bazel.Runfiles
 import System.FilePath
 import Safe
 import Control.Monad
+import Control.Monad.State
 
 type IsConsuming = Bool
-type InternalChcName = LF.ChoiceName
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 
 data ChoiceAndAction = ChoiceAndAction
     { choiceName :: LF.ChoiceName
-    , internalChcName :: InternalChcName -- as we have choices with same name across modules
     , choiceConsuming :: IsConsuming
     , actions :: Set.Set Action
     } deriving (Show)
 
 
 data TemplateChoices = TemplateChoices
-    { template :: LF.Template
-    , modName :: LF.ModuleName
+    { template :: LF.Qualified LF.Template
     , choiceAndActions :: [ChoiceAndAction]
     } deriving (Show)
+
+templateId :: TemplateChoices -> LF.Qualified LF.TypeConName
+templateId TemplateChoices{..} =
+    fmap LF.tplTypeCon template
 
 data ChoiceDetails = ChoiceDetails
     { nodeId :: Int
     , consuming :: Bool
     , displayChoiceName :: LF.ChoiceName
-    , uniqChoiceName :: InternalChcName
     } deriving (Show, Eq)
 
 data SubGraph = SubGraph
@@ -134,15 +135,11 @@ startFromUpdate seen world update = case update of
     LF.UBind (LF.Binding _ e1) e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
     LF.UGetTime -> Set.empty
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
-    -- NOTE(MH): The cases below are impossible because they only appear
-    -- in dictionaries for the template and choice typeclasses (`HasCreate`
-    -- `HasExercise`, `HasArchive`, `HasFetch`, `HasFetchByKey`, `HasLookupByKey`)
-    -- which we ignore below.
-    LF.UCreate{} -> error "IMPOSSIBLE"
-    LF.UExercise{} -> error "IMPOSSIBLE"
-    LF.UFetch{} -> error "IMPOSSIBLE"
-    LF.ULookupByKey{} -> error "IMPOSSIBLE"
-    LF.UFetchByKey{} -> error "IMPOSSIBLE"
+    LF.UCreate tpl _ -> Set.singleton (ACreate tpl)
+    LF.UExercise tpl choice _ _ _ -> Set.singleton (AExercise tpl choice)
+    LF.UFetch{} -> Set.empty
+    LF.ULookupByKey{} -> Set.empty
+    LF.UFetchByKey{} -> Set.empty
 
 startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Expr -> Set.Set Action
 startFromExpr seen world e = case e of
@@ -175,6 +172,8 @@ startFromExpr seen world e = case e of
     -- instance and produce the corresponding edge in the graph.
     EInternalTemplateVal "exercise" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
         Set.singleton (AExercise tpl (LF.ChoiceName chc))
+    EInternalTemplateVal "exerciseByKey" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` _ `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
+        Set.singleton (AExercise tpl (LF.ChoiceName chc))
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
 
 pattern EInternalTemplateVal :: T.Text -> LF.Expr
@@ -188,13 +187,14 @@ templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map toActions $ NM.toList $ LF.tplChoices tpl
     where toActions c = ChoiceAndAction {
                 choiceName = LF.chcName c
-              , internalChcName = LF.ChoiceName $ tplNameUnqual tpl <> (LF.unChoiceName .LF.chcName) c
               , choiceConsuming = LF.chcConsuming c
               , actions = startFromChoice world c
               }
 
-moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
-moduleAndTemplates world mod = map (\t -> TemplateChoices t (LF.moduleName mod) (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
+moduleAndTemplates :: LF.World -> LF.PackageRef -> LF.Module -> [TemplateChoices]
+moduleAndTemplates world pkgRef mod =
+    map (\t -> TemplateChoices (LF.Qualified pkgRef (LF.moduleName mod) t) (templatePossibleUpdates world t))
+        (NM.toList $ LF.moduleTemplates mod)
 
 dalfBytesToPakage :: BSL.ByteString -> ExternalPackage
 dalfBytesToPakage bytes = case Archive.decodeArchive Archive.DecodeAsDependency $ BSL.toStrict bytes of
@@ -211,25 +211,40 @@ darToWorld Dalfs{..} = case Archive.decodeArchive Archive.DecodeAsMain $ BSL.toS
 tplNameUnqual :: LF.Template -> T.Text
 tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplTypeCon)
 
-choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
-choiceNameWithId tplChcActions = Map.fromList choiceWithIds
-  where choiceWithIds = zipWith (\ChoiceAndAction {..} id -> (internalChcName, ChoiceDetails id choiceConsuming choiceName internalChcName)) choiceActions [0..]
-        choiceActions = concatMap (\t -> createChoice (template t) : choiceAndActions t) tplChcActions
-        createChoice tpl = ChoiceAndAction
-            { choiceName = LF.ChoiceName "Create"
-            , internalChcName = LF.ChoiceName $ tplNameUnqual tpl <> "_Create"
-            , choiceConsuming = False
-            , actions = Set.empty
-            }
+data ChoiceIdentifier = ChoiceIdentifier
+  { choiceIdTemplate :: !(LF.Qualified LF.TypeConName)
+  , choiceIdName :: !LF.ChoiceName
+  } deriving (Eq, Show, Ord)
 
-nodeIdForChoice :: Map.Map LF.ChoiceName ChoiceDetails -> LF.ChoiceName -> ChoiceDetails
+choiceNameWithId :: [TemplateChoices] -> Map.Map ChoiceIdentifier ChoiceDetails
+choiceNameWithId tplChcActions = Map.unions (evalState (mapM f tplChcActions) 0)
+  where
+    f :: TemplateChoices -> State Int (Map.Map ChoiceIdentifier ChoiceDetails)
+    f tpl@TemplateChoices{..} = do
+        choices <- forM (createChoice : choiceAndActions) $ \ChoiceAndAction{..} -> do
+          id <- get
+          put (id + 1)
+          let choiceId = ChoiceIdentifier (templateId tpl) choiceName
+          pure (choiceId, ChoiceDetails id choiceConsuming choiceName)
+        pure (Map.fromList choices)
+    createChoice = ChoiceAndAction
+        { choiceName = LF.ChoiceName "Create"
+        , choiceConsuming = False
+        , actions = Set.empty
+        }
+
+nodeIdForChoice :: Map.Map ChoiceIdentifier ChoiceDetails -> ChoiceIdentifier -> ChoiceDetails
 nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Just node -> node
   Nothing -> error "Template node lookup failed"
 
-addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> ChoiceDetails
-addCreateChoice TemplateChoices {..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
-    where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (headNote "addCreateChoice" (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
+addCreateChoice :: TemplateChoices -> Map.Map ChoiceIdentifier ChoiceDetails -> ChoiceDetails
+addCreateChoice tpl@TemplateChoices{..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
+  where
+    tplNameCreateChoice =
+        ChoiceIdentifier
+            (templateId tpl)
+            createChoiceName
 
 labledField :: T.Text -> T.Text -> T.Text
 labledField fname "" = fname
@@ -248,29 +263,38 @@ typeConFields qName world = case LF.lookupDataType qName world of
     LF.DataEnum _ -> [""]
   Left _ -> error "malformed template constructor"
 
-constructSubgraphsWithLables :: LF.World -> Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
-constructSubgraphsWithLables wrld lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate fieldsInTemplate template
-  where choicesInTemplate = map internalChcName choiceAndActions
-        fieldsInTemplate = typeConFields  qualTpl wrld
-        nodes = map (nodeIdForChoice lookupData) choicesInTemplate
-        qualTpl = LF.Qualified LF.PRSelf modName (LF.tplTypeCon template)
-        nodesWithCreate = addCreateChoice tpla lookupData : nodes
+constructSubgraphsWithLables :: LF.World -> Map.Map ChoiceIdentifier ChoiceDetails -> TemplateChoices -> SubGraph
+constructSubgraphsWithLables wrld lookupData tpla@TemplateChoices {..} =
+    SubGraph (addCreateChoice tpla lookupData : choices) fieldsInTemplate (LF.qualObject template)
+  where
+    fieldsInTemplate = typeConFields (templateId tpla) wrld
+    choicesInTemplate =
+        map (\c -> ChoiceIdentifier (templateId tpla) (choiceName c))
+            choiceAndActions
+    choices = map (nodeIdForChoice lookupData) choicesInTemplate
 
-tplNamet :: LF.TypeConName -> T.Text
-tplNamet tplConName = headNote "tplNamet" (LF.unTypeConName tplConName)
+createChoiceName :: LF.ChoiceName
+createChoiceName = LF.ChoiceName "Create"
 
-actionToChoice :: Action -> LF.ChoiceName
-actionToChoice (ACreate LF.Qualified {..}) = LF.ChoiceName $ tplNamet qualObject <> "_Create"
-actionToChoice (AExercise LF.Qualified {..} (LF.ChoiceName chcT)) = LF.ChoiceName $ tplNamet qualObject <> chcT
+actionToChoice :: Action -> ChoiceIdentifier
+actionToChoice (ACreate tpl@LF.Qualified {..}) =
+    ChoiceIdentifier tpl createChoiceName
+actionToChoice (AExercise tpl chcT) =
+    ChoiceIdentifier tpl chcT
 
-choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
-choiceActionToChoicePairs ChoiceAndAction{..} = pairs
-    where pairs = map (\ac -> (internalChcName, actionToChoice ac)) (Set.elems actions)
+choiceActionToChoicePairs :: LF.Qualified LF.TypeConName -> ChoiceAndAction -> [(ChoiceIdentifier, ChoiceIdentifier)]
+choiceActionToChoicePairs tpl ChoiceAndAction{..} =
+    map (\a -> (choiceId, actionToChoice a)) (Set.elems actions)
+  where
+     choiceId = ChoiceIdentifier tpl choiceName
 
-graphEdges :: Map.Map LF.ChoiceName ChoiceDetails -> [TemplateChoices] -> [(ChoiceDetails, ChoiceDetails)]
-graphEdges lookupData tplChcActions = map (bimap (nodeIdForChoice lookupData) (nodeIdForChoice lookupData)) choicePairsForTemplates
-  where chcActionsFromAllTemplates = concatMap choiceAndActions tplChcActions
-        choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
+graphEdges :: Map.Map ChoiceIdentifier ChoiceDetails -> [TemplateChoices] -> [(ChoiceDetails, ChoiceDetails)]
+graphEdges lookupData tplChcActions =
+    map (both (nodeIdForChoice lookupData)) $
+    concat $
+    concatMap
+        (\tpl -> map (choiceActionToChoicePairs (templateId tpl)) (choiceAndActions tpl))
+        tplChcActions
 
 subGraphHeader :: SubGraph -> String
 subGraphHeader sg = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon $ clusterTemplate sg)) ++ "{\n"
@@ -302,15 +326,24 @@ constructDotGraph graph  = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ 
         edgesLines = unlines $ map (uncurry drawEdge) (edges graph)
         graphLines = subgraphsLines ++ edgesLines
 
-graphFromModule :: [LF.Module] -> LF.World -> Graph
-graphFromModule modules world = Graph subGraphs edges
-    where templatesAndModules = concatMap (moduleAndTemplates world) modules
-          nodes = choiceNameWithId templatesAndModules
-          subGraphs = map (constructSubgraphsWithLables world nodes) templatesAndModules
-          edges = graphEdges nodes templatesAndModules
+graphFromWorld :: LF.World -> Graph
+graphFromWorld world = Graph subGraphs edges
+  where
+    templatesAndModules = concat
+        [ moduleAndTemplates world pkgRef mod
+        | (pkgRef, pkg) <- pkgs
+        , mod <- NM.toList $ LF.packageModules pkg
+        ]
+    nodes = choiceNameWithId templatesAndModules
+    subGraphs = map (constructSubgraphsWithLables world nodes) templatesAndModules
+    edges = graphEdges nodes templatesAndModules
+    pkgs =
+        (LF.PRSelf, getWorldSelf world)
+        : map (\ExternalPackage{..} -> (LF.PRImport extPackageId, extPackagePkg))
+              (getWorldImported world)
 
-dotFileGen :: [LF.Module] -> LF.World -> String
-dotFileGen modules world = constructDotGraph $ graphFromModule modules world
+dotFileGen :: LF.World -> String
+dotFileGen world = constructDotGraph $ graphFromWorld world
 
 webPageTemplate :: T.Text
 webPageTemplate =
@@ -353,8 +386,7 @@ execVisualHtml darFilePath webFilePath oBrowser = do
     d3js <-   readFile $ staticDir </> "d3.min.js"
     d3plusjs <- readFile $ staticDir </> "d3plus.min.js"
     let world = darToWorld dalfs
-        modules = NM.toList $ LF.packageModules $ getWorldSelf world
-        graph = graphFromModule modules world
+        graph = graphFromWorld world
         d3G = graphToD3Graph graph
         linksJson = DT.decodeUtf8 $ BSL.toStrict $ encode $ d3links d3G
         nodesJson = DT.decodeUtf8 $ BSL.toStrict $ encode $ d3nodes d3G
@@ -373,7 +405,7 @@ execVisual darFilePath dotFilePath = do
     darBytes <- B.readFile darFilePath
     dalfs <- either fail pure $ readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
     let world = darToWorld dalfs
-        modules = NM.toList $ LF.packageModules $ getWorldSelf world
+        result = dotFileGen world
     case dotFilePath of
-        Just outDotFile -> writeFile outDotFile (dotFileGen modules world)
-        Nothing -> putStrLn (dotFileGen modules world)
+        Just outDotFile -> writeFile outDotFile result
+        Nothing -> putStrLn result

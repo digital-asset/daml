@@ -1,22 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value
+package com.daml.lf.value
 
-import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
-import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
+import com.daml.lf.EitherAssertions
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data._
+import com.daml.lf.value.Value._
+import com.daml.lf.value.ValueCoder.DecodeError
+import com.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.Shrink
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with PropertyChecks {
 
-  import ValueGenerators._
+  import test.ValueGenerators._
 
   implicit val noStringShrink: Shrink[String] = Shrink.shrinkAny[String]
 
@@ -70,7 +69,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do Numeric" in {
-      import ValueGenerators.Implicits._
+      import test.ValueGenerators.Implicits._
 
       forAll("Numeric scale", "Decimal (BigDecimal) invariant") {
         (s: Numeric.Scale, d: BigDecimal) =>
@@ -174,13 +173,6 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "don't struct" in {
-      val struct = ValueStruct(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
-      val res =
-        ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, defaultValueVersion, struct)
-      res.left.get.errorMessage should include("serializable")
-    }
-
     "do unit" in {
       val recovered = ValueCoder.decodeValue(
         ValueCoder.CidDecoder,
@@ -202,15 +194,13 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
     "do identifier" in {
       forAll(idGen) { i =>
-        ValueCoder.decodeIdentifier(ValueCoder.encodeIdentifier(i, None)._2) shouldEqual Right(i)
+        ValueCoder.decodeIdentifier(ValueCoder.encodeIdentifier(i)) shouldEqual Right(i)
       }
     }
 
-    "do identifier with supported override version" in forAll(idGen, valueVersionGen()) {
-      (i, version) =>
-        val (v2, ei) = ValueCoder.encodeIdentifier(i, Some(version))
-        v2 shouldEqual version
-        ValueCoder.decodeIdentifier(ei) shouldEqual Right(i)
+    "do identifier with supported override version" in forAll(idGen, valueVersionGen()) { (i, _) =>
+      val ei = ValueCoder.encodeIdentifier(i)
+      ValueCoder.decodeIdentifier(ei) shouldEqual Right(i)
     }
 
     "do versioned value with supported override version" in forAll(versionedValueGen) {

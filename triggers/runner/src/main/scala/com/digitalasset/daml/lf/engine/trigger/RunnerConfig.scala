@@ -1,12 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.TlsConfigurationCli
+import com.daml.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
     darPath: Path,
@@ -16,12 +19,22 @@ case class RunnerConfig(
     ledgerHost: String,
     ledgerPort: Int,
     ledgerParty: String,
-    timeProviderType: TimeProviderType,
+    maxInboundMessageSize: Int,
+    // optional so we can detect if both --static-time and --wall-clock-time are passed.
+    timeProviderType: Option[TimeProviderType],
     commandTtl: Duration,
     accessTokenFile: Option[Path],
+    applicationId: ApplicationId,
+    tlsConfig: TlsConfiguration,
 )
 
 object RunnerConfig {
+  private[trigger] val DefaultMaxInboundMessageSize: Int = 4194304
+  private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+  private[trigger] val DefaultApplicationId: ApplicationId =
+    ApplicationId("daml-trigger")
+
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
     head("trigger-runner")
 
@@ -46,15 +59,21 @@ object RunnerConfig {
       .action((t, c) => c.copy(ledgerParty = t))
       .text("Ledger party")
 
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}")
+
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
+      .action { (_, c) =>
+        setTimeProviderType(c, TimeProviderType.WallClock)
       }
       .text("Use wall clock time (UTC).")
 
     opt[Unit]('s', "static-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.Static)
+      .action { (_, c) =>
+        setTimeProviderType(c, TimeProviderType.Static)
       }
       .text("Use static time.")
 
@@ -69,6 +88,15 @@ object RunnerConfig {
         c.copy(accessTokenFile = Some(Paths.get(f)))
       }
       .text("File from which the access token will be read, required to interact with an authenticated ledger")
+
+    opt[String]("application-id")
+      .action { (appId, c) =>
+        c.copy(applicationId = ApplicationId(appId))
+      }
+      .text(s"Application ID used to submit commands. Defaults to ${DefaultApplicationId}")
+
+    TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+      c.copy(tlsConfig = f(c.tlsConfig)))
 
     help("help").text("Print this usage text")
 
@@ -91,13 +119,23 @@ object RunnerConfig {
           failure("Missing option --ledger-port")
         } else if (c.ledgerParty == null) {
           failure("Missing option --ledger-party")
-        } else if (c.timeProviderType == null) {
-          failure("Must specify either --wall-clock-time or --static-time")
         } else {
           success
         }
     })
   }
+
+  private def setTimeProviderType(
+      config: RunnerConfig,
+      timeProviderType: TimeProviderType,
+  ): RunnerConfig = {
+    if (config.timeProviderType.exists(_ != timeProviderType)) {
+      throw new IllegalStateException(
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+    }
+    config.copy(timeProviderType = Some(timeProviderType))
+  }
+
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
       args,
@@ -108,9 +146,12 @@ object RunnerConfig {
         ledgerHost = null,
         ledgerPort = 0,
         ledgerParty = null,
-        timeProviderType = null,
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        timeProviderType = None,
         commandTtl = Duration.ofSeconds(30L),
         accessTokenFile = None,
+        tlsConfig = TlsConfiguration(false, None, None, None),
+        applicationId = DefaultApplicationId,
       )
     )
 }

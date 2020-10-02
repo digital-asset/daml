@@ -1,9 +1,8 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiWayIf #-}
 module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ( Options(..)
   , TimeoutSeconds
@@ -21,12 +20,14 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , SkipValidation(..)
   , updateCtx
   , runScenario
+  , runScript
   , SS.ScenarioResult(..)
   , encodeScenarioModule
   , ScenarioServiceException(..)
   ) where
 
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
+import Data.Either
 import Data.Maybe
 import Data.IORef
 import GHC.Generics
@@ -37,6 +38,7 @@ import Control.DeepSeq
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
+import DA.Daml.LF.Mangling
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -65,10 +67,12 @@ import qualified ScenarioService as SS
 
 data Options = Options
   { optServerJar :: FilePath
+  , optJvmOptions :: [String]
   , optRequestTimeout :: TimeoutSeconds
   , optGrpcMaxMessageSize :: Maybe Int
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
+  , optDamlLfVersion :: LF.Version
   }
 
 type TimeoutSeconds = Int
@@ -90,7 +94,6 @@ data ContextUpdate = ContextUpdate
   , updUnloadModules :: ![LF.ModuleName]
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
-  , updDamlLfVersion :: LF.Version
   , updSkipValidation :: SkipValidation
   }
 
@@ -199,7 +202,7 @@ withScenarioService opts@Options{..} f = do
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   validateJava opts
-  cp <- javaProc (["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
+  cp <- javaProc (optJvmOptions <> ["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
   exitExpected <- newIORef False
   let closeStdin hdl = do
           atomicWriteIORef exitExpected True
@@ -249,11 +252,10 @@ withScenarioService opts@Options{..} f = do
 
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
-  res <-
-    performRequest
+  res <- performRequest
       (SS.scenarioServiceNewContext hClient)
       (optRequestTimeout hOptions)
-      SS.NewContextRequest
+      (SS.NewContextRequest $ TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
@@ -304,11 +306,14 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
       SS.UpdateContextRequest_UpdatePackages
         (V.fromList (map snd updLoadPackages))
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
-    encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
+    encodeName = TL.fromStrict . mangleModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
-    convModule (_, bytes) =
-        case updDamlLfVersion of
-            LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
+    convModule (_, bytes) = SS.ScenarioModule bytes
+
+mangleModuleName :: LF.ModuleName -> T.Text
+mangleModuleName (LF.ModuleName modName) =
+    T.intercalate "." $
+    map (fromRight (error "Failed to mangle scenario module name") . mangleIdentifier) modName
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do
@@ -322,16 +327,33 @@ runScenario Handle{..} (ContextId ctxId) name = do
     Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
     Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseResult r))) -> Right r
     Right _ -> error "IMPOSSIBLE: missing payload in RunScenarioResponse"
-  where
-    toIdentifier :: LF.ValueRef -> SS.Identifier
-    toIdentifier (LF.Qualified pkgId modName defn) =
-      let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
-            LF.PRSelf     -> SS.PackageIdentifierSumSelf SS.Empty
-            LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
-      in
-        SS.Identifier
-          (Just ssPkgId)
-          (TL.fromStrict $ T.intercalate "." (LF.unModuleName modName) <> ":" <> LF.unExprValName defn)
+
+toIdentifier :: LF.ValueRef -> SS.Identifier
+toIdentifier (LF.Qualified pkgId modName defn) =
+  let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
+        LF.PRSelf     -> SS.PackageIdentifierSumSelf SS.Empty
+        LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
+      mangledDefn =
+          fromRight (error "Failed to mangle scenario name") $
+          mangleIdentifier (LF.unExprValName defn)
+      mangledModName = mangleModuleName modName
+  in
+    SS.Identifier
+      (Just ssPkgId)
+      (TL.fromStrict $ mangledModName <> ":" <> mangledDefn)
+
+runScript :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
+runScript Handle{..} (ContextId ctxId) name = do
+  res <-
+    performRequest
+      (SS.scenarioServiceRunScript hClient)
+      (optRequestTimeout hOptions)
+      (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
+  pure $ case res of
+    Left err -> Left (BackendError err)
+    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
+    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseResult r))) -> Right r
+    Right _ -> error "IMPOSSIBLE: missing payload in RunScriptResponse"
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))

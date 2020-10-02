@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Export Bazel sources for Bazel API docs.
@@ -12,7 +12,6 @@ exports_files(
         "haskell-arx.patch",
         "haskell-win-sys-includes.patch",
         "haskell-drop-fake-static.patch",
-        "ghci-template.sh",
         "pom_template.xml",
     ],
     visibility = ["//:__subpackages__"],

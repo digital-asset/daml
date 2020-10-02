@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphql
+package com.daml.navigator.graphql
 
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.json.ApiCodecVerbose.JsonImplicits._
-import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
+import com.daml.navigator.model._
+import com.daml.navigator.json.ApiCodecVerbose.JsonImplicits._
+import com.daml.navigator.json.DamlLfCodec.JsonImplicits._
 import sangria.ast
 import sangria.schema._
 import sangria.validation.ValueCoercionViolation

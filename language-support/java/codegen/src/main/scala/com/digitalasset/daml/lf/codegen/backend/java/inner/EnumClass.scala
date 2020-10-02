@@ -1,11 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.iface
+import com.daml.lf.iface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -16,7 +15,6 @@ private[inner] object EnumClass extends StrictLogging {
 
   def generate(
       className: ClassName,
-      identifier: Identifier,
       enum: iface.Enum,
   ): TypeSpec = {
     TrackLineage.of("enum", className.simpleName()) {

@@ -1,16 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.data.DatabaseActions
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.data.DatabaseActions
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.{Failure, Success, Try}
 
 /** In-memory projection of ledger events. */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 case class Ledger(
     private val forParty: ApiTypes.Party,
     private val lastTransaction: Option[Transaction],
@@ -77,7 +76,7 @@ case class Ledger(
       .withTransactionResult(tx)
 
     tx.events.foldLeft(ledger0) { (ledger, event) =>
-      ledger.withEvent(event, tx, packageRegistry)
+      ledger.withEvent(event, packageRegistry)
     }
   }
 
@@ -107,7 +106,7 @@ case class Ledger(
     }
   }
 
-  private def withEvent(event: Event, tx: Transaction, packageRegistry: PackageRegistry): Ledger =
+  private def withEvent(event: Event, packageRegistry: PackageRegistry): Ledger =
     event match {
       case event: ContractCreated =>
         packageRegistry.template(event.templateId).fold(this) { template =>
@@ -176,14 +175,6 @@ case class Ledger(
         eventById = eventById + (event.id -> event)
       )
     }
-  }
-
-  private def contractsByTemplateIdWithout(contractId: ApiTypes.ContractId) = {
-    val entryWithoutContract = for {
-      contract <- contractById.get(contractId)
-      templateContracts <- contractsByTemplateId.get(contract.template.id)
-    } yield contract.template.id -> (templateContracts - contract)
-    contractsByTemplateId ++ entryWithoutContract.toMap
   }
 
   def allContractsCount: Int = {
@@ -347,11 +338,11 @@ case class Ledger(
     for {
       status <- statusOf(commandId, types)
       result <- status match {
-        case cmd: CommandStatusWaiting => None
+        case _: CommandStatusWaiting => None
         case cmd: CommandStatusSuccess => Some(Result(commandId, Right(cmd.tx)))
         case cmd: CommandStatusError =>
           Some(Result(commandId, Left(new Error(cmd.code, cmd.details, ""))))
-        case cmd: CommandStatusUnknown =>
+        case _: CommandStatusUnknown =>
           Some(Result(commandId, Left(new Error("INTERNAL", "Command status unknown", ""))))
       }
     } yield result

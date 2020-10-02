@@ -1,12 +1,12 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.Type
   ( freeVars
   , referencedSyns
-  , alphaEquiv
   , Subst
   , substitute
+  , substituteAux
   ) where
 
 import           Data.Bifunctor
@@ -16,7 +16,6 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.List
 import           Safe (findJust)
-import           Safe.Exact (zipWithExactMay)
 
 import DA.Daml.LF.Ast.Base
 
@@ -50,51 +49,6 @@ referencedSyns = go HS.empty
       TStruct fs -> foldl' go acc (map snd fs)
       TNat _ -> acc
 
--- | Auxiliary data structure to track bound variables in the test for alpha
--- equivalence.
-data AlphaEnv = AlphaEnv
-  { currentDepth :: !Int
-    -- ^ Current quantifier depth.
-  , binderDepthLhs :: !(Map.Map TypeVarName Int)
-    -- ^ Maps bound type variables from the left-hand-side of 'alphaEquiv' to
-    -- the depth of the quantifier which introduced them.
-  , binderDepthRhs :: !(Map.Map TypeVarName Int)
-    -- ^ Maps bound type variables from the right-hand-side of 'alphaEquiv' to
-    -- the depth of the quantifier which introduced them.
-  }
-
--- | Test two types for alpha equivalence.
-alphaEquiv :: Type -> Type -> Bool
-alphaEquiv = go (AlphaEnv 0 Map.empty Map.empty)
-  where
-    go :: AlphaEnv -> Type -> Type -> Bool
-    go env0@AlphaEnv{currentDepth, binderDepthLhs, binderDepthRhs} = curry $ \case
-      (TVar v1, TVar v2) ->
-        case (Map.lookup v1 binderDepthLhs, Map.lookup v2 binderDepthRhs) of
-          (Just l1, Just l2) -> l1 == l2
-          (Nothing, Nothing) -> v1 == v2
-          (Just _ , Nothing) -> False
-          (Nothing, Just _ ) -> False
-      (TCon c1, TCon c2) -> c1 == c2
-      (TApp tf1 ta1, TApp tf2 ta2) -> go0 tf1 tf2 && go0 ta1 ta2
-      (TBuiltin b1, TBuiltin b2) -> b1 == b2
-      (TForall (v1, k1) t1, TForall (v2, k2) t2) ->
-        let env1 = AlphaEnv
-              { currentDepth   = currentDepth + 1
-              , binderDepthLhs = Map.insert v1 currentDepth binderDepthLhs
-              , binderDepthRhs = Map.insert v2 currentDepth binderDepthRhs
-              }
-        in  k1 == k2 && go env1 t1 t2
-      (TStruct fs1, TStruct fs2)
-        | Just bs <- zipWithExactMay agree (sortOn fst fs1) (sortOn fst fs2) ->
-            and bs
-        where
-          agree (l1, t1) (l2, t2) = l1 == l2 && go0 t1 t2
-      (TNat n1, TNat n2) -> n1 == n2
-      (_, _) -> False
-      where
-        go0 = go env0
-
 -- | Substitution of types for type variables.
 type Subst = Map.Map TypeVarName Type
 
@@ -103,7 +57,12 @@ type Subst = Map.Map TypeVarName Type
 -- substituting into but not contained in the domain of the substitution, then
 -- both free occurrences refer to the same binder.
 substitute :: Subst -> Type -> Type
-substitute subst = go (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.empty subst) subst
+substitute subst = substituteAux
+    (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.empty subst)
+    subst
+
+substituteAux :: Set.Set TypeVarName -> Subst -> Type -> Type
+substituteAux = go
   where
     -- NOTE(MH): We maintain the invariant that @fvSubst0@ contains the free
     -- variables of @subst0@ or an over-approximation thereof.

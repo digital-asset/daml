@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -42,6 +42,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
+        "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",

@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 6 Parties and authority
@@ -11,6 +11,10 @@ In this section you will learn about DAML's authorization rules and how to devel
 - Pass authority from one contract to another
 - Write advanced choices
 - Reason through DAML's Authorization model
+
+.. hint::
+
+  Remember that you can load all the code for this section into a folder called ``6_Parties`` by running ``daml new 6_Parties --template daml-intro-6``
 
 Preventing IOU revocation
 -------------------------
@@ -99,7 +103,7 @@ Use role contracts for ongoing authorization
 
 Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in DAML through relationship or role contracts.
 
-Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the scenario above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
+Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the script above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
 
 .. literalinclude:: daml/daml-intro-6/Parties.daml
   :language: daml
@@ -151,7 +155,7 @@ The authorizers of transactions are:
 An authorization example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The final transaction in the scenario of the the source file for this section is authorized as follows, ignoring fetches:
+The final transaction in the script of the source file for this section is authorized as follows, ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.
 - The root transaction has a single action, which is to exercise ``Send_Iou`` on a ``IouSender`` contract with Bob as ``sender`` and Charlie as ``receiver``. Since the controller of that choice is the ``sender``, Bob is the required authorizer.
@@ -210,4 +214,4 @@ Therefore, the consequences of ``TryA`` are only authorized by Alice. Bob's auth
 Next up
 -------
 
-In :doc:`7_Composing` you will finally put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/getting-started/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on DAML ledgers.
+In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on DAML ledgers.

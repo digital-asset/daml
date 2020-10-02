@@ -1486,6 +1486,7 @@ body
       position: absolute
       right: 32px
       top: 14px
+      z-index: 300
 
   .content-menu-wrapper
     position: absolute
@@ -1645,7 +1646,7 @@ body
         position: absolute
         right: 32px
         top: 25px
-        z-index: 4
+        z-index: 300
 
     .content-menu-wrapper
       padding-left: 42px
@@ -2343,3 +2344,29 @@ div.pdf-download
 
 .cta-alt
   display: none
+
+#inpageContent
+  display: block
+  position: fixed
+  bottom: 50px
+  right: 20px
+  z-index: 999
+
+  +media($mobile)
+    display: none
+
+#popoutContent
+  +media($mobile)
+    display: none
+
+a.copybtn.o-tooltip--left
+  position: absolute
+  z-index: 9999
+  opacity: 1
+  right: 2.5em
+
+  img
+    position: absolute
+
+.btn.btn-next, .btn.btn-prev
+    padding: .4em .8em

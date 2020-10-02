@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ ERROR range=10:10-10:22; does not have the required strict field(s): baz
+-- @ ERROR range=10:9-10:21; does not have the required strict field(s): baz
 
 module MissingFields where
 

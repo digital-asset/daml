@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DerivingStrategies #-}
@@ -9,9 +9,11 @@ module DA.Daml.Doc.Types(
 
 import Data.Aeson
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Hashable
 import GHC.Generics
 import Data.String
+import qualified Data.HashMap.Strict as HMS
 
 -- | Doc text type, presumably Markdown format.
 newtype DocText = DocText { unDocText :: Text }
@@ -27,7 +29,19 @@ newtype Typename = Typename { unTypename :: Text }
 
 -- | Module name, starting with uppercase, may have dots.
 newtype Modulename = Modulename { unModulename :: Text }
-    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+    deriving newtype (Eq, Show, ToJSON, FromJSON, IsString)
+
+-- | Ord instance for Modulename. We want to always sort "Prelude" in front of
+-- other modules, then "DA.*" modules, and then any remaining modules.
+instance Ord Modulename where
+    compare a b = compare (moduleKey a, unModulename a) (moduleKey b, unModulename b)
+        where
+            moduleKey :: Modulename -> Int
+            moduleKey = \case
+                Modulename "Prelude" -> 0
+                Modulename m
+                    | "DA." `T.isPrefixOf` m -> 1
+                    | otherwise -> 2
 
 -- | Name of daml package, e.g. "daml-prim", "daml-stdlib"
 newtype Packagename = Packagename { unPackagename :: Text }
@@ -67,7 +81,11 @@ data Reference = Reference
 
 -- | Anchors are URL-safe (and RST-safe!) ids into the docs.
 newtype Anchor = Anchor { unAnchor :: Text }
-    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+    deriving newtype (Eq, Ord, Show, ToJSON, ToJSONKey, FromJSON, FromJSONKey, IsString, Hashable)
+
+-- | A database of anchors to URL strings.
+newtype AnchorMap = AnchorMap { unAnchorMap :: HMS.HashMap Anchor String }
+    deriving newtype (Eq, Ord, Show, FromJSON)
 
 ------------------------------------------------------------
 -- | Documentation data for a module

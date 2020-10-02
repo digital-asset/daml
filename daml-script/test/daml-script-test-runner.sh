@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -21,7 +21,7 @@ GREP=$4
 SORT=$5
 
 set +e
-TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE 2>&1)"
+TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 2>&1)"
 TEST_RESULT=$?
 set -e
 
@@ -37,20 +37,28 @@ if [[ $TEST_RESULT = 0 ]]; then
 fi
 
 EXPECTED="$($SORT <<'EOF'
+MultiTest:listKnownPartiesTest SUCCESS
 MultiTest:multiTest SUCCESS
 MultiTest:partyIdHintTest SUCCESS
 ScriptExample:test SUCCESS
-ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.speedy.SError$DamlEUserError)
+ScriptTest:failingTest FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
+ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:test0 SUCCESS
 ScriptTest:test1 SUCCESS
 ScriptTest:test3 SUCCESS
 ScriptTest:test4 SUCCESS
 ScriptTest:testCreateAndExercise SUCCESS
 ScriptTest:testKey SUCCESS
-ScriptTest:time SUCCESS
+ScriptTest:testGetTime SUCCESS
+ScriptTest:testSetTime SUCCESS
+ScriptTest:traceOrder SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
 ScriptExample:initializeFixed SUCCESS
+ScriptTest:testStack SUCCESS
+ScriptTest:testMaxInboundMessageSize SUCCESS
+ScriptTest:testQueryContractId SUCCESS
+ScriptTest:testQueryContractKey SUCCESS
 EOF
 )"
 

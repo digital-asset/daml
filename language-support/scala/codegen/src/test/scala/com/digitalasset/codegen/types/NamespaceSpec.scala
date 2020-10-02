@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.types
+package com.daml.codegen.types
 
 import org.scalatest.{WordSpec, Matchers, Inside}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
@@ -23,7 +23,7 @@ class NamespaceSpec extends WordSpec with Matchers with Inside with GeneratorDri
 }
 
 object NamespaceSpec {
-  import com.digitalasset.codegen.lf.HierarchicalOutput.`scalaz ==>> future`
+  import com.daml.codegen.lf.HierarchicalOutput.`scalaz ==>> future`
 
   def paths[K, A](n: Namespace[K, A]): Vector[(List[K], A)] =
     n.foldTreeStrict[Vector[(List[K], A)]] { (a, kVecs) =>

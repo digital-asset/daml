@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import scala.language.higherKinds
 
-import com.digitalasset.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
-import com.digitalasset.ledger.api.v1.{event => rpcevent, value => rpcvalue}
+import com.daml.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
+import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
 
@@ -36,6 +36,13 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
     * template types.
     */
   implicit final def `the TemplateCompanion`: this.type = this
+
+  /** The template's key type, or [[Nothing]] if there is no key type. */
+  type key
+
+  /** Prepare an exercise-by-key Update. */
+  final def key(k: key)(implicit enc: ValueEncoder[key]): Template.Key[T] =
+    Template.Key(Value encode k)
 
   /** Proof that T <: Template[T].  Expressed here instead of as a type parameter
     * bound because the latter is much more inconvenient in practice.
@@ -73,7 +80,9 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
       (id, _.createArguments flatMap fromNamedArguments))
   }
 
+  @com.github.ghik.silencer.silent(" actor .* is never used") // part of generated code API
   protected final def ` exercise`[ExOn, Out](
+      actor: Primitive.Party,
       receiver: ExOn,
       choiceId: String,
       arguments: Option[rpcvalue.Value])(
@@ -87,10 +96,10 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
 object TemplateCompanion {
   abstract class Empty[T](implicit isTemplate: T <~< Template[T]) extends TemplateCompanion[T] {
     protected def onlyInstance: T
+    override type key = Nothing
     type view[C[_]] = RecordView.Empty[C]
     override def toNamedArguments(associatedType: T) = ` arguments`()
     override def fromNamedArguments(namedArguments: rpcvalue.Record): Option[T] = Some(onlyInstance)
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def fieldEncoding(lte: LfTypeEncoding): view[lte.Field] = RecordView.Empty
     override def encoding(lte: LfTypeEncoding)(view: view[lte.Field]): lte.Out[T] =
       lte.emptyRecord(` dataTypeId`, () => onlyInstance)

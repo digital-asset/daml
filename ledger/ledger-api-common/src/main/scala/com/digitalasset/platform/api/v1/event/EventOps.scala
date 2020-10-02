@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.api.v1.event
+package com.daml.platform.api.v1.event
 
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.{
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{
   Created => TreeCreated,
   Exercised => TreeExercised
 }
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v1.value.Identifier
 
 object EventOps {
 
@@ -87,7 +87,18 @@ object EventOps {
   implicit final class TreeEventOps(val event: TreeEvent) extends AnyVal {
     def eventId: String = event.kind.fold(_.eventId, _.eventId)
     def childEventIds: Seq[String] = event.kind.fold(_.childEventIds, _ => Nil)
+    def filterChildEventIds(f: String => Boolean): TreeEvent =
+      event.kind.fold(
+        exercise =>
+          TreeEvent(TreeExercised(exercise.copy(childEventIds = exercise.childEventIds.filter(f)))),
+        create => TreeEvent(TreeCreated(create)))
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
+    def modifyWitnessParties(f: Seq[String] => Seq[String]): TreeEvent =
+      event.kind.fold(
+        exercise =>
+          TreeEvent(TreeExercised(exercise.copy(witnessParties = f(exercise.witnessParties)))),
+        create => TreeEvent(TreeCreated(create.copy(witnessParties = f(create.witnessParties)))),
+      )
     def templateId: Option[Identifier] = event.kind.fold(_.templateId, _.templateId)
   }
 

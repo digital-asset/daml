@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console.commands
+package com.daml.navigator.console.commands
 
-import com.digitalasset.navigator.console._
-import com.digitalasset.navigator.model
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.navigator.console._
+import com.daml.navigator.model
+import com.daml.ledger.api.refinements.ApiTypes
 
 import scala.util.Try
 
@@ -18,11 +18,11 @@ case object Commands extends SimpleCommand {
 
   private def prettyStatus(status: model.CommandStatus): String = {
     status match {
-      case s: model.CommandStatusWaiting => "Waiting"
+      case _: model.CommandStatusWaiting => "Waiting"
       case s: model.CommandStatusError => s"Error: ${Pretty.abbreviate(s.details, 30)}"
       case s: model.CommandStatusSuccess =>
         s"Success: Transaction ${ApiTypes.TransactionId.unwrap(s.tx.id)}"
-      case s: model.CommandStatusUnknown => "Unknown: Command tracking failed"
+      case _: model.CommandStatusUnknown => "Unknown: Command tracking failed"
     }
   }
 

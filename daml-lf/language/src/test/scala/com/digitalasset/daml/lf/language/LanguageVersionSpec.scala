@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
+import com.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -12,7 +12,6 @@ class LanguageVersionSpec extends WordSpec with Matchers with TableDrivenPropert
   "LanguageVersion.ordering order as expected" in {
 
     val versionInOrder = List(
-      LV.defaultV0,
       LV(LVM.V1, "0"),
       LV(LVM.V1, "1"),
       LV(LVM.V1, "2"),

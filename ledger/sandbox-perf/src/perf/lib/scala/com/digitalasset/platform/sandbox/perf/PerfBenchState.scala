@@ -1,16 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.perf
+package com.daml.platform.sandbox.perf
 
 import java.io.File
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.sandbox.utils.InfiniteRetries
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.testing.utils.Resource
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await
@@ -19,7 +18,7 @@ import scala.concurrent.duration._
 @State(Scope.Benchmark)
 abstract class PerfBenchState extends InfiniteRetries {
 
-  def darFile: File = new File(BazelRunfiles.rlocation("ledger/test-common/Test-stable.dar"))
+  def darFile: File = new File(rlocation("ledger/test-common/model-tests.dar"))
 
   private var akkaState: AkkaState = _
   private var server: Resource[LedgerContext] = _

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -28,7 +28,7 @@ import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import qualified DA.Daml.LF.Proto3.Util as Util
-import qualified Com.Digitalasset.DamlLfDev.DamlLf1 as P
+import qualified Com.Daml.DamlLfDev.DamlLf1 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
 
@@ -142,8 +142,8 @@ encodeNames = encodeInternableStrings . fmap mangleName
 encodeDottedName :: Util.EitherLike P.DottedName Int32 e
                  => (a -> [T.Text]) -> a -> Encode (Just e)
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
-    Just <$>
-      Util.fromEither @P.DottedName @Int32 <$>
+    Just .
+      Util.fromEither @P.DottedName @Int32 .
       Bf.first P.DottedName <$>
       encodeDottedName' unmangled
 
@@ -193,7 +193,7 @@ encodeList encodeElem = fmap V.fromList . mapM encodeElem
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
 encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
 
-encodeQualTypeSynName' :: Qualified TypeSynName -> Encode (P.TypeSynName)
+encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
 encodeQualTypeSynName' (Qualified pref mname syn) = do
     typeSynNameModule <- encodeModuleRef pref mname
     typeSynNameName <- encodeDottedName unTypeSynName syn
@@ -202,7 +202,7 @@ encodeQualTypeSynName' (Qualified pref mname syn) = do
 encodeQualTypeSynName :: Qualified TypeSynName -> Encode (Just P.TypeSynName)
 encodeQualTypeSynName tysyn = Just <$> encodeQualTypeSynName' tysyn
 
-encodeQualTypeConName' :: Qualified TypeConName -> Encode (P.TypeConName)
+encodeQualTypeConName' :: Qualified TypeConName -> Encode P.TypeConName
 encodeQualTypeConName' (Qualified pref mname con) = do
     typeConNameModule <- encodeModuleRef pref mname
     typeConNameName <- encodeDottedName unTypeConName con
@@ -361,6 +361,11 @@ encodeBuiltinExpr = \case
         True -> P.PrimConCON_TRUE
 
     BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
+    BELessGeneric -> builtin P.BuiltinFunctionLESS
+    BELessEqGeneric -> builtin P.BuiltinFunctionLESS_EQ
+    BEGreaterGeneric -> builtin P.BuiltinFunctionGREATER
+    BEGreaterEqGeneric -> builtin P.BuiltinFunctionGREATER_EQ
+
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
       BTDecimal -> builtin P.BuiltinFunctionEQUAL_DECIMAL
@@ -422,6 +427,7 @@ encodeBuiltinExpr = \case
       BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
       BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
       other -> error $ "BEToText unexpected type " <> show other
+    BEToTextContractId -> builtin P.BuiltinFunctionTO_TEXT_CONTRACT_ID
     BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
     BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY

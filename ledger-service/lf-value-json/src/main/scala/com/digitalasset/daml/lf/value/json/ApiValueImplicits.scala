@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value.json
+package com.daml.lf.value.json
 
 import java.time.{Instant, LocalDate}
-import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time.format.DateTimeFormatter
 
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.data.Time
+import com.daml.lf.value.{Value => V}
 
 object ApiValueImplicits {
 
@@ -25,8 +25,6 @@ object ApiValueImplicits {
   }
 
   // Timestamp has microsecond resolution
-  private val formatter: DateTimeFormatter =
-    new DateTimeFormatterBuilder().appendInstant(6).toFormatter()
   implicit final class `ApiTimestamp.type additions`(private val it: V.ValueTimestamp.type)
       extends AnyVal {
     def fromIso8601(t: String): V.ValueTimestamp = fromInstant(Instant.parse(t))

@@ -1,13 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.daml.lf.engine.script
 
 import java.nio.file.{Path, Paths}
 import java.io.File
 import java.time.Duration
 
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerConfig(
     darPath: File,
@@ -15,13 +16,27 @@ case class RunnerConfig(
     ledgerHost: Option[String],
     ledgerPort: Option[Int],
     participantConfig: Option[File],
-    timeProviderType: TimeProviderType,
+    // optional so we can detect if both --static-time and --wall-clock-time are passed.
+    timeMode: Option[ScriptTimeMode],
     commandTtl: Duration,
     inputFile: Option[File],
+    outputFile: Option[File],
     accessTokenFile: Option[Path],
+    tlsConfig: TlsConfiguration,
+    jsonApi: Boolean,
+    maxInboundMessageSize: Int,
+    // While we do have a default application id, we
+    // want to differentiate between not specifying the application id
+    // and specifying the default for better error messages.
+    applicationId: Option[ApplicationId],
 )
 
 object RunnerConfig {
+
+  val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
+  val DefaultMaxInboundMessageSize: Int = 4194304
+
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[RunnerConfig]("script-runner") {
     head("script-runner")
 
@@ -51,14 +66,14 @@ object RunnerConfig {
       .text("File containing the participant configuration in JSON format")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
+      .action { (_, c) =>
+        setTimeMode(c, ScriptTimeMode.WallClock)
       }
       .text("Use wall clock time (UTC).")
 
     opt[Unit]('s', "static-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.Static)
+      .action { (_, c) =>
+        setTimeMode(c, ScriptTimeMode.Static)
       }
       .text("Use static time.")
 
@@ -74,11 +89,38 @@ object RunnerConfig {
       }
       .text("Path to a file containing the input value for the script in JSON format.")
 
+    opt[File]("output-file")
+      .action { (t, c) =>
+        c.copy(outputFile = Some(t))
+      }
+      .text("Path to a file where the result of the script will be written to in JSON format.")
+
     opt[String]("access-token-file")
       .action { (f, c) =>
         c.copy(accessTokenFile = Some(Paths.get(f)))
       }
       .text("File from which the access token will be read, required to interact with an authenticated ledger")
+
+    TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+      c.copy(tlsConfig = f(c.tlsConfig)))
+
+    opt[Unit]("json-api")
+      .action { (_, c) =>
+        c.copy(jsonApi = true)
+      }
+      .text("Run DAML Script via the HTTP JSON API instead of via gRPC.")
+
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize")
+
+    opt[String]("application-id")
+      .action((x, c) => c.copy(applicationId = Some(ApplicationId(x))))
+      .optional()
+      .text(
+        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}")
 
     help("help").text("Print this usage text")
 
@@ -89,13 +131,24 @@ object RunnerConfig {
         failure("Cannot specify both --ledger-host and --participant-config")
       } else if (c.ledgerHost.isEmpty && c.participantConfig.isEmpty) {
         failure("Must specify either --ledger-host or --participant-config")
-      } else if (c.timeProviderType == null) {
-        failure("Must specify either --wall-clock-time or --static-time")
       } else {
         success
       }
     })
+
   }
+
+  private def setTimeMode(
+      config: RunnerConfig,
+      timeMode: ScriptTimeMode,
+  ): RunnerConfig = {
+    if (config.timeMode.exists(_ != timeMode)) {
+      throw new IllegalStateException(
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+    }
+    config.copy(timeMode = Some(timeMode))
+  }
+
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
       args,
@@ -105,10 +158,15 @@ object RunnerConfig {
         ledgerHost = None,
         ledgerPort = None,
         participantConfig = None,
-        timeProviderType = null,
+        timeMode = None,
         commandTtl = Duration.ofSeconds(30L),
         inputFile = None,
+        outputFile = None,
         accessTokenFile = None,
+        tlsConfig = TlsConfiguration(false, None, None, None),
+        jsonApi = false,
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        applicationId = None,
       )
     )
 }

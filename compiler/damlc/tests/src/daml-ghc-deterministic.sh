@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -76,7 +76,6 @@ dependencies: [daml-prim, daml-stdlib]
 EOF
 
 cat <<EOF > "$PROJDIR/A.daml"
-daml 1.2
 module A where
 EOF
 

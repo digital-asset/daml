@@ -1,0 +1,624 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Here we test that evaluation order proceeds as we expect. We do this by
+-- raising multiple errors and seeing which one percolates to the top (i.e.
+-- which error was evaluated first).
+--
+-- (Convention: When testing a rule in the operational semantics, we use the
+-- rule's name in the error message itself. If there are multiple tests for
+-- the same rule, we use `R_1`, `R_2`, `R_3`, and so on. This is why there is
+-- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
+--
+-- @ERROR Aborted: EvTyAbsErasableErr OK
+-- @ERROR Aborted: overApply OK
+-- @ERROR Aborted: EvExpAppErr1 OK
+-- @ERROR Aborted: EvExpAppErr2 OK
+-- @ERROR Aborted: EvExpLetErr OK
+-- @ERROR Aborted: ghcReordersMultiLets OK
+-- @ERROR Aborted: EvExpCaseErr OK
+-- @ERROR Aborted: EvExpCase_1 OK
+-- @ERROR Aborted: EvExpCase_2 OK
+-- @ERROR Aborted: EvExpConsErr1 OK
+-- @ERROR Aborted: EvExpConsErr2 OK
+-- @ERROR Aborted: EvExpBuiltinErr OK
+-- @ERROR Aborted: EvExpRecConErr_1 OK
+-- @ERROR Aborted: EvExpRecConErr_2 OK
+-- @ERROR Aborted: EvExpRecConErr_3 OK
+-- @ERROR Aborted: EvExpRecConErr_4 OK
+-- @ERROR Aborted: EvExpRecUpdErr1 OK
+-- @ERROR Aborted: EvExpRecUpdErr2_1 OK
+-- @ERROR Aborted: EvExpRecUpdErr2_2 OK
+-- @ERROR Aborted: EvExpRecUpdErr2_3 OK
+-- @ERROR Aborted: EvExpFoldrErr1 OK
+-- @ERROR Aborted: EvExpFoldrErr2 OK
+-- @ERROR Aborted: EvExpFoldrErr3 OK
+-- @ERROR Aborted: EvExpFoldlErr1 OK
+-- @ERROR Aborted: EvExpFoldlErr2 OK
+-- @ERROR Aborted: EvExpFoldlErr3 OK
+-- @ERROR Aborted: EvExpUpPureErr OK
+-- @ERROR Aborted: EvExpUpBindErr OK
+-- @ERROR Aborted: EvExpUpCreateErr OK
+-- @ERROR Aborted: EvExpUpFetchErr OK
+-- @ERROR Aborted: EvExpUpExerciseWithoutActorsErr1 OK
+-- @ERROR Aborted: EvExpUpExerciseWithoutActorsErr2 OK
+-- @ERROR Aborted: EvExpUpFetchByKeyErr OK
+-- @ERROR Aborted: EvExpUpLookupByKeyErr OK
+-- @ERROR Aborted: abort2 OK
+-- @ERROR Aborted: EvUpdBindErr1_1 OK
+-- @ERROR Aborted: EvUpdBindErr1_2 OK
+-- @ERROR Aborted: EvUpdBindErr2 OK
+-- @ERROR Aborted: EvUpdBindErr3 OK
+-- @ERROR Aborted: EvUpdCreateErr1 OK
+-- @ERROR Template pre-condition violated in: create SemanticsEvalOrder:T_EvUpdCreateFail
+-- @ERROR Aborted: EvUpdCreateErr2 OK
+-- @ERROR Aborted: EvUpdCreateErr3 OK
+-- @ERROR Aborted: EvUpdCreateErr4_1 OK
+-- @ERROR Aborted: EvUpdCreateErr4_2 OK
+-- @ERROR Aborted: EvUpdCreateWithKeyErr1 OK
+-- @ERROR Aborted: EvUpdCreateWithKeyErr2 OK
+-- @ERROR Aborted: controllerCanAddsObserver OK
+-- @ERROR Aborted: choiceControllerDoesntAddObserver OK
+-- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_DoubleArchive)
+-- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_EvUpdExercConsumErr_1)
+-- @ERROR Attempt to exercise a contract that was consumed in same transaction. Contract: #0:0 (SemanticsEvalOrder:T_EvUpdExercConsumErr_2)
+-- @ERROR EvUpdExercNonConsumErr OK
+-- @ERROR EvUpdExercWithoutActorsErr_1 OK
+-- @ERROR EvUpdExercWithoutActorsErr_2 OK
+-- @ERROR exercise of C_BadActorCheck_1
+-- @ERROR Aborted: EvUpdFetchByKeyErr OK
+-- @ERROR Aborted: EvUpdLookupByKeyErr OK
+module SemanticsEvalOrder where
+
+evTyAbsErasableErr = scenario do
+  let x : forall a. a
+      x = error "EvTyAbsErasableErr OK"
+  error "EvTyAbsErasable failed"
+
+overApply = scenario do
+  let f x = error "overApply OK"
+  let _ = f 1 (error "overApply Failed")
+  let _ = f 1 2
+  pure ()
+
+evExpAppErr1 = scenario do
+  let _ = (error "EvExpAppErr1 OK") (error "EvExpAppErr1 failed")
+  pure ()
+
+evExpAppErr2 = scenario do
+  let f _ _ = error "EvExpAppErr2 failed"
+  let _ = f 1 (error "EvExpAppErr2 OK")
+  pure ()
+
+evExpLetErr = scenario do
+    let _ = error "EvExpLetErr OK"
+    let _ = error "EvExpLetErr bad"
+    error "EvExpLetErr failed"
+
+-- | The following "multiple-binding let" behavior is caused by GHC.
+-- This is tracked in issue #6788. We would love to get rid of this
+-- reordering behavior, but it's very much tied with a part of GHC
+-- that we don't control. So we track this behavior here.
+ghcReordersMultiLets = scenario do
+    let _ = error "ghcReordersMultiLets failed in a good way -- close the issue & update the test"
+        _ = error "ghcReordersMultiLets OK"
+    error "ghcReordersMultiLets failed in a bad way"
+
+evExpCaseErr = scenario do
+  case error "EvExpCaseErr OK" of
+    None -> error "EvExpCaseErr failed"
+    Some _ -> error "EvExpCaseErr failed"
+
+evExpCase_1 = scenario do
+  case None of
+    None -> error "EvExpCase_1 OK"
+    Some _ -> error "EvExpCase_1 failed"
+
+evExpCase_2 = scenario do
+  case Some 1 of
+    None -> error "EvExpCase_2 failed"
+    Some _ -> error "EvExpCase_2 OK"
+
+evExpConsErr1 = scenario do
+  pure ( error "EvExpConsErr1 OK"
+      :: error "EvExpConsErr1 failed"
+      :: error "EvExpConsErr1 failed")
+
+evExpConsErr2 = scenario do
+  pure ( 10
+      :: error "EvExpConsErr2 OK"
+      :: error "EvExpConsErr2 failed")
+
+evExpBuiltinErr = scenario do
+  let _ : Int = error "EvExpBuiltinErr OK" + error "EvExpBuiltinErr failed"
+  pure ()
+
+
+data R1 = R1 { a: Int, b: Int }
+
+evExpRecConErr_1 = scenario do
+  pure R1 { a = error "EvExpRecConErr_1 OK", b = error "EvExpRecConErr_1 failed" }
+
+evExpRecConErr_2 = scenario do
+  pure R1 { b = error "EvExpRecConErr_2 failed", a = error "EvExpRecConErr_2 OK" }
+
+data R2 = R2 { d: Int, c: Int }
+  -- ^ Checking that there isn't a dependence on the field names.
+  -- There should be a dependence on the definition order according to the LF spec.
+
+evExpRecConErr_3 = scenario do
+  pure R2 { d = error "EvExpRecConErr_3 OK", c = error "EvExpRecConErr_3 failed" }
+
+evExpRecConErr_4 = scenario do
+  pure R2 { c = error "EvExpRecConErr_4 failed", d = error "EvExpRecConErr_4 OK"  }
+
+evExpRecUpdErr1 = scenario do
+  pure (error "EvExpRecUpdErr1 OK" : R1)
+    { a = error "EvExpRecUpdErr1 failed", b = error "EvExpRecUpdErr1 failed" }
+
+evExpRecUpdErr2_1 = scenario do
+  pure (R1 {a=0, b=0})
+    { a = error "EvExpRecUpdErr2_1 OK", b = error "EvExpRecUpdErr2_1 failed" }
+
+evExpRecUpdErr2_2 = scenario do
+  pure (R1 {a=0, b=0})
+    { b = error "EvExpRecUpdErr2_2 OK", a = error "EvExpRecUpdErr2_2 failed" }
+  -- ^ Note that record update depends on the order the fields appear in
+  -- code, rather than the order in which fields were defined.
+
+-- NOTE(MH): Make sure we don't swallow record field updates if a field is
+-- updated multiple times.
+evExpRecUpdErr2_3 = scenario do
+  pure (R1 {a=0, b=0})
+    { a = error "EvExpRecUpdErr2_3 OK", a = error "EvExpRecUpdErr2_3 failed" }
+
+-- Can't test LF struct evaluation order from DAML, since we purposely avoid
+-- evaluation of struct fields during typeclass desugaring, and we don't have
+-- a way to construct LF structs directly.
+
+evExpFoldrErr1 = scenario do
+  pure (foldr f 0 [1, 2])
+  where
+    f 2 0 = error "EvExpFoldrErr1 OK"
+    f _ _ = error "EvExpFoldrErr1 failed"
+
+evExpFoldrErr2 = scenario do
+  pure (foldr f 0 [1, 2])
+  where
+    f 1 = error "EvExpFoldrErr2 OK"
+    f _ = error "EvExpFoldrErr2 failed"
+
+evExpFoldrErr3 = scenario do
+  pure (foldr f identity [1] (error "EvExpFoldrErr3 failed"))
+  where
+    f: Int -> (Int -> Int) -> (Int -> Int)
+    f _ _ = error "EvExpFoldrErr3 OK"
+
+evExpFoldlErr1 = scenario do
+  pure (foldl f 0 [1, 2])
+  where
+    f 0 1 = error "EvExpFoldlErr1 OK"
+    f _ _ = error "EvExpFoldlErr1 failed"
+
+evExpFoldlErr2 = scenario do
+  pure (foldl f 0 [1, 2])
+  where
+    f 0 = error "EvExpFoldlErr2 OK"
+    f _ = error "EvExpFoldlErr2 failed"
+
+evExpFoldlErr3 = scenario do
+  pure (foldl f identity [1] (error "EvExpFoldlErr3 failed"))
+  where
+    f: (Int -> Int) -> Int -> (Int -> Int)
+    f _ _ = error "EvExpFoldlErr3 OK"
+
+evExpUpPureErr = scenario do
+  let _ : Update () = pure (error "EvExpUpPureErr OK")
+  pure ()
+
+evExpUpBindErr = scenario do
+  let _ : Update () = do
+          error "EvExpUpBindErr OK"
+          error "EvExpUpBindErr failed"
+  pure ()
+
+template T
+  with p : Party
+  where signatory p
+
+evExpUpCreateErr = scenario do
+  let _ : Update (ContractId T) = create (error "EvExpUpCreateErr OK")
+  pure ()
+
+evExpUpFetchErr = scenario do
+  let _ : Update T = fetch (error "EvExpUpFetchErr OK")
+  pure ()
+
+-- "exercise with actors" is not testable from DAML.
+
+evExpUpExerciseWithoutActorsErr1 = scenario do
+  let _ : Update () =
+          exercise @T @Archive
+              (error "EvExpUpExerciseWithoutActorsErr1 OK")
+              (error "EvExpUpExerciseWithoutActorsErr1 failed")
+  pure ()
+
+evExpUpExerciseWithoutActorsErr2 = scenario do
+  p <- getParty "Alice"
+  t <- submit p $ create (T p)
+  let _ : Update () = exercise @T @Archive t (error "EvExpUpExerciseWithoutActorsErr2 OK")
+  pure ()
+
+template T2
+  with
+    p : Party
+    k : Int
+  where
+    signatory p
+    key (p,k) : (Party, Int)
+    maintainer key._1
+
+evExpUpFetchByKeyErr = scenario do
+  let _ = fetchByKey @T2 (error "EvExpUpFetchByKeyErr OK")
+  pure ()
+
+evExpUpLookupByKeyErr = scenario do
+  let _ = lookupByKey @T2 (error "EvExpUpLookupByKeyErr OK")
+  pure ()
+
+abort1 = scenario do
+  let _ : Update () = abort "abort1 failed"
+  pure ()
+
+abort2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    abort "abort2 OK"
+
+evUpdBindErr1_1 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    abort "EvUpdBindErr1_1 OK"
+    abort "EvUpdBindErr1_1 failed"
+
+evUpdBindErr1_2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    abort "EvUpdBindErr1_2 OK"
+    error "EvUpdBindErr1_2 failed"
+
+evUpdBindErr2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T p)
+    error "EvUpdBindErr2 OK"
+    abort "EvUpdBindErr2 failed"
+
+evUpdBindErr3 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T p)
+    abort "EvUpdBindErr3 OK"
+    abort "EvUpdBindErr3 failed"
+
+template T_EvUpdCreateErr1
+  with
+    p : Party
+  where
+    ensure (error @Bool "EvUpdCreateErr1 OK")
+    agreement (error @Text "EvUpdCreateErr1 failed (1)")
+    signatory (error @Party "EvUpdCreateErr1 failed (2)")
+    observer (error @Party "EvUpdCreateErr1 failed (3)")
+
+evUpdCreateErr1 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_EvUpdCreateErr1 p)
+    error "EvUpdCreateErr1 failed (4)"
+
+template T_EvUpdCreateFail
+  with
+    p : Party
+  where
+    ensure False
+    agreement (error @Text "EvUpdCreateFail failed (1)")
+    signatory (error @Party "EvUpdCreateFail failed (2)")
+    observer (error @Party "EvUpdCreateFail failed (3)")
+
+evUpdCreateFail = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_EvUpdCreateFail p)
+    error "EvUpdCreateFail failed (4)"
+
+template T_EvUpdCreateErr2
+  with
+    p : Party
+  where
+    ensure True
+    agreement (error @Text "EvUpdCreateErr2 OK")
+    signatory (error @Party "EvUpdCreateErr2 failed (1)")
+    observer (error @Party "EvUpdCreateErr2 failed (2)")
+
+evUpdCreateErr2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_EvUpdCreateErr2 p)
+    error "EvUpdCreateErr2 failed (3)"
+
+template T_EvUpdCreateErr3
+  with
+    p : Party
+  where
+    ensure True
+    agreement ""
+    signatory (error @Party "EvUpdCreateErr3 OK")
+    observer (error @Party "EvUpdCreateErr3 failed (1)")
+
+evUpdCreateErr3 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_EvUpdCreateErr3 p)
+    error "EvUpdCreateErr3 failed (2)"
+
+template T_EvUpdCreateErr4_1
+  with
+    p : Party
+  where
+    ensure True
+    agreement ""
+    signatory p
+    observer (error @Party "EvUpdCreateErr4_1 OK")
+
+evUpdCreateErr4_1 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_EvUpdCreateErr4_1 p)
+    error "EvUpdCreateErr4_1 failed"
+
+template T_EvUpdCreateErr4_2
+  with
+    p : Party
+  where
+    ensure True
+    agreement ""
+    signatory p
+    observer (error @Party "EvUpdCreateErr4_2 OK")
+    key error @Party "EvUpdCreateErr4_2 failed" : Party
+    maintainer error @Party "EvUpdCreateErr4_2 failed"
+
+evUpdCreateErr4_2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_EvUpdCreateErr4_2 p)
+    error "EvUpdCreateErr4_2 failed"
+
+template T_EvUpdCreateWithKeyErr1
+  with
+    p : Party
+  where
+    ensure True
+    agreement ""
+    signatory p
+    observer [] : [Party]
+    key error @Party "EvUpdCreateWithKeyErr1 OK" : Party
+    maintainer error @Party "EvUpdCreateWithKeyErr1 failed"
+
+evUpdCreateWithKeyErr1 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_EvUpdCreateWithKeyErr1 p)
+    error "EvUpdCreateWithKeyErr1 failed"
+
+template T_EvUpdCreateWithKeyErr2
+  with
+    p : Party
+  where
+    ensure True
+    agreement ""
+    signatory p
+    observer [] : [Party]
+    key p : Party
+    maintainer error @Party "EvUpdCreateWithKeyErr2 OK"
+
+evUpdCreateWithKeyErr2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_EvUpdCreateWithKeyErr2 p)
+    error "EvUpdCreateWithKeyErr2 failed"
+
+-- | `controller P can ...` syntax adds `P` to the observers,
+-- so if `P` causes an error, this is triggered on create,
+-- instead of on exercise.
+template T_ControllerCanAddsObserver
+  with
+    p : Party
+  where
+    signatory p
+    controller (error @Party "controllerCanAddsObserver OK") can
+      C_ControllerCanAddsObserver: ()
+        do pure ()
+
+controllerCanAddsObserver = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_ControllerCanAddsObserver p)
+    error "controllerCanAddsObserver failed"
+
+-- | `choice ... controller P ...` doesn't add `P` as observer.
+-- This test is here to contrast with the previous.
+template T_ChoiceControllerDoesntAddObserver
+  with
+    p : Party
+  where
+    signatory p
+    choice CY : ()
+      controller (error @Party "choiceControllerDoesntAddObserver failed")
+        do pure ()
+
+choiceControllerDoesntAddObserver = scenario do
+  p <- getParty "Alice"
+  submit p do
+    create (T_ChoiceControllerDoesntAddObserver p)
+    error "choiceControllerDoesntAddObserver OK"
+
+-- | Verify that contract inactivity is checked before interpreting
+-- the rest of the update.
+template T_DoubleArchive
+  with
+    p : Party
+  where
+    signatory p
+
+doubleArchive = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_DoubleArchive p)
+    archive c
+    archive c
+    abort "doubleArchive failed"
+
+-- | Verify that a consuming choice's update is interpreted with a
+-- ledger state where the template has already been consumed.
+template T_EvUpdExercConsumErr_1
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercConsumErr_1 : ()
+      controller p
+        do
+          archive self
+          error "EvUpdExercConsumErr_1 failed (1)"
+
+evUpdExercConsumErr_1 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercConsumErr_1 p)
+    exercise c C_EvUpdExercConsumErr_1
+    abort "EvUpdExercConsumErr_1 failed (2)"
+
+
+-- | Similar to `T_EvUpdExercConsumErr_1` but using fetch instead of archive.
+template T_EvUpdExercConsumErr_2
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercConsumErr_2 : ()
+      controller p
+        do
+          fetch self
+          error "EvUpdExercConsumErr_2 failed (1)"
+
+evUpdExercConsumErr_2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercConsumErr_2 p)
+    exercise c C_EvUpdExercConsumErr_2
+    abort "EvUpdExercConsumErr_2 failed (2)"
+
+-- | Verify that a nonconsuming choice's update is interpreted with
+-- the original ledger state (template hasn't been consumed).
+template T_EvUpdExercNonConsumErr
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice C_EvUpdExercNonConsumErr : ()
+      controller p
+        do
+          archive self
+          error "EvUpdExercNonConsumErr OK"
+
+evUpdExercNonConsumErr = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercNonConsumErr p)
+    exercise c C_EvUpdExercNonConsumErr
+    abort "EvUpdExercNonConsumErr failed"
+
+-- | Verify that the exercising party is evaluated
+-- when the exercise is performed, not after.
+template T_EvUpdExercWithoutActorsErr_1
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercWithoutActorsErr_1 : () with
+      controller (error @Party "EvUpdExercWithoutActorsErr_1 OK")
+        do abort "EvUpdExercWithoutActorsErr_1 failed (1)"
+
+evUpdExercWithoutActorsErr_1 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercWithoutActorsErr_1 p)
+    exercise c C_EvUpdExercWithoutActorsErr_1
+    abort "EvUpdExercWithoutActorsErr_1 failed (2)"
+
+-- | Show that the exercising party is evaluated before
+-- we check that the contract is still active.
+template T_EvUpdExercWithoutActorsErr_2
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercWithoutActorsErr_2 : () with
+      controller (error @Party "EvUpdExercWithoutActorsErr_2 OK")
+        do abort "EvUpdExercWithoutActorsErr_2 failed (1)"
+
+evUpdExercWithoutActorsErr_2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercWithoutActorsErr_2 p)
+    archive c
+    exercise c C_EvUpdExercWithoutActorsErr_2
+    abort "EvUpdExercWithoutActorsErr_2 failed (2)"
+
+-- | Checks that an authorization / bad actor check occurs
+-- at some point during submission.
+template T_BadActorCheck_1
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    controller p2 can
+      C_BadActorCheck_1 : ()
+        do pure ()
+
+badActorCheck_1 = scenario do
+  p1 <- getParty "Alice"
+  p2 <- getParty "Bob"
+  submit p1 do
+    c <- create (T_BadActorCheck_1 p1 p2)
+    exercise c C_BadActorCheck_1
+  error "BadActorCheck_1 failed"
+
+template T_EvUpdFetchByKeyErr
+  with
+    p : Party
+  where
+    signatory p
+    key () : ()
+    maintainer (error @Party "EvUpdFetchByKeyErr OK")
+
+evUpdFetchByKeyErr = scenario do
+  p <- getParty "Alice"
+  submit p do
+    fetchByKey @T_EvUpdFetchByKeyErr ()
+    abort "EvUpdFetchByKeyErr failed"
+
+template T_EvUpdLookupByKeyErr
+  with
+    p : Party
+  where
+    signatory p
+    key () : ()
+    maintainer (error @Party "EvUpdLookupByKeyErr OK")
+
+evUpdLookupByKeyErr = scenario do
+  p <- getParty "Alice"
+  submit p do
+    fetchByKey @T_EvUpdLookupByKeyErr ()
+    abort "EvUpdLookupByKeyErr failed"

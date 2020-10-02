@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.perf
+package com.daml.platform.sandbox.perf
 
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.platform.sandbox.perf.TestHelper._
+import com.daml.platform.sandbox.perf.TestHelper._
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await

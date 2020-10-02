@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 
 private[validation] object Serializability {
 
@@ -119,7 +119,8 @@ private[validation] object Serializability {
       params: ImmArray[(TypeVarName, Kind)],
       dataCons: DataCons): Unit = {
     val context = ContextDefDataType(tyCon.tycon)
-    val env = (Env(version, world, context, SRDataType, tyCon) /: params.iterator)(_.introVar(_))
+    val env =
+      (params.iterator foldLeft Env(version, world, context, SRDataType, tyCon))(_.introVar(_))
     val typs = dataCons match {
       case DataVariant(variants) =>
         if (variants.isEmpty) env.unserializable(URUninhabitatedType)
@@ -151,7 +152,7 @@ private[validation] object Serializability {
   }
 
   def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
-    val version = module.languageVersion
+    val version = world.lookupPackage(NoContext, pkgId).languageVersion
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))

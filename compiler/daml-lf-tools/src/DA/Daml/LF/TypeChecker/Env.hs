@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
@@ -74,8 +74,7 @@ emptyGamma :: World -> Version -> Gamma
 emptyGamma = Gamma ContextNone mempty mempty
 
 -- | Run a computation in the current environment extended by a new type
--- variable. Fails if the type variable would shadow some existing type
--- variable.
+-- variable/kind binding. Does not fail on shadowing.
 introTypeVar :: MonadGamma m => TypeVarName -> Kind -> m a -> m a
 introTypeVar v k = local (tvars . at v ?~ k)
 

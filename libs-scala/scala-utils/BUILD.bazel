@@ -1,0 +1,36 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+
+scalacopts = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
+da_scala_library(
+    name = "scala-utils",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = scalacopts,
+    tags = ["maven_coordinates=com.daml:scala-utils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+    ],
+)
+
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    scalacopts = scalacopts,
+    deps = [
+        ":scala-utils",
+        "//libs-scala/scalatest-utils",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)

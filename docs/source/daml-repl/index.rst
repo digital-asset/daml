@@ -1,14 +1,8 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML REPL
 ###########
-
-**WARNING:** DAML REPL is an experimental feature that is actively
-being designed and is *subject to breaking changes*.
-We welcome feedback about the DAML REPL on
-`our issue tracker <https://github.com/digital-asset/daml/issues/new>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
 
 The DAML REPL allows you to use the :doc:`/daml-script/index` API
 interactively. This is useful for debugging and for interactively
@@ -23,7 +17,7 @@ template. Take a look at the documentation for
 
 .. code-block:: sh
 
-   daml new script-example script-example # create a project called script-example based on the template
+   daml new script-example --template script-example # create a project called script-example based on the template
    cd script-example # switch to the new project
 
 Now, build the project and start :doc:`/tools/sandbox`, the in-memory
@@ -40,12 +34,16 @@ separate terminal using the following command.
 
 .. code-block:: sh
 
-   daml repl --ledger-host=localhost --ledger-port=6865 .daml/dist/script-example-0.0.1.dar
+   daml repl --ledger-host=localhost --ledger-port=6865 .daml/dist/script-example-0.0.1.dar --import script-example
 
 The ``--ledger-host`` and ``--ledger-port`` parameters point to the
 host and port your ledger is running on. In addition to that, you also
 need to pass in the name of a DAR containing the templates and other
-definitions that will be accessible in the REPL.
+definitions that will be accessible in the REPL. We also specify that we want
+to import all modules from the ``script-example`` package. If your modules
+provide colliding definitions you can also import modules individually from
+within the REPL. Note that you can also specify multiple DARs and they
+will all be available.
 
 You should now see a prompt looking like
 
@@ -58,12 +56,28 @@ You can think of this prompt like a line in a ``do``-block of the
 two forms:
 
 1. An expression ``expr`` of type ``Script a`` for some type ``a``. This
-   will execute the script ignoring the result.
+   will execute the script and print the result if ``a`` is an
+   instance of ``Show`` and not ``()``.
 
-2. A binding of the form ``x <- expr`` where ``x`` is a variable name
-   and ``expr`` is an expression of type ``Script a``. This will
-   execute the script and bind the result to the variable ``x``. You
-   can then use ``x`` on subsequent lines.
+2. A pure expression ``expr`` of type ``a`` for some type ``a`` where
+   ``a`` is an instance of ``Show``. This will evaluate ``expr`` and
+   print the result. If you are only interest in pure expressions you
+   can also use DAML REPL :ref:`without connecting to a ledger
+   <repl-no-ledger>`.
+
+3. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
+   a variable name ``x`` to bind the result to
+   and ``expr`` is an expression of type ``Script a``.
+   This will execute the script and match the result against
+   the pattern ``pat`` bindings the matches to the variables in the pattern.
+   You can then use those variables on subsequent lines.
+
+4. A ``let`` binding of the form ``let pat = y``, where ``pat`` is a pattern
+   and ``y`` is a pure expression or ``let f x = y`` to define a function.
+   The bound variables can be used on subsequent lines.
+
+5. Next to DAML code the REPL also understands REPL commands which are prefixed
+   by ``:``. Enter ``:help`` to see a list of supported REPL commands.
 
 First create two parties: A party with the display name ``"Alice"``
 and the party id ``"alice"`` and a party with the display name
@@ -114,8 +128,60 @@ To exit ``daml repl`` press ``Control-D``.
 What is in scope at the prompt?
 ===============================
 
-In the prompt, all modules from the main dalf of the DAR passed to
-``daml repl`` are imported. In addition to that the ``Daml.Script``
-module is imported and gives you access to the DAML Script API.
+In the prompt, all modules from DALFs specified in ``--import`` are
+imported automatically. In addition to that, the ``DAML.Script``
+module is also imported and gives you access to the DAML Script API.
 
-At this point, it is not possible to import more modules.
+You can use the commands ``:module + ModA ModB …`` to import additional modules
+and ``:module - ModA ModB …`` to remove previously added imports. Modules can
+also be imported using regular import declarations instead of ``module +``.
+The command ``:show imports`` lists the currently active imports.
+
+.. code-block:: none
+
+   daml> import DA.Time
+   daml> debug (days 1)
+
+.. _repl-no-ledger:
+
+Using DAML REPL without a Ledger
+================================
+
+If you are only interested in pure expressions, e.g., because you want
+to test how some function behaves you can omit the ``--ledger-host``
+and ``-ledger-port`` parameters. DAML REPL will work as usual but any
+attempts to call DAML Script APIs that interact with the ledger, e.g.,
+``submit`` will result in the following error:
+
+.. code-block:: none
+
+    daml> java.lang.RuntimeException: No default participant
+
+Connecting via TLS
+==================
+
+You can connect to a ledger that requires TLS by passing ``--tls``.  A
+custom root certificate used for validating the server certificate can
+be set via ``--cacrt``. Finally, you can also enable client
+authentication by passing ``--pem client.key --crt client.crt``. If
+``--cacrt`` or ``--pem`` and ``--crt`` are passed TLS is automatically
+enabled so ``--tls`` is redundant.
+
+Connection to a Ledger with Authorization
+=========================================
+
+If your ledger requires an authorization token you can pass it via
+``--access-token-file``.
+
+Using DAML REPL to convert to JSON
+==================================
+
+Using the ``:json`` command you can encode serializable DAML expressions as
+JSON. For example using the definitions and imports from above:
+
+.. code-block:: none
+
+    daml> :json days 1
+    {"microseconds":86400000000}
+    daml> :json map snd coins
+    [{"issuer":"alice","owner":"bob"}]

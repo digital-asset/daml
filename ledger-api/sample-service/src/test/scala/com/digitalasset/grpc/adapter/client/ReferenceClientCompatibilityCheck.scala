@@ -1,12 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter.client
+package com.daml.grpc.adapter.client
 
-import com.digitalasset.grpc.adapter.utils.BufferingObserver
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloServiceStub
-import com.digitalasset.platform.hello.{HelloRequest, HelloResponse}
-import io.grpc.stub.StreamObserver
+import com.daml.grpc.adapter.utils.BufferingObserver
+import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
+import com.daml.platform.hello.{HelloRequest, HelloResponse}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 
@@ -30,27 +29,5 @@ trait ReferenceClientCompatibilityCheck extends ResultAssertions with ScalaFutur
 
       whenReady(observer.resultsF)(assertElementsAreInOrder(halfCount.toLong))
     }
-  }
-
-  private def checkClientStreamingSetup(
-      observer: BufferingObserver[HelloResponse],
-      reqObserver: StreamObserver[HelloRequest]) = {
-    for (i <- elemRange) {
-      reqObserver.onNext(HelloRequest(i))
-    }
-    reqObserver.onCompleted()
-
-    whenReady(observer.resultsF)(elementsAreSummed)
-  }
-
-  private def checkBidiSetup(
-      observer: BufferingObserver[HelloResponse],
-      reqObserver: StreamObserver[HelloRequest]) = {
-    for (i <- elemRange) {
-      reqObserver.onNext(HelloRequest(i))
-    }
-    reqObserver.onCompleted()
-
-    whenReady(observer.resultsF)(everyElementIsDoubled)
   }
 }

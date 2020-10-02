@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Transform.Options
@@ -48,7 +48,7 @@ keepModule TransformOptions{..} m = includeModuleFilter && excludeModuleFilter
     excludeModuleFilter = maybe True (not . moduleMatchesAny) to_excludeModules
 
     moduleMatchesAny :: [String] -> Bool
-    moduleMatchesAny ps = any (?== name) (map withSlashes ps)
+    moduleMatchesAny = any ((?== name) . withSlashes)
 
     withSlashes :: String -> String
     withSlashes = replace "." [pathSeparator]

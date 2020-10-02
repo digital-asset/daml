@@ -1,6 +1,5 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
 
 module DA.Daml.Assistant.Tests
     ( main
@@ -18,13 +17,13 @@ import System.Info.Extra (isWindows)
 import System.IO.Temp
 import System.IO.Extra
 import Data.List.Extra
+import DA.Test.Util
 import qualified Test.Tasty as Tasty
 import qualified Test.Tasty.HUnit as Tasty
 import qualified Test.Tasty.QuickCheck as Tasty
 import qualified Data.Text as T
 import Test.Tasty.QuickCheck ((==>))
 import Data.Maybe
-import Control.Exception.Safe
 import Control.Monad
 import Conduit
 import qualified Data.Conduit.Zlib as Zlib
@@ -32,32 +31,6 @@ import qualified Data.Conduit.Tar as Tar
 
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)
-
--- | Replace all environment variables for test action, then restore them.
--- Avoids System.Environment.setEnv because it treats empty strings as
--- "delete environment variable", unlike main-tester's withEnv which
--- consequently conflates (Just "") with Nothing.
-withEnv :: [(String, Maybe String)] -> IO t -> IO t
-withEnv vs m = bracket pushEnv popEnv (const m)
-    where
-        pushEnv :: IO [(String, Maybe String)]
-        pushEnv = do
-            oldEnv <- getEnvironment
-            let ks  = map fst vs
-                vs' = [(key, Nothing)  | (key, _) <- oldEnv, key `notElem` ks] ++ vs
-            replaceEnv vs'
-
-        popEnv :: [(String, Maybe String)] -> IO ()
-        popEnv vs' = void $ replaceEnv vs'
-
-        replaceEnv :: [(String, Maybe String)] -> IO [(String, Maybe String)]
-        replaceEnv vs' = do
-            forM vs' $ \(key, newVal) -> do
-                oldVal <- getEnv key
-                case newVal of
-                    Nothing -> unsetEnv key
-                    Just val -> setEnv key val True
-                pure (key, oldVal)
 
 main :: IO ()
 main = do
@@ -87,9 +60,16 @@ testGetDamlPath = Tasty.testGroup "DA.Daml.Assistant.Env.getDamlPath"
             withSystemTempDirectory "test-getDamlPath" $ \expected -> do
                 DamlPath got <- withEnv [(damlPathEnvVar, Just expected)] getDamlPath
                 Tasty.assertEqual "daml home path" expected got
-        , if isWindows
-            then testGetDamlPathWindows
-            else testGetDamlPathPosix
+    , Tasty.testCase "getDamlPath returns DAML_HOME (made absolute)" $ do
+            withSystemTempDirectory "test-getDamlPath" $ \dir -> do
+                let expected = dir </> "daml"
+                setCurrentDirectory dir
+                createDirectory expected
+                DamlPath got <- withEnv [(damlPathEnvVar, Just "daml")] getDamlPath
+                Tasty.assertEqual "daml home path" expected got
+    , if isWindows
+        then testGetDamlPathWindows
+        else testGetDamlPathPosix
     ]
 
 testGetDamlPathWindows :: Tasty.TestTree
@@ -121,6 +101,15 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             setCurrentDirectory dir
             createDirectory expected
             Just got <- withEnv [(projectPathEnvVar, Just expected)] getProjectPath
+            Tasty.assertEqual "project path" (ProjectPath expected) got
+            return ()
+
+    , Tasty.testCase "getProjectPath returns environment variable (made absolute)" $ do
+        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+            let expected = dir </> "project"
+            setCurrentDirectory dir
+            createDirectory expected
+            Just got <- withEnv [(projectPathEnvVar, Just "project")] getProjectPath
             Tasty.assertEqual "project path" (ProjectPath expected) got
             return ()
 
@@ -340,7 +329,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
     ]
 
 testAscendants :: Tasty.TestTree
-testAscendants = Tasty.testGroup "DA.Daml.Assistant.ascendants"
+testAscendants = Tasty.testGroup "DA.Daml.Project.Util.ascendants"
     [ Tasty.testCase "unit tests" $ do
         Tasty.assertEqual "empty path" ["."] (ascendants "")
         Tasty.assertEqual "curdir path" ["."] (ascendants ".")
@@ -362,7 +351,10 @@ testAscendants = Tasty.testGroup "DA.Daml.Assistant.ascendants"
                    head (ascendants p) == p)
     , Tasty.testProperty "tail . ascendants == ascendants . takeDirectory"
         (\p1 p2 -> let p = dropTrailingPathSeparator (p1 </> p2)
-                   in notNull p1 && notNull p2 && isRelative p2 ==>
+                   in notNull p1 && notNull p2 && p1 </> p2 /= p2 ==>
+                      -- We use `p1 </> p2 /= p2` instead of `isRelative p2`
+                      -- because, on Windows, `isRelative "\\foo" == True`,
+                      -- while `x </> "\\foo" = "\\foo"`.
                       tail (ascendants p) == ascendants (takeDirectory p))
     ]
 
@@ -373,8 +365,9 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
             let damlPath = DamlPath (base </> "daml")
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iSnapshots = False
                     , iAssistant = InstallAssistant Yes
-                    , iActivate = ActivateInstall True
+                    , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     , iSetPath = SetPath False
@@ -386,7 +379,7 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
             createDirectoryIfMissing True "source"
             createDirectoryIfMissing True ("source" </> "daml")
             writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
-            -- daml / daml.exe "binary" for --activate
+            -- daml / daml.exe "binary" for --install-assistant=yes
             writeFileUTF8 ("source" </> "daml" </> if isWindows then "daml.exe" else "daml") ""
 
             runConduitRes $
@@ -408,8 +401,9 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                   let damlPath = DamlPath (base </> "daml")
                       options = InstallOptions
                           { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                          , iSnapshots = False
                           , iAssistant = InstallAssistant Yes
-                          , iActivate = ActivateInstall True
+                          , iActivate = ActivateInstall False
                           , iQuiet = QuietInstall True
                           , iForce = ForceInstall False
                           , iSetPath = SetPath False
@@ -421,7 +415,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                   createDirectoryIfMissing True "source"
                   createDirectoryIfMissing True ("source" </> "daml")
                   writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
-                  writeFileUTF8 ("source" </> "daml" </> "daml") "" -- daml "binary" for --activate
+                  writeFileUTF8 ("source" </> "daml" </> "daml") "" -- daml "binary" for --install-assistant=yes
                   createSymbolicLink ("daml" </> "daml") ("source" </> "daml-link")
                       -- check if symbolic links are handled correctly
 
@@ -438,6 +432,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
             let damlPath = DamlPath (base </> "daml")
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iSnapshots = False
                     , iAssistant = InstallAssistant No
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
@@ -468,6 +463,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
             let damlPath = DamlPath (base </> "daml")
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iSnapshots = False
                     , iAssistant = InstallAssistant No
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
@@ -492,6 +488,42 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target escapes tarball."
                 (install options damlPath Nothing Nothing)
+
+    , Tasty.testCase "check that relative symlink is used in installation" $ do
+        withSystemTempDirectory "test-install" $ \ base -> do
+            let damlPath = DamlPath (base </> "daml")
+                options = InstallOptions
+                    { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iSnapshots = False
+                    , iAssistant = InstallAssistant Yes
+                    , iActivate = ActivateInstall False
+                    , iQuiet = QuietInstall True
+                    , iForce = ForceInstall False
+                    , iSetPath = SetPath False
+                    , iBashCompletions = BashCompletions No
+                    , iZshCompletions = ZshCompletions No
+                    }
+
+            setCurrentDirectory base
+            createDirectoryIfMissing True "source"
+            createDirectoryIfMissing True ("source" </> "daml")
+            writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
+            -- daml / daml.exe "binary" for --install-assistant=yes
+            writeFileUTF8 ("source" </> "daml" </> "daml") "secret"
+
+            runConduitRes $
+                yield "source"
+                .| void Tar.tarFilePath
+                .| Zlib.gzip
+                .| sinkFile "source.tar.gz"
+
+            install options damlPath Nothing Nothing
+            renamePath "daml" "daml2"
+            x <- readFileUTF8 ("daml2" </> "bin" </> "daml")
+                -- ^ this will fail if the symlink created for
+                -- $DAML_HOME/bin/daml was absolute instead of
+                -- relative.
+            Tasty.assertEqual "Binary should be the same after moving." x "secret"
     ]
 
 testInstallWindows :: Tasty.TestTree

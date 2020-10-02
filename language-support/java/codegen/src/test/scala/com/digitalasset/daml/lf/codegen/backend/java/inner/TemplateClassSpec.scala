@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import java.util.Optional
 
@@ -12,7 +12,6 @@ import org.scalatest.{FlatSpec, Matchers, OptionValues, TryValues}
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues with TryValues {
 
   behavior of "TemplateClass.generateFromIdAndRecord"

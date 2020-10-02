@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 package binding
 package encoding
 
@@ -21,7 +21,7 @@ import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.api.v1.{value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import binding.{Primitive => P}
 

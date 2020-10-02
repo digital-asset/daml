@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -13,12 +13,13 @@ TEST_FILES = \
         "DontDiscloseNonConsumingExercisesToObservers",
         "LargeTransaction",
         "ConjunctionChoices",
+        "ContractKeys",
     ]
 
 [
     daml_compile(
         name = name,
-        main_src = "%s.daml" % name,
+        srcs = ["%s.daml" % name],
         visibility = ["//daml-lf:__subpackages__"],
     )
     for name in TEST_FILES
@@ -26,7 +27,7 @@ TEST_FILES = \
 
 daml_compile(
     name = "Optional",
-    main_src = "Optional.daml",
+    srcs = ["Optional.daml"],
     visibility = ["//daml-lf:__subpackages__"],
 )
 
@@ -54,7 +55,7 @@ daml_compile(
 
 [
     sh_test(
-        name = "test-scenario-1-dev-" + file.split("/")[2],
+        name = "test-scenario-stable-" + file.split("/")[2],
         size = "medium",
         srcs = ["scenario/test.sh"],
         args = [
@@ -62,6 +63,7 @@ daml_compile(
             "$(location //compiler/damlc)",
             "$(location :%s)" % file,
             "$(POSIX_DIFF)",
+            "false",
         ],
         data = [
             "//compiler/damlc",
@@ -76,5 +78,33 @@ daml_compile(
             "@bazel_tools//tools/bash/runfiles",
         ],
     )
-    for file in glob(["scenario/daml-1.dev/*/Test.daml"])
+    for file in glob(["scenario/stable/*/Test.daml"])
+]
+
+[
+    sh_test(
+        name = "test-scenario-dev-" + file.split("/")[2],
+        size = "medium",
+        srcs = ["scenario/test.sh"],
+        args = [
+            "$(location //daml-lf/repl:repl)",
+            "$(location //compiler/damlc)",
+            "$(location :%s)" % file,
+            "$(POSIX_DIFF)",
+            "true",
+        ],
+        data = [
+            "//compiler/damlc",
+            "//daml-lf/repl",
+            file,
+            "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
+        ],
+        toolchains = [
+            "@rules_sh//sh/posix:make_variables",
+        ],
+        deps = [
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+    )
+    for file in glob(["scenario/dev/*/Test.daml"])
 ]

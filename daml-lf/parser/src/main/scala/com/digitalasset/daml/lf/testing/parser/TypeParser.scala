@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.testing.parser.Parsers._
-import com.digitalasset.daml.lf.testing.parser.Token._
+import com.daml.lf.data
+import com.daml.lf.data.{ImmArray, Ref, Struct}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.testing.parser.Parsers._
+import com.daml.lf.testing.parser.Token._
 
 private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
 
@@ -51,13 +51,13 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     })
 
   private lazy val tForall: Parser[Type] =
-    `forall` ~>! rep1(typeBinder) ~ `.` ~ typ ^^ { case bs ~ _ ~ t => (bs :\ t)(TForall) }
+    `forall` ~>! rep1(typeBinder) ~ `.` ~ typ ^^ { case bs ~ _ ~ t => (bs foldRight t)(TForall) }
 
   private lazy val fieldType: Parser[(FieldName, Type)] =
     id ~ `:` ~ typ ^^ { case name ~ _ ~ t => name -> t }
 
   private lazy val tStruct: Parser[Type] =
-    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(ImmArray(fs)))
+    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(Struct.assertFromSeq(fs)))
 
   private lazy val tTypeSynApp: Parser[Type] =
     `|` ~> fullIdentifier ~ rep(typ0) <~ `|` ^^ { case id ~ tys => TSynApp(id, ImmArray(tys)) }

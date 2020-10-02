@@ -1,11 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql.queries
 
-import java.sql.Connection
+import java.io.InputStream
+import java.sql.{Blob, Connection, PreparedStatement}
 
-import anorm.{BatchSql, NamedParameter}
+import anorm.{
+  BatchSql,
+  Column,
+  MetaDataItem,
+  NamedParameter,
+  RowParser,
+  SqlMappingError,
+  SqlParser,
+  SqlRequestError,
+  ToStatement
+}
+import com.google.protobuf.ByteString
 
 trait Queries extends ReadQueries with WriteQueries
 
@@ -27,4 +39,24 @@ object Queries {
       BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
     ()
   }
+
+  implicit val byteStringToStatement: ToStatement[ByteString] =
+    (s: PreparedStatement, index: Int, v: ByteString) =>
+      s.setBinaryStream(index, v.newInput(), v.size())
+
+  implicit val columnToByteString: Column[ByteString] =
+    Column.nonNull { (value: Any, meta: MetaDataItem) =>
+      value match {
+        case blob: Blob => Right(ByteString.readFrom(blob.getBinaryStream))
+        case byteArray: Array[Byte] => Right(ByteString.copyFrom(byteArray))
+        case inputStream: InputStream => Right(ByteString.readFrom(inputStream))
+        case _ =>
+          Left[SqlRequestError, ByteString](
+            SqlMappingError(s"Cannot convert value of column ${meta.column} to ByteString"))
+      }
+    }
+
+  def getBytes(columnName: String): RowParser[ByteString] =
+    SqlParser.get(columnName)(columnToByteString)
+
 }

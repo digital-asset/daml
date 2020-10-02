@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.util
+package com.daml.http.util
 
-import com.digitalasset.daml.lf
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
-import com.digitalasset.http
+import com.daml.lf
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => lav1}
+import com.daml.http
 
 object IdentifierConverters {
 
@@ -50,6 +50,6 @@ object IdentifierConverters {
   def refApiIdentifier(a: http.domain.TemplateId.RequiredPkg): lar.TemplateId =
     lar.TemplateId(apiIdentifier(a))
 
-  def apiLedgerId(a: com.digitalasset.ledger.api.domain.LedgerId): lar.LedgerId =
-    lar.LedgerId(com.digitalasset.ledger.api.domain.LedgerId.unwrap(a))
+  def apiLedgerId(a: com.daml.ledger.api.domain.LedgerId): lar.LedgerId =
+    lar.LedgerId(com.daml.ledger.api.domain.LedgerId.unwrap(a))
 }

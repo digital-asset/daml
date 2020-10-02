@@ -1,31 +1,30 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset
+package com.daml
 
 import java.io.File
-import java.time.Instant
-import java.util.UUID
+import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
+import java.util.{Optional, UUID}
 
-import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data._
-import com.daml.ledger.participant.state.v1.TimeModel
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
   GetLedgerEndRequest,
   GetTransactionsResponse
 }
-import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxServer
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxClientResource
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
+import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
+import com.daml.ledger.javaapi.data
+import com.daml.ledger.javaapi.data._
+import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox
+import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.Assertion
@@ -44,17 +43,16 @@ object TestUtil {
   def withClient(testCode: Channel => Assertion)(
       implicit executionContext: ExecutionContext
   ): Future[Assertion] = {
-    val config = SandboxConfig.default.copy(
+    val config = sandbox.DefaultConfig.copy(
       port = Port.Dynamic,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = Some(TimeProviderType.WallClock),
-      timeModel = TimeModel.reasonableDefault,
     )
 
     val channelOwner = for {
       server <- SandboxServer.owner(config)
-      channel <- SandboxClientResource.owner(server.port)
+      channel <- GrpcClientResource.owner(server.port)
     } yield channel
     channelOwner.use(channel => Future(testCode(channel)))
   }
@@ -82,8 +80,9 @@ object TestUtil {
               randomId,
               randomId,
               Alice,
-              Instant.now,
-              Instant.now.plusSeconds(10),
+              Optional.empty[Instant],
+              Optional.empty[Duration],
+              Optional.empty[Duration],
               cmds.asJava))
           .build)
   }

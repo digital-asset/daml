@@ -1,7 +1,6 @@
 import sbt._
 
 import Versions._
-import Artifactory._
 
 version in ThisBuild := "0.0.1"
 scalaVersion in ThisBuild := "2.12.8"
@@ -21,7 +20,7 @@ lazy val application = project
   .settings(
     name := "application",
     commonSettings,
-    libraryDependencies ++= applicationDependencies,
+    libraryDependencies ++= applicationDependencies
   )
 
 lazy val commonSettings = Seq(
@@ -34,11 +33,12 @@ lazy val commonSettings = Seq(
     "-Xfuture",
     "-Xlint:_,-unused"
   ),
-  resolvers ++= daResolvers,
-  classpathTypes += "maven-plugin",
+  // uncomment next line, if you have to build against local maven repository
+  // resolvers += Resolver.mavenLocal,
+  classpathTypes += "maven-plugin"
 )
 
 lazy val applicationDependencies = Seq(
-  "com.daml.scala" %% "bindings" % daSdkVersion,
-  "com.daml.scala" %% "bindings-akka" % daSdkVersion,
+  "com.daml" %% "bindings-scala" % daSdkVersion,
+  "com.daml" %% "bindings-akka" % daSdkVersion
 )

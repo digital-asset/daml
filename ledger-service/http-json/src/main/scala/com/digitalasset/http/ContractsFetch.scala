@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.{
@@ -17,22 +17,22 @@ import akka.stream.scaladsl.{
   Source,
 }
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.dbbackend.ContractDao.StaleOffsetException
-import com.digitalasset.http.dbbackend.{ContractDao, Queries}
-import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
-import com.digitalasset.http.domain.TemplateId
-import com.digitalasset.http.LedgerClientJwt.Terminates
-import com.digitalasset.http.util.ApiValueToLfValueConverter.apiValueToLfValue
-import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
+import com.daml.scalautil.Statement.discard
+import com.daml.http.dbbackend.ContractDao.StaleOffsetException
+import com.daml.http.dbbackend.{ContractDao, Queries}
+import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
+import com.daml.http.domain.TemplateId
+import com.daml.http.LedgerClientJwt.Terminates
+import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
+import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue,
 }
-import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
+import com.daml.http.util.IdentifierConverters.apiIdentifier
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
-import com.digitalasset.util.ExceptionOps._
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.util.ExceptionOps._
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.{v1 => lav1}
 import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 import doobie.postgres.sqlstate.{class23 => postgres_class23}
@@ -52,7 +52,6 @@ private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     getTermination: LedgerClientJwt.GetTermination,
-    lookupType: query.ValuePredicate.TypeLookup,
 )(implicit dblog: doobie.LogHandler)
     extends StrictLogging {
 
@@ -126,7 +125,6 @@ private class ContractsFetch(
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $ob0): $offset1")
     } yield offset1
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent,
   ): Exception \/ PreInsertContract = {
@@ -151,14 +149,12 @@ private class ContractsFetch(
       )
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def jsonifyInsertDeleteStep(
       a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
   ): InsertDeleteStep[Unit, PreInsertContract] =
     a.leftMap(_ => ())
       .mapPreservingIds(prepareCreatedEventStorage(_) valueOr (e => throw e))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contractsFromOffsetIo(
       jwt: Jwt,
       party: domain.Party,
@@ -296,8 +292,10 @@ private[http] object ContractsFetch {
       /** Several of the graphs here have a second output guaranteed to deliver only one value.
         * This turns such a graph into a flow with the value materialized.
         */
-      def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] =
-        divertToMat(Sink.head)(Keep.right[M, Future[Z]])
+      def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] = {
+        type CK[-T] = (T, Future[Z]) => Future[Z]
+        divertToMat(Sink.head)(noM.subst[CK](Keep.right[NotUsed, Future[Z]]))
+      }
     }
   }
 
@@ -338,7 +336,7 @@ private[http] object ContractsFetch {
     * the ACS graph, if desired.  Deliberately matching output shape
     * to `acsFollowingAndBoundary`.
     */
-  private def transactionsFollowingBoundary(
+  private[http] def transactionsFollowingBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
   ): Graph[
     FanOutShape2[

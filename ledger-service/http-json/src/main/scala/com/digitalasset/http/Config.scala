@@ -1,16 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.io.File
-import java.net.InetAddress
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
-import com.digitalasset.util.ExceptionOps._
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.util.ExceptionOps._
+import com.daml.ledger.api.tls.TlsConfiguration
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}
@@ -18,20 +17,24 @@ import scalaz.{Show, \/}
 import scala.concurrent.duration._
 import scala.util.Try
 
+// The internal transient scopt structure *and* StartSettings; external `start`
+// users should extend StartSettings or DefaultStartSettings themselves
 private[http] final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
-    address: String = InetAddress.getLoopbackAddress.getHostAddress,
+    address: String = com.daml.cliopts.Http.defaultAddress,
     httpPort: Int,
-    applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
+    portFile: Option[Path] = None,
     packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
+    packageMaxInboundMessageSize: Option[Int] = None,
     maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
+    tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
+    allowNonHttps: Boolean = false,
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
-    defaultTtl: FiniteDuration = HttpService.DefaultTimeToLive
-)
+) extends HttpService.StartSettings
 
 private[http] object Config {
   import scala.language.postfixOps
@@ -63,12 +66,10 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalBooleanField(m: Map[String, String])(
       k: String): Either[String, Option[Boolean]] =
     m.get(k).traverse(v => parseBoolean(k)(v)).toEither
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
     m.get(k).traverse(v => parseLong(k)(v)).toEither
 

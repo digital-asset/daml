@@ -1,22 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
 import java.io._
 
-import com.digitalasset.codegen.types.Namespace
-import com.digitalasset.daml.lf.archive.{Dar, UniversalArchiveReader}
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.iface.{Type => _, _}
-import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
-import com.digitalasset.codegen.dependencygraph._
-import com.digitalasset.codegen.exception.PackageInterfaceException
+import com.daml.codegen.types.Namespace
+import com.daml.lf.archive.{Dar, UniversalArchiveReader}
+import com.daml.lf.iface
+import com.daml.lf.data.Ref
+import com.daml.lf.iface.{Type => _, _}
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.codegen.dependencygraph._
+import com.daml.codegen.exception.PackageInterfaceException
 import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.Ref._
+import com.daml.lf.iface.reader.Errors.ErrorLoc
+import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
@@ -101,7 +101,7 @@ object CodeGen {
       files: NonEmptyList[File]): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
     val reader = UniversalArchiveReader()
     val parse: File => String \/ Dar[Payload] = parseFile(reader)
-    files.traverseU(f => decodeInterface(parse)(f).validationNel)
+    files.traverse(f => decodeInterface(parse)(f).validationNel)
   }
 
   private def parseFile(reader: UniversalArchiveReader[Payload])(f: File): String \/ Dar[Payload] =
@@ -118,7 +118,7 @@ object CodeGen {
 
   private def decodeInterface(dar: Dar[Payload]): String \/ EnvironmentInterface = {
     import scalaz.syntax.traverse._
-    dar.traverseU(decodeInterface).map(combineInterfaces)
+    dar.traverse(decodeInterface).map(combineInterfaces)
   }
 
   private def decodeInterface(p: Payload): String \/ Interface =
@@ -245,7 +245,7 @@ object CodeGen {
   ) = {
 
     val (recordAndVariants, enums) = partitionEithers(definitions map {
-      case sdt @ ScopedDataType(qualName, typeVars, ddt) =>
+      case sdt @ ScopedDataType(_, _, ddt) =>
         ddt match {
           case r: Record[RT] =>
             Left(Left(sdt copy (dataType = r)))
@@ -284,13 +284,11 @@ object CodeGen {
       }(breakOut)
 
     val noDeletion = Set.empty[(Identifier, List[Ref.Name])]
-    // both traverseU can change to traverse with -Ypartial-unification
-    // or Scala 2.13
     val (deletedRecords, newVariants) =
-      variants.toList.traverseU {
+      variants.toList.traverse {
         case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
           val typeVarDelegate = Util simplyDelegates vTypeVars
-          val (deleted, sdt) = fields.traverseU {
+          val (deleted, sdt) = fields.traverse {
             case (vn, vt) =>
               val syntheticRecord = Identifier(
                 packageId,

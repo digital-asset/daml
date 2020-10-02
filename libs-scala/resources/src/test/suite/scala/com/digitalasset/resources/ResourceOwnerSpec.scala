@@ -1,14 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.{Executors, RejectedExecutionException}
 import java.util.{Timer, TimerTask}
 
-import com.digitalasset.resources.FailingResourceOwner.FailingResourceFailedToOpen
+import com.daml.resources.FailingResourceOwner.FailingResourceFailedToOpen
 import org.scalatest.{AsyncWordSpec, Matchers}
+import com.github.ghik.silencer.silent
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
@@ -174,6 +175,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val ownerA = TestResourceOwner(99)
       val ownerB = TestResourceOwner(100)
 
+      @silent(" resourceA .* is never used") // stray reference inserted by withFilter
       val resource = for {
         resourceA <- ownerA.acquire()
         if false

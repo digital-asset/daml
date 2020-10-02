@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Querying the Navigator local database
@@ -59,3 +59,4 @@ Filter on the content of an array if the index is specified::
 Filter on the content of an array if the index is not specified::
 
     sql select contract.id from contract, json_tree(contract.value) where atom is not null and json_tree.path like '$.template.choices[%]' and json_tree.value ='Accept'
+ 

@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api
+package com.daml.ledger.api
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain._
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.api.v1.value.Value
-import com.digitalasset.ledger.api.v1.value.Value.Sum
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain._
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.api.v1.value.Value
+import com.daml.ledger.api.v1.value.Value.Sum
 
 object DomainMocks {
 
@@ -38,7 +38,7 @@ object DomainMocks {
     private val invalidPartyString = "p@rty"
     val invalidApiParty = Value(Sum.Party(invalidPartyString))
     val invalidPartyMsg =
-      """Invalid argument: non expected character 0x40 in "p@rty""""
+      """Invalid argument: non expected character 0x40 in DAML LF Party "p@rty""""
   }
 
 }

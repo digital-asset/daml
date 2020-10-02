@@ -1,19 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.config
+package com.daml.navigator.config
 
 import java.nio.file.{Files, Path}
 import java.nio.file.StandardOpenOption._
 
-import com.digitalasset.assistant.config.{
+import com.daml.assistant.config.{
   ConfigMissing => SdkConfigMissing,
   ConfigLoadError => SdkConfigLoadError,
   ConfigParseError => SdkConfigParseError,
   ProjectConfig
 }
-import com.digitalasset.navigator.model.PartyState
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model.PartyState
+import com.daml.ledger.api.refinements.ApiTypes
+import com.github.ghik.silencer.silent
 import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import org.slf4j.LoggerFactory
 import pureconfig.{ConfigConvert, ConfigWriter}
@@ -22,12 +23,11 @@ import scalaz.Tag
 final case class UserConfig(password: Option[String], party: PartyState, role: Option[String])
 
 /* The configuration has an empty map as default list of users because you can login as party too */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 final case class Config(users: Map[String, UserConfig] = Map.empty[String, UserConfig]) {
 
   def userIds: Set[String] = users.keySet
 
-  def roles: Set[String] = users.values.flatMap(_.role)(collection.breakOut)
+  def roles: Set[String] = users.values.flatMap(_.role.toList)(collection.breakOut)
   def parties: Set[PartyState] = users.values.map(_.party)(collection.breakOut)
 }
 
@@ -45,7 +45,6 @@ sealed abstract class ConfigOption {
 final case class DefaultConfig(path: Path) extends ConfigOption
 final case class ExplicitConfig(path: Path) extends ConfigOption
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Option2Iterable"))
 object Config {
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
@@ -71,10 +70,9 @@ object Config {
   def loadNavigatorConfig(
       configFile: Path,
       useDatabase: Boolean): Either[ConfigReadError, Config] = {
-    implicit val partyConfigConvert: ConfigConvert[PartyState] =
-      ConfigConvert.viaNonEmptyString[PartyState](
-        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-        t => Tag.unwrap(t.name))
+    @silent(" partyConfigConvert .* is never used") // false positive; macro uses aren't seen
+    implicit val partyConfigConvert: ConfigConvert[PartyState] = mkPartyConfigConvert(
+      useDatabase = useDatabase)
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
@@ -127,10 +125,9 @@ object Config {
       ))
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
-    implicit val partyConfigConvert: ConfigConvert[PartyState] =
-      ConfigConvert.viaNonEmptyString[PartyState](
-        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-        t => Tag.unwrap(t.name))
+    @silent(" partyConfigConvert .* is never used") // false positive; macro uses aren't seen
+    implicit val partyConfigConvert: ConfigConvert[PartyState] = mkPartyConfigConvert(
+      useDatabase = useDatabase)
     val config = ConfigWriter[Config].to(template(useDatabase))
     val cro = ConfigRenderOptions
       .defaults()
@@ -141,4 +138,9 @@ object Config {
     Files.write(configFile, config.render(cro).getBytes, CREATE_NEW)
     ()
   }
+
+  private[this] def mkPartyConfigConvert(useDatabase: Boolean): ConfigConvert[PartyState] =
+    ConfigConvert.viaNonEmptyString[PartyState](
+      str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
+      t => Tag.unwrap(t.name))
 }

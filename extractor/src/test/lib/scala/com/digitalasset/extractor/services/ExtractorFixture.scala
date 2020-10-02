@@ -1,18 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.services
+package com.daml.extractor.services
 
 import cats.effect.{ContextShift, IO}
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.extractor.Extractor
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.extractor.targets.PostgreSQLTarget
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.ports.Port
-import com.digitalasset.testing.postgresql.PostgresAround
+import com.daml.extractor.Extractor
+import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.daml.extractor.targets.PostgreSQLTarget
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.lf.data.Ref.Party
+import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.ports.Port
+import com.daml.testing.postgresql.{PostgresAround, PostgresAroundSuite}
 import doobie._
 import doobie.implicits._
 import doobie.util.transactor.Transactor.Aux
@@ -22,7 +22,7 @@ import scalaz.OneAnd
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
-trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
+trait ExtractorFixture extends SandboxFixture with PostgresAroundSuite with Types {
   self: Suite =>
 
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
@@ -49,9 +49,9 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected def configureExtractor(ec: ExtractorConfig): ExtractorConfig = ec
 
   protected def target: PostgreSQLTarget = PostgreSQLTarget(
-    connectUrl = postgresFixture.jdbcUrl,
-    user = "test",
-    password = "",
+    connectUrl = postgresDatabase.url,
+    user = postgresDatabase.userName,
+    password = postgresDatabase.password,
     outputFormat = outputFormat,
     schemaPerPackage = false,
     mergeIdentical = false,

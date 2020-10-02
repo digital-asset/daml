@@ -1,19 +1,14 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Evaluate
--- @INFO Evaluate
--- @INFO Use null
--- @INFO Use null
--- @INFO Use null
--- @INFO Use isNone
--- @INFO Use isNone
-
+-- @INFO range=36:9-36:17; Evaluate
+-- @INFO range=50:2-50:12; Evaluate
 
 module Text where
 
 import DA.Text as T
 import DA.Assert
+import DA.Optional
 
 testExplode = scenario do
   ["a", "b", "c"] === explode "abc"
@@ -58,7 +53,7 @@ testUnwords = scenario do
 testLinesBy = scenario do
     assert $ linesBy (== "a") "aabbaca"  == ["","","bb","c"]
     assert $ linesBy (== "a") "aabbacaa" == ["","","bb","c",""]
-    assert $ linesBy (== "a") ""         == []
+    assert $ null $ linesBy (== "a") ""
     assert $ linesBy (== "a") "a"        == [""]
     assert $ linesBy (== ":") "::xyz:abc::123::" == ["","","xyz","abc","","123",""]
     assert $ linesBy (== ",") "my,list,here" == ["my","list","here"]
@@ -66,8 +61,8 @@ testLinesBy = scenario do
 testWordsBy = scenario do
     assert $ wordsBy (== "a") "aabbaca"  == ["bb","c"]
     assert $ wordsBy (== "a") "aabbacaa" == ["bb","c"]
-    assert $ wordsBy (== "a") ""         == []
-    assert $ wordsBy (== "a") "a"        == []
+    assert $ null $ wordsBy (== "a") ""
+    assert $ null $ wordsBy (== "a") "a"
     assert $ wordsBy (== ":") "::xyz:abc::123::" == ["xyz","abc","123"]
     assert $ wordsBy (== ",") "my,list,here" == ["my","list","here"]
 
@@ -89,12 +84,12 @@ testDropSuffix = scenario do
 testStripSuffix = scenario do
     assert $ stripSuffix "bar" "foobar" == Some "foo"
     assert $ stripSuffix ""    "baz"    == Some "baz"
-    assert $ stripSuffix "foo" "quux"   == None
+    assert $ isNone $ stripSuffix "foo" "quux"
 
 testStripPrefix = scenario do
     assert $ stripPrefix "foo" "foobar" == Some "bar"
     assert $ stripPrefix ""    "baz"    == Some "baz"
-    assert $ stripPrefix "foo" "quux"   == None
+    assert $ isNone $ stripPrefix "foo" "quux"
 
 testIsPrefixOf = scenario do
   True === isPrefixOf "ab" "abcdef"
@@ -144,6 +139,10 @@ testSplitOn = scenario do
   [""] === T.splitOn "" ""
   ["", "", ""] === T.splitOn "." ".."
   ["1", "2", ",3"] === T.splitOn ",," "1,,2,,,3"
+  ["", "a"] === T.splitOn "aa" "aaa"
+  ["", ""] === T.splitOn "aa" "aa"
+  ["", "a"] === T.splitOn "aa" "aaa"
+  ["", "", ""] === T.splitOn "aa" "aaaa"
 
 testSplitAt = scenario do
   ("", "test") === T.splitAt 0 "test"
@@ -303,3 +302,7 @@ testNuls = scenario do
   T.reverse "\0\1\2\3" === "\3\2\1\0"
   parseInt (T.drop 1 "\0\&123") === Some 123
   T.splitOn "\0" "Hello\0World" === ["Hello","World"]
+
+testCodePoints = scenario do
+    T.toCodePoints "Hello" === [72, 101, 108, 108, 111]
+    T.fromCodePoints [87, 111, 114, 108, 100] === "World"

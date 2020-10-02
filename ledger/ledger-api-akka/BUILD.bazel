@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
@@ -26,7 +26,7 @@ proto_gen(
 da_scala_library(
     name = "ledger-api-akka",
     srcs = [":ledger-api-akka-srcs"],
-    tags = ["maven_coordinates=com.digitalasset.ledger-api:ledger-api-akka:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

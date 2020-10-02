@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- PRAGMA_BEGIN
@@ -6,7 +6,10 @@
 module Intro.Asset.Role where
 -- PRAGMA_END
 
+
+-- IMPORT_BEGIN
 import Intro.Asset
+-- IMPORT_END
 
 template AssetHolderInvite
   with

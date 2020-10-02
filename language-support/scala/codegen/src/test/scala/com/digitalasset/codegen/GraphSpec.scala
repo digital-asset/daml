@@ -1,23 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.codegen.dependencygraph._
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.daml.codegen.dependencygraph._
 
 import org.scalatest.{FlatSpec, Matchers}
 import dependencygraph.Graph._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class GraphSpec extends FlatSpec with Matchers {
 
-  private[this] def intQualifiedName(i: Int): QualifiedName = {
-    val si = i.toString.replace('-', '_')
-    QualifiedName.assertFromString(s"M$si:E$si")
-  }
-
-  def intNode(contentAndId: Int, deps: List[Int] = List.empty[Int]): (Int, BaseNode[Int, Int]) =
+  private[this] def intNode(
+      contentAndId: Int,
+      deps: List[Int] = List.empty[Int]): (Int, BaseNode[Int, Int]) =
     contentAndId -> Node(contentAndId, deps, true)
 
   private[this] def orderedDependencies[K, A](

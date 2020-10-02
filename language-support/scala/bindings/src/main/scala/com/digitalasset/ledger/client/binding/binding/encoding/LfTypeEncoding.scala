@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 package encoding
 
 import scala.language.higherKinds
 import scalaz.{OneAnd, Plus}
 import scalaz.syntax.foldable1._
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.api.v1.{value => rpcvalue}
 
 /** A backend for accumulating well-typed information about DAML-LF ADTs
   * (records, variants, and templates) into encodings of those ADTs.
@@ -51,7 +51,6 @@ trait LfTypeEncoding {
   def fields[A](fi: Field[A]): RecordFields[A]
 
   /** Convenient wrapper for `enum` and iterated `VariantCase.plus`. */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def enumAll[A](
       enumId: rpcvalue.Identifier,
       index: A => Int,
@@ -62,7 +61,6 @@ trait LfTypeEncoding {
   def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A]
 
   /** Convenient wrapper for `variant` and iterated `VariantCase.plus`. */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   final def variantAll[A](
       variantId: rpcvalue.Identifier,
       case0: VariantCases[A],
@@ -146,15 +144,12 @@ object LfTypeEncoding {
         fst.variantCase(caseName, o._1)(inject)(select),
         snd.variantCase(caseName, o._2)(inject)(select))
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val RecordFields: InvariantApply[RecordFields] =
       fst.RecordFields product snd.RecordFields
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val VariantCases: Plus[VariantCases] =
       fst.VariantCases product snd.VariantCases
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val primitive: ValuePrimitiveEncoding[Out] =
       ValuePrimitiveEncoding.product(fst.primitive, snd.primitive)
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -87,8 +87,8 @@ export default class Popover extends React.Component<Props, {}> {
   private onClickDocument: (e: MouseEvent) => void
     = (e) => this.handleDocumentClick(e);
 
-  constructor() {
-    super();
+  constructor(props: Props) {
+    super(props);
   }
 
   componentDidMount() {

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -10,9 +10,9 @@ load(
 
 da_scala_library(
     name = "ledger-api-auth",
-    srcs = glob(["src/main/scala/com/digitalasset/ledger/api/auth/**/*.scala"]),
+    srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-auth:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-auth:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -22,9 +22,8 @@ da_scala_library(
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "//ledger-service/jwt",
         "//ledger/ledger-api-common",
-        "//libs-scala/direct-execution-context",
+        "//libs-scala/concurrent",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",
         "@maven//:io_spray_spray_json_2_12",
@@ -36,22 +35,14 @@ da_scala_library(
 
 da_scala_binary(
     name = "ledger-api-auth-bin",
-    srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.ledger.api.auth.Main",
+    srcs = glob(["src/app/scala/**/*.scala"]),
+    main_class = "com.daml.ledger.api.auth.Main",
     deps = [
-        "//daml-lf/data",
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        ":ledger-api-auth",
         "//ledger-service/jwt",
         "//ledger/ledger-api-common",
-        "//libs-scala/direct-execution-context",
-        "@maven//:com_auth0_java_jwt",
         "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_context",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -64,4 +55,10 @@ da_scala_test_suite(
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
+)
+
+filegroup(
+    name = "sources",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = ["//visibility:public"],
 )

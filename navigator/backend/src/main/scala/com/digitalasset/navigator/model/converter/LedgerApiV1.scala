@@ -1,25 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model.converter
+package com.daml.navigator.model.converter
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.LawlessTraversals._
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.ledger.api.{v1 => V1}
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.api.validation.ValueValidator.{validateRecord, validateValue}
-import com.digitalasset.navigator.{model => Model}
-import com.digitalasset.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
-import com.digitalasset.platform.participant.util.LfEngineToApi.{
-  lfValueToApiRecord,
-  lfValueToApiValue
-}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.LawlessTraversals._
+import com.daml.lf.iface
+import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.{Value => V}
+import com.daml.ledger.api.{v1 => V1}
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.validation.ValueValidator.{validateRecord, validateValue}
+import com.daml.navigator.{model => Model}
+import com.daml.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
+import com.daml.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue}
 
-import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code.Code
 import scalaz.Tag
 import scalaz.syntax.bifunctor._
@@ -30,7 +27,6 @@ import scalaz.std.option._
 
 import scala.util.control.NoStackTrace
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
   // Types
@@ -144,7 +140,7 @@ case object LedgerApiV1 {
       eventsById: Map[String, V1.transaction.TreeEvent],
       ctx: Context,
       workflowId: ApiTypes.WorkflowId,
-      parentId: Option[ApiTypes.EventId] = None
+      parentId: Option[ApiTypes.EventId],
   ): Result[List[Model.Event]] = {
     event match {
       case V1.transaction.TreeEvent(V1.transaction.TreeEvent.Kind.Created(ev)) =>
@@ -191,7 +187,7 @@ case object LedgerApiV1 {
       arguments <- Converter.checkExists("CreatedEvent.arguments", event.createArguments)
       arg <- readRecordArgument(arguments, templateIdentifier, ctx)
       keyResult = event.contractKey
-        .traverseU(k => readArgument(k, template.key.get, ctx))
+        .traverse(k => readArgument(k, template.key.get, ctx))
       key <- keyResult
     } yield
       Model.ContractCreated(
@@ -315,7 +311,7 @@ case object LedgerApiV1 {
           Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
       }
-      values <- list.values traverseU (fillInTypeInfo(_, elementType, ctx))
+      values <- list.values traverse (fillInTypeInfo(_, elementType, ctx))
     } yield V.ValueList(values)
 
   private def fillInTextMapTI(
@@ -329,7 +325,7 @@ case object LedgerApiV1 {
           Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $textMap as $typ"))
       }
-      values <- textMap.value traverseU (fillInTypeInfo(_, elementType, ctx))
+      values <- textMap.value traverse (fillInTypeInfo(_, elementType, ctx))
     } yield V.ValueTextMap(values)
 
   private def fillInGenMapTI(
@@ -344,7 +340,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $genMap as $typ"))
       }
       (keyType, valueType) = types
-      values <- genMap.entries.toSeq traverseU {
+      values <- genMap.entries.toSeq traverse {
         case (k, v) =>
           for {
             key <- fillInTypeInfo(k, keyType, ctx)
@@ -364,7 +360,7 @@ case object LedgerApiV1 {
           Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $opt as $typ"))
       }
-      value <- opt.value traverseU (fillInTypeInfo(_, optType, ctx))
+      value <- opt.value traverse (fillInTypeInfo(_, optType, ctx))
     } yield V.ValueOptional(value)
 
   private def asTypeCon(
@@ -401,7 +397,6 @@ case object LedgerApiV1 {
   private def fillInEnumTI(
       enum: V.ValueEnum,
       typ: Model.DamlLfType,
-      ctx: Context
   ): Result[V.ValueEnum] =
     for {
       typeCon <- asTypeCon(typ, enum)
@@ -423,7 +418,7 @@ case object LedgerApiV1 {
       ctx: Context
   ): Result[Model.ApiValue] =
     value match {
-      case v: V.ValueEnum => fillInEnumTI(v, typ, ctx)
+      case v: V.ValueEnum => fillInEnumTI(v, typ)
       case _: V.ValueCidlessLeaf | _: V.ValueContractId[_] => Right(value)
       case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
       case v: Model.ApiMap => fillInTextMapTI(v, typ, ctx)
@@ -431,8 +426,6 @@ case object LedgerApiV1 {
       case v: Model.ApiList => fillInListTI(v, typ, ctx)
       case v: Model.ApiRecord => fillInRecordTI(v, typ, ctx)
       case v: Model.ApiVariant => fillInVariantTI(v, typ, ctx)
-      case _: Model.ApiImpossible =>
-        Left(GenericConversionError("unserializable Struct appeared of serializable type"))
     }
 
   def readCompletion(completion: V1.completion.Completion): Result[Option[Model.CommandStatus]] = {
@@ -455,20 +448,20 @@ case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
 
   def writeArgument(value: Model.ApiValue): Result[V1.value.Value] =
-    wrapAbsContractId(value) flatMap (vac =>
+    wrapContractId(value) flatMap (vac =>
       lfValueToApiValue(verbose = true, vac) leftMap GenericConversionError)
 
   def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] =
-    wrapAbsContractId(value) flatMap (vac =>
+    wrapContractId(value) flatMap (vac =>
       lfValueToApiRecord(verbose = true, vac) leftMap GenericConversionError)
 
-  private[this] def wrapAbsContractId(value: Model.ApiValue): Result[V[V.AbsoluteContractId]] = {
+  private[this] def wrapContractId(value: Model.ApiValue): Result[V[V.ContractId]] = {
     final class NotACoid(message: String) extends RuntimeException(message) with NoStackTrace
     // this is 100% cheating as Value should have Traverse instead
     try Right(value mapContractId { coid =>
-      Ref.ContractIdString fromString coid fold (
+      ContractId fromString coid fold (
         e => throw new NotACoid(e),
-        V.AbsoluteContractId
+        identity
       )
     })
     catch { case e: NotACoid => Left(GenericConversionError(e.getMessage)) }
@@ -478,25 +471,18 @@ case object LedgerApiV1 {
   def writeCommands(
       party: Model.PartyState,
       command: Model.Command,
-      maxRecordDelay: Long,
       ledgerId: String,
       applicationId: Ref.LedgerString
   ): Result[V1.commands.Commands] = {
     for {
       ledgerCommand <- writeCommand(party, command)
     } yield {
-      val ledgerEffectiveTime =
-        new Timestamp(command.platformTime.getEpochSecond, command.platformTime.getNano)
-      val maximumRecordTime =
-        ledgerEffectiveTime.copy(seconds = ledgerEffectiveTime.seconds + maxRecordDelay)
       V1.commands.Commands(
         ledgerId,
         Tag.unwrap(command.workflowId),
         applicationId,
         Tag.unwrap(command.id),
         Tag.unwrap(party.name),
-        Some(ledgerEffectiveTime),
-        Some(maximumRecordTime),
         List(ledgerCommand)
       )
     }
@@ -546,7 +532,7 @@ case object LedgerApiV1 {
       contract <- Converter.checkExists(
         party.ledger.contract(contractId, party.packageRegistry),
         GenericConversionError(s"Contract '${Tag.unwrap(contractId)}' not found"))
-      choice <- Converter.checkExists(
+      _ <- Converter.checkExists(
         contract.template.choices.find(c => c.name == choiceId),
         GenericConversionError(s"Choice '${Tag.unwrap(choiceId)}' not found"))
       argument <- writeArgument(value)

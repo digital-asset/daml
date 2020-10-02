@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
 
 import scala.{PartialFunction => PF}
 
-private[digitalasset] class AstRewriter(
+private[daml] class AstRewriter(
     typeRule: PF[Type, Type] = PF.empty[Type, Type],
     exprRule: PF[Expr, Expr] = PF.empty[Expr, Expr],
     identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier]
@@ -18,31 +18,10 @@ private[digitalasset] class AstRewriter(
   import AstRewriter._
 
   def apply(pkg: Package): Package =
-    Package(
-      ImmArray(pkg.modules)
-        .transform { (_, x) =>
-          apply(x)
-        }
-        .toSeq
-        .toMap,
-      Set.empty[PackageId],
-      pkg.metadata,
-    )
+    pkg.copy(modules = pkg.modules.transform((_, x) => apply(x)))
 
   def apply(module: Module): Module =
-    module match {
-      case Module(name, definitions, languageVersion, featureFlags) =>
-        Module(
-          name,
-          ImmArray(definitions)
-            .transform { (_, x) =>
-              apply(x)
-            }
-            .toSeq
-            .toMap,
-          languageVersion,
-          featureFlags)
-    }
+    module.copy(definitions = module.definitions.transform((_, x) => apply(x)))
 
   def apply(identifier: Identifier): Identifier =
     if (identifierRule.isDefinedAt(identifier))
@@ -63,7 +42,7 @@ private[digitalasset] class AstRewriter(
         case TForall(binder, body) =>
           TForall(binder, apply(body))
         case TStruct(fields) =>
-          TStruct(fields.map(apply))
+          TStruct(fields.mapValues(apply))
       }
 
   def apply(nameWithType: (Name, Type)): (Name, Type) = nameWithType match {

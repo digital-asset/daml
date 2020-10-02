@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data
+import com.daml.lf.data
 
 private[parser] sealed trait Token extends Product with Serializable
 
@@ -54,6 +54,7 @@ private[parser] object Token {
   case object `to_any` extends Token
   case object `from_any` extends Token
   case object `type_rep` extends Token
+  case object `loc` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token

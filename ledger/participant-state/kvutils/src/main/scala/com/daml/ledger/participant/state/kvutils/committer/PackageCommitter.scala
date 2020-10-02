@@ -1,57 +1,58 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.concurrent.Executors
 
-import com.codahale.metrics.{Counter, Gauge, Timer}
-import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, packageUploadDedupKey}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupKey
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.participant.state.kvutils.committer.Committer.{
+  StepInfo,
+  buildLogEntryWithOptionalRecordTime
+}
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Engine
+import com.daml.lf.language.Ast
+import com.daml.metrics.Metrics
 
 import scala.collection.JavaConverters._
 
-private[kvutils] case class PackageCommitter(engine: Engine)
-    extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
-  private object Metrics {
-    // kvutils.PackageCommitter.*
-    val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload_timer"))
-    val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode_timer"))
-    val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
-    val rejections: Counter = metricsRegistry.counter(metricsName("rejections"))
-    metricsRegistry.gauge(
-      metricsName("loaded_packages"),
-      () =>
-        new Gauge[Int] {
-          override def getValue: Int = engine.compiledPackages().packageIds.size
-      }
-    )
-  }
+private[kvutils] class PackageCommitter(
+    engine: Engine,
+    override protected val metrics: Metrics,
+) extends Committer[DamlPackageUploadEntry.Builder] {
+
+  override protected val committerName = "package_upload"
+
+  metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
+    engine.compiledPackages().packageIds.size)
 
   private def rejectionTraceLog(
       msg: String,
-      packageUploadEntry: DamlPackageUploadEntry.Builder): Unit =
+      packageUploadEntry: DamlPackageUploadEntry.Builder,
+  ): Unit =
     logger.trace(
       s"Package upload rejected, $msg, correlationId=${packageUploadEntry.getSubmissionId}")
 
   private val authorizeSubmission: Step = (ctx, uploadEntry) => {
-    if (ctx.getParticipantId == uploadEntry.getParticipantId)
+    if (ctx.getParticipantId == uploadEntry.getParticipantId) {
       StepContinue(uploadEntry)
-    else {
+    } else {
       val msg =
         s"participant id ${uploadEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
       rejectionTraceLog(msg, uploadEntry)
-      StepStop(
-        buildRejectionLogEntry(
-          ctx,
-          uploadEntry,
-          _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder
-            .setDetails(msg))))
+      reject(
+        ctx.getRecordTime,
+        uploadEntry.getSubmissionId,
+        uploadEntry.getParticipantId,
+        _.setParticipantNotAuthorized(
+          ParticipantNotAuthorized.newBuilder
+            .setDetails(msg))
+      )
     }
   }
 
@@ -74,28 +75,30 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     } else {
       val msg = errors.mkString(", ")
       rejectionTraceLog(msg, uploadEntry)
-      StepStop(
-        buildRejectionLogEntry(
-          ctx,
-          uploadEntry,
-          _.setInvalidPackage(Invalid.newBuilder
-            .setDetails(msg))))
+      reject(
+        ctx.getRecordTime,
+        uploadEntry.getSubmissionId,
+        uploadEntry.getParticipantId,
+        _.setInvalidPackage(
+          Invalid.newBuilder
+            .setDetails(msg)
+        )
+      )
     }
   }
 
   private val deduplicateSubmission: Step = (ctx, uploadEntry) => {
     val submissionKey = packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId)
-    if (ctx.get(submissionKey).isEmpty)
+    if (ctx.get(submissionKey).isEmpty) {
       StepContinue(uploadEntry)
-    else {
+    } else {
       val msg = s"duplicate submission='${uploadEntry.getSubmissionId}'"
       rejectionTraceLog(msg, uploadEntry)
-      StepStop(
-        buildRejectionLogEntry(
-          ctx,
-          uploadEntry,
-          _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
-        )
+      reject(
+        ctx.getRecordTime,
+        uploadEntry.getSubmissionId,
+        uploadEntry.getParticipantId,
+        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
       )
     }
   }
@@ -124,8 +127,8 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     StepContinue(uploadEntry)
   }
 
-  private val buildLogEntry: Step = (ctx, uploadEntry) => {
-    Metrics.accepts.inc()
+  private[committer] val buildLogEntry: Step = (ctx, uploadEntry) => {
+    metrics.daml.kvutils.committer.packageUpload.accepts.inc()
     logger.trace(
       s"Packages committed, packages=[${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}] correlationId=${uploadEntry.getSubmissionId}")
 
@@ -138,26 +141,36 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     ctx.set(
       packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId),
       DamlStateValue.newBuilder
-        .setSubmissionDedup(
-          DamlSubmissionDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(ctx.getRecordTime))
-            .build)
+        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build
     )
-    StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(ctx.getRecordTime))
-        .setPackageUploadEntry(uploadEntry)
-        .build
+    val successLogEntry =
+      buildLogEntryWithOptionalRecordTime(ctx.getRecordTime, _.setPackageUploadEntry(uploadEntry))
+    if (ctx.preExecute) {
+      setOutOfTimeBoundsLogEntry(uploadEntry, ctx)
+    }
+    StepStop(successLogEntry)
+  }
+
+  private def setOutOfTimeBoundsLogEntry(
+      uploadEntry: DamlPackageUploadEntry.Builder,
+      commitContext: CommitContext): Unit = {
+    commitContext.outOfTimeBoundsLogEntry = Some(
+      buildRejectionLogEntry(
+        recordTime = None,
+        uploadEntry.getSubmissionId,
+        uploadEntry.getParticipantId,
+        identity)
     )
   }
 
-  override def init(
+  override protected def init(
       ctx: CommitContext,
-      uploadEntry: DamlPackageUploadEntry): DamlPackageUploadEntry.Builder =
-    uploadEntry.toBuilder
+      submission: DamlSubmission,
+  ): DamlPackageUploadEntry.Builder =
+    submission.getPackageUploadEntry.toBuilder
 
-  override val steps: Iterable[(StepInfo, Step)] = Iterable(
+  override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submission" -> authorizeSubmission,
     "validate_entry" -> validateEntry,
     "deduplicate_submission" -> deduplicateSubmission,
@@ -166,24 +179,32 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     "build_log_entry" -> buildLogEntry
   )
 
-  override lazy val committerName = "package_upload"
+  private def reject[PartialResult](
+      recordTime: Option[Timestamp],
+      submissionId: String,
+      participantId: String,
+      addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
+  ): StepResult[PartialResult] = {
+    metrics.daml.kvutils.committer.packageUpload.rejections.inc()
+    StepStop(buildRejectionLogEntry(recordTime, submissionId, participantId, addErrorDetails))
+  }
 
-  private def buildRejectionLogEntry(
-      ctx: CommitContext,
-      packageUploadEntry: DamlPackageUploadEntry.Builder,
-      addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder)
-    : DamlLogEntry = {
-    Metrics.rejections.inc()
-    DamlLogEntry.newBuilder
-      .setRecordTime(buildTimestamp(ctx.getRecordTime))
-      .setPackageUploadRejectionEntry(
+  private[committer] def buildRejectionLogEntry(
+      recordTime: Option[Timestamp],
+      submissionId: String,
+      participantId: String,
+      addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
+  ): DamlLogEntry = {
+    buildLogEntryWithOptionalRecordTime(
+      recordTime,
+      _.setPackageUploadRejectionEntry(
         addErrorDetails(
           DamlPackageUploadRejectionEntry.newBuilder
-            .setSubmissionId(packageUploadEntry.getSubmissionId)
-            .setParticipantId(packageUploadEntry.getParticipantId)
+            .setSubmissionId(submissionId)
+            .setParticipantId(participantId)
         )
       )
-      .build
+    )
   }
 
   /** Preload the archives to the engine in a background thread.
@@ -193,22 +214,23 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     * package type-checking and preloading can be done during normal processing.
     */
   private def preload(submissionId: String, archives: Iterable[Archive]): Runnable = { () =>
-    val ctx = Metrics.preloadTimer.time()
+    val ctx = metrics.daml.kvutils.committer.packageUpload.preloadTimer.time()
     def trace(msg: String): Unit = logger.trace(s"$msg, correlationId=$submissionId")
     try {
       val loadedPackages = engine.compiledPackages().packageIds
-      val packages: Map[Ref.PackageId, Ast.Package] = Metrics.decodeTimer.time { () =>
-        archives
-          .filterNot(
-            a =>
-              Ref.PackageId
-                .fromString(a.getHash)
-                .fold(_ => false, loadedPackages.contains))
-          .map { archive =>
-            Decode.readArchiveAndVersion(archive)._1
-          }
-          .toMap
-      }
+      val packages: Map[Ref.PackageId, Ast.Package] =
+        metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
+          archives
+            .filterNot(
+              a =>
+                Ref.PackageId
+                  .fromString(a.getHash)
+                  .fold(_ => false, loadedPackages.contains))
+            .map { archive =>
+              Decode.readArchiveAndVersion(archive)._1
+            }
+            .toMap
+        }
       trace(s"Preloading engine with ${packages.size} new packages")
       packages.foreach {
         case (pkgId, pkg) =>
@@ -220,7 +242,7 @@ private[kvutils] case class PackageCommitter(engine: Engine)
               _ => sys.error("Unexpected request to keys in preloadPackage")
             )
       }
-      trace(s"Preload complete")
+      trace("Preload complete")
     } catch {
       case scala.util.control.NonFatal(err) =>
         logger.error(

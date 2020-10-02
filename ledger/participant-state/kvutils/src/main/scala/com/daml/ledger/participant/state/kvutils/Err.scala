@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.v1.PackageId
 /** Errors thrown by kvutils.
   *
   * Validation and consistency errors are turned into command rejections.
-  * Note that processSubmission can also fail with a protobuf exception,
+  * Note that [[KeyValueCommitting.processSubmission]] can also fail with a protobuf exception,
   * e.g. https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/InvalidProtocolBufferException.
   */
 sealed abstract class Err extends RuntimeException with Product with Serializable

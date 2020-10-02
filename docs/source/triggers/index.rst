@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Triggers - Off-Ledger Automation in DAML
@@ -7,13 +7,12 @@ DAML Triggers - Off-Ledger Automation in DAML
 .. toctree::
    :hidden:
 
-   trigger-docs
+   api/index
 
-**WARNING:** DAML Triggers are an experimental feature that is actively
-being designed and is *subject to breaking changes*.
+DAML Triggers are currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 We welcome feedback about DAML triggers on
-`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
+`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_,
+`our forum <https://discuss.daml.com>`_, or `on Slack <https://slack.daml.com>`_.
 
 In addition to the actual DAML logic which is uploaded to the Ledger
 and the UI, DAML applications often need to automate certain
@@ -90,7 +89,8 @@ library to the ``dependencies`` field in ``daml.yaml``.
 In addition to that you also need to import the ``Daml.Trigger``
 module.
 
-DAML triggers automatically track the active contract set and the
+DAML triggers automatically track the active contract set (ACS), i.e., the set of contracts
+that have been created and have not been archived, and the
 commands in flight for you. In addition to that, they allow you to
 have user-defined state that is updated based on new transactions and
 command completions. For our copy trigger, the ACS is sufficient, so
@@ -207,11 +207,15 @@ the corresponding ``Original`` or ``Subscriber`` no longer exists.
    :start-after: -- ARCHIVE_COPIES_BEGIN
    :end-before: -- ARCHIVE_COPIES_END
 
-To send the corresponding archve commands to the ledger, we iterate
+To send the corresponding archive commands to the ledger, we iterate
 over ``archiveCopies`` using ``forA`` and call the ``emitCommands``
 function. Each call to ``emitCommands`` takes a list of commands which
 will be submitted as a single transaction. The actual commands can be
-created using ``exerciseCmd`` and ``createCmd``.
+created using ``exerciseCmd`` and ``createCmd``. In addition to that,
+we also pass in a list of contract ids. Those contracts will be marked
+pending and not be included in the result of ``getContracts`` until
+the commands have either been comitted to the ledger or the command
+submission failed.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
    :language: daml
@@ -231,8 +235,8 @@ which only sends the commands if it is not already in flight.
 Running a DAML Trigger
 ----------------------
 
-To try this example out, you can replicate it using ``daml new
-copy-trigger copy-trigger``. You first have to build the trigger like
+To try this example out, you can replicate it using
+``daml new copy-trigger --template copy-trigger``. You first have to build the trigger like
 you would build a regular DAML project using ``daml build``.
 Then start the sandbox and navigator using ``daml start``.
 
@@ -240,7 +244,7 @@ Now we are ready to run the trigger using ``daml trigger``:
 
 .. code-block:: sh
 
-    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice --static-time
+    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice
 
 The first argument specifies the ``.dar`` file that we have just
 built. The second argument specifies the identifier of the trigger
@@ -267,8 +271,13 @@ read the token from the file ``token.jwt``.
 When not to use DAML triggers
 =============================
 
+DAML Triggers are not suited for automation that needs to interact
+with services or data outside of the ledger. For those cases, you can
+write a ledger client using the :doc:`JavaScript bindings
+</app-dev/bindings-ts/index>` running against the HTTP JSON API or the
+:doc:`Java bindings</app-dev/bindings-java/index>` running against the
+gRPC Ledger API.
+
 DAML triggers deliberately only allow you to express automation that
 listens for ledger events and reacts to them by sending commands to
-the ledger. If your automation needs to interact with data outside of
-the ledger then DAML triggers are not the right tool. For this case,
-you can use the HTTP JSON API.
+the ledger.

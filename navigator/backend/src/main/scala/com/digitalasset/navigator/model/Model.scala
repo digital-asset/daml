@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.{@@, Tag}
 
 // ------------------------------------------------------------------------------------------------
@@ -75,13 +75,19 @@ final case class CreateCommand(
     argument: ApiRecord
 ) extends Command
 
+/**
+  *
+  * @param template
+  *     The template of the given contract. Not required for the ledger API, but we keep
+  *     this denormalized information so that it's easier to serialize/deserialize the
+  *     choice argument.
+  */
 final case class ExerciseCommand(
     id: ApiTypes.CommandId,
     index: Long,
     workflowId: ApiTypes.WorkflowId,
     platformTime: Instant,
     contract: ApiTypes.ContractId,
-    /** The template of the given contract. Not required for the ledger API, but we keep this denormalized information so that it's easier to serialize/deserialize the choice argument. */
     template: DamlLfIdentifier,
     choice: ApiTypes.Choice,
     argument: ApiValue

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -13,7 +13,7 @@ da_scala_library(
     name = "interpreter",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-interpreter:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-interpreter:__VERSION__"],
     visibility = [
         "//compiler/repl-service:__subpackages__",
         "//compiler/scenario-service:__subpackages__",
@@ -27,6 +27,8 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_paiges_core_2_12",
@@ -44,11 +46,14 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
         "//daml-lf/validation",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )
 

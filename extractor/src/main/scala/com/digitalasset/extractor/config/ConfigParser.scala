@@ -1,20 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.config
+package com.daml.extractor.config
 
-import java.io.File
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.extractor.targets._
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.extractor.targets._
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import CustomScoptReaders._
-import com.digitalasset.ports.Port
+import com.daml.ports.Port
 import scalaz.OneAnd
 
-import scala.util.Try
 import scopt.OptionParser
 
 object ConfigParser {
@@ -45,9 +43,7 @@ object ConfigParser {
       templateConfigs: Set[TemplateConfig] = Set.empty,
       from: Option[String] = None,
       to: Option[String] = None,
-      tlsPem: Option[String] = None,
-      tlsCrt: Option[String] = None,
-      tlsCaCrt: Option[String] = None,
+      tlsConfiguration: TlsConfiguration = TlsConfiguration(false, None, None, None),
       accessTokenFile: Option[Path] = None,
   )
 
@@ -220,36 +216,14 @@ object ConfigParser {
 
       note("\nTLS configuration:")
 
-      opt[String]("pem")
-        .optional()
-        .text("TLS: The pem file to be used as the private key.")
-        .validate(validatePath(_, "The file specified via --pem does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsPem = Some(path))
-        }
-      opt[String]("crt")
-        .optional()
-        .text(
-          s"TLS: The crt file to be used as the cert chain.\n${colSpacer}" +
-            s"Required if any other TLS parameters are set."
-        )
-        .validate(validatePath(_, "The file specified via --crt does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsCrt = Some(path))
-        }
-      opt[String]("cacrt")
-        .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
-        .validate(validatePath(_, "The file specified via --cacrt does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsCaCrt = Some(path))
-        }
+      TlsConfigurationCli.parse(this, colSpacer)((f, c) =>
+        c copy (tlsConfiguration = f(c.tlsConfiguration)))
 
-      note("\nAuthentication:")
+      note("\nAuthorization:")
 
       opt[String]("access-token-file")
         .text(
-          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+          s"provide the path from which the access token will be read, required if the Ledger API server verifies authorization, no default")
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
         .optional()
 
@@ -297,12 +271,7 @@ object ConfigParser {
         case x => SnapshotEndSetting.Until(x)
       }
 
-      val tlsConfig = TlsConfiguration(
-        enabled = cliParams.tlsPem.isDefined || cliParams.tlsCrt.isDefined || cliParams.tlsCaCrt.isDefined,
-        keyCertChainFile = cliParams.tlsCrt.map(new File(_)),
-        keyFile = cliParams.tlsPem.map(new File(_)),
-        trustCertCollectionFile = cliParams.tlsCaCrt.map(new File(_))
-      )
+      val tlsConfig = cliParams.tlsConfiguration
 
       val config = ExtractorConfig(
         cliParams.ledgerHost,
@@ -337,11 +306,6 @@ object ConfigParser {
 
   def showUsage(): Unit =
     configParser.showUsage()
-
-  private def validatePath(path: String, message: String): Either[String, Unit] = {
-    val valid = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-    if (valid) Right(()) else Left(message)
-  }
 
   private def validateUniqueElements[A](x: Seq[A], message: => String): Either[String, Unit] =
     Either.cond(x.size == x.toSet.size, (), message)

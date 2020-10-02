@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -16,7 +16,7 @@ import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
-import qualified Com.Digitalasset.Ledger.Api.V1.CommandService as LL
+import qualified Com.Daml.Ledger.Api.V1.CommandService as LL
 
 submitAndWait :: Commands -> LedgerService (Either String ())
 submitAndWait commands =

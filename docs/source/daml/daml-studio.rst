@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Studio
@@ -9,7 +9,7 @@ DAML Studio is an integrated development environment (IDE) for DAML. It is an ex
 Installing
 **********
 
-To install DAML Studio, :doc:`install the SDK </getting-started/installation>`. DAML Studio isn't currently available in the Visual Studio Marketplace.
+DAML Studio is included in the :doc:`DAML SDK </getting-started/installation>`.
 
 Creating your first DAML file
 *****************************
@@ -50,7 +50,7 @@ To learn more about DAML, see :doc:`reference/index`.
 Supported features
 ******************
 
-Visual Studio Code provides many helpful features for editing DAML files and Digital Asset recommends reviewing
+Visual Studio Code provides many helpful features for editing DAML files and we recommend reviewing
 `Visual Studio Code Basics <https://code.visualstudio.com/docs/editor/codebasics>`__ and `Visual Studio Code Keyboard Shortcuts for OS X <https://code.visualstudio.com/shortcuts/keyboard-shortcuts-macos.pdf>`_.
 The DAML Studio extension for Visual Studio Code provides the following DAML-specific features:
 
@@ -97,26 +97,64 @@ You can `hover`_ over most symbols in the code to display additional information
 
 .. _hover: https://code.visualstudio.com/docs/editor/editingevolved#_hover
 
-Scenario results
-================
+.. _scenario-script-results:
 
-Top-level declarations of type ``Scenario`` are decorated with a ``Scenario results`` code lens.
-You can click on the ``Scenario results`` code lens to inspect the transaction graph
-or an error resulting from running that scenario.
+Scenario and DAML Script results
+================================
 
-The scenario results present a simplified view of a ledger, in the form of a
-transaction graph, after execution of the scenario. The transaction graph
+Top-level declarations of type ``Scenario`` or ``Script`` are decorated with
+a ``Scenario results`` or a ``Script results`` code lens.
+You can click on the code lens to inspect the
+execution transaction graph and the active contracts. The functionality
+for inspecting the results is identical for DAML Scripts
+and scenarios.
+
+For the scenario from the :download:`Iou<daml-studio/daml/Iou.daml>`
+module, you get the following table displaying all contracts that are
+active at the end of the scenario. The first column displays the
+contract id. The columns afterwards represent the fields of the
+contract and finally you get one column per party with an ``X`` if the
+party can see the contract or a ``-`` if not.
+
+.. figure:: daml-studio/images/daml_studio_scenario_table.png
+   :scale: 70%
+   :align: center
+
+If you want more details, you can click on the *Show archived* checkbox, which extends
+the table to include archived contracts, and on the *Show detailed disclosure* checkbox,
+which displays why the contract is visible to each party, based on four categories:
+
+1. ``S``, the party sees the contract because they are a signatory on the contract.
+2. ``O``, the party sees the contract because they are an observer on the contract.
+3. ``W``, the party sees the contract because they witnessed the creation of this contract, e.g.,
+   because they are an actor on the ``exercise`` that created it.
+4. ``D``, the party sees the contract because they have been divulged the contract, e.g.,
+   because they witnessed an exercise that resulted in a ``fetch`` of this contract.
+
+For details on the meaning of those four categories, refer to the
+:ref:`DAML Ledger Model<da-model-privacy>`.
+For the example above, the resulting table looks as follows. You can see the
+archived ``Bank`` contract and the active ``Bank`` contract whose creation
+``Alice`` has witnessed by virtue of being an actor on the ``exercise`` that
+created it.
+
+.. figure:: daml-studio/images/daml_studio_scenario_table_detailed.png
+   :scale: 70%
+   :align: center
+
+If you want to see the detailed transaction graph you can click on the
+``Show transaction view`` button. The transaction graph
 consists of transactions, each of which contain one or more updates to the
 ledger, that is creates and exercises. The transaction graph also records
 fetches of contracts.
 
 For example a scenario for the :download:`Iou<daml-studio/daml/Iou.daml>` module looks as follows:
 
-.. figure:: daml-studio/images/daml_studio_scenario_results.png
-   :scale: 40%
+.. figure:: daml-studio/images/daml_studio_scenario_transaction.png
+   :scale: 70%
    :align: center
 
-   Scenario results (click to zoom)
+   Scenario results
 
 Each transaction is the result of executing a step in the scenario. In the
 image below, the transaction ``#0`` is the result of executing the first
@@ -135,12 +173,8 @@ information can be gathered from the transaction:
   the scenario step that created them (e.g. ``#1``).
 
 You can navigate to the corresponding source code by clicking on the location
-shown in parenthesis (e.g. ``Iou:20:12``, which means the ``Iou`` module, line 20 and column 1).
+shown in parenthesis (e.g. ``Iou:25:12``, which means the ``Iou`` module, line 25 and column 1).
 You can also navigate between transactions by clicking on the transaction and contract ids (e.g. ``#1:0``).
-
-.. NOTE(JM): The screenshot created from daml/Iou.daml.
-.. NOTE(JM): With :scale: we make the image clickable
-
 
 DAML snippets
 =============
@@ -179,20 +213,20 @@ due to authorization failures. You can expect to run into the following errors w
 When a runtime error occurs in a scenario execution, the scenario result view shows the error
 together with the following additional information, if available:
 
-Last source location
-   A link to the last source code location encountered before the error occurred.
-Environment
-   The variables that are in scope when the error occurred. Note that contract identifiers
-   are links that lead you to the transaction in which the contract was created.
+Location of the failed commit
+   If the failing part of the script was a ``submit``, the source location
+   of the call to ``submit`` will be displayed.
+Stack trace
+   A list of source locations that were encoutered before the error occured. The last encountered
+   location is the first entry in the list.
 Ledger time
    The ledger time at which the error occurred.
-Call stack
-   Call stack shows the function calls leading to the failing function. Updates and scenarios that
-   do not take parameters are not included in the call stack.
 Partial transaction
    The transaction that is being constructed, but not yet committed to the ledger.
 Committed transaction
    Transactions that were successfully committed to the ledger prior to the error.
+Trace
+   Any messages produced by calls to ``trace`` and ``debug``.
 
 Abort, assert, and debug
 ========================

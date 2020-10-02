@@ -1,12 +1,12 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 -- | Utilities for working with DAML-LF protobuf archives
 module DA.Daml.LF.Proto3.Archive
   ( decodeArchive
-  , decodeArchivePayload
   , decodeArchivePackageId
+  , decodePackage
   , encodeArchive
   , encodeArchiveLazy
   , encodeArchiveAndHash
@@ -17,7 +17,7 @@ module DA.Daml.LF.Proto3.Archive
 
 import           Control.Lens             (over, _Left)
 import qualified "cryptonite" Crypto.Hash as Crypto
-import qualified Com.Digitalasset.DamlLfDev.DamlLf as ProtoLF
+import qualified Com.Daml.DamlLfDev.DamlLf as ProtoLF
 import Control.Monad
 import Data.List
 import           DA.Pretty
@@ -49,21 +49,26 @@ data DecodingMode
       -- the id of the package being decoded.
     deriving (Eq, Show)
 
-
--- | Decode a LF archive header, returing the hash and the payload
+-- | Decode an LF archive, returning the package-id and the package
 decodeArchive :: DecodingMode -> BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
 decodeArchive mode bytes = do
-    (packageId, payloadBytes) <- decodeArchivePayload bytes
+    (packageId, payloadBytes) <- decodeArchiveHeader bytes
+    package <- decodePackage mode packageId payloadBytes
+    return (packageId, package)
+
+-- | Decode an LF archive payload, returning the package
+-- Used to decode a BS returned from the PackageService ledger API
+decodePackage :: DecodingMode -> LF.PackageId -> BS.ByteString -> Either ArchiveError LF.Package
+decodePackage mode packageId payloadBytes = do
     let selfPackageRef = case mode of
             DecodeAsMain -> LF.PRSelf
             DecodeAsDependency -> LF.PRImport packageId
-
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
-    package <- over _Left (ProtobufError. show) $ Decode.decodePayload selfPackageRef payload
-    return (packageId, package)
+    over _Left (ProtobufError. show) $ Decode.decodePayload selfPackageRef payload
 
-decodeArchivePayload :: BS.ByteString -> Either ArchiveError (LF.PackageId, BS.ByteString)
-decodeArchivePayload bytes = do
+-- | Decode an LF archive header, returning the package-id and the payload
+decodeArchiveHeader :: BS.ByteString -> Either ArchiveError (LF.PackageId, BS.ByteString)
+decodeArchiveHeader bytes = do
     archive <- over _Left (ProtobufError . show) $ Proto.fromByteString bytes
     let payloadBytes = ProtoLF.archivePayload archive
     let archiveHash = TL.toStrict (ProtoLF.archiveHash archive)
@@ -79,18 +84,19 @@ decodeArchivePayload bytes = do
     let packageId = LF.PackageId archiveHash
     pure (packageId, payloadBytes)
 
+-- | Decode an LF archive, returning the package-id
 decodeArchivePackageId :: BS.ByteString -> Either ArchiveError LF.PackageId
-decodeArchivePackageId = fmap fst . decodeArchivePayload
+decodeArchivePackageId = fmap fst . decodeArchiveHeader
 
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default
 -- hash function.
 encodeArchiveLazy :: LF.Package -> BSL.ByteString
 encodeArchiveLazy = fst . encodeArchiveAndHash
 
-encodePackageHash :: LF.Package -> T.Text
+encodePackageHash :: LF.Package -> LF.PackageId
 encodePackageHash = snd . encodeArchiveAndHash
 
-encodeArchiveAndHash :: LF.Package -> (BSL.ByteString, T.Text)
+encodeArchiveAndHash :: LF.Package -> (BSL.ByteString, LF.PackageId)
 encodeArchiveAndHash package =
     let payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload package
         hash = encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payload) :: BS.ByteString)
@@ -100,7 +106,7 @@ encodeArchiveAndHash package =
           , ProtoLF.archiveHash    = TL.fromStrict hash
           , ProtoLF.archiveHashFunction = Proto.Enumerated (Right ProtoLF.HashFunctionSHA256)
           }
-    in (Proto.toLazyByteString archive, hash)
+    in (Proto.toLazyByteString archive, LF.PackageId hash)
 
 encodeArchive :: LF.Package -> BS.ByteString
 encodeArchive = BSL.toStrict . encodeArchiveLazy

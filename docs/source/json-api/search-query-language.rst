@@ -1,13 +1,17 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Query language
 ##############
 
-The body of ``POST /v1/query`` looks like so::
+The body of ``POST /v1/query`` looks like so:
 
-  {"templateIds": [...template IDs...],
-   "query": {...query elements...}}
+.. code-block:: text
+
+    {
+        "templateIds": [...template IDs...],
+        "query": {...query elements...}
+    }
 
 The elements of that query are defined here.
 
@@ -17,6 +21,12 @@ Fallback rule
 Unless otherwise required by one of the other rules below or to follow,
 values are interpreted according to :doc:`lf-value-specification`, and
 compared for equality.
+
+All types are supported by this simple equality comparison except:
+
+- lists
+- textmaps
+- genmaps
 
 Simple equality
 ***************
@@ -32,13 +42,6 @@ Example: ``{ person: { name: "Bob" }, city: "London" }``
 - No match: ``{ person: { name: "Bob" }, city: "Zurich" }``
 - Typecheck failure: ``{ person: { name: ["Bob", "Sue"] }, city:
   "London" }``
-
-Example: ``{ favorites: ["vanilla", "chocolate"] }``
-
-- Match: ``{ favorites: ["vanilla", "chocolate"] }``
-- No match: ``{ favorites: ["chocolate", "vanilla"] }``
-- No match: ``{ favorites: ["vanilla", "strawberry"] }``
-- No match: ``{ favorites: ["vanilla", "chocolate", "strawberry"] }``
 
 A JSON object, when considered with a record type, is always interpreted
 as a field equality query. Its type context is thus mutually exclusive
@@ -106,12 +109,14 @@ is no way that the above query could be written to match ``A`` but never
 
 For these reasons, as with LF value input via JSON, queries written in
 JSON are also always interpreted with respect to some specified LF types
-(e.g. template IDs). For example::
+(e.g. template IDs). For example:
 
-  {"templateIds": [{"moduleName": "Foo", "entityName": "A"},
-                   {"moduleName": "Foo", "entityName": "B"},
-                   {"moduleName": "Foo", "entityName": "C"}],
-   "query": {"foo": "bar"}}
+.. code-block:: json
+
+    {
+        "templateIds": ["Foo:A", "Foo:B", "Foo:C"],
+        "query": {"foo": "bar"}
+    }
 
 will treat ``"foo"`` as a field equality query for A and B, and
 (supposing templates' associated data types were permitted to be

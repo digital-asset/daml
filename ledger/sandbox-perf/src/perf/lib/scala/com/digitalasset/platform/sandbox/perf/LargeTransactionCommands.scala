@@ -1,12 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.perf
+package com.daml.platform.sandbox.perf
 
-import com.digitalasset.ledger.api.v1.commands.Command.Command
-import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.value.{Identifier, List, Record, RecordField, Value}
-import com.digitalasset.ledger.api.v1.value.Value.{Sum => P}
+import com.daml.ledger.api.v1.commands.Command.Command
+import com.daml.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.value.{Identifier, List, Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.Value.{Sum => P}
+
+import com.github.ghik.silencer.silent
 
 object LargeTransactionCommands {
 
@@ -81,6 +83,7 @@ object LargeTransactionCommands {
     * this implementation is for daml 1.2 prior to DEL-6677 fix.
     * once daml-tools is upgrade, it has to be the 3rd option from above.
     */
+  @silent(" choice .* is never used") // part of public API
   def emptyChoiceArgs(choice: String): Value = {
     Value(P.Record(Record(recordId = None, fields = Seq())))
   }

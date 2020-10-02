@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=9:1-9:17; Ambiguous data type declaration. Enums cannot have type arguments. Write data Foo x = Bar {} for a record or data Foo x = Bar () for a variant.
+-- @ERROR range=9:0-9:16; Ambiguous data type declaration. Enums cannot have type arguments. Write data Foo x = Bar {} for a record or data Foo x = Bar () for a variant.
 
 
 module AmbiguousDataType where

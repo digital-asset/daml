@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.test.runner
+package com.daml.navigator.test.runner
 
 import java.io.File
 import java.nio.file.Files
@@ -16,8 +16,6 @@ object HeadDamlc {
   private val packageName = "Test"
 
   def run(damlPath: String): (File, Unit => Unit) = {
-    val damlFile = new File(damlPath)
-
     val tempDirectory = Files.createTempDirectory("navigator-integration-test").toFile
     val darFile = new File(tempDirectory, s"$packageName.dar")
 

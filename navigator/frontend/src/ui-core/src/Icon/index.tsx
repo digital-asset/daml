@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -35,9 +35,9 @@ export interface IconProps<T> {
   theme?: ThemeInterface;
 }
 
-export type IconType<T> = React.ComponentClass<IconProps<T>>;
+export type IconType<T> = React.FC<IconProps<T>>;
 
-export const UntypedIcon = withTheme<IconProps<string>, ThemeInterface>(
+export const UntypedIcon: IconType<string> = withTheme(
   ({ theme, name, className }) => {
     const prefix = theme && theme.iconPrefix;
     const classNames = [`${prefix}${name}`, className].join(' ');
@@ -45,4 +45,4 @@ export const UntypedIcon = withTheme<IconProps<string>, ThemeInterface>(
   },
 );
 
-export default UntypedIcon as IconType<string>;
+export default UntypedIcon;

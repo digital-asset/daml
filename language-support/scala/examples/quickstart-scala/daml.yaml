@@ -1,10 +1,10 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 sdk-version: 0.0.0
 name: quickstart
 source: daml
-scenario: Main:setup
+init-script: Main:initialize
 parties:
   - Alice
   - Bob
@@ -16,10 +16,13 @@ exposed-modules:
 dependencies:
   - daml-prim
   - daml-stdlib
+  - daml-script
 # <doc-ref:codegen-scala>
 codegen:
   scala:
-    package-prefix: com.digitalasset.quickstart.iou.model
+    package-prefix: com.daml.quickstart.iou.model
     output-directory: scala-codegen/src/main/scala
     verbosity: 2
 # </doc-ref:codegen-scala>
+sandbox-options:
+  - --wall-clock-time

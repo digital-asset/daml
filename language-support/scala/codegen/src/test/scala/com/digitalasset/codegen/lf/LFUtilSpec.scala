@@ -1,9 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen
+package lf
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.PropertyChecks
 import org.scalacheck.Gen
@@ -12,6 +13,7 @@ import scalaz._
 import scalaz.std.anyVal._
 import scalaz.syntax.foldable1._
 import scalaz.syntax.monad._
+import scalaz.syntax.std.map._
 
 class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks {
   import LFUtilSpec._
@@ -110,6 +112,16 @@ class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks 
       }
     }
   }
+
+  "orderedDependencies" should {
+    "include contract keys" in {
+      val ei = CodeGen.filterTemplatesBy(Seq("HasKey".r))(envInterfaceWithKey)
+      LFUtil("a", ei, new java.io.File("."))
+        .orderedDependencies(ei)
+        .deps map (_._1) should ===(
+        Vector("a:b:It", "a:b:HasKey") map Ref.Identifier.assertFromString)
+    }
+  }
 }
 
 object LFUtilSpec {
@@ -126,4 +138,19 @@ object LFUtilSpec {
     Shrink { nela =>
       Shrink.shrink((nela.head, nela.tail.toVector)) map { case (h, t) => NonEmptyList(h, t: _*) }
     }
+
+  import com.daml.lf.iface._
+  import com.daml.lf.data.ImmArray.ImmArraySeq
+
+  private[this] val fooRec = Record(ImmArraySeq.empty)
+  val envInterfaceWithKey = EnvironmentInterface(
+    Map(
+      "a:b:HasKey" -> InterfaceType.Template(
+        fooRec,
+        DefTemplate(
+          Map.empty,
+          Some(TypeCon(TypeConName(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)))),
+      "a:b:NoKey" -> InterfaceType.Template(fooRec, DefTemplate(Map.empty, None)),
+      "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
+    ) mapKeys Ref.Identifier.assertFromString)
 }

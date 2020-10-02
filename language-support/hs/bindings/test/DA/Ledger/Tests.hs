@@ -1,20 +1,19 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module DA.Ledger.Tests (main) where
 
-import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class(liftIO)
 import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchivePackageId)
 import DA.Daml.LF.Reader(DalfManifest(..), Dalfs(..), readDalfs, readDalfManifest)
 import DA.Ledger as Ledger
-import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
-import DA.Ledger.Sandbox as Sandbox
-import Data.List (elem,isPrefixOf,isInfixOf,(\\))
+import DA.Test.Sandbox
+import Data.List (elem,isInfixOf,(\\))
+import Data.IORef
 import Prelude hiding(Enum)
 import System.Environment.Blank (setEnv)
 import System.FilePath
@@ -39,15 +38,16 @@ import qualified Web.JWT as JWT
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
+    testDar <- locateRunfiles darPath
     Tasty.defaultMain $ testGroup "Ledger bindings"
-        [ sharedSandboxTests
-        , authenticatingSandboxTests
+        [ sharedSandboxTests testDar
+        , authenticatingSandboxTests testDar
         ]
 
 type SandboxTest = WithSandbox -> TestTree
 
-sharedSandboxTests :: TestTree
-sharedSandboxTests = testGroupWithSandbox (ShareSandbox True Nothing) "shared sandbox"
+sharedSandboxTests :: FilePath -> TestTree
+sharedSandboxTests testDar = testGroupWithSandbox testDar Nothing "shared sandbox"
     [ tGetLedgerIdentity
     -- The reset service causes a bunch of issues so for now
     -- we disable these tests.
@@ -86,15 +86,15 @@ sharedSandboxTests = testGroupWithSandbox (ShareSandbox True Nothing) "shared sa
     , tAllocateParty
     ]
 
-authenticatingSandboxTests :: TestTree
-authenticatingSandboxTests =
-  testGroupWithSandbox (ShareSandbox True (Just authSpec)) "shared authenticating sandbox"
+authenticatingSandboxTests :: FilePath -> TestTree
+authenticatingSandboxTests testDar =
+  testGroupWithSandbox testDar mbSecret "shared authenticating sandbox"
   [ tGetLedgerIdentity
   , tListPackages
   , tAllocateParty
   , tUploadDarFileGood
   ]
-  where authSpec = AuthSpec {sharedSecret = "Brexit-is-a-very-silly-idea"}
+  where mbSecret = Just (Secret "Brexit-is-a-very-silly-idea")
 
 
 run :: WithSandbox -> (DarMetadata -> TestId -> LedgerService ()) -> IO ()
@@ -104,7 +104,7 @@ run withSandbox f =
 tGetLedgerIdentity :: SandboxTest
 tGetLedgerIdentity withSandbox = testCase "getLedgerIdentity" $ run withSandbox $ \_darMetadata _testId -> do
     lid <- getLedgerIdentity
-    liftIO $ assertBool "looksLikeSandBoxLedgerId" (looksLikeSandBoxLedgerId lid)
+    liftIO $ assertEqual "ledger-id" lid (LedgerId "my-ledger-id")
 
 {-
 tReset :: SandboxTest
@@ -243,9 +243,12 @@ tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \DarMetadat
     lid <- getLedgerIdentity
     let command =  createIOU mainPackageId (alice testId) "A-coin" 100
     withGetTransactionsPF lid (alice testId) $ \PastAndFuture {past=past1,future=future1} -> do
-    Right _ <- submitCommand lid (alice testId) command
+    -- We need a submitandWait here to make sure that the
+    -- second subscription to the transaction stream
+    -- comes after this has been applied.
+    Right _ <- submitAndWaitCommand lid (alice testId) command
     withGetTransactionsPF lid (alice testId) $ \PastAndFuture {past=past2,future=future2} -> do
-    Right _ <- submitCommand lid (alice testId) command
+    Right _ <- submitAndWaitCommand lid (alice testId) command
     liftIO $ do
         Just (Right x1) <- timeout 1 (takeStream future1)
         Just (Right y1) <- timeout 1 (takeStream future1)
@@ -328,12 +331,10 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
     -- and then we get it
-    [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
-    let diffOffset :: AbsOffset -> AbsOffset -> Int
-        (AbsOffset a) `diffOffset` (AbsOffset b) = read (TL.unpack a) - read (TL.unpack b)
+    [(_,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
     liftIO $ do
-        assertEqual "off2" (AbsOffset "" ) off2 -- strange
-        assertEqual "off3 - off1" 1 (off3 `diffOffset` off1)
+        -- All but the last offset are meaningless
+        assertBool "off3 > off1" (off3 > off1)
         assertEqual "active" ev active
 
 tGetLedgerConfiguration :: SandboxTest
@@ -342,8 +343,7 @@ tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run w
     xs <- getLedgerConfiguration lid
     Just (Right config) <- liftIO $ timeout 1 (takeStream xs)
     let expected = LedgerConfiguration {
-            minTtl = Duration {durationSeconds = 2, durationNanos = 0},
-            maxTtl = Duration {durationSeconds = 30, durationNanos = 0}}
+            maxDeduplicationTime = Duration {durationSeconds = 86400, durationNanos = 0}}
     liftIO $ assertEqual "config" expected config
 
 tUploadDarFileBad :: SandboxTest
@@ -525,7 +525,7 @@ bucket = VRecord $ Record Nothing
         [ VVariant $ Variant Nothing (ConstructorId "B") (VBool True)
         , VVariant $ Variant Nothing (ConstructorId "I") (VInt 99)
         ]
-    , RecordField "contract"$ VContract (ContractId "xxxxx")
+    , RecordField "contract"$ VContract (ContractId "#xxxxx")
     , RecordField "list"    $ VList []
     , RecordField "int"     $ VInt 42
     , RecordField "decimal" $ VDecimal 123.456
@@ -587,6 +587,9 @@ detag = \case
 -- misc ledger ops/commands
 
 newtype TestId = TestId Int
+  deriving Show
+
+newtype Secret = Secret { getSecret :: String }
 
 nextTestId :: TestId -> TestId
 nextTestId (TestId i) = TestId (i + 1)
@@ -630,6 +633,13 @@ createWithoutKey pid owner n = CreateCommand {tid,args}
             RecordField "n" (VInt n)
             ]
 
+submitAndWaitCommand :: LedgerId -> Party -> Command -> LedgerService (Either String CommandId)
+submitAndWaitCommand lid party com = do
+    (cid,commands) <- liftIO $ makeCommands lid party com
+    Ledger.submitAndWait commands >>= \case
+        Left s -> return $ Left s
+        Right () -> return $ Right cid
+
 submitCommand :: LedgerId -> Party -> Command -> LedgerService (Either String CommandId)
 submitCommand lid party com = do
     (cid,commands) <- liftIO $ makeCommands lid party com
@@ -641,9 +651,7 @@ makeCommands :: LedgerId -> Party -> Command -> IO (CommandId,Commands)
 makeCommands lid party com = do
     cid <- liftIO randomCid
     let wid = Nothing
-    let leTime = Timestamp 0 0
-    let mrTime = Timestamp 5 0
-    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,dedupTime=Nothing,coms=[com]}
+    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,party,dedupTime=Nothing,coms=[com],minLeTimeAbs=Nothing,minLeTimeRel=Nothing}
 
 
 myAid :: ApplicationId
@@ -652,32 +660,28 @@ myAid = ApplicationId ":my-application:"
 randomCid :: IO CommandId
 randomCid = do fmap (CommandId . TL.pack . UUID.toString) randomIO
 
-looksLikeSandBoxLedgerId :: LedgerId -> Bool
-looksLikeSandBoxLedgerId (LedgerId text) =
-    "sandbox-" `isPrefixOf` s && length s == 44 where s = TL.unpack text
-
 ----------------------------------------------------------------------
 -- runWithSandbox
 
-runWithSandbox :: forall a. Sandbox -> Maybe AuthSpec -> TestId -> LedgerService a -> IO a
-runWithSandbox Sandbox{port} maybeAuth tid ls = runLedgerService ls' timeout (configOfPort port)
+runWithSandbox :: forall a. Port -> Maybe Secret -> TestId -> LedgerService a -> IO a
+runWithSandbox port mbSecret tid ls = runLedgerService ls' timeout (configOfPort port)
     where timeout = 30 :: TimeoutSeconds
           ls' :: LedgerService a
-          ls' = case maybeAuth of
+          ls' = case mbSecret of
             Nothing -> ls
-            Just authSpec -> do
-              let tok = Ledger.Token ("Bearer " <> makeSignedJwt authSpec tid)
+            Just secret -> do
+              let tok = Ledger.Token ("Bearer " <> makeSignedJwt secret tid)
               setToken tok ls
 
-makeSignedJwt :: AuthSpec -> TestId -> String
-makeSignedJwt AuthSpec{sharedSecret} tid = do
+makeSignedJwt :: Secret -> TestId -> String
+makeSignedJwt secret tid = do
   let parties = [ T.pack $ TL.unpack $ unParty $ p tid | p <- [alice,bob] ]
   let urc = JWT.ClaimsMap $ Map.fromList
         [ ("admin", Aeson.Bool True)
         , ("actAs", Aeson.Array $ Vector.fromList $ map Aeson.String parties)
         ]
   let cs = mempty { JWT.unregisteredClaims = urc }
-  let key = JWT.hmacSecret $ T.pack sharedSecret
+  let key = JWT.hmacSecret $ T.pack $ getSecret secret
   let text = JWT.encodeSigned key mempty cs
   T.unpack text
 
@@ -697,71 +701,34 @@ assertTextContains text frag =
     unless (frag `isInfixOf` text) (assertFailure msg)
     where msg = "expected frag: " ++ frag ++ "\n contained in: " ++ text
 
-----------------------------------------------------------------------
--- test with/out shared sandboxes...
-
 darPath :: FilePath
 darPath = mainWorkspace </> "language-support/hs/bindings/for-tests.dar"
 
-createSpec :: Maybe AuthSpec -> IO SandboxSpec
-createSpec maybeAuth = do
-    dar <- locateRunfiles darPath
-    return SandboxSpec {dar, maybeAuth}
+testGroupWithSandbox :: FilePath -> Maybe Secret -> TestName -> [WithSandbox -> TestTree] -> TestTree
+testGroupWithSandbox testDar mbSecret name tests =
+    withSandbox defaultSandboxConf { dars = [ testDar ], timeMode = Static, mbLedgerId = Just "my-ledger-id" } $ \getSandboxPort ->
+    withResource (readDarMetadata testDar) (const $ pure ()) $ \getDarMetadata ->
+    withResource (newIORef $ TestId 0) (const $ pure ()) $ \getTestCounter ->
+    let run :: WithSandbox
+        run f = do
+            port <- getSandboxPort
+            darMetadata <- getDarMetadata
+            testCounter <- getTestCounter
+            testId <- atomicModifyIORef testCounter (\x -> (nextTestId x, x))
+            f (Port port) mbSecret darMetadata testId
+    in testGroup name $ map (\f -> f run) tests
 
-data ShareSandbox = ShareSandbox Bool (Maybe AuthSpec)
-
-testGroupWithSandbox :: ShareSandbox -> TestName -> [WithSandbox -> TestTree] -> TestTree
-testGroupWithSandbox (ShareSandbox enableSharing maybeAuth) name tests = do
-    if enableSharing
-    then
-        -- waits to run in the one shared sandbox
-        withResource (acquireShared maybeAuth) releaseShared $ \resource -> do
-        testGroup name $ map (\f -> f (withShared maybeAuth resource)) tests
-    else do
-        -- runs in it's own freshly (and very slowly!) spun-up sandbox
-        let withSandbox' f = do
-                spec <- createSpec maybeAuth
-                darMetadata <- getDarMetadata spec
-                withSandbox spec $ \sandbox -> f sandbox maybeAuth darMetadata (TestId 0)
-        testGroup name $ map (\f -> f withSandbox') tests
-
-getDarMetadata :: SandboxSpec -> IO DarMetadata
-getDarMetadata SandboxSpec{dar} = do
+readDarMetadata :: FilePath -> IO DarMetadata
+readDarMetadata dar = do
     archive <- Zip.toArchive <$> BSL.readFile dar
     Dalfs { mainDalf } <- either fail pure $ readDalfs archive
     manifest <- either fail pure $ readDalfManifest archive
     LF.PackageId pId <- either (fail . show) pure $ decodeArchivePackageId (BSL.toStrict mainDalf)
     pure $ DarMetadata (PackageId $ TL.fromStrict pId) manifest
 
-----------------------------------------------------------------------
--- SharedSandbox
-
 data DarMetadata = DarMetadata
   { mainPackageId :: PackageId
   , manifest :: DalfManifest
   }
 
-type WithSandbox = (Sandbox -> Maybe AuthSpec -> DarMetadata -> TestId -> IO ()) -> IO ()
-
-data SharedSandbox = SharedSandbox (MVar (Sandbox, DarMetadata, TestId))
-
-acquireShared :: Maybe AuthSpec -> IO SharedSandbox
-acquireShared maybeAuth = do
-    spec <- createSpec maybeAuth
-    sandbox <- startSandbox spec
-    darMeta <- getDarMetadata spec
-    mv <- newMVar (sandbox, darMeta, TestId 0)
-    return $ SharedSandbox mv
-
-releaseShared :: SharedSandbox -> IO ()
-releaseShared (SharedSandbox mv) = do
-    (sandbox, _, _) <- takeMVar mv
-    shutdownSandbox sandbox
-
-withShared :: Maybe AuthSpec -> IO SharedSandbox -> WithSandbox
-withShared maybeAuth resource f = do
-    SharedSandbox mv <- resource
-    modifyMVar_ mv $ \(sandbox, darMetadata, testId) -> do
-        -- resetSandbox sandbox
-        f sandbox maybeAuth darMetadata testId
-        pure (sandbox, darMetadata, nextTestId testId)
+type WithSandbox = (Port -> Maybe Secret -> DarMetadata -> TestId -> IO ()) -> IO ()

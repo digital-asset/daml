@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth
+package com.daml.ledger.api.auth
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
@@ -11,7 +11,6 @@ import spray.json._
 import java.time.Instant
 import scala.util.{Success, Try}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class AuthServiceJWTCodecSpec
     extends WordSpec
     with Matchers

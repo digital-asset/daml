@@ -1,14 +1,11 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
-{-# LANGUAGE MultiWayIf #-}
 
 -- | Test driver for DAML-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
 module DA.Test.DamlcIntegration
   ( main
-  , mainAll
   ) where
 
 import           DA.Bazel.Runfiles
@@ -28,8 +25,9 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
-import qualified DA.Daml.Compiler.Scenario as SS
+import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
+import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
@@ -64,6 +62,7 @@ import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
+import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 
@@ -77,26 +76,39 @@ import Test.Tasty.Runners (Outcome(..), Result(..))
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
 
+newtype LfVersionOpt = LfVersionOpt Version
+  deriving (Eq)
+
+instance IsOption LfVersionOpt where
+  defaultValue = LfVersionOpt versionDefault
+  -- Tasty seems to force the value somewhere so we cannot just set this
+  -- to `error`. However, this will always be set.
+  parseValue = fmap LfVersionOpt . parseVersion
+  optionName = Tagged "daml-lf-version"
+  optionHelp = Tagged "DAML-LF version to test"
+
 main :: IO ()
-main = mainWithVersions [versionDev]
-
-mainAll :: IO ()
-mainAll = mainWithVersions (delete versionDev supportedOutputVersions)
-
-mainWithVersions :: [Version] -> IO ()
-mainWithVersions versions = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
+main = do
+ let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
+ -- This is a bit hacky, we want the LF version before we hand over to
+ -- tasty. To achieve that we first pass with optparse-applicative ignoring
+ -- everything apart from the LF version.
+ LfVersionOpt lfVer <- do
+     let parser = optionCLParser <* many (strArgument @String mempty)
+     execParser (info parser forwardOptions)
+ SS.withScenarioService lfVer Logger.makeNopHandle scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
   let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-  integrationTests <- mapM (getIntegrationTests registerTODO scenarioService) versions
-  let tests = testGroup "All" $ uniqueUniques : integrationTests
+  integrationTests <- getIntegrationTests registerTODO scenarioService
+  let tests = testGroup "All" [uniqueUniques, integrationTests]
   defaultMainWithIngredients ingredients tests
     `finally` (do
     todos <- readIORef todoRef
     putStr (unlines (DList.toList todos)))
   where ingredients =
-          includingOptions [Option (Proxy :: Proxy PackageDb)] :
+          includingOptions [Option (Proxy :: Proxy PackageDb), Option (Proxy @LfVersionOpt)] :
           defaultIngredients
 
 uniqueUniques :: TestTree
@@ -110,8 +122,8 @@ uniqueUniques = HUnit.testCase "Uniques" $
         let n = length $ nubOrd $ concat results
         n @?= 10000
 
-getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> Version -> IO TestTree
-getIntegrationTests registerTODO scenarioService version = do
+getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> IO TestTree
+getIntegrationTests registerTODO scenarioService = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
@@ -129,26 +141,30 @@ getIntegrationTests registerTODO scenarioService version = do
     createDirectoryIfMissing True outdir
 
     dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    let opts = (defaultOptions (Just version))
-          { optThreads = 0
-          , optCoreLinting = True
-          , optDlintUsage = DlintEnabled dlintDataDir False
-          }
 
     -- initialise the compiler service
     vfs <- makeVFSHandle
-    damlEnv <- mkDamlEnv opts (Just scenarioService)
     -- We use a separate service for generated files so that we can test files containing internal imports.
-    pure $
+    let tree :: TestTree
+        tree = askOption $ \(LfVersionOpt version) ->
+          let opts = (defaultOptions (Just version))
+                { optThreads = 0
+                , optCoreLinting = True
+                , optDlintUsage = DlintEnabled dlintDataDir False
+                }
+          in
+          withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
           withResource
-          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
           shutdown $ \service ->
           withResource
-          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
           shutdown $ \serviceGenerated ->
           withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase args version service outdir registerTODO) nongeneratedFiles <>
             map (testCase args version serviceGenerated outdir registerTODO) generatedFiles
+
+    pure tree
 
 newtype TestCase = TestCase ((String -> IO ()) -> IO Result)
 
@@ -168,7 +184,9 @@ testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> I
 testCase args version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
-  if any (ignoreVersion version) anns
+  if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
+    pure (testFailed "Unsupported DAML-LF version in UNTIL-LF annotation")
+  else if any (ignoreVersion version) anns
     then pure $ Result
       { resultOutcome = Success
       , resultDescription = ""
@@ -178,7 +196,7 @@ testCase args version getService outdir registerTODO (name, file) = singleTest n
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       unsafeClearDiagnostics service
-      ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
+      ex <- try $ mainProj args service outdir log (toNormalizedFilePath' file) :: IO (Either SomeException Package)
       diags <- getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
@@ -222,26 +240,27 @@ data DiagnosticField
   deriving (Eq, Show)
 
 checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
-checkDiagnostics log expected got = do
-    when (got /= []) $
-        log $ T.unpack $ showDiagnostics got
-
+checkDiagnostics log expected got
     -- you require the same number of diagnostics as expected
     -- and each diagnostic is at least partially expected
-    let bad = filter
-            (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
-            expected
-    pure $ if
-      | length expected /= length got -> Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
-      | null bad -> Nothing
-      | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
+    | length expected /= length got = do
+        logDiags
+        pure $ Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
+    | notNull bad = do
+        logDiags
+        pure $ Just $ unlines ("Could not find matching diagnostics:" : map show bad)
+    | otherwise = pure Nothing
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
           checkField (fp, _, D.Diagnostic{..}) f = case f of
-            DFilePath p -> toNormalizedFilePath p == fp
+            DFilePath p -> toNormalizedFilePath' p == fp
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
             DMessage m -> standardizeQuotes(T.pack m) `T.isInfixOf` standardizeQuotes(T.unwords (T.words _message))
+          logDiags = log $ T.unpack $ showDiagnostics got
+          bad = filter
+            (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
+            expected
 
 ------------------------------------------------------------
 -- CLI argument handling
@@ -313,9 +332,40 @@ parseRange :: String -> Range
 parseRange s =
   case traverse readMaybe (wordsBy (`elem` (":-" :: String)) s) of
     Just [rowStart, colStart, rowEnd, colEnd] ->
-        Range
-            (Position (rowStart - 1) (colStart - 1))
-            (Position (rowEnd - 1) (colEnd - 1))
+      -- When specifying ranges:
+      --  * lines are 1-based
+      --  * columns are 0-based
+      --  * the column span is open, that is, the end column is "one
+      --    past the end" of the span.
+      --
+      -- Positions in these ranges are matched against LSP coordinates
+      -- which are 0-based in both line and column and also open. Error
+      -- messages are formatted by GHC and are 1-based in line, 0-based
+      -- in column and closed (so add one to column start, one to
+      -- column end to make them 1-based, then subtract one from column
+      -- end to convert to closed!)
+      --
+      -- 'showDiagnostics' reports ranges such that lines are 1-based,
+      -- columns are 0-based and open.
+      --
+      -- Example:
+      --   If @INFO 'range=8:13-8:47':
+      --   then the actual (LSP) range is
+      --      { _start = Position {_line = 7, _character = 13}
+      --      ,   _end = Position {_line = 7, _character = 47}}
+      --   and 'showDiagnostics' reports:
+      --     Hidden:   no
+      --     Range:    8:13-8:47
+      --     Source:   linter
+      --     Severity: DsInfo
+      --     Message:  RangeTest.daml:8:14-47: Some error message.
+      --
+      -- TL;DR: To mark a diagnostic as "expected" paste the range as it
+      -- appears in 'showDiagnostics' e.g. '@INFO range=8:13-8:47; Some
+      -- error message'.
+      Range
+        (Position (rowStart - 1) colStart)
+        (Position (rowEnd - 1) colEnd)
     _ -> error $ "Failed to parse range, got " ++ s
 
 mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
@@ -356,7 +406,7 @@ dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action GHC.CoreModule
 ghcCompile log file = timed log "GHC compile" $ do
-    (_, Just (safeMode, guts, details)) <- generateCore file
+    (_, Just (safeMode, guts, details)) <- generateCore (RunSimplifier False) file
     pure $ cgGutsToCoreModule safeMode guts details
 
 lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package

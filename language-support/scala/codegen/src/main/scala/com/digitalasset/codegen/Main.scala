@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
 import java.io.File
 import java.nio.file.Path
 
 import ch.qos.logback.classic.Level
-import com.digitalasset.daml.lf.codegen.conf.Conf
+import com.daml.lf.codegen.conf.Conf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.Cord
@@ -18,7 +18,7 @@ object Main extends StrictLogging {
 
   private val codegenId = "Scala Codegen"
 
-  @deprecated("Use codegen font-end: com.digitalasset.codegen.CodegenMain.main", "0.13.23")
+  @deprecated("Use codegen font-end: com.daml.codegen.CodegenMain.main", "0.13.23")
   def main(args: Array[String]): Unit =
     Conf.parse(args) match {
       case Some(conf) =>

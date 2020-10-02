@@ -1,18 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.services.domain
+package com.daml.platform.server.api.services.domain
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.ledger.api.domain.LedgerOffset
-import com.digitalasset.ledger.api.messages.transaction.{
+import com.daml.ledger.api.domain.LedgerOffset
+import com.daml.ledger.api.messages.transaction.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionTreesRequest,
   GetTransactionsRequest
 }
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,

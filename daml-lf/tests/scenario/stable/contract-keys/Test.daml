@@ -1,0 +1,165 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Test where
+
+template TextKey
+  with
+    p: Party
+    k: Text
+    disclosedTo : [Party]
+  where
+    signatory p
+
+    observer disclosedTo
+
+    key (p, k): (Party, Text)
+    maintainer key._1
+
+    controller p can
+      TextKeyChoice : ()
+        do
+          return ()
+
+    controller p can
+      nonconsuming TextKeyNonconsumingChoice : ()
+        do
+          return ()
+
+template CreateAndLookup
+  with
+    p: Party
+    k: Text
+  where
+    signatory p
+
+    controller p can
+      nonconsuming Good : ()
+        do
+          cid <- create TextKey with
+            p = p
+            k = k
+            disclosedTo = []
+          mbCid <- lookupByKey @TextKey (p, k)
+          assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+          (fCid, c) <- fetchByKey @TextKey (p, k)
+          assertMsg ("fCid == cid") (fCid == cid)
+          assertMsg ("contract fetched by key has correct values") (c.p == p && c.k == k && c.disclosedTo == [])
+
+    controller p can
+      nonconsuming Dupe : ()
+        do
+          _ <- create TextKey with
+            p = p
+            k = k
+            disclosedTo = []
+          _ <- create TextKey with
+            p = p
+            k = k
+            disclosedTo = []
+          return ()
+
+template MaintainerNotSignatory
+  with
+    p: Party
+    q: Party
+  where
+    signatory p
+
+    key q: Party
+    maintainer key
+
+run = scenario do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+
+  cid1 <- submit alice do
+    create TextKey with
+      p = alice
+      k = "some-key"
+      disclosedTo = [bob]
+
+  -- duplicate keys are not OK
+  submitMustFail alice do
+    create TextKey with
+      p = alice
+      k = "some-key"
+      disclosedTo = [bob]
+
+  -- unauthorized lookups are not OK
+  submitMustFail bob do
+    lookupByKey @TextKey (alice, "some-key")
+  submitMustFail bob do
+    lookupByKey @TextKey (alice, "non-existant-key")
+
+  cid2 <- submit alice do
+    lookupByKey @TextKey (alice, "some-key")
+  assertMsg "Some cid1 == cid2" (Some cid1 == cid2)
+
+  (cid3, _tk) <- submit alice do
+    fetchByKey @TextKey (alice, "some-key")
+  assertMsg "cid1 == cid3" (cid1 == cid3)
+
+  noCid1 <- submit alice do
+    lookupByKey @TextKey (alice, "blah")
+  assertMsg "None == noCid1" (None == noCid1)
+
+  noCid2 <- submit bob do
+    lookupByKey @TextKey (bob, "some-key")
+  assertMsg "None == noCid2" (None == noCid2)
+
+  submit alice do
+    exercise cid1 TextKeyChoice
+
+  noCid3 <- submit alice do
+    lookupByKey @TextKey (alice, "some-key")
+  assertMsg "None == noCid3" (None == noCid3)
+
+  -- if we consume an absolute CID within a single
+  -- submission, we witness that it does not exist
+  cid4 <- submit alice do
+    create TextKey with
+      p = alice
+      k = "some-key-2"
+      disclosedTo = [bob]
+  noCid4 <- submit alice do
+    exercise cid4 TextKeyChoice
+    lookupByKey @TextKey (alice, "some-key-2")
+  assertMsg "None == noCid4" (None == noCid4)
+
+  -- we should be able to wintness keys within a single submit
+  submit alice do
+    cid <- create TextKey with
+      p = alice
+      k = "same-submit-key"
+      disclosedTo = []
+    mbCid <- lookupByKey @TextKey (alice, "same-submit-key")
+    assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+  -- and a single choice
+  createAndLookupCid <- submit alice do
+    create CreateAndLookup with
+      p = alice
+      k = "same-choice-key"
+  submit alice do
+    exercise createAndLookupCid Good
+  -- creating a dupe in a single choice should fail
+  submitMustFail alice do
+    exercise createAndLookupCid Dupe
+
+  -- nonconsuming choices should not affect key activeness
+  submit alice $ do
+    cid <- create TextKey with
+      p = alice
+      k = "non-consuming-choice"
+      disclosedTo = []
+    exercise cid TextKeyNonconsumingChoice
+    mbCid <- lookupByKey @TextKey (alice, "non-consuming-choice")
+    assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+
+  -- maintainers must be signatories
+  submitMustFail alice $ do
+    create MaintainerNotSignatory with
+      p = alice
+      q = bob
+

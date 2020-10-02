@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 
@@ -22,13 +22,16 @@ sealed trait Event[+Nid, +Cid, +Val]
     with Serializable {
   def witnesses: Set[Party]
 
-  final override protected val self: this.type = this
+  final override protected def self: this.type = this
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   final def mapContractId[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): Event[Nid, Cid2, Val2] =
     Event.map3(identity[Nid], f, g)(this)
   final def mapNodeId[Nid2](f: Nid => Nid2): Event[Nid2, Cid, Val] =
     Event.map3(f, identity[Cid], identity[Val])(this)
+
+  final def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
+    Event.foreach3(fNid, fCid, fVal)(this)
 }
 
 /** Event for created contracts, follows ledger api event protocol
@@ -89,7 +92,7 @@ final case class ExerciseEvent[Nid, Cid, Val](
     exerciseResult: Option[Val])
     extends Event[Nid, Cid, Val]
 
-object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
+object Event extends value.CidContainer3[Event] {
 
   override private[lf] def map3[Nid, Cid, Val, Nid2, Cid2, Val2](
       f1: Nid => Nid2,
@@ -143,6 +146,43 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
       )
   }
 
+  override private[lf] def foreach3[A, B, C](
+      f1: A => Unit,
+      f2: B => Unit,
+      f3: C => Unit,
+  ): Event[A, B, C] => Unit = {
+    case CreateEvent(
+        contractId,
+        templateId @ _,
+        contractKey,
+        argument,
+        agreementText @ _,
+        signatories @ _,
+        observers @ _,
+        witnesses @ _,
+        ) =>
+      f2(contractId)
+      contractKey.foreach(KeyWithMaintainers.foreach1(f3))
+      f3(argument)
+
+    case ExerciseEvent(
+        contractId,
+        templateId @ _,
+        choice @ _,
+        choiceArgument,
+        actingParties @ _,
+        isConsuming @ _,
+        children,
+        stakeholders @ _,
+        witnesses @ _,
+        exerciseResult,
+        ) =>
+      f2(contractId)
+      f3(choiceArgument)
+      children.foreach(f1)
+      exerciseResult.foreach(f3)
+  }
+
   case class Events[Nid, Cid, Val](roots: ImmArray[Nid], events: Map[Nid, Event[Nid, Cid, Val]]) {
     // filters from the leaves upwards: if any any exercise node returns false all its children will be purged, too
     def filter(f: Event[Nid, Cid, Val] => Boolean): Events[Nid, Cid, Val] = {
@@ -189,7 +229,7 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
       scala.collection.mutable.Map[Nid, Event[Nid, Cid, Val]]()
 
     def isIrrelevantNode(nid: Nid): Boolean = tx.nodes(nid) match {
-      case _: NodeFetch[Cid] => true
+      case _: NodeFetch[_, _] => true
       case _: NodeLookupByKey[_, _] => true
       case _ => false
 
@@ -235,7 +275,7 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
               )
               evts += (nodeId -> evt)
               go(relevantChildren ++: remaining)
-            case nf: NodeFetch[Cid] =>
+            case nf: NodeFetch[Cid, Val] =>
               throw new RuntimeException(
                 s"Unexpected fetch node $nf, we purge them before we get here!")
             case nlbk: NodeLookupByKey[Cid, Val] =>
@@ -252,7 +292,7 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
     Events(relevantRoots, Map() ++ evts)
   }
 
-  object Events extends value.CidContainer3WithDefaultCidResolver[Events] {
+  object Events extends value.CidContainer3[Events] {
     override private[lf] def map3[Nid, Cid, Val, Nid2, Cid2, Val2](
         f1: Nid => Nid2,
         f2: Cid => Cid2,
@@ -264,6 +304,17 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
         })
     }
 
+    override private[lf] def foreach3[A, B, C](
+        f1: A => Unit,
+        f2: B => Unit,
+        f3: C => Unit,
+    ): Events[A, B, C] => Unit = {
+      case Events(roots, events) =>
+        roots.foreach(f1)
+        events.foreach {
+          case (id, event) => f1(id) -> Event.foreach3(f1, f2, f3)(event)
+        }
+    }
   }
 
 }

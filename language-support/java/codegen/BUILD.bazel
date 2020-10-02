@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -32,8 +32,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "codegen",
-    data = ["//:MVN_VERSION"],
-    main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
+    main_class = "com.daml.lf.codegen.StandaloneMain",
     visibility = ["//visibility:public"],
     deps = [":lib"],
 )
@@ -43,9 +42,8 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     resources = [
         "src/main/resources/logback.xml",
-        "//:MVN_VERSION",
     ],
-    tags = ["maven_coordinates=com.daml.java:codegen-lib:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -88,20 +86,21 @@ da_scala_test(
         "@maven//:com_squareup_javapoet",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 daml_compile(
     name = "test-daml",
-    main_src = "src/test/daml/Foo.daml",
+    srcs = ["src/test/daml/Foo.daml"],
 )
 
 jar_jar(
     name = "shaded_binary",
     input_jar = "//language-support/java/codegen:codegen_deploy.jar",
     rules = "shade_rule",
-    tags = ["maven_coordinates=com.daml.java:codegen:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
     visibility = ["//visibility:public"],
 )
 
@@ -126,9 +125,6 @@ scala_source_jar(
 )
 
 test_daml_lf_target_versions = [
-    "1.0",
-    "1.1",
-    "1.3",
     "1.6",
     "1.7",
     "1.8",
@@ -148,7 +144,7 @@ test_daml_lf_target_versions = [
                 "src/test/java/**/*ForAll*.java",
                 "src/test/java/**/*For%s*.java" % mangle_for_java(target),
             ]),
-            test_class = "com.digitalasset.testing.AllTestsFor%s" % mangle_for_java(target),
+            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
             deps = [
                 ":test-model-%s.jar" % target,
                 "//language-support/java/bindings:bindings-java",
@@ -197,7 +193,6 @@ alias(
 daml_compile(
     name = "integration-tests-model-latest",
     srcs = glob(["src/it/daml/**/*.daml"]),
-    main_src = "src/it/daml/Lib.daml",
     target = lf_latest_version,
 )
 
@@ -225,12 +220,12 @@ daml_compile(
                 "src/it/java-%s/**/*.java" % target,
                 "src/it/java/**/*.java",
             ]),
-            test_class = "com.digitalasset.lf_%s.AllTests" % mangle_for_java(target),
+            test_class = "com.daml.lf_%s.AllTests" % mangle_for_java(target),
             deps = [
                 ":integration-tests-model-%s.jar" % target,
                 ":integration-tests-model-noprefix-%s.jar" % target,
                 "//language-support/java/bindings:bindings-java",
-                "//ledger/sandbox:sandbox-scala-tests-lib",
+                "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
                 "@maven//:org_junit_jupiter_junit_jupiter_engine",
@@ -249,7 +244,6 @@ daml_compile(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    main_src = "src/ledger-tests/daml/AllTests.daml",
     target = lf_stable_version,
 )
 
@@ -272,11 +266,14 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//language-support/java/bindings:bindings-java",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/participant-state",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-common",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",

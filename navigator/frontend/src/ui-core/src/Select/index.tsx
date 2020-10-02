@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -24,7 +24,7 @@ export interface State {
 }
 
 // tslint:disable-next-line:no-any
-const DropdownContainer = styled<{minWidth: string}>('ul' as any)`
+const DropdownContainer = styled('ul')<{minWidth: string}>`
   min-width: ${({ minWidth }) => minWidth};
   padding: 0;
   margin: 0;

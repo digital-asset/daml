@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.jwt
+package com.daml.jwt
 
 import java.io.File
 
@@ -32,9 +32,8 @@ object Main {
             e.printStackTrace()
             sys.exit(ErrorCodes.GenerateKeysError)
         }
-      case Some(Config(None, Some(GenerateJwt(Some(publicKey), Some(privateKey))))) =>
-        JwtGenerator.generate(
-          domain.KeyPair(publicKey = Seq.empty[Byte], privateKey = Seq.empty[Byte])) match {
+      case Some(Config(None, Some(GenerateJwt(Some(publicKey @ _), Some(privateKey @ _))))) =>
+        JwtGenerator.generate match {
           case Success(a) =>
             println(s"Generated JWT: $a")
           case Failure(e) =>

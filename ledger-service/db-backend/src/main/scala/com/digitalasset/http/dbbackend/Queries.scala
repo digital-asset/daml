@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.dbbackend
+package com.daml.http.dbbackend
 
 import scala.language.higherKinds
 import com.github.ghik.silencer.silent
@@ -155,7 +155,7 @@ object Queries {
       sql"""INSERT INTO ledger_offset VALUES ($party, $tpid, $newOffset)""".update.run
     )
 
-  @silent // pas is demonstrably used; try taking it out
+  @silent(" pas .* never used")
   def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]])(
       implicit log: LogHandler,
@@ -169,7 +169,6 @@ object Queries {
       logHandler0 = log
     ).updateMany(dbcs.map(_.mapKeyPayloadParties(_.toJson, _.toJson, _.toArray)))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def deleteContracts[F[_]: Foldable](cids: F[String])(
       implicit log: LogHandler): ConnectionIO[Int] = {
     cids.toVector match {
@@ -195,7 +194,7 @@ object Queries {
     hd ++ go(0, tl.size)
   }
 
-  @silent // gvs is demonstrably used; try taking it out
+  @silent(" gvs .* never used")
   private[http] def selectContracts(party: String, tpid: SurrogateTpId, predicate: Fragment)(
       implicit log: LogHandler,
       gvs: Get[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {

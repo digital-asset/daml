@@ -3,7 +3,7 @@
 
 {-# LANGUAGE TypeFamilies #-}
 
--- @ERROR range=11:1-11:16; Data definition, of type type family.
+-- @ERROR range=11:0-11:15; Data definition, of type type family.
 
 
 module TypeFamily where

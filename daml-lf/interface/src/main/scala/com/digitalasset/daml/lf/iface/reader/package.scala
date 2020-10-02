@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.iface
+package com.daml.lf.iface
 
-import com.digitalasset.daml.lf.{iface => parent}
+import com.daml.lf.{iface => parent}
 
 package object reader {
   @deprecated("import from parent `iface` package instead", since = "0.12.12")

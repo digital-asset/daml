@@ -1,19 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.http.domain.{Choice, TemplateId}
-import com.digitalasset.http.util.IdentifierConverters
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.ledger.service.{LedgerReader, TemplateIds}
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
+import com.daml.lf.iface
+import com.daml.http.domain.{Choice, TemplateId}
+import com.daml.http.util.IdentifierConverters
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.ledger.service.{LedgerReader, TemplateIds}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadPackageStore)
@@ -147,7 +148,7 @@ object PackageService {
       all: Set[TemplateId.RequiredPkg]): Map[TemplateId.NoPkg, TemplateId.RequiredPkg] =
     all
       .groupBy(k => key2(k))
-      .collect { case (k, v) if v.size == 1 => (k, v.head) }
+      .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
   def resolveTemplateId(m: TemplateIdMap)(
       a: TemplateId.OptionalPkg): Option[TemplateId.RequiredPkg] =
@@ -179,7 +180,7 @@ object PackageService {
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
-    packageStore.flatMap { case (_, interface) => getChoices(interface) }(collection.breakOut)
+    packageStore.flatMap { case (_, interface) => getChoices(interface) }
 
   private def getChoices(
       interface: iface.Interface): Map[(TemplateId.RequiredPkg, Choice), iface.Type] =
@@ -201,7 +202,7 @@ object PackageService {
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   private def getKeyTypeMap(packageStore: PackageStore): KeyTypeMap =
-    packageStore.flatMap { case (_, interface) => getKeys(interface) }(collection.breakOut)
+    packageStore.flatMap { case (_, interface) => getKeys(interface) }
 
   private def getKeys(interface: iface.Interface): Map[TemplateId.RequiredPkg, iface.Type] =
     interface.typeDecls.collect {

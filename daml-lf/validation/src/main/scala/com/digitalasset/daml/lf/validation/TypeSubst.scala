@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.validation.Util._
-import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.data.Ref.Name
+import com.daml.lf.language.Ast._
+import com.daml.lf.validation.Util._
+import com.daml.lf.validation.traversable.TypeTraversable
 
 private[validation] object TypeSubst {
 
@@ -28,9 +28,7 @@ private[validation] object TypeSubst {
         } else
           TForall(v0 -> k, go(fv0 + v0, subst0 - v0, t))
       case TStruct(ts) =>
-        TStruct(ts.transform { (_, x) =>
-          go(fv0, subst0, x)
-        })
+        TStruct(ts.mapValues(go(fv0, subst0, _)))
     }
 
   private def freshTypeVarName(fv: Set[TypeVarName]): TypeVarName =
@@ -64,7 +62,7 @@ private[validation] object TypeSubst {
     case TVar(name) =>
       acc + name
     case otherwise @ _ =>
-      (acc /: TypeTraversable(typ))(freeVars)
+      (TypeTraversable(typ) foldLeft acc)(freeVars)
   }
 
   private def freeVars(subst: Map[TypeVarName, Type]): Set[TypeVarName] =

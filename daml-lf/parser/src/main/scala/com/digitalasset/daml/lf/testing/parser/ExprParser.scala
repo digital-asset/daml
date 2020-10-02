@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.testing.parser.Parsers._
-import com.digitalasset.daml.lf.testing.parser.Token._
+import com.daml.lf.data.Ref.{Location, Name}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.Ast._
+import com.daml.lf.testing.parser.Parsers._
+import com.daml.lf.testing.parser.Token._
 
 @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
 private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
@@ -69,11 +69,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   lazy val expr: Parser[Expr] = {
     expr0 ~ rep(eAppAgr) ^^ {
       case e0 ~ args =>
-        (e0 /: args) {
+        (args foldLeft e0) {
           case (acc, EAppExprArg(e)) => EApp(acc, e)
           case (acc, EAppTypArg(t)) => ETyApp(acc, t)
         }
-    }
+    } |
+      eLoc
   }
 
   private lazy val fieldInit: Parser[(Name, Expr)] = id ~ (`=` ~> expr) ^^ {
@@ -150,12 +151,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val eAbs: Parser[Expr] =
     `\\` ~>! rep1(varBinder) ~ (`->` ~> expr) ^^ {
-      case binders ~ body => (binders :\ body)(EAbs(_, _, None))
+      case binders ~ body => (binders foldRight body)(EAbs(_, _, None))
     }
 
   private lazy val eTyAbs: Parser[Expr] =
     `/\\` ~>! rep1(typeBinder) ~ (`.` ~> expr) ^^ {
-      case binders ~ body => (binders :\ body)(ETyAbs)
+      case binders ~ body => (binders foldRight body)(ETyAbs)
     }
 
   private lazy val bindings: Parser[ImmArray[Binding]] =
@@ -254,6 +255,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "TO_TEXT_TIMESTAMP" -> BToTextTimestamp,
     "TO_TEXT_PARTY" -> BToTextParty,
     "TO_TEXT_DATE" -> BToTextDate,
+    "TO_TEXT_CONTRACT_ID" -> BToTextContractId,
     "TO_QUOTED_TEXT_PARTY" -> BToQuotedTextParty,
     "TEXT_FROM_CODE_POINTS" -> BToTextCodePoints,
     "FROM_TEXT_PARTY" -> BFromTextParty,
@@ -261,30 +263,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "FROM_TEXT_NUMERIC" -> BFromTextNumeric,
     "TEXT_TO_CODE_POINTS" -> BFromTextCodePoints,
     "ERROR" -> BError,
-    "LESS_INT64" -> BLessInt64,
     "LESS_NUMERIC" -> BLessNumeric,
-    "LESS_TEXT" -> BLessText,
-    "LESS_TIMESTAMP" -> BLessTimestamp,
-    "LESS_DATE" -> BLessDate,
-    "LESS_EQ_INT64" -> BLessEqInt64,
     "LESS_EQ_NUMERIC" -> BLessEqNumeric,
-    "LESS_EQ_TEXT" -> BLessEqText,
-    "LESS_EQ_TIMESTAMP" -> BLessEqTimestamp,
-    "LESS_EQ_DATE" -> BLessEqDate,
-    "GREATER_INT64" -> BGreaterInt64,
     "GREATER_NUMERIC" -> BGreaterNumeric,
-    "GREATER_TEXT" -> BGreaterText,
-    "GREATER_TIMESTAMP" -> BGreaterTimestamp,
-    "GREATER_DATE" -> BGreaterDate,
-    "GREATER_EQ_INT64" -> BGreaterEqInt64,
     "GREATER_EQ_NUMERIC" -> BGreaterEqNumeric,
-    "GREATER_EQ_TEXT" -> BGreaterEqText,
-    "GREATER_EQ_TIMESTAMP" -> BGreaterEqTimestamp,
-    "GREATER_EQ_DATE" -> BGreaterEqDate,
     "EQUAL_NUMERIC" -> BEqualNumeric,
     "EQUAL_LIST" -> BEqualList,
     "EQUAL_CONTRACT_ID" -> BEqualContractId,
     "EQUAL" -> BEqual,
+    "LESS" -> BLess,
+    "LESS_EQ" -> BLessEq,
+    "GREATER" -> BGreater,
+    "GREATER_EQ" -> BGreaterEq,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 
@@ -396,6 +386,22 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateGetTime |
       updateEmbedExpr
 
+  private lazy val int: Parser[Int] =
+    acceptMatch("Int", { case Number(l) => l.toInt })
+
+  private lazy val eLoc: Parser[Expr] =
+    `loc` ~>! (`(` ~> dottedName) ~ (`,` ~> id) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`,` ~> int) ~ (`)` ~> expr0) ^^ {
+      case m ~ d ~ ls ~ cs ~ le ~ ce ~ e =>
+        val location =
+          Location(
+            parserParameters.defaultPackageId,
+            m,
+            d.toString,
+            (ls, cs),
+            (le, ce),
+          )
+        ELocation(location, e)
+    }
 }
 
 object ExprParser {

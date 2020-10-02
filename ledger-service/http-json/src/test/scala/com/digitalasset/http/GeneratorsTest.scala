@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import com.digitalasset.http.Generators.genDuplicateApiIdentifiers
+import com.daml.http.Generators.genDuplicateModuleEntityApiIdentifiers
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -15,7 +15,7 @@ class GeneratorsTest extends FlatSpec with Matchers with GeneratorDrivenProperty
   import org.scalacheck.Shrink.shrinkAny
 
   "Generators.genDuplicateApiIdentifiers" should "generate API Identifiers with the same moduleName and entityName" in
-    forAll(genDuplicateApiIdentifiers) { ids =>
+    forAll(genDuplicateModuleEntityApiIdentifiers) { ids =>
       ids.size should be >= 2
       val (packageIds, moduleNames, entityNames) =
         ids.foldLeft((Set.empty[String], Set.empty[String], Set.empty[String])) { (b, a) =>

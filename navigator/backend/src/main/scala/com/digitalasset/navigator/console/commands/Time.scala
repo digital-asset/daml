@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console.commands
+package com.daml.navigator.console.commands
 
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.navigator.console._
-import com.digitalasset.navigator.store.Store.ReportCurrentTime
-import com.digitalasset.navigator.time.TimeProviderWithType
+import com.daml.navigator.console._
+import com.daml.navigator.store.Store.ReportCurrentTime
+import com.daml.navigator.time.TimeProviderWithType
 import akka.pattern.ask
 import akka.util.Timeout
 

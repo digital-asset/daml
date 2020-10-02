@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
 
-import java.time.Instant
-import java.util.UUID
+import java.time.{Duration, Instant}
+import java.util.{Optional, UUID}
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.digitalasset.ledger.api.v1.command_service.{
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse
@@ -23,7 +23,6 @@ import org.scalatest.{FlatSpec, Matchers, OptionValues}
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandClientImplTest
     extends FlatSpec
     with Matchers
@@ -43,6 +42,10 @@ class CommandClientImplTest
     ) _
   }
 
+  implicit class JavaOptionalAsScalaOption[A](opt: Optional[A]) {
+    def asScala: Option[A] = if (opt.isPresent) Some(opt.get()) else None
+  }
+
   behavior of "[2.1] CommandClientImpl.submitAndWait"
 
   it should "send the given command to the Ledger" in {
@@ -54,8 +57,9 @@ class CommandClientImplTest
           commands.getApplicationId,
           commands.getCommandId,
           commands.getParty,
-          commands.getLedgerEffectiveTime,
-          commands.getMaximumRecordTime,
+          commands.getMinLedgerTimeAbsolute,
+          commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
           commands.getCommands
         )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -78,8 +82,9 @@ class CommandClientImplTest
           commands.getApplicationId,
           commands.getCommandId,
           commands.getParty,
-          commands.getLedgerEffectiveTime,
-          commands.getMaximumRecordTime,
+          commands.getMinLedgerTimeAbsolute,
+          commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
           commands.getCommands
         )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -89,10 +94,14 @@ class CommandClientImplTest
       service.getLastRequest.value.getCommands.party shouldBe commands.getParty
       service.getLastRequest.value.getCommands.workflowId shouldBe commands.getWorkflowId
       service.getLastRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
-      service.getLastRequest.value.getCommands.getMaximumRecordTime.seconds shouldBe commands.getMaximumRecordTime.getEpochSecond
-      service.getLastRequest.value.getCommands.getMaximumRecordTime.nanos shouldBe commands.getMaximumRecordTime.getNano
-      service.getLastRequest.value.getCommands.getLedgerEffectiveTime.seconds shouldBe commands.getLedgerEffectiveTime.getEpochSecond
-      service.getLastRequest.value.getCommands.getLedgerEffectiveTime.nanos shouldBe commands.getLedgerEffectiveTime.getNano
+      service.getLastRequest.value.getCommands.minLedgerTimeRel
+        .map(_.seconds) shouldBe commands.getMinLedgerTimeRelative.asScala.map(_.getSeconds)
+      service.getLastRequest.value.getCommands.minLedgerTimeRel
+        .map(_.nanos) shouldBe commands.getMinLedgerTimeRelative.asScala.map(_.getNano)
+      service.getLastRequest.value.getCommands.minLedgerTimeAbs
+        .map(_.seconds) shouldBe commands.getMinLedgerTimeAbsolute.asScala.map(_.getEpochSecond)
+      service.getLastRequest.value.getCommands.minLedgerTimeAbs
+        .map(_.nanos) shouldBe commands.getMinLedgerTimeAbsolute.asScala.map(_.getNano)
       service.getLastRequest.value.getCommands.commands should have size 1
       val receivedCommand = service.getLastRequest.value.getCommands.commands.head.command
       receivedCommand.isCreate shouldBe true
@@ -115,9 +124,26 @@ class CommandClientImplTest
   }
 
   private type SubmitAndWait[A] =
-    (String, String, String, String, Instant, Instant, java.util.List[Command]) => Single[A]
+    (
+        String,
+        String,
+        String,
+        String,
+        Optional[Instant],
+        Optional[Duration],
+        Optional[Duration],
+        java.util.List[Command]) => Single[A]
   private type SubmitAndWaitWithToken[A] =
-    (String, String, String, String, Instant, Instant, java.util.List[Command], String) => Single[A]
+    (
+        String,
+        String,
+        String,
+        String,
+        Optional[Instant],
+        Optional[Duration],
+        Optional[Duration],
+        java.util.List[Command],
+        String) => Single[A]
 
   private def submitAndWaitFor[A](noToken: SubmitAndWait[A], withToken: SubmitAndWaitWithToken[A])(
       commands: java.util.List[Command],
@@ -130,16 +156,18 @@ class CommandClientImplTest
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
           party,
-          Instant.EPOCH,
-          Instant.EPOCH,
+          Optional.empty(),
+          Optional.empty(),
+          Optional.empty(),
           dummyCommands))(
         withToken(
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
           party,
-          Instant.EPOCH,
-          Instant.EPOCH,
+          Optional.empty(),
+          Optional.empty(),
+          Optional.empty(),
           commands,
           _))
       .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)

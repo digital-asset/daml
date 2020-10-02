@@ -1,47 +1,68 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.crypto.Hash
+import java.security.SecureRandom
+
+import com.daml.lf.crypto
 
 trait SeedService {
-
   def nextSeed: () => crypto.Hash
-
 }
 
 object SeedService {
 
-  sealed abstract class Seeding
+  sealed abstract class Seeding(val name: String) extends Product with Serializable {
+    override def toString: String = name
+  }
+
   object Seeding {
-    case object Weak extends Seeding
-    case object Strong extends Seeding
+
+    val NoSeedingModeName = "no"
+
+    case object Strong extends Seeding("strong")
+
+    case object Weak extends Seeding("testing-weak")
+
+    case object Static extends Seeding("testing-static")
+
   }
 
   def apply(seeding: Seeding): SeedService =
     seeding match {
-      case Seeding.Strong =>
-        new StrongRandomSeedService
-      case Seeding.Weak =>
-        new WeakRandomSeedService
+      case Seeding.Strong => StrongRandom
+      case Seeding.Weak => WeakRandom
+      case Seeding.Static => new StaticRandom("static random seed service")
     }
 
-}
-
-// This service uses a very low entropy seed.
-// Do not use in production
-class WeakRandomSeedService extends SeedService {
-  override val nextSeed: () => Hash = {
-    val weakSeed = Array.ofDim[Byte](32)
-    scala.util.Random.nextBytes(weakSeed)
-    crypto.Hash.random(weakSeed)
+  // Pseudo random generator seeded with high entropy seed.
+  // May block while gathering entropy from the underlying operating system
+  // Thread safe.
+  object StrongRandom extends SeedService {
+    override val nextSeed: () => crypto.Hash =
+      crypto.Hash.secureRandom(
+        crypto.Hash.assertFromByteArray(
+          SecureRandom.getInstanceStrong.generateSeed(crypto.Hash.underlyingHashLength)))
   }
-}
 
-// This service uses a PRNG with a high level entropy seed
-class StrongRandomSeedService extends SeedService {
-  override val nextSeed: () => Hash =
-    crypto.Hash.secureRandom
+  // Pseudo random generator seeded with low entropy seed.
+  // Do not block. Thread safe.
+  // Do not use in production mode.
+  object WeakRandom extends SeedService {
+    override val nextSeed: () => crypto.Hash = {
+      val a = Array.ofDim[Byte](crypto.Hash.underlyingHashLength)
+      scala.util.Random.nextBytes(a)
+      crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(a))
+    }
+  }
+
+  // Pseudo random generator seeded with a given seed.
+  // Do not block. Thread safe.
+  // Can be use to get reproducible run. Do not use in production mode.
+  final class StaticRandom(seed: String) extends SeedService {
+    override val nextSeed: () => crypto.Hash =
+      crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey(seed))
+  }
+
 }

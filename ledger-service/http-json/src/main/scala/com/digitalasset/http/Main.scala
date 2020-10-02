@@ -1,22 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.scalautil.Statement.discard
+import com.daml.http.dbbackend.ContractDao
+import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
+import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
-import scalaz.syntax.tag._
 import scopt.RenderingMode
 
 import scala.concurrent.duration._
@@ -44,13 +44,16 @@ object Main extends StrictLogging {
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
-        s", applicationId=${config.applicationId.unwrap: String}" +
-        s", packageReloadInterval=${config.packageReloadInterval.toString}" +
+        s", portFile=${config.portFile: Option[Path]}" +
+        s", packageReloadInterval=${config.packageReloadInterval: FiniteDuration}" +
+        s", packageMaxInboundMessageSize=${config.packageMaxInboundMessageSize: Option[Int]}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
+        s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
-        s", accessTokenFile=${config.accessTokenFile.toString}" +
-        s", defaultTtl=${config.defaultTtl.toString}" +
+        s", allowNonHttps=${config.allowNonHttps.shows}" +
+        s", accessTokenFile=${config.accessTokenFile: Option[Path]}" +
+        s", wsConfig=${config.wsConfig.shows}" +
         ")")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
@@ -81,18 +84,8 @@ object Main extends StrictLogging {
 
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
       HttpService.start(
-        ledgerHost = config.ledgerHost,
-        ledgerPort = config.ledgerPort,
-        applicationId = config.applicationId,
-        address = config.address,
-        httpPort = config.httpPort,
-        wsConfig = config.wsConfig,
-        accessTokenFile = config.accessTokenFile,
+        startSettings = config,
         contractDao = contractDao,
-        staticContentConfig = config.staticContentConfig,
-        packageReloadInterval = config.packageReloadInterval,
-        maxInboundMessageSize = config.maxInboundMessageSize,
-        defaultTtl = config.defaultTtl,
       )
 
     discard {
@@ -148,42 +141,45 @@ object Main extends StrictLogging {
         .required()
         .text("Ledger port number")
 
-      opt[String]("address")
-        .action((x, c) => c.copy(address = x))
-        .optional()
-        .text(
-          s"IP address that HTTP JSON API service listens on. Defaults to ${Config.Empty.address: String}.")
+      import com.daml.cliopts
 
-      opt[Int]("http-port")
-        .action((x, c) => c.copy(httpPort = x))
-        .required()
-        .text("HTTP JSON API service port number")
+      cliopts.Http.serverParse(this, serviceName = "HTTP JSON API")(
+        address = (f, c) => c copy (address = f(c.address)),
+        httpPort = (f, c) => c copy (httpPort = f(c.httpPort)),
+        defaultHttpPort = None,
+        portFile = Some((f, c) => c copy (portFile = f(c.portFile))),
+      )
 
       opt[String]("application-id")
-        .action((x, c) => c.copy(applicationId = ApplicationId(x)))
+        .foreach(x =>
+          logger.warn(
+            s"Command-line option '--application-id' is deprecated. Please do NOT specify it. " +
+              s"Application ID: '$x' provided in the command-line is NOT used, using Application ID from JWT."))
         .optional()
-        .text(
-          s"Optional application ID to use for ledger registration. Defaults to ${Config.Empty.applicationId.unwrap: String}")
+        .hidden()
+
+      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+        c copy (tlsConfig = f(c.tlsConfig)))
 
       opt[Duration]("package-reload-interval")
         .action((x, c) => c.copy(packageReloadInterval = FiniteDuration(x.length, x.unit)))
         .optional()
         .text(
           s"Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. " +
-            s"Defaults to ${Config.Empty.packageReloadInterval.toString}")
+            s"Defaults to ${Config.Empty.packageReloadInterval: FiniteDuration}")
 
-      opt[Duration]("default-ttl")
-        .action((x, c) => c.copy(defaultTtl = FiniteDuration(x.length, x.unit)))
+      opt[Int]("package-max-inbound-message-size")
+        .action((x, c) => c.copy(packageMaxInboundMessageSize = Some(x)))
         .optional()
         .text(
-          s"Optional Time to Live interval to set if not provided in the command. Examples: 30s, 1min, 1h. " +
-            s"Defaults to ${Config.Empty.defaultTtl.toString}")
+          s"Optional max inbound message size in bytes used for uploading and downloading package updates." +
+            s" Defaults to the `max-inbound-message-size` setting.")
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .optional()
         .text(
-          s"Optional max inbound message size in bytes. Defaults to ${Config.Empty.maxInboundMessageSize: Int}")
+          s"Optional max inbound message size in bytes. Defaults to ${Config.Empty.maxInboundMessageSize: Int}.")
 
       opt[Map[String, String]]("query-store-jdbc-config")
         .action((x, c) => c.copy(jdbcConfig = Some(JdbcConfig.createUnsafe(x))))
@@ -201,6 +197,11 @@ object Main extends StrictLogging {
         .valueName(StaticContentConfig.usage)
         .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
           + StaticContentConfig.help)
+
+      opt[Unit]("allow-insecure-tokens")
+        .action((_, c) => c copy (allowNonHttps = true))
+        .text(
+          "DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.")
 
       opt[String]("access-token-file")
         .text(

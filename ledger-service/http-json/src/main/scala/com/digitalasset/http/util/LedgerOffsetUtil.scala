@@ -1,34 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.util
+package com.daml.http.util
 
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import scalaz.{-\/, \/, \/-}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 
 object LedgerOffsetUtil {
-
-  private val LongEitherLongLongOrdering: Ordering[Long \/ (Long, Long)] = {
-    import scalaz.std.tuple._
-    import scalaz.std.anyVal._
-    scalaz.Order[Long \/ (Long, Long)].toScalaOrdering
-  }
-
-  implicit val AbsoluteOffsetOrdering: Ordering[LedgerOffset.Value.Absolute] =
-    Ordering.by(parseOffset)(LongEitherLongLongOrdering)
-
-  private def parseOffset(a: LedgerOffset.Value.Absolute): Long \/ (Long, Long) = {
-    val offset: String = a.value
-    offset.split('-') match {
-      case Array(_, a2, a3) =>
-        \/-((a2.toLong, a3.toLong))
-      case Array(a1) =>
-        -\/(a1.toLong)
-      case _ =>
-        throw new IllegalArgumentException(
-          "Expected either numeric or composite offset in the format: '<block-hash>-<block-height>-<event-id>'," +
-            s" got: ${offset: String}"
-        )
-    }
-  }
+  implicit val AbsoluteOffsetOrdering: Ordering[LedgerOffset.Value.Absolute] = Ordering.by(_.value)
 }

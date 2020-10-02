@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker.NameCollision
@@ -8,13 +8,14 @@ module DA.Daml.LF.TypeChecker.NameCollision
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Error
+import Data.List
 import Data.Maybe
+import Development.IDE.Types.Diagnostics
 import Control.Monad.Extra
 import qualified Data.NameMap as NM
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
-import qualified Control.Monad.State.Strict as S
-import Control.Monad.Except (throwError)
+import Control.Monad.Trans.RWS.CPS
 
 -- | The various names we wish to track within a package.
 -- This type separates all the different kinds of names
@@ -24,6 +25,11 @@ import Control.Monad.Except (throwError)
 -- see 'FRName'.
 data Name
     = NModule ModuleName
+    | NVirtualModule ModuleName ModuleName
+    -- ^ For a module A.B.C we insert virtual module names A and A.B.
+    -- This is used to check that you do not have a type B
+    -- in a module A and a module A.B.C at the same time,
+    -- even if you don't have a module A.B.
     | NRecordType ModuleName TypeConName
     | NVariantType ModuleName TypeConName
     | NEnumType ModuleName TypeConName
@@ -33,11 +39,19 @@ data Name
     | NField ModuleName TypeConName FieldName
     | NChoice ModuleName TypeConName ChoiceName
 
+-- | Helper method so we can turn collisions with virtual modules into warnings
+-- instead of errors for now.
+isVirtual :: Name -> Bool
+isVirtual NVirtualModule{} = True
+isVirtual _ = False
+
 -- | Display a name in a super unambiguous way.
 displayName :: Name -> T.Text
 displayName = \case
     NModule (ModuleName m) ->
         T.concat ["module ", dot m]
+    NVirtualModule (ModuleName m) (ModuleName mOrigin) ->
+        T.concat ["module prefix ", dot m, " (from ", dot mOrigin <> ")"]
     NRecordType (ModuleName m) (TypeConName t) ->
         T.concat ["record ", dot m, ":", dot t]
     NVariantType (ModuleName m) (TypeConName t) ->
@@ -66,6 +80,9 @@ nameCollisionPermitted a b =
     case (a,b) of
         (NRecordType m1 _, NVariantCon m2 _ _) -> m1 == m2
         (NVariantCon m1 _ _, NRecordType m2 _) -> m1 == m2
+        (NVirtualModule {}, NVirtualModule {}) -> True
+        (NModule {}, NVirtualModule {}) -> True
+        (NVirtualModule {}, NModule {}) -> True
         _ -> False
 
 -- | Asks whether a name collision is forbidden.
@@ -86,6 +103,8 @@ newtype FRName = FRName [T.Text]
 fullyResolve :: Name -> FRName
 fullyResolve = FRName . map T.toLower . \case
     NModule (ModuleName m) ->
+        m
+    NVirtualModule (ModuleName m) _ ->
         m
     NRecordType (ModuleName m) (TypeConName t) ->
         m ++ t
@@ -114,34 +133,42 @@ initialState :: NCState
 initialState = NCState M.empty
 
 -- | Monad in which to run the name collision check.
-type NCMonad t = S.StateT NCState (Either Error) t
+type NCMonad t = RWS () [Diagnostic] NCState t
 
 -- | Run the name collision with a blank initial state.
-runNameCollision :: NCMonad t -> Either Error t
-runNameCollision = flip S.evalStateT initialState
+runNameCollision :: NCMonad t -> [Diagnostic]
+runNameCollision m = snd (evalRWS m () initialState)
 
 -- | Try to add a name to the NCState. Returns Error only
 -- if the name results in a forbidden name collision.
-addName :: Name -> NCState -> Either Error NCState
-addName name (NCState nameMap) = do
-    let frName = fullyResolve name
-        oldNames = fromMaybe [] (M.lookup frName nameMap)
-        badNames = filter (nameCollisionForbidden name) oldNames
-    if null badNames then do
+addName :: Name -> NCState -> Either Diagnostic NCState
+addName name (NCState nameMap)
+    | null badNames =
         Right . NCState $ M.insert frName (name : oldNames) nameMap
-    else do
-        Left $ EForbiddenNameCollision
-            (displayName name)
-            (map displayName badNames)
+    | otherwise =
+        let err = EForbiddenNameCollision (displayName name) (map displayName badNames)
+            diag = toDiagnostic DsError err
+        -- If name is virtual or all badNames are virtual, we demote it to a
+        -- warning for now.
+        in Left $ if all isVirtual badNames || isVirtual name
+               then diag
+                        { _severity = Just DsWarning
+                        , _message = _message diag <> " This breaks `daml codegen js` and will become an error in a future SDK version."
+                        }
+               else diag
+  where
+    frName = fullyResolve name
+    oldNames = fromMaybe [] (M.lookup frName nameMap)
+    badNames = filter (nameCollisionForbidden name) oldNames
 
 checkName :: Name -> NCMonad ()
 checkName name = do
-    oldState <- S.get
+    oldState <- get
     case addName name oldState of
         Left err ->
-            throwError err
+            tell [err]
         Right !newState ->
-            S.put newState
+            put newState
 
 checkDataType :: ModuleName -> DefDataType -> NCMonad ()
 checkDataType moduleName DefDataType{..} =
@@ -170,6 +197,10 @@ checkModuleName :: Module -> NCMonad ()
 checkModuleName m =
     checkName (NModule (moduleName m))
 
+checkVirtualModuleName :: (ModuleName, ModuleName) -> NCMonad ()
+checkVirtualModuleName (m, mOrigin) =
+    checkName (NVirtualModule m mOrigin)
+
 checkModuleBody :: Module -> NCMonad ()
 checkModuleBody m = do
     forM_ (moduleDataTypes m) $ \dataType ->
@@ -180,6 +211,7 @@ checkModuleBody m = do
 checkModule :: Module -> NCMonad ()
 checkModule m = do
     checkModuleName m
+    mapM_ checkVirtualModuleName (virtualModuleNames m)
     checkModuleBody m
 
 -- | Is one module an ascendant of another? For instance
@@ -214,6 +246,7 @@ checkModuleDeps world mod0 = do
         descendants = filter (isAscendant name0 . moduleName) modules
     mapM_ checkModuleBody ascendants -- only need type names
     mapM_ checkModuleName descendants -- only need module names
+    mapM_ checkVirtualModuleName (concatMap virtualModuleNames descendants)
     checkModule mod0
 
 -- | Check a whole package for name collisions. This is used
@@ -222,8 +255,15 @@ checkModuleDeps world mod0 = do
 checkPackage :: Package -> NCMonad ()
 checkPackage = mapM_ checkModule . packageModules
 
-runCheckModuleDeps :: World -> Module -> Either Error ()
+runCheckModuleDeps :: World -> Module -> [Diagnostic]
 runCheckModuleDeps w m = runNameCollision (checkModuleDeps w m)
 
-runCheckPackage :: Package -> Either Error ()
+runCheckPackage :: Package -> [Diagnostic]
 runCheckPackage = runNameCollision . checkPackage
+
+-- | Given module name A.B.C produce the virtual module names A and A.B.
+virtualModuleNames :: Module -> [(ModuleName, ModuleName)]
+virtualModuleNames Module{moduleName = origin@(ModuleName components)}
+    | null components = error "Empty module names are invalid."
+    | otherwise = map (\v -> (ModuleName v, origin))  ((tail . inits . init) components)
+    -- init goes from A.B.C to A.B, inits gives us [[], [A], [A,B]], tail drops []

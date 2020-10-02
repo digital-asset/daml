@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.validation.NamedEntity._
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast
+import com.daml.lf.validation.NamedEntity._
+import com.daml.lf.validation.Util._
 
 private[validation] object Collision {
 
-  def checkPackage(pkgId: PackageId, modules: Traversable[(ModuleName, Ast.Module)]): Unit = {
-    val entitiesMap = namedEntitiesFromPkg(modules).groupBy(_.fullyResolvedName)
+  def checkPackage(pkgId: PackageId, pkg: Ast.Package): Unit = {
+    val entitiesMap = namedEntitiesFromPkg(pkg.modules).groupBy(_.fullyResolvedName)
     entitiesMap.values.foreach(cs => checkCollisions(pkgId, cs.toList))
   }
 

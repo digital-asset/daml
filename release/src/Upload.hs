@@ -1,12 +1,11 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DuplicateRecordFields #-}
 
 module Upload (
-    validateMavenArtifacts,
     uploadToMavenCentral,
     mavenConfigFromEnv,
 ) where
@@ -34,35 +33,23 @@ import           Network.HTTP.Client.TLS (mkManagerSettings, tlsManagerSettings)
 import           Network.HTTP.Simple (setRequestBasicAuth, setRequestBodyFile, setRequestBodyLBS, setRequestHeader, setRequestMethod, setRequestPath)
 import           Network.HTTP.Types.Status
 import           Path
-import Path.IO
 import           System.Environment
 import           System.IO.Temp
-import System.Exit
 
 import Types
 import Util
 
--- | Validate that the Maven artifacts to be uploaded are present.
-validateMavenArtifacts :: MonadCI m => Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
-validateMavenArtifacts releaseDir arts =
-    forM_ arts $ \(_, file) -> do
-        exists <- doesFileExist (releaseDir </> file)
-        unless exists $ do
-            $logError $ T.pack $ show file <> " is required for publishing to Maven"
-            liftIO exitFailure
-
-
--- 
+--
 -- Upload the artifacts to Maven Central
 --
 -- The artifacts are first uploaded to a staging repository on the Sonatype Open Source Repository Hosting platform
 -- where the repository contents is verified to conform to the Maven Central standards before being released to
--- the public repository.  
+-- the public repository.
 --
 -- Digitalasset has been assigned the 'com.daml' and 'com.digitalasset' namespaces (group IDs for Maven repos and artifacts
 -- need to be uploaded to the staging repository corresponding with their group ID. The staging repository for each group ID
 -- is handled separately, hence there are several 'duplicated' REST calls.
---  
+--
 -- Further information:
 --
 --  Staging requirements: https://central.sonatype.org/pages/requirements.html
@@ -73,7 +60,7 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
 
     -- Note: TLS verification settings switchable by MavenUpload settings
     let managerSettings = if getAllowUnsecureTls mucAllowUnsecureTls then noVerifyTlsManagerSettings else tlsManagerSettings
-    
+
     -- Create HTTP Connection manager with 2min response timeout as the OSSRH can be slow...
     manager <- liftIO $ newManager managerSettings { managerResponseTimeout = responseTimeoutMicro (120 * 1000 * 1000) }
 
@@ -140,7 +127,7 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
                  <*> Async.Concurrently (recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpNoBody sha1CksumRequest manager))
                  <*> Async.Concurrently (recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpNoBody md5CksumRequest manager))
 
-            pure () 
+            pure ()
 
         $logInfo "Finished uploading artifacts"
 
@@ -154,7 +141,7 @@ prepareStagingRepo baseRequest manager = do
     -- Note in Profile IDs
     --
     -- Currently the profile IDs are hardcoded. The IDs are fixed to the "namespaces" ('com.daml' and 'com.digitialasset')
-    -- attached to the Digitalasset accounts on the the Sonatype OSSRH.
+    -- attached to the Digitalasset accounts on the Sonatype OSSRH.
     --
 
     --
@@ -232,7 +219,7 @@ publishStagingRepo baseRequest manager comDamlRepoId comDigitalassetRepoId = do
 
     --
     -- Drop" (delete) both staging repositories if one or more fails the checks (and are not in the "closed" state)
-    -- 
+    --
     when (comDamlNotClosed || comDigitalassetNotClosed) $ do
         when comDamlNotClosed $ do logStagingRepositoryActivity baseRequest manager comDamlRepoId
         when comDigitalassetNotClosed $ do logStagingRepositoryActivity baseRequest manager comDigitalassetRepoId
@@ -253,10 +240,10 @@ publishStagingRepo baseRequest manager comDamlRepoId comDigitalassetRepoId = do
 
     $logWarn "Published to Maven Central"
 
-    pure () 
+    pure ()
 
 -- Print out a log of the repository activity which includes details of which verification rule failed.
--- The output is not prettified as it should only be print in rare(ish) error cases.  
+-- The output is not prettified as it should only be print in rare(ish) error cases.
 logStagingRepositoryActivity :: (MonadCI m) => Request -> Manager -> Text -> m ()
 logStagingRepositoryActivity baseRequest manager repoId = do
 
@@ -276,8 +263,8 @@ dropStagingRepositories :: (MonadCI m) => Request -> Manager -> [Text] -> m  ()
 dropStagingRepositories baseRequest manager repoIdList = do
     --
     -- Note: This is a "Bulk Drop" request used by the Nexus UI and not a Staging REST API.
-    -- 
-    let dropReposJson = "{\"data\":{\"description\":\"\",\"stagedRepositoryIds\":" <> tshow repoIdList <> "}}"  
+    --
+    let dropReposJson = "{\"data\":{\"description\":\"\",\"stagedRepositoryIds\":" <> tshow repoIdList <> "}}"
     let dropReposRequest
          = setRequestMethod "POST"
          $ setRequestPath "/service/local/staging/bulk/drop"
@@ -290,10 +277,10 @@ dropStagingRepositories baseRequest manager repoIdList = do
     return ()
 
 decodeSigningKey :: (MonadCI m) => String -> m BS.ByteString
-decodeSigningKey signingKey =  case Base64.decode $ C8.pack signingKey of    
+decodeSigningKey signingKey =  case Base64.decode $ C8.pack signingKey of
     Left err -> throwIO $ CannotDecodeSigningKey err
     Right decodedData -> return decodedData
- 
+
 -- Note: Upload path is NOT documented in the REST API Guide.
 uploadPath :: MavenCoords -> Text -> Text -> Text
 uploadPath MavenCoords{..} comDamlStagingRepoId comDigitalassetRepoId = do
@@ -352,10 +339,10 @@ checkRepoStatusHandler :: (MonadIO m, MonadLogger m) => RetryStatus -> E.Handler
 checkRepoStatusHandler status = logRetries shouldStatusRetry logStatusRetry status
 
 shouldRetry :: (MonadIO m) => HttpException -> m Bool
-shouldRetry e = case e of 
+shouldRetry e = case e of
     HttpExceptionRequest _ ConnectionTimeout -> return True
     -- Don't retry POST requests if the response timeouts as the request might of been processed
-    HttpExceptionRequest request ResponseTimeout -> return (method request == "POST") 
+    HttpExceptionRequest request ResponseTimeout -> return (method request == "POST")
     HttpExceptionRequest _ (StatusCodeException rsp _) ->
         case statusCode (responseStatus rsp) of
             408 {- requestTimeout -} -> return True
@@ -389,14 +376,14 @@ uploadRetryPolicy = limitRetriesByCumulativeDelay (60 * 1000 * 1000) (exponentia
 -- The status of the staging repository can take a number of minutes to change it's
 -- status to closed.
 checkStatusRetryPolicy :: RetryPolicy
-checkStatusRetryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (constantDelay (15 * 1000 * 1000))
+checkStatusRetryPolicy = limitRetriesByCumulativeDelay (10 * 60 * 1000 * 1000) (constantDelay (15 * 1000 * 1000))
 
 handleStatusRequest :: (MonadIO m) => Request -> Manager -> m Bool
 handleStatusRequest request manager = do
     statusResponse <- liftIO $ httpLbs request manager
     repoStatus <- liftIO $ decodeRepoStatus $ responseBody statusResponse
     if transitioning repoStatus
-    then 
+    then
         throwIO RepoNotClosed
     else
         return $ status repoStatus == "open"
@@ -496,7 +483,7 @@ data UploadFailure
     | RepoFailedToClose [Text]
 
 instance E.Exception UploadFailure
-instance Show UploadFailure where 
+instance Show UploadFailure where
    show (ParseJsonException msg) = "Cannot parse JSON data: " <> msg
    show (CannotDecodeSigningKey msg) = "Cannot Base64 decode signing key: " <> msg
    show (RepoFailedToClose repoIds) = "The staging repositories " <> show repoIds <> " failed to close"

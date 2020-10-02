@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML-LF Transaction Specification
 =================================
 
-**version 9, 13 January 2020**
+**version 10, 25 March 2020**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for _transactions_, to be
@@ -162,6 +162,8 @@ This table lists every version of this specification in ascending order
 |                  8 |      2019-06-26 |
 +--------------------+-----------------+
 |                  9 |      2020-01-13 |
++--------------------+-----------------+
+|                 10 |      2020-03-25 |
 +--------------------+-----------------+
 
 message Transaction
@@ -326,7 +328,7 @@ Every element of ``stakeholders`` is a party identifier.
 
 A new field is included:
 
-* `message KeyWithMaintainers`_ key
+* `message KeyWithMaintainers`_ key_with_maintainers
 
 ``key`` is optional. If present:
 
@@ -416,6 +418,19 @@ Every element of ``actors`` is a party identifier.
   Actors are specified explicitly by the user invoking fetching the
   contract -- or in other words, they are _not_ a property of the
   contract itself.
+
+*since version 10*
+
+Version 10 adds the field:
+
+* `message KeyWithMaintainers`_ key_with_maintainers
+
+``key_with_maintainers`` is optional. It is present if and only if the
+``template_id`` field refers to a template with a DAML-LF key
+definition.  When present, the field's sub-fields ``key`` and
+``maintainers`` must conform to the key definition for the
+``template_id``.
+
 
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^

@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.retrying
+package com.daml.ledger.client.binding.retrying
 
 import java.time.temporal.TemporalAmount
 
 import akka.NotUsed
 import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Merge, Partition}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.refinements.ApiTypes.Party
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.client.services.commands.CommandClient
-import com.digitalasset.util.Ctx
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.client.services.commands.CommandClient
+import com.daml.util.Ctx
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import scalaz.syntax.tag._

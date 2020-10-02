@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -14,5 +14,10 @@ module GHC.Err
 import GHC.Integer.Type() -- required so Integer optimisation works
 import GHC.Types
 
+-- | `error` stops execution and displays the given error message.
+--
+-- If called within a transaction, it will abort the current transaction.
+-- Outside of a transaction (scenarios, DAML Script or DAML Triggers)
+-- it will stop the whole scenario/script/trigger.
 error : Text -> a
 error = primitive @"BEError"

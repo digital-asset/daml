@@ -6,7 +6,7 @@
 -- conversion error even if we try to be clever.
 --
 -- @SINCE-LF 1.7
--- @ERROR Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (2.71828 : Numeric 10)
+-- @ERROR range=19:0-19:7; Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (2.71828 : Numeric 10)
 
 
 

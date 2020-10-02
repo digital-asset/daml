@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources.akka
+package com.daml.resources.akka
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
-import com.digitalasset.resources.ResourceOwner
+import com.daml.resources.ResourceOwner
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.{Future, Promise}

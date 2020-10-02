@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
 
 object Ast {
   //
@@ -43,11 +43,11 @@ object Ast {
 
     /** Infix alias for repeated [[EApp]] application. */
     @inline final def eApp(arg: Expr, args: Expr*): EApp =
-      (EApp(this, arg) /: args)(EApp)
+      (args foldLeft EApp(this, arg))(EApp)
 
     /** Infix alias for repeated [[ETyApp]] application. */
     @inline final def eTyApp(typ: Type, typs: Type*): ETyApp =
-      (ETyApp(this, typ) /: typs)(ETyApp)
+      (typs foldLeft ETyApp(this, typ))(ETyApp)
   }
 
   /** Reference to a variable in current lexical scope. */
@@ -219,7 +219,7 @@ object Ast {
         case TForall((v, _), body) =>
           maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
         case TStruct(fields) =>
-          "(" + fields
+          "(" + fields.iterator
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
             .mkString(", ") + ")"
@@ -264,13 +264,7 @@ object Ast {
   final case class TForall(binder: (TypeVarName, Kind), body: Type) extends Type
 
   /** Structs */
-  final case class TStruct private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
-
-  object TStruct extends (ImmArray[(FieldName, Type)] => TStruct) {
-    // should be dropped once the compiler sort fields.
-    def apply(fields: ImmArray[(FieldName, Type)]): TStruct =
-      new TStruct(ImmArray(fields.toSeq.sortBy(_._1: String)))
-  }
+  final case class TStruct(fields: Struct[Type]) extends Type
 
   sealed abstract class BuiltinType extends Product with Serializable
 
@@ -384,6 +378,7 @@ object Ast {
   final case object BToTextTimestamp extends BuiltinFunction(1) // : Timestamp → Text
   final case object BToTextParty extends BuiltinFunction(1) // : Party → Text
   final case object BToTextDate extends BuiltinFunction(1) // : Date -> Text
+  final case object BToTextContractId extends BuiltinFunction(1) // : forall t. ContractId t -> Optional Text
   final case object BToQuotedTextParty extends BuiltinFunction(1) // : Party -> Text
   final case object BToTextCodePoints extends BuiltinFunction(1) // : [Int64] -> Text
   final case object BFromTextParty extends BuiltinFunction(1) // : Text -> Optional Party
@@ -397,38 +392,20 @@ object Ast {
   final case object BError extends BuiltinFunction(1) // : ∀a. Text → a
 
   // Comparisons
-  final case object BLessInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
   final case object BLessNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
-  final case object BLessText extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BLessTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
-  final case object BLessDate extends BuiltinFunction(2) // : Date → Date → Bool
-  final case object BLessParty extends BuiltinFunction(2) // : Party → Party → Bool
-
-  final case object BLessEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
   final case object BLessEqNumeric extends BuiltinFunction(2) // :  ∀s. Numeric →  ∀s. Numeric → Bool
-  final case object BLessEqText extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BLessEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
-  final case object BLessEqDate extends BuiltinFunction(2) // : Date → Date → Bool
-  final case object BLessEqParty extends BuiltinFunction(2) // : Party → Party → Bool
-
-  final case object BGreaterInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
   final case object BGreaterNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
-  final case object BGreaterText extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BGreaterTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
-  final case object BGreaterDate extends BuiltinFunction(2) // : Date → Date → Bool
-  final case object BGreaterParty extends BuiltinFunction(2) // : Party → Party → Bool
-
-  final case object BGreaterEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
   final case object BGreaterEqNumeric extends BuiltinFunction(2) // : ∀s. Numeric s → Numeric s → Bool
-  final case object BGreaterEqText extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BGreaterEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
-  final case object BGreaterEqDate extends BuiltinFunction(2) // : Date → Date → Bool
-  final case object BGreaterEqParty extends BuiltinFunction(2) // : Party → Party → Bool
-
   final case object BEqualNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
+
   final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
   final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
   final case object BEqual extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BLess extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BLessEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BGreater extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BGreaterEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
   // Unstable Text Primitives
@@ -530,8 +507,13 @@ object Ast {
   sealed abstract class DataCons extends Product with Serializable
   final case class DataRecord(fields: ImmArray[(FieldName, Type)], optTemplate: Option[Template])
       extends DataCons
-  final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons
-  final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons
+  final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons {
+    lazy val constructorRank: Map[VariantConName, Int] =
+      variants.iterator.map(_._1).zipWithIndex.toMap
+  }
+  final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons {
+    lazy val constructorRank: Map[EnumConName, Int] = constructors.iterator.zipWithIndex.toMap
+  }
 
   case class TemplateKey(
       typ: Type,
@@ -583,7 +565,7 @@ object Ast {
       consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
       controllers: Expr, // Parties that can exercise the choice.
       selfBinder: ExprVarName, // Self ContractId binder.
-      argBinder: (Option[ExprVarName], Type), // Choice argument binder.
+      argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
       update: Expr // The choice follow-up.
   )
@@ -616,7 +598,6 @@ object Ast {
   case class Module private (
       name: ModuleName,
       definitions: Map[DottedName, Definition],
-      languageVersion: LanguageVersion,
       featureFlags: FeatureFlags
   )
 
@@ -628,16 +609,14 @@ object Ast {
     def apply(
         name: ModuleName,
         definitions: Traversable[(DottedName, Definition)],
-        languageVersion: LanguageVersion,
         featureFlags: FeatureFlags
     ): Module =
-      Module(name, definitions, List.empty, languageVersion, featureFlags)
+      Module(name, definitions, List.empty, featureFlags)
 
     def apply(
         name: ModuleName,
         definitions: Traversable[(DottedName, Definition)],
         templates: Traversable[(DottedName, Template)],
-        languageVersion: LanguageVersion,
         featureFlags: FeatureFlags
     ): Module = {
 
@@ -662,7 +641,7 @@ object Ast {
           }
       }
 
-      new Module(name, defsMap ++ updatedRecords, languageVersion, featureFlags)
+      new Module(name, defsMap ++ updatedRecords, featureFlags)
     }
   }
 
@@ -671,7 +650,9 @@ object Ast {
   case class Package(
       modules: Map[ModuleName, Module],
       directDeps: Set[PackageId],
-      metadata: Option[PackageMetadata]) {
+      languageVersion: LanguageVersion,
+      metadata: Option[PackageMetadata],
+  ) {
     def lookupIdentifier(identifier: QualifiedName): Either[String, Definition] = {
       this.modules.get(identifier.module) match {
         case None =>
@@ -693,12 +674,14 @@ object Ast {
     def apply(
         modules: Traversable[Module],
         directDeps: Traversable[PackageId],
-        metadata: Option[PackageMetadata]): Package = {
+        languageVersion: LanguageVersion,
+        metadata: Option[PackageMetadata],
+    ): Package = {
       val modulesWithNames = modules.map(m => m.name -> m)
       findDuplicate(modulesWithNames).foreach { modName =>
         throw PackageError(s"Collision on module name ${modName.toString}")
       }
-      Package(modulesWithNames.toMap, directDeps.toSet, metadata)
+      Package(modulesWithNames.toMap, directDeps.toSet, languageVersion, metadata)
     }
   }
 

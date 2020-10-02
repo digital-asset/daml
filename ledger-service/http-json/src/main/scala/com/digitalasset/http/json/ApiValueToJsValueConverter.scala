@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
 
 import JsonProtocol.LfValueCodec
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.http.util.ApiValueToLfValueConverter
+import com.daml.ledger.api.{v1 => lav1}
 import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
@@ -19,7 +19,6 @@ class ApiValueToJsValueConverter(apiToLf: ApiValueToLfValueConverter.ApiValueToL
       .map(LfValueCodec.apiValueToJsValue)
       .leftMap(x => JsonError(x.shows))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def apiRecordToJsObject(a: lav1.value.Record): JsonError \/ JsObject = {
     a.fields.toList.traverse(convertField).map(fs => JsObject(fs.toMap))
   }

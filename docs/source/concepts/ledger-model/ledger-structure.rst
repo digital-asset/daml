@@ -1,10 +1,12 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
+.. _ledger-structure:
 
 Structure
 ---------
 
-This section looks at the structure of a DA ledger and the associated ledger
+This section looks at the structure of a DAML ledger and the associated ledger
 changes. The basic building blocks of changes are *actions*, which get grouped
 into *transactions*.
 
@@ -13,7 +15,7 @@ into *transactions*.
 Actions and Transactions
 ++++++++++++++++++++++++
 
-One of the main features of the DA ledger model is a *hierarchical action
+One of the main features of the DAML ledger model is a *hierarchical action
 structure*.
 
 This structure is illustrated below on a toy example of a multi-party
@@ -33,7 +35,7 @@ which a new IOU for `P` is *created*.  Second, a new contract is
 
 Thus, the acceptance in this example is reduced to two types of actions: (1)
 creating contracts, and (2) exercising rights on them. These are also the
-two main kinds of actions in the DA ledger model. The visual notation below
+two main kinds of actions in the DAML ledger model. The visual notation below
 records the relations between the actions during the above acceptance.
 
 .. image:: ./images/action-structure-expanded-paint-offer.svg
@@ -53,7 +55,7 @@ Formally, an **action** is one of the following:
 
    #. An exercise **kind**, which is either **consuming** or
       **non-consuming**. Once consumed, a contract cannot be used again
-      (for example, the painter should not be able to accept the
+      (for example, Alice should not be able to accept the painter's
       offer twice). Contracts exercised in a non-consuming fashion
       can be reused.
 
@@ -64,12 +66,12 @@ Formally, an **action** is one of the following:
       gives rise to the hierarchical structure.
       The exercise action is the **parent action** of its consequences.
 
-#. a **Fetch** action on a contract, which demonstrates that the contract exists and is in force at the time of
+#. a **Fetch** action on a contract, which demonstrates that the contract exists and is active at the time of
    fetching.
    The action also contains **actors**, the parties who fetch the contract.
    A **Fetch** behaves like a non-consuming exercise with no consequences, and can be repeated.
 
-#. a **Key assertion**, which records the assertion that the given :doc:`contract key </daml/reference/contract-keys>` is not assigned to any unconsumed contract on the ledger.
+#. a **Key assertion**, which records the assertion that the given :doc:`contract key </daml/reference/contract-keys>` is **not** assigned to any unconsumed contract on the ledger.
 
 An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
 Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
@@ -86,9 +88,9 @@ underlying type of parties.
 ::
 
    Action       ::= 'Create' contract
-                    | 'Exercise' party* contract Kind Transaction
-                    | 'Fetch' party* contract
-                    | 'NoSuchKey' key
+                  | 'Exercise' party* contract Kind Transaction
+                  | 'Fetch' party* contract
+                  | 'NoSuchKey' key
    Transaction  ::= Action*
    Kind         ::= 'Consuming' | 'NonConsuming'
 
@@ -146,7 +148,7 @@ Iou obligor owner
   An IOU token from an obligor to an owner
   (for simplicity, the token is of unit amount).
 
-In practice, multiple IOU contracts would exist between the same `obligor` and
+In practice, multiple IOU contracts can exist between the same `obligor` and
 `owner`, in which case each contract should have a unique identifier. However,
 in this section, each contract only appears once, allowing us to drop the notion 
 of identifiers for simplicity reasons.
@@ -176,13 +178,12 @@ proper subaction of the exercise on the `Iou Bank A`.
    :align: center
    :width: 60%
 
-Similarly, a **subtransaction** of a transaction is either the
-transaction itself, or a **proper subtransaction**: a transaction
-obtained by removing at least one action, or replacing it by a subtransaction
-of its consequences. For example, given the the transaction
-consisting of just one action, the paint offer acceptance, the image
-below shows all its proper subtransactions on the right (yellow boxes).
-
+Similarly, a **subtransaction** of a transaction is either the transaction
+itself, or a **proper subtransaction**: a transaction obtained by removing at
+least one action, or replacing it by a subtransaction of its consequences. For
+example, given the transaction consisting of just one action, the paint offer
+acceptance, the image below shows all its proper subtransactions on the right
+(yellow boxes).
 
 .. https://www.lucidchart.com/documents/edit/a4735a72-2d27-485c-a3ed-0c053dab0e11
 .. image:: ./images/subtransactions-paint-offer.svg
@@ -205,7 +206,7 @@ changes, but not *who requested them*. This information is added by the notion
 of a **commit**: a transaction paired with the parties that
 requested it, called the **requesters** of the commit.
 In the ledger model, a commit is allowed to have multiple requesters,
-although the current DA Platform API offers the request functionality only to individual parties.
+although the current DAML Ledger API offers the request functionality only to individual parties.
 Given a commit `(p, tx)` with transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is
 called a **top-level action** of the commit. A **ledger** is a sequence of
 commits. A top-level action of any ledger commit is also a top-level action of
@@ -218,7 +219,7 @@ The following EBNF grammar summarizes the structure of commits and ledgers:
    Commit   ::= party Transaction
    Ledger   ::= Commit*
 
-A DA ledger thus represents the full history of all actions taken by
+A DAML ledger thus represents the full history of all actions taken by
 parties.\ [#ledger-vs-journal]_ Since the ledger is a sequence (of dependent actions), it induces an
 *order* on the commits in the ledger. Visually, a ledger can be represented
 as a sequence growing from left to right as time progresses. Below,
@@ -235,7 +236,7 @@ follows.
 
 
 The definitions presented here are all the ingredients required to
-*record* the interaction between parties in a DA ledger. That is, they
+*record* the interaction between parties in a DAML ledger. That is, they
 address the first question: "what do changes and ledgers look
 like?". To answer the next question, "who can request which changes",
 a precise definition is needed of which ledgers are permissible,

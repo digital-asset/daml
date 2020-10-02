@@ -1,14 +1,16 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
-
+-- BEGIN_EXT
+{-# LANGUAGE ApplicativeDo #-}
 module Restrictions where
+-- END_EXT
 
+import DA.Assert
 import DA.Date
 import DA.Text as T
 import DA.Time
 import DA.Tuple
-
+import Daml.Script
 
 data Cash = Cash with
   currency : Text
@@ -61,14 +63,14 @@ template SimpleIou
 -- REDEEM_CHOICE_END
 
 -- RESTRICTIONS_TEST_BEGIN
-test_restrictions = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  dora <- getParty "Dora"
+test_restrictions = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  dora <- allocateParty "Dora"
 
   -- Dora can't issue negative Ious.
   submitMustFail dora do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = dora
       owner = alice
       cash = Cash with
@@ -77,7 +79,7 @@ test_restrictions = scenario do
 
   -- Or even zero Ious.
   submitMustFail dora do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = dora
       owner = alice
       cash = Cash with
@@ -86,7 +88,7 @@ test_restrictions = scenario do
 
   -- Nor positive Ious with invalid currencies.
   submitMustFail dora do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = dora
       owner = alice
       cash = Cash with
@@ -95,7 +97,7 @@ test_restrictions = scenario do
 
   -- But positive Ious still work, of course.
   iou <- submit dora do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = dora
       owner = alice
       cash = Cash with
@@ -106,95 +108,91 @@ test_restrictions = scenario do
 -- TRANSFER_TEST_BEGIN
   -- Alice can't transfer to herself...
   submitMustFail alice do
-    exercise iou Transfer with
+    exerciseCmd iou Transfer with
       newOwner = alice
 
   -- ... but can transfer to Bob.
   iou2 <- submit alice do
-    exercise iou Transfer with
+    exerciseCmd iou Transfer with
       newOwner = bob
 -- TRANSFER_TEST_END
 
 
 -- REDEEM_TEST_BEGIN
   -- June 1st 2019 is a Saturday.
-  passToDate (date 2019 Jun 1)
+  setTime (time (date 2019 Jun 1) 0 0 0)
   -- Bob cannot redeem on a Saturday.
   submitMustFail bob do
-    exercise iou2 Redeem
+    exerciseCmd iou2 Redeem
 
   -- Not even at mid-day.
-  pass (hours 12)
+  passTime (hours 12)
   -- Bob cannot redeem on a Saturday.
   submitMustFail bob do
-    exercise iou2 Redeem
+    exerciseCmd iou2 Redeem
 
   -- Bob also cannot redeem at 6am on a Monday.
-  pass (hours 42)
+  passTime (hours 42)
   submitMustFail bob do
-    exercise iou2 Redeem
+    exerciseCmd iou2 Redeem
 
   -- Bob can redeem at 8am on Monday.
-  pass (hours 2)
+  passTime (hours 2)
   submit bob do
-    exercise iou2 Redeem
+    exerciseCmd iou2 Redeem
 -- REDEEM_TEST_END
 
   -- CAUSALITY_TEST_BEGIN
   iou3 <- submit dora do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = dora
       owner = alice
       cash = Cash with
         amount = 100.0
         currency = "USD"
 
-  pass (days (-3))
+  passTime (days (-3))
   submitMustFail alice do
-    exercise iou3 Redeem
+    exerciseCmd iou3 Redeem
   -- CAUSALITY_TEST_END
 
 -- DO_DEMO_BEGIN
-sub_scenario1 : Scenario (ContractId SimpleIou) = scenario do
-  alice <- getParty "Alice"
-  dora <- getParty "Dora"
-
+sub_script1 (alice, dora) = do
   submit dora do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = dora
       owner = alice
       cash = Cash with
         amount = 100.0
         currency = "USD"
 
-sub_scenario2 : Scenario Int = scenario do
-  getParty "Nobody"
-  pass (days 1)
-  pass (days (-1))
+sub_script2 = do
+  passTime (days 1)
+  passTime (days (-1))
   return 42
 
-sub_scenario3 : Scenario (ContractId SimpleIou) = scenario do
-  bob <- getParty "Bob"
-  dora <- getParty "Dora"
-
+sub_script3 (bob, dora) = do
   submit dora do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = dora
       owner = bob
       cash = Cash with
         amount = 100.0
         currency = "USD"
 
-main_scenario : Scenario () = scenario do
-  dora <- getParty "Dora"
+main_: Script () = do
+  dora <- allocateParty "Dora"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
-  iou1 <- sub_scenario1
-  sub_scenario2
-  iou2 <- sub_scenario3
+  iou1 <- sub_script1 (alice, dora)
+  sub_script2
+  iou2 <- sub_script3 (bob, dora)
 
   submit dora do
-    archive iou1
-    archive iou2
+    archiveCmd iou1
+    archiveCmd iou2
+    pure ()
 -- DO_DEMO_END
 
 -- COIN_BEGIN
@@ -205,14 +203,14 @@ data CoinGame a = CoinGame with
   play : Coin -> (Coin, a)
 
 flipCoin : CoinGame Face
-getCoin : Scenario Coin
+getCoin : Script Coin
 -- COIN_END
 
 -- COIN_SCENARIO_BEGIN
-coin_test = scenario do
+coin_test = do
   -- The coin is pseudo-random on LET so change the parameter to change the game.
-  passToDate (date 2019 Jun 1)
-  pass (seconds 2)
+  setTime (time (date 2019 Jun 1) 0 0 0)
+  passTime (seconds 2)
   coin <- getCoin
   let
     game = do
@@ -243,7 +241,7 @@ flipCoin = CoinGame with
 next : Int -> Int
 next s = (48271 * s) % 2147483647
 
-getCoin = scenario do
+getCoin = do
   t <- getTime
   let clk = convertRelTimeToMicroseconds $ subTime t (datetime 1970 Jan 1 0 0 0)
   let s = (67826523 + clk) % 2147483647
@@ -275,36 +273,43 @@ instance Action CoinGame where
       )
 
 -- NON_PERFORMED_ABORT_BEGIN
-nonPerformedAbort = scenario do
-  let abortScenario = False
-  let failingAction : Scenario () = abort "Foo"
-  let successfulAction : Scenario () = return ()
-  if abortScenario then failingAction else successfulAction
+nonPerformedAbort = do
+  let abortScript = False
+  let failingAction : Script () = abort "Foo"
+  let successfulAction : Script () = return ()
+  if abortScript then failingAction else successfulAction
 -- NON_PERFORMED_ABORT_END
 
 -- OPTIONAL_POW_BEGIN
 optPow : Int -> Int -> Optional Int
-optPow x y 
- | y == 0 = Some 1
- | y > 0 = let Some z = optPow x (y - 1)
-           in Some (y * z)
+optPow base exponent
+ | exponent == 0 = Some 1
+ | exponent > 0 =
+   let Some result = optPow base (exponent - 1)
+   in Some (base * result)
  | otherwise = None
 -- OPTIONAL_POW_END
 
 -- ERROR_POW_BEGIN
 errPow : Int -> Int -> Int
-errPow x y 
- | y == 0 = 1
- | y > 0 = y * errPow x (y - 1)
+errPow base exponent
+ | exponent == 0 = 1
+ | exponent > 0 = base * errPow base (exponent - 1)
  | otherwise = error "Negative exponent not supported"
 -- ERROR_POW_END
 
 {-
 -- NON_PERFORMED_ERROR_BEGIN
-nonPerformedError = scenario do
+nonPerformedError = script do
   let causeError = False
   let failingComputation = errPow 1 (-1)
   let successfulComputation = errPow 1 1
   return if causeError then failingComputation else successfulComputation
 -- NON_PERFORMED_ERROR_END
 -}
+
+test = script do
+  optPow 2 5 === Some 32
+  optPow 5 2 === Some 25
+  errPow 2 5 === 32
+  errPow 5 2 === 25

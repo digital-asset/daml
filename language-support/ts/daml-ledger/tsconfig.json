@@ -1,4 +1,3 @@
-
 {
   "compilerOptions": {
     "target": "es5",
@@ -15,6 +14,5 @@
     "esModuleInterop": true,
     "declaration": true,
     "sourceMap": true
-    },
-  "files": ["index.ts"]
+  }
 }

@@ -1,7 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
+
+import com.daml.http.util.Collections._
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -12,10 +14,9 @@ import org.scalatest.compatible.Assertion
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.syntax.show._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.{Show, \/}
 import spray.json._
 
-import scala.collection.breakOut
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -38,9 +39,8 @@ class ResponseFormatsTest
     import spray.json.DefaultJsonProtocol._
 
     val jsValWarnings: Option[JsValue] = warnings.map(_.toJson)
-    val successes: Vector[JsValue] = input.collect { case \/-(jsValue) => jsValue }(breakOut)
-    val failures: Vector[JsString] =
-      input.collect { case -\/(e) => e }.map(e => JsString(e.shows))(breakOut)
+    val (failures, successes): (Vector[JsString], Vector[JsValue]) =
+      input.toVector.partitionMap(_.leftMap(e => JsString(e.shows)))
 
     val jsValSource = Source[DummyError \/ JsValue](input)
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 // Setup the Nix bucket + CDN
@@ -15,42 +15,24 @@ module "nix_cache" {
   name                 = "${local.nix_cache_name}"
   project              = "${local.project}"
   region               = "${local.region}"
-  ssl_certificate      = "${local.ssl_certificate}"
+  ssl_certificate      = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/nix-cache"
   cache_retention_days = 360
 }
 
 // allow rw access for CI writer (see writer.tf)
-resource "google_storage_bucket_iam_member" "nix_cache_writer" {
+resource "google_storage_bucket_iam_member" "nix_cache_writer_create" {
   bucket = "${module.nix_cache.bucket_name}"
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.writer.email}"
 }
-
-// provide a index.html file, so accessing the document root yields something
-// nicer than just a 404.
-resource "google_storage_bucket_object" "index_nix_cache" {
-  name         = "index.html"
-  bucket       = "${module.nix_cache.bucket_name}"
-  content      = "${file("${path.module}/files/index_nix_cache.html")}"
-  content_type = "text/html"
-  depends_on   = ["module.nix_cache"]
-}
-
-// provide a nix-cache-info file setting a higher priority
-// than cache.nixos.org, so we prefer it
-resource "google_storage_bucket_object" "nix-cache-info" {
-  name   = "nix-cache-info"
+resource "google_storage_bucket_iam_member" "nix_cache_writer_read" {
   bucket = "${module.nix_cache.bucket_name}"
 
-  content = <<EOF
-StoreDir: /nix/store
-WantMassQuery: 1
-Priority: 10
-  EOF
-
-  content_type = "text/plain"
+  # https://cloud.google.com/storage/docs/access-control/iam-roles
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.writer.email}"
 }
 
 output "nix_cache_ip" {

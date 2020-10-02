@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.validation.AlphaEquiv._
-import com.digitalasset.daml.lf.validation.Util._
-import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.data.{ImmArray, Numeric, Struct}
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.daml.lf.validation.AlphaEquiv._
+import com.daml.lf.validation.Util._
+import com.daml.lf.validation.traversable.TypeTraversable
 
 import scala.annotation.tailrec
 
@@ -19,7 +19,7 @@ private[validation] object Typing {
   /* Typing */
 
   private def checkUniq[A](xs: Iterator[A], mkError: A => ValidationError): Unit = {
-    (Set.empty[A] /: xs)((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
+    (xs foldLeft Set.empty[A])((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
     ()
   }
 
@@ -55,7 +55,7 @@ private[validation] object Typing {
           TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma))))
     val tNumConversion =
       TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
-    def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
+    val tComparison: Type = TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool)
     val tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
 
     Map[BuiltinFunction, Type](
@@ -120,7 +120,7 @@ private[validation] object Typing {
         TForall(
           alpha.name -> KStar,
           TTextMap(alpha) ->: TList(
-            TStruct(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
+            TStruct(Struct.assertFromSeq(List(keyFieldName -> TText, valueFieldName -> alpha))))
         ),
       BTextMapSize ->
         TForall(
@@ -180,6 +180,7 @@ private[validation] object Typing {
       BToTextTimestamp -> (TTimestamp ->: TText),
       BToTextParty -> (TParty ->: TText),
       BToTextDate -> (TDate ->: TText),
+      BToTextContractId -> TForall(alpha.name -> KStar, TContractId(alpha) ->: TOptional(TText)),
       BSHA256Text -> (TText ->: TText),
       BToQuotedTextParty -> (TParty ->: TText),
       BToTextCodePoints -> (TList(TInt64) ->: TText),
@@ -189,30 +190,10 @@ private[validation] object Typing {
       BFromTextCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
-      BLessInt64 -> tComparison(BTInt64),
       BLessNumeric -> tNumComparison,
-      BLessText -> tComparison(BTText),
-      BLessTimestamp -> tComparison(BTTimestamp),
-      BLessDate -> tComparison(BTDate),
-      BLessParty -> tComparison(BTParty),
-      BLessEqInt64 -> tComparison(BTInt64),
       BLessEqNumeric -> tNumComparison,
-      BLessEqText -> tComparison(BTText),
-      BLessEqTimestamp -> tComparison(BTTimestamp),
-      BLessEqDate -> tComparison(BTDate),
-      BLessEqParty -> tComparison(BTParty),
-      BGreaterInt64 -> tComparison(BTInt64),
       BGreaterNumeric -> tNumComparison,
-      BGreaterText -> tComparison(BTText),
-      BGreaterTimestamp -> tComparison(BTTimestamp),
-      BGreaterDate -> tComparison(BTDate),
-      BGreaterParty -> tComparison(BTParty),
-      BGreaterEqInt64 -> tComparison(BTInt64),
       BGreaterEqNumeric -> tNumComparison,
-      BGreaterEqText -> tComparison(BTText),
-      BGreaterEqTimestamp -> tComparison(BTTimestamp),
-      BGreaterEqDate -> tComparison(BTDate),
-      BGreaterEqParty -> tComparison(BTParty),
       BImplodeText -> (TList(TText) ->: TText),
       BEqualNumeric -> tNumComparison,
       BEqualList ->
@@ -221,7 +202,11 @@ private[validation] object Typing {
           (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
-      BEqual -> TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool),
+      BEqual -> tComparison,
+      BLess -> tComparison,
+      BLessEq -> tComparison,
+      BGreater -> tComparison,
+      BGreaterEq -> tComparison,
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
@@ -244,11 +229,12 @@ private[validation] object Typing {
     case PCUnit => TUnit
   }
 
-  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit =
+  def checkModule(world: World, pkgId: PackageId, mod: Module): Unit = {
+    val languageVersion = world.lookupPackage(NoContext, pkgId).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
@@ -264,13 +250,14 @@ private[validation] object Typing {
             env.checkEnumType(tyConName, params, values)
         }
       case (dfnName, dfn: DValue) =>
-        Env(mod.languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
+  }
 
   case class Env(
       languageVersion: LanguageVersion,
@@ -359,7 +346,8 @@ private[validation] object Typing {
           if (supportsFlexibleControllers) {
             introExprVar(param, paramType).checkExpr(controllers, TParties)
           } else {
-            param.filter(eVars.isDefinedAt).foreach(x => throw EIllegalShadowingExprVar(ctx, x))
+            if (eVars.isDefinedAt(param))
+              throw EIllegalShadowingExprVar(ctx, param)
             checkExpr(controllers, TParties)
           }
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))
@@ -443,8 +431,8 @@ private[validation] object Typing {
       case TForall((v, k), b) =>
         introTypeVar(v, k).checkType(b, KStar)
         KStar
-      case TStruct(recordType) =>
-        checkRecordType(recordType)
+      case TStruct(fields) =>
+        checkRecordType(fields.toImmArray)
         KStar
     }
 
@@ -465,9 +453,7 @@ private[validation] object Typing {
       case TForall((v, k), b) =>
         TForall((v, k), introTypeVar(v, k).expandTypeSynonyms(b))
       case TStruct(recordType) =>
-        TStruct(recordType.transform { (_, x) =>
-          expandTypeSynonyms(x)
-        })
+        TStruct(recordType.mapValues(expandTypeSynonyms(_)))
     }
 
     private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
@@ -528,16 +514,14 @@ private[validation] object Typing {
           throw EExpectedRecordType(ctx, typ0)
       }
 
-    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type = {
-      checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      TStruct(fields.transform { (_, x) =>
-        typeOf(x)
-      })
-    }
+    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type =
+      Struct
+        .fromSeq(fields.iterator.map { case (f, x) => f -> typeOf(x) }.toSeq)
+        .fold(name => throw EDuplicateField(ctx, name), TStruct)
 
     private def typeOfStructProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
       case TStruct(structType) =>
-        structType.lookup(field, EUnknownField(ctx, field))
+        structType.lookup(field).getOrElse(throw EUnknownField(ctx, field))
       case typ =>
         throw EExpectedStructType(ctx, typ)
     }
@@ -545,7 +529,7 @@ private[validation] object Typing {
     private def typeOfStructUpd(field: FieldName, struct: Expr, update: Expr): Type =
       typeOf(struct) match {
         case typ @ TStruct(structType) =>
-          checkExpr(update, structType.lookup(field, EUnknownField(ctx, field)))
+          checkExpr(update, structType.lookup(field).getOrElse(throw EUnknownField(ctx, field)))
           typ
         case typ =>
           throw EExpectedStructType(ctx, typ)
@@ -626,6 +610,8 @@ private[validation] object Typing {
         }
 
       case CPCons(headVar, tailVar) =>
+        if (headVar == tailVar)
+          throw EClashingPatternVariables(ctx, headVar)
         scrutType match {
           case TList(elemType) =>
             introExprVar(headVar, elemType).introExprVar(tailVar, TList(elemType))
@@ -773,9 +759,11 @@ private[validation] object Typing {
         // fetches return the contract id and the contract itself
         TUpdate(
           TStruct(
-            ImmArray(
-              (contractIdFieldName, TContractId(TTyCon(retrieveByKey.templateId))),
-              (contractFieldName, TTyCon(retrieveByKey.templateId)))))
+            Struct.assertFromSeq(
+              List(
+                contractIdFieldName -> TContractId(TTyCon(retrieveByKey.templateId)),
+                contractFieldName -> TTyCon(retrieveByKey.templateId)
+              ))))
       case UpdateLookupByKey(retrieveByKey) =>
         checkRetrieveByKey(retrieveByKey)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))

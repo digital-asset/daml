@@ -1,26 +1,25 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.daml.lf.archive
 
 import java.math.BigDecimal
 import java.nio.file.{Files, Paths}
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.data.{Decimal, Numeric, Ref}
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.data.{Decimal, Numeric, Ref}
+import com.daml.lf.language.Util._
+import com.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
 import LanguageMinorVersion.Implicits._
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml_lf_dev.DamlLf1
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.DottedName
+import com.daml.daml_lf_dev.DamlLf1
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
 
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class DecodeV1Spec
     extends WordSpec
     with Matchers
@@ -83,6 +82,16 @@ class DecodeV1Spec
     LV.Minor.Dev
   )
 
+  private val preGenericComparisonVersion = Table(
+    "minVersion",
+    List(1, 4, 6, 8).map(i => LV.Minor.Stable(i.toString)): _*
+  )
+
+  private val postGenericComparisonVersion = Table(
+    "minVersion",
+    LV.Minor.Dev
+  )
+
   private val preAnyTypeVersions = Table(
     "minVersion",
     List("1", "4", "6").map(LV.Minor.Stable): _*
@@ -105,6 +114,31 @@ class DecodeV1Spec
     LV.Minor.Dev,
   )
 
+  private val preContractIdTextConversionVersions = Table(
+    "minVersion",
+    List(1, 4, 6, 8).map(i => LV.Minor.Stable(i.toString)): _*
+  )
+
+  private val preInterningVersions = Table(
+    "minVersion",
+    LV.Minor.Stable("6"),
+  )
+
+  private val postInterningVersions = Table(
+    "minVersion",
+    LV.Minor.Stable("7"),
+    LV.Minor.Stable("8"),
+    LV.Minor.Dev,
+  )
+
+  private val postContractIdTextConversionVersions = Table(
+    "minVersion",
+    // FIXME: https://github.com/digital-asset/daml/issues/7139
+    // uncomment the following line once LF 1.9 is released
+    // LV.Minor.Stable("9"),
+    LV.Minor.Dev,
+  )
+
   "decodeKind" should {
 
     "reject nat kind if lf version < 1.7" in {
@@ -118,7 +152,6 @@ class DecodeV1Spec
 
     "accept nat kind if lf version >= 1.7" in {
       val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
-
       forEvery(postNumericMinVersions) { minVersion =>
         moduleDecoder(minVersion).decodeKind(input) shouldBe Ast.KNat
       }
@@ -240,6 +273,67 @@ class DecodeV1Spec
         decoder.decodeType(buildPrimType(ANY)) shouldBe TAny
       }
     }
+
+    "reject Struct with duplicate field names" in {
+      val negativeTestCases =
+        Table("field names", List("a", "b", "c"))
+      val positiveTestCases =
+        Table("field names", List("a", "a"), List("a", "b", "c", "a"), List("a", "b", "c", "b"))
+
+      val unit = DamlLf1.Type
+        .newBuilder()
+        .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
+        .build
+
+      def fieldWithUnitWithoutInterning(s: String) =
+        DamlLf1.FieldWithType.newBuilder().setFieldStr(s).setType(unit)
+
+      def buildTStructWithoutInterning(fields: Seq[String]) =
+        DamlLf1.Type
+          .newBuilder()
+          .setStruct(
+            fields.foldLeft(DamlLf1.Type.Struct.newBuilder())((builder, name) =>
+              builder.addFields(fieldWithUnitWithoutInterning(name)))
+          )
+          .build()
+
+      val stringTable = ImmArraySeq("a", "b", "c")
+      val stringIdx = stringTable.zipWithIndex.toMap
+
+      def fieldWithUnitWithInterning(s: String) =
+        DamlLf1.FieldWithType.newBuilder().setFieldInternedStr(stringIdx(s)).setType(unit)
+
+      def buildTStructWithInterning(fields: Seq[String]) =
+        DamlLf1.Type
+          .newBuilder()
+          .setStruct(
+            fields.foldLeft(DamlLf1.Type.Struct.newBuilder())((builder, name) =>
+              builder.addFields(fieldWithUnitWithInterning(name)))
+          )
+          .build()
+
+      forEvery(preInterningVersions) { minVersion =>
+        val decoder = moduleDecoder(minVersion)
+        forEvery(negativeTestCases) { fieldNames =>
+          decoder.decodeType(buildTStructWithoutInterning(fieldNames))
+        }
+        forEvery(positiveTestCases) { fieldNames =>
+          a[ParseError] shouldBe thrownBy(
+            decoder.decodeType(buildTStructWithoutInterning(fieldNames)))
+        }
+      }
+
+      forEvery(postInterningVersions) { minVersion =>
+        val decoder = moduleDecoder(minVersion, stringTable)
+        forEvery(negativeTestCases) { fieldNames =>
+          decoder.decodeType(buildTStructWithInterning(fieldNames))
+        }
+        forEvery(positiveTestCases) { fieldNames =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeType(buildTStructWithInterning(fieldNames)))
+        }
+      }
+    }
+
   }
 
   "decodeExpr" should {
@@ -285,22 +379,16 @@ class DecodeV1Spec
         DamlLf1.BuiltinFunction.ROUND_DECIMAL,
         "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale)),
-      (
-        DamlLf1.BuiltinFunction.LEQ_DECIMAL,
-        "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BLessEqNumeric), TDecimalScale)),
-      (
-        DamlLf1.BuiltinFunction.LESS_DECIMAL,
-        "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BLessNumeric), TDecimalScale)),
+      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
+      (DamlLf1.BuiltinFunction.LESS_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
       (
         DamlLf1.BuiltinFunction.GEQ_DECIMAL,
         "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEqNumeric), TDecimalScale)),
+        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal)),
       (
         DamlLf1.BuiltinFunction.GREATER_DECIMAL,
         "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterNumeric), TDecimalScale)),
+        Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal)),
       (
         DamlLf1.BuiltinFunction.TO_TEXT_DECIMAL,
         "1",
@@ -317,10 +405,7 @@ class DecodeV1Spec
         DamlLf1.BuiltinFunction.DECIMAL_TO_INT64,
         "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale)),
-      (
-        DamlLf1.BuiltinFunction.EQUAL_DECIMAL,
-        "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BEqualNumeric), TDecimalScale)),
+      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
     )
 
     val numericBuiltinTestCases = Table(
@@ -330,15 +415,58 @@ class DecodeV1Spec
       DamlLf1.BuiltinFunction.MUL_NUMERIC -> Ast.EBuiltin(Ast.BMulNumeric),
       DamlLf1.BuiltinFunction.DIV_NUMERIC -> Ast.EBuiltin(Ast.BDivNumeric),
       DamlLf1.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltin(Ast.BRoundNumeric),
-      DamlLf1.BuiltinFunction.LEQ_NUMERIC -> Ast.EBuiltin(Ast.BLessEqNumeric),
-      DamlLf1.BuiltinFunction.LESS_NUMERIC -> Ast.EBuiltin(Ast.BLessNumeric),
-      DamlLf1.BuiltinFunction.GEQ_NUMERIC -> Ast.EBuiltin(Ast.BGreaterEqNumeric),
-      DamlLf1.BuiltinFunction.GREATER_NUMERIC -> Ast.EBuiltin(Ast.BGreaterNumeric),
       DamlLf1.BuiltinFunction.TO_TEXT_NUMERIC -> Ast.EBuiltin(Ast.BToTextNumeric),
       DamlLf1.BuiltinFunction.FROM_TEXT_NUMERIC -> Ast.EBuiltin(Ast.BFromTextNumeric),
       DamlLf1.BuiltinFunction.INT64_TO_NUMERIC -> Ast.EBuiltin(Ast.BInt64ToNumeric),
       DamlLf1.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltin(Ast.BNumericToInt64),
+    )
+
+    val comparisonBuiltinCases = Table(
+      "compare builtins" -> "expected output",
+      DamlLf1.BuiltinFunction.EQUAL_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TInt64),
+      DamlLf1.BuiltinFunction.LEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TInt64),
+      DamlLf1.BuiltinFunction.LESS_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TInt64),
+      DamlLf1.BuiltinFunction.GEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TInt64),
+      DamlLf1.BuiltinFunction.GREATER_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TInt64),
+      DamlLf1.BuiltinFunction.EQUAL_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDate),
+      DamlLf1.BuiltinFunction.LEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDate),
+      DamlLf1.BuiltinFunction.LESS_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDate),
+      DamlLf1.BuiltinFunction.GEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDate),
+      DamlLf1.BuiltinFunction.GREATER_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDate),
+      DamlLf1.BuiltinFunction.EQUAL_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TTimestamp),
+      DamlLf1.BuiltinFunction.LEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TTimestamp),
+      DamlLf1.BuiltinFunction.LESS_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TTimestamp),
+      DamlLf1.BuiltinFunction.GEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TTimestamp),
+      DamlLf1.BuiltinFunction.GREATER_TIMESTAMP -> Ast
+        .ETyApp(Ast.EBuiltin(Ast.BGreater), TTimestamp),
+      DamlLf1.BuiltinFunction.EQUAL_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TText),
+      DamlLf1.BuiltinFunction.LEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TText),
+      DamlLf1.BuiltinFunction.LESS_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TText),
+      DamlLf1.BuiltinFunction.GEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TText),
+      DamlLf1.BuiltinFunction.GREATER_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TText),
+      DamlLf1.BuiltinFunction.EQUAL_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TParty),
+      DamlLf1.BuiltinFunction.LEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TParty),
+      DamlLf1.BuiltinFunction.LESS_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TParty),
+      DamlLf1.BuiltinFunction.GEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TParty),
+      DamlLf1.BuiltinFunction.GREATER_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TParty),
+    )
+
+    val numericComparisonBuiltinCases = Table(
+      "numeric comparison builtins" -> "expected output",
       DamlLf1.BuiltinFunction.EQUAL_NUMERIC -> Ast.EBuiltin(Ast.BEqualNumeric),
+      DamlLf1.BuiltinFunction.LEQ_NUMERIC -> Ast.EBuiltin(Ast.BLessEqNumeric),
+      DamlLf1.BuiltinFunction.LESS_NUMERIC -> Ast.EBuiltin(Ast.BLessNumeric),
+      DamlLf1.BuiltinFunction.GEQ_NUMERIC -> Ast.EBuiltin(Ast.BGreaterEqNumeric),
+      DamlLf1.BuiltinFunction.GREATER_NUMERIC -> Ast.EBuiltin(Ast.BGreaterNumeric),
+    )
+
+    val genericComparisonBuiltinCases = Table(
+      "generic comparison builtins" -> "expected output",
+      DamlLf1.BuiltinFunction.EQUAL -> Ast.EBuiltin(Ast.BEqual),
+      DamlLf1.BuiltinFunction.LESS_EQ -> Ast.EBuiltin(Ast.BLessEq),
+      DamlLf1.BuiltinFunction.LESS -> Ast.EBuiltin(Ast.BLess),
+      DamlLf1.BuiltinFunction.GREATER_EQ -> Ast.EBuiltin(Ast.BGreaterEq),
+      DamlLf1.BuiltinFunction.GREATER -> Ast.EBuiltin(Ast.BGreater),
     )
 
     val negativeBuiltinTestCases = Table(
@@ -346,6 +474,11 @@ class DecodeV1Spec
       // We do not need to test all other builtin
       DamlLf1.BuiltinFunction.ADD_INT64 -> Ast.EBuiltin(Ast.BAddInt64),
       DamlLf1.BuiltinFunction.APPEND_TEXT -> Ast.EBuiltin(Ast.BAppendText)
+    )
+
+    val contractIdTextConversionCases = Table(
+      "builtin" -> "expected output",
+      DamlLf1.BuiltinFunction.TO_TEXT_CONTRACT_ID -> Ast.EBuiltin(Ast.BToTextContractId)
     )
 
     "translate non numeric/decimal builtin as is for any version" in {
@@ -384,14 +517,27 @@ class DecodeV1Spec
 
     "translate Numeric builtins as is if version >= 1.7" in {
 
-      val v1_7 = LV.Minor.Stable("7")
-
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
 
         forEvery(numericBuiltinTestCases) { (proto, scala) =>
-          if (proto != DamlLf1.BuiltinFunction.EQUAL_NUMERIC || version == v1_7)
-            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+        }
+      }
+    }
+
+    "translate numeric comparison builtins as is if version >= 1.7" in {
+
+      val v1_7 = LV.Minor.Stable("7")
+
+      forEvery(postNumericMinVersions) { version =>
+        whenever(!postGenericComparisonVersion.contains(version)) {
+          val decoder = moduleDecoder(version)
+
+          forEvery(numericComparisonBuiltinCases) { (proto, scala) =>
+            if (proto != DamlLf1.BuiltinFunction.EQUAL_NUMERIC || version == v1_7)
+              decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+          }
         }
       }
     }
@@ -526,6 +672,62 @@ class DecodeV1Spec
       }
     }
 
+    "translate comparison builtins as is if version < 1.9" in {
+
+      forEvery(preGenericComparisonVersion) { version =>
+        val decoder = moduleDecoder(version)
+
+        forEvery(comparisonBuiltinCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+        }
+      }
+    }
+
+    "reject comparison builtins as is if version >= 1.9" in {
+
+      forEvery(preGenericComparisonVersion) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(genericComparisonBuiltinCases) { (proto, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+        }
+      }
+    }
+
+    "translate generic comparison builtins as is if version >= 1.9" in {
+      forEvery(postGenericComparisonVersion) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(genericComparisonBuiltinCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+        }
+      }
+    }
+
+    "translate generic comparison builtins as is if version < 1.9" in {
+      forEvery(preGenericComparisonVersion) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(genericComparisonBuiltinCases) { (proto, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+        }
+      }
+    }
+
+    "translate contract id text conversions as is if version >= 1.9" in {
+      forEvery(postContractIdTextConversionVersions) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(contractIdTextConversionCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+        }
+      }
+    }
+
+    "reject contract id text conversions if version < 1.9" in {
+      forEvery(preContractIdTextConversionVersions) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(contractIdTextConversionCases) { (proto, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+        }
+      }
+    }
   }
 
   "decodeModuleRef" should {

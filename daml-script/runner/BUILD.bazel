@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,10 +7,14 @@ load(
     "da_scala_library",
 )
 
+script_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+    "NonUnitStatements",
+]]
+
 da_scala_library(
     name = "script-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]),
+    scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -20,19 +24,29 @@ da_scala_library(
         "//daml-lf/interface",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
+        "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
-        "//ledger/sandbox",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-common",
         "//libs-scala/auth-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_http_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -42,14 +56,17 @@ da_scala_library(
 
 da_scala_binary(
     name = "script-runner",
-    main_class = "com.digitalasset.daml.lf.engine.script.RunnerMain",
+    main_class = "com.daml.lf.engine.script.RunnerMain",
+    resources = glob(["src/main/resources/**/*"]),
+    scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [":script-runner-lib"],
 )
 
 da_scala_binary(
     name = "test-runner",
-    main_class = "com.digitalasset.daml.lf.engine.script.TestMain",
+    main_class = "com.daml.lf.engine.script.TestMain",
+    scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [":script-runner-lib"],
 )

@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.commands.tracker
+package com.daml.ledger.client.services.commands.tracker
+
+import java.time.{Instant, Duration => JDuration}
 
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
-import com.digitalasset.api.util.TimestampConversion.toInstant
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.ledger.api.v1.command_completion_service._
-import com.digitalasset.ledger.api.v1.command_submission_service._
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
-import com.digitalasset.util.Ctx
-import com.digitalasset.util.logging.Lazy
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.v1.command_submission_service._
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.services.commands.CompletionStreamElement
+import com.daml.util.Ctx
+import com.google.protobuf.duration.{Duration => ProtoDuration}
 import com.google.protobuf.empty.Empty
 import com.google.rpc.code._
 import com.google.rpc.status.Status
@@ -21,6 +21,7 @@ import io.grpc.{Status => RpcStatus}
 import org.slf4j.LoggerFactory
 
 import scala.collection.{breakOut, immutable, mutable}
+import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
@@ -45,7 +46,7 @@ import scala.util.{Failure, Success, Try}
   *
   */
 // TODO(mthvedt): This should have unit tests.
-private[commands] class CommandTracker[Context]
+private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDuration)
     extends GraphStageWithMaterializedValue[
       CommandTrackerShape[Context],
       Future[immutable.Map[String, Context]]] {
@@ -70,6 +71,21 @@ private[commands] class CommandTracker[Context]
 
     val logic: TimerGraphStageLogic = new TimerGraphStageLogic(shape) {
 
+      val timeout_detection = "timeout-detection"
+      override def preStart(): Unit = {
+        scheduleWithFixedDelay(timeout_detection, 1.second, 1.second)
+
+      }
+
+      override protected def onTimer(timerKey: Any): Unit = {
+        timerKey match {
+          case `timeout_detection` =>
+            val timeouts = getOutputForTimeout(Instant.now)
+            if (timeouts.nonEmpty) emitMultiple(resultOut, timeouts)
+          case _ => // unknown timer, nothing to do
+        }
+      }
+
       private val pendingCommands = new mutable.HashMap[String, TrackingData[Context]]()
 
       setHandler(
@@ -91,10 +107,8 @@ private[commands] class CommandTracker[Context]
             val submitRequest = grab(submitRequestIn)
             registerSubmission(submitRequest)
             logger.trace(
-              "Submitted command {} with LET {}, MRT {}",
+              "Submitted command {}",
               submitRequest.value.getCommands.commandId,
-              submitRequest.value.getCommands.ledgerEffectiveTime,
-              submitRequest.value.getCommands.maximumRecordTime
             )
             push(submitRequestOut, submitRequest.enrich(_ -> _.getCommands.commandId))
           }
@@ -112,7 +126,7 @@ private[commands] class CommandTracker[Context]
       )
 
       setHandler(resultOut, new OutHandler {
-        override def onPull(): Unit = pull(commandResultIn)
+        override def onPull(): Unit = if (!hasBeenPulled(commandResultIn)) pull(commandResultIn)
       })
 
       setHandler(
@@ -127,18 +141,13 @@ private[commands] class CommandTracker[Context]
           override def onPush(): Unit = {
             grab(commandResultIn) match {
               case Left(submitResponse) =>
-                val syncFailure = handleSubmitResponse(submitResponse)
-                syncFailure.fold(pull(commandResultIn))(push(resultOut, _))
+                pushResultOrPullCommandResultIn(handleSubmitResponse(submitResponse))
 
               case Right(CompletionStreamElement.CompletionElement(completion)) =>
-                val result = getOutputForCompletion(completion)
-                result.fold(pull(commandResultIn))(push(resultOut, _))
+                pushResultOrPullCommandResultIn(getOutputForCompletion(completion))
 
               case Right(CompletionStreamElement.CheckpointElement(checkpoint)) =>
-                val timeouts = getOutputForTimeout(checkpoint)
-                if (timeouts.nonEmpty) emitMultiple(resultOut, timeouts)
-                else pull(commandResultIn)
-
+                if (!hasBeenPulled(commandResultIn)) pull(commandResultIn)
                 checkpoint.offset.foreach(emit(offsetOut, _))
             }
 
@@ -154,6 +163,10 @@ private[commands] class CommandTracker[Context]
             () //nothing to do here as the offset stream will be read with constant demand, storing the latest element
         }
       )
+
+      private def pushResultOrPullCommandResultIn(compl: Option[Ctx[Context, Completion]]): Unit = {
+        compl.fold(pull(commandResultIn))(push(resultOut, _))
+      }
 
       private def completeStageIfTerminal(): Unit = {
         if (isClosed(submitRequestIn) && pendingCommands.isEmpty) {
@@ -194,31 +207,34 @@ private[commands] class CommandTracker[Context]
                 s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique.")
               with NoStackTrace
             }
+            val commandTimeout = {
+              lazy val maxDedup = maxDeduplicationTime()
+              val dedup = commands.deduplicationTime.getOrElse(
+                ProtoDuration.of(maxDedup.getSeconds, maxDedup.getNano))
+              Instant.now().plusSeconds(dedup.seconds).plusNanos(dedup.nanos.toLong)
+            }
+
             pendingCommands += (commandId ->
               TrackingData(
                 commandId,
-                toInstant(commands.getMaximumRecordTime),
+                commandTimeout,
                 submitRequest.value.traceContext,
                 submitRequest.context))
           }
         ()
       }
 
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
-      private def getOutputForTimeout(checkpoint: Checkpoint) = {
-        logger.trace(
-          "Handling checkpoint {}",
-          Lazy(s"${checkpoint.offset} at ${toInstant(checkpoint.getRecordTime)}"))
-        val mrtBoundary = toInstant(checkpoint.getRecordTime)
+      private def getOutputForTimeout(instant: Instant) = {
+        logger.trace("Checking timeouts at {}", instant)
         pendingCommands.flatMap {
           case (commandId, trackingData) =>
-            if (trackingData.maximumRecordTime.isBefore(mrtBoundary)) {
+            if (trackingData.commandTimeout.isBefore(instant)) {
               pendingCommands -= commandId
               logger.info(
-                s"Command {} (mrt {}) timed out at checkpoint {}.",
+                s"Command {} (command timeout {}) timed out at checkpoint {}.",
                 commandId,
-                trackingData.maximumRecordTime,
-                mrtBoundary)
+                trackingData.commandTimeout,
+                instant)
               List(
                 Ctx(
                   trackingData.context,

@@ -1,8 +1,10 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Extractor
 #########
+
+The Extractor is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
 
 Introduction
 ************
@@ -38,7 +40,7 @@ $ daml extractor --help
 Trying it out
 *************
 
-This example extracts: 
+This example extracts:
 
 - all contract data from the beginning of the ledger to the current latest transaction
 - for the party ``Scrooge_McDuck``
@@ -51,7 +53,7 @@ This example extracts:
 
     $ daml extractor postgresql --user postgres --connecturl jdbc:postgresql:daml_export --party Scrooge_McDuck -h 192.168.1.12 -p 6865 --to head
 
-This terminates after reaching the transaction which was the latest at the time the Extractor started streaming. 
+This terminates after reaching the transaction which was the latest at the time the Extractor started streaming.
 
 To run the Extractor indefinitely, and thus keeping the database up to date as new transactions arrive on the ledger, omit the ``--to head`` parameter to fall back to the default streaming-indefinitely approach, or state explicitly by using the ``--to follow`` parameter.
 
@@ -96,16 +98,16 @@ This example connects to a database on host ``192.168.1.12``, listening on port 
 
   $ daml extractor postgres --connecturl jdbc:postgresql://192.168.1.12:5432/daml_export --user daml_exporter --password ExamplePassword --party [party]
 
-Authenticating Extractor
-************************
+Authorize Extractor
+*******************
 
-If you are running Extractor against a Ledger API server that requires authentication, you must provide the access token when you start it.
+If you are running Extractor against a Ledger API server that verifies authorization, you must provide the access token when you start it.
 
 The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
 
 Once you have retrieved your access token, you can provide it to Extractor by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
 
-Both in the case in which the token cannot be read from the provided path or if the Ledger API reports an authentication error (for example due to token expiration), Extractor will keep trying to read and use it and report the error via logging. This retry mechanism allows expired token to be overwritten with valid ones and keep Extractor going from where it left off.
+Both in the case in which the token cannot be read from the provided path or if the Ledger API reports an authorization error (for example due to token expiration), Extractor will keep trying to read and use it and report the error via logging. This retry mechanism allows expired token to be overwritten with valid ones and keep Extractor going from where it left off.
 
 Full list of options
 ********************
@@ -155,11 +157,11 @@ To see the full list of options, run the ``--help`` command, which gives the fol
     --pem <value>            TLS: The pem file to be used as the private key.
     --crt <value>            TLS: The crt file to be used as the cert chain.
                              Required if any other TLS parameters are set.
-    --cacrt <value>          TLS: The crt file to be used as the the trusted root CA.
+    --cacrt <value>          TLS: The crt file to be used as the trusted root CA.
 
-  Authentication:
+  Authorization:
     --access-token-file <value>
-                             provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
+                             provide the path from which the access token will be read, required if the Ledger API server verifies authorization, no default
 
 Some options are tied to a specific subcommand, like ``--connecturl`` only makes sense for the ``postgresql``, while others are general, like ``--party``.
 
@@ -193,7 +195,7 @@ Transactions are stored in the ``transaction table`` in the ``public`` schema, w
 
 - **transaction_id**: The transaction ID, as appears on the ledger. This is the primary key of the table.
 - **transaction_id**, **effective_at, workflow_id, ledger_offset**: These columns are the properties of the transaction on the ledger. For more information, see the `specification <../../app-dev/grpc/proto-docs.html#transactiontree>`__.
-- **seq**: Transaction IDs should be treated as arbitrary text values: you can’t rely on them for ordering transactions in the database. However, transactions appear on the Ledger API transaction stream in the same order as they were accepted on the ledger. You can use this to work around the arbitrary nature of the transaction IDs, which is the purpose of the ``seq`` field: it gives you a total ordering of the transactions, as they happened from the perspective of the ledger. Be aware that ``seq`` is not the exact index of the given transaction on the ledger. Due to the privacy model of the DAML Ledger, the transaction stream won’t deliver a transaction which doesn’t concern the party which is subscribed. The transaction with ``seq`` of 100 might be the 1000th transaction on the ledger; in the other 900, the transactions contained only events which mustn’t be seen by you.
+- **seq**: Transaction IDs should be treated as arbitrary text values: you can’t rely on them for ordering transactions in the database. However, transactions appear on the Ledger API transaction stream in the same order as they were accepted on the ledger. You can use this to work around the arbitrary nature of the transaction IDs, which is the purpose of the ``seq`` field: it gives you a total ordering of the transactions, as they happened from the perspective of the ledger. Be aware that ``seq`` is not the exact index of the given transaction on the ledger. Due to the privacy model of DAML Ledgers, the transaction stream won’t deliver a transaction which doesn’t concern the party which is subscribed. The transaction with ``seq`` of 100 might be the 1000th transaction on the ledger; in the other 900, the transactions contained only events which mustn’t be seen by you.
 - **extracted_at**: The ``extracted_at`` field means the date the transaction row and its events were inserted into the database. When extracting historical data, this field will point to a possibly much later time than ``effective_at``.
 
 Contracts
@@ -254,28 +256,14 @@ Exercise events are stored in the ``exercise`` table in the ``public`` schema, w
 JSON format
 ***********
 
-Values on the ledger can be either primitive types, user-defined ``records``, or ``variants``. An extracted contract is represented in the database as a ``record`` of its create argument, and the fields of that ``records`` are either primitive types, other ``records``, or ``variants``. A contract can be a recursive structure of arbitrary depth.
+Extractor stores create and choice arguments
+using the :doc:`/json-api/lf-value-specification`. The parameters of the
+JSON schema are instantiated as follows in Extractor:
 
-These types are translated to `JSON types <https://json-schema.org/understanding-json-schema/reference/index.html>`_ the following way:
+.. code::
 
-**Primitive types**
-
-- ``ContractID``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Int64``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Decimal``: A decimal value with precision 38 (38 decimal digits), of which 10 after the comma / period. Represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``List``: represented as `array <https://json-schema.org/understanding-json-schema/reference/array.html>`_.
-- ``Text``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Date``: days since the unix epoch. represented as `integer <https://json-schema.org/understanding-json-schema/reference/numeric.html#integer>`_.
-- ``Time``: Microseconds since the UNIX epoch. Represented as `number <https://json-schema.org/understanding-json-schema/reference/numeric.html#number>`_.
-- ``Bool``: represented as `boolean <https://json-schema.org/understanding-json-schema/reference/boolean.html>`_.
-- ``Party``: represented as `string <https://json-schema.org/understanding-json-schema/reference/string.html>`_.
-- ``Unit`` and ``Empty`` are represented as empty records.
-- ``Optional``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, as it was a ``Variant`` with two possible constructors: ``None`` and ``Some``.
-
-**User-defined types**
-
-- ``Record``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, where each create parameter’s name is a key, and the parameter’s value is the JSON-encoded value.
-- ``Variant``: represented as `object <https://json-schema.org/understanding-json-schema/reference/object.html>`_, using the ``{constructor: body}`` format, e.g. ``{"Left": true}``.
+    encodeDecimalAsString: true
+    encodeInt64AsString: false
 
 Examples of output
 ******************
@@ -311,8 +299,8 @@ When updating packages, you can end up with multiple versions of the same packag
 
 Let’s say you have a template called ``My.Company.Finance.Account``::
 
-  daml 1.2 module My.Company.Finance.Account where
- 
+  module My.Company.Finance.Account where
+
   template Account
     with
       provider: Party
@@ -326,8 +314,8 @@ This is built into a package with a resulting hash ``6021727fe0822d688ddd5459974
 
 Later you add a new field, ``displayName``::
 
-  daml 1.2 module My.Company.Finance.Account where
- 
+  module My.Company.Finance.Account where
+
   template Account
     with
       provider: Party
@@ -342,22 +330,22 @@ The hash of the new package with the update is ``1239d1c5df140425f01a5112325d2e4
 
 There are contracts of first version of the template which were created before the new field is added, and there are contracts of the new version which were created since. Let’s say you have one instance of each::
 
-  {  
+  {
     "owner":"Bob",
     "provider":"Bob",
     "accountId":"6021-5678",
-    "observers":[  
+    "observers":[
         "Alice"
     ]
   }
 
 and::
 
-  {  
+  {
     "owner":"Bob",
     "provider":"Bob",
     "accountId":"1239-4321",
-    "observers":[  
+    "observers":[
         "Alice"
     ],
     "displayName":"Personal"
@@ -371,7 +359,7 @@ They will look like this when extracted:
 To have a consistent view of the two versions with a default value ``NULL`` for the missing field of instances of older versions, you can create a view which contains all ``Account`` rows::
 
   CREATE VIEW account_view AS
-  SELECT 
+  SELECT
      create_arguments->>'owner' AS owner
     ,create_arguments->>'provider' AS provider
     ,create_arguments->>'accountId' AS accountId
@@ -384,7 +372,7 @@ To have a consistent view of the two versions with a default value ``NULL`` for 
     AND
     template = 'My.Company.Finance.Account'
   UNION
-  SELECT 
+  SELECT
      create_arguments->>'owner' AS owner
     ,create_arguments->>'provider' AS provider
     ,create_arguments->>'accountId' AS accountId
@@ -405,14 +393,14 @@ Then, ``account_view will`` contain both contracts:
 Logging
 *******
 
-By default, the Extractor logs to stderr, with INFO verbose level. To change the level, use the ``-DLOGLEVEL=[level]`` option, e.g. ``-DLOGLEVEL=TRACE``. 
+By default, the Extractor logs to stderr, with INFO verbose level. To change the level, use the ``-DLOGLEVEL=[level]`` option, e.g. ``-DLOGLEVEL=TRACE``.
 
 You can supply your own logback configuration file via the standard method: https://logback.qos.ch/manual/configuration.html
 
 Continuity
 **********
 
-When you terminate the Extractor and restart it, it will continue from where it left off. This happens because, when running, it saves its state into the ``state`` table in the ``public`` schema of the database. When started, it reads the contents of this table. If there’s a saved state from a previous run, it restarts from where it left off. There’s no need to explicitly specify anything, this is done automatically. 
+When you terminate the Extractor and restart it, it will continue from where it left off. This happens because, when running, it saves its state into the ``state`` table in the ``public`` schema of the database. When started, it reads the contents of this table. If there’s a saved state from a previous run, it restarts from where it left off. There’s no need to explicitly specify anything, this is done automatically.
 
 DO NOT modify content of the ``state`` table. Doing so can result in the Extractor not being able to continue running against the database. If that happens, you must delete all data from the database and start again.
 
@@ -423,7 +411,7 @@ The only parameters that you can change between two sessions running against the
 Fault tolerance
 ***************
 
-Once the Extractor connects to the Ledger Node and the database and creates the table structure from the fetched DAML packages, it wraps the transaction stream in a restart logic with an exponential backoff. This results in the Extractor not terminating even when the transaction stream is aborted for some reason (the ledger node is down, there’s a network partition, etc.). 
+Once the Extractor connects to the Ledger Node and the database and creates the table structure from the fetched DAML packages, it wraps the transaction stream in a restart logic with an exponential backoff. This results in the Extractor not terminating even when the transaction stream is aborted for some reason (the ledger node is down, there’s a network partition, etc.).
 
 Once the connection is back, it continues the stream from where it left off. If it can’t reach the node on the host/port pair the Extractor was started with, you need to manually stop it and restart with the updated address.
 
@@ -434,7 +422,7 @@ Troubleshooting
 
 Can’t connect to the Ledger Node
 ================================
-  
+
 If the Extractor can’t connect to the Ledger node on startup, you’ll see a message like this in the logs, and the Extractor will terminate::
 
   16:47:51.208 ERROR c.d.e.Main$@[akka.actor.default-dispatcher-7] - FAILURE:

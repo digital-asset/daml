@@ -1,0 +1,25 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  - name: test_flags
+    type: string
+    default: ''
+
+steps:
+  - bash: ci/dev-env-install.sh
+    displayName: 'Build/Install the Developer Environment'
+  - bash: ci/configure-bazel.sh
+    displayName: 'Configure Bazel for root workspace'
+    env:
+      IS_FORK: $(System.PullRequest.IsFork)
+      # to upload to the bazel cache
+      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+  - bash: |
+      set -euo pipefail
+      ./compatibility/build-ts-libs.sh "${BUILD_ARTIFACTSTAGINGDIRECTORY}"
+    displayName: 'Build typescript libraries'
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/
+      artifactName: "typescript-libs"

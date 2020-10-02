@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
@@ -30,14 +30,10 @@ def _fat_cc_library_impl(ctx):
     toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
     feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain = toolchain)
 
-    compiler = None
-    if is_darwin:
-        # toolchain.compiler_executable() fails on MacOS, see https://github.com/bazelbuild/bazel/issues/7105
-        compiler = ctx.executable._cc_compiler
-    elif is_windows:
-        compiler = toolchain.compiler_executable() + ".exe"
+    if is_windows:
+        compiler = toolchain.compiler + ".exe"
     else:
-        compiler = toolchain.compiler_executable()
+        compiler = toolchain.compiler
     ctx.actions.run(
         mnemonic = "CppLinkFatDynLib",
         outputs = [dyn_lib],
@@ -65,7 +61,7 @@ def _fat_cc_library_impl(ctx):
     mri_script = ctx.actions.declare_file(ctx.label.name + "_mri")
     ctx.actions.write(mri_script, mri_script_content)
 
-    ar = toolchain.ar_executable()
+    ar = toolchain.ar_executable
 
     if ar.find("libtool") >= 0:
         # We are on MacOS where ar_executable is actually libtool, see
@@ -116,14 +112,6 @@ fat_cc_library = rule(
         "input_lib": attr.label(),
         "_cc_toolchain": attr.label(
             default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
-        ),
-        "_cc_compiler": attr.label(
-            allow_files = True,
-            executable = True,
-            cfg = "host",
-            default =
-                # bin/cc is gcc on Darwin which fails to find libc++
-                Label("@nixpkgs_cc_toolchain//:bin/clang") if is_darwin else None,
         ),
         "whole_archive_flag": attr.string_list(
             # ld on MacOS doesn’t understand --whole-archive

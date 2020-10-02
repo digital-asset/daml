@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 How DAML types are translated to DAML-LF
@@ -44,12 +44,12 @@ Most built-in types have the same name in DAML-LF as in DAML. These are the exac
    * - ``ContractId``
      - ``ContractId``
 
-Be aware that only the DAML primitive types exported by the :ref:`Prelude <stdlib-reference-base>` module map to the DAML-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the DAML-LF primitive ``Party``.
+Be aware that only the DAML primitive types exported by the :ref:`Prelude <module-prelude-6842>` module map to the DAML-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the DAML-LF primitive ``Party``.
 
 Tuple types
 ***********
 
-DAML tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the DAML surface language through the :ref:`Prelude <stdlib-reference-base>` module.
+DAML tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the DAML surface language through the :ref:`Prelude <module-prelude-6842>` module.
 
 The equivalent DAML-LF type constructors are ``daml-prim:DA.Types:TupleN``, for each particular N (where 2 <= N <= 20). This qualified name refers to the package name (``ghc-prim``) and the module name (``GHC.Tuple``).
 
@@ -177,7 +177,7 @@ Type synonyms
 
 For example, consider the following DAML type declarations.
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: type synonyms
    :end-before: -- end code snippet: type synonyms
@@ -202,14 +202,14 @@ Template data types
 
 Every contract template defines a record type for the parameters of the contract. For example, the template declaration:
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: template data types
    :end-before: -- end code snippet: template data types
 
 results in this record declaration:
 
-.. literalinclude:: code-snippets/daml-lf-result.daml
+.. literalinclude:: code-snippets/LfResults.daml
    :language: daml
    :start-after: -- start snippet: data from template
    :end-before: -- end snippet: data from template
@@ -225,14 +225,14 @@ Choice data types
 
 Every choice within a contract template results in a record type for the parameters of that choice. For example, let’s suppose the earlier ``Iou`` template has the following choices:
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: choice data types
    :end-before: -- end code snippet: choice data types
 
 This results in these two record types:
 
-.. literalinclude:: code-snippets/daml-lf-result.daml
+.. literalinclude:: code-snippets/LfResults.daml
    :language: daml
    :start-after: -- start snippet: data from choices
    :end-before: -- end snippet: data from choices

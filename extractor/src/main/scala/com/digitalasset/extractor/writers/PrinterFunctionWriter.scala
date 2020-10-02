@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers
+package com.daml.extractor.writers
 
-import com.digitalasset.daml.lf.iface.Interface
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.extractor.ledger.types.{Event, TransactionTree}
-import com.digitalasset.extractor.writers.Writer.RefreshPackages
+import com.daml.lf.iface.Interface
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.ledger.types.{Event, TransactionTree}
+import com.daml.extractor.writers.Writer.RefreshPackages
 
 import scala.concurrent.Future
 import scalaz._
@@ -25,7 +25,7 @@ trait PrinterFunctionWriter { self: Writer =>
     printer("DAML Extractor")
     printer("==============")
 
-    Future.successful(())
+    Future.unit
   }
 
   def handlePackages(packageStore: PackageStore): Future[Unit] = {
@@ -34,13 +34,13 @@ trait PrinterFunctionWriter { self: Writer =>
     printer("====================")
     packageStore.foreach((handlePackage _).tupled)
 
-    Future.successful(())
+    Future.unit
   }
 
   def handleTransaction(transaction: TransactionTree): Future[RefreshPackages \/ Unit] = {
     printer(s"Handling transaction #${transaction.transactionId}...")
     printer(s"Events:")
-    transaction.events.values.foreach(printEvent)
+    transaction.events.map(_._2).foreach(printEvent)
 
     Future.successful(().right)
   }

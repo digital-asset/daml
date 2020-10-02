@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.service
+package com.daml.ledger.service
 
 import java.io.File
 
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.util.ExceptionOps._
+import com.daml.lf.archive.{Dar, DarReader}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.util.ExceptionOps._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}
@@ -41,7 +41,7 @@ object MetadataReader {
       dar: Dar[(Ref.PackageId, DamlLf.ArchivePayload)]): Error \/ LfMetadata = {
 
     dar.all
-      .traverseU { a =>
+      .traverse { a =>
         decodeInterfaceFromArchive(a).map(x => a._1 -> x): Error \/ (Ref.PackageId, iface.Interface)
       }
       .map(_.toMap)
@@ -70,15 +70,17 @@ object MetadataReader {
 
   def typeByName(metaData: LfMetadata)(
       name: Ref.QualifiedName): Seq[(Ref.PackageId, iface.DefDataType.FWT)] =
-    metaData.values
+    metaData.values.iterator
       .map(interface => interface.typeDecls.get(name).map(x => (interface.packageId, x.`type`)))
-      .collect { case Some(x) => x }(collection.breakOut)
+      .collect { case Some(x) => x }
+      .toSeq
 
   def templateByName(metaData: LfMetadata)(
       name: Ref.QualifiedName): Seq[(PackageId, iface.InterfaceType.Template)] =
-    metaData.values
+    metaData.values.iterator
       .map(interface => interface.typeDecls.get(name).map(x => (interface.packageId, x)))
       .collect {
         case Some((pId, x @ iface.InterfaceType.Template(_, _))) => (pId, x)
-      }(collection.breakOut)
+      }
+      .toSeq
 }

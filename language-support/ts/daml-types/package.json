@@ -3,11 +3,16 @@
   "name": "@daml/types",
   "version": "0.0.0-SDKVERSION",
   "description": "Primitive types of the DAML language and their serialization.",
-  "keywords": ["daml", "API", "types", "serialization"],
+  "keywords": [
+    "daml",
+    "API",
+    "types",
+    "serialization"
+  ],
   "homepage": "https://daml.com",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/digital-asset/daml.git",
+    "type": "git",
+    "url": "https://github.com/digital-asset/daml.git",
     "directory": "language-support/ts/daml-types"
   },
   "main": "index.js",
@@ -19,34 +24,15 @@
   "scripts": {
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
-    "test": "true",
-    "lint": "eslint --ext .ts ./ --max-warnings 0"
-  },
-  "eslintConfig": {
-    "extends": [
-      "eslint:recommended",
-      "plugin:@typescript-eslint/eslint-recommended",
-      "plugin:@typescript-eslint/recommended",
-      "plugin:@typescript-eslint/recommended-requiring-type-checking"
-    ],
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "project": "./tsconfig.eslint.json"
-    },
-    "plugins": [
-      "@typescript-eslint"
-    ],
-    "rules": {
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-inferrable-types": "off",
-      "@typescript-eslint/no-unnecessary-type-assertion": "off"
-    }
+    "test": "jest",
+    "lint": "eslint --ext .ts --ignore-pattern lib/ --max-warnings 0 ./"
   },
   "devDependencies": {
+    "@types/jest": "^25.1.5",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",
-    "typescript": "3.7.4"
+    "jest": "^25.2.7",
+    "typescript": "~3.8.3"
   }
 }

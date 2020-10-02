@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components.helpers;
@@ -10,7 +10,6 @@ import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 import org.pcollections.PSet;
 
-import java.time.Instant;
 import java.util.Collections;
 import java.util.Objects;
 
@@ -25,7 +24,7 @@ public class CommandsAndPendingSet {
 
     // we use this as "invalid" value to signal that no submitCommandsRequest have been emitted by the bot
     public final static CommandsAndPendingSet empty = new CommandsAndPendingSet(new SubmitCommandsRequest("", "",
-            "", "", Instant.EPOCH, Instant.EPOCH, Collections.emptyList()),
+            "", "", java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(), Collections.emptyList()),
             HashTreePMap.empty());
 
     public CommandsAndPendingSet(@NonNull SubmitCommandsRequest submitCommandsRequest, @NonNull PMap<Identifier, PSet<String>> contractIdsPendingIfSucceed) {

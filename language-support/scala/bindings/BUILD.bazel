@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,27 +11,24 @@ da_scala_library(
     name = "bindings",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
         "@maven//:org_spire_math_kind_projector_2_12",
-        "@maven//:com_github_ghik_silencer_plugin_2_12",
     ],
-    scalacopts = [
-        "-Xsource:2.13",
-    ],
-    tags = ["maven_coordinates=com.daml.scala:bindings:__VERSION__"],
+    scalacopts = ["-P:silencer:checkUnused"],
+    tags = ["maven_coordinates=com.daml:bindings-scala:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     exports = [
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "@maven//:com_github_ghik_silencer_lib_2_12",
         "@maven//:io_grpc_grpc_core",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
     deps = [
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "@maven//:com_github_ghik_silencer_lib_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:io_grpc_grpc_core",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
@@ -43,9 +40,6 @@ da_scala_test_suite(
     srcs = glob(["src/test/**/*.scala"]),
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
-    ],
-    scalacopts = [
-        "-Xsource:2.13",
     ],
     deps = [
         ":bindings",

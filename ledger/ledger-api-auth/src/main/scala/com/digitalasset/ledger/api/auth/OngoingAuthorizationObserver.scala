@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth
+package com.daml.ledger.api.auth
 
 import io.grpc.stub.ServerCallStreamObserver
 
-final class OngoingAuthorizationObserver[A](
+private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
     claims: Claims,
-    authorized: Claims => Boolean,
-    throwOnFailure: => Throwable)
+    authorized: Claims => Either[AuthorizationError, Unit],
+    throwOnFailure: AuthorizationError => Throwable)
     extends ServerCallStreamObserver[A] {
 
   override def isCancelled: Boolean = observer.isCancelled
@@ -29,8 +29,10 @@ final class OngoingAuthorizationObserver[A](
   override def setMessageCompression(b: Boolean): Unit = observer.setMessageCompression(b)
 
   override def onNext(v: A): Unit =
-    if (authorized(claims)) observer.onNext(v)
-    else observer.onError(throwOnFailure)
+    authorized(claims) match {
+      case Right(_) => observer.onNext(v)
+      case Left(authorizationError) => observer.onError(throwOnFailure(authorizationError))
+    }
 
   override def onError(throwable: Throwable): Unit = observer.onError(throwable)
 

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Compiler.ExtractDar
@@ -17,7 +17,7 @@ import DA.Daml.LF.Reader
 
 data ExtractedDar = ExtractedDar
     { edSdkVersions :: String
-    , edMain :: [ZipArchive.Entry]
+    , edMain :: ZipArchive.Entry
     , edConfFiles :: [ZipArchive.Entry]
     , edDalfs :: [ZipArchive.Entry]
     , edSrcs :: [ZipArchive.Entry]
@@ -50,7 +50,7 @@ extractDar fp = do
                   [".daml", ".hie", ".hi"]
             ]
     dalfs <- forM (dalfPaths dalfManifest) $ \p -> getEntry p archive
-    pure (ExtractedDar sdkVersion [mainDalfEntry] confFiles dalfs srcs)
+    pure (ExtractedDar sdkVersion mainDalfEntry confFiles dalfs srcs)
 
 -- | Get an entry from a dar or fail.
 getEntry :: FilePath -> ZipArchive.Archive -> IO ZipArchive.Entry

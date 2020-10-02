@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -15,7 +15,7 @@ load("//bazel_tools:java.bzl", "da_java_proto_library")
 
 proto_library(
     name = "value_proto",
-    srcs = ["src/main/protobuf/com/digitalasset/daml/lf/value.proto"],
+    srcs = ["src/main/protobuf/com/daml/lf/value.proto"],
     strip_import_prefix = "src/main/protobuf/",
     visibility = ["//visibility:public"],
     deps = ["@com_google_protobuf//:empty_proto"],
@@ -23,14 +23,14 @@ proto_library(
 
 da_java_proto_library(
     name = "value_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-value-java-proto:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-value-java-proto:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [":value_proto"],
 )
 
 proto_library(
     name = "transaction_proto",
-    srcs = ["src/main/protobuf/com/digitalasset/daml/lf/transaction.proto"],
+    srcs = ["src/main/protobuf/com/daml/lf/transaction.proto"],
     strip_import_prefix = "src/main/protobuf/",
     visibility = ["//visibility:public"],
     deps = [":value_proto"],
@@ -38,22 +38,9 @@ proto_library(
 
 da_java_proto_library(
     name = "transaction_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-java-proto:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-transaction-java-proto:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [":transaction_proto"],
-)
-
-proto_library(
-    name = "blindinginfo_proto",
-    srcs = ["src/main/protobuf/com/digitalasset/daml/lf/blindinginfo.proto"],
-    strip_import_prefix = "src/main/protobuf/",
-)
-
-da_java_proto_library(
-    name = "blindinginfo_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-blindinginfo-java-proto:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [":blindinginfo_proto"],
 )
 
 #
@@ -65,15 +52,13 @@ da_scala_library(
     name = "transaction",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        ":blindinginfo_java_proto",
         ":transaction_java_proto",
         ":value_java_proto",
         "//daml-lf/data",
         "//daml-lf/language",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
@@ -83,18 +68,21 @@ da_scala_test(
     name = "transaction-test",
     size = "medium",
     srcs = glob(["src/test/**/*.scala"]),
-    scalacopts = lf_scalacopts,
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = lf_scalacopts + ["-P:silencer:checkUnused"],
     deps = [
-        ":blindinginfo_java_proto",
         ":transaction",
         ":transaction_java_proto",
         ":value_java_proto",
         "//daml-lf/data",
-        "//daml-lf/data-scalacheck",
         "//daml-lf/interface",
         "//daml-lf/language",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/scalatest-utils",
         "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -21,6 +21,7 @@ module DA.Date
   , passToDate
   ) where
 
+import DA.Text (implode)
 import DA.Date.Types
 import DA.Internal.Date
 import DA.Internal.Time
@@ -64,7 +65,7 @@ dayOfWeek d = toEnum ((3 + dateToDaysSinceEpoch d) % 7)
 fromGregorian : (Int, Month, Int) -> Date
 fromGregorian (year, month, day) = date year month day
 
--- | Turn `Date` value into a `(year, month, day)` triple, according 
+-- | Turn `Date` value into a `(year, month, day)` triple, according
 -- to the Gregorian calendar.
 toGregorian : Date -> (Int, Month, Int)
 toGregorian date =
@@ -80,7 +81,8 @@ toGregorian date =
    in (year, toEnum $ mth - 1, day)
 
 -- | Given the three values (year, month, day), constructs a `Date` value.
--- `date (y, m, d)` turns the year `y`, month `m`, and day `d` into a `Date` value.
+-- `date y m d` turns the year `y`, month `m`, and day `d` into a `Date` value.
+-- Raises an error if `d` is outside the range `1 .. monthDayCount y m`.
 date : Int -> Month -> Int -> Date
 date year month day =
   let a = (14 - (fromMonth month)) / 12
@@ -88,8 +90,12 @@ date year month day =
       m = (fromMonth month) + 12 * a - 3
       date = day + (153 * m + 2) / 5 + y * 365 + y / 4 - y / 100 + y / 400 - 2472633
       ml = monthDayCount year month
-  in daysSinceEpochToDate date
-  -- assert day >= 1 && ml >= day
+  in
+    if 1 <= day && day <= ml
+      then daysSinceEpochToDate date
+      else error $ implode
+          [ "Day ", show day, " falls outside of valid day range (1 .. "
+          , show ml, ") for ", show month, " ", show year, "." ]
 
 -- | Returns `True` if the given year is a leap year.
 isLeapYear : Int -> Bool
@@ -123,7 +129,7 @@ datetime : Int -> Month -> Int -> Int -> Int -> Int -> Time
 datetime year month day h m s = time (date year month day) h m s
 
 -- | Extracts UTC date from UTC time.
--- 
+--
 -- This function will truncate Time to Date, but in many cases it will not return the date you really want.
 -- The reason for this is that usually the source of Time would be getTime, and getTime returns UTC, and most likely
 -- the date you want is something local to a location or an exchange. Consequently the date retrieved this way would be

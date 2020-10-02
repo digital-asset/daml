@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth.interceptor
+package com.daml.ledger.api.auth.interceptor
 
 import io.grpc.ServerCall
 
@@ -13,13 +13,13 @@ import scala.collection.mutable
   *
   * The target listener is usually created through `Contexts.interceptCall` or `ServerCallHandler.startCall`.
   * */
-abstract class AsyncForwardingListener[ReqT] extends ServerCall.Listener[ReqT] {
+private[auth] abstract class AsyncForwardingListener[ReqT] extends ServerCall.Listener[ReqT] {
   protected type Listener = ServerCall.Listener[ReqT]
   private[this] val lock = new Object
   private[this] val stash: mutable.ListBuffer[Listener => Unit] = new mutable.ListBuffer
   private[this] var nextListener: Option[Listener] = None
 
-  private def enqueueOrProcess(msg: Listener => Unit): Unit = lock.synchronized {
+  private[this] def enqueueOrProcess(msg: Listener => Unit): Unit = lock.synchronized {
     if (nextListener.isDefined) {
       msg(nextListener.get)
     } else {

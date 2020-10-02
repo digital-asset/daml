@@ -1,4 +1,4 @@
--- @ERROR range=4:1-4:1; lexical error
+-- @ERROR range=4:0-4:0; lexical error
 
 
 £ -- pound symbol when saved as ASCII

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.resources.TestResourceOwner._
+import com.daml.resources.TestResourceOwner._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,7 +31,7 @@ final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
 
 object TestResourceOwner {
   def apply[T](value: T): TestResourceOwner[T] =
-    new TestResourceOwner(Future.successful(value), _ => Future.successful(()))
+    new TestResourceOwner(Future.successful(value), _ => Future.unit)
 
   final class TriedToAcquireTwice extends Exception("Tried to acquire twice.")
 

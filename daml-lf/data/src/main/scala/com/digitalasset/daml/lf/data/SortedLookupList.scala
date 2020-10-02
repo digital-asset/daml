@@ -1,14 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
+
+import ScalazEqual.{equalBy, orderBy}
+import com.daml.lf.data.ImmArray.ImmArraySeq
 
 import scala.language.higherKinds
-
-import scalaz.{Applicative, Equal, Traverse}
+import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
-import scalaz.syntax.equal._
 import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
@@ -25,7 +26,11 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
 
   def values: ImmArray[X] = entries.map(_._2)
 
+  def iterator: Iterator[(String, X)] = entries.iterator
+
   def toHashMap: HashMap[String, X] = HashMap(entries.toSeq: _*)
+
+  def foreach(f: ((String, X)) => Unit): Unit = entries.foreach(f)
 
   override def canEqual(that: Any): Boolean = that.isInstanceOf[SortedLookupList[_]]
 
@@ -42,37 +47,38 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
     s"SortedLookupList(${entries.map { case (k, v) => k -> v }.toSeq.mkString(",")})"
 }
 
-object SortedLookupList {
+object SortedLookupList extends SortedLookupListInstances {
+
+  private[this] val EntryOrdering: Ordering[(String, _)] = {
+    case ((key1, _), (key2, _)) => Utf8.Ordering.compare(key1, key2)
+  }
+
+  private[this] def nonOrderedEntry[X](entries: ImmArray[(String, X)]): Option[(String, X)] =
+    (entries.iterator zip entries.iterator.drop(1)).collectFirst {
+      case (entry1, entry2) if EntryOrdering.gteq(entry1, entry2) => entry2
+    }
 
   def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
-    entries.toSeq
-      .groupBy(_._1)
-      .collectFirst {
-        case (k, l) if l.size > 1 => s"key $k duplicated when trying to build map"
-      }
-      .toLeft(new SortedLookupList(entries.toSeq.sortBy(_._1)(Utf8.Ordering).toImmArray))
+    val sortedEntries = entries.toSeq.sorted(EntryOrdering).toImmArray
+    nonOrderedEntry(sortedEntries) match {
+      case None => Right(new SortedLookupList(sortedEntries))
+      case Some((key, _)) => Left(s"key $key duplicated when trying to build map")
+    }
   }
 
-  def fromSortedImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
-    entries
-      .map(_._1)
-      .toSeq
-      .sliding(2)
-      .collectFirst {
-        case Seq(k1, k2) if Utf8.Ordering.gteq(k1, k2) => s"the list $entries is not sorted by key"
-      }
-      .toLeft(new SortedLookupList(entries))
-  }
+  def fromOrderedImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] =
+    nonOrderedEntry(entries) match {
+      case None => Right(new SortedLookupList(entries))
+      case Some(_) => Left(s"the entries $entries are not sorted by key")
+    }
 
   def apply[X](entries: Map[String, X]): SortedLookupList[X] =
-    new SortedLookupList(ImmArray(entries.toSeq.sortBy(_._1)))
+    new SortedLookupList[X](entries.to[ImmArraySeq].sorted(EntryOrdering).toImmArray)
 
-  def empty[X]: SortedLookupList[X] = new SortedLookupList(ImmArray.empty)
+  def Empty: SortedLookupList[Nothing] = new SortedLookupList(ImmArray.empty)
 
-  implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
-    ScalazEqual.withNatural(Equal[X].equalIsNatural) { (self, other) =>
-      self.toImmArray === other.toImmArray
-    }
+  implicit def `SLL Order instance`[X: Order]: Order[SortedLookupList[X]] =
+    orderBy(_.toImmArray, true)
 
   implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
     new Traverse[SortedLookupList] {
@@ -81,4 +87,9 @@ object SortedLookupList {
         fa.toImmArray traverse (_ traverse f) map (new SortedLookupList(_))
     }
 
+}
+
+sealed abstract class SortedLookupListInstances {
+  implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
+    equalBy(_.toImmArray, true)
 }

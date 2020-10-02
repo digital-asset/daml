@@ -12,3 +12,5 @@ dependencies:
   - daml-stdlib
   - daml-script
 # script-dependencies-end
+sandbox-options:
+  - --wall-clock-time

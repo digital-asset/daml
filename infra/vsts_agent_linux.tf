@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 resource "secret_resource" "vsts-token" {}
@@ -17,7 +17,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-linux" {
   provider           = "google-beta"
   name               = "vsts-agent-linux"
   base_instance_name = "vsts-agent-linux"
-  region             = "${local.region}"
+  region             = "us-east1"
   target_size        = 10
 
   version {
@@ -35,7 +35,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-linux" {
 
 resource "google_compute_instance_template" "vsts-agent-linux" {
   name_prefix  = "vsts-agent-linux-"
-  machine_type = "n1-standard-8"
+  machine_type = "c2-standard-8"
   labels       = "${local.labels}"
 
   disk {

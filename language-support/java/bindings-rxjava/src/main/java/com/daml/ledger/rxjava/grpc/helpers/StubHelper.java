@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers;
 
-import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials;
+import com.daml.ledger.api.auth.client.LedgerCallCredentials;
 import io.grpc.stub.AbstractStub;
 
 import java.util.Optional;

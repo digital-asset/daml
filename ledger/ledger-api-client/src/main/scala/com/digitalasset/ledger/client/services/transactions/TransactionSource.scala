@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.transactions
+package com.daml.ledger.client.services.transactions
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsRequest,
   GetTransactionsResponse
 }
-import com.digitalasset.util.akkastreams.ImmutableIterable
+import com.daml.util.akkastreams.ImmutableIterable
 import io.grpc.stub.StreamObserver
 
 object TransactionSource {

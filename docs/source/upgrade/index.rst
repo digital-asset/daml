@@ -1,8 +1,20 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
+.. _upgrade-overview:
 
 Upgrading and extending DAML applications
 #########################################
+
+.. toctree::
+   :hidden:
+
+   automation
+
+**Note:** Cross-SDK upgrades require DAML-LF 1.8 or newer.
+This is the default starting from SDK 1.0. For older releases add
+``build-options: ["--target=1.8"]`` to your ``daml.yaml`` to select
+DAML-LF 1.8.
 
 In applications backed by a centralized database controlled by a
 single operator, it is possible to upgrade an application in a single
@@ -40,7 +52,7 @@ use the example of a simple *Coin* template as an example here.
 We have some prescience that there will be future versions of *Coin*,
 and so place the definition of ``Coin`` in a module named ``CoinV1``
 
-.. literalinclude:: example/coinV1/daml/CoinV1.daml
+.. literalinclude:: example/coin-1.0.0/daml/CoinV1.daml
   :language: daml
   :start-after: -- COIN_BEGIN
   :end-before: -- COIN_END
@@ -54,7 +66,7 @@ those here.) We use a different name for the new template here. This
 is not required as templates are identified by the triple
 *(PackageId, ModuleName, TemplateName)*
 
-.. literalinclude:: example/coinV2/daml/CoinV2.daml
+.. literalinclude:: example/coin-2.0.0/daml/CoinV2.daml
   :language: daml
   :start-after: -- COIN_AMOUNT_BEGIN
   :end-before: -- COIN_AMOUNT_END
@@ -73,7 +85,7 @@ template that will be created by the issuer. This template has an
 *Accept* choice that the *owner* can exercise which will then create
 an *UpgradeCoinAgreement*.
 
-.. literalinclude:: example/coinV2/daml/UpgradeFromCoinV1.daml
+.. literalinclude:: example/coin-upgrade/daml/UpgradeFromCoinV1.daml
   :language: daml
   :start-after: -- UPGRADE_PROPOSAL_BEGIN
   :end-before: -- UPGRADE_PROPOSAL_END
@@ -83,16 +95,16 @@ has one *nonconsuming* choice that takes the contract ID of a *Coin* contract, a
 this *Coin* contract and creates a *CoinWithAmount* contract with
 the same issuer and owner and  the *amount* set to 1.
 
-.. literalinclude:: example/coinV2/daml/UpgradeFromCoinV1.daml
+.. literalinclude:: example/coin-upgrade/daml/UpgradeFromCoinV1.daml
   :language: daml
   :start-after: -- UPGRADE_AGREEMENT_BEGIN
   :end-before: -- UPGRADE_AGREEMENT_END
 
 
-Building and deploying version-1
-================================
+Building and deploying coin-1.0.0
+=================================
 
-Let's see everything in action by first building and deploying version-1 of our coin. After this we'll see how to deploy and upgrade to version-2.
+Let's see everything in action by first building and deploying ``coin-1.0.0``. After this we'll see how to deploy and upgrade to ``coin-2.0.0`` containing the ``CoinWithAmount`` template.
 
 First we'll need a sandbox ledger to which we can deploy.
 
@@ -104,23 +116,23 @@ Now we'll setup the project for the original version of our coin. The project co
 
 Here is the project config.
 
-.. literalinclude:: example/coinV1/daml.yaml
+.. literalinclude:: example/coin-1.0.0/daml.yaml
   :language: yaml
   :start-after: # BEGIN
   :end-before: # END
 
 
-Now we can build and deploy version-1 of our Coin.
+Now we can build and deploy ``coin-1.0.0`` of our Coin.
 
 .. code-block:: none
 
-   $ cd example/coinV1
+   $ cd example/coin-1.0.0
    $ daml build
    $ daml ledger upload-dar --port 6865
 
 
-Create some version-1 coins
-===========================
+Create some coin-1.0.0 coins
+============================
 
 Let's create some coins!
 
@@ -128,7 +140,7 @@ We'll use the navigator to connect to the ledger, and create two coins issued by
 
 .. code-block:: none
 
-   $ cd example/coinV1
+   $ cd example/coin-1.0.0
    $ daml navigator server localhost 6865
 
 We point a browser to http://localhost:4000, and follow the steps:
@@ -141,55 +153,94 @@ We point a browser to http://localhost:4000, and follow the steps:
     #. Exercise the *CoinProposal_Accept* choice on both proposal contracts.
 
 
-Building and deploying version-2
-================================
+Building and deploying coin-2.0.0
+=================================
 
-Now we setup the project for the improved coins containing the *amount* field. This project contains the templates for ``CoinWithAmount``, ``UpgradeCoinProposal`` and ``UpgradeCoinAgreement``.
+Now we setup the project for the improved coins containing the *amount* field. This project contains only the ``CoinWithAmount`` template. The upgrade templates are in a third ``coin-upgrade`` package. While it would be possible to include the upgrade templates in the same package, this means that the package containing the new ``CoinWithAmount`` template depends on the previous version. With the approach taken here of keeping the upgrade templates in a separate package, the ``coin-1.0.0`` package is no longer needed once we have upgraded all coins.
 
-It's worth stressing here that we must setup a new project for version-2. We cannot just add the new definitions to the original project, rebuild and re-deploy. This is because the cryptographically computed package-id would change, and would not match the package-id of version-1 coin-contracts which are live of the ledger.
+It's worth stressing here that extensions always need to go into separate packages. We cannot just add the new definitions to the original project, rebuild and re-deploy. This is because the cryptographically computed package identifier would change, and would not match the package identifier of the original ``Coin`` contracts from ``coin-1.0.0`` which are live on the ledger.
 
 Here is the new project config:
 
-.. literalinclude:: example/coinV2/daml.yaml
+.. literalinclude:: example/coin-2.0.0/daml.yaml
   :language: yaml
   :start-after: # BEGIN
   :end-before: # END
 
-Note how ``coin-1.0.0.dar`` is listed as a ``data-dependency``. This allows the upgrade templates to make reference to the ``Coin`` template from the ``CoinV1`` module, even though that module is not part of this project, but is part of original package already deployed to the ledger.
+Now we can build and deploy ``coin-2.0.0`` of our Coin.
+
+.. code-block:: none
+
+   $ cd example/coin-2.0.0
+   $ daml build
+   $ daml ledger upload-dar --port 6865
+
+Building and deploying coin-upgrade
+===================================
+
+Having built and deployed ``coin-1.0.0`` and ``coin-2.0.0`` we are now
+ready to build the upgrade package ``coin-upgrade``. The project
+config references both ``coin-1.0.0`` and ``coin-2.0.0`` via the
+``data-dependencies`` field. This allows us to import modules from the
+respective packages which allows us to reference templates from
+packages that we already uploaded to the ledger.
+
+When following this example, ``path/to/coin-1.0.0.dar`` and
+``path/to/coin-2.0.0.dar`` should be replaced by the relative or
+absolute path to the DAR file created by building the respective
+projects. Commonly the ``coin-1.0.0`` and ``coin-2.0.0`` projects
+would be sibling directories in the file systems, so this path would
+be: ``../coin-1.0.0/.daml/dist/coin-1.0.0.dar``.
+
+.. literalinclude:: example/coin-upgrade/daml.yaml
+  :language: yaml
+  :start-after: # BEGIN
+  :end-before: # END
 
 The DAML for the upgrade contacts imports the modules for both the new and old coin versions.
 
 
-.. literalinclude:: example/coinV2/daml/UpgradeFromCoinV1.daml
+.. literalinclude:: example/coin-upgrade/daml/UpgradeFromCoinV1.daml
   :language: daml
   :start-after: -- UPGRADE_MODULE_BEGIN
   :end-before: -- UPGRADE_MODULE_END
 
-Now we can build and deploy version-2 of our Coin.
+Now we can build and deploy ``coin-upgrade``. Note that uploading a
+DAR also uploads its dependencies so if ``coin-1.0.0`` and
+``coin-2.0.0`` had not already been deployed before, they would be
+deployed as part of deploying ``coin-upgrade``.
 
 .. code-block:: none
 
-   $ cd example/coinV2
+   $ cd example/coin-upgrade
    $ daml build
    $ daml ledger upload-dar --port 6865
 
-
-Upgrade existing coins from version-1 to version-2
-==================================================
+Upgrade existing coins from coin-1.0.0 to coin-2.0.0
+====================================================
 
 We start the navigator again.
 
 .. code-block:: none
 
-   $ cd example/coinV2
+   $ cd example/coin-upgrade
    $ daml navigator server localhost 6865
 
 Finally, we point a browser to http://localhost:4000 and can effect the coin upgrades:
 
 #. Login as Alice
     #. Select Templates tab.
-    #. Create an `UpgradeCoinProposal` with Alice as issuer and Bob as owner.
+    #. Create an ``UpgradeCoinProposal`` with Alice as issuer and Bob as owner.
 #. Login as Bob
-    #. Exercise the `Accept` choice of the upgrade proposal, creating an `UpgradeCoinAgreement`.
+    #. Exercise the ``Accept`` choice of the upgrade proposal, creating an ``UpgradeCoinAgreement``.
 #. Login again as Alice
-    #. Use the `UpgradeCoinAgreement` repeatedly to upgrade any coin for which Alice is issuer and Bob is owner.
+    #. Use the ``UpgradeCoinAgreement`` repeatedly to upgrade any coin for which Alice is issuer and Bob is owner.
+
+Further Steps
+=============
+
+For the upgrade of our coin model above, we performed all steps
+manually via Navigator. However, if Alice had issued millions of
+coins, performing all upgrading steps manually becomes infeasible.  It
+thus becomes necessary to automate these steps. We will go through a
+potential implementation of an automated upgrade in the :ref:`next section <upgrade-automation>`.

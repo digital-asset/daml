@@ -1,8 +1,9 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_library(
     name = "daml-helper-lib",
@@ -16,10 +17,12 @@ da_haskell_library(
         "base",
         "bytestring",
         "containers",
+        "conduit",
+        "conduit-extra",
         "directory",
         "extra",
         "filepath",
-        "http-client",
+        "http-conduit",
         "http-types",
         "jwt",
         "monad-loops",
@@ -36,6 +39,8 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-compiler",
         "//daml-assistant:daml-project-config",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/da-hs-base",
@@ -48,11 +53,17 @@ da_haskell_binary(
     hackage_deps = [
         "base",
         "extra",
+        "filepath",
+        "process",
+        "safe-exceptions",
+        "typed-process",
     ],
     main_function = "DA.Daml.Helper.Main.main",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-helper-lib",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -61,4 +72,68 @@ package_app(
     name = "daml-helper-dist",
     binary = ":daml-helper",
     visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = "test-tls",
+    srcs = ["test/DA/Daml/Helper/Test/Tls.hs"],
+    data = [
+        "daml-helper",
+        "//ledger/sandbox:sandbox-binary",
+        "//ledger/test-common/test-certificates",
+    ],
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.Helper.Test.Tls.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "test-deployment",
+    srcs = glob(["test/DA/Daml/Helper/Test/Deployment.hs"]),
+    data = [
+        "//compiler/damlc",
+        "//daml-assistant/daml-helper",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "aeson",
+        "async",
+        "base",
+        "bytestring",
+        "containers",
+        "extra",
+        "filepath",
+        "jwt",
+        "main-tester",
+        "network",
+        "process",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "uuid",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.Helper.Test.Deployment.main",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
 )

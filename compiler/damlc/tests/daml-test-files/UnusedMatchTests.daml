@@ -1,0 +1,43 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its
+-- affiliates. All rights reserved.
+
+-- @WARN range=19:2-19:3; Defined but not used
+
+{-# OPTIONS_GHC -Wunused-matches #-}
+{-# OPTIONS_GHC -Wunused-foralls #-}
+{-# OPTIONS_GHC -Wunused-imports #-}
+{-# OPTIONS_GHC -Wunused-pattern-binds #-}
+{-# OPTIONS_GHC -Wunused-top-binds #-}
+{-# OPTIONS_GHC -Wunused-type-patterns #-}
+-- We know this will fail and why.
+--   {-# OPTIONS_GHC -Wunused-local-binds #-}
+module UnusedMatchTests where
+
+-- It should be OK to enable -Wunused-* and not get warnings from
+-- template desugared code.
+
+f x = 12 -- Defined but not used 'x'; prove unsed match detection.
+
+template T
+  with
+    p : Party
+    q : Party
+  where
+    -- Include interaction with local binds.
+    let revokeRetVal = ()
+        (sig, obs) = (p, q)
+        assertion = True
+        plainEnglish = "Chop wood, carry water."
+        ident = "123"
+    -- None of the below should generate defined but not used
+    -- warnings.
+    signatory sig
+    observer obs
+    ensure assertion
+    agreement plainEnglish
+    key (sig, ident): (Party, Text)
+    maintainer key._1
+    choice Revoke: () with
+      controller p
+      do
+        pure revokeRetVal

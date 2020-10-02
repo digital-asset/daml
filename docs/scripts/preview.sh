@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -20,7 +20,7 @@ cleanup()
 rm -rf $BUILD_DIR
 mkdir $BUILD_DIR
 
-bazel build //docs:docs
-tar -zxf ../../bazel-bin/docs/html.tar.gz -C $BUILD_DIR
+bazel build //docs:docs-no-pdf
+tar -zxf ../../bazel-bin/docs/html-only.tar.gz -C $BUILD_DIR
 cd $BUILD_DIR/html
-python -m http.server 8000
+python -m http.server 8000 --bind 127.0.0.1

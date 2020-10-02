@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: templates
@@ -39,6 +39,20 @@ Template parameters
 
 .. Template has an *associated* data type with the same name?
 
+.. _daml-ref-template-let:
+
+Template-local Definitions
+**************************
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start template let snippet
+   :end-before: -- end template let snippet
+
+- ``let`` keyword. Starts a block and is followed by any number of definitions, just like any other ``let`` block.
+- Template parameters as well as ``this`` are in scope, but ``self`` is not.
+- Definitions from the ``let`` block can be used anywhere else in the template's ``where`` block. 
+
 .. _daml-ref-signatories:
 
 Signatory parties
@@ -57,7 +71,7 @@ Signatory parties
   ``NameOfTemplate requires authorizers Party1,Party2,Party, but only Party1 were given.``
 - When a signatory consents to the contract creation, this means they also authorize the consequences of :ref:`choices <daml-ref-choices>` that can be exercised on this contract.
 - The contract is visible to all signatories (as well as the other stakeholders of the contract). That is, the compiler automatically adds signatories as observers.
-- You **must** have least one signatory per template. You can have many, either as a comma-separated list or reusing the keyword. You could pass in a list (of type ``[Party]``).
+- Each template **must** have at least one signatory. A signatory declaration consists of the `signatory` keyword followed by a comma-separated list of one or more expressions, each expression denoting a ``Party`` or collection thereof.
 
 .. _daml-ref-observers:
 

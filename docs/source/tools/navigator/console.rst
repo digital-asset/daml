@@ -1,15 +1,17 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Navigator Console
 #################
+
+The Navigator Console is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
 
 .. toctree::
   :hidden:
 
   Navigator Database </tools/navigator/database>
 
-The Navigator Console is a terminal-based front-end for inspecting and modifying a Digital Asset ledger. It's useful for DAML developers, app developers, or business analysts who want to debug or analyse a ledger by exploring it manually.
+The Navigator Console is a terminal-based front-end for inspecting and modifying a DAML Ledger. It's useful for DAML developers, app developers, or business analysts who want to debug or analyse a ledger by exploring it manually.
 
 You can use the Console to:
 
@@ -26,7 +28,7 @@ If you prefer to use a graphical user interface for these tasks, use the :doc:`N
 Try out the Navigator Console on the Quickstart
 ===============================================
 
-With the sandbox running the :doc:`quickstart application </getting-started/quickstart>`
+With the sandbox running the :doc:`quickstart application </app-dev/bindings-java/quickstart>`
 
 #. To start the shell, run ``daml navigator console localhost 6865``
 
@@ -56,7 +58,7 @@ With the sandbox running the :doc:`quickstart application </getting-started/quic
    This full name includes a hash of the DAML package, so don't copy it from the command below - it's better to get it from the auto-complete feature.
 
    You can then create the contract by running:
-   
+
    ``create Iou.Iou@317057d06d4bc4bb91bf3cfe3292bf3c2467c5e004290e0ba20b993eb1e40931 with {issuer="Bob", owner="Bob", currency="BobsCoin", amount="1.0", observers=[]}``
 
    You should see the following output:
@@ -93,7 +95,7 @@ With the sandbox running the :doc:`quickstart application </getting-started/quic
       TemplateId: Iou.Iou@317057d06d4bc4bb91bf3cfe3292bf3c2467c5e004290e0ba20b993eb1e40931
       Argument:
         observers:
-        
+
         issuer: Bob
         amount: 1.0
         currency: BobsCoin
@@ -151,7 +153,7 @@ Getting help
 
 To see all available Navigator Console commands and how to use them, use the ``help`` command::
 
-    >help 
+    >help
     Available commands:
     choice               Print choice details
     command              Print command details
@@ -182,7 +184,7 @@ To see all available Navigator Console commands and how to use them, use the ``h
 
 To see the help for the given command, run ``help <command>``::
 
-    >help create 
+    >help create
     Usage: create <template> with <argument>
 
     Create a contract
@@ -215,7 +217,7 @@ Displaying status information
 
 To see useful information about the status of both Navigator Console and the ledger, use the ``info`` command::
 
-    >info 
+    >info
        _  __          _           __
       / |/ /__ __  __(_)__ ____ _/ /____  ____
      /    / _ `/ |/ / / _ `/ _ `/ __/ _ \/ __/
@@ -256,7 +258,7 @@ To see useful information about the status of both Navigator Console and the led
 Choosing a party
 ================
 
-Privacy is an important aspect of a Digital Asset ledger: parties can only access the contracts on the ledger that they are authorized to. This means that, before you can interact with the ledger, you must assume the role of a particular party.
+Privacy is an important aspect of a DAML Ledger: parties can only access the contracts on the ledger that they are authorized to. This means that, before you can interact with the ledger, you must assume the role of a particular party.
 
 The currently active party is displayed left of the prompt sign (``>``).
 To assume the role of a different party, use the ``party`` command::
@@ -272,7 +274,7 @@ Advancing time
 
 You can advance the time of the DAML Sandbox. This can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
 
-(For obvious reasons, this feature does not exist on the Digital Asset ledger.)
+(For obvious reasons, this feature does not exist on all DAML Ledgers.)
 
 To display the current ledger time, use the ``time`` command::
 
@@ -310,7 +312,7 @@ To get detailed information about a particular template, use the ``template`` co
     Choices:
     - Accept
 
-.. note:: 
+.. note::
     Remember to use the **Tab** key. In the above example, typing "Offer" followed by the **Tab** key auto-completes the fully qualified name of the "RightOfUseOffer" template.
 
 To get detailed information about a choice defined by a template, use the ``choice`` command::
@@ -388,7 +390,7 @@ To execute a SQL query against the local database for the currently active party
 
 See the :doc:`Navigator Local Database <database>` documentation for details on the database schema and how to write SQL queries.
 
-.. note:: 
+.. note::
     The local database contains a copy of the ledger data, created using the Ledger API. If you modify the local database, you might break Navigator Console, but it will not affect the data on the ledger in any way.
 
 Creating contracts
@@ -404,7 +406,7 @@ The contract argument is written in JSON format (DAML primitives are strings, DA
     Status: Success
     TransactionId: 2005
 
-.. note:: 
+.. note::
     Again, you can use the **Tab** key to auto-complete the template name.
 
 The Console waits briefly for the completion of the create command and prints basic information about its status.
@@ -487,12 +489,12 @@ In many cases, a simple one-to-one correspondence between users and their respec
       OPERATOR { party = "OPERATOR" }
   }
 
-Using Navigator with the Digital Asset ledger
-=============================================
+Using Navigator with DAML Ledgers
+=================================
 
 By default, Navigator is configured to use an unencrypted connection to the ledger.
 
-To run Navigator against a secured Digital Asset Ledger, configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
+To run Navigator against a secured DAML Ledger, configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
 
 Details of these parameters are explained in the command line help::
 

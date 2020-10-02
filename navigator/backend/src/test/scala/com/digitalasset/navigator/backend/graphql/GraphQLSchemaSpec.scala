@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphql
+package com.daml.navigator.graphql
 
 import org.scalatest.{Matchers, WordSpec}
 import sangria.parser.QueryParser
@@ -10,7 +10,6 @@ import sangria.schema.Schema
 
 import scala.io.Source
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class GraphQLSchemaSpec extends WordSpec with Matchers {
   "The rendered schema" should {
     "match the expected schema definition" in {

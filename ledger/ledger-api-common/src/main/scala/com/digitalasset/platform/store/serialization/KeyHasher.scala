@@ -1,25 +1,37 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.serialization
+package com.daml.platform.store.serialization
 
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.{Numeric, Utf8}
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.data.{Numeric, Utf8}
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 
+/**
+  * @deprecated in favor of [[GlobalKey.hash]]
+  */
 trait KeyHasher {
 
-  /** Returns the hash of the given DAML-LF value */
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    * Returns the hash of the given DAML-LF value
+    */
   def hashKey(key: GlobalKey): Array[Byte]
 
-  /** Returns a string representation of the hash of the given DAML-LF value */
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    * Returns a string representation of the hash of the given DAML-LF value
+    */
   def hashKeyString(key: GlobalKey): String = hashKey(key).map("%02x" format _).mkString
 }
 
+/**
+  * @deprecated in favor of [[GlobalKey.hash]]
+  */
 object KeyHasher extends KeyHasher {
 
   /**
@@ -43,8 +55,8 @@ object KeyHasher extends KeyHasher {
     * @param op operation to append a hash token
     * @return the final hash value
     */
-  def foldLeft[T](value: Value[AbsoluteContractId], z: T, op: (T, HashToken) => T): T = {
-    import com.digitalasset.daml.lf.value.Value._
+  def foldLeft[T](value: Value[ContractId], z: T, op: (T, HashToken) => T): T = {
+    import com.daml.lf.value.Value._
 
     value match {
       case ValueContractId(v) => op(z, HashTokenText(v.coid))
@@ -104,10 +116,6 @@ object KeyHasher extends KeyHasher {
         val z1 = op(z, HashTokenCollectionBegin(entries.length))
         val z2 = entries.foldLeft[T](z1) { case (t, (k, v)) => foldLeft(k, foldLeft(v, t, op), op) }
         op(z2, HashTokenCollectionEnd())
-
-      // Struct: should never be encountered
-      case ValueStruct(_) =>
-        sys.error("Hashing of struct values is not supported")
     }
   }
 
@@ -120,13 +128,13 @@ object KeyHasher extends KeyHasher {
   private[this] def putString(digest: MessageDigest, value: String): Unit = {
     val bytes = Utf8.getBytes(value)
     putInt(digest, bytes.length)
-    digest.update(bytes)
+    digest.update(bytes.toByteBuffer)
   }
 
   // Do not use directly. It is package visible for testing purpose.
   private[serialization] def putValue(
       digest: MessageDigest,
-      value: Value[AbsoluteContractId],
+      value: Value[ContractId],
   ): MessageDigest = {
     // Then, write the value
     foldLeft[MessageDigest](
@@ -150,6 +158,9 @@ object KeyHasher extends KeyHasher {
     )
   }
 
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    */
   override def hashKey(key: GlobalKey): Array[Byte] = {
     val digest = MessageDigest.getInstance("SHA-256")
 

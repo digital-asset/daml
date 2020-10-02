@@ -1,19 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.iface.{PrimTypeBool, TypePrim}
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
+import com.daml.lf.iface.{PrimTypeBool, TypePrim}
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
 import org.scalatest.{FlatSpec, Matchers, OptionValues, TryValues}
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class RecordLikeMethodsSpec extends FlatSpec with Matchers with OptionValues with TryValues {
 
   behavior of "RecordMethods.constructor"

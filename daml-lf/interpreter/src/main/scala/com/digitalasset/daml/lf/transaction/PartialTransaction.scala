@@ -1,51 +1,80 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf
+package speedy
 
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
+import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.ledger.Authorize
+import com.daml.lf.ledger.FailedAuthorization
 
-import scala.collection.breakOut
+import com.daml.lf.transaction.{
+  GenTransaction,
+  GlobalKey,
+  Node,
+  NodeId,
+  SubmittedTransaction,
+  TransactionVersion,
+  TransactionVersions,
+  Transaction => Tx
+}
+import com.daml.lf.value.Value
+
 import scala.collection.immutable.HashMap
 
-object PartialTransaction {
+private[lf] object PartialTransaction {
 
   type NodeIdx = Value.NodeIdx
+  type Node = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
+  type LeafNode = Node.LeafOnlyNode[Value.ContractId, Value[Value.ContractId]]
 
   /** Contexts of the transaction graph builder, which we use to record
     * the sub-transaction structure due to 'exercises' statements.
     */
-  sealed abstract class Context extends Product with Serializable {
-    def contextSeed: Option[crypto.Hash]
-
-    def children: BackStack[Value.NodeId]
-
-    def addChild(child: Value.NodeId): Context
+  final class Context private (
+      val exeContext: Option[ExercisesContext], // empty if root context
+      val children: BackStack[NodeId],
+      protected val childrenSeeds: Int => crypto.Hash
+  ) {
+    def addChild(child: NodeId): Context =
+      new Context(exeContext, children :+ child, childrenSeeds)
+    def nextChildrenSeed: crypto.Hash =
+      childrenSeeds(children.length)
   }
 
-  /** The root context, which is what we use when we are not exercising
-    * a choice.
-    */
-  final case class ContextRoot(
-      contextSeed: Option[crypto.Hash],
-      children: BackStack[Value.NodeId] = BackStack.empty,
-  ) extends Context {
-    override def addChild(child: Value.NodeId): ContextRoot = copy(children = children :+ child)
-  }
+  object Context {
 
-  /** Context when creating a sub-transaction due to an exercises. */
-  final case class ContextExercise(
-      ctx: ExercisesContext,
-      children: BackStack[Value.NodeId] = BackStack.empty,
-  ) extends Context {
-    override def addChild(child: Value.NodeId): ContextExercise =
-      copy(children = children :+ child)
+    def apply(initialSeeds: InitialSeeding): Context =
+      initialSeeds match {
+        case InitialSeeding.TransactionSeed(seed) =>
+          new Context(None, BackStack.empty, childrenSeeds(seed))
+        case InitialSeeding.RootNodeSeeds(seeds) =>
+          new Context(
+            None,
+            BackStack.empty,
+            i =>
+              (if (0 <= i && i < seeds.length) seeds(i) else None)
+                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided"))
+          )
+        case InitialSeeding.NoSeed =>
+          new Context(
+            None,
+            BackStack.empty,
+            _ => throw new RuntimeException(s"the machine is not configure to create transaction"))
+      }
 
-    override def contextSeed: Option[crypto.Hash] = ctx.contextSeed
+    private[PartialTransaction] def apply(exeContext: ExercisesContext) =
+      new Context(
+        Some(exeContext),
+        BackStack.empty,
+        childrenSeeds(exeContext.parent.nextChildrenSeed),
+      )
+
+    private[this] def childrenSeeds(seed: crypto.Hash)(i: Int) =
+      crypto.Hash.deriveNodeSeed(seed, i)
+
   }
 
   /** Context information to remember when building a sub-transaction
@@ -70,39 +99,53 @@ object PartialTransaction {
     *                       happening.
     */
   case class ExercisesContext(
-      contextSeed: Option[crypto.Hash],
       targetId: Value.ContractId,
       templateId: TypeConName,
-      contractKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      contractKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
       actingParties: Set[Party],
-      chosenValue: Tx.Value[Value.ContractId],
+      chosenValue: Value[Value.ContractId],
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
-      nodeId: Value.NodeId,
+      nodeId: NodeId,
       parent: Context,
   )
 
-  def initial(seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None) =
-    PartialTransaction(
-      seedWithTime.map(_._2),
-      nextNodeIdx = 0,
-      nodes = HashMap.empty,
-      consumedBy = Map.empty,
-      context = ContextRoot(seedWithTime.map(_._1)),
-      aborted = None,
-      keys = Map.empty,
-      localContracts = Map.empty,
-    )
+  def initial(
+      submissionTime: Time.Timestamp,
+      initialSeeds: InitialSeeding,
+  ) = PartialTransaction(
+    submissionTime = submissionTime,
+    nextNodeIdx = 0,
+    nodes = HashMap.empty,
+    nodeSeeds = BackStack.empty,
+    byKeyNodes = BackStack.empty,
+    consumedBy = Map.empty,
+    context = Context(initialSeeds),
+    aborted = None,
+    keys = Map.empty,
+  )
+
+  sealed abstract class Result extends Product with Serializable
+  final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
+  final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
+  final case class SerializationError(msg: String) extends Result {
+    def prettyMessage: String = s"Cannot serialize the transaction: $msg"
+  }
 
 }
 
 /** A transaction under construction
   *
   *  @param nodes The nodes of the transaction graph being built up.
+  *  @param nodeSeeds The seeds of Create and Exercise nodes
+  *  @param byKeyNodes The list of the IDs of each node that
+  *           corresponds to a FetchByKey, LookupByKey, or
+  *           ExerciseByKey commands. Empty in case of validation
+  *           or reinterpretation.
   *  @param consumedBy 'ContractId's of all contracts that have
   *                    been consumed by nodes up to now.
   *  @param context The context of what sub-transaction is being
@@ -114,25 +157,26 @@ object PartialTransaction {
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
   *  @param keys A local store of the contract keys. Note that this contains
-  *              info both about relative and absolute contract ids. We must
-  *              do this because absolute contract ids can be archived as
+  *              info both about relative and contract ids. We must
+  *              do this because contract ids can be archived as
   *              part of execution, and we must record these archivals locally.
   *              Note: it is important for keys that we know to not be present
   *              to be present as [[None]]. The reason for this is that we must
-  *              record the "no key" information for absolute contract ids that
+  *              record the "no key" information for contract ids that
   *              we archive. This is not an optimization and is required for
   *              correct semantics, since otherwise lookups for keys for
-  *              locally archived absolute contract ids will succeed wrongly.
+  *              locally archived contract ids will succeed wrongly.
   */
-case class PartialTransaction(
-    submissionTime: Option[Time.Timestamp],
+private[lf] case class PartialTransaction(
+    submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
-    nodes: HashMap[Value.NodeId, Tx.Node],
-    consumedBy: Map[Value.ContractId, Value.NodeId],
+    nodes: HashMap[NodeId, PartialTransaction.Node],
+    nodeSeeds: BackStack[(NodeId, crypto.Hash)],
+    byKeyNodes: BackStack[NodeId],
+    consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
-    keys: Map[Node.GlobalKey, Option[Value.ContractId]],
-    localContracts: Map[Value.ContractId, Value.NodeId]
+    keys: Map[GlobalKey, Option[Value.ContractId]],
 ) {
 
   import PartialTransaction._
@@ -143,8 +187,8 @@ case class PartialTransaction(
       val sb = new StringBuilder()
 
       def addToStringBuilder(
-          nid: Value.NodeId,
-          node: Node.GenNode.WithTxValue[Value.NodeId, Value.ContractId],
+          nid: NodeId,
+          node: Node,
           rootPrefix: String,
       ): Unit = {
         sb.append(rootPrefix)
@@ -163,10 +207,10 @@ case class PartialTransaction(
       // roots field is not initialized when this method is executed on a failed transaction,
       // so we need to compute them.
       val rootNodes = {
-        val allChildNodeIds: Set[Value.NodeId] = nodes.values.flatMap {
+        val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
           case _: Node.LeafOnlyNode[_, _] => Nil
-          case ex: Node.NodeExercises[Value.NodeId, _, _] => ex.children.toSeq
-        }(breakOut)
+          case ex: Node.NodeExercises[NodeId, _, _] => ex.children.toSeq
+        }.toSet
 
         nodes.keySet diff allChildNodeIds
       }
@@ -182,46 +226,42 @@ case class PartialTransaction(
     }
 
   /** Finish building a transaction; i.e., try to extract a complete
-    *  transaction from the given 'PartialTransaction'. This fails if
-    *  the 'PartialTransaction' is not yet complete or has been
-    *  aborted.
+    *  transaction from the given 'PartialTransaction'. This returns:
+    * - a SubmittedTransaction in case of success ;
+    * - the 'PartialTransaction' itself if it is not yet complete or
+    *   has been aborted ;
+    * - an error in case the transaction cannot be serialized using
+    *   the `outputTransactionVersions`.
     */
-  def finish: Either[PartialTransaction, Tx.Transaction] =
-    context match {
-      case ContextRoot(_, children) if aborted.isEmpty =>
-        Right(GenTransaction(nodes = nodes, roots = children.toImmArray))
-      case _ =>
-        Left(this)
-    }
-
-  /** Lookup the contract associated to 'Value.RelativeContractId'.
-    * Return the contract instance and the node in which it was
-    * consumed if any.
-    */
-  def lookupLocalContract(
-      lcoid: Value.ContractId,
-  ): Option[Value.ContractInst[Tx.Value[Value.ContractId]]] =
-    for {
-      nid <- localContracts.get(lcoid)
-      node <- nodes.get(nid)
-      coinst <- node match {
-        case create: Node.NodeCreate.WithTxValue[Value.ContractId] =>
-          Some(create.coinst)
-        case _: Node.NodeExercises[_, _, _] | _: Node.NodeFetch[_] |
-            _: Node.NodeLookupByKey[_, _] =>
-          None
-      }
-    } yield coinst
+  def finish(
+      outputTransactionVersions: VersionRange[TransactionVersion],
+      packageLanguageVersion: Ref.PackageId => LanguageVersion,
+  ): PartialTransaction.Result =
+    if (context.exeContext.isEmpty && aborted.isEmpty)
+      TransactionVersions
+        .asVersionedTransaction(
+          outputTransactionVersions,
+          packageLanguageVersion,
+          context.children.toImmArray,
+          nodes
+        )
+        .fold(
+          SerializationError,
+          tx => CompleteTransaction(SubmittedTransaction(tx))
+        )
+    else
+      IncompleteTransaction(this)
 
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
     */
   def insertCreate(
-      coinst: Value.ContractInst[Tx.Value[Value.ContractId]],
+      auth: Option[Authorize],
+      coinst: Value.ContractInst[Value[Value.ContractId]],
       optLocation: Option[Location],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
   ): Either[String, (Value.ContractId, PartialTransaction)] = {
     val serializableErrs = serializable(coinst.arg)
     if (serializableErrs.nonEmpty) {
@@ -230,20 +270,11 @@ case class PartialTransaction(
           .mkString(",")}""",
       )
     } else {
-      val nodeSeed = deriveChildSeed
+      val nodeSeed = context.nextChildrenSeed
       val discriminator =
-        for {
-          seed <- nodeSeed
-          time <- submissionTime
-        } yield crypto.Hash.deriveContractDiscriminator(seed, time, stakeholders)
-      val cid = discriminator.fold[Value.ContractId](
-        Value.RelativeContractId(Value.NodeId(nextNodeIdx))
-      )(
-        hash =>
-          Value.AbsoluteContractId(Ref.ContractIdString.assertFromString("0" + hash.toHexaString))
-      )
+        crypto.Hash.deriveContractDiscriminator(nodeSeed, submissionTime, stakeholders)
+      val cid = Value.ContractId.V1(discriminator)
       val createNode = Node.NodeCreate(
-        nodeSeed,
         cid,
         coinst,
         optLocation,
@@ -251,53 +282,70 @@ case class PartialTransaction(
         stakeholders,
         key,
       )
-      val nid = Value.NodeId(nextNodeIdx)
+      val nid = NodeId(nextNodeIdx)
       val ptx = copy(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
-        localContracts = localContracts.updated(cid, nid)
-      )
+        nodeSeeds = nodeSeeds :+ (nid -> nodeSeed),
+      ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(createNode), auth)
 
       // if we have a contract key being added, include it in the list of
       // active keys
       key match {
         case None => Right((cid, ptx))
         case Some(kWithM) =>
-          val ck = Node.GlobalKey(coinst.template, kWithM.key.value)
+          val ck = GlobalKey(coinst.template, kWithM.key)
           Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
       }
     }
   }
 
-  def serializable(a: Tx.Value[Value.ContractId]): ImmArray[String] = a.value.serializable()
+  private[this] def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
+      auth: Option[Authorize],
       coid: Value.ContractId,
       templateId: TypeConName,
       optLocation: Option[Location],
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-  ): PartialTransaction =
+      key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
+      byKey: Boolean,
+  ): PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
+    val node = Node.NodeFetch(
+      coid,
+      templateId,
+      optLocation,
+      Some(actingParties),
+      signatories,
+      stakeholders,
+      key
+    )
     mustBeActive(
       coid,
       templateId,
-      insertLeafNode(
-        Node
-          .NodeFetch(coid, templateId, optLocation, Some(actingParties), signatories, stakeholders),
-      ),
-    )
+      insertLeafNode(node, byKey)
+    ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
+  }
 
   def insertLookup(
+      auth: Option[Authorize],
       templateId: TypeConName,
       optLocation: Option[Location],
-      key: Node.KeyWithMaintainers[Tx.Value[Nothing]],
+      key: Node.KeyWithMaintainers[Value[Nothing]],
       result: Option[Value.ContractId],
-  ): PartialTransaction =
-    insertLeafNode(Node.NodeLookupByKey(templateId, optLocation, key, result))
+  ): PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
+    val node = Node.NodeLookupByKey(templateId, optLocation, key, result)
+    insertLeafNode(node, byKey = true)
+      .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
+  }
 
   def beginExercises(
+      auth: Option[Authorize],
       targetId: Value.ContractId,
       templateId: TypeConName,
       choiceId: ChoiceName,
@@ -307,8 +355,9 @@ case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
-      mbKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
-      chosenValue: Tx.Value[Value.ContractId],
+      mbKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
+      byKey: Boolean,
+      chosenValue: Value[Value.ContractId],
   ): Either[String, PartialTransaction] = {
     val serializableErrs = serializable(chosenValue)
     if (serializableErrs.nonEmpty) {
@@ -317,50 +366,50 @@ case class PartialTransaction(
           .mkString(",")}""",
       )
     } else {
-      val nid = Value.NodeId(nextNodeIdx)
+      val nid = NodeId(nextNodeIdx)
+      val ec =
+        ExercisesContext(
+          targetId = targetId,
+          templateId = templateId,
+          contractKey = mbKey,
+          choiceId = choiceId,
+          optLocation = optLocation,
+          consuming = consuming,
+          actingParties = actingParties,
+          chosenValue = chosenValue,
+          signatories = signatories,
+          stakeholders = stakeholders,
+          controllers = controllers,
+          nodeId = nid,
+          parent = context,
+        )
+
       Right(
         mustBeActive(
           targetId,
           templateId,
           copy(
             nextNodeIdx = nextNodeIdx + 1,
-            context = ContextExercise(
-              ExercisesContext(
-                contextSeed = deriveChildSeed,
-                targetId = targetId,
-                templateId = templateId,
-                contractKey = mbKey,
-                choiceId = choiceId,
-                optLocation = optLocation,
-                consuming = consuming,
-                actingParties = actingParties,
-                chosenValue = chosenValue,
-                signatories = signatories,
-                stakeholders = stakeholders,
-                controllers = controllers,
-                nodeId = nid,
-                parent = context,
-              ),
-            ),
+            byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes,
+            context = Context(ec),
             // important: the semantics of DAML dictate that contracts are immediately
             // inactive as soon as you exercise it. therefore, mark it as consumed now.
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
             keys = mbKey match {
               case Some(kWithM) if consuming =>
-                keys.updated(Node.GlobalKey(templateId, kWithM.key.value), None)
+                keys.updated(GlobalKey(templateId, kWithM.key), None)
               case _ => keys
             },
           ),
-        ),
+        ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(ec), auth)
       )
     }
   }
 
-  def endExercises(value: Tx.Value[Value.ContractId]): PartialTransaction =
-    context match {
-      case ContextExercise(ec, children) =>
+  def endExercises(value: Value[Value.ContractId]): PartialTransaction =
+    context.exeContext match {
+      case Some(ec) =>
         val exerciseNode = Node.NodeExercises(
-          nodeSeed = ec.contextSeed,
           targetCoid = ec.targetId,
           templateId = ec.templateId,
           choiceId = ec.choiceId,
@@ -370,19 +419,42 @@ case class PartialTransaction(
           chosenValue = ec.chosenValue,
           stakeholders = ec.stakeholders,
           signatories = ec.signatories,
-          controllers = ec.controllers,
-          children = children.toImmArray,
+          controllersDifferFromActors = ec.controllers != ec.actingParties,
+          children = context.children.toImmArray,
           exerciseResult = Some(value),
           key = ec.contractKey,
         )
         val nodeId = ec.nodeId
-        copy(context = ec.parent.addChild(nodeId), nodes = nodes.updated(nodeId, exerciseNode))
-      case ContextRoot(_, _) =>
+        val nodeSeed = ec.parent.nextChildrenSeed
+        copy(
+          context = ec.parent.addChild(nodeId),
+          nodes = nodes.updated(nodeId, exerciseNode),
+          nodeSeeds = nodeSeeds :+ (nodeId -> nodeSeed),
+        )
+      case None =>
         noteAbort(Tx.EndExerciseInRootContext)
     }
 
+  /** Note that the transaction building failed due to an authorization failure */
+  private def noteAuthFails(
+      nid: NodeId,
+      f: Authorize => List[FailedAuthorization],
+      authM: Option[Authorize],
+  ): PartialTransaction = {
+    authM match {
+      case None => this // authorization checking is disabled
+      case Some(auth) =>
+        f(auth) match {
+          case Nil => this
+          case fa :: _ => // take just the first failure //TODO: dont compute all!
+            noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
+        }
+    }
+  }
+
   /** Note that the transaction building failed due to the given error */
-  def noteAbort(err: Tx.TransactionError): PartialTransaction = copy(aborted = Some(err))
+  private[this] def noteAbort(err: Tx.TransactionError): PartialTransaction =
+    copy(aborted = Some(err))
 
   /** `True` iff the given `ContractId` has been consumed already */
   def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
@@ -390,7 +462,7 @@ case class PartialTransaction(
   /** Guard the execution of a step with the unconsumedness of a
     * `ContractId`
     */
-  def mustBeActive(
+  private[this] def mustBeActive(
       coid: Value.ContractId,
       templateId: TypeConName,
       f: => PartialTransaction,
@@ -401,16 +473,24 @@ case class PartialTransaction(
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(node: Tx.LeafNode): PartialTransaction = {
-    val nid = Value.NodeId(nextNodeIdx)
+  def insertLeafNode(node: LeafNode, byKey: Boolean): PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = context.addChild(nid),
       nodes = nodes.updated(nid, node),
+      byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes
     )
   }
 
-  def deriveChildSeed: Option[crypto.Hash] =
-    context.contextSeed.map(crypto.Hash.deriveNodeSeed(_, nodes.size))
+}
 
+private[lf] sealed abstract class InitialSeeding extends Product with Serializable
+
+private[lf] object InitialSeeding {
+  // NoSeed may be used to initialize machines that are not intended to create transactions
+  // e.g. trigger and script runners, tests
+  final case object NoSeed extends InitialSeeding
+  final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
+  final case class RootNodeSeeds(seeds: ImmArray[Option[crypto.Hash]]) extends InitialSeeding
 }

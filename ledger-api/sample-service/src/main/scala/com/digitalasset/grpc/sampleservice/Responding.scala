@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.sampleservice
+package com.daml.grpc.sampleservice
 
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloService
-import com.digitalasset.platform.hello.{HelloRequest, HelloResponse}
+import com.daml.platform.hello.HelloServiceGrpc.HelloService
+import com.daml.platform.hello.{HelloRequest, HelloResponse}
 
 import scala.concurrent.Future
 
@@ -13,9 +13,13 @@ trait Responding extends HelloService {
   override def single(request: HelloRequest): Future[HelloResponse] =
     Future.successful(response(request))
 
-  protected def response(request: HelloRequest) = HelloResponse(request.reqInt * 2, request.payload)
+  override def fails(request: HelloRequest): Future[HelloResponse] =
+    Future.failed(new IllegalStateException(request.payload.toStringUtf8))
 
-  protected def responses(request: HelloRequest) =
+  protected def response(request: HelloRequest): HelloResponse =
+    HelloResponse(request.reqInt * 2, request.payload)
+
+  protected def responses(request: HelloRequest): List[HelloResponse] =
     (1 to request.reqInt).map(i => HelloResponse(i, request.payload)).toList
 
 }

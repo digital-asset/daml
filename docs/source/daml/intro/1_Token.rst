@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 1 Basic contracts
@@ -12,6 +12,10 @@ To begin with, you're going to write a very small DAML template, which represent
 - Contracts
 - Signatories
 
+.. hint::
+
+  Remember that you can load all the code for this section into a folder ``1_Token`` by running ``daml new 1_Token --template daml-intro-1``
+
 DAML ledger basics
 ------------------
 
@@ -22,6 +26,8 @@ Like most structures called ledgers, a DAML Ledger is just a list of *commits*. 
 A contract is *active* from the point where there is a committed transaction that creates it, up to the point where there is a committed transaction that *archives* it again.
 
 .. Graphic with timeline inactive -> create -> active -> archive -> inactive
+
+Individual contracts are *immutable* in the sense that an active contract can not be changed. You can only change the *active contract set* by creating a new contract, or archiving an old one.
 
 DAML specifies what transactions are legal on a DAML Ledger. The rules the DAML code specifies are collectively called a *DAML model* or *contract model*.
 
@@ -68,4 +74,4 @@ Furthermore, DAML ledgers *guarantee* that parties see all transactions where th
 Next up
 -------
 
-In :doc:`2_Scenario`, you'll learn about how to try out the ``Token`` contract template in DAML's inbuilt ``scenario`` testing language.
+In :doc:`2_DamlScript`, you'll learn about how to try out the ``Token`` contract template in DAML's inbuilt DAML Script testing language.

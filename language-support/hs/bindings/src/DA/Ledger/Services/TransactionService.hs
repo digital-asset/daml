@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -14,14 +14,14 @@ module DA.Ledger.Services.TransactionService (
     GetTransactionsRequest(..), filterEverythingForParty,
     ) where
 
-import Com.Digitalasset.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
+import Com.Daml.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
-import qualified Com.Digitalasset.Ledger.Api.V1.TransactionService as LL
+import qualified Com.Daml.Ledger.Api.V1.TransactionService as LL
 import qualified Data.Map as Map
 import qualified Data.Vector as Vector
 

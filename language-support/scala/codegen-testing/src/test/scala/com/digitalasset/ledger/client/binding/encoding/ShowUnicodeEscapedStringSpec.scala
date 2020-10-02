@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
+package com.daml.ledger.client.binding.encoding
 
-import com.digitalasset.ledger.client.binding.encoding.EncodingUtil.normalize
+import com.daml.ledger.client.binding.encoding.EncodingUtil.normalize
 import org.apache.commons.text.StringEscapeUtils
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{Assertion, Matchers, WordSpec}

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.types
+package com.daml.codegen.types
 
 import scala.language.higherKinds
 
@@ -42,7 +42,7 @@ object Namespace {
       // ordering containing both the root and child elements)
       override def traverseImpl[G[_]: Applicative, A, B](fa: Namespace[K, A])(
           f: A => G[B]): G[Namespace[K, B]] =
-        ^(f(fa.here), fa.subtree traverseU (traverseImpl(_)(f)))(Namespace(_, _))
+        ^(f(fa.here), fa.subtree traverse (traverseImpl(_)(f)))(Namespace(_, _))
     }
 
   /** Build a tree from name elements K; the root element is the empty

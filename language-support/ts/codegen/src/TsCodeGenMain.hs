@@ -1,46 +1,49 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE DerivingStrategies #-}
 module TsCodeGenMain (main) where
 
+import DA.Bazel.Runfiles (setRunfilesEnv)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.Reader as DAR
 import qualified DA.Pretty
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.HashMap.Strict as HMS
+import qualified Data.Map as Map
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Set.Lens as Set
 import qualified Data.Text.Extended as T
 import qualified Data.Text.IO as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
-import qualified Data.Map as Map
 import Data.Aeson hiding (Options)
 import Data.Aeson.Encode.Pretty
 
+import Control.Exception
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
+import Data.Either
 import Data.Tuple.Extra
 import Data.List.Extra
-import Data.Graph
 import Data.Maybe
-import Data.Bifoldable
 import Options.Applicative
-import System.IO.Extra
 import System.Directory
+import System.Environment
 import System.FilePath hiding ((<.>))
-import qualified System.FilePath as FP
 
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import qualified DA.Daml.Project.Types as DATypes
 
+-- Version of the "@mojotech/json-type-validation" library we're using.
+jtvVersion :: T.Text
+jtvVersion = "^3.1.0"
+
 data Options = Options
     { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
-    , optInputPackageJson :: Maybe FilePath
+    , optScope :: Scope -- Defaults to 'daml.js'.
     }
 
 optionsParser :: Parser Options
@@ -52,12 +55,13 @@ optionsParser = Options
     <*> strOption
         (  short 'o'
         <> metavar "DIR"
-        <> help "Output directory for the generated TypeScript files"
+        <> help "Output directory for the generated packages"
         )
-    <*> optional (strOption
-        (  short 'p'
-        <> metavar "PACKAGE-JSON"
-        <> help "Path to an existing 'package.json' to update"
+    <*> (Scope . ("@" <>) <$> strOption
+        (  short 's'
+        <> metavar "SCOPE"
+        <> value "daml.js"
+        <> help "The NPM scope name for the generated packages; defaults to daml.js"
         ))
 
 optionsParserInfo :: ParserInfo Options
@@ -110,370 +114,594 @@ mergePackageMap ps = foldM merge Map.empty ps
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
 main = do
-    opts@Options{..} <- execParser optionsParserInfo
-    sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
-    sdkVersion <- case sdkVersionOrErr of
-          Left _ -> fail "Invalid SDK version"
-          Right v -> pure v
-    pkgs <- readPackages optInputDars
-    case mergePackageMap pkgs of
-      Left err -> fail . T.unpack $ err
-      Right pkgMap -> do
-        dependencies <-
-          forM (Map.toList pkgMap) $
-            \(pkgId, (mbPkgName, pkg)) -> do
-                 let id = unPackageId pkgId
-                     name = packageNameText pkgId mbPkgName
-                     asName = if name == id then "itself" else name
-                 T.putStrLn $ "Generating " <> id <> " as " <> asName
-                 daml2ts Daml2TsParams{..}
-        whenJust optInputPackageJson $ setupWorkspace optOutputDir dependencies
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
+    withProgName "daml codegen js" $ do
+        opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
+        sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
+        sdkVersion <- case sdkVersionOrErr of
+              Left _ -> fail "Invalid SDK version"
+              Right v -> pure v
+        pkgs <- readPackages optInputDars
+        case mergePackageMap pkgs of
+          Left err -> fail . T.unpack $ err
+          Right pkgMap -> do
+              forM_ (Map.toList pkgMap) $
+                \(pkgId, (mbPkgName, pkg)) -> do
+                     let id = unPackageId pkgId
+                         pkgName = packageNameText pkgId mbPkgName
+                     let pkgDesc = case mbPkgName of
+                           Nothing -> id
+                           Just pkgName -> unPackageName pkgName <> " (hash: " <> id <> ")"
+                     T.putStrLn $ "Generating " <> pkgDesc
+                     daml2js Daml2jsParams{..}
 
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
 
-newtype Scope = Scope {unscope :: String}
-newtype Dependency = Dependency {undependency :: T.Text}  deriving (Eq, Ord)
+newtype Scope = Scope {unScope :: T.Text}
+newtype Dependency = Dependency {_unDependency :: T.Text} deriving (Eq, Ord)
 
--- Gives the scope 'foo' given a directory path like '/path/to/foo'.
--- The scope 'foo' is the '@foo' part of a package name in an import
--- declaration.
-scopeOfScopeDir :: FilePath -> Scope
-scopeOfScopeDir = Scope . takeFileName
-
-data Daml2TsParams = Daml2TsParams
+data Daml2jsParams = Daml2jsParams
   { opts :: Options  -- cli args
   , pkgMap :: Map.Map PackageId (Maybe PackageName, Package)
   , pkgId :: PackageId
   , pkg :: Package
-  , mbPkgName :: Maybe PackageName
+  , pkgName :: T.Text
   , sdkVersion :: SdkVersion
   }
 
 -- Write the files for a single package.
-daml2ts :: Daml2TsParams -> IO (T.Text, [Dependency])
-daml2ts Daml2TsParams {..} = do
+daml2js :: Daml2jsParams -> IO ()
+daml2js Daml2jsParams {..} = do
     let Options {..} = opts
         scopeDir = optOutputDir
-          -- The directory into which we generate packages e.g. '/path/to/daml2ts'.
+          -- The directory into which we generate packages e.g. '/path/to/daml2js'.
         packageDir = scopeDir </> T.unpack pkgName
-          -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
-        packageSrcDir = packageDir </> "src"
-          -- Where the source files of this package are written e.g. '/path/to/daml2ts/davl-0.0.4/src'.
-        scope = scopeOfScopeDir scopeDir
-          -- The scope e.g. 'daml2ts'.
+          -- The directory into which we write this package e.g. '/path/to/daml2js/davl-0.0.4'.
+        packageSrcDir = packageDir </> "lib"
+          -- Where the source files of this package are written e.g. '/path/to/daml2js/davl-0.0.4/lib'.
+        scope = optScope
+          -- The scope e.g. '@daml.js'.
           -- We use this, for example, when generating import declarations e.g.
-          --   import * as pkgd14e08_DA_Internal_Template from '@daml2ts/d14e08/lib/DA/Internal/Template';
+          --   import * as pkgd14e08_DA_Internal_Template from '@daml.js/d14e08/lib/DA/Internal/Template';
     createDirectoryIfMissing True packageSrcDir
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
-    dependencies <- nubOrd . concat <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
+    (nonEmptyModNames, dependenciesSets) <- unzip <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
+    writeIndexTs pkgId packageSrcDir (catMaybes nonEmptyModNames)
+    let dependencies = Set.toList (Set.unions dependenciesSets)
     -- Now write package metadata.
-    writePackageIdTs packageSrcDir pkgId
     writeTsConfig packageDir
-    writeEsLintConfig packageDir
     writePackageJson packageDir sdkVersion scope dependencies
-    pure (pkgName, dependencies)
     where
-      pkgName = packageNameText pkgId mbPkgName
-
       -- Write the .ts file for a single DAML-LF module.
-      writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
+      writeModuleTs :: FilePath -> Scope -> Module -> IO (Maybe ModuleName, Set.Set Dependency)
       writeModuleTs packageSrcDir scope mod = do
         case genModule pkgMap scope pkgId mod of
-          Nothing -> pure []
-          Just (modTxt, ds) -> do
-            let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
-            createDirectoryIfMissing True (takeDirectory outputFile)
-            T.writeFileUtf8 outputFile modTxt
-            pure ds
+          Nothing -> pure (Nothing, Set.empty)
+          Just ((jsSource, tsDecls), ds) -> do
+            let outputDir = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod)))
+            createDirectoryIfMissing True outputDir
+            T.writeFileUtf8 (outputDir </> "module.js") jsSource
+            T.writeFileUtf8 (outputDir </> "module.d.ts") tsDecls
+            pure (Just (moduleName mod), ds)
 
 -- Generate the .ts content for a single module.
 genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
-     Scope -> PackageId -> Module -> Maybe (T.Text, [Dependency])
+     Scope -> PackageId -> Module -> Maybe ((T.Text, T.Text), Set.Set Dependency)
 genModule pkgMap (Scope scope) curPkgId mod
   | null serDefs =
     Nothing -- If no serializable types, nothing to do.
   | otherwise =
-    let (defSers, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
-        imports = [ importDecl pkgMap modRef rootPath
-                  | modRef@(pkgRef, _) <- modRefs refs
-                  , let rootPath = pkgRootPath modName pkgRef ]
-        defs = map biconcat defSers
-        modText = T.unlines $ intercalate [""] $ filter (not . null) $ modHeader : imports : defs
-        depends = [ Dependency $ pkgRefStr pkgMap pkgRef
-                  | (pkgRef, _) <- modRefs refs, pkgRef /= PRSelf ]
-   in Just (modText, depends)
+    let (decls, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
+        imports = (PRSelf, modName) `Set.delete` Set.unions refs
+        (internalImports, externalImports) = splitImports imports
+        rootPath = map (const "..") (unModuleName modName)
+        makeMod jsSyntax body = T.unlines $ intercalate [""] $ filter (not . null) $
+          modHeader jsSyntax
+          : map (externalImportDecl jsSyntax pkgMap) (Set.toList externalImports)
+          : map (internalImportDecl jsSyntax rootPath) internalImports
+          : body
+
+        (jsBody, tsDeclsBody) = unzip $ map (unzip . map renderTsDecl) decls
+        depends = Set.map (Dependency . pkgRefStr pkgMap) externalImports
+   in Just ((makeMod ES5 jsBody, makeMod ES6 tsDeclsBody), depends)
   where
     modName = moduleName mod
     tpls = moduleTemplates mod
     serDefs = defDataTypes mod
-    modRefs refs = Set.toList ((PRSelf, modName) `Set.delete` Set.unions refs)
-    modHeader =
-      [ "// Generated from " <> T.intercalate "/" (unModuleName modName) <> ".daml"
+    modHeader ES5 = commonjsPrefix ++
+      [ "/* eslint-disable-next-line no-unused-vars */"
+      , "var jtv = require('@mojotech/json-type-validation');"
+      , "/* eslint-disable-next-line no-unused-vars */"
+      , "var damlTypes = require('@daml/types');"
+      , "/* eslint-disable-next-line no-unused-vars */"
+      , "var damlLedger = require('@daml/ledger');"
+      ]
+    modHeader ES6 =
+      [ "// Generated from " <> modPath (unModuleName modName) <> ".daml"
       , "/* eslint-disable @typescript-eslint/camelcase */"
+      , "/* eslint-disable @typescript-eslint/no-namespace */"
       , "/* eslint-disable @typescript-eslint/no-use-before-define */"
       , "import * as jtv from '@mojotech/json-type-validation';"
-      , "import * as daml from '@daml/types';"
+      , "import * as damlTypes from '@daml/types';"
+      , "/* eslint-disable-next-line @typescript-eslint/no-unused-vars */"
+      , "import * as damlLedger from '@daml/ledger';"
       ]
 
-    -- Calculate an import declaration.
-    importDecl :: Map.Map PackageId (Maybe PackageName, Package) ->
-                      (PackageRef, ModuleName) -> T.Text -> T.Text
-    importDecl pkgMap modRef@(pkgRef, modName) rootPath =
-      "import * as " <>  genModuleRef modRef <> " from '" <>
-      T.intercalate "/" ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
-      "';"
+    -- Split the imports into those from the same package and those
+    -- from another package.
+    splitImports :: Set.Set ModuleRef -> ([ModuleName], Set.Set PackageId)
+    splitImports imports =
+      let classifyImport (pkgRef, modName) = case pkgRef of
+            PRSelf -> Left modName
+            PRImport pkgId -> Right pkgId
+      in
+      second Set.fromList (partitionEithers (map classifyImport (Set.toList imports)))
+
+    -- Calculate an import declaration for a module from the same package.
+    internalImportDecl :: JSSyntax -> [T.Text] -> ModuleName -> T.Text
+    internalImportDecl jsSyntax rootPath modName =
+        importStmt
+            jsSyntax
+            (genModuleRef (PRSelf, modName))
+            (modPath (rootPath ++ unModuleName modName ++ ["module"]))
+
+    -- Calculate an import declaration for a module from another package.
+    externalImportDecl
+        :: JSSyntax
+        -> Map.Map PackageId (Maybe PackageName, Package)
+        -> PackageId
+        -> T.Text
+    externalImportDecl jsSyntax pkgMap pkgId =
+        importStmt jsSyntax (pkgVar pkgId) (scope <> "/" <> pkgRefStr pkgMap pkgId)
 
     -- Produce a package name for a package ref.
-    pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageRef -> T.Text
-    pkgRefStr pkgMap = \case
-      PRSelf -> ""
-      PRImport pkgId ->
+    pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageId -> T.Text
+    pkgRefStr pkgMap pkgId =
         case Map.lookup pkgId pkgMap of
           Nothing -> error "IMPOSSIBLE : package map malformed"
           Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
 
-    -- Calculate the base part of a package ref string. For foreign
-    -- imports that's something like '@daml2ts'. For self refences
-    -- something like '../../'.
-    pkgRootPath :: ModuleName -> PackageRef -> T.Text
-    pkgRootPath modName pkgRef =
-      case pkgRef of
-        PRSelf ->
-          if lenModName == 1
-            then "."
-            else T.intercalate "/" (replicate (lenModName - 1) "..")
-        PRImport _ -> T.pack $ "@" <> scope
-      where lenModName = length (unModuleName modName)
+importStmt :: JSSyntax -> T.Text -> T.Text -> T.Text
+importStmt ES6 asName impName =
+    "import * as " <>  asName <> " from '" <> impName <> "';"
+importStmt ES5 asName impName =
+    "var " <> asName <> " = require('" <> impName <> "');"
 
 defDataTypes :: Module -> [DefDataType]
 defDataTypes mod = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
-genDataDef :: PackageId -> Module -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+genDataDef :: PackageId -> Module -> NM.NameMap Template -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
 genDataDef curPkgId mod tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _: _: _: _ -> error "IMPOSSIBLE: multi-part type constructor of more than two names"
 
     [conName] -> genDefDataType curPkgId conName mod tpls def
-    [c1, c2] -> ((makeNamespace $ map ("  " <>) typs, []), refs)
+    [c1, c2] -> ([DeclNamespace c1 tyDecls], refs)
       where
-        ((typs, _), refs) = genDefDataType curPkgId c2 mod tpls def
-        makeNamespace stuff =
-          [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
-          , "export namespace " <> c1 <> " {"] ++ stuff ++ ["} //namespace " <> c1]
+        (decls, refs) = genDefDataType curPkgId c2 mod tpls def
+        tyDecls = [d | DeclTypeDef d <- decls]
 
-genDefDataType :: PackageId -> T.Text -> Module -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+-- | The typescript declarations we produce.
+data TsDecl
+    = DeclTemplateDef TemplateDef
+    | DeclSerializableDef SerializableDef
+    | DeclTypeDef TypeDef
+    | DeclTemplateNamespace TemplateNamespace
+    | DeclTemplateRegistration TemplateRegistration
+    | DeclNamespace T.Text [TypeDef]
+    -- ^ Note that we special-case some namespaces, e.g., the template namespace
+    -- that always have fixed contents. This constructor is only used for the namespace
+    -- for sums of products.
+
+renderTsDecl :: TsDecl -> (T.Text, T.Text)
+renderTsDecl = \case
+    DeclTemplateDef t -> renderTemplateDef t
+    DeclSerializableDef t -> renderSerializableDef t
+    DeclTypeDef t -> ("", "export declare " <> renderTypeDef t)
+    DeclTemplateNamespace t -> ("", renderTemplateNamespace t)
+    DeclTemplateRegistration t -> (renderTemplateRegistration t, "")
+    DeclNamespace t decls -> ("", T.unlines $ concat
+        [ [ "export namespace " <> t <> " {" ]
+        , [ "  " <> l | d <- decls, l <- T.lines (renderTypeDef d) ]
+        , [ "} //namespace " <> t ]
+        ])
+
+
+-- | Namespace containing type synonyms for Key, CreatedEvent, ArchivedEvent and Event
+-- for the given template.
+data TemplateNamespace = TemplateNamespace
+  { tnsName :: T.Text
+  , tnsMbKeyDef :: Maybe TypeRef
+  }
+
+renderTemplateNamespace :: TemplateNamespace -> T.Text
+renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
+    [ [ "export declare namespace " <> tnsName <> " {" ]
+    , [ "  export type Key = " <> fst (genType keyDef) | Just keyDef <- [tnsMbKeyDef] ]
+    , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
+      , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
+      , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
+      , "}"
+      ]
+    ]
+  where
+    tK = maybe "undefined" (const (tnsName <.> "Key")) tnsMbKeyDef
+    tI = "typeof " <> tnsName <.> "templateId"
+    tParams xs = "<" <> T.intercalate ", " xs <> ">"
+
+data TemplateRegistration = TemplateRegistration T.Text
+
+renderTemplateRegistration :: TemplateRegistration -> T.Text
+renderTemplateRegistration (TemplateRegistration t) = T.unlines
+  [ "damlTypes.registerTemplate(exports." <> t <> ");" ]
+
+data TemplateDef = TemplateDef
+  { tplName :: T.Text
+  , tplPkgId :: PackageId
+  , tplModule :: ModuleName
+  , tplDecoder :: Decoder
+  , tplKeyDecoder :: Maybe Decoder
+  -- ^ Nothing if we do not have a key.
+  , tplChoices' :: [ChoiceDef]
+  }
+
+renderTemplateDef :: TemplateDef -> (T.Text, T.Text)
+renderTemplateDef TemplateDef{..} =
+    let jsSource = T.unlines $ concat
+          [ [ "exports." <> tplName <> " = {"
+            , "  templateId: '" <> templateId <> "',"
+            , "  keyDecoder: " <> renderDecoder (DecoderLazy keyDec) <> ","
+            , "  decoder: " <> renderDecoder (DecoderLazy tplDecoder) <> ","
+            ]
+          , concat
+            [ [ "  " <> chcName' <> ": {"
+              , "    template: function () { return exports." <> tplName <> "; },"
+              , "    choiceName: '" <> chcName' <> "',"
+              , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
+              , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
+              , "  },"
+              ]
+            | ChoiceDef{..} <- tplChoices'
+            ]
+          , [ "};" ]
+          ]
+        tsDecl = T.unlines $ concat
+          [ [ "export declare const " <> tplName <> ":"
+            , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & {"
+            ]
+          , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
+              tplName <> ", " <>
+              fst (genType chcArgTy) <> ", " <>
+              fst (genType chcRetTy) <> ", " <>
+              keyTy <> ">;" | ChoiceDef{..} <- tplChoices' ]
+          , [ "};" ]
+          ]
+    in (jsSource, tsDecl)
+  where (keyTy, keyDec) = case tplKeyDecoder of
+            Nothing -> ("undefined", DecoderConstant ConstantUndefined)
+            Just d -> (tplName <> ".Key", DecoderLazy d)
+        templateId =
+            unPackageId tplPkgId <> ":" <>
+            T.intercalate "." (unModuleName tplModule) <> ":" <>
+            tplName
+
+data ChoiceDef = ChoiceDef
+  { chcName' :: T.Text
+  , chcArgTy :: TypeRef
+  , chcRetTy :: TypeRef
+  }
+
+data SerializableDef = SerializableDef
+  { serName :: T.Text
+  , serParams :: [T.Text]
+  -- ^ Type parameters.
+  , serKeys :: [T.Text]
+  -- ^ Keys for enums. Note that enums never have type parameters
+  -- but for simplicity we do not express this in this type.
+  , serDecoder :: Decoder
+  , serNestedDecoders :: [(T.Text, Decoder)]
+  -- ^ For sums of products, e.g., `data X = Y { a : Int }
+  }
+
+renderSerializableDef :: SerializableDef -> (T.Text, T.Text)
+renderSerializableDef SerializableDef{..}
+  | null serParams =
+    let tsDecl = T.unlines $ concat
+            [ [ "export declare const " <> serName <> ":"
+              , "  damlTypes.Serializable<" <> serName <> "> & {"
+              ]
+            , [ "  " <> n <> ": damlTypes.Serializable<" <> serName <.> n <> ">;" | (n, _) <- serNestedDecoders ]
+            , [ "  }"
+              ]
+            , [ "& { readonly keys: " <> serName <> "[] } & { readonly [e in " <> serName <> "]: e }" | notNull serKeys ]
+            , [ ";"]
+            ]
+        jsDecl = T.unlines $ concat
+          [ ["exports." <> serName <> " = {"]
+          , [ "  " <> k <> ": " <> "'" <> k <> "'," | k <- serKeys ]
+          , [ "  keys: [" <> T.concat (map (\s -> "'" <> s <> "',") serKeys) <> "]," | notNull serKeys ]
+          , [ "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ","
+            ]
+          , concat $
+            [ [ "  " <> n <> ":({"
+              , "    decoder: " <> renderDecoder (DecoderLazy d) <> ","
+              , "  }),"
+              ]
+            | (n, d) <- serNestedDecoders
+            ]
+          , [ "};" ]
+          ]
+    in (jsDecl, tsDecl)
+  | otherwise = assert (null serKeys) $
+    let tsDecl = T.unlines $
+            -- If we have type parameters, the serializable definition is
+            -- a function and we generate extra properties on that function
+            -- for each nested decoder.
+            [ "export declare const " <> serName <> " :"
+            , "  (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <> tyParams <> ">) & {"
+            ] ++
+            [ "  " <> n <> ": (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <.> n <> tyParams <> ">);"
+            | (n, _) <- serNestedDecoders
+            ] ++
+            [ "};"
+            ]
+        jsSource = T.unlines $
+            -- If we have type parameters, the serializable definition is
+            -- a function and we generate extra properties on that function
+            -- for each nested decoder.
+            [ "exports" <.> serName <> " = function " <> jsTyArgs <> " { return ({"
+            , "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ","
+            , "}); };"
+            ] <> concat
+            [ [ "exports" <.> serName <.> n <> " = function " <> jsTyArgs <> " { return ({"
+              , "  decoder: " <> renderDecoder (DecoderLazy d) <> ","
+              , "}); };"
+              ]
+            | (n, d) <- serNestedDecoders
+            ]
+    in (jsSource, tsDecl)
+  where tyParams = "<" <> T.intercalate ", " serParams <> ">"
+        tyArgs = tyParams <> "(" <> T.intercalate ", " (map (\name -> name <> ": damlTypes.Serializable<" <> name <> ">") serParams) <> ")"
+        jsTyArgs = "(" <> T.intercalate ", " serParams <> ")"
+
+data TypeRef = TypeRef
+  { _refFromModule :: ModuleName
+  , refType :: Type
+  }
+
+data Decoder
+    = DecoderOneOf T.Text [Decoder]
+    | DecoderObject [(T.Text, Decoder)]
+    | DecoderConstant DecoderConstant
+    | DecoderRef TypeRef -- ^ Reference to an object with a .decoder field
+    | DecoderLazy Decoder -- ^ Lazy decoder, we need this to avoid infinite loops
+    -- on recursive types. We insert this in every variant, Optional, List and TextMap
+    -- which are the only ways to construct terminating recursive types.
+
+data DecoderConstant
+    = ConstantUndefined
+    | ConstantString T.Text -- ^ String literal
+    | ConstantRef T.Text -- ^ Variable reference
+
+renderDecoderConstant :: DecoderConstant -> T.Text
+renderDecoderConstant = \case
+    ConstantUndefined -> "undefined"
+    ConstantString s -> "'" <> s <> "'"
+    ConstantRef v -> v
+
+renderDecoder :: Decoder -> T.Text
+renderDecoder = \case
+    DecoderOneOf _constr branches ->
+        "jtv.oneOf(" <>
+        T.intercalate ", " (map renderDecoder branches) <>
+        ")"
+    DecoderObject fields ->
+        "jtv.object({" <>
+        T.concat (map (\(name, d) -> name <> ": " <> renderDecoder d <> ", ") fields) <>
+        "})"
+    DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
+    DecoderRef t -> snd (genType t) <> ".decoder"
+    DecoderLazy d -> "damlTypes.lazyMemo(function () { return " <> renderDecoder d <> "; })"
+
+data TypeDef
+    = UnionDef T.Text [T.Text] [(T.Text, TypeRef)]
+    | ObjectDef T.Text [T.Text] [(T.Text, TypeRef)]
+    | EnumDef T.Text [T.Text] [T.Text]
+
+renderTypeDef :: TypeDef -> T.Text
+renderTypeDef = \case
+    UnionDef t args bs -> T.unlines $ concat
+        [ [ "type " <> ty t args <> " =" ]
+        , [ "  |  { tag: '" <> k <> "'; value: " <> fst (genType t) <> " }" | (k, t) <- bs ]
+        , [ ";" ]
+        ]
+    ObjectDef t args fs -> T.unlines $ concat
+        [ [ "type " <> ty t args <> " = {" ]
+        , [ "  " <> k <> ": " <> fst (genType t) <> ";" | (k, t) <- fs ]
+        , [ "};" ]
+        ]
+    EnumDef t args fs -> T.unlines $ concat
+        [ [ "type " <> ty t args <> " =" ]
+        , [ "  | '" <> f <> "'" | f <- fs ]
+        , [ ";" ]
+        ]
+  where ty t args
+            | null args = t
+            | otherwise = t <> "<" <> T.intercalate ", " args <> ">"
+
+-- | Generate the Serializable definition for a datatype.
+-- Note that for templates we do not use this directly since the Template definition
+-- subsumes this.
+genSerializableDef :: PackageId -> T.Text -> Module -> DefDataType -> SerializableDef
+genSerializableDef curPkgId conName mod def =
+    case dataCons def of
+        DataVariant bs ->
+            let typ = conName <> typeParams
+            in SerializableDef
+                 { serName = conName
+                 , serParams = paramNames
+                 , serKeys = []
+                 , serDecoder = DecoderOneOf typ (map genBranch bs)
+                 , serNestedDecoders =
+                   [ (name, serDecoder (genSerializableDef curPkgId (conName <.> name) mod b)) | (name, b) <- nestedDefDataTypes ]
+                 }
+        DataEnum enumCons ->
+            let cs = map unVariantConName enumCons
+            in SerializableDef
+                 { serName = conName
+                 , serParams = []
+                 , serKeys = cs
+                 , serDecoder = DecoderOneOf conName [DecoderConstant (ConstantRef ("exports" <.> conName <.> cons)) | cons <- cs]
+                 , serNestedDecoders = []
+                 }
+        DataRecord fields ->
+            let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
+                fieldSers = map (\t -> TypeRef (moduleName mod) t) fieldTypesLf
+            in SerializableDef
+                 { serName = conName
+                 , serParams = paramNames
+                 , serKeys = []
+                 , serDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldSers]
+                 , serNestedDecoders = []
+                 }
+  where
+    paramNames = map (unTypeVarName . fst) (dataParams def)
+    typeParams
+        | null paramNames = ""
+        | otherwise = "<" <> T.intercalate ", " paramNames <> ">"
+    genBranch (VariantConName cons, t) =
+        DecoderObject
+            [ ("tag", DecoderConstant (ConstantString cons))
+            , ("value", DecoderRef $ TypeRef (moduleName mod) t)
+            ]
+    nestedDefDataTypes =
+        [ (sub, def)
+        | def <- defDataTypes mod
+        , [sup, sub] <- [unTypeConName (dataTypeCon def)], sup == conName
+        ]
+
+genTypeDef :: T.Text -> Module -> DefDataType -> TypeDef
+genTypeDef conName mod def =
+    case dataCons def of
+        DataVariant bs ->
+            UnionDef
+                conName
+                paramNames
+                [ (cons, typ)
+                | (VariantConName cons, t) <- bs, let typ = TypeRef (moduleName mod) t
+                ]
+        DataEnum enumCons ->
+            EnumDef
+                conName
+                paramNames
+                (map unVariantConName enumCons)
+        DataRecord fields ->
+            ObjectDef
+                conName
+                paramNames
+                [ (n, TypeRef (moduleName mod) ty) | (FieldName n, ty) <- fields ]
+
+  where
+    paramNames = map (unTypeVarName . fst) (dataParams def)
+
+genDefDataType :: PackageId -> T.Text -> Module -> NM.NameMap Template -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
 genDefDataType curPkgId conName mod tpls def =
     case dataCons def of
         DataVariant bs ->
           let
-            (typs, sers) = unzip $ map genBranch bs
-            typeDesc = makeType ([""] ++ typs)
-            typ = conName <> typeParams -- Type of the variant.
-            serDesc =
-              if not $ null paramNames -- Polymorphic type.
-              then -- Companion function.
-                let
-                  -- Any associated serializers.
-                  assocSers = map (\(n, d) -> serFromDef id n d) assocDefDataTypes
-                  -- The variant deserializer.
-                  function = onLast (<> ";") (makeSer ( ["() => jtv.oneOf<" <> typ <> ">("] ++ sers ++ [")"]));
-                  props = -- Fix the first and last line of each serializer.
-                    concatMap (onHead (fromJust . T.stripPrefix (T.pack "export const ")) . onLast (<> ";")) assocSers
-                  -- The complete definition of the companion function.
-                  in function ++ props
-                     -- To-do: Can we formulate a static implements
-                     -- serializable check that works for companion
-                     -- functions?
-              else -- Companion object.
-                let
-                  assocNames = map fst assocDefDataTypes
-                  -- Any associated serializers, dropping the first line
-                  -- of each.
-                  assocSers = map (\(n, d) -> (n, serFromDef (drop 1) n d)) assocDefDataTypes
-                  -- Type of the companion object.
-                  typ' = "daml.Serializable<" <> conName <> "> & {\n" <>
-                    T.concat (map (\n -> "    " <> n <> ": daml.Serializable<" <> (conName <.> n) <> ">;\n") assocNames) <>
-                    "  }"
-                  -- Body of the companion object.
-                  body = map ("  " <>) $
-                    -- The variant deserializer.
-                    ["decoder: () => jtv.oneOf<" <> typ <> ">("] ++  sers ++ ["),"] ++
-                    -- Remember how we dropped the first line of each
-                    -- associated serializer above? This replaces them.
-                    concatMap (\(n, ser) -> n <> ": ({" : onLast (<> ",") ser) assocSers
-                  -- The complete definition of the companion object.
-                  in ["export const " <> conName <> ":\n  " <> typ' <> " = ({"] ++ body ++ ["});"] ++
-                     ["daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"]
-            in ((typeDesc, serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
-        DataEnum enumCons ->
-          let
-            typeDesc =
-                [ "export enum " <> conName <> " {"] ++
-                [ "  " <> cons <> " = " <> "\'" <> cons <> "\'" <> ","
-                | VariantConName cons <- enumCons] ++
-                [ "}"
-                , "daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"
-                ]
-            serDesc =
-                ["() => jtv.oneOf<" <> conName <> ">" <> "("] ++
-                ["  jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
-                [");"]
+            typeDesc = genTypeDef conName mod def
+            serDesc = genSerializableDef curPkgId conName mod def
+          in ([DeclTypeDef typeDesc, DeclSerializableDef serDesc], Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
+        DataEnum _ ->
+          let typeDesc = genTypeDef conName mod def
+              serDesc = genSerializableDef curPkgId conName mod def
           in
-          ((typeDesc, makeNameSpace serDesc), Set.empty)
+          ([DeclTypeDef typeDesc, DeclSerializableDef serDesc], Set.empty)
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
-                (fieldTypesTs, fieldSers) = unzip (map (genType (moduleName mod)) fieldTypesLf)
+                fieldSers = map (TypeRef (moduleName mod)) fieldTypesLf
                 fieldRefs = map (Set.setOf typeModuleRef . snd) fields
-                typeDesc =
-                    ["{"] ++
-                    ["  " <> x <> ": " <> t <> ";" | (x, t) <- zip fieldNames fieldTypesTs] ++
-                    ["}"]
-                serDesc =
-                    ["() => jtv.object({"] ++
-                    ["  " <> x <> ": " <> ser <> ".decoder()," | (x, ser) <- zip fieldNames fieldSers] ++
-                    ["})"]
+                typeDesc = genTypeDef conName mod def
             in
             case NM.lookup (dataTypeCon def) tpls of
-                Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
+                Nothing -> ([DeclTypeDef typeDesc, DeclSerializableDef $ genSerializableDef curPkgId conName mod def], Set.unions fieldRefs)
                 Just tpl ->
                     let (chcs, chcRefs) = unzip
-                            [((unChoiceName (chcName chc), t, rtyp, rser), Set.union argRefs retRefs)
+                            [(ChoiceDef (unChoiceName (chcName chc)) argTy rTy, Set.union argRefs retRefs)
                             | chc <- NM.toList (tplChoices tpl)
-                            , let tLf = snd (chcArgBinder chc)
-                            , let rLf = chcReturnType chc
-                            , let (t, _) = genType (moduleName mod) tLf
-                            , let (rtyp, rser) = genType (moduleName mod) rLf
-                            , let argRefs = Set.setOf typeModuleRef tLf
-                            , let retRefs = Set.setOf typeModuleRef rLf
+                            , let argTy = TypeRef (moduleName mod) (snd (chcArgBinder chc))
+                            , let rTy = TypeRef (moduleName mod) (chcReturnType chc)
+                            , let argRefs = Set.setOf typeModuleRef (refType argTy)
+                            , let retRefs = Set.setOf typeModuleRef (refType rTy)
                             ]
-                        (keyTypeTs, keySer, keyRefs) = case tplKey tpl of
-                            Nothing -> ("undefined", "() => jtv.constant(undefined)", Set.empty)
+                        (keyDecoder, keyRefs) = case tplKey tpl of
+                            Nothing -> (Nothing, Set.empty)
                             Just key ->
                                 let keyType = tplKeyType key
                                 in
-                                (conName <.> "Key", "() => " <> snd (genType (moduleName mod) keyType) <> ".decoder()", Set.setOf typeModuleRef keyType)
-                        templateId = unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName (moduleName mod)) <> ":" <> conName
-                        dict =
-                            ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> ", '" <> templateId <> "'> & {"] ++
-                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
-                            ["} = {"
-                            ] ++
-                            ["  templateId: '" <> templateId <> "',"
-                            ,"  keyDecoder: " <> keySer <> ","
-                            ] ++
-                            map ("  " <>) (onLast (<> ",") (onHead ("decoder: " <>) serDesc)) ++
-                            concat
-                            [ ["  " <> x <> ": {"
-                              ,"    template: () => " <> conName <> ","
-                              ,"    choiceName: '" <> x <> "',"
-                              ,"    argumentDecoder: " <> t <> ".decoder,"
-                              -- We'd write,
-                              --   "   resultDecoder: " <> rser <> ".decoder"
-                              -- here but, consider the following scenario:
-                              --   export const Person: daml.Template<Person>...
-                              --    = {  ...
-                              --         Birthday: { resultDecoder: daml.ContractId(Person).decoder, ... }
-                              --         ...
-                              --      }
-                              -- This gives rise to "error TS2454: Variable 'Person' is used before being assigned."
-                              ,"    resultDecoder: () => " <> rser <> ".decoder()," -- Eta-conversion provides an escape hatch.
-                              ,"  },"
-                              ]
-                            | (x, t, _rtyp, rser) <- chcs
-                            ] ++
-                            ["};"]
-                        associatedTypes =
-                          maybe [] (\key ->
-                              [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
-                              , "export namespace " <> conName <> " {"] ++
-                              ["  export type Key = " <> fst (genType (moduleName mod) (tplKeyType key)) <> ""] ++
-                              ["}"]) (tplKey tpl)
-                        registrations =
-                            ["daml.registerTemplate(" <> conName <> ");"]
+                                (Just (DecoderRef $ TypeRef (moduleName mod) keyType), Set.setOf typeModuleRef keyType)
+                        dict = TemplateDef
+                            { tplName = conName
+                            , tplPkgId = curPkgId
+                            , tplModule = moduleName mod
+                            , tplDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldSers]
+                            , tplKeyDecoder = keyDecoder
+                            , tplChoices' = chcs
+                            }
+                        associatedTypes = TemplateNamespace
+                          { tnsName = conName
+                          , tnsMbKeyDef = TypeRef (moduleName mod) . tplKeyType <$> tplKey tpl
+                          }
+                        registrations = TemplateRegistration conName
                         refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
                     in
-                    ((makeType typeDesc, dict ++ associatedTypes ++ registrations), refs)
-      where
-        paramNames = map (unTypeVarName . fst) (dataParams def)
-        typeParams
-          | null paramNames = ""
-          | otherwise = "<" <> T.intercalate ", " paramNames <> ">"
-        serParam paramName = paramName <> ": daml.Serializable<" <> paramName <> ">"
-        serHeader
-          | null paramNames = ": daml.Serializable<" <> conName <> "> ="
-          | otherwise = " = " <> typeParams <> "(" <> T.intercalate ", " (map serParam paramNames) <> "): daml.Serializable<" <> conName <> typeParams <> "> =>"
-        makeType = onHead (\x -> "export type " <> conName <> typeParams <> " = " <> x)
-        makeSer serDesc =
-            ["export const " <> conName <> serHeader <> " ({"] ++
-            map ("  " <>) (onLast (<> ",") (onHead ("decoder: " <>) serDesc)) ++
-            ["})"]
-        makeNameSpace serDesc =
-            [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
-            , "export namespace " <> conName <> " {"
-            ] ++
-            map ("  " <>) (onHead ("export const decoder = " <>) serDesc) ++
-            ["}"]
-        genBranch (VariantConName cons, t) =
-          let (typ, ser) = genType (moduleName mod) t in
-          ( "  |  { tag: '" <> cons <> "'; value: " <> typ <> " }"
-          , "  jtv.object({tag: jtv.constant('" <> cons <> "'), value: jtv.lazy(() => " <> ser <> ".decoder())}),"
-          )
-        -- A type such as
-        --   data Q = C { x: Int, y: Text }| G { z: Bool }
-        -- has a DAML-LF representation like,
-        --   record Q.C = { x: Int, y: String }
-        --   record Q.G = { z: Bool }
-        --   variant Q = C Q.C | G Q.G
-        -- This constant is the definitions of 'Q.C' and 'Q.G' given
-        -- 'Q'.
-        assocDefDataTypes =
-          [(sub, def) | def <- defDataTypes mod
-            , [sup, sub] <- [unTypeConName (dataTypeCon def)], sup == conName]
-        -- Extract the serialization code associated with a data type
-        -- definition.
-        serFromDef f c2 = f . snd . fst . genDefDataType curPkgId (conName <.> c2) mod tpls
+                    ([DeclTypeDef typeDesc, DeclTemplateDef dict, DeclTemplateNamespace associatedTypes, DeclTemplateRegistration registrations], refs)
 
 infixr 6 <.> -- This is the same fixity as '<>'.
 (<.>) :: T.Text -> T.Text -> T.Text
 (<.>) u v = u <> "." <> v
 
-genType :: ModuleName -> Type -> (T.Text, T.Text)
-genType curModName = go
+-- | Returns a pair of the type and a reference to the
+-- serializer object.
+genType :: TypeRef -> (T.Text, T.Text)
+genType (TypeRef curModName t) = go t
   where
     go = \case
         TVar v -> dupe (unTypeVarName v)
-        TUnit -> ("{}", "daml.Unit")
-        TBool -> ("boolean", "daml.Bool")
-        TInt64 -> dupe "daml.Int"
-        TDecimal -> dupe "daml.Decimal"
+        TUnit -> ("{}", "damlTypes.Unit")
+        TBool -> ("boolean", "damlTypes.Bool")
+        TInt64 -> dupe "damlTypes.Int"
+        TDecimal -> dupe "damlTypes.Decimal"
         TNumeric (TNat n) -> (
-            "daml.Numeric"
-          , "daml.Numeric(" <> T.pack (show (fromTypeLevelNat n :: Integer)) <> ")"
+            "damlTypes.Numeric"
+          , "damlTypes.Numeric(" <> T.pack (show (fromTypeLevelNat n :: Integer)) <> ")"
           )
-        TText -> ("string", "daml.Text")
-        TTimestamp -> dupe "daml.Time"
-        TParty -> dupe "daml.Party"
-        TDate -> dupe "daml.Date"
+        TText -> ("string", "damlTypes.Text")
+        TTimestamp -> dupe "damlTypes.Time"
+        TParty -> dupe "damlTypes.Party"
+        TDate -> dupe "damlTypes.Date"
         TList t ->
             let (t', ser) = go t
             in
-            (t' <> "[]", "daml.List(" <> ser <> ")")
+            (t' <> "[]", "damlTypes.List(" <> ser <> ")")
         TOptional t ->
             let (t', ser) = go t
             in
-            ("daml.Optional<" <> t' <> ">", "daml.Optional(" <> ser <> ")")
+            ("damlTypes.Optional<" <> t' <> ">", "damlTypes.Optional(" <> ser <> ")")
         TTextMap t  ->
             let (t', ser) = go t
             in
-            ("{ [key: string]: " <> t' <> " }", "daml.TextMap(" <> ser <> ")")
+            ("{ [key: string]: " <> t' <> " }", "damlTypes.TextMap(" <> ser <> ")")
         TUpdate _ -> error "IMPOSSIBLE: Update not serializable"
         TScenario _ -> error "IMPOSSIBLE: Scenario not serializable"
         TContractId t ->
             let (t', ser) = go t
             in
-            ("daml.ContractId<" <> t' <> ">", "daml.ContractId(" <> ser <> ")")
+            ("damlTypes.ContractId<" <> t' <> ">", "damlTypes.ContractId(" <> ser <> ")")
         TConApp con ts ->
             let (con', ser) = genTypeCon curModName con
                 (ts', sers) = unzip (map go ts)
@@ -492,174 +720,173 @@ genType curModName = go
         TStruct{} -> error "IMPOSSIBLE: structural record not serializable"
         TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
 
+-- | Pair of a reference to the type and a reference to the serializer.
+-- Note that the serializer is in JS file whereas the type is in the TS
+-- declaration file. Therefore they refer to things in the current module
+-- differently.
 genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)
 genTypeCon curModName (Qualified pkgRef modName conParts) =
     case unTypeConName conParts of
         [] -> error "IMPOSSIBLE: empty type constructor name"
         _: _: _: _ -> error "TODO(MH): multi-part type constructor names"
         [c1 ,c2]
-          | modRef == (PRSelf, curModName) -> dupe $ c1 <.> c2
+          | modRef == (PRSelf, curModName) ->
+            (c1 <.> c2, "exports" <.> c1 <.> c2)
           | otherwise -> dupe $ genModuleRef modRef <> c1 <.> c2
         [conName]
-          | modRef == (PRSelf, curModName) -> dupe conName
+          | modRef == (PRSelf, curModName) ->
+            (conName, "exports" <.> conName)
           | otherwise -> dupe $ genModuleRef modRef <.> conName
      where
        modRef = (pkgRef, modName)
 
+pkgVar :: PackageId -> T.Text
+pkgVar pkgId = "pkg" <> unPackageId pkgId
+
 genModuleRef :: ModuleRef -> T.Text
 genModuleRef (pkgRef, modName) = case pkgRef of
-    PRSelf -> modNameStr
-    PRImport pkgId -> "pkg" <> unPackageId pkgId <> "_" <> modNameStr
+    PRSelf -> T.intercalate "_" name
+    PRImport pkgId -> T.intercalate "." (pkgVar pkgId : name)
   where
-    modNameStr = T.intercalate "_" (unModuleName modName)
+    name = unModuleName modName
 
-onHead :: (a -> a) -> [a] -> [a]
-onHead f = \case
-    [] -> []
-    x : xs -> f x : xs
-
-onLast :: (a -> a) -> [a] -> [a]
-onLast f = \case
-    [] -> []
-    [l] -> [f l]
-    x : xs -> x : onLast f xs
-
-writePackageIdTs :: FilePath -> PackageId -> IO ()
-writePackageIdTs dir pkgId =
-    T.writeFileUtf8 (dir </> "packageId.ts") $ T.unlines
-      ["export default '" <> unPackageId pkgId <> "';"]
+-- Calculate a filepath from a module name e.g. 'modPath [".", "A",
+-- "B"]' is "./A/B".
+modPath :: [T.Text] -> T.Text
+modPath parts = T.intercalate "/" parts
 
 writeTsConfig :: FilePath -> IO ()
-writeTsConfig dir = writeFileUTF8 (dir </> "tsconfig.json") $ unlines
-    [ "{"
-    , "  \"compilerOptions\": {"
-    , "    \"target\": \"es5\","
-    , "    \"lib\": ["
-    , "      \"dom\","
-    , "      \"es2015\""
-    , "     ],"
-    , "    \"strict\": true,"
-    , "    \"noUnusedLocals\": true,"
-    , "    \"noUnusedParameters\": false,"
-    , "    \"noImplicitReturns\": true,"
-    , "    \"noFallthroughCasesInSwitch\": true,"
-    , "    \"outDir\": \"lib\","
-    , "    \"module\": \"commonjs\","
-    , "    \"declaration\": true,"
-    , "    \"sourceMap\": true"
-    , "  },"
-    , "  \"include\": [\"src/**/*.ts\"],"
-    , "}"
-    ]
+writeTsConfig dir =
+  BSL.writeFile (dir </> "tsconfig.json") $ encodePretty tsConfig
+  where
+    tsConfig :: Value
+    tsConfig = object
+      [ "compilerOptions" .= object
+        [ "target" .= ("es5" :: T.Text)
+        , "lib" .= (["dom", "es2015"] :: [T.Text])
+        , "skipLibCheck" .= True
+        , "strict" .= True
+        , "noUnusedLocals" .= False
+        , "noImplicitReturns" .= True
+        , "noFallthroughCasesInSwitch" .= True
+        , "outDir" .= ("lib" :: T.Text)
+        , "module" .= ("commonjs" :: T.Text)
+        , "declaration" .= True
+        , "sourceMap" .= True
+        ]
+      , "include" .= (["src/**/*.ts"] :: [T.Text])
+      ]
 
-writeEsLintConfig :: FilePath -> IO ()
-writeEsLintConfig dir = writeFileUTF8 (dir </> ".eslintrc.json") $ unlines
-  [ "{"
-  , "  \"parser\": \"@typescript-eslint/parser\","
-  , "  \"parserOptions\": {"
-  , "    \"project\": \"./tsconfig.json\""
-  , "  },"
-  , "  \"plugins\": ["
-  , "    \"@typescript-eslint\""
-  , "  ],"
-  , "  \"extends\": ["
-  , "    \"eslint:recommended\","
-  , "    \"plugin:@typescript-eslint/eslint-recommended\","
-  , "    \"plugin:@typescript-eslint/recommended\","
-  , "    \"plugin:@typescript-eslint/recommended-requiring-type-checking\""
-  , "  ],"
-  , "  \"rules\": {"
-  , "    \"@typescript-eslint/explicit-function-return-type\": \"off\","
-  , "    \"@typescript-eslint/no-inferrable-types\": \"off\""
-  , "  }"
-  , "}"
-  ]
+packageJsonDependencies :: SdkVersion -> Scope -> [Dependency] -> Value
+packageJsonDependencies sdkVersion (Scope scope) dependencies = object $
+    [ "@mojotech/json-type-validation" .= jtvVersion
+    , "@daml/types" .= versionToText sdkVersion
+    , "@daml/ledger" .= versionToText sdkVersion
+    ] ++
+    [ (scope <> "/" <> pkgName) .= ("file:../" <> pkgName) | Dependency pkgName <- dependencies ]
 
 writePackageJson :: FilePath -> SdkVersion -> Scope -> [Dependency] -> IO ()
-writePackageJson packageDir sdkVersion (Scope scope) depends =
-  writeFileUTF8 (packageDir </> "package.json") $ unlines
-  (["{"
-   , "  \"private\": true,"
-   , "  \"name\": \"" <> name <> "\","
-   , "  \"version\": \"" <> version <> "\","
-   , "  \"description\": \"Produced by daml2ts\","
-   , "  \"dependencies\": {"
-   , "    \"@daml/types\": \"" <> version <> "\","
-   ] ++ dependencies ++
-   [ "    \"@mojotech/json-type-validation\": \"^3.1.0\""
-    , "  },"
-    , "  \"scripts\": {"
-    , "    \"build\": \"tsc --build\","
-    , "    \"lint\": \"eslint --ext .ts src/ --max-warnings 0\""
-    , "  },"
-    , "  \"devDependencies\": {"
-    , "    \"@typescript-eslint/eslint-plugin\": \"^2.11.0\","
-    , "    \"@typescript-eslint/parser\": \"^2.11.0\","
-    , "    \"eslint\": \"^6.7.2\","
-    , "    \"typescript\": \"~3.7.3\""
-    , "  }"
-    , "}"
-    ])
+writePackageJson packageDir sdkVersion scope dependencies =
+  let packageJson = object
+        [ "private" .= True
+        , "name" .= (unScope scope <> "/" <> T.pack (takeFileName packageDir))
+        , "version" .= versionToText sdkVersion
+        , "license" .= ("UNLICENSED" :: T.Text)
+        , "main" .= ("lib/index.js" :: T.Text)
+        , "types" .= ("lib/index.d.ts" :: T.Text)
+        , "description" .= ("Generated by `daml codegen js` from DAML SDK " <> versionToText sdkVersion)
+        , "dependencies" .= packageJsonDependencies sdkVersion scope dependencies
+        ]
+  in
+  BSL.writeFile (packageDir </> "package.json") (encodePretty packageJson)
+
+writeIndexTs :: PackageId -> FilePath -> [ModuleName] -> IO ()
+writeIndexTs pkgId packageSrcDir modNames =
+  processIndexTree pkgId packageSrcDir (buildIndexTree modNames)
+
+-- NOTE(MH): The module structure of a DAML package can have "holes", i.e.,
+-- you can have modules `A` and `A.B.C` but no module `A.B`. We call such a
+-- module `A.B` a "virtual module". In order to use ES2015 modules and form
+-- a hierarchy of these, we need to produce JavaScript modules for virtual
+-- DAML modules as well. To this end, we assemble the names of all modules
+-- into a tree structure where each node is marked whether is is virtual or
+-- not. Afterwards, we take this tree structure and write a resembling
+-- directory structure full of `index.ts` files to disk.
+data IndexTree = IndexTree
+  { isVirtual :: Bool
+  , children :: Map.Map T.Text IndexTree
+  }
+
+buildIndexTree :: [ModuleName] -> IndexTree
+buildIndexTree = foldl' merge empty . map path
   where
-    version = versionToString sdkVersion
-    name = packageNameOfPackageDir packageDir
-    dependencies = [ "    \"" <> pkg <> "\": \"" <> version <> "\","
-                   | d <- depends
-                   , let pkg = "@" ++ scope ++ "/" ++ T.unpack (undependency d)
+    empty = IndexTree{isVirtual = True, children = Map.empty}
+    leaf = IndexTree{isVirtual = False, children = Map.empty}
+
+    path :: ModuleName -> IndexTree
+    path = foldr (\name node -> empty{children = Map.singleton name node}) leaf . unModuleName
+
+    merge :: IndexTree -> IndexTree -> IndexTree
+    merge t1 t2 = IndexTree
+      { isVirtual = isVirtual t1 && isVirtual t2
+      , children = Map.unionWith merge (children t1) (children t2)
+      }
+
+processIndexTree :: PackageId -> FilePath -> IndexTree -> IO ()
+processIndexTree pkgId srcDir root = do
+  T.writeFileUtf8 (srcDir </> "index.d.ts") $ T.unlines $
+    reexportChildren ES6 root ++
+    [ "export declare const packageId = '" <> unPackageId pkgId <> "';" ]
+  T.writeFileUtf8 (srcDir </> "index.js") $ T.unlines $
+    commonjsPrefix ++
+    reexportChildren ES5 root ++
+    [ "exports.packageId = '" <> unPackageId pkgId <> "';" ]
+  processChildren (ModuleName []) root
+  where
+    processChildren :: ModuleName -> IndexTree -> IO ()
+    processChildren parentModName parent =
+      forM_ (Map.toList (children parent)) $ \(name, node) -> do
+        let modName = ModuleName (unModuleName parentModName ++ [name])
+        let modDir = srcDir </> joinPath (map T.unpack (unModuleName modName))
+        createDirectoryIfMissing True modDir
+        let indexContent jsSyntax = T.unlines $
+                (case jsSyntax of
+                     ES6 -> []
+                     ES5 -> commonjsPrefix) ++
+                reexportChildren jsSyntax node ++
+                case jsSyntax of
+                    ES6 -> [ "export * from './module';" | not (isVirtual node) ]
+                    ES5 -> [ "__export(require('./module'));" | not (isVirtual node) ]
+        T.writeFileUtf8 (modDir </> "index.d.ts") (indexContent ES6)
+        T.writeFileUtf8 (modDir </> "index.js") (indexContent ES5)
+        processChildren modName node
+
+    reexportChildren :: JSSyntax -> IndexTree -> [T.Text]
+    reexportChildren jsSyntax = concatMap reexport . Map.keys . children
+      where
+        reexport name = case jsSyntax of
+            ES6 -> [ "import * as " <> name <> " from './" <> name <> "';"
+                   , "export { " <> name <>  " } ;"
+                   ]
+            ES5 -> [ "var " <> name <> " = require('./" <> name <> "');"
+                   , "exports." <> name <> " = " <> name <> ";"
                    ]
 
-    -- From the path to a package like '/path/to/daml2ts/d14e08'
-    -- calculates '@daml2ts/d14e08' suitable for use as the "name" field
-    -- of a 'package.json'.
-    packageNameOfPackageDir :: FilePath -> String
-    packageNameOfPackageDir packageDir = "@" <> scope <> "/" <> package
-      where
-        scope = unscope $ scopeOfScopeDir (takeDirectory packageDir)
-        package = takeFileName packageDir
+data JSSyntax
+    = ES6 -- ^ We use this for .d.ts files
+    | ES5 -- ^ We generate ES5 JS with commonjs modules
+          -- That matches what we used to generate by invoking
+          -- the typescript compiler.
 
--- This type describes the format of a "top-level" 'package.json'. We
--- expect such files to have the format
--- {
---   "workspaces: [
---      "path/to/foo",
---      "path/to/bar",
---      ...
---   ],
---   ... perhaps other stuff ...
--- }
-data PackageJson = PackageJson
-  { workspaces :: [T.Text]
-  , otherFields :: Object
-  } deriving Show
-instance FromJSON PackageJson where
-  parseJSON (Object v) = PackageJson
-      <$> v .: "workspaces"
-      <*> pure (HMS.delete "workspaces" v)
-  parseJSON _ = mzero
-instance ToJSON PackageJson where
-  toJSON PackageJson{..} = Object (HMS.insert "workspaces" (toJSON workspaces) otherFields)
-
--- Read the provided 'package.json'; transform it to include the
--- provided workspaces; write it back to disk.
-setupWorkspace :: FilePath -> [(T.Text, [Dependency])] -> FilePath -> IO ()
-setupWorkspace optOutputDir dependencies file = do
-  let (g, nodeFromVertex) = graphFromEdges'
-        (map (\(a, ds) -> (a, a, map undependency ds)) dependencies)
-      ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
-        -- Topologically order our packages.
-      scope = T.pack (unscope $ scopeOfScopeDir optOutputDir)
-        -- 'scope' we expect to be something like "daml2ts".
-  let ourPackages = map ((scope <> "/") <>) ps
-  bytes <- BSL.readFile file
-  case decode bytes :: Maybe PackageJson of
-    Nothing -> fail $ "Error decoding JSON from '" <> file <> "'"
-    Just oldPackageJson -> transformAndWrite ourPackages scope oldPackageJson
-  where
-    transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()
-    transformAndWrite ourPackages scope oldPackageJson = do
-      let keepPackages = filter (not . T.isPrefixOf scope) $ workspaces oldPackageJson
-            -- Old versions of our packages should be removed.
-          allPackages = ourPackages ++ keepPackages
-            -- Our packages need to come before any other existing packages.
-      BSL.writeFile file $ encodePretty oldPackageJson{workspaces=allPackages}
-      putStrLn $ "'" <> file <> "' updated."
+-- | Prefix for a commonjs module. This matches
+-- what the typescript compiler would also emit.
+commonjsPrefix :: [T.Text]
+commonjsPrefix =
+    [ "\"use strict\";"
+    , "/* eslint-disable-next-line no-unused-vars */"
+    , "function __export(m) {"
+    , "/* eslint-disable-next-line no-prototype-builtins */"
+    , "    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];"
+    , "}"
+    , "Object.defineProperty(exports, \"__esModule\", { value: true });"
+    ]

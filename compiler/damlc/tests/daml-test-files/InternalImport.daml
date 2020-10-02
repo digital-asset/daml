@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=9:1-9:28; Import of internal module DA.Internal.Template is not allowed.
+-- @ERROR range=9:0-9:27; Import of internal module DA.Internal.Template is not allowed.
 
 
 module InternalImport where

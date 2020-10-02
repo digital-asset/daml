@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ WARN Module names should always match file names
+-- @ ERROR range=7:7-7:25; Module names should always match file names
 
 
 module ModuleNameMismatch where

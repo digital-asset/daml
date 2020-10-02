@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -104,11 +104,13 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
 versionParser :: Parser VersionOptions
 versionParser = VersionOptions
     <$> flagYesNoAuto "all" False "Display all available versions." idm
+    <*> flagYesNoAuto "snapshots" False "Display all available snapshot versions." idm
     <*> flagYesNoAuto "assistant" False "Display DAML assistant version." idm
 
 installParser :: Parser InstallOptions
 installParser = InstallOptions
     <$> optional (RawInstallTarget <$> argument str (metavar "TARGET" <> completeWith ["latest"] <> help "The SDK version to install. Use 'latest' to download and install the latest stable SDK version available. Run 'daml install' to see the full set of options."))
+    <*> flagYesNoAuto "snapshots" False "Pick up snapshot versions with daml install latest." idm
     <*> (InstallAssistant <$> flagYesNoAuto' "install-assistant" "Install associated DAML assistant version. Can be set to \"yes\" (always installs), \"no\" (never installs), or \"auto\" (installs if newer). Default is \"auto\"." idm)
     <*> iflag ActivateInstall "activate" hidden "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { default as styled, ThemeInterface } from '../theme';
-export { StyledComponentClass } from 'styled-components';
-import { StyledComponentClass } from 'styled-components';
+export { StyledComponent } from 'styled-components';
+import { StyledComponent } from 'styled-components';
 
-const Strong: StyledComponentClass<React.HTMLProps<HTMLElement>,
+const Strong: StyledComponent<'strong',
   ThemeInterface, React.HTMLProps<HTMLElement>> = styled.strong``;
 
 export default Strong;

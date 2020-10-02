@@ -1,9 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql.queries
-
-import java.time.Instant
 
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.participant.state.v1.LedgerId
@@ -16,7 +14,8 @@ trait WriteQueries {
 
   def insertRecordIntoLog(key: Key, value: Value): Try[Index]
 
-  def insertHeartbeatIntoLog(timestamp: Instant): Try[Index]
+  def updateState(stateUpdates: Iterable[(Key, Value)]): Try[Unit]
 
-  def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit]
+  def truncate(): Try[Unit]
+
 }

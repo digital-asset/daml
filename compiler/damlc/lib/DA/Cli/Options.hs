@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
@@ -197,7 +197,7 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
             help
                 (mconcat
                      [ "Path to the root of a project containing daml.yaml. "
-                     , "If unspecified this will use the DAML_PROJECT environment variable set by the assistant."
+                     , "If you use the assistant, you should set the DAML_PROJECT environment variable instead."
                      ])
         projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
                help "Check if running in DAML project."
@@ -206,6 +206,10 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
 enableScenarioOpt :: Parser EnableScenarioService
 enableScenarioOpt = EnableScenarioService <$>
     flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
+
+enableScriptsOpt :: Parser EnableScripts
+enableScriptsOpt = EnableScripts <$>
+    flagYesNoAuto "daml-script" True "Enable/disable support for running DAML Scripts" internal
 
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
@@ -267,8 +271,10 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optCoreLinting = False
     let optHaddock = Haddock False
     let optIncrementalBuild = IncrementalBuild False
-    let optInferDependantPackages = InferDependantPackages True
+    let optIgnorePackageMetadata = IgnorePackageMetadata False
+    let optEnableOfInterestRule = True
     optCppPath <- optCppPath
+    optEnableScripts <- enableScriptsOpt
 
     return Options{..}
   where

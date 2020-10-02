@@ -1,20 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth.services
+package com.daml.ledger.api.auth.services
 
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
-import com.digitalasset.ledger.api.v1.command_completion_service._
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.ProxyCloseable
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
+import com.daml.ledger.api.v1.command_completion_service._
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.Future
 
-final class CommandCompletionServiceAuthorization(
+private[daml] final class CommandCompletionServiceAuthorization(
     protected val service: CommandCompletionService with AutoCloseable,
     private val authorizer: Authorizer)
     extends CommandCompletionService
@@ -27,9 +27,11 @@ final class CommandCompletionServiceAuthorization(
   override def completionStream(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse]): Unit =
-    authorizer.requireReadClaimsForAllPartiesOnStream(request.parties, service.completionStream)(
-      request,
-      responseObserver)
+    authorizer.requireReadClaimsForAllPartiesOnStream(
+      parties = request.parties,
+      applicationId = Some(request.applicationId),
+      call = service.completionStream,
+    )(request, responseObserver)
 
   override def bindService(): ServerServiceDefinition =
     CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)

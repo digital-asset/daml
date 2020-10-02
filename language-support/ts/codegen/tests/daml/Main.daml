@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main where
@@ -32,6 +32,10 @@ template AllTypes with
     tuple: (Int, Text)
     enum: Color
     enumList: [Color]
+    enumList2: [Color]
+    optcol1: OptColor1
+    optcol2: OptColor2
+    optcol3: OptColor2
     variant: Expr Int
     optionalVariant: Expr Int
     sumProd : Quux
@@ -41,6 +45,9 @@ template AllTypes with
     n0 : Numeric 0
     n5 : Numeric 5
     n10 : Decimal
+    rec : Recursive
+    voidRecord: Optional VoidRecord
+    voidEnum: Optional VoidEnum
   where
     signatory party
 
@@ -68,6 +75,14 @@ template Person with
         archive self
         create this with name = newName
 
+    nonconsuming choice AddOthersFriends: ContractId Person with
+        otherCid: ContractId Person
+      controller party
+      do
+        other <- fetch otherCid
+        archive self
+        create this with friends = friends ++ other.friends
+
 data Pair a b = Pair {
   one: a;
   two: b
@@ -81,6 +96,18 @@ data Foo a b = Foo {
   y: Foo b a;
   z: b
 }
+
+-- Non-polymorhpic variant
+data OptColor1 =
+    Color1 Color
+  | Transparent1
+  deriving (Show, Eq)
+
+-- Non-polymorphic sum of products
+data OptColor2 =
+    Color2 {color2 : Color}
+  | Transparent2
+  deriving (Show, Eq)
 
 data Expr a =
     Lit a
@@ -113,3 +140,30 @@ template U with
       C: ContractId T with
         do
           create T with party
+
+data Recursive = Recursive with
+    recOptional : Optional Recursive
+    recList: [Recursive]
+    recTextMap : TextMap Recursive
+  deriving (Eq, Show)
+
+data VoidRecord = VoidRecord with
+    inner: VoidRecord
+  deriving (Eq, Show)
+
+data VoidEnum = VoidEnum VoidEnum
+  deriving (Eq, Show)
+
+template Counter with
+    p: Party
+    t: Text
+    c: Int
+  where
+    signatory p
+    key (p, t): (Party, Text)
+    maintainer key._1
+    controller p can
+      preconsuming Change: ContractId Counter
+        with n: Int
+        do
+          create Counter {c = n, ..}

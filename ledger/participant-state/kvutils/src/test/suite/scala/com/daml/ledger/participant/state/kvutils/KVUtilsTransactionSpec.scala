@@ -1,34 +1,28 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlTransactionRejectionEntry
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Update
-import com.digitalasset.daml.lf.command.{
-  Command,
-  CreateAndExerciseCommand,
-  CreateCommand,
-  ExerciseCommand
-}
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{Ref, FrontStack, SortedLookupList}
-import com.digitalasset.daml.lf.transaction.Node.NodeCreate
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ValueUnit,
-  ValueParty,
-  ValueOptional,
+import com.daml.lf.command.{Command, CreateAndExerciseCommand, CreateCommand, ExerciseCommand}
+import com.daml.lf.crypto
+import com.daml.lf.data.{FrontStack, Ref, SortedLookupList}
+import com.daml.lf.transaction.Node.NodeCreate
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{
+  ContractId,
   ValueList,
-  ValueVariant,
+  ValueOptional,
+  ValueParty,
   ValueRecord,
-  ValueTextMap
+  ValueTextMap,
+  ValueUnit,
+  ValueVariant
 }
 import org.scalatest.{Matchers, WordSpec}
 
@@ -43,7 +37,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     val eve = party("Eve")
     val bobValue = ValueParty(bob)
 
-    val templateArgs: Map[String, Value[AbsoluteContractId]] = Map(
+    val templateArgs: Map[String, Value[ContractId]] = Map(
       "Party" -> bobValue,
       "Option Party" -> ValueOptional(Some(bobValue)),
       "List Party" -> ValueList(FrontStack(bobValue)),
@@ -65,9 +59,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       // "GenMap Unit Party" -> Value.ValueGenMap(FrontStack(ValueUnit -> bobValue).toImmArray),
     )
 
-    def createCmd(
-        templateId: Ref.Identifier,
-        templateArg: Value[Value.AbsoluteContractId]): Command =
+    def createCmd(templateId: Ref.Identifier, templateArg: Value[Value.ContractId]): Command =
       CreateCommand(templateId, templateArg)
 
     val simpleTemplateId = templateIdWith("Party")
@@ -77,19 +69,19 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     def exerciseCmd(coid: String, templateId: Ref.Identifier): Command =
       ExerciseCommand(
         templateId,
-        Ref.ContractIdString.assertFromString(coid),
+        Value.ContractId.assertFromString(coid),
         simpleConsumeChoiceid,
         ValueUnit)
 
     def createAndExerciseCmd(
         templateId: Ref.Identifier,
-        templateArg: Value[Value.AbsoluteContractId]): Command =
+        templateArg: Value[Value.ContractId]): Command =
       CreateAndExerciseCommand(templateId, templateArg, simpleConsumeChoiceid, ValueUnit)
 
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
-    "be able to submit transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
+    "be able to submit a transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       val seed = hash(this.getClass.getName)
       for {
         transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
@@ -102,18 +94,18 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    /* Disabled while we rework the time model.
-    "reject transaction with elapsed max record time" in KVTest.runTestWithSimplePackage(
+    "be able to pre-execute a transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
+      val seed = hash(this.getClass.getName)
       for {
-        tx <- runSimpleCommand(alice, simpleCreateCmd)
-        logEntry <- submitTransaction(submitter = alice, tx = tx, mrtDelta = Duration.ZERO)
-          .map(_._2)
+        transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        preExecutionResult <- preExecuteTransaction(
+          submitter = alice,
+          transaction = transaction,
+          submissionSeed = seed).map(_._2)
       } yield {
-        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED
+        preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
       }
-    )
-     */
+    }
 
     "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       val seed = hash(this.getClass.getName)
@@ -124,12 +116,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           submitter = alice,
           transaction = transaction,
           submissionSeed = seed,
-          letDelta = conf.timeModel.minTtl)
+          letDelta = conf.timeModel.maxSkew.plusMillis(1))
           .map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        // FIXME(JM): Bad reason, need one for bad/expired LET!
-        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED
+        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME
       }
     }
 
@@ -140,7 +131,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
       for {
         transaction1 <- runSimpleCommand(alice, seeds(0), simpleCreateCmd)
         result <- submitTransaction(
@@ -155,7 +146,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           .nodes
           .values
           .head
-          .asInstanceOf[NodeCreate[AbsoluteContractId, _]]
+          .asInstanceOf[NodeCreate[ContractId, _]]
           .coid
 
         transaction2 <- runSimpleCommand(alice, seeds(1), exerciseCmd(coid.coid, simpleTemplateId))
@@ -273,7 +264,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "metrics get updated" in KVTest.runTestWithSimplePackage(alice, eve) {
+    "update metrics" in KVTest.runTestWithSimplePackage(alice, eve) {
       val seed = hash(this.getClass.getName)
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
@@ -284,23 +275,22 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.transaction.accepts").getCount should be >= 1L
-        reg
-          .counter(s"kvutils.committer.transaction.rejections_${disputed.name}")
-          .getCount should be >= 1L
-        reg.timer("kvutils.committer.transaction.run_timer").getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.accepts.getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.rejection(disputed.name).getCount should be >= 1L
+        metrics.daml.kvutils.committer.runTimer("transaction").getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.interpretTimer.getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.runTimer.getCount should be >= 1L
       }
     }
 
-    "transient contracts and keys are properly archived" in KVTest.runTestWithSimplePackage(
+    "properly archive transient contracts and keys" in KVTest.runTestWithSimplePackage(
       alice,
       bob,
       eve) {
       val seeds =
         Stream
           .from(0)
-          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
 
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
@@ -334,7 +324,10 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "submitter info is optional" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
+    "allow for missing submitter info in log entries" in KVTest.runTestWithSimplePackage(
+      alice,
+      bob,
+      eve) {
       val seed = hash(this.getClass.getName)
       for {
         transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
@@ -359,5 +352,5 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
   }
 
-  private def hash(s: String) = Some(crypto.Hash.hashPrivateKey(s))
+  private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 }

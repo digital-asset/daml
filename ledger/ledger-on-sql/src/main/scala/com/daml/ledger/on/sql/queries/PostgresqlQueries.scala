@@ -1,10 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql.queries
 
 import java.sql.Connection
-import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
@@ -30,13 +29,15 @@ final class PostgresqlQueries(override protected implicit val connection: Connec
       .as(long("sequence_no").single)
   }
 
-  override def insertHeartbeatIntoLog(timestamp: Instant): Try[Index] = Try {
-    SQL"INSERT INTO #$LogTable (heartbeat_timestamp) VALUES (${timestamp.toEpochMilli}) RETURNING sequence_no"
-      .as(long("sequence_no").single)
-  }
-
   override protected val updateStateQuery: String =
     s"INSERT INTO $StateTable VALUES ({key}, {value}) ON CONFLICT(key) DO UPDATE SET value = {value}"
+
+  override final def truncate(): Try[Unit] = Try {
+    SQL"truncate #$StateTable".executeUpdate()
+    SQL"truncate #$LogTable".executeUpdate()
+    SQL"truncate #$MetaTable".executeUpdate()
+    ()
+  }
 }
 
 object PostgresqlQueries {

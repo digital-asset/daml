@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.ledger.types
+package com.daml.extractor.ledger.types
 
-import com.digitalasset.ledger.api.{v1 => api}
+import com.daml.ledger.api.{v1 => api}
 import api.value.Value.Sum
 import RecordField._
 
 import scalaz.{Optional => _, _}
 import Scalaz._
-import com.digitalasset.daml.lf.{data => lfdata}
+import com.daml.lf.{data => lfdata}
 import lfdata.{FrontStack, ImmArray, Ref, SortedLookupList}
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.value.{Value => V}
 
 object LedgerValue {
 
@@ -56,13 +56,13 @@ object LedgerValue {
 
   private def convertList(apiList: api.value.List) = {
     for {
-      values <- apiList.elements.toList.traverseU(_.convert)
+      values <- apiList.elements.toList.traverse(_.convert)
     } yield V.ValueList(FrontStack(values))
   }
 
   private def convertVariant(apiVariant: api.value.Variant) = {
     for {
-      tycon <- apiVariant.variantId traverseU convertIdentifier map (_.flatten)
+      tycon <- apiVariant.variantId traverse convertIdentifier map (_.flatten)
       ctor <- Ref.Name.fromString(apiVariant.constructor).disjunction
       apiValue <- variantValueLens(apiVariant)
       value <- apiValue.convert
@@ -71,23 +71,23 @@ object LedgerValue {
 
   private def convertEnum(apiEnum: api.value.Enum) =
     for {
-      tyCon <- apiEnum.enumId traverseU convertIdentifier map (_.flatten)
+      tyCon <- apiEnum.enumId traverse convertIdentifier map (_.flatten)
       ctor <- Ref.Name.fromString(apiEnum.constructor).disjunction
     } yield V.ValueEnum(tyCon, ctor)
 
   private def convertRecord(apiRecord: api.value.Record) = {
     for {
-      tycon <- apiRecord.recordId traverseU convertIdentifier map (_.flatten)
-      fields <- ImmArray(apiRecord.fields).traverseU(_.convert)
+      tycon <- apiRecord.recordId traverse convertIdentifier map (_.flatten)
+      fields <- ImmArray(apiRecord.fields).traverse(_.convert)
     } yield V.ValueRecord(tycon, fields)
   }
 
   private def convertOptional(apiOptional: api.value.Optional) =
-    apiOptional.value traverseU (_.convert) map (V.ValueOptional(_))
+    apiOptional.value traverse (_.convert) map (V.ValueOptional(_))
 
   private def convertTextMap(apiMap: api.value.Map): String \/ OfCid[V.ValueTextMap] =
     for {
-      entries <- apiMap.entries.toList.traverseU {
+      entries <- apiMap.entries.toList.traverse {
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
         case api.value.Map.Entry(_, None) => -\/("value field of Map.Entry must be defined")
       }
@@ -96,7 +96,7 @@ object LedgerValue {
 
   private def convertGenMap(apiMap: api.value.GenMap): String \/ OfCid[V.ValueGenMap] =
     apiMap.entries.toList
-      .traverseU { entry =>
+      .traverse { entry =>
         for {
           k <- entry.key.fold[String \/ OfCid[V]](-\/("key field of GenMap.Entry must be defined"))(
             _.convert)
@@ -111,7 +111,7 @@ object LedgerValue {
     val api.value.Identifier(packageId, moduleName, entityName) = apiIdentifier
     some(packageId)
       .filter(_.nonEmpty)
-      .traverseU { _ =>
+      .traverse { _ =>
         for {
           pkgId <- Ref.PackageId.fromString(packageId)
           mod <- Ref.ModuleName fromString moduleName

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
@@ -13,7 +13,7 @@ import com.daml.ledger.on.sql.ImmutableMigrationsSpec._
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.internal.resource.LoadableResource
-import org.flywaydb.core.internal.scanner.{ResourceNameCache, Scanner}
+import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCache, Scanner}
 import org.scalatest.Matchers._
 import org.scalatest.WordSpec
 
@@ -32,7 +32,7 @@ class ImmutableMigrationsSpec extends WordSpec {
       resources.foreach { resource =>
         val migrationFile = resource.getRelativePath
         val digestFile = migrationFile + ".sha256"
-        val expectedDigest = readExpectedDigest(migrationFile, digestFile, resourceScanner)
+        val expectedDigest = readExpectedDigest(digestFile, resourceScanner)
         val currentDigest = computeCurrentDigest(resource, configuration.getEncoding)
         assert(
           currentDigest == expectedDigest,
@@ -54,10 +54,10 @@ object ImmutableMigrationsSpec {
       getClass.getClassLoader,
       configuration.getEncoding,
       new ResourceNameCache,
+      new LocationScannerCache,
     )
 
   private def readExpectedDigest(
-      sourceFile: String,
       digestFile: String,
       resourceScanner: Scanner[_],
   ): String = {

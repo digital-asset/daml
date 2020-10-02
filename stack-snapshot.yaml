@@ -1,35 +1,34 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 resolver: lts-14.1
 packages:
-  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-8.8.1.20200225.tar.gz
-    sha256: "31b6f1fc15d257e66d3264e62e229203087a2e799a9638f6d5ff6cc43ec0b4a4"
-  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20200225.tar.gz
-    sha256: "2cd22db09fdcb9bb121bd6f85024aba437ca2796ebe16453d15cbf2cb192023c"
+  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-d614341dffcc2e978b6472c801cd8daf.tar.gz
+    sha256: "5b5d352c130ebc2ef46fbf3d46545ab3f86296136cc37d70a00cd9ea554a3e5e"
+  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-d614341dffcc2e978b6472c801cd8daf.tar.gz
+    sha256: "aa606dbdcfae48eafeb3fe79c12d23155811808adfa1f1d2960aee4eb5a952ba"
   - github: digital-asset/hlint
-    commit: "258bc2b539730b0604d0feffed98636f25022d66"
-    sha256: "bb3ad5cd059e2586b2246843693aa1aee4d9db40910378929bcb88f16d0615c4"
-  - ghc-lib-parser-ex-8.8.5.2
-  - haskell-src-exts-1.23.0
+    commit: "3e78bce69749b22a80fec1e8eb853cc0c100c18e"
+    sha256: "cf39f2b378485afc77ffdad4dbb057d5d9b4dfc5a38c76ddc44e920e537fb0fa"
+  - ghc-lib-parser-ex-8.8.5.8
   - bytestring-nums-0.3.6
-  - extra-1.6.19
+  - extra-1.7.1
   - grpc-haskell-0.0.1.0
   - grpc-haskell-core-0.0.0.0
   - fuzzy-0.1.0.0
-  - haskell-lsp-0.20.0.0
+  - haskell-lsp-0.21.0.0
   - haddock-library-1.8.0
-  - haskell-lsp-types-0.20.0.0
+  - haskell-lsp-types-0.21.0.0
   - hie-bios-0.4.0
   - hpp-0.6.1
-  - lsp-test-0.10.1.0
+  - lsp-test-0.10.2.0
   - parser-combinators-1.2.1
   - proto3-suite-0.4.0.0
   - proto3-wire-1.1.0
   - regex-base-0.94.0.0
   - regex-tdfa-1.3.1.0
   - shake-0.18.5
-  - zip-1.3.2
+  - simple-smt-0.9.4
   # Core packages, need to be listed for integer-simple flags.
   - integer-simple-0.1.1.1
   - text-1.2.3.1

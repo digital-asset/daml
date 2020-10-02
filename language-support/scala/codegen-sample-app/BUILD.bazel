@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -19,7 +19,7 @@ load(
 
 daml_compile(
     name = "MyMain",
-    main_src = "src/main/daml/MyMain.daml",
+    srcs = ["src/main/daml/MyMain.daml"],
     # FIXME https://github.com/digital-asset/daml/issues/2256
     # switch to latest once 1.9 is frozen
     target = lf_dev_version,
@@ -27,7 +27,7 @@ daml_compile(
 
 daml_compile(
     name = "MySecondMain",
-    main_src = "src/main/daml/MySecondMain.daml",
+    srcs = ["src/main/daml/MySecondMain.daml"],
     target = lf_latest_version,
 )
 
@@ -38,7 +38,7 @@ dar_to_scala(
         ":MySecondMain.dar",
         "//daml-lf/encoder:testing-dar-latest",
     ],
-    package_prefix = "com.digitalasset.sample",
+    package_prefix = "com.daml.sample",
     srcjar_out = "MyMain.srcjar",
     verbosity = 2,
 )
@@ -47,13 +47,18 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app",
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
-        # Plugins have to be specified as JARs.
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    # Bump stack size to avoid stack overflow in reflection.
-    scalac_jvm_flags = [
-        "-Xmx2G",
-        "-Xss2M",
+    scalacopts = [
+        "-P:silencer:checkUnused",
+        # codegen eliminates the vast majority of potential unused warnings. For example,
+        # it checks whether tparams are phantom or not and requires evidence only if they
+        # are not. It misses the case where a tparam is used in ContractId position, which
+        # is essentially phantom for the typeclasses.  The fix requires recurring into
+        # referenced types, and only occurs here in this source tree, so I don't consider
+        # it worth fixing for now. -SC
+        "-P:silencer:lineContentFilters=ContractIdNT (Value|LfEncodable).*?implicit .?ev",
     ],
     visibility = [
         "//visibility:public",
@@ -65,6 +70,7 @@ da_scala_library(
     deps = [
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
@@ -82,7 +88,6 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app-testing",
     srcs = testing_utils,
     resources = glob(["src/test/resources/**/*"]),
-    scalacopts = ["-Xsource:2.13"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -100,7 +105,6 @@ da_scala_test(
             "src/test/scala/com/digitalasset/codegen/ScalaCodeGenIT.scala",
         ],
     ),
-    scalacopts = ["-Xsource:2.13"],
     deps = [
         ":daml-lf-codegen-sample-app",
         "//language-support/scala/bindings",
@@ -120,12 +124,11 @@ da_scala_test(
         "src/test/resources/logback-sandbox.xml",
         ":MyMain.dar",
         ":MySecondMain.dar",
-        "//ledger/sandbox:sandbox-binary_deploy.jar",
+        "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
     ],
     jvm_flags = [
-        "-Dcom.digitalasset.sandbox.jar=ledger/sandbox/sandbox-binary_deploy.jar",
+        "-Dcom.daml.sandbox.jar=ledger/sandbox-classic/sandbox-classic-binary_deploy.jar",
     ],
-    scalacopts = ["-Xsource:2.13"],
     deps = [
         ":daml-lf-codegen-sample-app",
         ":daml-lf-codegen-sample-app-testing",
@@ -135,11 +138,16 @@ da_scala_test(
         "//language-support/scala/codegen-testing",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:org_scalacheck_scalacheck_2_12",

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # A DAML package database contains a subdirectory for each DAML-LF
@@ -37,9 +37,9 @@ copyright: 2020 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
 exposed-modules: {modules}
-import-dirs: \$topdir/__ID__
-library-dirs: \$topdir/__ID__
-data-dir: \$topdir/__ID__
+import-dirs: \\$topdir/__ID__
+library-dirs: \\$topdir/__ID__
+data-dir: \\$topdir/__ID__
 depends: {depends}
 """
 
@@ -171,7 +171,7 @@ daml_package_rule = rule(
             cfg = "host",
         ),
         "cpp": attr.label(
-            default = Label("@hpp//:hpp"),
+            default = Label("@stackage-exe//hpp"),
             executable = True,
             cfg = "host",
         ),

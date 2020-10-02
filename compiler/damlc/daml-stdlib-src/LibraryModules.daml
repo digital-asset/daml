@@ -1,10 +1,10 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
-
+-- | HIDE
 module LibraryModules where
 
 import DA.Action
@@ -44,6 +44,7 @@ import DA.Optional
 import DA.Random
 import DA.Record
 import DA.Semigroup
+import DA.Stack
 import DA.Text
 import DA.TextMap
 import DA.Time

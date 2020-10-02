@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.testing
+package com.daml.ledger.client.testing
 
 import java.util
 import java.util.concurrent.{Executors, ScheduledExecutorService}
@@ -11,7 +11,7 @@ import akka.actor.{ActorSystem, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.Materializer
 import akka.util.ByteString
-import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{BeforeAndAfterAll, Suite}

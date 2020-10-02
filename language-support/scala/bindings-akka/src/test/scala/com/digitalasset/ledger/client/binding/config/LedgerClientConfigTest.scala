@@ -1,17 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.config
+package com.daml.ledger.client.binding.config
 
 import java.io.File
 
-import com.digitalasset.ledger.client.binding.LedgerClientConfigurationError.MalformedTypesafeConfig
+import com.daml.ledger.client.binding.LedgerClientConfigurationError.MalformedTypesafeConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerClientConfigTest extends WordSpec with Matchers {
 
   "TypeSafePlatformConfig" should {
@@ -26,8 +25,7 @@ class LedgerClientConfigTest extends WordSpec with Matchers {
       config.ledgerId shouldEqual None
       config.commandClient.maxCommandsInFlight shouldEqual 256
       config.commandClient.maxParallelSubmissions shouldEqual 32
-      config.commandClient.overrideTtl shouldEqual false
-      config.commandClient.ttl.getSeconds shouldEqual 30
+      config.commandClient.defaultDeduplicationTime.getSeconds shouldEqual 30
       config.maxRetryTime.getSeconds shouldEqual 60
       config.ssl shouldBe None
     }
@@ -39,8 +37,7 @@ class LedgerClientConfigTest extends WordSpec with Matchers {
                         |  command-client {
                         |    max-commands-in-flight = 260
                         |    max-parallel-submissions = 40
-                        |    override-ttl = false
-                        |    ttl = PT40S
+                        |    default-deduplication-time = PT40S
                         |  }
                         |  max-retry-time = PT45S
                         |  ssl {
@@ -55,8 +52,7 @@ class LedgerClientConfigTest extends WordSpec with Matchers {
       clientConfig.ledgerId shouldEqual Some("ledgerId_mock")
       clientConfig.commandClient.maxCommandsInFlight shouldEqual 260
       clientConfig.commandClient.maxParallelSubmissions shouldEqual 40
-      clientConfig.commandClient.overrideTtl shouldEqual false
-      clientConfig.commandClient.ttl.getSeconds shouldEqual 40
+      clientConfig.commandClient.defaultDeduplicationTime.getSeconds shouldEqual 40
       clientConfig.maxRetryTime.getSeconds shouldEqual 45
       clientConfig.ssl.get.clientKeyCertChainFile shouldBe new File("file1")
       clientConfig.ssl.get.clientKeyFile shouldBe new File("file2")

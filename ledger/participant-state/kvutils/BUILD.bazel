@@ -1,10 +1,10 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
@@ -20,7 +20,11 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_scala_library(
     name = "kvutils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils:__VERSION__"],
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = ["-P:silencer:checkUnused"],
+    tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -36,11 +40,17 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_java_proto",
         "//daml-lf/transaction:value_java_proto",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/resources",
+        "//libs-scala/timer-utils",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -65,18 +75,28 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/encoder",
+        "//daml-lf/engine",
+        "//daml-lf/language",
+        "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_java_proto",
+        "//daml-lf/transaction:value_java_proto",
+        "//daml-lf/transaction-test-lib",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_mockito_mockito_core",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
@@ -85,35 +105,42 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "kvutils-tests",
     size = "small",
-    srcs = glob(["src/test/suite/**/*.scala"]),
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
+    ],
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
     resources = glob(["src/test/resources/*"]),
     deps = [
         ":daml_kvutils_java_proto",
         ":kvutils",
+        ":kvutils-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
-        "//daml-lf/encoder",
         "//daml-lf/engine",
         "//daml-lf/language",
-        "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_java_proto",
         "//daml-lf/transaction:value_java_proto",
+        "//daml-lf/transaction-test-lib",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "//libs-scala/contextualized-logging",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
@@ -143,39 +170,44 @@ proto_library(
 
 da_java_proto_library(
     name = "daml_kvutils_java_proto",
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils-java-proto:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state-kvutils-java-proto:__VERSION__"],
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
     deps = [":daml_kvutils_proto"],
 )
 
-# Builds a ledger dump from running the test tool against a kvutils-based
-# in-memory ledger.
-client_server_build(
-    name = "reference-ledger-dump",
-    testonly = True,  # only test targets can depend on this.
-    client = "//ledger/ledger-api-test-tool",
-    client_args = [
-        "--include=SemanticTests,ContractKeysIT,TransactionServiceIT",
-        "--timeout-scale-factor=20",
-        "localhost:6865",
-    ],
-    data = [
-        "//ledger/test-common:dar-files",
-    ],
-    output_env = "KVUTILS_LEDGER_DUMP",
-    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
-    runner_args = ["6865"],
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--participant participant-id=ledger-dump,port=6865",
-    ],
-    server_files = [
-        "//ledger/test-common:dar-files",
-    ],
-) if not is_windows else None
-
-# Test for checking the integrity of the ledger dump produced above.
-integrity_test(
-    name = "reference-ledger-dump-integrity-test",
-    dump = ":reference-ledger-dump",
-) if not is_windows else None
+[
+    (
+        # Generates a ledger export by running the test tool against a kvutils-based ledger.
+        client_server_build(
+            name = name,
+            testonly = True,  # only test targets can depend on this.
+            client = "//ledger/ledger-api-test-tool",
+            client_args = [
+                "--concurrent-test-runs=4",
+                "--timeout-scale-factor=20",
+                "localhost:%d" % port,
+            ],
+            data = [
+                "//ledger/test-common:dar-files",
+            ],
+            output_env = environment_variable,
+            runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+            runner_args = [str(port)],
+            server = "//ledger/ledger-on-memory:app",
+            server_args = [
+                "--contract-id-seeding=testing-weak",
+                "--participant participant-id=%s,port=%d" % (name, port),
+            ],
+        ) if not is_windows else None,
+        # Test for checking the integrity of the ledger export produced above.
+        integrity_test(
+            name = "%s-integrity-test" % name,
+            checker = checker,
+            dump = ":%s" % name,
+        ) if not is_windows else None,
+    )
+    for (name, port, environment_variable, checker) in [
+        ("reference-ledger-dump", 65101, "KVUTILS_LEDGER_DUMP", "//ledger/participant-state/kvutils/tools:integrity-check-v1"),
+        ("reference-ledger-export", 65102, "KVUTILS_LEDGER_EXPORT", "//ledger/participant-state/kvutils/tools:integrity-check-v2"),
+    ]
+]

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -6,27 +6,28 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.client.binding.Primitive
-import com.digitalasset.ledger.test.SemanticTests.Delegation._
-import com.digitalasset.ledger.test.SemanticTests.FetchIou._
-import com.digitalasset.ledger.test.SemanticTests.FetchPaintAgree._
-import com.digitalasset.ledger.test.SemanticTests.FetchPaintOffer._
-import com.digitalasset.ledger.test.SemanticTests.Iou._
-import com.digitalasset.ledger.test.SemanticTests.PaintCounterOffer._
-import com.digitalasset.ledger.test.SemanticTests.PaintOffer._
-import com.digitalasset.ledger.test.SemanticTests.SharedContract._
-import com.digitalasset.ledger.test.SemanticTests._
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.test.semantic.SemanticTests.Delegation._
+import com.daml.ledger.test.semantic.SemanticTests.FetchIou._
+import com.daml.ledger.test.semantic.SemanticTests.FetchPaintAgree._
+import com.daml.ledger.test.semantic.SemanticTests.FetchPaintOffer._
+import com.daml.ledger.test.semantic.SemanticTests.Iou._
+import com.daml.ledger.test.semantic.SemanticTests.PaintCounterOffer._
+import com.daml.ledger.test.semantic.SemanticTests.PaintOffer._
+import com.daml.ledger.test.semantic.SemanticTests.SharedContract._
+import com.daml.ledger.test.semantic.SemanticTests._
 import io.grpc.Status
 import scalaz.Tag
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
-final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(session) {
+final class SemanticTests extends LedgerTestSuite {
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
   private[this] val twoPounds = Amount(BigDecimal(2), "GBP")
 
@@ -42,14 +43,13 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
    */
 
   test(
-    "SemanticDoubleSpend",
+    "SemanticDoubleSpendBasic",
     "Cannot double spend across transactions",
     allocate(TwoParties, TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(
         Participant(alpha, payer, owner),
-        Participant(_, newOwner, leftWithNothing),
-        ) =>
+        Participant(_, newOwner, leftWithNothing)) =>
       for {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
         _ <- alpha.exercise(owner, iou.exerciseTransfer(_, newOwner))
@@ -57,17 +57,56 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
       }
-  }
+  })
+
+  test(
+    "SemanticConcurrentDoubleSpend",
+    "Cannot concurrently double spend across transactions",
+    allocate(TwoParties, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(alpha, payer, owner1), Participant(beta, owner2)) =>
+      // This test create a contract and then concurrently archives it several times
+      // through two different participants
+      val creates = 2 // Number of contracts to create
+      val archives = 10 // Number of concurrent archives per contract
+      // Each created contract is archived in parallel,
+      // Next contract is created only when previous one is archived
+      (1 to creates).foldLeft(Future(())) { (f, c) =>
+        f.flatMap(
+          _ =>
+            for {
+              shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
+              _ <- synchronize(alpha, beta)
+              results <- Future.traverse(1 to archives) {
+                case i if i % 2 == 0 =>
+                  alpha
+                    .exercise(owner1, shared.exerciseSharedContract_Consume1)
+                    .transform(Success(_))
+                case _ =>
+                  beta
+                    .exercise(owner2, shared.exerciseSharedContract_Consume2)
+                    .transform(Success(_))
+              }
+            } yield {
+              assertLength(s"Contract $c successful archives", 1, results.filter(_.isSuccess))
+              assertLength(
+                s"Contract $c failed archives",
+                archives - 1,
+                results.filter(_.isFailure))
+              ()
+          })
+      }
+  })
 
   test(
     "SemanticDoubleSpendSameTx",
     "Cannot double spend within a transaction",
     allocate(TwoParties, TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, payer, owner), Participant(_, newOwner1, newOwner2)) =>
       for {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
-        doubleSpend <- alpha.submitAndWaitRequest(
+        doubleSpend = alpha.submitAndWaitRequest(
           owner,
           iou.exerciseTransfer(owner, newOwner1).command,
           iou.exerciseTransfer(owner, newOwner2).command,
@@ -80,13 +119,13 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
           "Update failed due to fetch of an inactive contract",
         )
       }
-  }
+  })
 
   test(
     "SemanticDoubleSpendShared",
     "Different parties cannot spend the same contract",
     allocate(TwoParties, SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, payer, owner1), Participant(beta, owner2)) =>
       for {
         shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
@@ -96,7 +135,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
       }
-  }
+  })
 
   /*
    * Authorization
@@ -112,7 +151,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     "SemanticPaintOffer",
     "Conduct the paint offer workflow successfully",
     allocate(TwoParties, SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
@@ -135,13 +174,13 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
           ),
         )
       }
-  }
+  })
 
   test(
     "SemanticPaintCounterOffer",
     "Conduct the paint counter-offer worflow successfully",
     allocate(TwoParties, SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
@@ -170,27 +209,27 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
           ),
         )
       }
-  }
+  })
 
   test(
     "SemanticPartialSignatories",
     "A signatory should not be able to create a contract on behalf of two parties",
     allocate(SingleParty, SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, houseOwner), Participant(_, painter)) =>
       for {
         failure <- alpha.create(houseOwner, PaintAgree(painter, houseOwner)).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
       }
-  }
+  })
 
   test(
     "SemanticAcceptOnBehalf",
     "It should not be possible to exercise a choice without the consent of the controller",
     allocate(TwoParties, SingleParty),
-  ) {
-    case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
+  )(implicit ec => {
+    case Participants(Participant(alpha @ _, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
@@ -198,7 +237,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
       }
-  }
+  })
 
   /*
    * Privacy
@@ -213,7 +252,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     "Test visibility via contract fetches for the paint-offer flow",
     allocate(TwoParties, SingleParty),
     timeoutScale = 2.0,
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
@@ -270,13 +309,13 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
           "requires one of the stakeholders",
         )
       }
-  }
+  })
 
   private def fetchIou(
       ledger: ParticipantTestContext,
       party: Primitive.Party,
       iou: Primitive.ContractId[Iou],
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchIou(party, iou))
       _ <- ledger.exercise(party, fetch.exerciseFetchIou_Fetch)
@@ -286,7 +325,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       ledger: ParticipantTestContext,
       party: Primitive.Party,
       paintOffer: Primitive.ContractId[PaintOffer],
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchPaintOffer(party, paintOffer))
       _ <- ledger.exercise(party, fetch.exerciseFetchPaintOffer_Fetch)
@@ -296,7 +335,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       ledger: ParticipantTestContext,
       party: Primitive.Party,
       agreement: Primitive.ContractId[PaintAgree],
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchPaintAgree(party, agreement))
       _ <- ledger.exercise(party, fetch.exerciseFetchPaintAgree_Fetch)
@@ -306,28 +345,30 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
    * Divulgence
    */
 
-  test("SemanticDivulgence", "Respect divulgence rules", allocate(TwoParties, SingleParty)) {
-    case Participants(Participant(alpha, issuer, owner), Participant(beta, delegate)) =>
-      for {
-        token <- alpha.create(issuer, Token(issuer, owner, 1))
-        delegation <- alpha.create(owner, Delegation(owner, delegate))
+  test("SemanticDivulgence", "Respect divulgence rules", allocate(TwoParties, SingleParty))(
+    implicit ec => {
+      case Participants(Participant(alpha, issuer, owner), Participant(beta, delegate)) =>
+        for {
+          token <- alpha.create(issuer, Token(issuer, owner, 1))
+          delegation <- alpha.create(owner, Delegation(owner, delegate))
 
-        // The owner tries to divulge with a non-consuming choice, which actually doesn't work
-        noDivulgeToken <- alpha.create(owner, Delegation(owner, delegate))
-        _ <- alpha.exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(_, token))
-        _ <- synchronize(alpha, beta)
-        failure <- beta
-          .exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
-          .failed
+          // The owner tries to divulge with a non-consuming choice, which actually doesn't work
+          noDivulgeToken <- alpha.create(owner, Delegation(owner, delegate))
+          _ <- alpha
+            .exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(_, token))
+          _ <- synchronize(alpha, beta)
+          failure <- beta
+            .exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+            .failed
 
-        // Successful divulgence and delegation
-        divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
-        _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
-        _ <- eventually {
-          beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+          // Successful divulgence and delegation
+          divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
+          _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
+          _ <- eventually {
+            beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+          }
+        } yield {
+          assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
         }
-      } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
-      }
-  }
+    })
 }

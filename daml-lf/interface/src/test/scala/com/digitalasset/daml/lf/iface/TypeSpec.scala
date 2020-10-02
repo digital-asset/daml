@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.iface
+package com.daml.lf.iface
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, PackageId}
-import com.digitalasset.daml.lf.data.BackStack
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.data.BackStack
 import org.scalatest.{Matchers, WordSpec}
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
 
 import scala.language.implicitConversions
 
@@ -17,14 +17,17 @@ class TypeSpec extends WordSpec with Matchers {
   implicit def qualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
 
   implicit def fromLfPackageType(pkgTyp00: Pkg.Type): Type = {
-    def assertOneArg(typs: BackStack[Type]): Type = typs.pop match {
-      case Some((head, tail)) if head.isEmpty => tail
-      case _ => sys.error(s"expected 1 argument, got ${typs.toImmArray.length}")
-    }
-    def assertZeroArgs(typs: BackStack[Type]): Unit = if (!typs.isEmpty) {
-      sys.error(s"expected 0 arguments, got ${typs.toImmArray.length}")
-    }
+    def assertNArg(n: Int, typs: BackStack[Type]): ImmArraySeq[Type] =
+      if (typs.length == n)
+        typs.toImmArray.toSeq
+      else
+        sys.error(s"expected #n argument, got ${typs.length}")
 
+    def assertZeroArgs(typs: BackStack[Type]): Unit =
+      if (!typs.isEmpty)
+        sys.error(s"expected 0 arguments, got ${typs.toImmArray.length}")
+
+    @scala.annotation.tailrec
     def go(typ0: Pkg.Type, args: BackStack[Type]): Type = typ0 match {
       case Pkg.TVar(v) =>
         assertZeroArgs(args)
@@ -56,12 +59,11 @@ class TypeSpec extends WordSpec with Matchers {
             assertZeroArgs(args)
             TypePrim(PrimTypeBool, ImmArraySeq.empty)
           case Pkg.BTList =>
-            TypePrim(PrimTypeList, ImmArraySeq(assertOneArg(args)))
+            TypePrim(PrimTypeList, assertNArg(1, args))
           case Pkg.BTTextMap =>
-            TypePrim(PrimTypeTextMap, ImmArraySeq(assertOneArg(args)))
+            TypePrim(PrimTypeTextMap, assertNArg(1, args))
           case Pkg.BTGenMap =>
-            // FIXME https://github.com/digital-asset/daml/issues/2256
-            sys.error("GenMap not supported in interface type")
+            TypePrim(PrimTypeGenMap, assertNArg(2, args))
           case Pkg.BTUpdate =>
             sys.error("cannot use update in interface type")
           case Pkg.BTScenario =>
@@ -70,8 +72,8 @@ class TypeSpec extends WordSpec with Matchers {
             assertZeroArgs(args)
             TypePrim(PrimTypeDate, ImmArraySeq.empty)
           case Pkg.BTContractId =>
-            TypePrim(PrimTypeBool, ImmArraySeq(assertOneArg(args)))
-          case Pkg.BTOptional => TypePrim(PrimTypeOptional, ImmArraySeq(assertOneArg(args)))
+            TypePrim(PrimTypeBool, assertNArg(1, args))
+          case Pkg.BTOptional => TypePrim(PrimTypeOptional, assertNArg(1, args))
           case Pkg.BTArrow => sys.error("cannot use arrow in interface type")
           case Pkg.BTAny => sys.error("cannot use any in interface type")
           case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
@@ -99,9 +101,16 @@ class TypeSpec extends WordSpec with Matchers {
     inst shouldBe Record[Type](ImmArraySeq(n"fld1" -> t"List Int64", n"fld2" -> t"Mod:V Text"))
   }
 
-  "mapTypeVars should replace all type variables in List(List a)" in {
-    val result: Type = t"List (List a)".mapTypeVars(v => t"Text")
+  "mapTypeVars should replace all type variables in `List (List a)`" in {
+    val result: Type = t"List (List a)".mapTypeVars(_ => t"Text")
     val expected: Type = t"List (List Text)"
+
+    result shouldBe expected
+  }
+
+  "mapTypeVars should replace all type variables in `GenMap a b`" in {
+    val result: Type = t"GenMap a b".mapTypeVars(_ => t"GenMap a b")
+    val expected: Type = t"GenMap (GenMap a b) (GenMap a b)"
 
     result shouldBe expected
   }
@@ -122,4 +131,5 @@ class TypeSpec extends WordSpec with Matchers {
 
     result shouldBe Record(ImmArraySeq(n"f" -> TypeCon(id2, ImmArraySeq(t"Text"))))
   }
+
 }

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Types common to DA.Daml.Doc.Render
@@ -6,6 +6,7 @@ module DA.Daml.Doc.Render.Types
     ( module DA.Daml.Doc.Render.Types
     ) where
 
+import DA.Daml.Doc.Types -- for Anchor, AnchorMap
 import qualified Data.Text as T
 
 data RenderFormat = Rst | Markdown | Html
@@ -23,4 +24,10 @@ data RenderOptions = RenderOptions
     , ro_format :: RenderFormat -- ^ renderer output format
     , ro_title :: Maybe T.Text -- ^ title of rendered documentation
     , ro_template :: Maybe T.Text -- ^ renderer template
+    , ro_indexTemplate :: Maybe T.Text -- ^ renderer template for index
+    , ro_hoogleTemplate :: Maybe T.Text -- ^ renderer template for hoogle database
+    , ro_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
+    , ro_hooglePath :: Maybe FilePath -- ^ path to output hoogle database
+    , ro_anchorPath :: Maybe FilePath -- ^ path to output anchor table
+    , ro_externalAnchors :: AnchorMap -- ^ external input anchor table
     }

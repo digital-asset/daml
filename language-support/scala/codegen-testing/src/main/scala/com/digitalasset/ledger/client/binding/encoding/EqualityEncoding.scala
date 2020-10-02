@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.ledger.client.binding.encoding.EncodingUtil.normalize
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+package com.daml.ledger.client.binding.encoding
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.client.binding.encoding.EncodingUtil.normalize
+import com.daml.ledger.client.binding.{Primitive => P}
 import scalaz.{OneAnd, Plus}
 
 abstract class EqualityEncoding extends LfTypeEncoding {
@@ -88,7 +88,6 @@ object EqualityEncoding extends EqualityEncoding {
 
     override def valueBool: Fn[P.Bool] = (a1, a2) => a1 == a2
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def valueList[A: Fn]: Fn[P.List[A]] = (a1, a2) => {
       val fn = implicitly[Fn[A]]
       if (a1.length != a2.length) false

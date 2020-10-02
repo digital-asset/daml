@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -45,7 +45,7 @@ textShow = T.pack . show
 -- Request handlers
 ------------------------------------------------------------------------
 
-setHandlersKeepAlive :: PartialHandlers
+setHandlersKeepAlive :: PartialHandlers a
 setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
         case _method of
@@ -54,7 +54,7 @@ setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
     }
 
-setIgnoreOptionalHandlers :: PartialHandlers
+setIgnoreOptionalHandlers :: PartialHandlers a
 setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
          case _method of
@@ -67,12 +67,12 @@ setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
                | optionalPrefix `T.isPrefixOf` s -> pure ()
              _ -> whenJust (LSP.customNotificationHandler x) ($ msg)
     }
-    -- | According to the LSP spec methods starting with $/ are optional
+    -- According to the LSP spec methods starting with @$/@ are optional
     -- and can be ignored. In particular, VSCode sometimes seems to send
-    -- $/setTraceNotification which we want to ignore.
+    -- @$/setTraceNotification@ which we want to ignore.
     where optionalPrefix = "$/"
 
-setHandlersVirtualResource :: PartialHandlers
+setHandlersVirtualResource :: PartialHandlers a
 setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $
         \_ ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
@@ -104,12 +104,14 @@ withUriDaml _ _ = return ()
 
 runLanguageServer
     :: Lgr.Handle IO
-    -> Plugin
+    -> Plugin ()
     -> (IO LSP.LspId -> (FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
 runLanguageServer lgr plugins getIdeState = withSessionPings lgr $ \setSessionHandlers -> do
     let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler <> setSessionHandlers
-    LS.runLanguageServer options (pluginHandler plugins <> handlers) getIdeState
+    let onInitialConfiguration = const $ Right ()
+    let onConfigurationChange = const $ Right ()
+    LS.runLanguageServer options (pluginHandler plugins <> handlers) onInitialConfiguration onConfigurationChange getIdeState
 
 
 options :: LSP.Options

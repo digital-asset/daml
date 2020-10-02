@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
-import com.digitalasset.{codegen => parent}
+import com.daml.{codegen => parent}
 import parent.Util
 import parent.types.Namespace
 import parent.exception.UnsupportedDamlTypeException
@@ -11,7 +11,7 @@ import parent.exception.UnsupportedDamlTypeException
 import java.io._
 import scala.reflect.runtime.universe._
 
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.Identifier
 import scalaz.{Tree => _, _}
 import scalaz.std.tuple._
 import scalaz.std.vector._
@@ -49,7 +49,7 @@ private[codegen] object HierarchicalOutput {
               Vector(
                 (
                   firstFile,
-                  (Set.empty[Tree] /: multiple.map(_._2))(_ | _),
+                  (multiple.map(_._2) foldLeft Set.empty[Tree])(_ | _),
                   Iterable(q"""object ${TermName(k)} {
                                 ..${multiple flatMap (_._3)}
                               }""")))
@@ -70,10 +70,9 @@ private[codegen] object HierarchicalOutput {
           (liftSubtrees(subtrees) _).andThen(_.map(\/-(_)))
         case (Some(codeGenElt), subtrees) =>
           val (subErrs, subFiles) = liftSubtrees(subtrees)(true)
-          val imports = subFiles flatMap (_._2)
           val companionMembers = subFiles flatMap (_._3)
 
-          val (generate, log, errorMsg) = codeGenElt match {
+          val (generate, log @ _, errorMsg) = codeGenElt match {
             case (templateId, -\/(templateInterface)) =>
               (
                 () =>

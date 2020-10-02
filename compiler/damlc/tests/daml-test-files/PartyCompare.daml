@@ -1,12 +1,12 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Use >=
--- @INFO Use >=
--- @INFO Use >
--- @INFO Use <
--- @INFO Use <=
--- @INFO Use <=
+-- @INFO range=18:11-18:30; Use >=
+-- @INFO range=19:11-19:28; Use >=
+-- @INFO range=22:11-22:29; Use >
+-- @INFO range=25:11-25:29; Use <
+-- @INFO range=27:11-27:28; Use <=
+-- @INFO range=28:11-28:26; Use <=
 
 
 module PartyCompare where

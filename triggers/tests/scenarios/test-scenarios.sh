@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -16,7 +16,8 @@ set -eou pipefail
 SDK_VERSION=$1
 DAMLC=$(rlocation $TEST_WORKSPACE/$2)
 DAML_TRIGGERS_DAR=$(rlocation $TEST_WORKSPACE/$3)
-DAML_SOURCE=$(rlocation $TEST_WORKSPACE/$4)
+DAML_SCRIPT_DAR=$(rlocation $TEST_WORKSPACE/$4)
+DAML_SOURCE=$(rlocation $TEST_WORKSPACE/$5)
 
 TMP_DIR=$(mktemp -d)
 mkdir -p $TMP_DIR/daml
@@ -29,11 +30,10 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - daml-trigger.dar
+  - daml-script.dar
 EOF
-cp -L $DAML_TRIGGERS_DAR $TMP_DIR/
 cp -L $DAML_SOURCE $TMP_DIR/daml/
+cp -L $DAML_TRIGGERS_DAR $TMP_DIR/daml-trigger.dar
+cp -L $DAML_SCRIPT_DAR $TMP_DIR/daml-script.dar
 
-# We need to run build to create the package database.
-# See https://github.com/digital-asset/daml/issues/3436
-$DAMLC build --project-root=$TMP_DIR
 $DAMLC test --project-root=$TMP_DIR

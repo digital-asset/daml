@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter
+package com.daml.grpc.adapter
 
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -15,7 +15,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class AkkaExecutionSequencerPool(
     poolName: String,
     actorCount: Int = AkkaExecutionSequencerPool.defaultActorCount,
-    terminationTimeout: FiniteDuration = 30.seconds,
+    terminationTimeout: FiniteDuration = 180.seconds,
 )(implicit system: ActorSystem)
     extends ExecutionSequencerFactory {
   require(actorCount > 0)

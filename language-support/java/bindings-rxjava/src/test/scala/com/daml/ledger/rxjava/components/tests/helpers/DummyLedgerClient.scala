@@ -1,10 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components.tests.helpers
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.util
+import java.util.Optional
 
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.rxjava._
@@ -150,16 +151,19 @@ class DummyLedgerClient(
         offset: LedgerOffset,
         parties: util.Set[String]): Flowable[CompletionStreamResponse] =
       commandCompletions
+
     override def completionStream(
         applicationId: String,
         offset: LedgerOffset,
         parties: util.Set[String],
         accessToken: String): Flowable[CompletionStreamResponse] =
       untestedEndpoint
+
     override def completionStream(
         applicationId: String,
         parties: util.Set[String]): Flowable[CompletionStreamResponse] =
       commandCompletions
+
     override def completionStream(
         applicationId: String,
         parties: util.Set[String],
@@ -167,6 +171,7 @@ class DummyLedgerClient(
       untestedEndpoint
 
     override def completionEnd(): Single[CompletionEndResponse] = untestedEndpoint
+
     override def completionEnd(accessToken: String): Single[CompletionEndResponse] =
       untestedEndpoint
   }
@@ -177,8 +182,9 @@ class DummyLedgerClient(
         applicationId: String,
         commandId: String,
         party: String,
-        ledgerEffectiveTime: Instant,
-        maximumRecordTime: Instant,
+        minLedgerTimeAbs: Optional[Instant],
+        minLedgerTimeRel: Optional[Duration],
+        deduplicationTime: Optional[Duration],
         commands: util.List[Command]): Single[Empty] = {
       submitted.append(
         new SubmitCommandsRequest(
@@ -186,8 +192,9 @@ class DummyLedgerClient(
           applicationId,
           commandId,
           party,
-          ledgerEffectiveTime,
-          maximumRecordTime,
+          minLedgerTimeAbs,
+          minLedgerTimeRel,
+          deduplicationTime,
           commands))
       Single.just(Empty.getDefaultInstance)
     }
@@ -197,14 +204,31 @@ class DummyLedgerClient(
         applicationId: String,
         commandId: String,
         party: String,
-        ledgerEffectiveTime: Instant,
-        maximumRecordTime: Instant,
+        minLedgerTimeAbs: Optional[Instant],
+        minLedgerTimeRel: Optional[Duration],
+        deduplicationTime: Optional[Duration],
+        commands: util.List[Command],
+        accessToken: String): Single[Empty] = untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        party: String,
+        commands: util.List[Command]): Single[Empty] = untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        party: String,
         commands: util.List[Command],
         accessToken: String): Single[Empty] = untestedEndpoint
   }
 
   override def getLedgerIdentityClient: LedgerIdentityClient = new LedgerIdentityClient {
     override def getLedgerIdentity: Single[String] = Single.just(ledgerId)
+
     override def getLedgerIdentity(accessToken: String): Single[String] = untestedEndpoint
   }
 

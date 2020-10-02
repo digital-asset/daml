@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Multiple party agreement
@@ -31,7 +31,7 @@ Pending contract
 
     The *Pending* contract has a list of parties who have signed it, and a list of parties who have yet to sign it. If you add these lists together, it has to be the same set of parties as the ``signatories`` of the *Agreement* contract.
 
-    All of the ``toSign`` parties have the choice to ``Sign``. This choice checks that the party is indeed a member of ``toSign``, then creates a new instance of the *Pending* conract where they have been moved to the ``signed`` list.
+    All of the ``toSign`` parties have the choice to ``Sign``. This choice checks that the party is indeed a member of ``toSign``, then creates a new instance of the *Pending* contract where they have been moved to the ``signed`` list.
 
     .. literalinclude:: daml/MultiplePartyAgreement.daml
         :language: daml

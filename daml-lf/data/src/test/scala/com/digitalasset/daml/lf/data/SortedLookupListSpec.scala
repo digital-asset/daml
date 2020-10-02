@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import org.scalatest.prop.{PropertyChecks}
 import org.scalatest.{Matchers, WordSpec}
@@ -43,9 +43,9 @@ class SortedLookupListSpec extends WordSpec with Matchers with PropertyChecks {
       ImmArray("2" -> 2, "3" -> 3, "1" -> 1)
     )
 
-    forAll(negativeTestCases)(l => SortedLookupList.fromSortedImmArray(l) shouldBe 'right)
+    forAll(negativeTestCases)(l => SortedLookupList.fromOrderedImmArray(l) shouldBe 'right)
 
-    forAll(positiveTestCases)(l => SortedLookupList.fromSortedImmArray(l) shouldBe 'left)
+    forAll(positiveTestCases)(l => SortedLookupList.fromOrderedImmArray(l) shouldBe 'left)
 
   }
 

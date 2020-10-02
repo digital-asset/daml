@@ -1,52 +1,45 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.participant.{
-  ParticipantSessionConfiguration,
-  ParticipantSessionManager,
+  ParticipantSession,
+  ParticipantSessionManager
 }
 
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Random
 
-private[testtool] final class LedgerSession(
-    val config: LedgerSessionConfiguration,
-    participantSessionManager: ParticipantSessionManager,
+private[infrastructure] final class LedgerSession private (
+    participantSessions: immutable.Seq[(String, ParticipantSession)],
+    shuffleParticipants: Boolean,
 )(implicit val executionContext: ExecutionContext) {
-
-  private[this] val endpointIdProvider =
-    Identification.circularWithIndex(Identification.greekAlphabet)
-
-  private[this] val participantSessions =
-    Future
-      .sequence(config.participants.map {
-        case (host, port) =>
-          participantSessionManager.getOrCreate(
-            ParticipantSessionConfiguration(
-              host,
-              port,
-              config.ssl,
-              config.commandTtlFactor,
-              config.waitForParties),
-          )
-      })
-      .map(_.map(endpointIdProvider() -> _))
-
-  private[testtool] def createTestContext(
+  private[infrastructure] def createTestContext(
       applicationId: String,
       identifierSuffix: String,
-  ): Future[LedgerTestContext] =
-    participantSessions.flatMap { sessions =>
-      Future
-        .sequence(
-          (if (config.shuffleParticipants) scala.util.Random.shuffle(sessions) else sessions)
-            .map {
-              case (endpointId, session) =>
-                session.createTestContext(endpointId, applicationId, identifierSuffix)
-            }
-        )
-        .map(new LedgerTestContext(_))
-    }
+  ): Future[LedgerTestContext] = {
+    val sessions =
+      if (shuffleParticipants) Random.shuffle(participantSessions)
+      else participantSessions
+    Future
+      .traverse(sessions) {
+        case (endpointId, session) =>
+          session.createTestContext(endpointId, applicationId, identifierSuffix)
+      }
+      .map(new LedgerTestContext(_))
+  }
+}
 
+object LedgerSession {
+  def apply(
+      participantSessionManager: ParticipantSessionManager,
+      shuffleParticipants: Boolean,
+  )(implicit executionContext: ExecutionContext): LedgerSession = {
+    val endpointIdProvider =
+      Identification.circularWithIndex(Identification.greekAlphabet)
+    val participantSessions = participantSessionManager.allSessions.map(endpointIdProvider() -> _)
+    new LedgerSession(participantSessions, shuffleParticipants)
+  }
 }

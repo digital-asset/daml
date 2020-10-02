@@ -1,10 +1,9 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DamlcTest
    ( main
    ) where
 
-import Control.Monad
 import Data.List.Extra (isInfixOf)
 import System.Directory
 import System.Environment.Blank
@@ -20,6 +19,8 @@ import qualified Data.ByteString.Lazy.Char8 as BSL (pack)
 import qualified Data.Text.Extended as T
 
 import DA.Bazel.Runfiles
+import DA.Test.Process
+import DA.Test.Util
 import SdkVersion
 
 main :: IO ()
@@ -52,7 +53,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module Good where"
+        [ "module Good where"
         , "good = 1 + 2"
         ]
       step "build"
@@ -74,7 +75,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module ModWithTemplate where"
+        [ "module Good where"
         , "template MyT"
         , "  with"
         , "    myParty : Party"
@@ -100,7 +101,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module Good where"
+        [ "module Good where"
         , "good = 1"
         ]
       step "build"
@@ -130,7 +131,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module Good where"
+        [ "module Good where"
         , "good = 1"
         ]
       step "build"
@@ -159,31 +160,30 @@ testsForDamlcTest damlc = testGroup "damlc test" $
           assertInfixOf "does not exist" stderr
           exitCode @?= ExitFailure 1
     , testCase "File with compile error" $ do
-        withTempFile $ \path -> do
-            T.writeFileUtf8 path $ T.unlines
-              [ "daml 1.2"
-              , "module Foo where"
+        withTempDir $ \dir -> do
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
+              [ "module Foo where"
               , "abc"
               ]
-            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", path] ""
+            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
             stdout @?= ""
             assertInfixOf "Parse error" stderr
             exitCode @?= ExitFailure 1
     , testCase "File with failing scenario" $ do
-        withTempFile $ \path -> do
-            T.writeFileUtf8 path $ T.unlines
-              [ "daml 1.2"
-              , "module Foo where"
+        withTempDir $ \dir -> do
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
+              [ "module Foo where"
               , "x = scenario $ assert False"
               ]
-            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", path] ""
+            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
             stdout @?= ""
             assertInfixOf "Scenario execution failed" stderr
             exitCode @?= ExitFailure 1
     , testCase "damlc test --files outside of project" $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
+            [ "module Main where"
             , "test = scenario do"
             , "  assert True"
             ]
@@ -191,6 +191,22 @@ testsForDamlcTest damlc = testGroup "damlc test" $
           exitCode @?= ExitSuccess
           assertBool ("Succeeding scenario in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
           stderr @?= ""
+    , testCase "damlc test --project-root relative" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "relative")
+          writeFileUTF8 (projDir </> "relative" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "test = scenario do"
+            , "  assert True"
+            ]
+          writeFileUTF8 (projDir </> "relative" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: relative"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          withCurrentDirectory projDir $
+              callProcessSilent damlc ["test", "--project-root=relative"]
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
@@ -202,7 +218,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
           writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
-            [ "daml 1.2 module A where"
+            [ "module A where"
             , "a = 1"
             ]
           callProcessSilent damlc ["build", "--project-root", projDir </> "a"]
@@ -215,7 +231,7 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
             ]
           writeFileUTF8 (projDir </> "b" </> "B.daml") $ unlines
-            [ "daml 1.2 module B where"
+            [ "module B where"
             , "import A"
             , "b = a"
             , "test = scenario do"
@@ -234,18 +250,3 @@ modArchiveWith :: FilePath -> FilePath -> (ZA.Archive -> ZA.Archive) -> IO ()
 modArchiveWith inFile outFile f = do
   archive <- ZA.toArchive <$> BSL.readFile inFile
   BSL.writeFile outFile $ ZA.fromArchive (f archive)
-
-
--- | Only displays stdout and stderr on errors
--- TODO Move this in a shared testing-utils library
-callProcessSilent :: FilePath -> [String] -> IO ()
-callProcessSilent cmd args = do
-    (exitCode, out, err) <- readProcessWithExitCode cmd args ""
-    unless (exitCode == ExitSuccess) $ do
-      hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
-      hPutStrLn stderr $ unlines ["stdout:", out]
-      hPutStrLn stderr $ unlines ["stderr: ", err]
-      exitFailure
-
-assertInfixOf :: String -> String -> Assertion
-assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but but got " <> show haystack) (needle `isInfixOf` haystack)

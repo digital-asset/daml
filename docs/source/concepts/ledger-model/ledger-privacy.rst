@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _da-model-privacy:
@@ -9,9 +9,9 @@ Privacy
 The previous sections have addressed two out of three questions posed in the
 introduction: "what the ledger looks like", and "who may request which changes".
 This section addresses the last one, "who sees which changes and data". That is,
-it explains the privacy model for DA ledgers.
+it explains the privacy model for DAML ledgers.
 
-The privacy model of the DA platform is based on a **need-to-know
+The privacy model of DAML Ledgers is based on a **need-to-know
 basis**, and provides privacy **on the level of subtransactions**. Namely, a party learns only those
 parts of ledger changes that affect contracts in which the party has a stake,
 and the consequences of those changes.
@@ -85,7 +85,7 @@ for, providing privacy to `A` and `P` with respect to the bank.
 
 .. _def-informee:
 
-As a design choice, the DA Platform shows to observers on a contract only the :ref:`state changing
+As a design choice, DAML Ledgers show to observers on a contract only the :ref:`state changing
 <def-contract-state>` actions on the contract.
 More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to the observers - except when they are
 the actors of these actions.
@@ -202,7 +202,7 @@ Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the prob
 Divulgence: When Non-Stakeholders See Contracts
 +++++++++++++++++++++++++++++++++++++++++++++++
 
-The guiding principle for the privacy model of DA ledgers is that
+The guiding principle for the privacy model of DAML ledgers is that
 contracts should only be shown to their stakeholders. However,
 ledger projections can cause contracts to become visible to other
 parties as well.
@@ -217,7 +217,7 @@ and `Iou Bank P` was shown to Alice.
 
 Showing contracts to non-stakeholders through ledger projections is
 called **divulgence**. Divulgence is a deliberate choice in the design
-of DA ledgers. In the paint offer example, the only proper way to
+of DAML ledgers. In the paint offer example, the only proper way to
 accept the offer is to transfer the money from Alice to the painter.
 Conceptually, at the instant where the offer is accepted, its
 stakeholders also gain a temporary stake in the actions on the two
@@ -243,6 +243,7 @@ the painter:
 .. image:: ./images/divulgence-for-disclosure-counteroffer.svg
    :align: center
    :width: 100%
+   :name: da-paint-counteroffer-example
 
 In the example, the context is provided by consuming a `ShowIou` contract on which the painter is a stakeholder.
 This now requires an additional contract type, compared to the original paint offer example.

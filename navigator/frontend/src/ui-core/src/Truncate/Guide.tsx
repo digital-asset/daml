@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
 import { Section } from '../Guide';
-import styled, { withProps } from '../theme';
+import styled from '../theme';
 import Truncate from '../Truncate';
 
 const longText = `Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
@@ -19,7 +19,7 @@ Note that the parent element must have an explicit width (or max-width). Also, t
 only rendered if child elements are plain text (other HTML elements are simply cut off).
 `;
 
-const Wrapper = withProps<{size: number}>(styled.div)`
+const Wrapper = styled.div<{size: number}>`
   max-width: ${(props) => props.size}px;
   padding: 0.5em;
   border: 1px solid ${({theme}) => theme.colorFaded};

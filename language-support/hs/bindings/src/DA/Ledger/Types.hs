@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -70,15 +70,15 @@ import qualified Google.Rpc.Status as LL
 -- commands.proto
 
 data Commands = Commands
-    { lid       :: LedgerId
-    , wid       :: Maybe WorkflowId
-    , aid       :: ApplicationId
-    , cid       :: CommandId
-    , party     :: Party
-    , leTime    :: Timestamp
-    , mrTime    :: Timestamp
-    , dedupTime :: Maybe LL.Duration
-    , coms      :: [Command]
+    { lid          :: LedgerId
+    , wid          :: Maybe WorkflowId
+    , aid          :: ApplicationId
+    , cid          :: CommandId
+    , party        :: Party
+    , dedupTime    :: Maybe LL.Duration
+    , coms         :: [Command]
+    , minLeTimeAbs :: Maybe Timestamp
+    , minLeTimeRel :: Maybe LL.Duration
     }
 
 data Command
@@ -251,8 +251,7 @@ data Timestamp = Timestamp
     deriving (Eq,Ord,Show)
 
 data LedgerConfiguration = LedgerConfiguration
-    { minTtl :: LL.Duration
-    , maxTtl :: LL.Duration
+    { maxDeduplicationTime :: LL.Duration
     }
     deriving (Eq,Ord,Show)
 

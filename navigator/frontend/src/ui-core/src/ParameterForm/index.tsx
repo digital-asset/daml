@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -1156,7 +1156,7 @@ export interface Props {
 }
 
 export const StyledForm
-  : React.ComponentClass<React.HTMLProps<HTMLFormElement>>
+  : React.FC<React.HTMLProps<HTMLFormElement>>
   = styled.form`
   display: flex;
   flex-direction: column;

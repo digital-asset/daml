@@ -1,20 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, UpgradeToWebSocket}
-import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.\/
-import scala.concurrent.{ExecutionContext, Future}
+
+import scala.concurrent.Future
 import EndpointsCompanion._
 
 object WebsocketEndpoints {
@@ -46,11 +45,9 @@ object WebsocketEndpoints {
 }
 
 class WebsocketEndpoints(
-    ledgerId: lar.LedgerId,
     decodeJwt: ValidateJwt,
     webSocketService: WebSocketService,
-)(implicit mat: Materializer, ec: ExecutionContext)
-    extends StrictLogging {
+) extends StrictLogging {
 
   import WebsocketEndpoints._
 
@@ -80,11 +77,10 @@ class WebsocketEndpoints(
           upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
             s"Cannot upgrade client's connection to websocket",
           )
-          _ = logger.info(s"GOT $wsProtocol")
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
         } yield
-          handleWebsocketRequest[List[domain.EnrichedContractKey[domain.LfValue]]](
+          handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
             jwt,
             jwtPayload,
             upgradeReq,
@@ -93,7 +89,7 @@ class WebsocketEndpoints(
       )
   }
 
-  def handleWebsocketRequest[A: WebSocketService.StreamQuery](
+  def handleWebsocketRequest[A: WebSocketService.StreamQueryReader](
       jwt: Jwt,
       jwtPayload: domain.JwtPayload,
       req: UpgradeToWebSocket,

@@ -1,20 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.daml.lf.data.Numeric.maxPrecision
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
-import com.digitalasset.daml.lf.iface.Record
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.extractor.ledger.types._
-import com.digitalasset.extractor.Types.{DataIntegrityError, FullyAppliedType}
-import com.digitalasset.extractor.Types.FullyAppliedType._
-import com.digitalasset.extractor.Types.FullyAppliedType.ops._
-import com.digitalasset.extractor.writers.postgresql.DataFormat.TemplateInfo
-import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
-import com.digitalasset.extractor.writers.Writer.RefreshPackages
+import com.daml.lf.data.Numeric.maxPrecision
+import com.daml.lf.iface
+import com.daml.lf.iface.reader.InterfaceType
+import com.daml.lf.iface.Record
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.ledger.types._
+import com.daml.extractor.Types.{DataIntegrityError, FullyAppliedType}
+import com.daml.extractor.Types.FullyAppliedType._
+import com.daml.extractor.Types.FullyAppliedType.ops._
+import com.daml.extractor.writers.postgresql.DataFormat.TemplateInfo
+import com.daml.extractor.writers.postgresql.DataFormatState.MultiTableState
+import com.daml.extractor.writers.Writer.RefreshPackages
 import cats.implicits._
 import doobie.implicits._
 import doobie.free.connection

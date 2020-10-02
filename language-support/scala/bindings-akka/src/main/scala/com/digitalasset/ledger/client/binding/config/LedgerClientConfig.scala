@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.config
+package com.daml.ledger.client.binding.config
 
 import java.io.File
 import java.time.Duration
 
-import com.digitalasset.ledger.client.binding.LedgerClientConfigurationError.MalformedTypesafeConfig
-import com.digitalasset.ledger.client.binding.config.LedgerClientConfig.ClientSslConfig
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.ledger.client.binding.LedgerClientConfigurationError.MalformedTypesafeConfig
+import com.daml.ledger.client.binding.config.LedgerClientConfig.ClientSslConfig
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
@@ -34,8 +34,7 @@ case class LedgerClientConfig(
       ssl.map(_.sslContext)
     )
 
-  private val ledgerIdRequirement = ledgerId.fold(LedgerIdRequirement("", enabled = false))(lid =>
-    LedgerIdRequirement(lid, enabled = true))
+  private val ledgerIdRequirement = LedgerIdRequirement(ledgerId)
 }
 
 object LedgerClientConfig {

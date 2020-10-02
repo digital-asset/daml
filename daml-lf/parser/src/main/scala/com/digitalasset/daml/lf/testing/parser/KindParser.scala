@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.testing.parser.Parsers._
-import com.digitalasset.daml.lf.testing.parser.Token._
+import com.daml.lf.language.Ast._
+import com.daml.lf.testing.parser.Parsers._
+import com.daml.lf.testing.parser.Token._
 
-private[digitalasset] object KindParser {
+private[daml] object KindParser {
 
   lazy val kind0: Parser[Kind] =
     `*` ^^ (_ => KStar) |

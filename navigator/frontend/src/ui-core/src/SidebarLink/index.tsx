@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
 import UntypedIcon from '../Icon';
 import { default as styled, hardcodedStyle, ThemeInterface } from '../theme';
 import Truncate from '../Truncate';
-export { StyledComponentClass } from 'styled-components';
-import { StyledComponentClass } from 'styled-components';
+export { StyledComponent } from 'styled-components';
+import { StyledComponent } from 'styled-components';
 
 // This is a bit messy and is probably possible to clean up, but the idea is
 // that we export a component factory that takes the outer component (usually a
@@ -78,8 +78,8 @@ export function makeSidebarLink<P extends {}>(Link: React.ComponentClass<P>) {
   };
 
   // Then style this (note that we're using isActive for conditional styling).
-  const B: StyledComponentClass<Props & P, ThemeInterface, Props & P> =
-    styled(A)`
+  const B: StyledComponent<typeof A, ThemeInterface, Props & P> =
+    styled(A)<Props & P>`
     display: flex;
     justify-content: space-between;
     font-size: ${ hardcodedStyle.sidebarFontSize };

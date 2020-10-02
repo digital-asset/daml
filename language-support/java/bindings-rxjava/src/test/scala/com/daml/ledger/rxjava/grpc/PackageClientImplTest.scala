@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
-import com.digitalasset.ledger.api.v1.package_service._
+import com.daml.ledger.api.v1.package_service._
 import com.google.protobuf.ByteString
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
@@ -23,7 +23,7 @@ class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers wit
     ledgerServices.withPackageClient(
       listPackageResponseFuture("first"),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, service) =>
+      defaultGetPackageStatusResponseFuture) { (client, _) =>
       client
         .listPackages()
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -52,7 +52,7 @@ class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers wit
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, service) =>
+      defaultGetPackageStatusResponseFuture) { (client, _) =>
       val getPackage = client
         .getPackage("")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)

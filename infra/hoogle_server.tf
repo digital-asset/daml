@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 resource "google_compute_network" "hoogle" {
@@ -93,7 +93,10 @@ log() {
 log "Checking for new DAML version..."
 cd /home/hoogle/hoogle
 mkdir new-daml
-curl -s https://docs.daml.com/hoogle_db/base.txt --output new-daml/base.txt
+if ! curl --fail -s https://docs.daml.com/hoogle_db/base.txt --output new-daml/base.txt; then
+  curl -s https://docs.daml.com/hoogle_db.tar.gz --output db.tar.gz
+  tar xzf db.tar.gz -C new-daml --strip-components=1
+fi
 if ! diff -rq daml new-daml; then
   log "New version detected. Creating database..."
   rm -rf daml

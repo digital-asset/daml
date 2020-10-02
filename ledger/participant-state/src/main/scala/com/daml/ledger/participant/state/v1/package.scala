@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction
+import com.daml.lf.value.Value
 
 /** Interfaces to read from and write to an (abstract) participant state.
   *
@@ -84,7 +84,7 @@ package object v1 {
   type SubmissionId = Ref.LedgerString
 
   /** Identifiers for nodes in a transaction. */
-  type NodeId = Transaction.NodeId
+  type NodeId = transaction.NodeId
 
   /** Identifiers for packages. */
   type PackageId = Ref.PackageId
@@ -92,23 +92,21 @@ package object v1 {
   /** Identifiers for parties. */
   type Party = Ref.Party
 
-  /** A transaction with relative and absolute contract identifiers.
+  /** A transaction with contract IDs that may require suffixing.
     *
-    *  See [[WriteService.submitTransaction]] for details.
+    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
     */
-  type SubmittedTransaction = Transaction.Transaction
+  type SubmittedTransaction = transaction.SubmittedTransaction
 
-  /** A transaction with absolute contract identifiers only.
+  /** A transaction with globally unique contract IDs.
     *
     * Used to communicate transactions that have been accepted to the ledger.
-    * See [[WriteService.submitTransaction]] for details on relative and
-    * absolute contract identifiers.
+    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
     */
-  type CommittedTransaction =
-    GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
+  type CommittedTransaction = transaction.CommittedTransaction
 
-  /** A contract instance with absolute contract identifiers only. */
-  type AbsoluteContractInst =
-    Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
+  /** A contract instance. */
+  type ContractInst =
+    Value.ContractInst[Value.VersionedValue[Value.ContractId]]
 
 }

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphql
+package com.daml.navigator.graphql
 
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -10,13 +10,13 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.CustomEndpoint
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.query._
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.time.{TimeProviderType, TimeProviderWithType}
-import com.digitalasset.navigator.model.converter.GenericConversionError
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.CustomEndpoint
+import com.daml.navigator.model._
+import com.daml.navigator.query._
+import com.daml.navigator.store.Store._
+import com.daml.navigator.time.{TimeProviderType, TimeProviderWithType}
+import com.daml.navigator.model.converter.GenericConversionError
 import sangria.ast.StringValue
 import sangria.macros.derive.GraphQLDeprecated
 import sangria.schema.InputObjectType.DefaultInput
@@ -41,11 +41,7 @@ case class UserFacingError(message: String)
 }
 
 /** Schema definition for the UI backend GraphQL API. */
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.Option2Iterable",
-    "org.wartremover.warts.JavaSerializable"))
+@SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
 final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
 
   implicit private val actorTimeout: Timeout = Timeout(60, TimeUnit.SECONDS)
@@ -586,27 +582,27 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
             case ContractType.name =>
               ids
                 .map(id => ApiTypes.ContractId(id.toString))
-                .flatMap(ledger.contract(_, context.ctx.templates))
+                .flatMap(ledger.contract(_, context.ctx.templates).toList)
                 .toSeq
             case TemplateType.name =>
               ids
                 .map(id => TemplateStringId(id.toString))
-                .flatMap(context.ctx.templates.templateByStringId)
+                .flatMap(context.ctx.templates.templateByStringId(_).toList)
                 .toSeq
             case CommandType.name =>
               ids
                 .map(id => ApiTypes.CommandId(id.toString))
-                .flatMap(context.ctx.ledger.command(_, context.ctx.templates))
+                .flatMap(context.ctx.ledger.command(_, context.ctx.templates).toList)
                 .toSeq
             case EventType.name =>
               ids
                 .map(id => ApiTypes.EventId(id.toString))
-                .flatMap(context.ctx.ledger.event(_, context.ctx.templates))
+                .flatMap(context.ctx.ledger.event(_, context.ctx.templates).toList)
                 .toSeq
             case TransactionType.name =>
               ids
                 .map(id => ApiTypes.TransactionId(id.toString))
-                .flatMap(context.ctx.ledger.transaction(_, context.ctx.templates))
+                .flatMap(context.ctx.ledger.transaction(_, context.ctx.templates).toList)
                 .toSeq
             case _ => Seq.empty[Node[_]]
           }

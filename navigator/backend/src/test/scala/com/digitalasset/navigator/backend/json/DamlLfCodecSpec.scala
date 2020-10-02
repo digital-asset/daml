@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.json
+package com.daml.navigator.json
 
-import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
-import com.digitalasset.navigator.model
+import com.daml.navigator.json.DamlLfCodec.JsonImplicits._
+import com.daml.navigator.model
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.{Success, Try}
 
 class DamlLfCodecSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+  import com.daml.navigator.{DamlConstants => C}
 
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse[T](value: T)(implicit fmt: spray.json.JsonFormat[T]): Try[T] = {

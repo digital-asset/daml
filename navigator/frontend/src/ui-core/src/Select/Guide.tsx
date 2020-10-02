@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -19,7 +19,7 @@ const options: Option[] = [
 
 export default class SelectGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = {
       value: options[0].label,
       options,

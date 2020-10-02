@@ -1,10 +1,11 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
 
 module MultiTest where
 
+import DA.List
 import Daml.Script
 
 template T
@@ -39,3 +40,18 @@ partyIdHintTest = do
   alice <- allocatePartyWithHintOn "alice" (PartyIdHint "alice") (ParticipantName "one")
   bob <- allocatePartyWithHintOn "bob" (PartyIdHint "bob") (ParticipantName "two")
   pure (alice, bob)
+
+listKnownPartiesTest : Script ([(Optional Text, Bool)], [(Optional Text, Bool)])
+listKnownPartiesTest = do
+  parties1 <- listKnownPartiesOn (ParticipantName "one")
+  parties2 <- listKnownPartiesOn (ParticipantName "two")
+  p1 <- allocatePartyOn "p1" (ParticipantName "one")
+  p2 <- allocatePartyOn "p2" (ParticipantName "two")
+  parties1' <- listKnownPartiesOn (ParticipantName "one")
+  parties2' <- listKnownPartiesOn (ParticipantName "two")
+  pure
+    ( map toTuple $ sortOn displayName (parties1' \\ parties1)
+    , map toTuple $ sortOn displayName (parties2' \\ parties2)
+    )
+ where
+  toTuple PartyDetails{..} = (displayName, isLocal)

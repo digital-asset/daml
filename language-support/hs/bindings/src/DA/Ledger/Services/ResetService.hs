@@ -1,9 +1,9 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Ledger.Services.ResetService (reset) where
 
-import Com.Digitalasset.Ledger.Api.V1.Testing.ResetService
+import Com.Daml.Ledger.Api.V1.Testing.ResetService
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types

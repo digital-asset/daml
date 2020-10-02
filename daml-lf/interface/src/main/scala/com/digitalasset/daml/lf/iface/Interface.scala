@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package iface
 
 import java.{util => j}
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.digitalasset.daml.lf.iface.reader.Errors
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{PackageId, QualifiedName}
+import com.daml.lf.iface.reader.Errors
+import com.daml.daml_lf_dev.DamlLf
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map

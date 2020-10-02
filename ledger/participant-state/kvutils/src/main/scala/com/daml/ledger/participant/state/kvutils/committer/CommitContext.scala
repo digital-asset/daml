@@ -1,16 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import java.time.Instant
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
+  DamlLogEntry,
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Err, DamlStateMap}
+import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Time.Timestamp
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 
@@ -18,23 +21,37 @@ import scala.collection.mutable
   * allows committer to set state outputs.
   */
 private[kvutils] trait CommitContext {
+  private[this] val logger = LoggerFactory.getLogger(this.getClass)
+
   def inputs: DamlStateMap
+
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
   private val outputOrder: mutable.ArrayBuffer[DamlStateKey] =
     mutable.ArrayBuffer()
   private val outputs: mutable.Map[DamlStateKey, DamlStateValue] =
     mutable.HashMap.empty[DamlStateKey, DamlStateValue]
+  private val accessedInputKeys: mutable.Set[DamlStateKey] = mutable.Set.empty[DamlStateKey]
 
-  def getEntryId: DamlLogEntryId
-  def getMaximumRecordTime: Timestamp
-  def getRecordTime: Timestamp
+  var minimumRecordTime: Option[Instant] = None
+  var maximumRecordTime: Option[Instant] = None
+  var deduplicateUntil: Option[Instant] = None
+
+  // Rejection log entry used for generating an out-of-time-bounds log entry in case of
+  // pre-execution.
+  var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
+
+  def getRecordTime: Option[Timestamp]
   def getParticipantId: ParticipantId
+
+  def preExecute: Boolean = getRecordTime.isEmpty
 
   /** Retrieve value from output state, or if not found, from input state. */
   def get(key: DamlStateKey): Option[DamlStateValue] =
     outputs.get(key).orElse {
-      inputs.getOrElse(key, throw Err.MissingInputState(key))
+      val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
+      accessedInputKeys += key
+      value
     }
 
   /** Set a value in the output state. */
@@ -45,10 +62,6 @@ private[kvutils] trait CommitContext {
     outputs(key) = value
   }
 
-  /** Modify existing state. Throws if state does not exist. */
-  def modify(key: DamlStateKey)(f: DamlStateValue => DamlStateValue): Unit =
-    set(key, f(get(key).getOrElse(throw Err.MissingInputState(key))))
-
   /** Clear the output state. */
   def clear(): Unit = {
     outputOrder.clear()
@@ -57,6 +70,18 @@ private[kvutils] trait CommitContext {
 
   /** Get the final output state, in insertion order. */
   def getOutputs: Iterable[(DamlStateKey, DamlStateValue)] =
-    outputOrder.map(k => k -> outputs(k))
+    outputOrder
+      .map(key => key -> outputs(key))
+      .filterNot {
+        case (key, value) if inputAlreadyContains(key, value) =>
+          logger.trace("Identical output found for key {}", key)
+          true
+        case _ => false
+      }
 
+  /** Get the accessed input key set. */
+  def getAccessedInputKeys: collection.Set[DamlStateKey] = accessedInputKeys
+
+  private def inputAlreadyContains(key: DamlStateKey, value: DamlStateValue): Boolean =
+    inputs.get(key).exists(_.contains(value))
 }

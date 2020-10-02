@@ -1,8 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
+import com.daml.scalatest.{FlatSpecCheckLaws, Unnatural}
 import org.scalatest.{FlatSpec, Matchers}
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
@@ -66,7 +67,7 @@ class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
     import scalaz.syntax.traverse.ToTraverseOps
     import scalaz.std.list.listInstance
 
-    ImmArray(1, 2).traverseU(n => (0 to n).toList) shouldBe
+    ImmArray(1, 2).traverse(n => (0 to n).toList) shouldBe
       List(
         ImmArray(0, 0),
         ImmArray(0, 1),

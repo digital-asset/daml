@@ -1,198 +1,402 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@build_environment//:configuration.bzl", "ghc_version")
+load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
+load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
-daml_provider = provider(doc = "DAML provider", fields = {
-    "dalf": "The DAML-LF file.",
-    "dar": "The packaged archive.",
-})
+_damlc = attr.label(
+    allow_single_file = True,
+    default = Label("//compiler/damlc"),
+    executable = True,
+    cfg = "host",
+    doc = "The DAML compiler.",
+)
 
-def _daml_impl_compile_dalf(ctx):
-    # Call damlc compile
-    compile_args = ctx.actions.args()
-    compile_args.add("compile")
-    compile_args.add(ctx.file.main_src)
-    compile_args.add("--output", ctx.outputs.dalf.path)
-    if ctx.attr.target:
-        compile_args.add("--target", ctx.attr.target)
-    ctx.actions.run(
-        inputs = depset([ctx.file.main_src] + ctx.files.srcs),
-        outputs = [ctx.outputs.dalf],
-        arguments = [compile_args],
-        progress_message = "Compiling DAML into DAML-LF archive %s" % ctx.outputs.dalf.short_path,
-        executable = ctx.executable.damlc,
+_zipper = attr.label(
+    allow_single_file = True,
+    default = Label("@bazel_tools//tools/zip:zipper"),
+    executable = True,
+    cfg = "host",
+)
+
+def _daml_configure_impl(ctx):
+    project_name = ctx.attr.project_name
+    project_version = ctx.attr.project_version
+    daml_yaml = ctx.outputs.daml_yaml
+    target = ctx.attr.target
+    ctx.actions.write(
+        output = daml_yaml,
+        content = """
+            sdk-version: {sdk}
+            name: {name}
+            version: {version}
+            source: .
+            dependencies: []
+            build-options: [{target}]
+        """.format(
+            sdk = sdk_version,
+            name = project_name,
+            version = project_version,
+            target = "--target=" + target if (target) else "",
+        ),
     )
 
-def _daml_impl_package_dar(ctx):
-    # Call damlc package
-    package_args = ctx.actions.args()
-    package_args.add("package")
-    package_args.add(ctx.file.main_src)
-    package_args.add(ctx.attr.name)
-    if ctx.attr.target:
-        package_args.add("--target", ctx.attr.target)
-    package_args.add("--output")
-    package_args.add(ctx.outputs.dar.path)
-    ctx.actions.run(
-        inputs = [ctx.file.main_src] + ctx.files.srcs,
-        outputs = [ctx.outputs.dar],
-        arguments = [package_args],
-        progress_message = "Creating DAR package %s" % ctx.outputs.dar.basename,
-        executable = ctx.executable.damlc,
-    )
-
-def _daml_compile_impl(ctx):
-    _daml_impl_compile_dalf(ctx)
-    _daml_impl_package_dar(ctx)
-
-    # DAML provider
-    daml = daml_provider(
-        dalf = ctx.outputs.dalf,
-        dar = ctx.outputs.dar,
-    )
-    return [daml]
-
-def _daml_compile_outputs_impl(name):
-    patterns = {
-        "dalf": "{name}.dalf",
-        "dar": "{name}.dar",
-    }
-    return {
-        k: v.format(name = name)
-        for (k, v) in patterns.items()
-    }
-
-daml_compile = rule(
-    implementation = _daml_compile_impl,
+_daml_configure = rule(
+    implementation = _daml_configure_impl,
     attrs = {
-        "main_src": attr.label(
-            allow_single_file = [".daml"],
+        "project_name": attr.string(
             mandatory = True,
-            doc = "The main DAML file that will be passed to the compiler.",
+            doc = "Name of the DAML project.",
         ),
-        "srcs": attr.label_list(
-            allow_files = [".daml"],
-            default = [],
-            doc = "Other DAML files that compilation depends on.",
+        "project_version": attr.string(
+            mandatory = True,
+            doc = "Version of the DAML project.",
         ),
-        "target": attr.string(doc = "DAML-LF version to output"),
-        "damlc": attr.label(
-            executable = True,
-            cfg = "host",
-            allow_files = True,
-            default = Label("//compiler/damlc"),
+        "daml_yaml": attr.output(
+            mandatory = True,
+            doc = "The generated daml.yaml config file.",
+        ),
+        "target": attr.string(
+            doc = "DAML-LF version to output.",
         ),
     },
-    executable = False,
-    outputs = _daml_compile_outputs_impl,
 )
 
-def _daml_test_impl(ctx):
-    script = """
-      set -eou pipefail
+def file_of_target(k):
+    [file] = k.files.to_list()
+    return file
 
-      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
-      rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-
-      $DAMLC test --files $(rlocations "{files}")
-    """.format(
-        damlc = ctx.executable.damlc.short_path,
-        files = " ".join([f.short_path for f in ctx.files.srcs]),
+def make_cp_command(src, dest):
+    return "mkdir -p $(dirname {dest}); cp -f {src} {dest}".format(
+        src = src,
+        dest = dest,
     )
 
-    ctx.actions.write(
-        output = ctx.outputs.executable,
-        content = script,
+def _daml_build_impl(ctx):
+    name = ctx.label.name
+    daml_yaml = ctx.file.daml_yaml
+    srcs = ctx.files.srcs
+    dar_dict = ctx.attr.dar_dict
+    damlc = ctx.file._damlc
+    input_dars = [file_of_target(k) for k in dar_dict.keys()]
+    output_dar = ctx.outputs.dar
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
+    ctx.actions.run_shell(
+        tools = [damlc],
+        inputs = [daml_yaml] + srcs + input_dars,
+        outputs = [output_dar],
+        progress_message = "Building DAML project %s" % name,
+        command = """
+            set -eou pipefail
+            tmpdir=$(mktemp -d)
+            trap "rm -rf $tmpdir" EXIT
+            cp -f {config} $tmpdir/daml.yaml
+            # Having to produce all the daml.yaml files via a genrule is annoying
+            # so we allow hardcoded version numbers and patch them here.
+            {sed} -i 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
+            {cp_srcs}
+            {cp_dars}
+            {damlc} build --project-root $tmpdir -o $PWD/{output_dar}
+        """.format(
+            config = daml_yaml.path,
+            cp_srcs = "\n".join([
+                make_cp_command(
+                    src = src.path,
+                    dest = "$tmpdir/" + src.path,
+                )
+                for src in srcs
+            ]),
+            cp_dars = "\n".join([
+                make_cp_command(
+                    src = file_of_target(k).path,
+                    dest = "$tmpdir/" + v,
+                )
+                for k, v in dar_dict.items()
+            ]),
+            sed = posix.commands["sed"],
+            damlc = damlc.path,
+            output_dar = output_dar.path,
+            sdk_version = sdk_version,
+        ),
     )
-    damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
-    runfiles = ctx.runfiles(
-        collect_data = True,
-        files = ctx.files.srcs,
-    ).merge(damlc_runfiles)
-    return [DefaultInfo(runfiles = runfiles)]
 
-daml_test = rule(
-    implementation = _daml_test_impl,
+_daml_build = rule(
+    implementation = _daml_build_impl,
     attrs = {
+        "daml_yaml": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+            doc = "The daml.yaml config file.",
+        ),
         "srcs": attr.label_list(
             allow_files = [".daml"],
-            default = [],
-            doc = "DAML source files to test.",
+            mandatory = True,
+            doc = "DAML files in this DAML project.",
         ),
-        "damlc": attr.label(
-            executable = True,
-            cfg = "host",
+        "dar_dict": attr.label_keyed_string_dict(
+            mandatory = True,
             allow_files = True,
-            default = Label("//compiler/damlc"),
+            doc = "Other DAML projects referenced by this DAML project.",
         ),
+        "dar": attr.output(
+            mandatory = True,
+            doc = "The generated DAR file.",
+        ),
+        "_damlc": _damlc,
     },
-    test = True,
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 
-def _daml_doctest_impl(ctx):
-    script = """
-      set -eou pipefail
-      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
-      CPP=$(rlocation $TEST_WORKSPACE/{cpp})
-      rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-      $DAMLC doctest {flags} --cpp $CPP --package-name {package_name}-{version} $(rlocations "{files}")
-    """.format(
-        damlc = ctx.executable.damlc.short_path,
-        # we end up with "../hpp/hpp" while we want "external/hpp/hpp"
-        # so we just do the replacement ourselves.
-        cpp = ctx.executable.cpp.short_path.replace("..", "external"),
-        package_name = ctx.attr.package_name,
-        flags = " ".join(ctx.attr.flags),
-        version = ghc_version,
-        files = " ".join([
-            f.short_path
-            for f in ctx.files.srcs
-            if all([not f.short_path.endswith(ignore) for ignore in ctx.attr.ignored_srcs])
-        ]),
+def _extract_main_dalf_impl(ctx):
+    project_name = ctx.attr.project_name
+    project_version = ctx.attr.project_version
+    input_dar = ctx.file.dar
+    output_dalf = ctx.outputs.dalf
+    zipper = ctx.file._zipper
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
+    ctx.actions.run_shell(
+        tools = [zipper],
+        inputs = [input_dar],
+        outputs = [output_dalf],
+        progress_message = "Extract DALF from DAR (%s)" % project_name,
+        command = """
+set -eoux pipefail
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+# While zipper has a -d option, it insists on it
+# being a relative path so we don't use it.
+ZIPPER=$PWD/{zipper}
+DAR=$PWD/{input_dar}
+(cd $TMPDIR && $ZIPPER x $DAR)
+main_dalf=$({find} $TMPDIR/ -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
+cp $main_dalf {output_dalf}
+        """.format(
+            zipper = zipper.path,
+            find = posix.commands["find"],
+            project_name = project_name,
+            project_version = project_version,
+            input_dar = input_dar.path,
+            output_dalf = output_dalf.path,
+        ),
     )
-    ctx.actions.write(
-        output = ctx.outputs.executable,
-        content = script,
-    )
-    damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
-    cpp_runfiles = ctx.attr.cpp[DefaultInfo].data_runfiles
-    runfiles = ctx.runfiles(
-        collect_data = True,
-        files = ctx.files.srcs,
-    ).merge(damlc_runfiles).merge(cpp_runfiles)
-    return [DefaultInfo(runfiles = runfiles)]
 
-daml_doc_test = rule(
-    implementation = _daml_doctest_impl,
+_extract_main_dalf = rule(
+    implementation = _extract_main_dalf_impl,
     attrs = {
-        "srcs": attr.label_list(
-            allow_files = [".daml"],
-            default = [],
-            doc = "DAML source files that should be tested.",
+        "project_name": attr.string(
+            mandatory = True,
+            doc = "Name of the DAML project.",
         ),
-        "ignored_srcs": attr.string_list(
-            default = [],
-            doc = "DAML source files that should be ignored.",
+        "project_version": attr.string(
+            mandatory = True,
+            doc = "Version of the DAML project.",
         ),
-        "damlc": attr.label(
-            executable = True,
-            cfg = "host",
-            allow_files = True,
-            default = Label("//compiler/damlc"),
+        "dar": attr.label(
+            allow_single_file = [".dar"],
+            mandatory = True,
+            doc = "The DAR from which the DALF will be extracted.",
         ),
-        "cpp": attr.label(
-            executable = True,
-            cfg = "host",
-            allow_files = True,
-            default = Label("@hpp//:hpp"),
+        "dalf": attr.output(
+            mandatory = True,
+            doc = "The extracted DALF.",
         ),
-        "flags": attr.string_list(
-            default = [],
-            doc = "Flags for damlc invokation.",
-        ),
-        "package_name": attr.string(),
+        "_zipper": _zipper,
     },
-    test = True,
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
+
+def _daml_validate_test(
+        name,
+        dar,
+        **kwargs):
+    damlc = "//compiler/damlc"
+    sh_inline_test(
+        name = name,
+        data = [damlc, dar],
+        cmd = """\
+DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+
+$$DAMLC validate-dar $$(canonicalize_rlocation $(rootpath {dar}))
+""".format(
+            damlc = damlc,
+            dar = dar,
+        ),
+        **kwargs
+    )
+
+def _inspect_dar(base):
+    name = base + "-inspect"
+    dar = base + ".dar"
+    pp = base + ".dar.pp"
+    native.genrule(
+        name = name,
+        srcs = [
+            dar,
+            "//compiler/damlc",
+        ],
+        outs = [pp],
+        cmd = "$(location //compiler/damlc) inspect $(location :" + dar + ") > $@",
+    )
+
+_default_project_version = "1.0.0"
+
+def daml_compile(
+        name,
+        srcs,
+        version = _default_project_version,
+        target = None,
+        **kwargs):
+    "Build a DAML project, with a generated daml.yaml."
+    if len(srcs) == 0:
+        fail("daml_compile: Expected `srcs' to be non-empty.")
+    daml_yaml = name + ".yaml"
+    _daml_configure(
+        name = name + ".configure",
+        project_name = name,
+        project_version = version,
+        daml_yaml = daml_yaml,
+        target = target,
+        **kwargs
+    )
+    _daml_build(
+        name = name + ".build",
+        daml_yaml = daml_yaml,
+        srcs = srcs,
+        dar_dict = {},
+        dar = name + ".dar",
+        **kwargs
+    )
+    _inspect_dar(
+        base = name,
+    )
+
+def daml_compile_with_dalf(
+        name,
+        version = _default_project_version,
+        **kwargs):
+    "Build a DAML project, with a generated daml.yaml, and extract the main DALF."
+    daml_compile(
+        name = name,
+        version = version,
+        **kwargs
+    )
+    _extract_main_dalf(
+        name = name + ".extract",
+        project_name = name,
+        project_version = version,
+        dar = name + ".dar",
+        dalf = name + ".dalf",
+    )
+
+def daml_build_test(
+        name,
+        project_dir,
+        daml_config_basename = "daml.yaml",
+        daml_subdir_basename = "daml",
+        daml_yaml = None,
+        dar_dict = {},
+        **kwargs):
+    "Build a DAML project and validate the resulting .dar file."
+    if not daml_yaml:
+        daml_yaml = project_dir + "/" + daml_config_basename
+    srcs = native.glob([project_dir + "/" + daml_subdir_basename + "/**/*.daml"])
+    _daml_build(
+        name = name,
+        daml_yaml = daml_yaml,
+        srcs = srcs,
+        dar_dict = dar_dict,
+        dar = name + ".dar",
+        **kwargs
+    )
+    _daml_validate_test(
+        name = name + ".test",
+        dar = name + ".dar",
+    )
+
+def daml_test(
+        name,
+        srcs = [],
+        deps = [],
+        data_deps = [],
+        damlc = "//compiler/damlc",
+        **kwargs):
+    sh_inline_test(
+        name = name,
+        data = [damlc] + srcs + deps + data_deps,
+        cmd = """\
+set -eoux pipefail
+tmpdir=$$(mktemp -d)
+trap "rm -rf $$tmpdir" EXIT
+DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
+DEPS=($$(rlocations {deps}))
+DATA_DEPS=($$(rlocations {data_deps}))
+JOINED_DATA_DEPS="$$(printf ',"%s"' $${{DATA_DEPS[@]}})"
+echo "$$JOINED_DATA_DEPS"
+cat << EOF > $$tmpdir/daml.yaml
+sdk-version: {sdk_version}
+name: test
+version: 0.0.1
+source: .
+dependencies: [daml-stdlib, daml-prim $$([ $${{#DEPS[@]}} -gt 0 ] && printf ',"%s"' $${{DEPS[@]}})]
+data-dependencies: [$$([ $${{#DATA_DEPS[@]}} -gt 0 ] && printf '%s' $${{JOINED_DATA_DEPS:1}})]
+EOF
+cat $$tmpdir/daml.yaml
+{cp_srcs}
+cd $$tmpdir
+$$DAMLC test --files {files}
+""".format(
+            damlc = damlc,
+            files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
+            sdk_version = sdk_version,
+            deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
+            data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
+            cp_srcs = "\n".join([
+                "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
+                    src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
+                    dest = "$$tmpdir/$(rootpath {})".format(src),
+                )
+                for src in srcs
+            ]),
+        ),
+        **kwargs
+    )
+
+def daml_doc_test(
+        name,
+        package_name,
+        srcs = [],
+        ignored_srcs = [],
+        flags = [],
+        cpp = "@stackage-exe//hpp",
+        damlc = "//compiler/damlc",
+        **kwargs):
+    sh_inline_test(
+        name = name,
+        data = [cpp, damlc] + srcs,
+        cmd = """\
+CPP=$$(canonicalize_rlocation $(rootpath {cpp}))
+DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+FILES=($$(
+  for file in {files}; do
+    for pattern in {ignored}; do
+      if [[ $$file = *$$pattern ]]; then
+        continue
+      fi
+      echo $$(canonicalize_rlocation $$i)
+    done
+  done
+))
+
+$$DAMLC doctest {flags} --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}"
+""".format(
+            cpp = cpp,
+            damlc = damlc,
+            package_name = package_name,
+            flags = " ".join(flags),
+            version = ghc_version,
+            files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
+            ignored = " ".join(ignored_srcs),
+        ),
+        **kwargs
+    )

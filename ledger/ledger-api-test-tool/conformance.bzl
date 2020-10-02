@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -29,9 +29,6 @@ def conformance_test(
         ],
         server = server,
         server_args = server_args,
-        server_files = [
-            "$(rootpaths //ledger/test-common:dar-files)",
-        ],
         tags = [
             "dont-run-on-darwin",
             "exclusive",

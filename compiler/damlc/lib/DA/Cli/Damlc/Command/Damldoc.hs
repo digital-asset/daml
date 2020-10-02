@@ -1,17 +1,15 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 module DA.Cli.Damlc.Command.Damldoc(cmd, exec) where
 
 import DA.Cli.Options
-import DA.Cli.Output
+import DA.Daml.Compiler.Output
 import DA.Daml.Doc.Driver
 import DA.Daml.Doc.Extract
-import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Types.Location
-import Development.IDE.Types.Options
 import Module (unitIdString)
 
 import Options.Applicative
@@ -24,7 +22,7 @@ import qualified Data.Set as Set
 cmd :: Int -> (CmdArgs -> a) -> Mod CommandFields a
 cmd numProcessors f = command "docs" $
         info (helper <*> (f <$> documentation numProcessors)) $
-        progDesc "Generate documentation for the given DAML program."
+        progDesc "Early Access (Labs). Generate documentation for the given DAML program."
         <> fullDesc
 
 documentation :: Int -> Parser CmdArgs
@@ -34,6 +32,8 @@ documentation numProcessors = Damldoc
     <*> optOutputPath
     <*> optOutputFormat
     <*> optTemplate
+    <*> optIndexTemplate
+    <*> optHoogleTemplate
     <*> optOmitEmpty
     <*> optDataOnly
     <*> optNoAnnot
@@ -43,6 +43,10 @@ documentation numProcessors = Damldoc
     <*> optDropOrphanInstances
     <*> optCombine
     <*> optExtractOptions
+    <*> optBaseURL
+    <*> optHooglePath
+    <*> optAnchorPath
+    <*> optExternalAnchorPath
     <*> argMainFiles
   where
     optInputFormat :: Parser InputFormat
@@ -68,6 +72,34 @@ documentation numProcessors = Damldoc
             <> long "output"
             <> short 'o'
 
+    optBaseURL :: Parser (Maybe T.Text)
+    optBaseURL =
+        optional . fmap T.pack . option str
+            $ metavar "URL"
+            <> help "Base URL for generated documentation."
+            <> long "base-url"
+
+    optHooglePath :: Parser (Maybe FilePath)
+    optHooglePath =
+        optional . option str
+            $ metavar "PATH"
+            <> help "Path to output hoogle database."
+            <> long "output-hoogle"
+
+    optAnchorPath :: Parser (Maybe FilePath)
+    optAnchorPath =
+        optional . option str
+            $ metavar "PATH"
+            <> help "Path to output anchor table."
+            <> long "output-anchor"
+
+    optExternalAnchorPath :: Parser (Maybe FilePath)
+    optExternalAnchorPath =
+        optional . option str
+            $ metavar "PATH"
+            <> help "Path to input anchor table (for external anchors)."
+            <> long "input-anchor"
+
     optTemplate :: Parser (Maybe FilePath)
     optTemplate =
         optional . option str
@@ -75,6 +107,20 @@ documentation numProcessors = Damldoc
             <> help "Path to mustache template. The variables 'title' and 'body' in the template are substituted with the doc title and body respectively. (Exception: for hoogle and json output, the template file is a prefix to the body, no replacement occurs.)" -- TODO: make template behavior uniform accross formats
             <> long "template"
             <> short 't'
+
+    optIndexTemplate :: Parser (Maybe FilePath)
+    optIndexTemplate =
+        optional . option str
+            $ metavar "FILE"
+            <> help "Path to mustache template for index, when rendering to a folder. The variable 'body' in the template is substituted with a module index."
+            <> long "index-template"
+
+    optHoogleTemplate :: Parser (Maybe FilePath)
+    optHoogleTemplate =
+        optional . option str
+            $ metavar "FILE"
+            <> help "Path to mustache template for hoogle database."
+            <> long "hoogle-template"
 
     argMainFiles :: Parser [FilePath]
     argMainFiles = some $ argument str $ metavar "FILE..."
@@ -96,9 +142,8 @@ documentation numProcessors = Damldoc
                 "md" -> Right (OutputDocs Markdown)
                 "markdown" -> Right (OutputDocs Markdown)
                 "html" -> Right (OutputDocs Html)
-                "hoogle" -> Right OutputHoogle
                 "json" -> Right OutputJson
-                _ -> Left "Unknown output format. Expected rst, md, markdown, html, hoogle, or json."
+                _ -> Left "Unknown output format. Expected rst, md, markdown, html, or json."
 
     optOmitEmpty :: Parser Bool
     optOmitEmpty = switch
@@ -192,6 +237,8 @@ data CmdArgs = Damldoc
     , cOutputPath :: FilePath
     , cOutputFormat :: OutputFormat
     , cTemplate :: Maybe FilePath
+    , cIndexTemplate :: Maybe FilePath
+    , cHoogleTemplate :: Maybe FilePath
     , cOmitEmpty :: Bool
     , cDataOnly  :: Bool
     , cNoAnnot   :: Bool
@@ -201,24 +248,38 @@ data CmdArgs = Damldoc
     , cDropOrphanInstances :: Bool
     , cCombine :: Bool
     , cExtractOptions :: ExtractOptions
+    , cBaseURL :: Maybe T.Text
+    , cHooglePath :: Maybe FilePath
+    , cAnchorPath :: Maybe FilePath
+    , cExternalAnchorPath :: Maybe FilePath
     , cMainFiles :: [FilePath]
     } deriving (Show)
 
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
     runDamlDoc DamldocOptions
-        { do_ideOptions = toCompileOpts cOptions { optHaddock=Haddock True}
-            (IdeReportProgress False)
+        { do_compileOptions = cOptions
+            { optHaddock = Haddock True
+            , optScenarioService = EnableScenarioService False
+            , optEnableOfInterestRule = False
+            -- No need to generate core in the background, so we disable it.
+            }
         , do_diagsLogger = diagnosticsLogger
         , do_outputPath = cOutputPath
         , do_outputFormat = cOutputFormat
         , do_inputFormat = cInputFormat
-        , do_inputFiles = map toNormalizedFilePath cMainFiles
+        , do_inputFiles = map toNormalizedFilePath' cMainFiles
         , do_docTemplate = cTemplate
+        , do_docIndexTemplate = cIndexTemplate
+        , do_docHoogleTemplate = cHoogleTemplate
         , do_transformOptions = transformOptions
         , do_docTitle = T.pack . unitIdString <$> optUnitId cOptions
         , do_combine = cCombine
         , do_extractOptions = cExtractOptions
+        , do_baseURL = cBaseURL
+        , do_hooglePath = cHooglePath
+        , do_anchorPath = cAnchorPath
+        , do_externalAnchorPath = cExternalAnchorPath
         }
 
   where

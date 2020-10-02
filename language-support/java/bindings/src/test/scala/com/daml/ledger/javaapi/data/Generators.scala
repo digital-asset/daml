@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data
 
 import java.time.{Instant, LocalDate}
 
-import com.digitalasset.ledger.api.v1._
+import com.daml.ledger.api.v1._
 import com.google.protobuf.Empty
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -53,7 +53,7 @@ object Generators {
   def recordValueGen: Gen[ValueOuterClass.Value] = recordGen.map(valueFromRecord)
 
   def valueFromRecord(
-      record: ValueOuterClass.Record): com.digitalasset.ledger.api.v1.ValueOuterClass.Value = {
+      record: ValueOuterClass.Record): com.daml.ledger.api.v1.ValueOuterClass.Value = {
     ValueOuterClass.Value.newBuilder().setRecord(record).build()
   }
 
@@ -144,7 +144,6 @@ object Generators {
               if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
             newHeight = height / size
             keys <- Gen.listOfN(size, Arbitrary.arbString.arbitrary)
-            if keys.distinct == keys
             values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
           } yield
             (keys zip values).map {

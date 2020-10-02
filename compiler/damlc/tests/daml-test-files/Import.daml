@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ ERROR range=13:5-13:10; Couldn't match expected type ‘Good.T’
+-- @ ERROR range=13:4-13:9; Couldn't match expected type ‘Good.T’
 
 module Import where
 

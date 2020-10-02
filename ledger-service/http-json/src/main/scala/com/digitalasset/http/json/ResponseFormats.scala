@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
 
 import akka.NotUsed
 import akka.http.scaladsl.model._
 import akka.stream.scaladsl.{Concat, Source, _}
 import akka.stream.{FanOutShape2, SourceShape, UniformFanInShape}
 import akka.util.ByteString
-import com.digitalasset.http.ContractsFetch
+import com.daml.http.ContractsFetch
 import scalaz.syntax.show._
 import scalaz.{Show, \/}
 import spray.json.DefaultJsonProtocol._

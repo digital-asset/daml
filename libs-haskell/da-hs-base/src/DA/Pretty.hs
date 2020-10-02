@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -70,8 +70,8 @@ import           System.Console.ANSI
 
 -- | Classes of syntax elements, which are used for highlighting.
 data SyntaxClass
-    = -- ^ Annotation to use as a no-op for highlighting.
-      OperatorSC
+    = OperatorSC
+      -- ^ Annotation to use as a no-op for highlighting.
     | KeywordSC
     | PredicateSC
     | ConstructorSC

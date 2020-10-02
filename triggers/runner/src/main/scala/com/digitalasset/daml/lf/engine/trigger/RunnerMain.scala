@@ -1,41 +1,41 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
+
+import java.io.File
 
 import akka.actor.ActorSystem
 import akka.stream._
-import java.io.File
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.Duration
-import scalaz.syntax.traverse._
-
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.auth.TokenHolder
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.AkkaExecutionSequencerPool
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.auth.TokenHolder
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.language.Ast._
+import scalaz.syntax.traverse._
+
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object RunnerMain {
 
   def listTriggers(darPath: File, dar: Dar[(PackageId, Package)]) = {
-    val triggerIds = TriggerIds.fromDar(dar)
     println(s"Listing triggers in $darPath:")
     for ((modName, mod) <- dar.main._2.modules) {
       for ((defName, defVal) <- mod.definitions) {
         defVal match {
           case DValue(TApp(TTyCon(tcon), _), _, _, _) => {
-            if (tcon == triggerIds.getHighlevelId("Trigger")
-              || tcon == triggerIds.getId("Trigger")) {
+            val triggerIds = TriggerIds(tcon.packageId)
+            if (tcon == triggerIds.damlTrigger("Trigger")
+              || tcon == triggerIds.damlTriggerLowLevel("Trigger")) {
               println(s"  $modName:$defName")
             }
           }
@@ -75,25 +75,29 @@ object RunnerMain {
         // any time it would in principle also be fine to just have the auth failure due
         // to an expired token tear the trigger down and have some external monitoring process (e.g. systemd)
         // restart it.
-        val applicationId = ApplicationId("Trigger Runner")
         val clientConfig = LedgerClientConfiguration(
-          applicationId = ApplicationId.unwrap(applicationId),
-          ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-          commandClient = CommandClientConfiguration.default.copy(ttl = config.commandTtl),
-          sslContext = None,
-          token = tokenHolder.flatMap(_.token)
+          applicationId = ApplicationId.unwrap(config.applicationId),
+          ledgerIdRequirement = LedgerIdRequirement.none,
+          commandClient =
+            CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),
+          sslContext = config.tlsConfig.client,
+          token = tokenHolder.flatMap(_.token),
+          maxInboundMessageSize = config.maxInboundMessageSize,
         )
 
         val flow: Future[Unit] = for {
-          client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)(
-            ec,
-            sequencer)
+          client <- LedgerClient.singleHost(
+            config.ledgerHost,
+            config.ledgerPort,
+            clientConfig,
+          )(ec, sequencer)
+
           _ <- Runner.run(
             dar,
             triggerId,
             client,
-            config.timeProviderType,
-            applicationId,
+            config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType),
+            config.applicationId,
             config.ledgerParty)
         } yield ()
 

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.api.util
+package com.daml.api.util
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.v1.value.Value.{Sum => VSum}
+import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
 import TimestampConversion._
 
 import org.scalacheck.Gen
@@ -14,7 +14,6 @@ import Prop.exists
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
 import org.scalatest.{Matchers, WordSpec}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TimestampConversionSpec
     extends WordSpec
     with Matchers

@@ -1,5 +1,6 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Daml.Trigger.Internal
@@ -7,6 +8,7 @@ module Daml.Trigger.Internal
   , TriggerA (..)
   , addCommands
   , insertTpl
+  , groupActiveContracts
   , deleteTpl
   , lookupTpl
   , applyEvent
@@ -20,6 +22,10 @@ module Daml.Trigger.Internal
 import DA.Action.State
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+import qualified DA.Map as GMap
+import DA.Optional (fromOptional)
+#endif
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 
@@ -30,7 +36,13 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 
 -- This will change to a Map once we have proper maps in DAML-LF
 data ACS = ACS
-  { activeContracts : [(AnyContractId, AnyTemplate)]
+  { activeContracts :
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+      GMap.Map TemplateTypeRep
+        (GMap.Map AnyContractId AnyTemplate)
+#else
+      [(AnyContractId, AnyTemplate)]
+#endif
   , pendingContracts : Map CommandId [AnyContractId]
   }
 
@@ -46,14 +58,41 @@ addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
 addCommands m (Commands cid cmds) = Map.insert cid cmds m
 
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+insertTpl cid tpl acs = acs { activeContracts = GMap.alter addct cid.templateId acs.activeContracts }
+  where addct = Some . GMap.insert cid tpl . fromOptional mempty
+#else
 insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
+#endif
+
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+groupActiveContracts :
+  [(AnyContractId, AnyTemplate)] -> GMap.Map TemplateTypeRep (GMap.Map AnyContractId AnyTemplate)
+groupActiveContracts = foldr (\v@(cid, _) -> GMap.alter (addct v) cid.templateId) GMap.empty
+  where addct (cid, tpl) = Some . GMap.insert cid tpl . fromOptional mempty
+#else
+groupActiveContracts : forall a. a -> a
+groupActiveContracts a = a
+#endif
 
 deleteTpl : AnyContractId -> ACS -> ACS
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+deleteTpl cid acs = acs { activeContracts = GMap.alter rmct cid.templateId acs.activeContracts }
+  where rmct om = do
+          m <- om
+          let m' = GMap.delete cid m
+          if GMap.null m' then None else Some m'
+#else
 deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') acs.activeContracts }
+#endif
 
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid acs = do
-  (_, tpl) <- find ((cid ==) . fst) $ acs.activeContracts
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+  tpl <- GMap.lookup cid =<< GMap.lookup cid.templateId acs.activeContracts
+#else
+  (_, tpl) <- find ((cid ==) . fst) acs.activeContracts
+#endif
   fromAnyTemplate tpl
 
 applyEvent : Event -> ACS -> ACS

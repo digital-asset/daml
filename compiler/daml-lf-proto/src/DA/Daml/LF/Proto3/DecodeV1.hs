@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
@@ -22,7 +22,7 @@ import Data.Int
 import Text.Read
 import           Data.List
 import           DA.Daml.LF.Mangling
-import qualified Com.Digitalasset.DamlLfDev.DamlLf1 as LF1
+import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -326,6 +326,12 @@ decodeChoice LF1.TemplateChoice{..} =
 
 decodeBuiltinFunction :: LF1.BuiltinFunction -> Decode BuiltinExpr
 decodeBuiltinFunction = pure . \case
+  LF1.BuiltinFunctionEQUAL -> BEEqualGeneric
+  LF1.BuiltinFunctionLESS -> BELessGeneric
+  LF1.BuiltinFunctionLESS_EQ -> BELessEqGeneric
+  LF1.BuiltinFunctionGREATER -> BEGreaterGeneric
+  LF1.BuiltinFunctionGREATER_EQ -> BEGreaterEqGeneric
+
   LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
   LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
   LF1.BuiltinFunctionEQUAL_NUMERIC -> BEEqualNumeric
@@ -335,7 +341,6 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
   LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
   LF1.BuiltinFunctionEQUAL_TYPE_REP -> BEEqual BTTypeRep
-  LF1.BuiltinFunctionEQUAL -> BEEqualGeneric
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
   LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal
@@ -376,6 +381,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTO_TEXT_TIMESTAMP -> BEToText BTTimestamp
   LF1.BuiltinFunctionTO_TEXT_PARTY -> BEToText BTParty
   LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
+  LF1.BuiltinFunctionTO_TEXT_CONTRACT_ID -> BEToTextContractId
   LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
   LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
   LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText

@@ -1,21 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.configuration
+package com.daml.ledger.client.services.configuration
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   LedgerConfiguration
 }
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.{
+import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.{
   LedgerConfigurationServiceStub
 }
-import com.digitalasset.ledger.client.LedgerClient
+import com.daml.ledger.client.LedgerClient
 import scalaz.syntax.tag._
 
 final class LedgerConfigurationClient(

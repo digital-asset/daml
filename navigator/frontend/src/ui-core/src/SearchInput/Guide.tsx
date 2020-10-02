@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -16,7 +16,7 @@ debounce delay before the \`onChange\` callback is called.
 
 export default class SearchInputGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = { value: 'Mockingbird' };
   }
   render() {

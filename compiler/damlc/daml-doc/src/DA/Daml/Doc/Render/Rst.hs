@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DerivingStrategies #-}
@@ -24,14 +24,35 @@ import CMarkGFM
 renderRst :: RenderEnv -> RenderOut -> [T.Text]
 renderRst env = \case
     RenderSpaced chunks -> spaced (map (renderRst env) chunks)
-    RenderModuleHeader title -> header "-" title
-    RenderSectionHeader title -> header "^" title
+    RenderModuleHeader title -> header (pick "=" "-") title
+    RenderSectionHeader title -> header (pick "-" "^") title
     RenderBlock block -> indent (renderRst env block)
     RenderList items -> spaced (map (bullet . renderRst env) items)
     RenderRecordFields fields -> renderRstFields env fields
     RenderParagraph text -> [renderRstText env text]
     RenderDocs docText -> docTextToRst docText
     RenderAnchor anchor -> [".. _" <> unAnchor anchor <> ":"]
+    RenderIndex moduleNames ->
+        [ ".. toctree::"
+        , "   :maxdepth: 3"
+        , "   :titlesonly:"
+        , "   "
+        ] ++
+        [ T.concat
+            [ "   "
+            , unModulename moduleName
+            , " <"
+            , T.pack (moduleNameToFileName moduleName)
+            , ">"
+            ]
+        | moduleName <- moduleNames
+        ]
+  where
+    pick :: t -> t -> t
+    pick a b =
+        if re_separateModules env
+            then a
+            else b
 
 renderRstText :: RenderEnv -> RenderText -> T.Text
 renderRstText env = \case
@@ -46,11 +67,18 @@ renderRstText env = \case
                     [ "`", escapeLinkText text
                     , " <", anchorHyperlink anchorLoc (referenceAnchor ref)
                     , ">`_"]
-            Just _ ->
+            Just SameFile ->
                 T.concat
                     [ "`", escapeLinkText text
                     , " <", unAnchor (referenceAnchor ref)
                     , "_>`_" ]
+            Just (SameFolder _) ->
+                T.concat
+                    [ ":ref:`", escapeLinkText text
+                    , " <", unAnchor (referenceAnchor ref)
+                    , ">`" ]
+                    -- We use :ref: to get automatic cross-referencing
+                    -- across all pages. This is a Sphinx extension.
     RenderDocsInline docText ->
         T.unwords (docTextToRst docText)
 

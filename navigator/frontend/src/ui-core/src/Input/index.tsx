@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -10,8 +10,8 @@ export interface StyledProps {
 }
 
 export const StyledTextInput
-  : React.ComponentClass<React.HTMLProps<HTMLInputElement> & StyledProps>
-  = styled.input`
+  : React.FC<React.HTMLProps<HTMLInputElement> & StyledProps>
+  = styled.input<StyledProps>`
   width: 100%;
   display: block;
   outline: none;

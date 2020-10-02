@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Abstraction for LedgerService, which can be composed monadically.
@@ -13,6 +13,7 @@ import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader,local,asks)
 import Control.Monad.Trans.Reader (ReaderT(..))
 import DA.Ledger.Retry (ledgerRetry)
+import Data.List
 import Network.GRPC.HighLevel.Client(TimeoutSeconds)
 import Network.GRPC.HighLevel.Generated(ClientConfig,MetadataMap(..))
 import UnliftIO(MonadUnliftIO)
@@ -39,6 +40,7 @@ runLedgerService (LedgerService r) ts cc =
 setToken :: Token -> LedgerService a -> LedgerService a
 setToken tok = local $ \context -> context { tokMaybe = Just tok }
 
+
 makeLedgerService :: (TimeoutSeconds -> ClientConfig -> MetadataMap -> IO a) -> LedgerService a
 makeLedgerService f = do
   LedgerService $ ReaderT $ \Context{ts,cc,tokMaybe} ->
@@ -47,9 +49,16 @@ makeLedgerService f = do
 makeMdm :: Maybe Token -> MetadataMap
 makeMdm = \case
   Nothing -> MetadataMap Map.empty
-  Just (Token tok) -> MetadataMap $ Map.fromList [
-    ("authorization",
-     SortedList.toSortedList [ BSU8.fromString tok ])]
+  Just (Token tok) ->
+      -- This matches how the com.daml.ledger.api.auth.client.LedgerCallCredentials
+      -- behaves.
+      let tok' | "Bearer " `isPrefixOf` tok = tok
+               | otherwise = "Bearer " <> tok
+      in MetadataMap $ Map.fromList
+             [ ( "authorization"
+               , SortedList.toSortedList [ BSU8.fromString tok' ]
+               )
+             ]
 
 askTimeout :: LedgerService TimeoutSeconds
 askTimeout = asks ts

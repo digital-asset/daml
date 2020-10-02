@@ -1,50 +1,59 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlConfigurationEntry, _}
-import com.daml.ledger.participant.state.kvutils.committing.Common.getCurrentConfiguration
+import com.daml.ledger.participant.state.kvutils.Conversions.{
+  buildTimestamp,
+  configDedupKey,
+  configurationStateKey
+}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.lf.data.Time.Timestamp
+import com.daml.metrics.Metrics
 
 private[kvutils] object ConfigCommitter {
   case class Result(
       submission: DamlConfigurationSubmission,
-      currentConfig: (Option[DamlConfigurationEntry], Configuration))
+      currentConfig: (Option[DamlConfigurationEntry], Configuration),
+  )
 }
 
-private[kvutils] case class ConfigCommitter(
-    defaultConfig: Configuration
-) extends Committer[DamlConfigurationSubmission, ConfigCommitter.Result] {
+private[kvutils] class ConfigCommitter(
+    defaultConfig: Configuration,
+    maximumRecordTime: Timestamp,
+    override protected val metrics: Metrics
+) extends Committer[ConfigCommitter.Result] {
 
-  private object Metrics {
-    // kvutils.ConfigCommitter.*
-    val accepts = metricsRegistry.counter(metricsName("accepts"))
-    val rejections = metricsRegistry.counter(metricsName("rejections"))
-  }
+  override protected val committerName = "config"
 
   private def rejectionTraceLog(msg: String, submission: DamlConfigurationSubmission): Unit =
     logger.trace(s"Configuration rejected, $msg, correlationId=${submission.getSubmissionId}")
 
-  private val checkTtl: Step = (ctx, result) => {
+  private[committer] val checkTtl: Step = (ctx, result) => {
     // Check the maximum record time against the record time of the commit.
     // This mechanism allows the submitter to detect lost submissions and retry
     // with a submitter controlled rate.
-    if (ctx.getRecordTime > ctx.getMaximumRecordTime) {
+    if (ctx.getRecordTime.exists(_ > maximumRecordTime)) {
       rejectionTraceLog(
-        s"submission timed out (${ctx.getRecordTime} > ${ctx.getMaximumRecordTime})",
+        s"submission timed out (${ctx.getRecordTime} > $maximumRecordTime)",
         result.submission)
-      StepStop(
-        buildRejectionLogEntry(
-          ctx,
-          result.submission,
-          _.setTimedOut(
-            TimedOut.newBuilder
-              .setMaximumRecordTime(buildTimestamp(ctx.getMaximumRecordTime))
-          )
-        ))
+      reject(
+        ctx.getRecordTime,
+        result.submission,
+        _.setTimedOut(
+          TimedOut.newBuilder
+            .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
+        )
+      )
     } else {
+      if (ctx.preExecute) {
+        // Propagate the time bounds and defer the checks to post-execution.
+        ctx.maximumRecordTime = Some(maximumRecordTime.toInstant)
+        setOutOfTimeBoundsLogEntry(result.submission, ctx)
+      }
       StepContinue(result)
     }
   }
@@ -65,25 +74,25 @@ private[kvutils] case class ConfigCommitter(
       val msg =
         s"participant id ${result.submission.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
       rejectionTraceLog(msg, result.submission)
-      StepStop(
-        buildRejectionLogEntry(
-          ctx,
-          result.submission,
-          _.setParticipantNotAuthorized(
-            ParticipantNotAuthorized.newBuilder
-              .setDetails(msg)
-          )))
+      reject(
+        ctx.getRecordTime,
+        result.submission,
+        _.setParticipantNotAuthorized(
+          ParticipantNotAuthorized.newBuilder
+            .setDetails(msg)
+        )
+      )
     } else if (!wellFormed) {
       val msg = s"${ctx.getParticipantId} is not authorized to change configuration."
       rejectionTraceLog(msg, result.submission)
-      StepStop(
-        buildRejectionLogEntry(
-          ctx,
-          result.submission,
-          _.setParticipantNotAuthorized(
-            ParticipantNotAuthorized.newBuilder
-              .setDetails(msg)
-          )))
+      reject(
+        ctx.getRecordTime,
+        result.submission,
+        _.setParticipantNotAuthorized(
+          ParticipantNotAuthorized.newBuilder
+            .setDetails(msg)
+        )
+      )
     } else {
       StepContinue(result)
     }
@@ -94,21 +103,21 @@ private[kvutils] case class ConfigCommitter(
       .decode(result.submission.getConfiguration)
       .fold(
         err =>
-          StepStop(
-            buildRejectionLogEntry(
-              ctx,
-              result.submission,
-              _.setInvalidConfiguration(Invalid.newBuilder
-                .setDetails(err)))),
+          reject(
+            ctx.getRecordTime,
+            result.submission,
+            _.setInvalidConfiguration(
+              Invalid.newBuilder
+                .setDetails(err))
+        ),
         config =>
           if (config.generation != (1 + result.currentConfig._2.generation))
-            StepStop(
-              buildRejectionLogEntry(
-                ctx,
-                result.submission,
-                _.setGenerationMismatch(GenerationMismatch.newBuilder
+            reject(
+              ctx.getRecordTime,
+              result.submission,
+              _.setGenerationMismatch(
+                GenerationMismatch.newBuilder
                   .setExpectedGeneration(1 + result.currentConfig._2.generation))
-              )
             )
           else
             StepContinue(result)
@@ -122,19 +131,16 @@ private[kvutils] case class ConfigCommitter(
     } else {
       val msg = s"duplicate submission='${result.submission.getSubmissionId}'"
       rejectionTraceLog(msg, result.submission)
-      StepStop(
-        buildRejectionLogEntry(
-          ctx,
-          result.submission,
-          _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
-        )
+      reject(
+        ctx.getRecordTime,
+        result.submission,
+        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
       )
     }
   }
 
-  private def buildLogEntry: Step = (ctx, result) => {
-
-    Metrics.accepts.inc()
+  private[committer] def buildLogEntry: Step = (ctx, result) => {
+    metrics.daml.kvutils.committer.config.accepts.inc()
     logger.trace(
       s"Configuration accepted, generation=${result.submission.getConfiguration.getGeneration} correlationId=${result.submission.getSubmissionId}")
 
@@ -143,7 +149,6 @@ private[kvutils] case class ConfigCommitter(
       .setParticipantId(result.submission.getParticipantId)
       .setConfiguration(result.submission.getConfiguration)
       .build
-
     ctx.set(
       configurationStateKey,
       DamlStateValue.newBuilder
@@ -154,30 +159,40 @@ private[kvutils] case class ConfigCommitter(
     ctx.set(
       configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId),
       DamlStateValue.newBuilder
-        .setSubmissionDedup(
-          DamlSubmissionDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(ctx.getRecordTime))
-            .build)
+        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build
     )
 
-    StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(ctx.getRecordTime))
-        .setConfigurationEntry(configurationEntry)
-        .build
-    )
+    val successLogEntry = buildLogEntryWithOptionalRecordTime(
+      ctx.getRecordTime,
+      _.setConfigurationEntry(configurationEntry))
+    StepStop(successLogEntry)
+  }
+
+  private def reject[PartialResult](
+      recordTime: Option[Timestamp],
+      submission: DamlConfigurationSubmission,
+      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
+  ): StepResult[PartialResult] = {
+    metrics.daml.kvutils.committer.config.rejections.inc()
+    StepStop(buildRejectionLogEntry(recordTime, submission, addErrorDetails))
+  }
+
+  private def setOutOfTimeBoundsLogEntry(
+      submission: DamlConfigurationSubmission,
+      commitContext: CommitContext): Unit = {
+    commitContext.outOfTimeBoundsLogEntry = Some(
+      buildRejectionLogEntry(recordTime = None, submission, identity))
   }
 
   private def buildRejectionLogEntry(
-      ctx: CommitContext,
+      recordTime: Option[Timestamp],
       submission: DamlConfigurationSubmission,
-      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
-    : DamlLogEntry = {
-    Metrics.rejections.inc()
-    DamlLogEntry.newBuilder
-      .setRecordTime(buildTimestamp(ctx.getRecordTime))
-      .setConfigurationRejectionEntry(
+      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder
+  ): DamlLogEntry = {
+    buildLogEntryWithOptionalRecordTime(
+      recordTime,
+      _.setConfigurationRejectionEntry(
         addErrorDetails(
           DamlConfigurationRejectionEntry.newBuilder
             .setSubmissionId(submission.getSubmissionId)
@@ -185,25 +200,24 @@ private[kvutils] case class ConfigCommitter(
             .setConfiguration(submission.getConfiguration)
         )
       )
-      .build
+    )
   }
 
-  override def init(
+  override protected def init(
       ctx: CommitContext,
-      configurationSubmission: DamlConfigurationSubmission): ConfigCommitter.Result =
+      submission: DamlSubmission,
+  ): ConfigCommitter.Result =
     ConfigCommitter.Result(
-      configurationSubmission,
+      submission.getConfigurationSubmission,
       getCurrentConfiguration(defaultConfig, ctx.inputs, logger)
     )
 
-  override val steps: Iterable[(StepInfo, Step)] = Iterable(
+  override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "check_ttl" -> checkTtl,
     "authorize_submission" -> authorizeSubmission,
     "validate_submission" -> validateSubmission,
     "deduplicate_submission" -> deduplicateSubmission,
     "build_log_entry" -> buildLogEntry
   )
-
-  override lazy val committerName = "config"
 
 }

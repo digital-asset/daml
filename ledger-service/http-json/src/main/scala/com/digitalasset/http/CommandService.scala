@@ -1,14 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import java.time.Instant
-
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.http.ErrorMessages.cannotResolveTemplateId
-import com.digitalasset.http.domain.{
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.http.ErrorMessages.cannotResolveTemplateId
+import com.daml.http.domain.{
   ActiveContract,
   Contract,
   CreateAndExerciseCommand,
@@ -17,13 +14,13 @@ import com.digitalasset.http.domain.{
   ExerciseResponse,
   JwtPayload
 }
-import com.digitalasset.http.util.ClientUtil.uniqueCommandId
-import com.digitalasset.http.util.FutureUtil._
-import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
-import com.digitalasset.http.util.{Commands, Transactions}
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.http.util.ClientUtil.uniqueCommandId
+import com.daml.http.util.FutureUtil._
+import com.daml.http.util.IdentifierConverters.refApiIdentifier
+import com.daml.http.util.{Commands, Transactions}
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
@@ -31,7 +28,6 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -39,13 +35,11 @@ class CommandService(
     resolveTemplateId: PackageService.ResolveTemplateId,
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
-    timeProvider: TimeProvider,
-    defaultTimeToLive: FiniteDuration)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
   import CommandService._
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def create(jwt: Jwt, jwtPayload: JwtPayload, input: CreateCommand[lav1.value.Record])
     : Future[Error \/ ActiveContract[lav1.value.Value]] = {
 
@@ -59,7 +53,6 @@ class CommandService(
     et.run
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -143,19 +136,12 @@ class CommandService(
       meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command): lav1.command_service.SubmitAndWaitRequest = {
 
-    val ledgerEffectiveTime: Instant =
-      meta.flatMap(_.ledgerEffectiveTime).getOrElse(timeProvider.getCurrentTime)
-    val maximumRecordTime: Instant = meta
-      .flatMap(_.maximumRecordTime)
-      .getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
     Commands.submitAndWaitRequest(
       jwtPayload.ledgerId,
       jwtPayload.applicationId,
       commandId,
-      ledgerEffectiveTime,
-      maximumRecordTime,
       jwtPayload.party,
       command
     )
@@ -177,7 +163,6 @@ class CommandService(
         Error('activeContracts, s"Received response without transaction: $response"))
       .flatMap(activeContracts)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(
       tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
     Transactions
@@ -192,7 +177,6 @@ class CommandService(
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
       .flatMap(contracts)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(
       tx: lav1.transaction.TransactionTree): Error \/ List[Contract[lav1.value.Value]] =
     Contract.fromTransactionTree(tx).leftMap(e => Error('contracts, e.shows)).map(_.toList)

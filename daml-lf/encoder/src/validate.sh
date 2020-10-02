@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -eu
@@ -28,5 +28,6 @@ fi
 
 DAML_LF_REPL=$(rlocation "$TEST_WORKSPACE/$1")
 FILE=$(rlocation "$TEST_WORKSPACE/$2")
+shift 2
 
-$DAML_LF_REPL validate "$FILE"
+$DAML_LF_REPL $* validate "$FILE"

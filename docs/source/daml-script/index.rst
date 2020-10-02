@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Script
@@ -7,21 +7,22 @@ DAML Script
 .. toctree::
    :hidden:
 
-   daml-script-docs
+   api/index
 
-DAML scenarios provide a simple API for experimenting with DAML models
+DAML scenarios provide a simple way for testing DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
 in a special process and do not interact with an actual ledger. This
 means that you cannot use scenarios to test other ledger clients,
 e.g., your UI or :doc:`DAML triggers </triggers/index>`.
 
-DAML script addresses this problem by providing you with an API with
+DAML Script addresses this problem by providing you with an API with
 the simplicity of DAML scenarios and all the benefits such as being
-able to reuse your DAML types and logic while running against an
-actual ledger. This means that you can use it to test automation
-logic, your UI but also for
-:ref:`ledger initialization <script-ledger-initialization>` where scenarios
-cannot be used (with the exception of :doc:`/tools/sandbox`).
+able to reuse your DAML types and logic while running against an actual
+ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-script-results>`.
+This means that you can use it to test automation logic, your
+UI but also for :ref:`ledger initialization
+<script-ledger-initialization>` where scenarios cannot be used (with
+the exception of :doc:`/tools/sandbox`).
 
 You can also use DAML Script interactively using :doc:`/daml-repl/index`.
 
@@ -52,7 +53,7 @@ single ``Accept`` choice which, when exercised by the controller will
 create the corresponding ``Coin``.
 
 Having defined the templates, we can now move on to write DAML scripts
-that operate on these templates. To get accees to the API used to implement DAML scripts, you need to add the ``daml-script``
+that operate on these templates. To get access to the API used to implement DAML scripts, you need to add the ``daml-script``
 library to the ``dependencies`` field in ``daml.yaml``.
 
 .. literalinclude:: ./template-root/daml.yaml.template
@@ -98,7 +99,9 @@ scenarios. However, ``Commands`` requires that the individual commands
 do not depend on each other. This matches the restriction on the
 Ledger API where a transaction consists of a list of commands.  Using
 ``ApplicativeDo`` we can still use ``do``-notation as long as we
-respect this. In ``Commands`` we use ``createCmd`` instead of
+respect this and the last statement in the ``do``-block is of the form
+``return expr`` or ``pure expr``.
+In ``Commands`` we use ``createCmd`` instead of
 ``create`` and ``exerciseCmd`` instead of ``exercise``.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
@@ -106,7 +109,7 @@ respect this. In ``Commands`` we use ``createCmd`` instead of
    :start-after: -- INITIALIZE_PROPOSAL_BEGIN
    :end-before: -- INITIALIZE_PROPOSAL_END
 
-Now that we have created the ``CoinProposal``s, we want ``Alice`` and
+Now that we have created the ``CoinProposal``\ s, we want ``Alice`` and
 ``Bob`` to accept the proposal while the ``Bank`` will ignore the
 proposal that it has created for itself. To do so we use separate
 ``submit`` statements for ``Alice`` and ``Bob`` and call
@@ -176,7 +179,7 @@ To run our script, we first build it with ``daml build`` and then run
 it by pointing to the DAR, the name of our script, the host and
 port our ledger is running on and the time mode of the ledger.
 
-``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:test --ledger-host localhost --ledger-port 6865 --static-time``
+``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:test --ledger-host localhost --ledger-port 6865``
 
 Up to now, we have worked with parties that we have allocated in the
 test. We can also pass in the path to a file containing
@@ -187,9 +190,14 @@ the input in the :doc:`/json-api/lf-value-specification`.
 
 We can then initialize our ledger passing in the json file via ``--input-file``.
 
-``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json --static-time``
+``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json``
 
 If you open Navigator, you can now see the contracts that have been created.
+
+While we will not use it here, there is also an ``--output-file``
+option that you can use to write the result of a script to a file
+using the DAML-LF JSON encoding. This is particularly useful if you need to consume
+the result from another program.
 
 .. _script-ledger-initialization:
 
@@ -200,10 +208,10 @@ You can use DAML script to initialize a ledger on startup. To do so,
 specify an ``init-script: ScriptExample:initializeFixed`` field in
 your ``daml.yaml``. This will automatically be picked up by ``daml
 start`` and used to initialize sandbox. Since it is often useful to
-create a party with a specific party id during development, you can
+create a party with a specific party identifier during development, you can
 use the ``allocatePartyWithHint`` function which accepts not only the
-display name but also a hint for the party id. On Sandbox, the hint
-will be used directly as the party id of the newly allocated
+display name but also a hint for the party identifier. On Sandbox, the hint
+will be used directly as the party identifier of the newly allocated
 party. This allows us to implement ``initializeFixed`` as a small
 wrapper around the ``initialize`` function we defined above:
 
@@ -227,14 +235,46 @@ translated to DAML script but there are a few things to keep in mind:
 #. Instead of specifying a ``scenario`` field in your ``daml.yaml``,
    you need to specify an ``init-script`` field. The initialization
    script is specified via ``Module:identifier`` for both fields.
-#. DAML script only supports the commands available on the ledger API
-   so you cannot call functions like ``fetch`` directly. This is
-   intentional. Your initialization scripts should not be able to
-   create transactions that a ledger client would not be able to
-   create. If you need, you can create a choice and call that via
-   ``createAndExercise``.
-#. You need to replace calls to ``getParty x`` by
-   ``allocatePartyWithHint x (PartyIdHint x)``.
+#. In DAML script, ``submit`` and ``submitMustFail`` are limited to
+   the functionality provided by the ledger API: A list of independent
+   commands consisting of ``createCmd``, ``exerciseCmd``,
+   ``createAndExerciseCmd`` and ``exerciseByKeyCmd``. There are two
+   issues you might run into when migrating an existing scenario:
+
+   #. Your commands depend on each other, e.g., you use the result of
+      a ``create`` within a following command in the same
+      ``submit``. In this case, you have two options: If it is not
+      important that they are part of a single transaction, split
+      them into multiple calls to ``submit``. If you do need them to
+      be within the same transaction, you can move the logic to a
+      choice and call that using ``createAndExerciseCmd``.
+
+   #. You use something that is not part of the 4 ledger API command
+      types, e.g., ``fetch``. For ``fetch`` and ``fetchByKey``, you
+      can instead use ``queryContractId`` and ``queryContractKey``
+      with the caveat that they do not run within the same
+      transaction. Other types of ``Update`` statements can be moved
+      to a choice that you call via ``createAndExerciseCmd``.
+#. Instead of Scenario’s ``getParty``, DAML Script provides you with
+   ``allocateParty`` and ``allocatePartyWithHint``. There are a few
+   important differences:
+
+   #. Allocating a party always gives you back a new party (or
+      fails). If you have multiple calls to ``getParty`` with the same
+      string and expect to get back the same party, you should instead
+      allocate the party once at the beginning and pass it along to
+      the rest of the code.
+
+   #. If you want to allocate a party with a specific party id, you
+      can use ``allocatePartyWithHint x (PartyIdHint x)`` as a replacement for `getParty x`. Note that
+      while this is supported in DAML Studio and DAML for PostgreSQL, other
+      ledgers can behave differently and ignore the party id hint or
+      interpret it another way. Try to not rely on any specific
+      party id.
+#. Instead of ``pass`` and ``passToDate``, DAML Script provides
+   ``passTime`` and ``setTime``.
+
+.. _daml-script-distributed:
 
 Using DAML Script in Distributed Topologies
 ===========================================
@@ -259,3 +299,62 @@ using a party with an unspecified participant is an error.
 want to allocate a party on a specific participant, you can use
 ``allocatePartyOn`` which accepts the participant name as an extra
 argument.
+
+.. _daml-script-auth:
+
+Running DAML Script against Ledgers with Authorization
+======================================================
+
+To run DAML Script against a ledger that verifies authorization,
+you need to specify an access token. There are two ways of doing that:
+
+1. Specify a single access token via ``--access-token-file
+   path/to/jwt``. This token will then be used for all requests so it
+   must provide claims for all parties that you use in your script.
+2. If you need multiple tokens, e.g., because you only have
+   single-party tokens you can use the ``access_token`` field in the
+   participant config specified via ``--participant-config``. The
+   section on :ref:`using DAML Script in distributed topologies
+   <daml-script-distributed>` contains an example. Note that you can
+   specify the same participant twice if you want different auth
+   tokens.
+
+If you specify both ``--access-token-file`` and
+``--participant-config``, the participant config takes precedence and
+the token from the file will be used for any participant that does not
+have a token specified in the config.
+
+.. _daml-script-json-api:
+
+Running DAML Script against the HTTP JSON API
+=============================================
+
+In some cases, you only have access to the :doc:`HTTP JSON API
+</json-api/index>` but not to the gRPC of a ledger, e.g., on
+`project:DABL <https://projectdabl.com>`_. For this usecase, DAML
+script can be run against the JSON API. Note that if you do have
+access to the gRPC API, running DAML script against the JSON API does
+not have any advantages.
+
+To run DAML script against the JSON API you have to pass the ``--json-api`` parameter to ``daml script``. There are a few differences and limitations compared to running DAML Script against the gRPC API:
+
+#. When running against the JSON API, the ``--host`` argument has to
+   contain an ``http://`` or ``https://`` prefix, e.g., ``daml
+   script --host http://localhost --port 7575 --json-api``.
+#. The JSON API only supports single-command submissions. This means
+   that within a single call to ``submit`` you can only execute one
+   ledger API command, e.g., one ``createCmd`` or one ``exerciseCmd``.
+#. The JSON API requires authorization tokens even when it is run
+   against a ledger that doesn't verify authorization. The section on
+   :ref:`authorization <daml-script-auth>` describes how to specify
+   the tokens.
+#. The tokens must contain exactly one party in ``actAs`` and/or
+   ``readAs``. This party will be used for ``submit`` and
+   ``query``. Passing a party as the argument to ``submit`` and
+   ``query`` that is different from the party in the token is an
+   error.
+#. If you use multiple parties within your DAML Script, you need to
+   specify one token per party.
+#. ``getTime`` will always return the Unix epoch in static time mode
+   since the time service is not exposed via the JSON API.
+#. ``setTime`` is not supported and will throw a runtime error.

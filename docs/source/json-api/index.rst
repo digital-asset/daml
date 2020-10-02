@@ -1,151 +1,149 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
+.. _json-api:
 
 HTTP JSON API Service
 #####################
 
-**WARNING:** the HTTP JSON API described in this document is actively
-being designed and is *subject to breaking changes*, including all
-request and response elements demonstrated below or otherwise
-implemented by the API.  We welcome feedback about the API on `our issue
-tracker
-<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
-
-Please keep in mind that the presence of **/v1** prefix in the the URLs below does not mean that the endpoint interfaces are stabilized.
-
-The **JSON API** provides a significantly simpler way than :doc:`the Ledger
-API </app-dev/index>` to interact with a ledger by providing *basic active contract set functionality*:
+The **JSON API** provides a significantly simpler way to interact with a ledger than :doc:`the Ledger
+API </app-dev/ledger-api>` by providing *basic active contract set functionality*:
 
 - creating contracts,
 - exercising choices on contracts,
 - querying the current active contract set, and
 - retrieving all known parties.
 
-The goal of this API is to get you up and running distributed ledger applications quickly, so we have deliberately excluded
-complicating concerns, including but not limited to:
+The goal of this API is to get your distributed ledger application up and running quickly, so we have deliberately excluded
+complicating concerns including, but not limited to:
 
 - inspecting transactions,
 - asynchronous submit/completion workflows,
 - temporal queries (e.g. active contracts *as of a certain time*), and
-- ledger metaprogramming (e.g. retrieving packages and templates).
 
-For these and other features, use :doc:`the Ledger API </app-dev/index>`
+For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
+
+We welcome feedback about the JSON API on `our issue tracker
+<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
+`on our forum <https://discuss.daml.com>`_, or `on Slack
+<https://slack.daml.com>`_.
 
 .. toctree::
    :hidden:
+   :maxdepth: 3
 
    lf-value-specification
    search-query-language
 
-How to start
-************
+Running the JSON API
+********************
 
-Start sandbox
-=============
+Start a DAML Ledger
+===================
 
-From a DAML project directory:
+You can run the JSON API alongside any ledger exposing the gRPC Ledger API you want. If you don't have an existing ledger, you can start an in-memory sandbox:
 
 .. code-block:: shell
 
-    $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+    daml new my_project --template quickstart-java
+    cd my_project
+    daml build
+    daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
 .. _start-http-service:
 
-Start HTTP service
-==================
+Start the HTTP JSON API Service
+===============================
 
-From a DAML project directory:
+Basic
+-----
 
-.. code-block:: shell
-
-    $ daml json-api --ledger-host localhost --ledger-port 6865 \
-        --http-port 7575 --max-inbound-message-size 4194304 --package-reload-interval 5s \
-        --application-id HTTP-JSON-API-Gateway --static-content "prefix=static,directory=./static-content" \
-        --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
-
-.. code-block:: none
-
-    $ daml json-api --help
-    HTTP JSON API daemon
-    Usage: http-json-binary [options]
-
-      --help
-            Print this usage text
-      --ledger-host <value>
-            Ledger host name or IP address
-      --ledger-port <value>
-            Ledger port number
-      --address <value>
-            IP address that HTTP JSON API service listens on. Defaults to 0.0.0.0.
-      --http-port <value>
-            HTTP JSON API service port number
-      --application-id <value>
-            Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
-      --package-reload-interval <value>
-            Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
-      --default-ttl <value>
-            Optional Time to Live interval to set if not provided in the command. Examples: 30s, 1min, 1h. Defaults to 30 seconds
-      --max-inbound-message-size <value>
-            Optional max inbound message size in bytes. Defaults to 4194304
-      --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
-            Optional query store JDBC configuration string. Query store is a search index, use it if you need to query large active contract sets. Contains comma-separated key-value pairs. Where:
-            driver -- JDBC driver class name, only org.postgresql.Driver supported right now,
-            url -- JDBC connection URL, only jdbc:postgresql supported right now,
-            user -- database user name,
-            password -- database user password,
-            createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
-            Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
-      --static-content "prefix=<URL prefix>,directory=<directory>"
-            DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
-            prefix -- URL prefix,
-            directory -- local directory that will be mapped to the URL prefix.
-            Example: "prefix=static,directory=./static-content"
-      --access-token-file <value>
-            provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
-      --websocket-config "maxDuration=<Maximum websocket session duration in minutes>,heartBeatPer=Server-side heartBeat interval in seconds"
-            Optional websocket configuration string. Contains comma-separated key-value pairs. Where:
-            maxDuration -- Maximum websocket session duration in minutes
-            heartBeatPer -- Server-side heartBeat interval in seconds
-            Example: "maxDuration=120,heartBeatPer=5"
-
-With Authentication
-===================
-
-Apart from interacting with the Ledger API on behalf of the user, the HTTP JSON API server must also interact with the Ledger API to maintain some relevant internal state.
-
-For this reason, you must provide an access token when you start the HTTP JSON API if you're running it against a Ledger API server that requires authentication.
-
-Note that this token is used exclusively for maintaining the internal list of known packages and templates, and that it will not be use to authenticate client calls to the HTTP JSON API: the user is expected to provide a valid authentication token with each call.
-
-The HTTP JSON API servers requires no access to party-specific data, only access to the ledger identity and package services: a token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that. Please refer to your ledger operator's documentation to find out how.
-
-Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
-
-If the token cannot be read from the provided path or the Ledger API reports an authentication error (for example due to token expiration), the HTTP JSON API will report the error via logging. The token file can be updated with a valid token and it will be picked up at the next attempt to send a request.
-
-Example session
-***************
+The most basic way to start the JSON API is with the command:
 
 .. code-block:: shell
 
-    $ daml new iou-quickstart-java quickstart-java
-    $ cd iou-quickstart-java/
-    $ daml build
-    $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
-    $ daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
 
-Choosing a party
-****************
+This will start the JSON API on port 7575 and connect it to a ledger running on ``localhost:6865``.
 
-Every request requires you to specify a party and some other settings,
-with a JWT token.  Normal HTTP requests pass the token in an
-``Authentication`` header, while WebSocket requests pass the token in a
-subprotocol.
+.. note:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
 
-In testing environments, you can use https://jwt.io to generate your
-token.  The default "header" is fine.  Under "Payload", fill in:
+Standalone JAR
+--------------
+
+The ``daml json-api`` command is great during development since it is
+included with the SDK and integrates with ``daml start`` and other
+commands. Once you are ready to deploy your application, you can
+download the standalone JAR from `Github releases
+<https://github.com/digital-asset/daml/releases>`_. It is much smaller
+than the whole SDK and easier to deploy since it only requires a JVM
+but no other dependencies and no installation process. The JAR accepts
+exactly the same command line parameters as ``daml json-api``, so to
+start the standalone JAR, you can use the following command:
+
+.. code-block:: shell
+
+    java -jar http-json-1.5.0.jar --ledger-host localhost --ledger-port 6865 --http-port 7575
+
+Replace the version number ``1.5.0`` by the version of the SDK you are
+using.
+
+With Query Store
+------------------
+
+To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is safe to reinitialize the database at any time.
+
+To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
+
+.. note:: When you use the Query Store you'll want your first run to specify ``createSchema=true`` so that all the necessary tables are created. After the first run make sure ``createSchema=false`` so that it doesn't attempt to create the tables again.
+
+.. code-block:: shell
+
+    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
+    --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+
+.. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
+
+Access Tokens
+=============
+
+The JSON API essentially performs two separate tasks:
+
+1. It talks to the Ledger API to get data it needs to operate, for this you need to *provide an access token* if your Ledger requires authorization. Learn more in the :doc:`/app-dev/authorization` docs.
+2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
+
+.. note:: By default, the DAML Sandbox does not does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
+
+Internal Access Token
+---------------------
+
+This access token is used exclusively by the JSON API service for maintaining the internal list of known packages and templates that it gets from the Ledger API.
+
+.. note:: At no point should this access token be provided to an end user, these are for internal use only.
+
+Every access token is different and will depend on your specific ledger operator's requirements.
+The JSON API server requires no access to party-specific data, only access to the ledger identity and package services.
+These services are public meaning that you need a valid token to access them but no party-specific claims nor an admin claim.
+Please refer to your ledger operator's documentation to find out how to get these tokens from your ledger operator.
+
+Once you have retrieved your access token, you can provide it to the JSON API by storing it in a file
+and starting ``daml json-api`` with the flag ``--access-token-file /path/to/your/token.file``.
+
+If the token cannot be read from the provided path or the Ledger API reports an authentication error
+(for example due to token expiration), the JSON API will report the error via logging.
+
+.. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without restarting your JSON API service.
+
+Party-specific Access Tokens
+----------------------------
+
+Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the the format :doc:`described in the Token Payload section here </tools/sandbox>`. The set of parties listed in `actAs` and `readAs` must contain exactly one party. In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
+
+.. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
+
+For a ledger without authorization, e.g., the default configuration of DAML Sandbox, you can use https://jwt.io (or the JWT library of your choice) to generate your
+token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
 
@@ -157,36 +155,51 @@ token.  The default "header" is fine.  Under "Payload", fill in:
       }
     }
 
-Keep in mind:
-- the value of ``ledgerId`` payload field has to match ``--ledgerid`` passed to the sandbox.
-- you can replace ``Alice`` with whatever party you want to use.
+The value of the ``ledgerId`` field has to match the ``ledgerId`` of your underlying DAML Ledger.
+For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
-Under "Verify Signature", put ``secret`` as the secret (_not_ base64
-encoded); that is the hardcoded secret for testing.
+.. note:: The value of ``applicationId`` will be used for commands submitted using that token.
+
+The value for ``actAs`` is specified as a list and you provide it with the party that you want to use.
+Such as the example which uses ``Alice`` for a party. Each request can only be for one party.
+For example you couldn't have ``actAs`` defined as ``["Alice", "Bob"]``.
+
+The party should reference an already allocated party.
+
+
+.. note:: As mentioned above the JSON API does not validate tokens so if your ledger runs without authorization you can use an arbitrary secret.
 
 Then the "Encoded" box should have your **token**, ready for passing to
 the service as described in the following sections.
 
 Alternatively, here are two tokens you can use for testing:
 
-- ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Alice"]}}``
-  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU``
+``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Alice"]}}``:
 
-- ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Bob"]}}``
-  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJCb2IiXX19.zU-iMSFG90na8IHacrS25xho3u6AKnSlTKbvpkaSyYw``
-  
-For production use, we have a tool in development for generating proper
-RSA-encrypted tokens locally, which will arrive when the service also
-supports such tokens.
+.. code-block:: none
 
-Passing token with HTTP
-=======================
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
 
-Set HTTP header ``Authorization: Bearer copy-paste-token-here`` for
-normal requests.
 
-Passing token with WebSockets
-=============================
+``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Bob"]}}``:
+
+.. code-block:: none
+
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJCb2IiXX19.0uPPZtM1AmKvnGixt_Qo53cMDcpnziCjKKiWLvMX2VM
+
+Auth via HTTP
+^^^^^^^^^^^^^
+
+Set HTTP header ``Authorization: Bearer paste-jwt-here``
+
+Example:
+
+.. code-block:: none
+
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
+
+Auth via WebSockets
+^^^^^^^^^^^^^^^^^^^
 
 WebSocket clients support a "subprotocols" argument (sometimes simply
 called "protocols"); this is usually in a list form but occasionally in
@@ -196,14 +209,18 @@ choice for details.
 For HTTP JSON requests, you must pass two subprotocols:
 
 - ``daml.ws.auth``
-- ``jwt.token.copy-paste-token-here``
+- ``jwt.token.paste-jwt-here``
 
-where ``copy-paste-token-here`` is the encoded JWT token described above.
+Example:
 
-Error Reporting
-***************
+.. code-block:: none
 
-The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes in 3 groups indicating:
+    jwt.token.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk``
+
+HTTP Status Codes
+*****************
+
+The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes into 3 groups indicating:
 
 1. success (200)
 2. failure due to a client-side problem (400, 401, 404)
@@ -217,14 +234,14 @@ The **JSON API** can return one of the following HTTP status codes:
 - 404 - Not Found
 - 500 - Internal Server Error
 
-If client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with ``status`` field, either ``errors`` or ``result`` and optional ``warnings``:
+If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, either an ``errors`` or ``result`` field and an optional ``warnings``:
 
 .. code-block:: none
 
     {
-        "status": <400 | 401 | 404 | 500>
-        ,"errors": <JSON array of strings> | ,"result": <JSON object>
-        [ ,"warnings": <JSON object> ]
+        "status": <400 | 401 | 404 | 500>,
+        "errors": <JSON array of strings>, | "result": <JSON object or array>,
+        ["warnings": <JSON object> ]
     }
 
 Where:
@@ -232,7 +249,7 @@ Where:
 - ``status`` -- a JSON number which matches the HTTP response status code returned in the HTTP header,
 - ``errors`` -- a JSON array of strings, each string represents one error,
 - ``result`` -- a JSON object or JSON array, representing one or many results,
-- ``warnings`` -- optional field, a JSON object, representing one ore many warnings.
+- ``warnings`` -- an optional field with a JSON object, representing one or many warnings.
 
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
@@ -263,6 +280,8 @@ Successful response with a warning, HTTP status: 200 OK
         "warnings": <JSON object>
     }
 
+.. _error-format:
+
 Failure, HTTP status: 400 | 401 | 404 | 500
 ===========================================
 
@@ -279,21 +298,43 @@ Failure, HTTP status: 400 | 401 | 404 | 500
 Examples
 ========
 
+**Result with JSON Object without Warnings:**
+
 .. code-block:: none
 
     {"status": 200, "result": {...}}
+
+**Result with JSON Array and Warnings:**
 
 .. code-block:: none
 
     {"status": 200, "result": [...], "warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 
-.. code-block:: json
-
-    {"status": 401, "errors": ["Authentication Required"]}
+**Bad Request Error:**
 
 .. code-block:: json
 
     {"status": 400, "errors": ["JSON parser error: Unexpected character 'f' at input index 27 (line 1, position 28)"]}
+
+**Bad Request Error with Warnings:**
+
+.. code-block:: json
+
+    {"status":400, "errors":["Cannot resolve any template ID from request"], "warnings":{"unknownTemplateIds":["XXX:YYY","AAA:BBB"]}}
+
+**Authentication Error:**
+
+.. code-block:: json
+
+    {"status": 401, "errors": ["Authentication Required"]}
+
+**Not Found Error:**
+
+.. code-block:: json
+
+    {"status": 404, "errors": ["HttpMethod(POST), uri: http://localhost:7575/v1/query1"]}
+
+**Internal Server Error:**
 
 .. code-block:: json
 
@@ -302,9 +343,9 @@ Examples
 Create a new Contract
 *********************
 
-See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </getting-started/quickstart>`:
+To create an instance of an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 9-15
 
@@ -336,7 +377,7 @@ Where:
 - ``templateId`` is the contract template identifier, which can be formatted as either:
 
   + ``"<package ID>:<module>:<entity>"`` or
-  + ``"<module>:<entity>"`` if contract template can be uniquely identified by it's module and entity name.
+  + ``"<module>:<entity>"`` if contract template can be uniquely identified by its module and entity name.
 
 - ``payload`` field contains contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`.
 
@@ -377,10 +418,12 @@ Where:
 
 .. _create-request-with-meta:
 
-Create a new Contract with optional meta field
-**********************************************
+Creating a Contract with a Command ID
+*************************************
 
-When creating a new contract, client may specify an optional ``meta`` field:
+When creating a new contract you may specify an optional ``meta`` field. This allows you to control the `commandId` used when submitting a commend to the ledger.
+
+.. note:: You cannot currently use ``commandIds`` anywhere else in the JSON API, but you can use it for observing the results of its commands outside the JSON API in logs or via the Ledger API's :doc:`Command Services </app-dev/services>`
 
 .. code-block:: json
 
@@ -394,24 +437,20 @@ When creating a new contract, client may specify an optional ``meta`` field:
         "owner": "Alice"
       },
       "meta": {
-      	"commandId": "a unique ID",
-      	"ledgerEffectiveTime": 1579730994499,
-      	"maximumRecordTime": 1579731004499
+      	"commandId": "a unique ID"
       }
     }
 
 Where:
 
-- ``commandId`` -- optional field, a unique string identifying the command;
-- ``ledgerEffectiveTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, an approximation of the wall clock time on the ledger server;
-- ``maximumRecordTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, a deadline for observing this command in the completion stream before it can be considered to have timed out.
- 
+- ``commandId`` -- optional field, a unique string identifying the command.
+
 Exercise by Contract ID
 ***********************
 
-The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
+The JSON command below, demonstrates how to exercise an ``Iou_Transfer`` choice on an ``Iou`` contract:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 23, 52-55
 
@@ -500,7 +539,7 @@ Where:
 Exercise by Contract Key
 ************************
 
-The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Account`` contract with a ``(Party, Text)`` key defined like this:
+The JSON command below, demonstrates how to exercise the ``Archive`` choice on the ``Account`` contract with a ``(Party, Text)`` :doc:`contract key </daml/reference/contract-keys>` defined like this:
 
 .. code-block:: daml
 
@@ -578,7 +617,7 @@ HTTP Request
 
 Where:
 
-- ``templateId`` -- the initial contract template identifier, in the same format as in same as in the :ref:`create request <create-request>`,
+- ``templateId`` -- the initial contract template identifier, in the same format as in the :ref:`create request <create-request>`,
 - ``payload`` -- the initial contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`,
 - ``choice`` -- DAML contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
@@ -589,7 +628,7 @@ HTTP Response
 Please note that the response below is for a consuming choice, so it contains:
 
 - ``created`` and ``archived`` events for the initial contract (``"contractId": "#1:0"``), which was created and archived right away when a consuming choice was exercised on it,
-- a ``created`` event for the contract that is the result of the choice exercise (``"contractId": "#1:2"``).
+- a ``created`` event for the contract that is the result of exercising the choice (``"contractId": "#1:2"``).
 
 - Content-Type: ``application/json``
 - Content:
@@ -783,12 +822,14 @@ Contract Found HTTP Response
     }
 
 
-Contract Search, All Templates
-******************************
+Get all Active Contracts
+************************
 
 List all currently active contracts for all known templates.
 
-Note that the retrieved contracts do not get persisted into query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with query store enabled.
+.. note:: Retrieved contracts do not get persisted into a query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with a query store enabled.
+
+.. note:: You can only query active contracts with the ``/v1/query`` endpoint. Archived contracts (those that were archived or consumed during an exercise operation) will not be shown in the results.
 
 HTTP Request
 ============
@@ -802,8 +843,8 @@ HTTP Response
 
 The response is the same as for the POST method below.
 
-Contract Search
-***************
+Get all Active Contracts Matching a Given Query
+***********************************************
 
 List currently active contracts that match a given query.
 
@@ -825,7 +866,7 @@ HTTP Request
 Where:
 
 - ``templateIds`` --  an array of contract template identifiers to search through,
-- ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`:
+- ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
 
 Empty HTTP Response
 ===================
@@ -873,7 +914,7 @@ Nonempty HTTP Response
 Where
 
 - ``result`` contains an array of contracts, each contract formatted according to :doc:`lf-value-specification`,
-- ``status`` matches the HTTP status code returned in the HTTP header,
+- ``status`` matches the HTTP status code returned in the HTTP header.
 
 Nonempty HTTP Response with Unknown Template IDs Warning
 ========================================================
@@ -920,7 +961,7 @@ Fetch Parties by Identifiers
 
     ["Alice", "Bob", "Dave"]
 
-If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
+If an empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
 
 .. code-block:: json
 
@@ -967,8 +1008,8 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-HTTP Response with Unknown Parties Warning
-============================================
+Response with Unknown Parties Warning
+=====================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -984,12 +1025,12 @@ HTTP Response with Unknown Parties Warning
         }
       ],
       "warnings": {
-        "unknownParties": [
-          "Erin"
-        ]
+        "unknownParties": ["Erin"]
       },
       "status": 200
     }
+
+The ``result`` might be an empty JSON array if none of the requested parties is known.
 
 Fetch All Known Parties
 ***********************
@@ -1003,11 +1044,217 @@ HTTP Response
 
 The response is the same as for the POST method above.
 
+Allocate a New Party
+********************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.daml.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/parties/allocate``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "identifierHint": "Carol",
+      "displayName": "Carol & Co. LLC"
+    }
+
+Please refer to :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about the meaning of the fields.
+
+All fields in the request are optional, this means that an empty JSON object is a valid request to allocate a new party:
+
+.. code-block:: json
+
+    {}
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {
+        "identifier": "Carol",
+        "displayName": "Carol & Co. LLC",
+        "isLocal": true
+      },
+      "status": 200
+    }
+
+List All DALF Packages
+**********************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        "c1f1f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1c8ed1bdccfd",
+        "733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a",
+        "bfcd37bd6b84768e86e432f5f6c33e25d9e7724a9d42e33875ff74f6348e733f",
+        "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7",
+        "8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb"
+      ],
+      "status": 200
+    }
+
+Where ``result`` is the JSON array containing the package IDs of all loaded DALFs.
+
+Download a DALF Package
+***********************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages/<package ID>``
+- Method: ``GET``
+- Content: <EMPTY>
+
+Note that the desired package ID is specified in the URL.
+
+HTTP Response, status: 200 OK
+=============================
+
+- Transfer-Encoding: ``chunked``
+- Content-Type: ``application/octet-stream``
+- Content: <DALF bytes>
+
+The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
+
+HTTP Response with Error, any status different from 200 OK
+==========================================================
+
+Any status different from ``200 OK`` will be in the format specified below.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "errors": [
+            "io.grpc.StatusRuntimeException: NOT_FOUND"
+        ],
+        "status": 500
+    }
+
+Upload a DAR File
+*****************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``POST``
+- Content-Type: ``application/octet-stream``
+- Content: <DAR bytes>
+
+The content (body) of the HTTP request contains raw DAR file bytes, without any encoding.
+
+HTTP Response, status: 200 OK
+=============================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "result": 1,
+        "status": 200
+    }
+
+HTTP Response with Error
+========================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "errors": [
+            "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Invalid DAR: package-upload, content: [}]"
+        ],
+        "status": 500
+    }
+
 Streaming API
 *************
 
 Two subprotocols must be passed with every request, as described in
 `Passing token with WebSockets <#passing-token-with-websockets>`__.
+
+JavaScript/Node.js example demonstrating how to establish Streaming API connection:
+
+.. code-block:: javascript
+
+    const wsProtocol = "daml.ws.auth";
+    const tokenPrefix = "jwt.token.";
+    const jwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdp";
+    const subprotocols = [`${tokenPrefix}${jwt}`, wsProtocol];
+
+    const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols);
+
+    ws.addEventListener("open", function open() {
+      ws.send(JSON.stringify({templateIds: ["Iou:Iou"]}));
+    });
+
+    ws.addEventListener("message", function incoming(data) {
+      console.log(data);
+    });
+
+Please note that Streaming API does not allow multiple requests over the same WebSocket connection. The server returns an error and disconnects if second request received over the same WebSocket connection.
+
+Error and Warning Reporting
+===========================
+
+Errors and warnings reported as part of the regular ``on-message`` flow: ``ws.addEventListener("message", ...)``.
+
+Streaming API error messages formatted the same way as :ref:`synchronous API errors <error-format>`.
+
+Streaming API reports only one type of warnings -- unknown template IDs, which is formatted as:
+
+.. code-block:: none
+
+    {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
+
+Error and Warning Examples
+--------------------------
+
+.. code-block:: none
+
+    {"warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
+
+    {
+      "errors":["JsonReaderError. Cannot read JSON: <{\"templateIds\":[]}>. Cause: spray.json.DeserializationException: search requires at least one item in 'templateIds'"],
+      "status":400
+    }
+
+    {
+      "errors":["Multiple requests over the same WebSocket connection are not allowed."],
+      "status":400
+    }
+
+    {
+      "errors":["Could not resolve any template ID from request."],
+      "status":400
+    }
 
 Contracts Query Stream
 ======================
@@ -1033,8 +1280,15 @@ different sets of template IDs::
         {"templateIds": ["Iou:Iou"]}
     ]
 
-output a series of JSON documents, each ``payload`` formatted according
-to :doc:`lf-value-specification`::
+An optional ``offset`` returned by a prior query (see output examples
+below) may be specified *before* the above, as a separate body.  It must
+be a string, and if specified, the stream will begin immediately *after*
+the response body that included that offset::
+
+    {"offset": "5609"}
+
+The output is a series of JSON documents, each ``payload`` formatted
+according to :doc:`lf-value-specification`::
 
     {
         "events": [{
@@ -1063,7 +1317,9 @@ Every ``events`` block following the end of contracts that existed when
 the request started includes an ``offset``.  The stream is guaranteed to
 send an offset immediately at the beginning of this "live" data, which
 may or may not contain any ``events``; if it does not contain events and
-no events were emitted before, it may be ``null`` or a string;
+no events were emitted before, it may be ``null`` if there was no
+transaction on the ledger
+or a string representing the current ledger end;
 otherwise, it will be a string.  For example, you might use it to turn
 off an initial "loading" indicator::
 
@@ -1073,9 +1329,11 @@ off an initial "loading" indicator::
     }
 
 To keep the stream alive, you'll occasionally see messages like this,
-which can be safely ignored::
+which can be safely ignored if you do not need to capture the last seen ledger offset::
 
-    {"heartbeat": "ping"}
+    {"events":[],"offset":"5609"}
+
+where ``offset`` is the last seen ledger offset.
 
 After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
@@ -1122,8 +1380,7 @@ and archives the one above, the same stream will eventually produce::
         "offset": "3"
     }
 
-If any template IDs are found not to resolve, the first non-heartbeat
-element of the stream will report them::
+If any template IDs are found not to resolve, the first element of the stream will report them::
 
     {"warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 
@@ -1142,30 +1399,28 @@ Some notes on behavior:
    paired between polls), such contracts may or may not appear in any
    result object.
 
-2. No ``archived`` ever contains a contract ID occurring within an
+2. No ``archived`` ever contains a contract ID occurring within a
    ``created`` in the same array.  So, for example, supposing you are
-   keeping an internal map of active contracts, you can apply the
-   ``created`` first or the ``archived`` first and be guaranteed to get
-   the same results.
+   keeping an internal map of active contracts keyed by contract ID, you
+   can apply the ``created`` first or the ``archived`` first, forwards,
+   backwards, or in random order, and be guaranteed to get the same
+   results.
 
 3. Within a given array, if an ``archived`` and ``created`` refer to
-   contracts with the same template ID and contract key, the
+   contracts with the same template ID and :doc:`contract key </daml/reference/contract-keys>`, the
    ``archived`` is guaranteed to occur before the ``created``.
 
-4. You will almost certainly receive contract IDs in ``archived`` that
+4. Except in cases of #3, within a single response array, the order of
+   ``created`` and ``archived`` is undefined and does not imply that any
+   element occurred "before" or "after" any other one.
+
+5. You will almost certainly receive contract IDs in ``archived`` that
    you never received a ``created`` for.  These are contracts that
    query filtered out, but for which the server no longer is aware of
    that.  You can safely ignore these.  However, such "phantom archives"
    *are* guaranteed to represent an actual archival *on the ledger*, so
    if you are keeping a more global dataset outside the context of this
    specific search, you can use that archival information as you wish.
-
-5. Within a single response array, the order of ``created`` and
-   ``archived`` is undefined and does not imply that any element
-   occurred "before" or "after" any other one.  As specified in note #2,
-   order of application of changes doesn't matter; you will get the same
-   results if you walk the array forwards, backwards, or in random
-   order.
 
 Fetch by Key Contracts Stream
 =============================
@@ -1201,4 +1456,32 @@ Example:
         {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
     ]
 
-The output stream has the same format as the output from the `Contracts Query Stream`_. We further guarantee that for every ``archived`` event appearing on the stream there has been a matching ``created`` event earlier in the stream.
+The output stream has the same format as the output from the `Contracts
+Query Stream`_. We further guarantee that for every ``archived`` event
+appearing on the stream there has been a matching ``created`` event
+earlier in the stream, except in the case of missing
+``contractIdAtOffset`` fields in the case described below.
+
+You may supply an optional ``offset`` for the stream, exactly as with
+query streams.  However, you should supply with each ``{templateId,
+key}`` pair a ``contractIdAtOffset``, which is the contract ID currently
+associated with that pair at the point of the given offset, or ``null``
+if no contract ID was associated with the pair at that offset.  For
+example, with the above keys, if you had one ``"abc123"`` contract but
+no ``"def345"`` contract, you might specify:
+
+.. code-block:: json
+
+    [
+        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "abc123"},
+         "contractIdAtOffset": "#1:0"},
+        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"},
+         "contractIdAtOffset": null}
+    ]
+
+If every ``contractIdAtOffset`` is specified, as is so in the example
+above, you will not receive any ``archived`` events for contracts
+created before the offset *unless* those contracts are identified in a
+``contractIdAtOffset``.  By contrast, if any ``contractIdAtOffset`` is
+missing, ``archived`` event filtering will be disabled, and you will
+receive "phantom archives" as with query streams.

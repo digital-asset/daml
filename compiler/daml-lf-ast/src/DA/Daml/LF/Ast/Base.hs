@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
@@ -36,14 +36,14 @@ infixr 1 `KArrow`
 -- > [a-zA-Z0-9]+
 newtype PackageId = PackageId{unPackageId :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData)
+    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey)
 
 -- | Name for a module. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
 newtype ModuleName = ModuleName{unModuleName :: [T.Text]}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Name for a type synonym. Must match the regex
 --
@@ -113,14 +113,14 @@ newtype PartyLiteral = PartyLiteral{unPartyLiteral :: T.Text}
 -- > [a-zA-Z0-9_-]+
 newtype PackageName = PackageName{unPackageName :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, FromJSON)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Human-readable version of a package. Must match the regex
 --
 -- > (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*
 newtype PackageVersion = PackageVersion{unPackageVersion :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, FromJSON)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Reference to a package.
 data PackageRef
@@ -233,6 +233,10 @@ data BuiltinExpr
   -- Polymorphic functions
   | BEError                      -- :: ∀a. Text -> a
   | BEEqualGeneric               -- :: ∀t. t -> t -> Bool
+  | BELessGeneric                -- :: ∀t. t -> t -> Bool   
+  | BELessEqGeneric              -- :: ∀t. t -> t -> Bool   
+  | BEGreaterGeneric             -- :: ∀t. t -> t -> Bool
+  | BEGreaterEqGeneric           -- :: ∀t. t -> t -> Bool
   | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELess       !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELessEq     !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
@@ -240,6 +244,7 @@ data BuiltinExpr
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
+  | BEToTextContractId           -- :: forall t. ContractId t -> Option Text
 
   -- Decimal arithmetic
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -14,6 +14,10 @@ load(
 da_scala_library(
     name = "sandbox-perf-lib",
     srcs = glob(["src/perf/lib/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    scalacopts = ["-P:silencer:checkUnused"],
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
@@ -25,18 +29,23 @@ da_scala_library(
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/participant-state",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//libs-scala/direct-execution-context",
+        "//libs-scala/concurrent",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
@@ -46,7 +55,7 @@ da_scala_library(
 
 daml_compile(
     name = "LargeTransaction",
-    main_src = "src/perf/resources/damls/LargeTransaction.daml",
+    srcs = ["src/perf/resources/damls/LargeTransaction.daml"],
     visibility = ["//visibility:public"],
 )
 
@@ -55,7 +64,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/perf/benches/**/*.scala"]),
     data = [
         "//ledger/sandbox-perf:LargeTransaction.dar",
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
         "@postgresql_dev_env//:all",
     ],
     visibility = ["//visibility:public"],
@@ -78,10 +87,12 @@ da_scala_benchmark_jmh(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//libs-scala/direct-execution-context",
+        "//libs-scala/concurrent",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

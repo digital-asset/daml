@@ -1,26 +1,22 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.DamlDocTest (main) where
 
-import Data.Default
 import qualified Data.Text.Extended as T
+import System.FilePath
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Daml.DocTest
 import DA.Daml.Options.Types
-import DA.Daml.Options
-import Development.IDE.Core.Debouncer
-import Development.IDE.Core.FileStore
+import qualified DA.Service.Logger.Impl.Pure as Logger
+import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
-import Development.IDE.Types.Logger
-import Development.IDE.Types.Options
-import qualified Language.Haskell.LSP.Types as LSP
 
 main :: IO ()
 main = defaultMain $ testGroup "daml-doctest"
@@ -90,14 +86,12 @@ generateTests = testGroup "generate doctest module"
 
 testModuleHeader :: [T.Text]
 testModuleHeader =
-    [ "daml 1.2"
-    , "module Test where"
+    [ "module Test where"
     ]
 
 doctestHeader :: [T.Text]
 doctestHeader =
     [ "{-# OPTIONS_GHC -Wno-unused-imports #-}"
-    , "daml 1.2"
     , "module Test_doctest where"
     , ""
     , "import Test"
@@ -106,10 +100,10 @@ doctestHeader =
     ]
 
 shouldGenerate :: [T.Text] -> [T.Text] -> Assertion
-shouldGenerate input expected = withTempFile $ \tmpFile -> do
+shouldGenerate input expected = withTempDir $ \tmpDir -> do
+    let tmpFile = tmpDir </> "Test.daml"
     T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader <> input
-    let opts = (defaultOptions Nothing) {optHaddock=Haddock True}
-    vfs <- makeVFSHandle
-    ideState <- initialise def mainRule (pure $ LSP.IdInt 0) (const $ pure ()) noLogging noopDebouncer (toCompileOpts opts (IdeReportProgress False)) vfs
-    Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath tmpFile
-    genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)
+    let opts = (defaultOptions Nothing) {optHaddock=Haddock True, optScenarioService = EnableScenarioService False}
+    withDamlIdeState opts Logger.makeNopHandle (const $ pure ()) $ \ideState -> do
+        Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile
+        genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)

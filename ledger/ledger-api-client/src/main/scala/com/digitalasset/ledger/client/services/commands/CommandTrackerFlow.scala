@@ -1,16 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.commands
+package com.daml.ledger.client.services.commands
+
+import java.time.{Duration => JDuration}
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
 import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
-import com.digitalasset.ledger.api.v1.command_submission_service._
-import com.digitalasset.ledger.api.v1.completion._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.services.commands.tracker.CommandTracker
-import com.digitalasset.util.Ctx
+import com.daml.ledger.api.v1.command_submission_service._
+import com.daml.ledger.api.v1.completion._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.services.commands.tracker.CommandTracker
+import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import org.slf4j.LoggerFactory
 
@@ -38,12 +40,14 @@ object CommandTrackerFlow {
         SubmissionMat],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
-      backOffDuration: FiniteDuration = 1.second): Flow[
+      maxDeduplicationTime: () => JDuration,
+      backOffDuration: FiniteDuration = 1.second,
+  ): Flow[
     Ctx[Context, SubmitRequest],
     Ctx[Context, Completion],
     Materialized[SubmissionMat, Context]] = {
 
-    val trackerExternal = new CommandTracker[Context]()
+    val trackerExternal = new CommandTracker[Context](maxDeduplicationTime)
 
     Flow.fromGraph(GraphDSL.create(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
       implicit builder => (submissionFlow, tracker) =>

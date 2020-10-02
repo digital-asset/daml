@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -62,6 +62,16 @@ example = scenario do
   -- Bob accepts the offer, which creates a RightOfUseAgreement
   submit bob do
     exercise offer Accept
+
+  -- create a transient RightOfUseOffer and archive it immediately.
+  submit bob do
+    createAndExercise
+      RightOfUseOffer with
+        landlord = bob
+        tenant = alice
+        address = "fobar"
+        expirationDate = date 2020 Jan 1
+      Archive
 
 templateFilterTest = scenario do
   bob <- getParty "Bob"

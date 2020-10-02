@@ -1,57 +1,63 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.io.File
 import java.nio.file.Path
+import java.time.Duration
+import java.util.UUID
 
+import com.daml.caching
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.ProgramResource.SuppressedStartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.platform.configuration.Readers._
+import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
+import com.daml.ports.Port
+import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
-case class Config[Extra](
-    ledgerId: Option[String],
+final case class Config[Extra](
+    mode: Mode,
+    ledgerId: String,
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    maxInboundMessageSize: Int,
+    eventsPageSize: Int,
+    stateValueCache: caching.WeightedCache.Configuration,
+    lfValueTranslationEventCache: caching.SizedCache.Configuration,
+    lfValueTranslationContractCache: caching.SizedCache.Configuration,
     seeding: Seeding,
+    metricsReporter: Option[MetricsReporter],
+    metricsReportingInterval: Duration,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
 }
 
-case class ParticipantConfig(
-    participantId: ParticipantId,
-    address: Option[String],
-    port: Port,
-    portFile: Option[Path],
-    serverJdbcUrl: String,
-    allowExistingSchemaForIndex: Boolean,
-)
-
-object ParticipantConfig {
-  def defaultIndexJdbcUrl(participantId: ParticipantId): String =
-    s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
-}
-
 object Config {
   val DefaultPort: Port = Port(6865)
 
-  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
-  def default[Extra](extra: Extra): Config[Extra] =
+  def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
-      ledgerId = None,
+      mode = Mode.Run,
+      ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
+      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      stateValueCache = caching.WeightedCache.Configuration.none,
+      lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
+      lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
       seeding = Seeding.Strong,
+      metricsReporter = None,
+      metricsReportingInterval = Duration.ofSeconds(10),
       extra = extra,
     )
 
@@ -62,7 +68,7 @@ object Config {
       args: Seq[String],
   ): ResourceOwner[Config[Extra]] =
     parse(name, extraOptions, defaultExtra, args)
-      .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new Config.ConfigParseException))(
+      .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new ConfigParseException))(
         ResourceOwner.successful)
 
   def parse[Extra](
@@ -71,19 +77,24 @@ object Config {
       defaultExtra: Extra,
       args: Seq[String],
   ): Option[Config[Extra]] =
-    parser(name, extraOptions).parse(args, default(defaultExtra))
+    parser(name, extraOptions).parse(args, createDefault(defaultExtra)).flatMap {
+      case config if config.mode == Mode.Run && config.participants.isEmpty =>
+        System.err.println("No --participant provided to run")
+        None
+      case config =>
+        Some(config)
+    }
 
   private def parser[Extra](
       name: String,
       extraOptions: OptionParser[Config[Extra]] => Unit,
   ): OptionParser[Config[Extra]] = {
-    val parser = new OptionParser[Config[Extra]](name) {
+    val parser: OptionParser[Config[Extra]] = new OptionParser[Config[Extra]](name) {
       head(name)
 
       opt[Map[String, String]]("participant")
-        .minOccurs(1)
         .unbounded()
-        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url]")
+        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
@@ -91,19 +102,22 @@ object Config {
           val portFile = kv.get("port-file").map(new File(_).toPath)
           val jdbcUrl =
             kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
+          val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
           val partConfig = ParticipantConfig(
             participantId,
             address,
             port,
             portFile,
             jdbcUrl,
-            allowExistingSchemaForIndex = false)
+            allowExistingSchemaForIndex = false,
+            maxCommandsInFlight = maxCommandsInFlight
+          )
           config.copy(participants = config.participants :+ partConfig)
         })
       opt[String]("ledger-id")
-        .text(
-          "The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
-        .action((ledgerId, config) => config.copy(ledgerId = Some(ledgerId)))
+        .optional()
+        .text("The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
+        .action((ledgerId, config) => config.copy(ledgerId = ledgerId))
 
       opt[String]("pem")
         .optional()
@@ -116,7 +130,7 @@ object Config {
           config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path)))))
       opt[String]("cacrt")
         .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
+        .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
           config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path)))))
 
@@ -126,8 +140,41 @@ object Config {
         .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
+      opt[Int]("max-inbound-message-size")
+        .optional()
+        .text(
+          s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}.")
+        .action((maxInboundMessageSize, config) =>
+          config.copy(maxInboundMessageSize = maxInboundMessageSize))
+
+      opt[Int]("events-page-size")
+        .optional()
+        .text(
+          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}.")
+        .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+      opt[Long]("max-state-value-cache-size")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached.")
+        .action((maximumStateValueCacheSize, config) =>
+          config.copy(stateValueCache =
+            config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
+
+      opt[Long]("max-lf-value-translation-cache-entries")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
+        .action((maximumLfValueTranslationCacheEntries, config) =>
+          config.copy(
+            lfValueTranslationEventCache = config.lfValueTranslationEventCache.copy(
+              maximumSize = maximumLfValueTranslationCacheEntries),
+            lfValueTranslationContractCache = config.lfValueTranslationContractCache.copy(
+              maximumSize = maximumLfValueTranslationCacheEntries),
+        ))
+
       private val seedingMap =
-        Map[String, Seeding]("weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
+        Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
 
       opt[String]("contract-id-seeding")
         .optional()
@@ -142,11 +189,36 @@ object Config {
         .action((text, config) => config.copy(seeding = seedingMap(text)))
         .hidden()
 
+      opt[MetricsReporter]("metrics-reporter")
+        .optional()
+        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
+        .hidden()
+
+      opt[Duration]("metrics-reporting-interval")
+        .optional()
+        .action((interval, config) => config.copy(metricsReportingInterval = interval))
+        .hidden()
+
+      cmd("dump-index-metadata")
+        .text("Print ledger id, ledger end and integration API version and quit.")
+        .children {
+          arg[String]("<jdbc-url>...")
+            .minOccurs(1)
+            .unbounded()
+            .text("The JDBC URL to connect to an index database")
+            .action((jdbcUrl, config) =>
+              config.copy(mode = config.mode match {
+                case Mode.Run =>
+                  Mode.DumpIndexMetadata(Vector(jdbcUrl))
+                case Mode.DumpIndexMetadata(jdbcUrls) =>
+                  Mode.DumpIndexMetadata(jdbcUrls :+ jdbcUrl)
+              }))
+        }
+
       help("help").text(s"$name as a service.")
     }
     extraOptions(parser)
     parser
   }
 
-  class ConfigParseException extends RuntimeException with SuppressedStartupException
 }

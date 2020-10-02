@@ -1,21 +1,36 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
 
-import Control.Exception
+import Control.Exception.Safe
+import Control.Monad
+import DA.Bazel.Runfiles
 import Data.Foldable
 import Data.List.Extra
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
+import System.FilePath
 import System.IO
+import System.Process (showCommandForUser)
+import System.Process.Typed
 import Text.Read (readMaybe)
 
 import DA.Signals
-import DA.Daml.Helper.Run
+import DA.Daml.Project.Consts
+import DA.Daml.Helper.Init
+import DA.Daml.Helper.Ledger
+import DA.Daml.Helper.New
+import DA.Daml.Helper.Start
+import DA.Daml.Helper.Studio
+import DA.Daml.Helper.Util
 
 main :: IO ()
-main =
+main = do
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
     withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
         hPutStrLn stderr (displayException e)
         exitFailure
@@ -35,13 +50,22 @@ data Command
         , remainingArguments :: [String]
         , shutdownStdinClose :: Bool
         }
-    | New { targetFolder :: FilePath, templateNameM :: Maybe String }
+    | RunPlatformJar
+        { args :: [String]
+        , logbackConfig :: FilePath
+        , shutdownStdinClose :: Bool
+        }
+    | New { targetFolder :: FilePath, appTemplate :: AppTemplate }
+    | CreateDamlApp { targetFolder :: FilePath }
+    -- ^ CreateDamlApp is sufficiently special that in addition to
+    -- `daml new foobar create-daml-app` we also make `daml create-daml-app foobar` work.
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
-      { sandboxPortM :: Maybe SandboxPort
+      { sandboxPortM :: Maybe SandboxPortSpec
       , openBrowser :: OpenBrowser
-      , startNavigator :: StartNavigator
+      , startNavigator :: Maybe StartNavigator
+      , navigatorPort :: NavigatorPort
       , jsonApiCfg :: JsonApiConfig
       , onStartM :: Maybe String
       , waitForSignal :: WaitForSignal
@@ -50,25 +74,34 @@ data Command
       , jsonApiOptions :: JsonApiOptions
       , scriptOptions :: ScriptOptions
       , shutdownStdinClose :: Bool
+      , sandboxClassic :: SandboxClassic
       }
     | Deploy { flags :: LedgerFlags }
     | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
+    | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
 
-data Lang = Java | Scala | TypeScript
+data AppTemplate
+  = AppTemplateDefault
+  | AppTemplateViaOption String
+  | AppTemplateViaArgument String
+
+data Lang = Java | Scala | JavaScript
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
     [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
     , command "new" (info (newCmd <**> helper) idm)
+    , command "create-daml-app" (info (createDamlAppCmd <**> helper) idm)
     , command "init" (info (initCmd <**> helper) idm)
     , command "start" (info (startCmd <**> helper) idm)
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
     , command "ledger" (info (ledgerCmd <**> helper) ledgerCmdInfo)
     , command "run-jar" (info runJarCmd forwardOptions)
+    , command "run-platform-jar" (info runPlatformJarCmd forwardOptions)
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     ]
   where
@@ -98,20 +131,38 @@ commandParser = subparser $ fold
         <*> many (argument str (metavar "ARG"))
         <*> stdinCloseOpt
 
-    newCmd = asum
+    runPlatformJarCmd = RunPlatformJar
+        <$> many (argument str (metavar "ARG"))
+        <*> strOption (long "logback-config")
+        <*> stdinCloseOpt
+
+    newCmd =
+        let templateHelpStr = "Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")"
+            appTemplateFlag = asum
+              [ AppTemplateViaOption
+                  <$> strOption (long "template" <> metavar "TEMPLATE" <> help templateHelpStr)
+              , AppTemplateViaArgument <$> argument str (metavar "TEMPLATE_ARG" <> help ("Deprecated. " <> templateHelpStr))
+              , pure AppTemplateDefault
+              ]
+        in asum
         [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
         , New
             <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-            <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
+            <*> appTemplateFlag
         ]
+
+    createDamlAppCmd =
+        CreateDamlApp <$>
+        argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
 
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
     startCmd = Start
-        <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <>     help "Port number for the sandbox"))
+        <$> optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
-        <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
+        <*> optional navigatorFlag
+        <*> navigatorPortOption
         <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
@@ -120,6 +171,30 @@ commandParser = subparser $ fold
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
         <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
+        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic."))
+
+    navigatorFlag =
+        -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
+        -- if the flag was passed explicitly or not.
+        StartNavigator <$>
+        option reader (long "start-navigator" <> help helpText <> completeWith ["true", "false"] <> idm)
+        where
+            reader = eitherReader $ \case
+                -- We allow for both yes and true since we want a boolean in daml.yaml
+                "true" -> Right True
+                "yes" -> Right True
+                "false" -> Right False
+                "no" -> Right False
+                "auto" -> Right True
+                s -> Left ("Expected \"yes\", \"true\", \"no\", \"false\" or \"auto\" but got " <> show s)
+            -- To make things less confusing, we do not mention yes, no and auto here.
+            helpText = "Start navigator as part of daml start. Can be set to true or false. Defaults to true."
+
+    navigatorPortOption = NavigatorPort <$> option auto
+        (long "navigator-port"
+        <> metavar "PORT_NUM"
+        <> value 7500
+        <> help "Port number for navigator (default is 7500).")
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
@@ -159,13 +234,13 @@ commandParser = subparser $ fold
         [ subparser $ fold
             [  command "java" $ info codegenJavaCmd forwardOptions
             ,  command "scala" $ info codegenScalaCmd forwardOptions
-            ,  command "ts" $ info codegenTypeScriptCmd forwardOptions
+            ,  command "js" $ info codegenJavaScriptCmd forwardOptions
             ]
         ]
 
     codegenJavaCmd = Codegen Java <$> many (argument str (metavar "ARG"))
     codegenScalaCmd = Codegen Scala <$> many (argument str (metavar "ARG"))
-    codegenTypeScriptCmd = Codegen TypeScript <$> many (argument str (metavar "ARG"))
+    codegenJavaScriptCmd = Codegen JavaScript <$> many (argument str (metavar "ARG"))
 
     ledgerCmdInfo = mconcat
         [ forwardOptions
@@ -192,6 +267,9 @@ commandParser = subparser $ fold
             , command "upload-dar" $ info
                 (ledgerUploadDarCmd <**> helper)
                 (progDesc "Upload DAR file to ledger")
+            , command "fetch-dar" $ info
+                (ledgerFetchDarCmd <**> helper)
+                (progDesc "Fetch DAR from ledger into file")
             , command "navigator" $ info
                 (ledgerNavigatorCmd <**> helper)
                 (forwardOptions <> progDesc "Launch Navigator on ledger")
@@ -220,6 +298,11 @@ commandParser = subparser $ fold
         <$> ledgerFlags
         <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
 
+    ledgerFetchDarCmd = LedgerFetchDar
+        <$> ledgerFlags
+        <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
+        <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
+
     ledgerNavigatorCmd = LedgerNavigator
         <$> ledgerFlags
         <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
@@ -228,6 +311,37 @@ commandParser = subparser $ fold
         <$> hostFlag
         <*> portFlag
         <*> accessTokenFileFlag
+        <*> sslConfig
+        <*> timeoutOption
+
+    sslConfig :: Parser (Maybe ClientSSLConfig)
+    sslConfig = do
+        tls <- switch $ mconcat
+            [ long "tls"
+            , help "Enable TLS for the connection to the ledger. This is implied if --cacrt, --pem or --crt are passed"
+            ]
+        mbCACert <- optional $ strOption $ mconcat
+            [ long "cacrt"
+            , help "The crt file to be used as the trusted root CA."
+            ]
+        mbClientKeyCertPair <- optional $ liftA2 ClientSSLKeyCertPair
+            (strOption $ mconcat
+                 [ long "pem"
+                 , help "The pem file to be used as the private key in mutual authentication."
+                 ]
+            )
+            (strOption $ mconcat
+                 [ long "crt"
+                 , help "The crt file to be used as the cert chain in mutual authentication."
+                 ]
+            )
+        return $ case (tls, mbCACert, mbClientKeyCertPair) of
+            (False, Nothing, Nothing) -> Nothing
+            (_, _, _) -> Just ClientSSLConfig
+                { serverRootCert = mbCACert
+                , clientSSLKeyCertPair = mbClientKeyCertPair
+                , clientMetadataPlugin = Nothing
+                }
 
     hostFlag :: Parser (Maybe String)
     hostFlag = optional . option str $
@@ -247,13 +361,40 @@ commandParser = subparser $ fold
         <> metavar "TOKEN_PATH"
         <> help "Path to the token-file for ledger authorization"
 
+    timeoutOption :: Parser TimeoutSeconds
+    timeoutOption = option auto $ mconcat
+        [ long "timeout"
+        , metavar "INT"
+        , value 60
+        , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
+        ]
+
 runCommand :: Command -> IO ()
 runCommand = \case
     DamlStudio {..} -> runDamlStudio replaceExtension remainingArguments
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
-    New {..} -> runNew targetFolder templateNameM [] []
+    RunPlatformJar {..} ->
+        (if shutdownStdinClose then withCloseOnStdin else id) $
+        runPlatformJar args logbackConfig
+    New {..} -> do
+        templateNameM <- case appTemplate of
+            AppTemplateDefault -> pure Nothing
+            AppTemplateViaOption templateName -> pure (Just templateName)
+            AppTemplateViaArgument templateName -> do
+                hPutStrLn stderr $ unlines
+                    [ "WARNING: Specifying the template via"
+                    , ""
+                    , "    " <> showCommandForUser "daml" ["new", targetFolder, templateName]
+                    , ""
+                    , "is deprecated. The recommended way of specifying the template is"
+                    , ""
+                    , "    " <> showCommandForUser "daml" ["new", targetFolder, "--template", templateName]
+                    ]
+                pure (Just templateName)
+        runNew targetFolder templateNameM
+    CreateDamlApp{..} -> runNew targetFolder (Just "create-daml-app")
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->
@@ -261,6 +402,7 @@ runCommand = \case
         runStart
             sandboxPortM
             startNavigator
+            navigatorPort
             jsonApiCfg
             openBrowser
             onStartM
@@ -269,15 +411,19 @@ runCommand = \case
             navigatorOptions
             jsonApiOptions
             scriptOptions
+            sandboxClassic
     Deploy {..} -> runDeploy flags
     LedgerListParties {..} -> runLedgerListParties flags json
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
+    LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} ->
         case lang of
-            TypeScript ->
-                runDaml2ts remainingArguments
+            JavaScript -> do
+                daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
+                withProcessWait_' (proc daml2js remainingArguments) (const $ pure ()) `catchIO`
+                    (\e -> hPutStrLn stderr "Failed to invoke daml2js." *> throwIO e)
             Java ->
                 runJar
                     "daml-sdk/daml-sdk.jar"

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.logging
+package com.daml.logging
 
 import org.slf4j.{Logger, Marker}
 
@@ -83,12 +83,12 @@ private[logging] sealed abstract class LeveledLogger {
   protected def log(m: Marker, msg: String, t: Throwable): Unit
   protected def log(fmt: String, arg: AnyRef): Unit
 
-  final def apply(msg: => String)(implicit logCtx: LoggingContext): Unit =
+  final def apply(msg: => String)(implicit loggingContext: LoggingContext): Unit =
     if (isEnabled)
-      logCtx.ifEmpty(log(msg))(log(s"$msg (context: {})", _))
+      loggingContext.ifEmpty(log(msg))(log(s"$msg (context: {})", _))
 
-  final def apply(msg: => String, t: Throwable)(implicit logCtx: LoggingContext): Unit =
+  final def apply(msg: => String, t: Throwable)(implicit loggingContext: LoggingContext): Unit =
     if (isEnabled)
-      logCtx.ifEmpty(log(msg, t))(c => log(c, s"$msg (context: $c)", t))
+      loggingContext.ifEmpty(log(msg, t))(c => log(c, s"$msg (context: $c)", t))
 
 }

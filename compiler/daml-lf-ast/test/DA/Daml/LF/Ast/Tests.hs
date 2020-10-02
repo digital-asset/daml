@@ -1,13 +1,11 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.Tests
     ( main
     ) where
 
-import Control.Monad (unless)
 import Data.Foldable
-import Data.List (isInfixOf)
 import Data.List.Extra (trim)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
@@ -18,16 +16,20 @@ import Test.Tasty.HUnit
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Ast.Type
+import DA.Daml.LF.Ast.Alpha
+import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.World (initWorld)
 import DA.Daml.LF.TypeChecker (checkModule)
 import DA.Pretty (renderPretty)
+import DA.Test.Util
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Ast"
     [ numericTests
+    , alphaTests
     , substitutionTests
     , typeSynTests
     ]
@@ -55,15 +57,83 @@ numericTests = testGroup "Numeric"
             assertEqual "read produced wrong numeric or failed" (Just num) (readMaybe str)
     ]
 
+alphaTests :: TestTree
+alphaTests = testGroup "alpha equivalence"
+    [ testCase "alphaExpr" $ do
+        let assertAlpha a b =
+                assertBool (show a <> " should be alpha equivalent to " <> show b) $
+                    alphaExpr a b
+            assertNotAlpha a b =
+                assertBool (show a <> " should not be alpha equivalent to " <> show b) $
+                    not (alphaExpr a b)
+
+
+
+        assertAlpha
+            (EVar (ExprVarName "x"))
+            (EVar (ExprVarName "x"))
+        assertNotAlpha
+            (EVar (ExprVarName "x"))
+            (EVar (ExprVarName "y"))
+        assertAlpha
+            (ETmLam (ExprVarName "x", TInt64) (EVar (ExprVarName "x")))
+            (ETmLam (ExprVarName "y", TInt64) (EVar (ExprVarName "y")))
+        assertNotAlpha
+            (ETmLam (ExprVarName "x", TInt64) (EVar (ExprVarName "x")))
+            (ETmLam (ExprVarName "y", TText) (EVar (ExprVarName "y")))
+        assertNotAlpha
+            (ETmLam (ExprVarName "x", TVar (TypeVarName "a")) (EVar (ExprVarName "x")))
+            (ETmLam (ExprVarName "y", TVar (TypeVarName "b")) (EVar (ExprVarName "y")))
+        assertAlpha
+            (ETyLam (TypeVarName "a", KStar) (ETmLam (ExprVarName "x", TVar (TypeVarName "a")) (EVar (ExprVarName "x"))))
+            (ETyLam (TypeVarName "b", KStar) (ETmLam (ExprVarName "y", TVar (TypeVarName "b")) (EVar (ExprVarName "y"))))
+        assertAlpha
+            (ETmLam (ExprVarName "x", TInt64) (ETmLam (ExprVarName "y", TInt64) (EVar (ExprVarName "x"))))
+            (ETmLam (ExprVarName "y", TInt64) (ETmLam (ExprVarName "x", TInt64) (EVar (ExprVarName "y"))))
+        assertNotAlpha
+            (ETmLam (ExprVarName "x", TInt64) (ETmLam (ExprVarName "y", TInt64) (EVar (ExprVarName "x"))))
+            (ETmLam (ExprVarName "y", TInt64) (ETmLam (ExprVarName "x", TInt64) (EVar (ExprVarName "x"))))
+        assertAlpha
+            (ELet (Binding (ExprVarName "x", TInt64) (ENone TInt64)) (EVar (ExprVarName "x")))
+            (ELet (Binding (ExprVarName "y", TInt64) (ENone TInt64)) (EVar (ExprVarName "y")))
+        assertNotAlpha -- NOTE: "let" is not recursive in DAML-LF
+            (ELet (Binding (ExprVarName "x", TInt64) (EVar (ExprVarName "x"))) (EVar (ExprVarName "x")))
+            (ELet (Binding (ExprVarName "y", TInt64) (EVar (ExprVarName "y"))) (EVar (ExprVarName "y")))
+        assertAlpha
+            (ELet (Binding (ExprVarName "x", TInt64) (EVar (ExprVarName "x"))) (EVar (ExprVarName "x")))
+            (ELet (Binding (ExprVarName "y", TInt64) (EVar (ExprVarName "x"))) (EVar (ExprVarName "y")))
+        assertNotAlpha
+            (ECase (ENone TInt64) [CaseAlternative CPNone (ENone TInt64)])
+            (ECase (ENone TInt64) [CaseAlternative (CPSome (ExprVarName "x")) (ENone TInt64)])
+        assertAlpha
+            (ECase (ENone TInt64) [CaseAlternative (CPSome (ExprVarName "x")) (EVar (ExprVarName "x"))])
+            (ECase (ENone TInt64) [CaseAlternative (CPSome (ExprVarName "y")) (EVar (ExprVarName "y"))])
+        assertNotAlpha
+            (ECase (ENone TInt64) [CaseAlternative (CPSome (ExprVarName "x")) (EVar (ExprVarName "x"))])
+            (ECase (ENone TInt64) [CaseAlternative (CPSome (ExprVarName "y")) (EVar (ExprVarName "x"))])
+        assertAlpha
+            (ECase (ENil TInt64) [CaseAlternative (CPCons (ExprVarName "a") (ExprVarName "b")) (EVar (ExprVarName "a"))])
+            (ECase (ENil TInt64) [CaseAlternative (CPCons (ExprVarName "x") (ExprVarName "y")) (EVar (ExprVarName "x"))])
+        assertNotAlpha
+            (ECase (ENil TInt64) [CaseAlternative (CPCons (ExprVarName "a") (ExprVarName "b")) (EVar (ExprVarName "a"))])
+            (ECase (ENil TInt64) [CaseAlternative (CPCons (ExprVarName "x") (ExprVarName "y")) (EVar (ExprVarName "y"))])
+        assertAlpha
+            (ECase (ENil TInt64) [CaseAlternative (CPCons (ExprVarName "a") (ExprVarName "b")) (EVar (ExprVarName "b"))])
+            (ECase (ENil TInt64) [CaseAlternative (CPCons (ExprVarName "x") (ExprVarName "y")) (EVar (ExprVarName "y"))])
+        -- Don't need tests for CPCons pattern variable names being
+        -- the same because that is not allowed, caught by typechecker.
+    ]
 
 substitutionTests :: TestTree
 substitutionTests = testGroup "substitution"
     [ testCase "TForall" $ do
-        let subst = Map.fromList [(beta11, vBeta1)]
+        let beta1 = TypeVarName "beta1"
+            beta11 = TypeVarName "beta11"
+            subst = Map.fromList [(beta11, TVar beta1)]
             ty1 = TForall (beta11, KStar) $ TForall (beta1, KStar) $
-                TBuiltin BTArrow `TApp` vBeta11 `TApp` vBeta1
+                TBuiltin BTArrow `TApp` TVar beta11 `TApp` TVar beta1
             ty2 = substitute subst ty1
-        assertBool "wrong substitution" (alphaEquiv ty1 ty2)
+        assertBool "wrong substitution" (alphaType ty1 ty2)
 
     , testCase "freeVars/TypeLevelNat" $ do
         let x = TypeVarName "x"
@@ -71,15 +141,156 @@ substitutionTests = testGroup "substitution"
         let yRenamed = TypeVarName "yRenamed"
         let typeWithNatAndFreeY = TNat TypeLevelNat10 :-> TVar y
         let subst = Map.fromList [(x, typeWithNatAndFreeY)]
-        assertBool "bad substitution" $ alphaEquiv
+        assertBool "bad substitution" $ alphaType
           (substitute subst (TForall (y,       KStar) $ TVar x              :-> TVar y))
                             (TForall (yRenamed,KStar) $ typeWithNatAndFreeY :-> TVar yRenamed)
+
+    , testCase "applySubstInExpr" $ do
+        let x = ExprVarName "x"
+            x1 = ExprVarName "x1"
+            y = ExprVarName "y"
+            z = ExprVarName "z"
+            a = TypeVarName "a"
+            a1 = TypeVarName "a1"
+            b = TypeVarName "b"
+            c = TypeVarName "c"
+
+            assertExprSubst x e a b =
+                let subst = exprSubst x e
+                    test = alphaExpr (applySubstInExpr subst a) b
+                    msg = unlines
+                        ["substitution test failed:"
+                        , "\tsubst = exprSubst (" <> show x <> ") (" <> show e <> ")"
+                        , "\toriginal = " <> show a
+                        , "\texpected = " <> show b
+                        , "\tgot = " <> show (applySubstInExpr subst a)
+                        ]
+                in assertBool msg test
+
+            assertTypeSubst x t a b =
+                let subst = typeSubst x t
+                    test = alphaExpr (applySubstInExpr subst a) b
+                    msg = unlines
+                        ["substitution test failed:"
+                        , "\tsubst = typeSubst (" <> show x <> ") (" <> show t <> ")"
+                        , "\toriginal = " <> show a
+                        , "\texpected = " <> show b
+                        , "\tgot = " <> show (applySubstInExpr subst a)
+                        ]
+                in assertBool msg test
+
+        -- no binder tests
+        assertExprSubst x (EBuiltin (BEInt64 42))
+            (EVar y)
+            (EVar y)
+        assertExprSubst x (EBuiltin (BEInt64 42))
+            (EVar x)
+            (EBuiltin (BEInt64 42))
+        assertExprSubst x (EBuiltin (BEInt64 42))
+            (EBuiltin BEAddInt64 `ETmApp` EVar x `ETmApp` EVar y)
+            (EBuiltin BEAddInt64 `ETmApp` EBuiltin (BEInt64 42) `ETmApp` EVar y)
+        assertTypeSubst a TInt64
+            (ENone (TVar b))
+            (ENone (TVar b))
+        assertTypeSubst a TInt64
+            (ENone (TVar a))
+            (ENone TInt64)
+        assertTypeSubst a TInt64
+            (ENone (TVar a :-> TVar b))
+            (ENone (TInt64 :-> TVar b))
+
+        -- bound variable matches substitution variable
+        assertExprSubst x (EBuiltin (BEInt64 42))
+            (ETmLam (x, TInt64) (EVar x))
+            (ETmLam (x, TInt64) (EVar x))
+        assertTypeSubst a TInt64
+            (ETyLam (a, KStar) (ENone (TVar a)))
+            (ETyLam (a, KStar) (ENone (TVar a)))
+        assertTypeSubst a TInt64
+            (ENone (TForall (a, KStar) (TVar a)))
+            (ENone (TForall (a, KStar) (TVar a)))
+
+        -- bound variable does not match substitution variable nor appears free in substitution body
+        assertExprSubst x (EBuiltin (BEInt64 42))
+            (ETmLam (y, TInt64) (EVar x))
+            (ETmLam (y, TInt64) (EBuiltin (BEInt64 42)))
+        assertExprSubst x (EBuiltin (BEInt64 42))
+            (ETmLam (y, TInt64) (EVar y))
+            (ETmLam (y, TInt64) (EVar y))
+        assertExprSubst x (EBuiltin (BEInt64 42))
+            (ETmLam (y, TInt64) (EVar z))
+            (ETmLam (y, TInt64) (EVar z))
+        assertTypeSubst a TInt64
+            (ETyLam (b, KStar) (ENone (TVar a)))
+            (ETyLam (b, KStar) (ENone TInt64))
+        assertTypeSubst a TInt64
+            (ETyLam (b, KStar) (ENone (TVar b)))
+            (ETyLam (b, KStar) (ENone (TVar b)))
+        assertTypeSubst a TInt64
+            (ETyLam (b, KStar) (ENone (TVar c)))
+            (ETyLam (b, KStar) (ENone (TVar c)))
+        assertTypeSubst a TInt64
+            (ENone (TForall (b, KStar) (TVar a)))
+            (ENone (TForall (b, KStar) TInt64))
+        assertTypeSubst a TInt64
+            (ENone (TForall (b, KStar) (TVar b)))
+            (ENone (TForall (b, KStar) (TVar b)))
+        assertTypeSubst a TInt64
+            (ENone (TForall (b, KStar) (TVar c)))
+            (ENone (TForall (b, KStar) (TVar c)))
+
+        -- mixture of both cases above
+        assertExprSubst x (EBuiltin (BEInt64 42))
+            (ETmLam (y, TInt64) (ETmLam (x, TInt64) (EVar x) `ETmApp` EVar x))
+            (ETmLam (y, TInt64) (ETmLam (x, TInt64) (EVar x) `ETmApp` EBuiltin (BEInt64 42)))
+        assertTypeSubst a TInt64
+            (ETyLam (b, KStar) (ETyLam (a, KStar) (ENone (TVar a)) `ETmApp` ENone (TVar a)))
+            (ETyLam (b, KStar) (ETyLam (a, KStar) (ENone (TVar a)) `ETmApp` ENone TInt64))
+        assertTypeSubst a TInt64
+            (ETyLam (b, KStar) (ENone (TForall (a, KStar) (TVar a) :-> TVar a)))
+            (ETyLam (b, KStar) (ENone (TForall (a, KStar) (TVar a) :-> TInt64)))
+
+        -- bound variable appears in substitution body
+        assertExprSubst x (EVar y)
+            (ETmLam (y, TInt64) (EBuiltin (BEInt64 42)))
+            (ETmLam (y, TInt64) (EBuiltin (BEInt64 42)))
+        assertExprSubst x (EVar y)
+            (ETmLam (y, TInt64) (EVar x))
+            (ETmLam (z, TInt64) (EVar y))
+        assertTypeSubst a (TVar b)
+            (ETyLam (b, KStar) (ENone TInt64))
+            (ETyLam (b, KStar) (ENone TInt64))
+        assertTypeSubst a (TVar b)
+            (ETyLam (b, KStar) (ENone (TVar a)))
+            (ETyLam (c, KStar) (ENone (TVar b)))
+        assertTypeSubst a (TVar b)
+            (ENone (TForall (b, KStar) TInt64))
+            (ENone (TForall (b, KStar) TInt64))
+        assertTypeSubst a (TVar b)
+            (ENone (TForall (b, KStar) (TVar a)))
+            (ENone (TForall (c, KStar) (TVar b)))
+
+        -- interaction between fresh variables & binders (a port of the TForall regression test)
+        assertExprSubst x1 (EVar x)
+            (ETmLam (x1, TInt64) (ETmLam (x, TInt64) (EVar x)))
+            (ETmLam (x1, TInt64) (ETmLam (x, TInt64) (EVar x)))
+        assertExprSubst x1 (EVar x)
+            (ETmLam (x1, TInt64) (ETmLam (x, TInt64) (EVar x1)))
+            (ETmLam (x1, TInt64) (ETmLam (x, TInt64) (EVar x1)))
+        assertTypeSubst a1 (TVar a)
+            (ETyLam (a1, KStar) (ETyLam (a, KStar) (ENone (TVar a))))
+            (ETyLam (a1, KStar) (ETyLam (a, KStar) (ENone (TVar a))))
+        assertTypeSubst a1 (TVar a)
+            (ETyLam (a1, KStar) (ETyLam (a, KStar) (ENone (TVar a1))))
+            (ETyLam (a1, KStar) (ETyLam (a, KStar) (ENone (TVar a1))))
+        assertTypeSubst a1 (TVar a)
+            (ENone (TForall (a1, KStar) (TForall (a, KStar) (TVar a))))
+            (ENone (TForall (a1, KStar) (TForall (a, KStar) (TVar a))))
+        assertTypeSubst a1 (TVar a)
+            (ENone (TForall (a1, KStar) (TForall (a, KStar) (TVar a1))))
+            (ENone (TForall (a1, KStar) (TForall (a, KStar) (TVar a1))))
+
     ]
-  where
-    beta1 = TypeVarName "beta1"
-    beta11 = TypeVarName "beta11"
-    vBeta1 = TVar beta1
-    vBeta11 = TVar beta11
 
 
 typeSynTests :: TestTree
@@ -213,7 +424,7 @@ typeSynTests =
     let name = renderPretty ty1 <> " =/= " <> renderPretty ty2
     let mod = makeModuleToTestTypeSyns ty1 ty2
     testCase name $ case typeCheck mod of
-      Left s -> assertStringContains s (Fragment frag)
+      Left s -> assertInfixOf frag s
       Right () -> assertFailure "expected type error, but got none"
 
   mkBadTestcase :: ([DefTypeSyn],String) -> TestTree
@@ -221,7 +432,7 @@ typeSynTests =
     let name = looseNewlines $ renderPretty defs
     let mod = makeModule defs []
     testCase name $ case typeCheck mod of
-      Left s -> assertStringContains s (Fragment frag)
+      Left s -> assertInfixOf frag s
       Right () -> assertFailure "expected type error, but got none"
     where
       looseNewlines = unwords . map trim . lines
@@ -387,11 +598,5 @@ typeSynTests =
 typeCheck :: Module -> Either String ()
 typeCheck mod = do
   let version = V1 (PointStable 7)
-  either (Left . renderPretty) Right $ checkModule (initWorld [] version) version mod
-
-assertStringContains :: String -> Fragment -> IO ()
-assertStringContains text (Fragment frag) =
-  unless (frag `isInfixOf` text) (assertFailure msg)
-  where msg = "expected frag: " ++ frag ++ "\n contained in: " ++ text
-
-newtype Fragment = Fragment String
+  let diags = checkModule (initWorld [] version) version mod
+  if null diags then Right () else Left (show diags)

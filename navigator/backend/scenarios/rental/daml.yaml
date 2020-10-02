@@ -1,18 +1,18 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-sdk-version: 0.13.0
+sdk-version: 0.0.0
 name: rental
 source: daml/Main.daml
-scenario: Main:example
+init-script: Main:example
 parties:
   - Betina_Beakley
   - Scrooge_McDuck
   - OPERATOR
 version: 1.0.0
-exposed-modules:
-  - Main
 dependencies:
   - daml-prim
   - daml-stdlib
-
+  - daml-script
+sandbox-options:
+  - --static-time

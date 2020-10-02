@@ -1,7 +1,7 @@
 sdk-version: __VERSION__
 name: __PROJECT_NAME__
 source: daml
-scenario: Main:setup
+init-script: Main:setup
 parties:
   - Alice
   - Bob
@@ -9,3 +9,6 @@ version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
+  - daml-script
+sandbox-options:
+  - --wall-clock-time

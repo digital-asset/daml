@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPackageId
-import com.digitalasset.daml.lf.validation.SpecUtil._
+import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.{defaultPackageId, defaultLanguageVersion}
+import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -196,6 +196,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"TypeRep",
         E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
           T"TypeRep",
+        // TO_TEXT_CONTRACT_ID
+        E"""Λ (σ : ⋆). λ (c : (ContractId σ)) → TO_TEXT_CONTRACT_ID @σ c""" ->
+          T"∀ (σ : ⋆). ContractId σ → Option Text"
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -359,6 +362,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of Nil → () ))",
         // ExpCaseCons
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of Cons x y → () ))",
+        E"Λ (τ : ⋆). λ (e: List τ) → (( case e of Cons x x → () ))",
         // ExpCaseFalse & ExpCaseTrue
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of True → () ))",
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of False → () ))",
@@ -471,7 +475,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               },
               key @NegativeTestCase:TBis
                   (NegativeTestCase:TBis { person = (NegativeTestCase:T {name} this), party = (NegativeTestCase:T {person} this) })
@@ -488,7 +492,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -502,7 +506,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers (),                                  // should be of type (List Party)
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -516,7 +520,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement (),                                 // should be of type Text
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -530,7 +534,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : List) : Unit   // the type of i (here List) should be of kind * (here it is * -> *)
+                choice Ch (self) (i : List) : Unit   // the type of i (here List) should be of kind * (here it is * -> *)
                   by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
@@ -545,7 +549,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : List   // the return type (here List) should be of kind * (here it is * -> *)
+                choice Ch (self) (i : Unit) : List   // the return type (here List) should be of kind * (here it is * -> *)
                    by Cons @Party ['Alice'] (Nil @Party) to upure @(List) (/\ (tau : *). Nil @tau)
               }
             } ;
@@ -561,7 +565,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase6:TBis
               // In the next line, should use only record construction and projection, and variable. Here use string literal.
@@ -581,7 +585,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase7:TBis
           // In the next line, the declared type do not match body
@@ -601,7 +605,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase8:TBis
           (PositiveTestCase8:TBis { person = (PositiveTestCase8:T {name} this), party = (PositiveTestCase8:T {person} this) })
@@ -620,7 +624,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase9:TBis
           (PositiveTestCase9:TBis { person = (PositiveTestCase9:T {name} this), party = (PositiveTestCase9:T {person} this) })
@@ -643,8 +647,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
       """
 
-      val world = new World(Map(defaultPackageId -> pkg))
-
       val typeMismatchCases = Table(
         "moduleName",
         "PositiveTestCase1",
@@ -661,7 +663,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       )
 
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-        world,
+        new World(Map(defaultPackageId -> pkg)),
         defaultPackageId,
         pkg.modules(DottedName.assertFromString(modName))
       )
@@ -673,7 +675,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       forAll(kindMismatchCases)(module =>
         an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
       an[EIllegalKeyExpression] shouldBe thrownBy(
-        checkModule(pkg.updateVersion(version1_3), "PositiveTestCase6"))
+        checkModule(pkg.copy(languageVersion = version1_3), "PositiveTestCase6"))
       checkModule(pkg, "PositiveTestCase6")
       an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
       an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
@@ -685,7 +687,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
-      LV.defaultV0 -> true,
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
@@ -701,7 +702,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
                observers Cons @Party ['Alice'] (Nil @Party),
                agreement "Agreement",
                choices {
-                 choice Ch (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
+                 choice Ch (self) (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
                }
              } ;
            }
@@ -710,7 +711,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     val modName = DottedName.assertFromString("Mod")
 
     forEvery(testCases) { (version: LV, rejected: Boolean) =>
-      val pkg = pkg0.updateVersion(version)
+      val pkg = pkg0.copy(languageVersion = version)
       val mod = pkg.modules(modName)
       val world = new World(Map(defaultPackageId -> pkg))
 
@@ -729,7 +730,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
-      LV.defaultV0 -> true,
       LV(LVM.V1, "0") -> true,
       LV(LVM.V1, "1") -> true,
       LV(LVM.V1, "2") -> false,
@@ -745,7 +745,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
                observers Cons @Party ['Alice'] (Nil @Party),
                agreement "Agreement",
                choices {
-                 choice Ch (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
+                 choice Ch (self) (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
                }
              } ;
            }
@@ -754,7 +754,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     val modName = DottedName.assertFromString("Mod")
 
     forEvery(testCases) { (version: LV, rejected: Boolean) =>
-      val pkg = pkg0.updateVersion(version)
+      val pkg = pkg0.copy(languageVersion = version)
       val mod = pkg.modules(modName)
       val world = new World(Map(defaultPackageId -> pkg))
 
@@ -847,34 +847,34 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   }
 
   "reject ill formed type synonym definitions" in {
-    val testCases = Table(
-      "module"
-        -> "reject",
-      //Good
-      m"""module Mod { synonym S = Int64 ; }""" -> false,
-      m"""module Mod { synonym S a = a ; }""" -> false,
-      m"""module Mod { synonym S a b = a ; }""" -> false,
-      m"""module Mod { synonym S (f: *) = f ; }""" -> false,
-      m"""module Mod { synonym S (f: * -> *) = f Int64; }""" -> false,
-      //Bad
-      m"""module Mod { synonym S = a ; }""" -> true,
-      m"""module Mod { synonym S a = b ; }""" -> true,
-      m"""module Mod { synonym S a a = a ; }""" -> true,
-      m"""module Mod { synonym S = List ; }""" -> true,
-      m"""module Mod { synonym S (f: * -> *) = f ; }""" -> true,
-      m"""module Mod { synonym S (f: *) = f Int64; }""" -> true,
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
+    }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { synonym S = Int64 ; }""",
+      m"""module Mod { synonym S a = a ; }""",
+      m"""module Mod { synonym S a b = a ; }""",
+      m"""module Mod { synonym S (f: *) = f ; }""",
+      m"""module Mod { synonym S (f: * -> *) = f Int64; }""",
     )
 
-    forEvery(testCases) { (mod: Module, rejected: Boolean) =>
-      val world = new World(Map())
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { synonym S = a ; }""",
+      m"""module Mod { synonym S a = b ; }""",
+      m"""module Mod { synonym S a a = a ; }""",
+      m"""module Mod { synonym S = List ; }""",
+      m"""module Mod { synonym S (f: * -> *) = f ; }""",
+      m"""module Mod { synonym S (f: *) = f Int64; }""",
+    )
 
-      if (rejected)
-        a[ValidationError] should be thrownBy
-          Typing.checkModule(world, defaultPackageId, mod)
-      else
-        Typing.checkModule(world, defaultPackageId, mod)
-      ()
-    }
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
   }
 
   private val pkg =
@@ -903,7 +903,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
            observers Cons @Party ['Alice'] (Nil @Party),
            agreement "Agreement",
            choices {
-             choice Ch (x: Int64) : Decimal by 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x)
+             choice Ch (self) (x: Int64) : Decimal by 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x)
            },
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party ['Alice', p] (Nil @Party))
          } ;

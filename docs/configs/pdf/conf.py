@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
@@ -36,7 +36,8 @@ sys.path.extend(map(os.path.abspath, glob.glob('packages/*')))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-  'sphinx.ext.autodoc'
+    'sphinx.ext.autodoc',
+    'sphinx.ext.extlinks'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -105,6 +106,8 @@ html_static_path = ['_static']
 
 # Don't show "powered by sphinx"
 html_show_sphinx = False
+
+html_show_copyright = False
 
 # Don't display the link to the sources
 html_show_sourcelink = False
@@ -326,7 +329,16 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
+
+rst_prolog = """
+.. _installer: https://github.com/digital-asset/daml/releases/download/v{release}/daml-sdk-{release}-windows.exe
+.. _protobufs: https://github.com/digital-asset/daml/releases/download/v{release}/protobufs-{release}.zip
+.. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
+""".format(release = release)
+
 # Import the DAML lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())
+    from typescript import TypeScriptLexer
+    sphinx.add_lexer("tsx", TypeScriptLexer())

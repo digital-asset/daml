@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
@@ -41,7 +41,7 @@ object Read {
     fromFunction[To] { str =>
       Try(f(str)) match {
         case Success(str) => Right(str)
-        case Failure(f) => Read.fail[To](classTag)
+        case Failure(_) => Read.fail[To](classTag)
       }
     }
 

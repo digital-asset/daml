@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
 import java.time.{Duration, Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.daml.lf.data.Time._
+import com.daml.lf.data.Time._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.assistant.config
+package com.daml.assistant.config
 
 import org.scalatest.{Matchers, WordSpec}
 
@@ -94,7 +94,7 @@ class ProjectConfigSpec extends WordSpec with Matchers {
         } yield result
         config.isLeft shouldBe true
         config.left.exists {
-          case pe: ConfigParseError => true
+          case _: ConfigParseError => true
           case _ => false
         } shouldBe true
       }

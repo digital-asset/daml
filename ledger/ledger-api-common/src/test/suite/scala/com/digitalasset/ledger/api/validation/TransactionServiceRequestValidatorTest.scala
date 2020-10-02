@@ -1,28 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.digitalasset.ledger.api.v1.trace_context.TraceContext
-import com.digitalasset.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  TransactionFilter
-}
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest
 }
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Status.Code._
 import org.scalatest.WordSpec
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTestUtils {
 
   private val traceContext = TraceContext(traceIdHigh, traceId, spanId, parentSpanId, sampled)
@@ -144,8 +139,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
             ledgerEnd,
             offsetOrdering),
-          INVALID_ARGUMENT,
-          "Invalid argument: Begin offset 1001 is after ledger end 1000"
+          OUT_OF_RANGE,
+          "Begin offset 1001 is after ledger end 1000"
         )
       }
 
@@ -156,8 +151,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
             ledgerEnd,
             offsetOrdering),
-          INVALID_ARGUMENT,
-          "Invalid argument: End offset 1001 is after ledger end 1000"
+          OUT_OF_RANGE,
+          "End offset 1001 is after ledger end 1000"
         )
       }
 
@@ -165,8 +160,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         inside(sut.validate(txReq.update(_.optionalEnd := None), ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual None
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual None
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
             hasExpectedFilters(req)
@@ -181,8 +176,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         })), ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
             inside(filtersByParty.headOption.value) {
@@ -201,8 +196,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         })), ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
             inside(filtersByParty.headOption.value) {
@@ -220,8 +215,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
           sut.validate(txReq.update(_.optionalTraceContext := None), ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
             hasExpectedFilters(req)
@@ -234,8 +229,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         inside(sut.validate(txReq, ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             hasExpectedFilters(req)
             req.verbose shouldEqual verbose
             hasExpectedTraceContext(req)
@@ -249,8 +244,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         inside(sut.validateTree(txTreeReq, ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             req.parties should have size 1
             req.parties.headOption.value shouldEqual party
             req.verbose shouldEqual verbose
@@ -279,8 +274,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
             ledgerEnd,
             offsetOrdering),
-          INVALID_ARGUMENT,
-          "Invalid argument: Begin offset 1001 is after ledger end 1000"
+          OUT_OF_RANGE,
+          "Begin offset 1001 is after ledger end 1000"
         )
       }
 
@@ -291,8 +286,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
             ledgerEnd,
             offsetOrdering),
-          INVALID_ARGUMENT,
-          "Invalid argument: End offset 1001 is after ledger end 1000"
+          OUT_OF_RANGE,
+          "End offset 1001 is after ledger end 1000"
         )
       }
     }

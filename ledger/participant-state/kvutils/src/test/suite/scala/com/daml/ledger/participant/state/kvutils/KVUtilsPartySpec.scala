@@ -1,9 +1,8 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry
@@ -23,10 +22,18 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
-    "succeed" in KVTest.runTest {
+    "be able to submit a party allocation" in KVTest.runTest {
       withParticipantId(p0) {
         submitPartyAllocation("ok", "alice", p0).map { logEntry =>
           logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
+        }
+      }
+    }
+
+    "be able to pre-execute a party allocation" in KVTest.runTest {
+      withParticipantId(p0) {
+        preExecutePartyAllocation("ok", "alice", p0).map { preExecutionResult =>
+          preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         }
       }
     }
@@ -73,23 +80,20 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
           DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
         logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual
           DamlPartyAllocationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
-
       }
     }
 
-    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+    "update metrics" in KVTest.runTestWithSimplePackage() {
       for {
         //Submit party twice to force one acceptance and one rejection on duplicate
         _ <- submitPartyAllocation("submission-1", "alice", p0)
         _ <- submitPartyAllocation("submission-1", "bob", p0)
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.party_allocation.accepts").getCount should be >= 1L
-        reg.counter("kvutils.committer.party_allocation.rejections").getCount should be >= 1L
-        reg.timer("kvutils.committer.party_allocation.run_timer").getCount should be >= 1L
+        metrics.daml.kvutils.committer.partyAllocation.accepts.getCount should be >= 1L
+        metrics.daml.kvutils.committer.partyAllocation.rejections.getCount should be >= 1L
+        metrics.daml.kvutils.committer.runTimer("party_allocation").getCount should be >= 1L
       }
     }
   }
-
 }

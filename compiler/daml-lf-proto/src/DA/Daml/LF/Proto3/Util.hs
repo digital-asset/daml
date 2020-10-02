@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DefaultSignatures #-}
@@ -16,7 +16,7 @@ import           Data.Int
 import qualified Data.Text.Lazy as TL
 import           GHC.Generics
 
-import qualified Com.Digitalasset.DamlLfDev.DamlLf1 as P
+import qualified Com.Daml.DamlLfDev.DamlLf1 as P
 
 class EitherLike a b e where
     toEither :: e -> Either a b

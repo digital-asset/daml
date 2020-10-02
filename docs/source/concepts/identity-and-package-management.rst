@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _identity-package-management:
@@ -16,7 +16,7 @@ Hence, this document addresses:
 The access to this functionality is usually more restricted compared to the other Ledger API services, as they are part of the administrative API.
 This document is intended for the users and implementers of this API.
 
-The administrative part of the Ledger API provides both a :ref:`party management service <com.digitalasset.ledger.api.v1.admin.PartyManagementService>` and a :ref:`package service <com.digitalasset.ledger.api.v1.admin.PackageManagementService>`.
+The administrative part of the Ledger API provides both a :ref:`party management service <com.daml.ledger.api.v1.admin.PartyManagementService>` and a :ref:`package service <com.daml.ledger.api.v1.admin.PackageManagementService>`.
 Any implementation of the party and package services is guaranteed to accept inputs and provide outputs of the format specified by these services.
 However, the services' *behavior* -- the relationship between the inputs and outputs that the various parties observe -- is largely implementation dependent.
 The remainder of the document will present:
@@ -55,7 +55,7 @@ Provisioning Identifiers
 
 The set of parties of any DAML ledger is dynamic: new parties may always be added to the system.
 The first step in adding a new party to the ledger is to provision a new identifier for the party.
-The Ledger API provides an :ref:`AllocateParty <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>` method for this purpose.
+The Ledger API provides an :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` method for this purpose.
 The method, if successful, returns an new party identifier.
 The ``AllocateParty`` call can take the desired identifier and display name as optional parameters, but these are merely hints and the ledger implementation may completely ignore them.
 
@@ -63,7 +63,7 @@ If the call returns a new identifier, the :ref:`participant node <participant-no
 In global state topologies, the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
 In partitioned state topologies, the identifier is also unique as long as the participant node is configured correctly (in particular, it does not share its private key with other participant nodes).
 If the ledger has a :ref:`global state topology <global-state-topologies>`, the new identifier will generally be allocated and vetted by the operator of the writer node(s).
-For example, in the `replicated committer topology <replicated-committer-topology>`__, the committers can jointly decide on whether to approve the provisioning, and which identifier to return.
+For example, in the :ref:`replicated committer topology <replicated-committer-topology>`, the committers can jointly decide on whether to approve the provisioning, and which identifier to return.
 If they refuse to provision the identifier, the method call fails.
 
 After an identifier is returned, the ledger is set up in such a way that the participant node serving the call is allowed to issue commands and receive transactions on behalf of the party.
@@ -76,20 +76,21 @@ In such ledgers, the nodes holding the physical shared ledger typically also mai
 However, such a directory may not exist for a ledger with a :ref:`partitioned topology <partitioned-topologies>`.
 In fact, in such a ledger, the participants ``P1`` and ``P2`` might not have a way to communicate to each other, or might not even be aware of each other's existence.
 
-For diagnostics, the ledger also provides a :ref:`ListKnownParties <com.digitalasset.ledger.api.v1.admin.ListKnownPartiesRequest>` method which lists parties known to the participant node.
+For diagnostics, the ledger also provides a :ref:`ListKnownParties <com.daml.ledger.api.v1.admin.ListKnownPartiesRequest>` method which lists parties known to the participant node.
 The parties can be local (i.e., hosted by the participant) or not.
 
 .. _identifiers-and-authentication:
 
-Identifiers and Ledger Authentication
-=====================================
+Identifiers and Authorization
+=============================
 
-To issue commands or receive transactions on behalf of a newly provisioned party, an application must authenticate itself to the party's hosting participant as someone authorized to represent the party.
+To issue commands or receive transactions on behalf of a newly provisioned party, an application must provide a
+proof to the party's hosting participant that they are authorized to represent the party.
 Before the newly provisioned party can be used, the application will have to obtain a token for this party.
 The issuance of tokens is specific to each ledger and independent of the Ledger API.
 The same is true for the policy which the participants use to decide whether to accept a token.
 
-To learn more about ledger API authentication, please read the :doc:`Authentication documentation </app-dev/authentication>`.
+To learn more about Ledger API security model, please read the :doc:`Authorization documentation </app-dev/authorization>`.
 
 .. _identifiers-and-real-world:
 
@@ -138,13 +139,13 @@ Package Management API
 
 The package management API supports two methods:
 
-- :ref:`UploadDarFile <com.digitalasset.ledger.api.v1.admin.UploadDarFileRequest>` for uploading ``.dar`` files.
+- :ref:`UploadDarFile <com.daml.ledger.api.v1.admin.UploadDarFileRequest>` for uploading ``.dar`` files.
   The ledger implementation is, however, free to reject any and all packages and return an error.
   Furthermore, even if the method call succeeds, the ledger's vetting process might restrict the usability of the template.
   For example, assume that Alice successfully uploads a ``.dar`` file to her participant containing a ``NewTemplate`` template.
   It may happen that she can now issue commands that create ``NewTemplate`` instances with Bob as a stakeholder, but that all commands that create ``NewTemplate`` instances with Charlie as a stakeholder fail.
 
-- :ref:`ListKnownPackages <com.digitalasset.ledger.api.v1.admin.ListKnownPackagesRequest>` that lists the ``.dalf`` package vetted for usage at the participant node.
+- :ref:`ListKnownPackages <com.daml.ledger.api.v1.admin.ListKnownPackagesRequest>` that lists the ``.dalf`` package vetted for usage at the participant node.
   Like with the previous method, the usability of the listed templates depends on the ledger's vetting process.
 
 .. _package-management-vetting:

@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
 
-import com.digitalasset.util.ExceptionOps._
+import com.daml.util.ExceptionOps._
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Bitraverse, Show, Traverse, \/, \/-}
@@ -11,7 +11,6 @@ import spray.json.{JsValue, JsonReader, _}
 
 import scala.language.higherKinds
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SprayJson {
   sealed abstract class Error extends Product with Serializable
   final case class JsonReaderError(value: String, message: String) extends Error
@@ -48,6 +47,12 @@ object SprayJson {
   def decode[A: JsonReader](a: JsValue): JsonReaderError \/ A =
     \/.fromTryCatchNonFatal(a.convertTo[A]).leftMap(e => JsonReaderError(a.toString, e.description))
 
+  def decode1[F[_], A](str: String)(
+      implicit ev1: JsonReader[F[JsValue]],
+      ev2: Traverse[F],
+      ev3: JsonReader[A]): JsonReaderError \/ F[A] =
+    parse(str).flatMap(decode1[F, A])
+
   def decode1[F[_], A](a: JsValue)(
       implicit ev1: JsonReader[F[JsValue]],
       ev2: Traverse[F],
@@ -56,6 +61,13 @@ object SprayJson {
       fj <- decode[F[JsValue]](a)
       fa <- fj.traverse(decode[A](_))
     } yield fa
+
+  def decode2[F[_, _], A, B](str: String)(
+      implicit ev1: JsonReader[F[JsValue, JsValue]],
+      ev2: Bitraverse[F],
+      ev3: JsonReader[A],
+      ev4: JsonReader[B]): JsonReaderError \/ F[A, B] =
+    parse(str).flatMap(decode2[F, A, B])
 
   def decode2[F[_, _], A, B](a: JsValue)(
       implicit ev1: JsonReader[F[JsValue, JsValue]],
@@ -70,6 +82,11 @@ object SprayJson {
   def encode[A: JsonWriter](a: A): JsonWriterError \/ JsValue = {
     import spray.json._
     \/.fromTryCatchNonFatal(a.toJson).leftMap(e => JsonWriterError(a, e.description))
+  }
+
+  def encodeUnsafe[A: JsonWriter](a: A): JsValue = {
+    import spray.json._
+    a.toJson
   }
 
   def encode1[F[_], A](fa: F[A])(

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console
+package com.daml.navigator.console
 
 import org.jline.reader.Completer
 import org.jline.reader.impl.completer.AggregateCompleter
@@ -13,7 +13,6 @@ final case class CommandSet(
 ) {
   val commandsByName: Map[String, Command] = commands.map(cmd => (cmd.name -> cmd)).toMap
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def usage(): String = {
     val width = 20
     val cmds = commands

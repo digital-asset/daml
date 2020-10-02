@@ -1,5 +1,7 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
+.. _java-bindings:
 
 Java bindings
 #############
@@ -8,7 +10,8 @@ Java bindings
   :hidden:
 
   codegen
-  example
+  Ping Pong Example <example>
+  Iou Quickstart Tutorial <quickstart>
 
 The Java bindings is a client implementation of the *Ledger API*
 based on `RxJava <https://github.com/ReactiveX/RxJava>`_, a library for composing asynchronous and event-based programs using observable sequences for the Java VM. It provides an idiomatic way to write DAML Ledger applications.
@@ -29,19 +32,19 @@ The Java bindings library is composed of:
 - The Reactive Layer
     A thin layer built on top of the Ledger API services generated classes.
 
-    For each Ledger API service, there is a reactive counterpart with a 
+    For each Ledger API service, there is a reactive counterpart with a
     matching name. For instance, the reactive counterpart of ``ActiveContractsServiceGrpc``
     is ``ActiveContractsClient``.
 
     The Reactive Layer also exposes the main interface representing a client
     connecting via the Ledger API. This interface is called ``LedgerClient`` and the
-    main implementation working against the DAML Ledger is the ``DamlLedgerClient``.
+    main implementation working against a DAML Ledger is the ``DamlLedgerClient``.
 
     Can be found in the java package ``com.daml.ledger.rxjava``.
 - The Reactive Components
-    A set of optional components you can use to assemble DAML Ledger applications. 
+    A set of optional components you can use to assemble DAML Ledger applications. These components are deprecated as of 2020-10-14.
 
-    The most important components are: 
+    The most important components are:
 
     - the ``LedgerView``, which provides a local view of the Ledger
     - the ``Bot``, which provides utility methods to assemble automation logic for the Ledger
@@ -60,76 +63,9 @@ For more information on Java code generation, see :doc:`/app-dev/bindings-java/c
 Connecting to the ledger: LedgerClient
 ======================================
 
-Connections to the ledger are made by creating instance of classes that implement the interface ``LedgerClient``. The class ``DamlLedgerClient`` implements this interface, and is used to connect to a DA ledger.
+Connections to the ledger are made by creating instance of classes that implement the interface ``LedgerClient``. The class ``DamlLedgerClient`` implements this interface, and is used to connect to a DAML ledger.
 
 This class provides access to the ledgerId, and all clients that give access to the various ledger services, such as the active contract set, the transaction service, the time service, etc. This is described :ref:`below <ledger-api-java-binding-connecting>`. Consult the `JavaDoc for DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_ for full details.
-
-Accessing data on the ledger: LedgerView
-========================================
-
-The ``LedgerView`` of an application is the "copy" of the ledger that the application has locally. You can query it to obtain the contracts that are active on the Ledger and not pending. 
-
-.. note::
-
-  - A contract is *active* if it exists in the Ledger and has not yet been archived.
-  - A contract is *pending* if the application has sent a consuming command to the Ledger and has yet
-    to receive an completion for the command (that is, if the command has succeeded or not).
-
-The ``LedgerView`` is updated every time: 
-
-- a new event is received from the Ledger
-- new commands are sent to the Ledger
-- a command has failed to be processed
-
-For instance, if an incoming transaction is received with a create event for a contract that is relevant
-for the application, the application ``LedgerView`` is updated to contain that contract too.
-
-Writing automations: Bot
-========================
-
-The ``Bot`` is an abstraction used to write automation for the DAML Ledger. It is conceptually
-defined by two aspects: 
-
-- the ``LedgerView``
-- the logic that produces commands, given a ``LedgerView`` 
-
-When the ``LedgerView`` is updated, to see if the bot has new commands to submit based on the
-updated view, the logic of the bot is run.
-
-The logic of the bot is a Java function from the bot's ``LedgerView`` to a ``Flowable<CommandsAndPendingSet>``.
-Each ``CommandsAndPendingSet`` contains:
-
-- the commands to send to the Ledger
-- the set of contractIds that should be considered pending while the command is in-flight
-  (that is, sent by the client but not yet processed by the Ledger)
-
-You can wire a ``Bot`` to a ``LedgerClient`` implementation using ``Bot.wire``:
-
-.. code-block:: java
-
-    Bot.wire(String applicationId,
-             LedgerClient ledgerClient,
-             TransactionFilter transactionFilter,
-             Function<LedgerViewFlowable.LedgerView<R>, Flowable<CommandsAndPendingSet>> bot,
-             Function<CreatedContract, R> transform)
-
-In the above:
-
-- ``applicationId``
-    The id used by the Ledger to identify all the queries from the same application.
-- ``ledgerClient`` 
-    The connection to the Ledger.
-- ``transactionFilter``
-    The server-side filter to the incoming transactions. Used to reduce the traffic between
-    Ledger and application and make an application more efficient.
-- ``bot``
-    The logic of the application,
-- ``transform``
-    The function that, given a new contract, returns which information for 
-    that contracts are useful for the application. Can be used to reduce space used
-    by discarding all the info not required by the application. The input to the function
-    contains the ``templateId``, the arguments of the contract created and the context of
-    the created contract. The context contains the ``workflowId``.
 
 Reference documentation
 ***********************
@@ -155,7 +91,7 @@ To use the Java bindings library, add the following dependencies to your project
     :dedent: 4
 
 Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions by checking
-the `Maven Central Repository <https://search.maven.org/search?q=g:com.daml.ledger>`__.
+the `Maven Central Repository <https://search.maven.org/artifact/com.daml/bindings-java>`__.
 
 .. note::
    As of DAML SDK release 0.13.3, the Java Bindings libraries are available via the public Maven Central repository. Earlier releases are available from the `DAML Bintray repository <https://digitalassetsdk.bintray.com>`__.
@@ -169,14 +105,14 @@ Connecting to the ledger
 
 Before any ledger services can be accessed, a connection to the ledger must be established. This is done by creating a instance of a ``DamlLedgerClient`` using one of the factory methods ``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery``. This instance can then be used to access service clients directly, or passed to a call to ``Bot.wire`` to connect a ``Bot`` instance to the ledger.
 
-.. _ledger-api-java-bindings-authentication:
+.. _ledger-api-java-bindings-authorization:
 
-Authenticating
-==============
+Authorizing
+===========
 
 Some ledgers will require you to send an access token along with each request.
 
-To learn more about authentication, read the :doc:`Authentication </app-dev/authentication>` overview.
+To learn more about authorization, read the :doc:`Authorization </app-dev/authorization>` overview.
 
 To use the same token for all Ledger API requests, the ``DamlLedgerClient`` builders expose a ``withAccessToken`` method. This will allow you to not pass a token explicitly for every call.
 
@@ -187,7 +123,7 @@ If your application is long-lived and your tokens are bound to expire, you can r
    transactionClient.getLedgerEnd(); // Uses the token specified when constructing the client
    transactionClient.getLedgerEnd(accessToken); // Override the token for this call exclusively
 
-If you're communicating with a ledger protected by authentication it's very important to secure the communication channel to prevent your tokens to be exposed to man-in-the-middle attacks. The next chapter describes how to enable TLS.
+If you're communicating with a ledger that verifies authorization it's very important to secure the communication channel to prevent your tokens to be exposed to man-in-the-middle attacks. The next chapter describes how to enable TLS.
 
 .. _ledger-api-java-binding-connecting-securely:
 
@@ -209,7 +145,80 @@ Advanced connection settings
 
 Sometimes the default settings for gRPC connections/channels are not suitable for a given situation. These use cases are supported by creating a a custom `NettyChannelBuilder <https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ object and passing the it to the ``newBuilder`` static method defined over `DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
 
+Reactive Components
+===================
+
+The Reactive Components are deprecated as of 2020-10-14.
+
+Accessing data on the ledger: LedgerView
+----------------------------------------
+
+The ``LedgerView`` of an application is the "copy" of the ledger that the application has locally. You can query it to obtain the contracts that are active on the Ledger and not pending.
+
+.. note::
+
+  - A contract is *active* if it exists in the Ledger and has not yet been archived.
+  - A contract is *pending* if the application has sent a consuming command to the Ledger and has yet
+    to receive an completion for the command (that is, if the command has succeeded or not).
+
+The ``LedgerView`` is updated every time:
+
+- a new event is received from the Ledger
+- new commands are sent to the Ledger
+- a command has failed to be processed
+
+For instance, if an incoming transaction is received with a create event for a contract that is relevant
+for the application, the application ``LedgerView`` is updated to contain that contract too.
+
+Writing automations: Bot
+------------------------
+
+The ``Bot`` is an abstraction used to write automation for a DAML Ledger. It is conceptually
+defined by two aspects:
+
+- the ``LedgerView``
+- the logic that produces commands, given a ``LedgerView``
+
+When the ``LedgerView`` is updated, to see if the bot has new commands to submit based on the
+updated view, the logic of the bot is run.
+
+The logic of the bot is a Java function from the bot's ``LedgerView`` to a ``Flowable<CommandsAndPendingSet>``.
+Each ``CommandsAndPendingSet`` contains:
+
+- the commands to send to the Ledger
+- the set of contractIds that should be considered pending while the command is in-flight
+  (that is, sent by the client but not yet processed by the Ledger)
+
+You can wire a ``Bot`` to a ``LedgerClient`` implementation using ``Bot.wire``:
+
+.. code-block:: java
+
+    Bot.wire(String applicationId,
+             LedgerClient ledgerClient,
+             TransactionFilter transactionFilter,
+             Function<LedgerViewFlowable.LedgerView<R>, Flowable<CommandsAndPendingSet>> bot,
+             Function<CreatedContract, R> transform)
+
+In the above:
+
+- ``applicationId``
+    The id used by the Ledger to identify all the queries from the same application.
+- ``ledgerClient``
+    The connection to the Ledger.
+- ``transactionFilter``
+    The server-side filter to the incoming transactions. Used to reduce the traffic between
+    Ledger and application and make an application more efficient.
+- ``bot``
+    The logic of the application,
+- ``transform``
+    The function that, given a new contract, returns which information for
+    that contracts are useful for the application. Can be used to reduce space used
+    by discarding all the info not required by the application. The input to the function
+    contains the ``templateId``, the arguments of the contract created and the context of
+    the created contract. The context contains the ``workflowId``.
+
 Example project
 ***************
 
 Example projects using the Java bindings are available on `GitHub <https://github.com/digital-asset/ex-java-bindings>`__. :doc:`Read more about them here </app-dev/bindings-java/example>`.
+

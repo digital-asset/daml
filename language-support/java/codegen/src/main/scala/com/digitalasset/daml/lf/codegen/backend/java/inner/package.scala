@@ -1,19 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java
+package com.daml.lf.codegen.backend.java
 
 import java.util
 
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlOptional, DamlTextMap}
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.iface._
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.iface._
 import com.squareup.javapoet._
 
 import scala.collection.JavaConverters._
+
+package inner {
+  case class FieldInfo(damlName: String, damlType: Type, javaName: String, javaType: TypeName)
+}
 
 package object inner {
 
@@ -21,8 +25,6 @@ package object inner {
     CodeBlock.join(fields.map(CodeBlock.of("$L", _)).asJava, ", ")
 
   private[inner] def newNameGenerator = Iterator.from(0).map(n => s"v$$$n")
-
-  case class FieldInfo(damlName: String, damlType: Type, javaName: String, javaType: TypeName)
 
   type Fields = IndexedSeq[FieldInfo]
 

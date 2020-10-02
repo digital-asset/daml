@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.participant.util
+package com.daml.platform.participant.util
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.v1.commands.{
+import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
   ExerciseByKeyCommand,
   ExerciseCommand
 }
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.Value.Sum.{
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.value.Value.Sum.{
   ContractId,
   Numeric,
   Int64,
@@ -22,13 +22,7 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum.{
   Timestamp,
   List => DamlListValue
 }
-import com.digitalasset.ledger.api.v1.value.{
-  Identifier,
-  Record,
-  RecordField,
-  Value,
-  List => DamlList
-}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, List => DamlList}
 
 import scala.language.implicitConversions
 

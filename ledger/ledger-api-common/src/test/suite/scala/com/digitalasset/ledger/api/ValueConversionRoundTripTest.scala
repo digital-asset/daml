@@ -1,14 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api
+package com.daml.ledger.api
 
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.{value => api}
-import com.digitalasset.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
-import com.digitalasset.platform.participant.util.LfEngineToApi
+import com.daml.lf.data.Time
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.{value => api}
+import com.daml.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
+import com.daml.platform.participant.util.LfEngineToApi
 import com.google.protobuf.empty.Empty
 import org.scalatest.WordSpec
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}
@@ -20,30 +19,8 @@ class ValueConversionRoundTripTest
 
   private val recordId =
     api.Identifier(packageId, moduleName = "Mod", entityName = "Record")
-  private val emptyRecordId =
-    api.Identifier(packageId, moduleName = "Mod", entityName = "EmptyRecord")
-  private val variantId =
-    api.Identifier(packageId, moduleName = "Mod", entityName = "Variant")
-
-  private val label: String = "label"
-
-  private def record(values: api.Value*): api.Value =
-    api.Value(Sum.Record(api.Record(Some(recordId), values.zipWithIndex.map {
-      case (v, i) => api.RecordField(label + "1")
-    })))
 
   private val constructor: String = "constructor"
-
-  private def variant(value: api.Value): api.Value =
-    api.Value(Sum.Variant(api.Variant(Some(recordId), constructor, Some(value))))
-
-  private val pkg = p"""
-         module Mod {
-           record EmptyRecord = {};
-           record Record = { label1: Int64, label2: Int64, label0: Int64 };
-           variant Variant = constructor: Unit;
-         }
-         """
 
   private def roundTrip(v: api.Value): Either[String, api.Value] =
     for {
@@ -56,7 +33,7 @@ class ValueConversionRoundTripTest
 
       val testCases: TableFor1[Sum] = Table(
         "values",
-        Sum.ContractId("coid"),
+        Sum.ContractId("#coid"),
         DomainMocks.values.validApiParty.sum,
         Sum.Int64(Long.MinValue),
         Sum.Int64(0),

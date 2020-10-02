@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
@@ -6,71 +6,15 @@
 - target: //daml-lf/archive:daml_lf_1.6_archive_java_proto
   type: jar-lib
   javadoc-jar: daml_lf_1.6_archive_java_proto_javadoc.jar
-- target: //daml-lf/archive:daml_lf_1.6_archive_proto_tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-1.6-archive-proto
-  # This is a tarball instead of a jar.
-  mavenUpload: false
-- target: //daml-lf/archive:daml_lf_1.6_archive_proto_zip
-  type: zip
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-1.6-archive-proto
-  # This is a zip archive instead of a jar.
-  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.7_archive_java_proto
   type: jar-lib
   javadoc-jar: daml_lf_1.7_archive_java_proto_javadoc.jar
-- target: //daml-lf/archive:daml_lf_1.7_archive_proto_tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-1.7-archive-proto
-  # This is a tarball instead of a jar.
-  mavenUpload: false
-- target: //daml-lf/archive:daml_lf_1.7_archive_proto_zip
-  type: zip
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-1.7-archive-proto
-  # This is a zip archive instead of a jar.
-  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.8_archive_java_proto
   type: jar-lib
   javadoc-jar: daml_lf_1.8_archive_java_proto_javadoc.jar
-- target: //daml-lf/archive:daml_lf_1.8_archive_proto_tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-1.8-archive-proto
-  # This is a tarball instead of a jar.
-  mavenUpload: false
-- target: //daml-lf/archive:daml_lf_1.8_archive_proto_zip
-  type: zip
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-1.8-archive-proto
-  # This is a zip archive instead of a jar.
-  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_dev_archive_java_proto
   type: jar-lib
   javadoc-jar: daml_lf_dev_archive_java_proto_javadoc.jar
-- target: //daml-lf/archive:daml_lf_dev_archive_proto_tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-dev-archive-proto
-  # This is a tarball instead of a jar.
-  mavenUpload: false
-- target: //daml-lf/archive:daml_lf_dev_archive_proto_zip
-  type: zip
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-dev-archive-proto
-  # This is a zip archive instead of a jar.
-  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
 - target: //daml-lf/data:data
@@ -85,28 +29,18 @@
   type: jar-scala
 - target: //daml-lf/language:language
   type: jar-scala
-- target: //daml-lf/repl:repl
-  type: jar
-  # This is an internal tool not something we want to make public
-  mavenUpload: false
 - target: //daml-lf/scenario-interpreter:scenario-interpreter
   type: jar-scala
-- target: //daml-lf/transaction:blindinginfo_java_proto
-  type: jar-proto
 - target: //daml-lf/transaction:transaction
   type: jar-scala
 - target: //daml-lf/transaction:transaction_java_proto
   type: jar-proto
 - target: //daml-lf/transaction:value_java_proto
   type: jar-proto
-- target: //daml-lf/transaction-scalacheck:transaction-scalacheck
+- target: //daml-lf/transaction-test-lib:transaction-test-lib
   type: jar-scala
 - target: //daml-lf/validation:validation
   type: jar-scala
-- target: //extractor:extractor-binary
-  type: jar-deploy
-  # This is a fat jar.
-  mavenUpload: false
 - target: //language-support/codegen-common:codegen-common
   type: jar-scala
 - target: //language-support/codegen-main:shaded_binary
@@ -125,15 +59,6 @@
   type: jar-scala
 - target: //language-support/scala/codegen:codegen
   type: jar-scala
-- target: //language-support/scala/codegen:codegen-main
-  type: jar
-  # This is a fat jar.
-  mavenUpload: false
-- target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: ledger-api-protos
 - target: //ledger-api/grpc-definitions:ledger-api-scalapb
   type: jar-scala
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
@@ -143,6 +68,8 @@
 - target: //ledger-api/rs-grpc-testing-utils:rs-grpc-testing-utils
   type: jar-scala
 - target: //ledger-api/testing-utils:testing-utils
+  type: jar-scala
+- target: //ledger/caching:caching
   type: jar-scala
 - target: //ledger/ledger-api-akka:ledger-api-akka
   type: jar-scala
@@ -160,7 +87,15 @@
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
+- target: //ledger/ledger-on-memory:ledger-on-memory
+  type: jar-scala
 - target: //ledger/ledger-on-sql:ledger-on-sql
+  type: jar-scala
+- target: //ledger/metrics:metrics
+  type: jar-scala
+- target: //ledger/participant-integration-api:ledger-api-server
+  type: jar-scala
+- target: //ledger/participant-integration-api:participant-integration-api
   type: jar-scala
 - target: //ledger/participant-state:participant-state
   type: jar-scala
@@ -174,26 +109,21 @@
   type: jar-proto
 - target: //ledger/participant-state-index:participant-state-index
   type: jar-scala
-- target: //ledger/sandbox:ledger-api-server
+- target: //ledger/participant-state-metrics:participant-state-metrics
   type: jar-scala
 - target: //ledger/sandbox:sandbox
   type: jar-scala
-- target: //ledger/sandbox:sandbox-tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: sandbox
-  # This is a tarball of the fat jar.
-  mavenUpload: false
+- target: //ledger/sandbox-common:sandbox-common
+  type: jar-scala
+- target: //ledger/sandbox-classic:sandbox-classic
+  type: jar-scala
 - target: //ledger-service/db-backend:db-backend
   type: jar-scala
 - target: //ledger-service/http-json:http-json
   type: jar-scala
-- target: //ledger-service/http-json:http-json-binary
-  type: jar-deploy
-  # This is a fat jar.
-  mavenUpload: false
 - target: //ledger-service/lf-value-json:lf-value-json
+  type: jar-scala
+- target: //ledger-service/cli-opts:cli-opts
   type: jar-scala
 - target: //ledger-service/jwt:jwt
   type: jar-scala
@@ -201,9 +131,11 @@
   type: jar-scala
 - target: //libs-scala/auth-utils:auth-utils
   type: jar-scala
-- target: //libs-scala/contextualized-logging:contextualized-logging
+- target: //libs-scala/build-info:build-info
   type: jar-scala
-- target: //libs-scala/direct-execution-context:direct-execution-context
+- target: //libs-scala/concurrent:concurrent
+  type: jar-scala
+- target: //libs-scala/contextualized-logging:contextualized-logging
   type: jar-scala
 - target: //libs-scala/grpc-utils:grpc-utils
   type: jar-scala
@@ -213,12 +145,11 @@
   type: jar-scala
 - target: //libs-scala/resources-akka:resources-akka
   type: jar-scala
+- target: //libs-scala/scala-utils:scala-utils
+  type: jar-scala
+- target: //libs-scala/scalatest-utils:scalatest-utils
+  type: jar-scala
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
-- target: //navigator/backend:navigator-binary
-  type: jar-deploy
-  # This is a fat jar.
-  mavenUpload: false
 - target: //triggers/runner:trigger-runner-lib
   type: jar-scala
-

@@ -1,24 +1,36 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.testing.postgresql
+package com.daml.testing.postgresql
 
-import org.scalatest.BeforeAndAfterEach
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite}
 
-trait PostgresAroundEach extends PostgresAround with BeforeAndAfterEach {
-  self: org.scalatest.Suite =>
+trait PostgresAroundEach
+    extends PostgresAroundSuite
+    with BeforeAndAfterAll
+    with BeforeAndAfterEach {
+  self: Suite =>
+
+  override protected def beforeAll(): Unit = {
+    // We start PostgreSQL before calling `super` because _generally_ the database needs to be up
+    // before everything else.
+    connectToPostgresqlServer()
+    super.beforeAll()
+  }
+
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    disconnectFromPostgresqlServer()
+  }
 
   override protected def beforeEach(): Unit = {
-    // we start pg before running the rest because _generally_ the database
-    // needs to be up before everything else. this is relevant for
-    // ScenarioLoadingITPostgres at least. we could much with the mixin
-    // order but this was easier...
-    startEphemeralPostgres()
+    // We create the database before calling `super` for the same reasons as above.
+    createNewDatabase()
     super.beforeEach()
   }
 
   override protected def afterEach(): Unit = {
     super.afterEach()
-    stopAndCleanUpPostgres()
+    dropDatabase()
   }
 }

@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.ledger.client.binding.{Value, Primitive => P}
-import com.digitalasset.sample._
+import com.daml.ledger.client.binding.{Value, Primitive => P}
+import com.daml.sample._
 import org.scalatest.{Matchers, WordSpec}
 
 class DataTypeIT extends WordSpec with Matchers {

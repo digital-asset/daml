@@ -1,0 +1,12 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 1.7
+module Numeric where
+
+import DA.Assert
+import DA.Numeric
+
+testShift = scenario do
+  shift @1 @2 1.0 === 10.0
+  shift @2 @1 1.0 === 0.1

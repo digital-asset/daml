@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Agent startup script
@@ -26,6 +26,50 @@ apt-get install -qy \
   netcat \
   apt-transport-https \
   software-properties-common
+
+# Install dependencies for Chrome (to run Puppeteer tests on the gsg)
+# list taken from: https://github.com/puppeteer/puppeteer/blob/a3d1536a6b6e282a43521bea28aef027a7133df8/docs/troubleshooting.md#chrome-headless-doesnt-launch-on-unix
+# see https://github.com/digital-asset/daml/pull/5540 for context
+apt-get install -qy \
+    gconf-service \
+    libasound2 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libc6 \
+    libcairo2 \
+    libcups2 \
+    libdbus-1-3 \
+    libexpat1 \
+    libfontconfig1 \
+    libgcc1 \
+    libgconf-2-4 \
+    libgdk-pixbuf2.0-0 \
+    libglib2.0-0 \
+    libgtk-3-0 \
+    libnspr4 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libstdc++6 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    ca-certificates \
+    fonts-liberation \
+    libappindicator1 \
+    libnss3 \
+    lsb-release \
+    xdg-utils \
+    wget
 
 curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
 
@@ -60,6 +104,7 @@ VSTS_TOKEN=${vsts_token}
 
 mkdir -p ~/agent
 cd ~/agent
+echo 'assignment=default' > .capabilities
 
 echo Determining matching VSTS agent...
 VSTS_AGENT_RESPONSE=$(curl -sSfL \
@@ -101,7 +146,7 @@ chown --recursive root:root /home/vsts/agent/{*.sh,bin,externals}
 
 # This needs to run inside of a user with sudo access
 echo "vsts ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/nix_installation
-su --command "sh <(curl https://nixos.org/nix/install) --daemon" --login vsts
+su --command "sh <(curl -sSfL https://nixos.org/nix/install) --daemon" --login vsts
 rm /etc/sudoers.d/nix_installation
 
 # Note: the "hydra.da-int.net" string is now part of the name of the key for
@@ -133,12 +178,6 @@ echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
   ./build.sh "_$(uname)"
 ) || true
 CACHE_WARMUP
-
-# Purge old agents
-su --login vsts <<'PURGE_OLD_AGENTS'
-cd daml && \
-VSTS_ACCOUNT=${vsts_account} VSTS_POOL=${vsts_pool} VSTS_TOKEN=${vsts_token} ./ci/azure-cleanup/purge_old_agents.py || true
-PURGE_OLD_AGENTS
 
 # Remove /home/vsts/daml folder that might be present from cache warmup
 rm -R /home/vsts/daml || true

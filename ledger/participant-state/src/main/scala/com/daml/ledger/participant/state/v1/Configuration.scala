@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -9,18 +9,26 @@ import scala.util.Try
 
 /** Ledger configuration describing the ledger's time model.
   * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
+  *
+  * @param generation The configuration generation. Monotonically increasing.
+  * @param timeModel The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands.
+  * @param maxDeduplicationTime The maximum time window during which commands can be deduplicated.
   */
 final case class Configuration(
-    /* The configuration generation. Monotonically increasing. */
     generation: Long,
-    /** The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands. */
     timeModel: TimeModel,
+    maxDeduplicationTime: Duration,
 )
 
 object Configuration {
   import com.daml.ledger.participant.state.protobuf
 
-  val protobufVersion: Long = 1L
+  /**
+    * Version history:
+    * V1: initial version
+    * V2: added maxDeduplicationTime
+    */
+  val protobufVersion: Long = 2L
 
   def decode(bytes: Array[Byte]): Either[String, Configuration] =
     Try(protobuf.LedgerConfiguration.parseFrom(bytes)).toEither.left
@@ -31,6 +39,7 @@ object Configuration {
   def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
     config.getVersion match {
       case 1 => DecodeV1.decode(config)
+      case 2 => DecodeV2.decode(config)
       case v => Left(s"Unknown version: $v")
     }
 
@@ -46,14 +55,40 @@ object Configuration {
         Configuration(
           generation = config.getGeneration,
           timeModel = tm,
+          maxDeduplicationTime = Duration.ofDays(1),
         )
       }
 
     def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
       TimeModel(
-        maxClockSkew = parseDuration(tm.getMaxClockSkew),
-        minTransactionLatency = parseDuration(tm.getMinTransactionLatency),
-        maxTtl = parseDuration(tm.getMaxTtl),
+        avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
+        minSkew = parseDuration(tm.getMinSkew),
+        maxSkew = parseDuration(tm.getMaxSkew),
+      ).toEither.left.map(e => s"decodeTimeModel: ${e.getMessage}")
+  }
+
+  private object DecodeV2 {
+
+    def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
+      for {
+        tm <- if (config.hasTimeModel)
+          decodeTimeModel(config.getTimeModel)
+        else
+          Left("Missing time model")
+        maxDeduplicationTime <- if (config.hasMaxDeduplicationTime)
+          Right(parseDuration(config.getMaxDeduplicationTime))
+        else
+          Left("Missing maximum command time to live")
+      } yield {
+        Configuration(
+          generation = config.getGeneration,
+          timeModel = tm,
+          maxDeduplicationTime = maxDeduplicationTime,
+        )
+      }
+
+    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
+      TimeModel(
         avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
         minSkew = parseDuration(tm.getMinSkew),
         maxSkew = parseDuration(tm.getMaxSkew),
@@ -67,13 +102,11 @@ object Configuration {
       .setGeneration(config.generation)
       .setTimeModel(
         protobuf.LedgerTimeModel.newBuilder
-          .setMaxClockSkew(buildDuration(tm.maxClockSkew))
-          .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
-          .setMaxTtl(buildDuration(tm.maxTtl))
           .setAvgTransactionLatency(buildDuration(tm.avgTransactionLatency))
           .setMinSkew(buildDuration(tm.minSkew))
           .setMaxSkew(buildDuration(tm.maxSkew))
       )
+      .setMaxDeduplicationTime(buildDuration(config.maxDeduplicationTime))
       .build
   }
 

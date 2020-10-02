@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package archive
 
 import java.util
 
-import com.digitalasset.daml.lf.archive.Decode.ParseError
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
+import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
 import ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
-import com.digitalasset.daml_lf_dev.{DamlLf1 => PLF}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
 import scala.collection.JavaConverters._
@@ -62,6 +62,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             _,
             onlySerializableDataDefs).decode),
       directDeps = dependencyTracker.getDependencies,
+      languageVersion = languageVersion,
       metadata = metadata,
     )
 
@@ -238,7 +239,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         templates += ((defName, decodeTemplate(defn)))
       }
 
-      Module(moduleName, defs, templates, languageVersion, decodeFeatureFlags(lfModule.getFlags))
+      Module(moduleName, defs, templates, decodeFeatureFlags(lfModule.getFlags))
     }
 
     // -----------------------------------------------------------------------
@@ -552,7 +553,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         consuming = lfChoice.getConsuming,
         controllers = decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller"),
         selfBinder = selfBinder,
-        argBinder = Some(v) -> t,
+        argBinder = v -> t,
         returnType = decodeType(lfChoice.getRetType),
         update = decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice")
       )
@@ -568,7 +569,8 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val kArrow = lfKind.getArrow
           val params = kArrow.getParamsList.asScala
           assertNonEmpty(params, "params")
-          (params :\ decodeKind(kArrow.getResult))((param, kind) => KArrow(decodeKind(param), kind))
+          (params foldRight decodeKind(kArrow.getResult))((param, kind) =>
+            KArrow(decodeKind(param), kind))
         case PLF.Kind.SumCase.SUM_NOT_SET =>
           throw ParseError("Kind.SUM_NOT_SET")
       }
@@ -599,7 +601,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             )
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
-          (TTyCon(decodeTypeConName(tcon.getTycon)) /: [Type] tcon.getArgsList.asScala)(
+          (tcon.getArgsList.asScala foldLeft [Type] TTyCon(decodeTypeConName(tcon.getTycon)))(
             (typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.SYN =>
           val tsyn = lfType.getSyn
@@ -618,25 +620,32 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
               assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
               info.typ
             }
-          (baseType /: [Type] prim.getArgsList.asScala)((typ, arg) => TApp(typ, decodeType(arg)))
+          (prim.getArgsList.asScala foldLeft [Type] baseType)((typ, arg) =>
+            TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.FUN =>
           assertUntil(LV.Features.arrowType, "Type.Fun")
           val tFun = lfType.getFun
           val params = tFun.getParamsList.asScala
           assertNonEmpty(params, "params")
-          (params :\ decodeType(tFun.getResult))((param, res) => TFun(decodeType(param), res))
+          (params foldRight decodeType(tFun.getResult))(
+            (param, res) => TFun(decodeType(param), res))
         case PLF.Type.SumCase.FORALL =>
           val tForall = lfType.getForall
           val vars = tForall.getVarsList.asScala
           assertNonEmpty(vars, "vars")
-          (vars :\ decodeType(tForall.getBody))((binder, acc) =>
+          (vars foldRight decodeType(tForall.getBody))((binder, acc) =>
             TForall(decodeTypeVarWithKind(binder), acc))
         case PLF.Type.SumCase.STRUCT =>
           val struct = lfType.getStruct
           val fields = struct.getFieldsList.asScala
           assertNonEmpty(fields, "fields")
-          TStruct(fields.map(decodeFieldWithType)(breakOut))
-
+          TStruct(
+            Struct
+              .fromSeq(fields.map(decodeFieldWithType))
+              .fold(
+                name => throw ParseError(s"TStruct: duplicate field $name"),
+                identity
+              ))
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
       }
@@ -848,7 +857,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val app = lfExpr.getApp
           val args = app.getArgsList.asScala
           assertNonEmpty(args, "args")
-          (decodeExpr(app.getFun, definition) /: args)((e, arg) =>
+          (args foldLeft decodeExpr(app.getFun, definition))((e, arg) =>
             EApp(e, decodeExpr(arg, definition)))
 
         case PLF.Expr.SumCase.ABS =>
@@ -856,27 +865,28 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val params = lfAbs.getParamList.asScala
           assertNonEmpty(params, "params")
           // val params = lfAbs.getParamList.asScala.map(decodeBinder)
-          (params :\ decodeExpr(lfAbs.getBody, definition))((param, e) =>
+          (params foldRight decodeExpr(lfAbs.getBody, definition))((param, e) =>
             EAbs(decodeBinder(param), e, currentDefinitionRef))
 
         case PLF.Expr.SumCase.TY_APP =>
           val tyapp = lfExpr.getTyApp
           val args = tyapp.getTypesList.asScala
           assertNonEmpty(args, "args")
-          (decodeExpr(tyapp.getExpr, definition) /: args)((e, arg) => ETyApp(e, decodeType(arg)))
+          (args foldLeft decodeExpr(tyapp.getExpr, definition))((e, arg) =>
+            ETyApp(e, decodeType(arg)))
 
         case PLF.Expr.SumCase.TY_ABS =>
           val lfTyAbs = lfExpr.getTyAbs
           val params = lfTyAbs.getParamList.asScala
           assertNonEmpty(params, "params")
-          (params :\ decodeExpr(lfTyAbs.getBody, definition))((param, e) =>
+          (params foldRight decodeExpr(lfTyAbs.getBody, definition))((param, e) =>
             ETyAbs(decodeTypeVarWithKind(param), e))
 
         case PLF.Expr.SumCase.LET =>
           val lfLet = lfExpr.getLet
           val bindings = lfLet.getBindingsList.asScala
           assertNonEmpty(bindings, "bindings")
-          (bindings :\ decodeExpr(lfLet.getBody, definition))((binding, e) => {
+          (bindings foldRight decodeExpr(lfLet.getBody, definition))((binding, e) => {
             val (v, t) = decodeBinder(binding.getBinder)
             ELet(Binding(Some(v), t, decodeExpr(binding.getBound, definition)), e)
           })
@@ -1404,50 +1414,142 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(GENMAP_SIZE, BGenMapSize, minVersion = genMap),
       BuiltinFunctionInfo(APPEND_TEXT, BAppendText),
       BuiltinFunctionInfo(ERROR, BError),
-      BuiltinFunctionInfo(LEQ_INT64, BLessEqInt64),
+      BuiltinFunctionInfo(
+        LEQ_INT64,
+        BLessEq,
+        implicitParameters = List(TInt64),
+        maxVersion = Some(genComparison),
+      ),
       BuiltinFunctionInfo(
         LEQ_DECIMAL,
-        BLessEqNumeric,
+        BLessEq,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(LEQ_NUMERIC, BLessEqNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(LEQ_TEXT, BLessEqText),
-      BuiltinFunctionInfo(LEQ_TIMESTAMP, BLessEqTimestamp),
-      BuiltinFunctionInfo(LEQ_PARTY, BLessEqParty, minVersion = partyOrdering),
-      BuiltinFunctionInfo(GEQ_INT64, BGreaterEqInt64),
+      BuiltinFunctionInfo(
+        LEQ_NUMERIC,
+        BLessEqNumeric,
+        maxVersion = Some(genComparison),
+        minVersion = numeric,
+      ),
+      BuiltinFunctionInfo(
+        LEQ_TEXT,
+        BLessEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        LEQ_TIMESTAMP,
+        BLessEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        LEQ_PARTY,
+        BLessEq,
+        minVersion = partyOrdering,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TParty)),
+      BuiltinFunctionInfo(
+        GEQ_INT64,
+        BGreaterEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         GEQ_DECIMAL,
-        BGreaterEqNumeric,
+        BGreaterEq,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(GEQ_NUMERIC, BGreaterEqNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(GEQ_TEXT, BGreaterEqText),
-      BuiltinFunctionInfo(GEQ_TIMESTAMP, BGreaterEqTimestamp),
-      BuiltinFunctionInfo(GEQ_PARTY, BGreaterEqParty, minVersion = partyOrdering),
-      BuiltinFunctionInfo(LESS_INT64, BLessInt64),
+      BuiltinFunctionInfo(
+        GEQ_NUMERIC,
+        BGreaterEqNumeric,
+        minVersion = numeric,
+        maxVersion = Some(genComparison),
+      ),
+      BuiltinFunctionInfo(
+        GEQ_TEXT,
+        BGreaterEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        GEQ_TIMESTAMP,
+        BGreaterEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        GEQ_PARTY,
+        BGreaterEq,
+        minVersion = partyOrdering,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TParty),
+      ),
+      BuiltinFunctionInfo(
+        LESS_INT64,
+        BLess,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         LESS_DECIMAL,
-        BLessNumeric,
+        BLess,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(LESS_NUMERIC, BLessNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(LESS_TEXT, BLessText),
-      BuiltinFunctionInfo(LESS_TIMESTAMP, BLessTimestamp),
-      BuiltinFunctionInfo(LESS_PARTY, BLessParty, minVersion = partyOrdering),
-      BuiltinFunctionInfo(GREATER_INT64, BGreaterInt64),
+      BuiltinFunctionInfo(
+        LESS_NUMERIC,
+        BLessNumeric,
+        minVersion = numeric,
+        maxVersion = Some(genComparison),
+      ),
+      BuiltinFunctionInfo(
+        LESS_TEXT,
+        BLess,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        LESS_TIMESTAMP,
+        BLess,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        LESS_PARTY,
+        BLess,
+        minVersion = partyOrdering,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TParty)
+      ),
+      BuiltinFunctionInfo(
+        GREATER_INT64,
+        BGreater,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         GREATER_DECIMAL,
-        BGreaterNumeric,
+        BGreater,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(GREATER_NUMERIC, BGreaterNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(GREATER_TEXT, BGreaterText),
-      BuiltinFunctionInfo(GREATER_TIMESTAMP, BGreaterTimestamp),
-      BuiltinFunctionInfo(GREATER_PARTY, BGreaterParty, minVersion = partyOrdering),
+      BuiltinFunctionInfo(
+        GREATER_NUMERIC,
+        BGreaterNumeric,
+        minVersion = numeric,
+        maxVersion = Some(genComparison),
+      ),
+      BuiltinFunctionInfo(
+        GREATER_TEXT,
+        BGreater,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        GREATER_TIMESTAMP,
+        BGreater,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        GREATER_PARTY,
+        BGreater,
+        minVersion = partyOrdering,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TParty),
+      ),
       BuiltinFunctionInfo(TO_TEXT_INT64, BToTextInt64),
       BuiltinFunctionInfo(
         TO_TEXT_DECIMAL,
@@ -1459,6 +1561,11 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
       BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty, minVersion = partyTextConversions),
       BuiltinFunctionInfo(TO_TEXT_TEXT, BToTextText),
+      BuiltinFunctionInfo(
+        TO_TEXT_CONTRACT_ID,
+        BToTextContractId,
+        minVersion = contractIdTextConversions,
+      ),
       BuiltinFunctionInfo(TO_QUOTED_TEXT_PARTY, BToQuotedTextParty),
       BuiltinFunctionInfo(TEXT_FROM_CODE_POINTS, BToTextCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(FROM_TEXT_PARTY, BFromTextParty, minVersion = partyTextConversions),
@@ -1475,28 +1582,33 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
-      BuiltinFunctionInfo(GEQ_DATE, BGreaterEqDate),
-      BuiltinFunctionInfo(LEQ_DATE, BLessEqDate),
-      BuiltinFunctionInfo(LESS_DATE, BLessDate),
+      BuiltinFunctionInfo(GEQ_DATE, BGreaterEq, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(LEQ_DATE, BLessEq, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(LESS_DATE, BLess, implicitParameters = List(TDate)),
       BuiltinFunctionInfo(TIMESTAMP_TO_UNIX_MICROSECONDS, BTimestampToUnixMicroseconds),
       BuiltinFunctionInfo(TO_TEXT_DATE, BToTextDate),
       BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
       BuiltinFunctionInfo(UNIX_MICROSECONDS_TO_TIMESTAMP, BUnixMicrosecondsToTimestamp),
-      BuiltinFunctionInfo(GREATER_DATE, BGreaterDate),
-      BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genMap),
+      BuiltinFunctionInfo(GREATER_DATE, BGreater, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genComparison),
+      BuiltinFunctionInfo(LESS, BLess, minVersion = genComparison),
+      BuiltinFunctionInfo(LESS_EQ, BLessEq, minVersion = genComparison),
+      BuiltinFunctionInfo(GREATER, BGreater, minVersion = genComparison),
+      BuiltinFunctionInfo(GREATER_EQ, BGreaterEq, minVersion = genComparison),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         EQUAL_DECIMAL,
-        BEqualNumeric,
+        BEqual,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
       BuiltinFunctionInfo(
         EQUAL_NUMERIC,
         BEqualNumeric,
         minVersion = numeric,
-        maxVersion = Some(genMap)),
+        maxVersion = Some(genComparison)
+      ),
       BuiltinFunctionInfo(
         EQUAL_TEXT,
         BEqual,

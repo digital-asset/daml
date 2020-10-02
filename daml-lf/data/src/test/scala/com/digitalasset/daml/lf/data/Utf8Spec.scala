@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
@@ -10,7 +10,6 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.collection.JavaConverters._
 import scala.util.Random
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Utf8Spec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   private def codepointToString(cp: Int): String =

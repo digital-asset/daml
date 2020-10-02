@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // The CSS style (but not the code) of the tooltip is based on the
@@ -7,7 +7,7 @@
 // The license of this library is included in the current folder.
 import * as React from 'react';
 import { Placement } from '../Popover';
-import styled, { withProps } from '../theme';
+import styled from '../theme';
 
 const arrowSize = 11;
 const arrowCrossDist = 2 * arrowSize;
@@ -84,7 +84,7 @@ function getArrowTransform(placement: Placement) {
   }
 }
 
-const StyledArrow = withProps<{placement: Placement}>(styled.div)`
+const StyledArrow = styled.div<{placement: Placement}>`
   position: absolute;
   ${(props) => getArrowAttachment(props.placement)}
   width: 30px;
@@ -161,7 +161,7 @@ function getArrowMargin(props: StyleProps) {
   }
 }
 
-const ContentOuterContainer = withProps<StyleProps>(styled.div)`
+const ContentOuterContainer = styled.div<StyleProps>`
   box-shadow: 0 0 0 1px rgba(16, 22, 26, 0.1),
     0 2px 4px rgba(16, 22, 26, 0.2), 0 8px 24px rgba(16, 22, 26, 0.2);
   transform: scale(1);
