@@ -36,7 +36,7 @@ module DA.Bifunctor(Bifunctor(..)) where
 --
 -- If you supply both, you should also ensure:
 --
--- ````
+-- ```
 -- @'bimap' f g ≡ 'first' f '.' 'second' g@
 -- ```
 --
