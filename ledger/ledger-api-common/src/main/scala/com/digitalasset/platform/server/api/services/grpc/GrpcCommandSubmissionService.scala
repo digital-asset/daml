@@ -41,8 +41,9 @@ class GrpcCommandSubmissionService(
   private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
-    Timed.future(
+    Timed.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
+      metrics.daml.commands.submissionsRunning,
       Timed
         .value(
           metrics.daml.commands.validation,
