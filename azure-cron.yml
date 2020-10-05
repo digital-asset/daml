@@ -37,7 +37,12 @@ jobs:
       - checkout: self
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - bash: ci/cron/run.sh
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+
+          bazel build //ci/cron:cron
+          ./bazel-bin/ci/cron/cron docs
         env:
           AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
           AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)

@@ -24,6 +24,7 @@ import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
+import qualified System.Environment
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
 import qualified System.Process as System
@@ -236,8 +237,8 @@ fetch_s3_versions = do
                   Just s3_json -> return $ map (\s -> PreVersion prerelease (version s)) $ H.keys s3_json
                   Nothing -> Exit.die "Failed to get versions from s3"
 
-main :: IO ()
-main = do
+docs :: IO ()
+docs = do
     Control.forM_ [IO.stdout, IO.stderr] $
         \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
@@ -261,3 +262,13 @@ main = do
             putStrLn "Updating versions.json & hidden.json"
             update_s3 temp_dir gh_versions
         reset_cloudfront
+
+check_signatures :: IO ()
+check_signatures = do
+    putStrLn "FIXME"
+
+main :: IO ()
+main = System.Environment.getArgs >>= parse
+  where parse ["docs"] = docs
+        parse ["check-signatures"] = check_signatures
+        parse _ = Exit.die "Arg required: docs, check-signatures"
