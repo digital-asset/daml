@@ -93,65 +93,13 @@ final case class ResultNeedKey[A](
 
 object Result {
   // fails with ResultError if the package is not found
-  def needPackage[A](packageId: PackageId, resume: Package => Result[A]) =
+  private[lf] def needPackage[A](packageId: PackageId, resume: Package => Result[A]) =
     ResultNeedPackage(packageId, {
       case None => ResultError(Error(s"Couldn't find package $packageId"))
       case Some(pkg) => resume(pkg)
     })
 
-  def needPackage[A](
-      compiledPackages: MutableCompiledPackages,
-      packageId: PackageId,
-      resume: Package => Result[A]): Result[A] =
-    compiledPackages.getPackage(packageId) match {
-      case Some(pkg) => resume(pkg)
-      case None =>
-        ResultNeedPackage(
-          packageId, {
-            case None => ResultError(Error(s"Couldn't find package $packageId"))
-            case Some(pkg) =>
-              compiledPackages.addPackage(packageId, pkg).flatMap(_ => resume(pkg))
-          }
-        )
-    }
-
-  def needDefinition[A](
-      packagesCache: MutableCompiledPackages,
-      identifier: Identifier,
-      resume: Definition => Result[A]): Result[A] =
-    needPackage(
-      packagesCache,
-      identifier.packageId,
-      pkg =>
-        fromEither(PackageLookup.lookupDefinition(pkg, identifier.qualifiedName))
-          .flatMap(resume)
-    )
-
-  def needDataType[A](
-      packagesCache: MutableCompiledPackages,
-      identifier: Identifier,
-      resume: DDataType => Result[A]): Result[A] =
-    needPackage(
-      packagesCache,
-      identifier.packageId,
-      pkg =>
-        fromEither(PackageLookup.lookupDataType(pkg, identifier.qualifiedName))
-          .flatMap(resume)
-    )
-
-  def needTemplate[A](
-      packagesCache: MutableCompiledPackages,
-      identifier: Identifier,
-      resume: Template => Result[A]): Result[A] =
-    needPackage(
-      packagesCache,
-      identifier.packageId,
-      pkg =>
-        fromEither(PackageLookup.lookupTemplate(pkg, identifier.qualifiedName))
-          .flatMap(resume)
-    )
-
-  def needContract[A](
+  private[lf] def needContract[A](
       acoid: ContractId,
       resume: ContractInst[VersionedValue[ContractId]] => Result[A]) =
     ResultNeedContract(acoid, {
