@@ -32,12 +32,14 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
             ledgerId = ledgerId,
             applicationId = applicationId,
             jwtSecret = jwtSecret))
+        serverUri = Uri()
+          .withScheme("http")
+          .withAuthority(server.localAddress.getHostString, server.localAddress.getPort)
         client <- Resources.authMiddleware(
           Config(
             port = Port.Dynamic,
-            oauthUri = Uri()
-              .withScheme("http")
-              .withAuthority(server.localAddress.getHostString, server.localAddress.getPort),
+            oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
+            oauthToken = serverUri.withPath(Uri.Path./("token")),
             clientId = "middleware",
             clientSecret = "middleware-secret"
           ))

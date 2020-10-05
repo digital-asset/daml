@@ -53,7 +53,7 @@ object Server {
       )
     }
 
-    import JsonProtocol._
+    import Request.Token.unmarshalHttpEntity
 
     implicit val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 

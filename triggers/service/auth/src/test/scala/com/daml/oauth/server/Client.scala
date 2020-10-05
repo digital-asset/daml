@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
@@ -80,12 +81,13 @@ object Client {
                     redirectUri = toRedirectUri(request.uri),
                     clientId = config.clientId,
                     clientSecret = config.clientSecret)
-                  val req = HttpRequest(
-                    uri = config.authServerUrl.withPath(Path./("token")),
-                    entity = HttpEntity(MediaTypes.`application/json`, body.toJson.compactPrint),
-                    method = HttpMethods.POST,
-                  )
                   val f = for {
+                    entity <- Marshal(body).to[RequestEntity]
+                    req = HttpRequest(
+                      uri = config.authServerUrl.withPath(Path./("token")),
+                      entity = entity,
+                      method = HttpMethods.POST,
+                    )
                     resp <- Http().singleRequest(req)
                     tokenResp <- Unmarshal(resp).to[Response.Token]
                   } yield tokenResp
