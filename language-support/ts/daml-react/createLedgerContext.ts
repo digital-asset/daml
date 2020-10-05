@@ -23,6 +23,7 @@ export type LedgerProps = {
   httpBaseUrl?: string;
   wsBaseUrl?: string;
   party: Party;
+  reconnectThreshold?: number;
 }
 
 /**
@@ -86,9 +87,9 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
   // not make a new network request although they are required to refresh data.
 
   const ledgerContext = React.createContext<DamlLedgerState | undefined>(undefined);
-  const DamlLedger: React.FC<LedgerProps> = ({token, httpBaseUrl, wsBaseUrl, party, children}) => {
+  const DamlLedger: React.FC<LedgerProps> = ({token, httpBaseUrl, wsBaseUrl, reconnectThreshold, party, children}) => {
     const [reloadToken, setReloadToken] = useState(0);
-    const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl}), [token, httpBaseUrl, wsBaseUrl]);
+    const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl, reconnectThreshold}), [token, httpBaseUrl, wsBaseUrl, reconnectThreshold]);
     const state: DamlLedgerState = useMemo(() => ({
       reloadToken,
       triggerReload: (): void => setReloadToken(x => x + 1),
