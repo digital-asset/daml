@@ -440,9 +440,9 @@ final private[kvutils] class PackageCommitter(
         builder += "check_for_duplicate" -> checkForDuplicates
         validationMode match {
           case ValidationMode.Strict =>
-            builder += "strictly_validate_packages" -> strictlyValidatePackages
+            builder += "validate_packages" -> strictlyValidatePackages
           case _ =>
-            builder += "loosely_validate_packages" -> looselyValidatePackages
+            builder += "validate_packages" -> looselyValidatePackages
         }
     }
     preloadingMode match {
