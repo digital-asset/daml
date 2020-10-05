@@ -93,24 +93,21 @@ build_and_push temp versions = do
             putStrLn $ "Building " <> show version <> "..."
             build version
             putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
-            push (temp </> show version) $ show version
+            push version
             putStrLn "Done.")
     where
         restore_sha io =
-            Control.Exception.bracket (init <$> shell "git rev-parse HEAD")
+            Control.Exception.bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
                                       (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
                                       (const io)
         build version = do
             shell_ $ "git checkout v" <> show version
-            build_helper version
-
-        build_helper version = do
             robustly_download_nix_packages
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> temp </> show version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> temp </> show version
-        push local remote =
-            shell_ $ "aws s3 cp " <> local </> " " <> "s3://docs-daml-com" </> remote </> " --recursive --acl public-read"
+        push version =
+            shell_ $ "aws s3 cp " <> (temp </> show version) </> " " <> "s3://docs-daml-com" </> show version </> " --recursive --acl public-read"
 
 fetch_if_missing :: FilePath -> Version -> IO ()
 fetch_if_missing temp v = do
@@ -246,7 +243,6 @@ main = do
     if s3_versions == gh_versions
     then do
         putStrLn "Versions match, nothing to do."
-        Exit.exitSuccess
     else do
         -- We may have added versions. We need to build and push them.
         let added = Set.toList $ all_versions gh_versions `Set.difference` all_versions s3_versions
