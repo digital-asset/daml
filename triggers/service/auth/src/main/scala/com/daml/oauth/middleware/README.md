@@ -18,11 +18,10 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
   - Provide a name (`ex-daml-api`).
   - Provide an Identifier (`https://daml.com/ledger-api`).
   - Select Signing Algorithm of `RS256`.
-* Create a new machine to machine application.
+* Create a new native application.
   - Provide a name (`ex-daml-auth-middleware`).
   - Select the authorized API (`ex-daml-api`).
   - Configure the allowed callback URLs in the settings (`http://localhost:3000`).
-  - Enable the "Authorization Code" "Grant Type" in the advanced settings.
   - Note the "Client ID" and "Client Secret" displayed in the "Basic
     Information" pane of the application settings.
   - Note the "OAuth Authorization URL" and the "OAuth Token URL" in the
