@@ -47,7 +47,7 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
       var actAs = [];
       var readAs = [];
       var admin = false;
-      // TODO define mapping from scope to ledger claims.
+      // TODO[AH] specify mapping from scope to ledger claims.
       scope.forEach(s => {
         if (s.startsWith("actAs:")) {
           actAs.push(s.slice(6));
