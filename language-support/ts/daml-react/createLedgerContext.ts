@@ -3,7 +3,7 @@
 
 import React, {useContext, useEffect, useMemo, useState } from 'react';
 import { ContractId,Party, Template } from '@daml/types';
-import Ledger, { CreateEvent, Query, Stream } from '@daml/ledger';
+import Ledger, { CreateEvent, Query, Stream, StreamCloseEvent } from '@daml/ledger';
 
 /**
  * @internal
@@ -64,8 +64,8 @@ export type LedgerContext = {
   useQuery: <T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]) => QueryResult<T, K, I>;
   useFetch: <T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>) => FetchResult<T, K, I>;
   useFetchByKey: <T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]) => FetchResult<T, K, I>;
-  useStreamQuery: <T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]) => QueryResult<T, K, I>;
-  useStreamFetchByKey: <T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]) => FetchResult<T, K, I>;
+  useStreamQuery: <T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void) => QueryResult<T, K, I>;
+  useStreamFetchByKey: <T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void) => FetchResult<T, K, I>;
   useReload: () => () => void;
 }
 
@@ -174,8 +174,9 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
     setLoading: (r: Result, loading: boolean) => Result;
     setData: (r: Result, data: S) => Result;
     deps: readonly unknown[];
+    closeHandler?: (e: StreamCloseEvent) => void;
   }
-  function useStream<T extends object, K, I extends string, S, Result>({name, template, init, mkStream, setLoading, setData, deps}: StreamArgs<T, K, I, S, Result>): Result {
+  function useStream<T extends object, K, I extends string, S, Result>({name, template, init, mkStream, setLoading, setData, deps, closeHandler}: StreamArgs<T, K, I, S, Result>): Result {
     const [result, setResult] = useState<Result>(init);
     const state = useDamlState();
     useEffect(() => {
@@ -184,10 +185,14 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
       console.debug(`mount ${name}(${template.templateId}, ...)`, debugQuery);
       stream.on('live', () => setResult(result => setLoading(result, false)));
       stream.on('change', contracts => setResult(result => setData(result, contracts)));
-      stream.on('close', closeEvent => {
-        console.error(`${name}: web socket closed`, closeEvent);
-        setResult(result => setLoading(result, true));
-      });
+      if (closeHandler) {
+        stream.on('close', closeHandler);
+      } else {
+        stream.on('close', closeEvent => {
+          console.error(`${name}: web socket closed`, closeEvent);
+          setResult(result => setLoading(result, true));
+        });
+      }
       return (): void => {
         console.debug(`unmount ${name}(${template.templateId}, ...)`, debugQuery);
         stream.close();
@@ -197,7 +202,7 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
     return result;
   }
 
-  function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
+  function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void): QueryResult<T, K, I> {
     return useStream<T, K, I, readonly CreateEvent<T, K, I>[], QueryResult<T, K, I>>({
       name: "useStreamQuery",
       template,
@@ -209,11 +214,12 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
       },
       setLoading: (r, b) => ({...r, loading: b}),
       setData: (r, d) => ({...r, contracts: d}),
-      deps: queryDeps ?? []
+      deps: queryDeps ?? [],
+      closeHandler
     });
   }
 
-  function useStreamFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
+  function useStreamFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void): FetchResult<T, K, I> {
     return useStream<T, K, I, (CreateEvent<T, K, I> | null)[], FetchResult<T, K, I>>({
       name: "useStreamFetchByKey",
       template,
@@ -225,7 +231,8 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
       },
       setLoading: (r, b) => ({...r, loading: b}),
       setData: (r, d) => ({...r, contract: d[0]}),
-      deps: keyDeps
+      deps: keyDeps,
+      closeHandler
     });
   }
 
