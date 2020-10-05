@@ -1397,20 +1397,13 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       key: SExpr,
       choiceId: ChoiceName,
-      // actors are only present when compiling old LF update expressions;
-      // they are computed from the controllers in newer versions
-      optActors: Option[SExpr],
       argument: SExpr,
   ): SExpr =
     // Translates 'A does exerciseByKey <key> <Choice> <with> <params>'
     // into:
     // ChoiceByKeyDefRef(tmplId, choiceId) <actors> <key> <arg>
     withEnv { _ =>
-      val actors: SExpr = optActors match {
-        case None => SEValue.None
-        case Some(actors) => SBSome(actors)
-      }
-      ChoiceByKeyDefRef(tmplId, choiceId)(actors, key, argument)
+      ChoiceByKeyDefRef(tmplId, choiceId)(SEValue.None, key, argument)
     }
 
   private[this] def compileCreateAndExercise(
@@ -1495,7 +1488,7 @@ private[lf] final class Compiler(
         argument = SEValue(argument),
       )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
-      compileExerciseByKey(templateId, SEValue(contractKey), choiceId, None, SEValue(argument))
+      compileExerciseByKey(templateId, SEValue(contractKey), choiceId, SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       FetchDefRef(templateId)(SEValue(coid))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
