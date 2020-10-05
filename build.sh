@@ -61,7 +61,8 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-bazel test //... \
+bazel test //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoH2DatabaseSpec.scala \
+  --test_arg=-z --test_arg="48%, onlyWildcardParties" \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \

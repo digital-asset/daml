@@ -554,7 +554,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       .map(_.foldLeft(succeed)((_, r) => r))
   }
 
-  /*
   it should "get all transactions in order, 48%, onlyWildcardParties" in {
     val frequency = 48
     val txSeqLength = 1000
@@ -564,7 +563,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       unfilteredTxFrequencySeq(txSeqLength, frequencyPct = frequency),
       getFlatTransactionCodePaths find (_.label == path) getOrElse fail(s"$path not found"))
   }
-   */
 
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
     for {
