@@ -32,6 +32,8 @@ final case class Config[Extra](
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
+    noIndexer: Boolean,
+    noLedgerApiServer: Boolean,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -57,6 +59,8 @@ object Config {
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
+      noIndexer = false,
+      noLedgerApiServer = false,
       extra = extra,
     )
 
@@ -202,6 +206,16 @@ object Config {
         .optional()
         .action((interval, config) => config.copy(metricsReportingInterval = interval))
         .hidden()
+
+      opt[Boolean]("no-indexer")
+        .optional()
+        .text("Do not start any indexer.")
+        .action((enabled, config) => config.copy(noIndexer = enabled))
+
+      opt[Boolean]("no-ledger-api-server")
+        .optional()
+        .text("Do not start any ledger API server.")
+        .action((enabled, config) => config.copy(noLedgerApiServer = enabled))
 
       cmd("dump-index-metadata")
         .text("Print ledger id, ledger end and integration API version and quit.")
