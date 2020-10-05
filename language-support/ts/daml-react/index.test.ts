@@ -346,6 +346,25 @@ describe('useStreamQuery', () => {
     expect(hookResult.result.current).toEqual({contracts: [], loading: false});
   });
 
+  test('closeHandler gets called', () => {
+    // setup
+    const query = 'foo-query';
+    const [stream, emitter] = mockStream();
+    mockStreamQueries.mockReturnValueOnce(stream);
+    const closeHandler = jest.fn();
+    const hookResult = renderDamlHook(() => useStreamQuery(Foo, () => ({query}), [query], closeHandler));
+    expect(mockStreamQueries).toHaveBeenCalledTimes(1);
+    expect(mockStreamQueries).toHaveBeenLastCalledWith(Foo, [{query}]);
+
+    // no events have been emitted.
+    expect(hookResult.result.current).toEqual({contracts: [], loading:true});
+
+    expect(closeHandler).toHaveBeenCalledTimes(0);
+    act(() => void emitter.emit('close', {code: 4000, reason: ''}));
+    expect(closeHandler).toHaveBeenCalledTimes(1);
+    expect(closeHandler).toHaveBeenLastCalledWith({code: 4000, reason: ''});
+  });
+
   test('empty stream', () => {
     // setup
     const query = 'foo-query';
