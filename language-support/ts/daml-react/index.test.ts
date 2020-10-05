@@ -69,7 +69,7 @@ const TOKEN = 'test_token';
 const PARTY = 'test_party';
 
 function renderDamlHook<P, R>(callback: (props: P) => R): RenderHookResult<P, R> {
-  const wrapper: ComponentType = ({children}) => React.createElement(DamlLedger, {token: TOKEN, party: PARTY}, children);
+  const wrapper: ComponentType = ({children}) => React.createElement(DamlLedger, {token: TOKEN, party: PARTY, reconnectThreshold: 1337}, children);
   return renderHook(callback, {wrapper});
 }
 
@@ -86,7 +86,7 @@ beforeEach(() => {
 test('DamlLedger', () => {
   renderDamlHook(() => { return; });
   expect(mockConstructor).toHaveBeenCalledTimes(1);
-  expect(mockConstructor).toHaveBeenLastCalledWith({token: TOKEN, httpBaseUrl: undefined, wsBaseUrl: undefined});
+  expect(mockConstructor).toHaveBeenLastCalledWith({token: TOKEN, httpBaseUrl: undefined, wsBaseUrl: undefined, reconnectThreshold: 1337});
 });
 
 test('useParty', () => {
