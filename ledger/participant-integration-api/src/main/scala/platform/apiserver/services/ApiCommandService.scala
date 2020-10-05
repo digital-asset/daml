@@ -28,6 +28,7 @@ import com.daml.ledger.client.services.commands.{CommandCompletionSource, Comman
 import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
@@ -48,6 +49,7 @@ private[apiserver] final class ApiCommandService private (
     services: LocalServices,
     configuration: ApiCommandService.Configuration,
     ledgerConfigProvider: LedgerConfigProvider,
+    metrics: Metrics,
 )(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
@@ -119,7 +121,12 @@ private[apiserver] final class ApiCommandService private (
             MaxInFlight(configuration.maxCommandsInFlight).joinMat(tracker)(Keep.right)
           else
             tracker
-        TrackerImpl(trackingFlow, configuration.inputBufferSize)
+        TrackerImpl(
+          trackingFlow,
+          configuration.inputBufferSize,
+          sizeCounter = metrics.daml.commands.inputBufferSize(submitter.party),
+          saturationCounter = metrics.daml.commands.inputBufferSaturation(submitter.party),
+        )
       }
     }
   }

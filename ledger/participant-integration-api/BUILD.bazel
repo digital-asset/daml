@@ -29,6 +29,7 @@ compile_deps = [
     "//ledger/metrics",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
+    "//libs-scala/akka-stream-util",
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",

@@ -4,8 +4,10 @@
 package com.daml.platform.apiserver.services.tracking
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
+import akka.stream.scaladsl.{Flow, Keep, Sink, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy}
+import com.codahale.metrics.Counter
+import com.daml.akka.stream.InstrumentedSource
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -76,9 +78,12 @@ private[services] object TrackerImpl {
         Ctx[Promise[Completion], Completion],
         Materialized[NotUsed, Promise[Completion]]],
       inputBufferSize: Int,
+      sizeCounter: Counter,
+      saturationCounter: Counter,
   )(implicit materializer: Materializer, loggingContext: LoggingContext): TrackerImpl = {
-    val ((queue, mat), foreachMat) = Source
-      .queue[QueueInput](inputBufferSize, OverflowStrategy.dropNew)
+    sizeCounter.inc(inputBufferSize.toLong)
+    val ((queue, mat), foreachMat) = InstrumentedSource
+      .queue[QueueInput](inputBufferSize, OverflowStrategy.dropNew, saturationCounter)
       .viaMat(tracker)(Keep.both)
       .toMat(Sink.foreach {
         case Ctx(promise, result) =>
