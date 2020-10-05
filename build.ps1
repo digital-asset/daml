@@ -57,4 +57,4 @@ bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution
 
 bazel shutdown
 
-bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoH2DatabaseSpec.scala `-`-test_arg=-z `-`-test_arg=48
+bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log //ledger/participant-integration-api:participant-integration-api-tests `-`-test_arg=-z `-`-test_arg=48

@@ -559,7 +559,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     val txSeqLength = 1000
     val path = "onlyWildcardParties"
     txSeqTrial(
-      1000,
+      250,
       unfilteredTxFrequencySeq(txSeqLength, frequencyPct = frequency),
       getFlatTransactionCodePaths find (_.label == path) getOrElse fail(s"$path not found"))
   }
