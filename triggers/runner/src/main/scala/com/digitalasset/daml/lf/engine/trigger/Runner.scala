@@ -211,11 +211,9 @@ class Runner(
   private val compiler: Compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
   private val converter: Converter = Converter(compiledPackages, trigger.triggerIds)
-  // This is a map from the command IDs used on the ledger API to the
-  // command IDs used internally in the trigger which are just
-  // incremented at each step. This map can grow without bound. TODO :
-  // limit the size.
-  private var commandIdMap: Set[UUID] = Set.empty
+  // These are the command IDs used on the ledger API to submit commands for
+  // this trigger. This set can grow without bound. TODO : limit the size.
+  private[this] var commandIdsUsed: Set[UUID] = Set.empty
   private val transactionFilter: TransactionFilter =
     TransactionFilter(Seq((party, trigger.filters)).toMap)
 
@@ -224,7 +222,7 @@ class Runner(
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    commandIdMap += commandUUID
+    commandIdsUsed += commandUUID
     val commandsArg = Commands(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
@@ -407,13 +405,13 @@ class Runner(
           // completions not emitted by the trigger.
           val uuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
             UUID.fromString(c.commandId)).toOption
-          (uuid exists commandIdMap).option(msg).toList
+          (uuid exists commandIdsUsed).option(msg).toList
         case msg @ TransactionMsg(t) =>
           // This happens for invalid UUIDs which we might get for
           // transactions not emitted by the trigger.
           val uuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
             UUID.fromString(t.commandId)).toOption
-          List(if (uuid exists commandIdMap) msg else TransactionMsg(t.copy(commandId = "")))
+          List(if (uuid exists commandIdsUsed) msg else TransactionMsg(t.copy(commandId = "")))
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
       .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
