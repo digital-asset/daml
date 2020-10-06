@@ -490,6 +490,13 @@ A timer. Time to fully process a submission (validation, deduplication and
 interpretation) before it is handed over to the ledger to be finalized (either
 committed or rejected).
 
+``daml.commands.submissions_running``
+-------------------------------------
+
+A meter. Number of submissions that are currently being handled by the ledger
+API server (including validation, deduplication, interpretation, and handing
+the transaction to the ledger).
+
 ``daml.commands.valid_submissions``
 -----------------------------------
 
@@ -550,7 +557,18 @@ ledger effective time.
 ------------------------
 
 A timer. Time spent interpreting a valid command into a transaction ready to be
-submitted to the ledger for finalization.
+submitted to the ledger for finalization (includes executing DAML and fetching
+data).
+
+``daml.execution.total_running``
+--------------------------------
+A meter. Number of commands that are currently being interpreted (includes
+executing DAML code and fetching data).
+
+``daml.execution.engine_running``
+--------------------------------
+A meter. Number of commands that are currently being executed by the DAML engine
+(excluding fetching data).
 
 ``daml.index.db.connection.sandbox.pool``
 -----------------------------------------
