@@ -10,7 +10,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.on.memory.{ExtraConfig, Owner}
-import com.daml.ledger.participant.state.kvutils.app.ParticipantConfig
+import com.daml.ledger.participant.state.kvutils.app.{ParticipantConfig, ParticipantMode}
 import com.daml.ledger.participant.state.kvutils.{app => kvutils}
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.engine.script._
@@ -41,6 +41,7 @@ trait MultiParticipantFixture
 
   private val participantId1 = v1.ParticipantId.assertFromString("participant1")
   private val participant1 = ParticipantConfig(
+    mode = ParticipantMode.Full,
     participantId = participantId1,
     address = Some("localhost"),
     port = Port.Dynamic,
@@ -52,6 +53,7 @@ trait MultiParticipantFixture
   )
   private val participantId2 = v1.ParticipantId.assertFromString("participant2")
   private val participant2 = ParticipantConfig(
+    mode = ParticipantMode.Full,
     participantId = participantId2,
     address = Some("localhost"),
     port = Port.Dynamic,
