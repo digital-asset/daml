@@ -62,7 +62,7 @@ class ContractsService(
 
   def resolveContractReference(
       jwt: Jwt,
-      jwtPayload: JwtPayload,
+      parties: OneAnd[Set, domain.Party],
       contractLocator: domain.ContractLocator[LfValue],
   ): Future[Option[domain.ResolvedContractRef[LfValue]]] =
     contractLocator match {
@@ -71,7 +71,7 @@ class ContractsService(
       case domain.EnrichedContractId(Some(templateId), contractId) =>
         Future.successful(resolveTemplateId(templateId).map(x => \/-(x -> contractId)))
       case domain.EnrichedContractId(None, contractId) =>
-        findByContractId(jwt, jwtPayload.parties, None, contractId)
+        findByContractId(jwt, parties, None, contractId)
           .map(_.map(a => \/-(a.templateId -> a.contractId)))
     }
 
@@ -89,7 +89,7 @@ class ContractsService(
 
   def findByContractKey(
       jwt: Jwt,
-      parties: Set[lar.Party],
+      parties: OneAnd[Set, lar.Party],
       templateId: TemplateId.OptionalPkg,
       contractKey: LfValue,
   ): Future[Option[domain.ActiveContract[LfValue]]] =
@@ -112,7 +112,7 @@ class ContractsService(
 
   def findByContractId(
       jwt: Jwt,
-      parties: Set[lar.Party],
+      parties: OneAnd[Set, lar.Party],
       templateId: Option[domain.TemplateId.OptionalPkg],
       contractId: domain.ContractId,
   ): Future[Option[domain.ActiveContract[LfValue]]] =
@@ -151,7 +151,7 @@ class ContractsService(
 
   def retrieveAll(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
   ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
     domain.OkResponse(
       Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, parties, x, Map.empty))
@@ -166,7 +166,7 @@ class ContractsService(
 
   def search(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue],
   ): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
@@ -196,7 +196,7 @@ class ContractsService(
   // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
   private def searchDb(dao: dbbackend.ContractDao, fetch: ContractsFetch)(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateIds: Set[domain.TemplateId.RequiredPkg],
       queryParams: Map[String, JsValue],
   ): Source[Error \/ domain.ActiveContract[JsValue], NotUsed] = {
@@ -211,7 +211,7 @@ class ContractsService(
 
   private def searchDb_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateIds: Set[domain.TemplateId.RequiredPkg],
       queryParams: Map[String, JsValue],
   ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
@@ -226,7 +226,7 @@ class ContractsService(
   }
 
   private[this] def searchDbOneTpId_(doobieLog: doobie.LogHandler)(
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: Map[String, JsValue],
   ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
@@ -236,7 +236,7 @@ class ContractsService(
 
   private def searchInMemory(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateIds: Set[domain.TemplateId.RequiredPkg],
       queryParams: Map[String, JsValue],
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
@@ -273,7 +273,7 @@ class ContractsService(
 
   private def searchInMemoryOneTpId(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: Map[String, JsValue],
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
@@ -281,7 +281,7 @@ class ContractsService(
 
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
-      parties: Set[lar.Party],
+      parties: OneAnd[Set, lar.Party],
       templateIds: List[domain.TemplateId.RequiredPkg],
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,

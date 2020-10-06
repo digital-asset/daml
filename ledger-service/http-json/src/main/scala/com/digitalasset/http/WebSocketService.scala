@@ -27,7 +27,7 @@ import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
-import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
+import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
@@ -389,7 +389,7 @@ class WebSocketService(
 
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       offPrefix: Option[domain.StartingOffset],
       request: A): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]

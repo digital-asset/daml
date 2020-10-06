@@ -128,13 +128,13 @@ object EndpointsCompanion {
                     Unauthorized("ledgerId missing in access token"))
                   applicationId <- payload.applicationId.toRightDisjunction(
                     Unauthorized("applicationId missing in access token"))
-                } yield
-                  JwtPayload(
+                  payload <- JwtPayload(
                     lar.LedgerId(ledgerId),
                     lar.ApplicationId(applicationId),
                     actAs = payload.actAs.map(lar.Party(_)),
                     readAs = payload.readAs.map(lar.Party(_))
-                )
+                ).toRightDisjunction(Unauthorized("No parties in actAs and readAs"))
+                } yield payload
             )
         }
 

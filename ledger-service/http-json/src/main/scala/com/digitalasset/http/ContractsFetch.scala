@@ -4,18 +4,7 @@
 package com.daml.http
 
 import akka.NotUsed
-import akka.stream.scaladsl.{
-  Broadcast,
-  Concat,
-  Flow,
-  GraphDSL,
-  Keep,
-  Partition,
-  RunnableGraph,
-  Sink,
-  SinkQueueWithCancel,
-  Source,
-}
+import akka.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Keep, Partition, RunnableGraph, Sink, SinkQueueWithCancel, Source}
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao.StaleOffsetException
@@ -24,9 +13,7 @@ import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
-import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
-  apiValueToJsValue => lfValueToDbJsValue,
-}
+import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => lfValueToDbJsValue}
 import com.daml.http.util.IdentifierConverters.apiIdentifier
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.daml.util.ExceptionOps._
@@ -36,12 +23,15 @@ import com.daml.ledger.api.{v1 => lav1}
 import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 import doobie.postgres.sqlstate.{class23 => postgres_class23}
+import scalaz.OneAnd._
+import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
+import scalaz.syntax.foldable._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, OneAnd, \/, \/-}
 import spray.json.{JsNull, JsValue}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
@@ -64,7 +54,7 @@ private class ContractsFetch(
 
   def fetchAndPersist(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(
       implicit ec: ExecutionContext,
@@ -87,7 +77,7 @@ private class ContractsFetch(
 
   private[this] def fetchAndPersist(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(
@@ -114,7 +104,7 @@ private class ContractsFetch(
 
   private def contractsIo_(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
@@ -157,7 +147,7 @@ private class ContractsFetch(
 
   private def contractsFromOffsetIo(
       jwt: Jwt,
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       offset: BeginBookmark[domain.Offset],
       absEnd: Terminates.AtAbsolute,
@@ -450,7 +440,7 @@ private[http] object ContractsFetch {
   }
 
   private def transactionFilter(
-      parties: Set[domain.Party],
+      parties: OneAnd[Set, domain.Party],
       templateIds: List[TemplateId.RequiredPkg],
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
@@ -459,6 +449,6 @@ private[http] object ContractsFetch {
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
 
-    TransactionFilter(domain.Party.unsubst(parties.iterator).map(_ -> filters).toMap)
+    TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
   }
 }

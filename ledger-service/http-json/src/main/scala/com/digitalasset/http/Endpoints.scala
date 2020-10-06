@@ -6,13 +6,7 @@ package com.daml.http
 import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{
-  Authorization,
-  ModeledCustomHeader,
-  ModeledCustomHeaderCompanion,
-  OAuth2BearerToken,
-  `X-Forwarded-Proto`
-}
+import akka.http.scaladsl.model.headers.{Authorization, ModeledCustomHeader, ModeledCustomHeaderCompanion, OAuth2BearerToken, `X-Forwarded-Proto`}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
@@ -20,7 +14,7 @@ import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
-import com.daml.http.domain.{JwtWritePayload, JwtPayload}
+import com.daml.http.domain.{JwtPayload, JwtWritePayload}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
@@ -32,7 +26,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
+import scalaz.{-\/, EitherT, NonEmptyList, OneAnd, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -404,7 +398,7 @@ class Endpoints(
       reference: domain.ContractLocator[LfValue])
     : Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
-      .resolveContractReference(jwt, jwtPayload.toReadPayload, reference)
+      .resolveContractReference(jwt, OneAnd(jwtPayload.party, Set.empty), reference)
       .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
         val a: Error \/ domain.ResolvedContractRef[LfValue] =
           o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))

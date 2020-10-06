@@ -50,18 +50,26 @@ object domain {
   type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
   // Until we get multi-party submissions, write endpoints require a single party.
-  case class JwtWritePayload(ledgerId: LedgerId, applicationId: ApplicationId, party: Party) {
-    def toReadPayload: JwtPayload = JwtPayload(ledgerId, applicationId, List(), List(party))
-  }
+  case class JwtWritePayload(ledgerId: LedgerId, applicationId: ApplicationId, party: Party)
 
   // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
   // read endpoints but once we get multi-party submissions, this can also be used for write endpoints.
-  case class JwtPayload(
+  sealed abstract case class JwtPayload private (
       ledgerId: LedgerId,
       applicationId: ApplicationId,
       readAs: List[Party],
-      actAs: List[Party]) {
-    val parties: Set[Party] = (readAs ++ actAs).toSet
+      actAs: List[Party],
+      parties: OneAnd[Set, Party]) {
+  }
+
+  object JwtPayload {
+    def apply(ledgerId: LedgerId, applicationId: ApplicationId, readAs: List[Party], actAs: List[Party]): Option[JwtPayload] = {
+      (readAs ++ actAs) match {
+        case Nil => None
+        case p :: ps =>
+          Some(new JwtPayload(ledgerId, applicationId, readAs, actAs, OneAnd(p, ps.toSet)) {})
+      }
+    }
   }
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
