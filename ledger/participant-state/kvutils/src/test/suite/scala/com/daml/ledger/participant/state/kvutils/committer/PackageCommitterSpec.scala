@@ -240,8 +240,8 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
 
     "reject submissions containing different packages with same hash" in {
       val committer = newCommitter
-      val archive = archive2.toBuilder.setHash(pkgId1).build()
-      val submission1 = buildSubmission(archive1, archive)
+      val archiveWithDuplicateHash = archive2.toBuilder.setHash(pkgId1).build()
+      val submission1 = buildSubmission(archive1, archiveWithDuplicateHash)
 
       // when archive1 and archive2 are unknown
       shouldFailWith(
@@ -261,8 +261,9 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
 
     "reject submissions containing a non valid package IDs" in {
       val committer = newCommitter
-      val archive = archive2.toBuilder.setHash("This is not a valid Package ID !").build()
-      val submission = buildSubmission(archive1, archive, archive3)
+      val archiveWithInvalidPackageId =
+        archive2.toBuilder.setHash("This is not a valid Package ID !").build()
+      val submission = buildSubmission(archive1, archiveWithInvalidPackageId, archive3)
 
       //when archive2 is unknown
       shouldFailWith(
@@ -299,8 +300,8 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
 
     "reject submissions containing packages with improper hashes" in {
       val committer = newCommitter
-      val archive = archive3.toBuilder.setHash(pkgId2).build()
-      val submission = buildSubmission(archive1, archive, archive3)
+      val archiveWithImproperHash = archive3.toBuilder.setHash(pkgId2).build()
+      val submission = buildSubmission(archive1, archiveWithImproperHash, archive3)
 
       //when archive2 is unknown
       shouldFailWith(
