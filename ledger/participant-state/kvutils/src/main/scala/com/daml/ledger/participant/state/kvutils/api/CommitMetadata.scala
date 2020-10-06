@@ -53,13 +53,3 @@ object CommitMetadata {
       submissionOutputs.map(serializationStrategy.serializeStateKey)
   }
 }
-
-private[api] final case class SimpleCommitMetadata(
-    override val estimatedInterpretationCost: Option[Long])
-    extends CommitMetadata {
-  override def inputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] =
-    throw new NotImplementedError()
-
-  override def outputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] =
-    throw new NotImplementedError()
-}

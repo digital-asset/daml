@@ -20,7 +20,7 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     with MockitoSugar {
   "commit" should {
     "delegate to cheap writer in case of no estimated interpretation cost" in {
-      val commitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = None)
+      val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = None)
       val mockWriterCheap = mock[LedgerWriter]
       when(mockWriterCheap.commit(any[String], any[Bytes], any[CommitMetadata]))
         .thenReturn(Future.successful(Acknowledged))
@@ -34,7 +34,7 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     }
 
     "delegate to cheap writer in case estimated interpretation cost is below threshold" in {
-      val commitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = Some(1))
+      val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = Some(1))
       val mockWriterCheap = mock[LedgerWriter]
       when(mockWriterCheap.commit(anyString(), any[Bytes], any[CommitMetadata]))
         .thenReturn(Future.successful(Acknowledged))
@@ -48,7 +48,7 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     }
 
     "delegate to expensive writer in case estimated interpretation cost reaches the threshold" in {
-      val commitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = Some(1))
+      val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = Some(1))
       val mockWriterExpensive = mock[LedgerWriter]
       when(mockWriterExpensive.commit(anyString(), any[Bytes], any[CommitMetadata]))
         .thenReturn(Future.successful(Acknowledged))
@@ -62,7 +62,7 @@ class InterpretationCostBasedLedgerWriterChooserSpec
     }
 
     "delegate to expensive writer in case threshold is 0" in {
-      val commitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = None)
+      val commitMetadata = simpleCommitMetadata(estimatedInterpretationCost = None)
       val mockWriterExpensive = mock[LedgerWriter]
       when(mockWriterExpensive.commit(anyString(), any[Bytes], any[CommitMetadata]))
         .thenReturn(Future.successful(Acknowledged))
@@ -95,4 +95,9 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
   private def aCorrelationId: String = ""
   private def anEnvelope: Bytes = ByteString.EMPTY
+  private def simpleCommitMetadata(estimatedInterpretationCost: Option[Long]): CommitMetadata = {
+    val mockCommitMetadata = mock[CommitMetadata]
+    when(mockCommitMetadata.estimatedInterpretationCost).thenReturn(estimatedInterpretationCost)
+    mockCommitMetadata
+  }
 }
