@@ -4,7 +4,6 @@
 package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.{Flow}
-import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
@@ -24,6 +23,7 @@ abstract class AbstractFuncTests
     extends AsyncWordSpec
     with AbstractTriggerTest
     with Matchers
+    with Inside
     with SuiteResourceManagementAroundAll
     with TryValues {
   self: Suite =>
@@ -352,7 +352,10 @@ abstract class AbstractFuncTests
           // 1 for completion
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
         } yield {
-          assert(finalState == SList(FrontStack(SText("myexerciseid"), SText("mycreateid"))))
+          inside(finalState) {
+            case SList(commandIds) =>
+              commandIds.toSet should have size 2
+          }
         }
       }
     }
