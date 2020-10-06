@@ -46,7 +46,6 @@ module Daml.Trigger.LowLevel
   ) where
 
 import qualified DA.Action.State as State
-import DA.Foldable (mapA_)
 import DA.Functor ((<&>), ($>))
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
@@ -294,7 +293,7 @@ zoom r w (StateT smas) = StateT $ \t ->
 -- Must be kept in sync with Runner#handleStepFreeResult
 data TriggerF a =
   GetTime (Time -> a)
-  | Submit (Commands, () -> a)
+  | Submit ([Command], Text -> a)
   deriving Functor
 
 newtype TriggerSetup a = TriggerSetup { runTriggerSetup : Free TriggerF a }
@@ -307,10 +306,14 @@ newtype TriggerRule s a = TriggerRule { runTriggerRule : StateT s (Free TriggerF
 -- meant for testing purposes only.
 simulateRule : TriggerRule s a -> Time -> s -> (s, [Commands], a)
 simulateRule rule time s = (s', reverse cmds, a)
-  where ((a, s'), cmds) = State.runState (foldFree sim (runStateT (runTriggerRule rule) s)) []
-        sim : TriggerF x -> State.State [Commands] x
+  where ((a, s'), (cmds, _)) = State.runState (foldFree sim (runStateT (runTriggerRule rule) s)) ([], 0)
+        sim : TriggerF x -> State.State ([Commands], Int) x
         sim (GetTime f) = pure (f time)
-        sim (Submit (cmds, f)) = State.modify (cmds ::) $> f ()
+        sim (Submit (cmds, f)) = do
+          (pastCmds, nextId) <- State.get
+          let nextIdShown = show nextId
+          State.put (Commands (CommandId nextIdShown) cmds :: pastCmds, nextId + 1)
+          pure $ f nextIdShown
 
 deriving instance ActionState s (TriggerRule s)
 
@@ -329,5 +332,5 @@ instance HasTime TriggerSetup where
 instance HasTime (TriggerRule s) where
   getTime = liftTF (GetTime identity)
 
-submitCommands : ActionTrigger m => Commands -> m ()
-submitCommands cmds = liftTF (Submit (cmds, identity))
+submitCommands : ActionTrigger m => [Command] -> m CommandId
+submitCommands cmds = liftTF (Submit (cmds, CommandId))

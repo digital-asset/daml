@@ -12,7 +12,9 @@ import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
 
+import scalaz.\/.fromTryCatchThrowable
 import scalaz.syntax.tag._
+import scalaz.syntax.std.boolean._
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -213,26 +215,16 @@ class Runner(
   // command IDs used internally in the trigger which are just
   // incremented at each step. This map can grow without bound. TODO :
   // limit the size.
-  private var commandIdMap: Map[UUID, String] = Map.empty
-  // This is the set of command IDs emitted by the trigger.  We track
-  // this to detect collisions.
-  private var usedCommandIds: Set[String] = Set.empty
+  private var commandIdMap: Set[UUID] = Set.empty
   private val transactionFilter: TransactionFilter =
     TransactionFilter(Seq((party, trigger.filters)).toMap)
 
   private[this] def logger = ContextualizedLogger get getClass
 
   @throws[RuntimeException]
-  private def handleCommands[Z](
-      commandId: String,
-      commands: Seq[Command],
-      submit: SubmitRequest => Z): Z = {
-    if (usedCommandIds.contains(commandId)) {
-      throw new RuntimeException(s"Duplicate command id: $commandId")
-    }
-    usedCommandIds += commandId
+  private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    commandIdMap += (commandUUID -> commandId)
+    commandIdMap += commandUUID
     val commandsArg = Commands(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
@@ -240,8 +232,9 @@ class Runner(
       party = party,
       commands = commands
     )
-    logger.debug(s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
-    submit(SubmitRequest(commands = Some(commandsArg)))
+    logger.debug(
+      s"submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}")
+    (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
 
   import Runner.DamlFun
@@ -265,14 +258,12 @@ class Runner(
             case "GetTime" /*(Time -> a)*/ => {
               case DamlFun(timeA) => Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
             }
-            case "Submit" /*(Commands, () -> a)*/ => {
-              case DamlTuple2(commands, DamlFun(unitA)) =>
-                converter.toCommands(commands) match {
-                  case Left(err) => throw new ConverterException(err)
-                  case Right((commandId, commands)) =>
-                    handleCommands(commandId, commands, submit)
-                }
-                Right(evaluate(makeAppD(unitA, SUnit)))
+            case "Submit" /*([Command], Text -> a)*/ => {
+              case DamlTuple2(sCommands, DamlFun(textA)) =>
+                val commands = converter.toCommands(sCommands).orConverterException
+                val (commandUUID, submitRequest) = handleCommands(commands)
+                submit(submitRequest)
+                Right(evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))
             }
             case _ =>
               val msg = s"unrecognized TriggerF step $variant"
@@ -411,32 +402,18 @@ class Runner(
     Flow[TriggerMsg]
       .wireTap(logReceivedMsg _)
       .mapConcat[TriggerMsg]({
-        case CompletionMsg(c) =>
-          try {
-            commandIdMap.get(UUID.fromString(c.commandId)) match {
-              case None =>
-                List()
-              case Some(internalCommandId) =>
-                List(CompletionMsg(c.copy(commandId = internalCommandId)))
-            }
-          } catch {
-            // This happens for invalid UUIDs which we might get for
-            // completions not emitted by the trigger.
-            case _: IllegalArgumentException => List()
-          }
-        case TransactionMsg(t) =>
-          try {
-            commandIdMap.get(UUID.fromString(t.commandId)) match {
-              case None =>
-                List(TransactionMsg(t.copy(commandId = "")))
-              case Some(internalCommandId) =>
-                List(TransactionMsg(t.copy(commandId = internalCommandId)))
-            }
-          } catch {
-            // This happens for invalid UUIDs which we might get for
-            // transactions not emitted by the trigger.
-            case _: IllegalArgumentException => List(TransactionMsg(t.copy(commandId = "")))
-          }
+        case msg @ CompletionMsg(c) =>
+          // This happens for invalid UUIDs which we might get for
+          // completions not emitted by the trigger.
+          val uuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
+            UUID.fromString(c.commandId)).toOption
+          (uuid exists commandIdMap).option(msg).toList
+        case msg @ TransactionMsg(t) =>
+          // This happens for invalid UUIDs which we might get for
+          // transactions not emitted by the trigger.
+          val uuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
+            UUID.fromString(t.commandId)).toOption
+          List(if (uuid exists commandIdMap) msg else TransactionMsg(t.copy(commandId = "")))
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
       .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
