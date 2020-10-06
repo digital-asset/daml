@@ -18,6 +18,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.store.entries.LedgerEntry
+import org.scalacheck.Gen
 import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers, OptionValues}
 
 import scala.concurrent.Future
@@ -498,16 +499,22 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   }
 
   it should "fall back to limit-based query with consistent results" in {
-    import org.scalacheck.Gen
+    val txSeqLength = 1000
+    txSeqTrial(
+      trials = 10,
+      txSeq = unfilteredTxSeq(length = txSeqLength),
+      codePath = Gen oneOf getFlatTransactionCodePaths)
+  }
+
+  private[this] def txSeqTrial(
+      trials: Int,
+      txSeq: Gen[Vector[Boolean]],
+      codePath: Gen[FlatTransactionCodePath]) = {
     import scalaz.std.scalaFuture._, scalaz.std.list._
     import JdbcLedgerDaoSuite._
 
-    val trials = 10
-    val txSeqLength = 1000
     val trialData = Gen
-      .listOfN(
-        trials,
-        Gen.zip(unfilteredTxSeq(length = txSeqLength), Gen oneOf getFlatTransactionCodePaths))
+      .listOfN(trials, Gen.zip(txSeq, codePath))
       .sample getOrElse sys.error("impossible Gen failure")
 
     trialData
@@ -537,7 +544,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 throw ae modifyMessage (_ map { msg: String =>
                   msg +
                     "\n  Random parameters:" +
-                    s"\n    actual frequency: ${boolSeq.count(identity)}/$txSeqLength" +
+                    s"\n    actual frequency: ${boolSeq.count(identity)}/${boolSeq.size}" +
                     s"\n    code path: ${cp.label}" +
                     s"\n  Please copy the above 4 lines to https://github.com/digital-asset/daml/issues/7521" +
                     s"\n  along with which of (JdbcLedgerDaoPostgresqlSpec, JdbcLedgerDaoH2DatabaseSpec) failed"
@@ -546,6 +553,18 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       }
       .map(_.foldLeft(succeed)((_, r) => r))
   }
+
+  /*
+  it should "get all transactions in order, 48%, onlyWildcardParties" in {
+    val frequency = 48
+    val txSeqLength = 1000
+    val path = "onlyWildcardParties"
+    txSeqTrial(
+      250,
+      unfilteredTxFrequencySeq(txSeqLength, frequencyPct = frequency),
+      getFlatTransactionCodePaths find (_.label == path) getOrElse fail(s"$path not found"))
+  }
+   */
 
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
     for {
@@ -648,8 +667,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 }
 
 private[dao] object JdbcLedgerDaoTransactionsSpec {
-  import org.scalacheck.Gen
-
   private final case class FlatTransactionCodePath(
       label: String,
       filter: events.FilterRelation,
@@ -661,9 +678,11 @@ private[dao] object JdbcLedgerDaoTransactionsSpec {
 
   private def unfilteredTxSeq(length: Int): Gen[Vector[Boolean]] =
     Gen.oneOf(1, 2, 5, 10, 20, 50, 100) flatMap { invFreq =>
-      val frequency = 100 / invFreq
-      Gen.containerOfN[Vector, Boolean](
-        length,
-        Gen.frequency((frequency, true), (100 - frequency, false)))
+      unfilteredTxFrequencySeq(length, frequencyPct = 100 / invFreq)
     }
+
+  private def unfilteredTxFrequencySeq(length: Int, frequencyPct: Int): Gen[Vector[Boolean]] =
+    Gen.containerOfN[Vector, Boolean](
+      length,
+      Gen.frequency((frequencyPct, true), (100 - frequencyPct, false)))
 }
