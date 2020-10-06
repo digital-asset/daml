@@ -39,10 +39,10 @@ object CommitMetadata {
       submission.getInputDamlStateList.asScala
         .map(serializationStrategy.serializeStateKey)
 
+    private lazy val submissionOutputs = KeyValueCommitting.submissionOutputs(submission)
+
     override def outputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] =
-      KeyValueCommitting
-        .submissionOutputs(submission)
-        .map(serializationStrategy.serializeStateKey)
+      submissionOutputs.map(serializationStrategy.serializeStateKey)
   }
 }
 
