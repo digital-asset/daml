@@ -154,7 +154,7 @@ object Queries {
       tpid: SurrogateTpId,
       newOffset: String)(implicit log: LogHandler): ConnectionIO[Int] = {
     val upd = Update[(String, SurrogateTpId, String)](
-      """INSERT INTO ledger_offset VALUES(?, ?, ?) ON CONFLICT (party, tpid) DO UPDATE SET last_offset = EXCLUDED.last_offset""",
+      """INSERT INTO ledger_offset VALUES(?, ?, ?) ON CONFLICT (party, tpid) DO UPDATE SET last_offset = EXCLUDED.last_offset WHERE ledger_offset.last_offset < EXCLUDED.last_offset""",
       logHandler0 = log)
     upd.updateMany(parties.map(p => (p, tpid, newOffset)))
   }
