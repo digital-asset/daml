@@ -25,6 +25,7 @@ da_haskell_binary(
         "text",
         "unordered-containers",
         "utf8-string",
+        "vector",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
