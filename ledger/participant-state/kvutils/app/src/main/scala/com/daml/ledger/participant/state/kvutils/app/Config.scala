@@ -32,8 +32,6 @@ final case class Config[Extra](
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    noIndexer: Boolean,
-    noLedgerApiServer: Boolean,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -59,8 +57,6 @@ object Config {
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      noIndexer = false,
-      noLedgerApiServer = false,
       extra = extra,
     )
 
@@ -97,12 +93,21 @@ object Config {
 
       opt[Map[String, String]]("participant")
         .unbounded()
-        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, management-service-timeout]")
+        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, mode]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
           val address = kv.get("address")
           val portFile = kv.get("port-file").map(new File(_).toPath)
+          val mode: ParticipantMode = kv.get("mode") match {
+            case None => ParticipantMode.Full
+            case Some("full") => ParticipantMode.Full
+            case Some("indexer") => ParticipantMode.Indexer
+            case Some("ledger-api-server") => ParticipantMode.LedgerApiServer
+            case Some(unknownMode) =>
+              throw new RuntimeException(
+                s"$unknownMode is not a valid participant mode. Valid modes are: full, indexer, ledger-api-server")
+          }
           val jdbcUrl =
             kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
           val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
@@ -111,6 +116,7 @@ object Config {
             .map(Duration.parse)
             .getOrElse(ParticipantConfig.defaultManagementServiceTimeout)
           val partConfig = ParticipantConfig(
+            mode,
             participantId,
             address,
             port,
@@ -206,16 +212,6 @@ object Config {
         .optional()
         .action((interval, config) => config.copy(metricsReportingInterval = interval))
         .hidden()
-
-      opt[Boolean]("no-indexer")
-        .optional()
-        .text("Do not start any indexer.")
-        .action((enabled, config) => config.copy(noIndexer = enabled))
-
-      opt[Boolean]("no-ledger-api-server")
-        .optional()
-        .text("Do not start any ledger API server.")
-        .action((enabled, config) => config.copy(noLedgerApiServer = enabled))
 
       cmd("dump-index-metadata")
         .text("Print ledger id, ledger end and integration API version and quit.")

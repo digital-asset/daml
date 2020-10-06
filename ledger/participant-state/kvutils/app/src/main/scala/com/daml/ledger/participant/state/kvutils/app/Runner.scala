@@ -120,33 +120,37 @@ final class Runner[T <: ReadWriteService, Extra](
             )
             _ <- Resource.fromFuture(
               Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
-            _ <- if (config.noIndexer)
-              Resource.successful(())
-            else
-              new StandaloneIndexerServer(
-                readService = readService,
-                config = factory.indexerConfig(participantConfig, config),
-                metrics = metrics,
-                lfValueTranslationCache = lfValueTranslationCache,
-              ).acquire()
-            _ <- if (config.noLedgerApiServer)
-              Resource.successful(())
-            else
-              new StandaloneApiServer(
-                ledgerId = config.ledgerId,
-                config = factory.apiServerConfig(participantConfig, config),
-                commandConfig = factory.commandConfig(participantConfig, config),
-                partyConfig = factory.partyConfig(config),
-                ledgerConfig = factory.ledgerConfig(config),
-                optWriteService = Some(writeService),
-                authService = factory.authService(config),
-                healthChecks = healthChecks,
-                metrics = metrics,
-                timeServiceBackend = factory.timeServiceBackend(config),
-                otherInterceptors = factory.interceptors(config),
-                engine = sharedEngine,
-                lfValueTranslationCache = lfValueTranslationCache,
-              ).acquire()
+            _ <- participantConfig.mode match {
+              case ParticipantMode.Full | ParticipantMode.Indexer =>
+                new StandaloneIndexerServer(
+                  readService = readService,
+                  config = factory.indexerConfig(participantConfig, config),
+                  metrics = metrics,
+                  lfValueTranslationCache = lfValueTranslationCache,
+                ).acquire()
+              case ParticipantMode.LedgerApiServer =>
+                Resource.successful(())
+            }
+            _ <- participantConfig.mode match {
+              case ParticipantMode.Full | ParticipantMode.LedgerApiServer =>
+                new StandaloneApiServer(
+                  ledgerId = config.ledgerId,
+                  config = factory.apiServerConfig(participantConfig, config),
+                  commandConfig = factory.commandConfig(participantConfig, config),
+                  partyConfig = factory.partyConfig(config),
+                  ledgerConfig = factory.ledgerConfig(config),
+                  optWriteService = Some(writeService),
+                  authService = factory.authService(config),
+                  healthChecks = healthChecks,
+                  metrics = metrics,
+                  timeServiceBackend = factory.timeServiceBackend(config),
+                  otherInterceptors = factory.interceptors(config),
+                  engine = sharedEngine,
+                  lfValueTranslationCache = lfValueTranslationCache,
+                ).acquire()
+              case ParticipantMode.Indexer =>
+                Resource.successful(())
+            }
           } yield ()
         })
       } yield ()
