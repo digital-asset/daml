@@ -10,7 +10,6 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.kvutils.committer.PackageCommitter._
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
@@ -32,54 +31,32 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
       defaultParserParameters.languageVersion,
     )
 
-  private[this] val archive1 =
-    encodePackage(p"""
-        metadata ( 'Color' : '0.0.1' )
-
-        module Color {
-          enum Primary = Red | Blue | Green ;
-        }
-      """)
-  private[this] val (pkgId1, pkg1) = Decode.decodeArchive(archive1)
-  private[this] val archive2 =
-    encodePackage(
+  // 3 different well-typed and self-consistent archives
+  // They need to be different in order to have different pkgId.
+  val List(
+    (pkg1, pkgId1, archive1),
+    (pkg2, pkgId2, archive2),
+    (pkg3, pkgId3, archive3),
+  ) = for {
+    i <- List(1, 2, 3)
+    archive = encodePackage(
       p"""
-        metadata ( 'DamlZ' : '0.0.1' )
+        metadata ( 'Package$i' : '0.0.1' )
 
-        module DamlZ {
-          variant Either a b = Left : a | Right : b ;
+        module Mod$i {
+          record Record$i = {};
         }
       """
     )
-  private[this] val (pkgId2, pkg2) = Decode.decodeArchive(archive2)
-  private[this] val archive3 =
-    encodePackage(
-      p"""
-        metadata ( 'Quantum' : '0.0.1' )
-
-        module Chromodynamics {
-          record Charge = { value: '${pkgId1}':Color:Primary } ;
-        }
-      """
-    )
-  private[this] val (pkgId3, _) = Decode.decodeArchive(archive3)
-
-  private[this] val archive4 =
-    encodePackage(
-      p"""
-        metadata ( 'IllTyped' : '0.0.1' )
-
-        module Wrong {
-          val i: Numeric 10 = 1;  // 1 is an Int64 is not a Numeric
-        }
-      """
-    )
+    pkgWithId = Decode.decodeArchive(archive)
+    (pkgId, pkg) = pkgWithId
+  } yield (pkg, pkgId, archive)
 
   private[this] val participantId = Ref.ParticipantId.assertFromString("participant")
 
   private[this] class CommitterWrapper(
-      validationMode: ValidationMode,
-      preloadingMode: PreloadingMode,
+      validationMode: PackageValidationMode,
+      preloadingMode: PackagePreloadingMode,
   ) {
     val metrics = new Metrics(new MetricRegistry)
     var engine: Engine = _
@@ -168,7 +145,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
   }
 
   "PackageCommitter" should {
-    def newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.No)
+    def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
 
     // Don't need to run the below test cases for all instances of PackageCommitter.
     "set record time in log entry if record time is available" in {
@@ -343,57 +320,94 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
     }
 
     "reject submissions containing missing dependencies" in {
+
+      // [libraryArchive] contains another well-typed and self-consistent package
+      val libraryArchive = encodePackage(
+        p"""
+        metadata ( 'Color' : '0.0.1' )
+
+        module Color {
+          enum Primary = Red | Green | Blue;
+        }
+      """
+      )
+      val (libraryPackageId, libraryPackage) = Decode.decodeArchive(libraryArchive)
+
+      // [dependentArchive] contains a well-typed package that depends on [libraryArchive]
+      val dependentArchive = encodePackage(
+        p"""
+        metadata ( 'Quantum' : '0.0.1' )
+
+        module Chromodynamics {
+          record Charge = { value: '${libraryPackageId}':Color:Primary } ;
+        }
+      """
+      )
+
       val committer = newCommitter
-      val submission = buildSubmission(archive2, archive3)
+      val submission = buildSubmission(dependentArchive)
 
       // when the dependencies are unknown
       shouldFailWith(
         committer.submit(submission),
         INVALID_PACKAGE,
-        s"the missing dependencies are {'$pkgId1'}",
+        s"the missing dependencies are {'$libraryPackageId'}",
       )
 
       // when the dependencies are known
-      shouldSucceed(committer.submit(buildSubmission(archive1)))
-      committer.engine.preloadPackage(pkgId1, pkg1)
+      shouldSucceed(committer.submit(buildSubmission(libraryArchive)))
+      committer.engine.preloadPackage(libraryPackageId, libraryPackage)
       shouldFailWith(
         committer.submit(submission),
         INVALID_PACKAGE,
-        s"the missing dependencies are {'$pkgId1'}",
+        s"the missing dependencies are {'$libraryPackageId'}",
       )
     }
 
     "reject submissions containing ill typed packages" in {
+
+      val anIllTypeArchive =
+        encodePackage(
+          p"""
+        metadata ( 'IllTyped' : '0.0.1' )
+
+        module Wrong {
+          val i: Numeric 10 = 1;  // 1 is an Int64 is not a Numeric
+        }
+      """
+        )
+
       val committer = newCommitter
-      val submission = buildSubmission(archive1, archive4, archive3)
+      val submission = buildSubmission(archive1, anIllTypeArchive, archive3)
 
       shouldFailWith(committer.submit(submission), INVALID_PACKAGE, "type mismatch")
     }
 
   }
 
-  s"PackageCommitter with ${ValidationMode.Lenient} validation" should {
-    def newCommitter = new CommitterWrapper(ValidationMode.Lenient, PreloadingMode.No)
+  s"PackageCommitter with ${PackageValidationMode.Lenient} validation" should {
+    def newCommitter = new CommitterWrapper(PackageValidationMode.Lenient, PackagePreloadingMode.No)
     lenientValidationTests(newCommitter)
   }
 
-  s"PackageCommitter with ${ValidationMode.Strict} validation" should {
-    def newCommitter = new CommitterWrapper(ValidationMode.Strict, PreloadingMode.No)
+  s"PackageCommitter with ${PackageValidationMode.Strict} validation" should {
+    def newCommitter = new CommitterWrapper(PackageValidationMode.Strict, PackagePreloadingMode.No)
     lenientValidationTests(newCommitter)
     strictValidationTests(newCommitter)
   }
 
-  s"PackageCommitter with ${PreloadingMode.No} preloading" should {
+  s"PackageCommitter with ${PackagePreloadingMode.No} preloading" should {
     "not preload the engine with packages" in {
-      val committer = new CommitterWrapper(ValidationMode.No, PreloadingMode.No)
+      val committer = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
       shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
       Thread.sleep(1000)
       committer.engine.compiledPackages().packageIds shouldBe 'empty
     }
   }
 
-  s"PackageCommitter with ${PreloadingMode.Asynchronous} preloading" should {
-    def newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.Asynchronous)
+  s"PackageCommitter with ${PackagePreloadingMode.Asynchronous} preloading" should {
+    def newCommitter =
+      new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.Asynchronous)
 
     def waitWhile(cond: => Boolean) =
       // wait up to 16s
@@ -416,8 +430,9 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
     }
   }
 
-  s"PackageCommitter with ${PreloadingMode.Synchronous} preloading" should {
-    val newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.Synchronous)
+  s"PackageCommitter with ${PackagePreloadingMode.Synchronous} preloading" should {
+    val newCommitter =
+      new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.Synchronous)
 
     "preload the engine with packages" in {
       val committer = newCommitter
@@ -440,7 +455,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
       .setSubmissionId("an ID")
       .setParticipantId("a participant") -> Map.empty[Ref.PackageId, Ast.Package]
 
-    def newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.No)
+    def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
 
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val context = new FakeCommitContext(recordTime = None)

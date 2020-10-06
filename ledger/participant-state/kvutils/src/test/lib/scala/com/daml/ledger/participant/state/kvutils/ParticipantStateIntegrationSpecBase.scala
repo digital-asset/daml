@@ -101,7 +101,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       "provide an update" in participantState.use { ps =>
         val submissionId = newSubmissionId()
         for {
-          result <- ps.uploadPackages(submissionId, List(archive1), sourceDescription).toScala
+          result <- ps.uploadPackages(submissionId, List(anArchive), sourceDescription).toScala
           _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
@@ -110,7 +110,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         } yield {
           offset should be(toOffset(1))
           update.recordTime should be >= rt
-          matchPackageUpload(update, submissionId, List(archive1))
+          matchPackageUpload(update, submissionId, List(anArchive))
         }
       }
 
@@ -135,11 +135,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (newSubmissionId(), newSubmissionId(), newSubmissionId())
 
         for {
-          result1 <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
+          result1 <- ps.uploadPackages(subId1, List(anArchive), sourceDescription).toScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
-          result2 <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
+          result2 <- ps.uploadPackages(subId2, List(anArchive), sourceDescription).toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
-          result3 <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
+          result3 <- ps.uploadPackages(subId3, List(anotherArchive), sourceDescription).toScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -148,11 +148,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           all(updates.map(_.recordTime)) should be >= rt
           // first upload arrives as head update:
           offset1 should be(toOffset(1))
-          matchPackageUpload(update1, subId1, List(archive1))
+          matchPackageUpload(update1, subId1, List(anArchive))
           offset2 should be(toOffset(2))
           matchPackageUpload(update2, subId2, List())
           offset3 should be(toOffset(3))
-          matchPackageUpload(update3, subId3, List(archive2))
+          matchPackageUpload(update3, subId3, List(anotherArchive))
         }
       }
 
@@ -184,11 +184,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         val submissionIds = (newSubmissionId(), newSubmissionId())
 
         for {
-          result1 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
+          result1 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).toScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           // Second submission is a duplicate, it fails without an update.
-          result2 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
-          result3 <- ps.uploadPackages(submissionIds._2, List(archive2), sourceDescription).toScala
+          result2 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).toScala
+          result3 <- ps
+            .uploadPackages(submissionIds._2, List(anotherArchive), sourceDescription)
+            .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -711,7 +713,7 @@ object ParticipantStateIntegrationSpecBase {
   private val archives = darReader.readArchiveFromFile(darFile).get.all
 
   // 2 self consistent archives
-  protected val List(archive1, archive2) =
+  protected val List(anArchive, anotherArchive) =
     archives
       .sortBy(_.getSerializedSize) // look at the smallest archives first to limit decoding work
       .iterator

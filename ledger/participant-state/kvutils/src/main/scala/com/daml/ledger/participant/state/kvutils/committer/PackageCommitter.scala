@@ -24,70 +24,14 @@ import com.google.protobuf.ByteString
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
-object PackageCommitter {
-
-  /** Defines the different package validation modes. */
-  sealed abstract class ValidationMode extends Product with Serializable
-
-  object ValidationMode {
-
-    /** Specifies that the committer should validate the package before
-      * committing them to the ledger.
-      * When using this mode, the packages committed to the ledger can
-      * be fully trusted and do not have to be validated when loaded
-      * into the engine.  */
-    case object Strict extends ValidationMode
-
-    /** Specifies that the committer should perform a fast validation of
-      * the packages before committing them to the ledger.
-      * This mode is useful for ledger integrations that cannot handle
-      * long-running submissions (> 10s).
-      * When using this mode, the packages committed to the ledger
-      * cannot be trusted and must be validated every time they are
-      * loaded into the engine.  */
-    case object Lenient extends ValidationMode
-
-    /** Specifies that the committer should not perform any validation the
-      * packages before committing them to the ledger.
-      * This should be used only by non distributed ledgers, like
-      * DAML-on-SQL, where the validation done in the API server is
-      * can be trusted.  */
-    case object No extends ValidationMode
-  }
-
-  /** Defines the different package preloading modes. */
-  sealed abstract class PreloadingMode extends Product with Serializable
-
-  object PreloadingMode {
-
-    /** Specifies that the packages should be preloading into the engine
-      * before committed.  */
-    case object Synchronous extends PreloadingMode
-
-    /** Specify that the packages should be preloaded into the engine
-      * asynchronously with the rest of the commit process.  This mode
-      * is useful for ledger integrations that cannot handle
-      * long-running submissions (> 10s).
-      * Failure of the preloading process will not affect the
-      * commit.  */
-    case object Asynchronous extends PreloadingMode
-
-    /** Specify that the packages should not be preloaded into the
-      * engine.  */
-    case object No extends PreloadingMode
-
-  }
-
-}
+object PackageCommitter {}
 
 final private[kvutils] class PackageCommitter(
     engine: Engine,
     override protected val metrics: Metrics,
-    validationMode: PackageCommitter.ValidationMode = PackageCommitter.ValidationMode.Lenient,
-    preloadingMode: PackageCommitter.PreloadingMode = PackageCommitter.PreloadingMode.Asynchronous,
+    validationMode: PackageValidationMode = PackageValidationMode.Lenient,
+    preloadingMode: PackagePreloadingMode = PackagePreloadingMode.Asynchronous,
 ) extends Committer[(DamlPackageUploadEntry.Builder, Map[Ref.PackageId, Ast.Package])] {
-
-  import PackageCommitter._
 
   /** The initial internal state passed to first step. */
   override protected def init(
@@ -365,7 +309,7 @@ final private[kvutils] class PackageCommitter(
     * integrations using kvutils can handle long-running submissions this can be removed and complete
     * package type-checking and preloading can be done during normal processing.
     *
-    * This assumes the engine validate the archive it receives.
+    * This assumes the engine validates the archive it receives.
     */
   private[this] def enqueuePreload: Step = {
     case (_, partialResult @ (uploadEntry, mbPkgs)) =>
@@ -388,7 +332,7 @@ final private[kvutils] class PackageCommitter(
   }
 
 // Filter out packages already on the ledger.
-// Should be done after decoding, validation or preload, as those step may
+// Should be done after decoding, validation or preloading, as those step may
 // require packages on the ledger by not loaded by the engine.
   private[this] def filterKnownPackages: Step = {
     case (ctx, (uploadEntry, pkgs)) =>
@@ -433,23 +377,23 @@ final private[kvutils] class PackageCommitter(
     val builder = List.newBuilder[(StepInfo, Step)]
 
     validationMode match {
-      case ValidationMode.No =>
+      case PackageValidationMode.No =>
       case _ =>
         builder += "authorize_submission" -> authorizeSubmission
         builder += "deduplicate_submission" -> deduplicateSubmission
         builder += "check_for_duplicate" -> checkForDuplicates
         validationMode match {
-          case ValidationMode.Strict =>
+          case PackageValidationMode.Strict =>
             builder += "validate_packages" -> strictlyValidatePackages
           case _ =>
             builder += "validate_packages" -> looselyValidatePackages
         }
     }
     preloadingMode match {
-      case PreloadingMode.No =>
-      case PreloadingMode.Synchronous =>
+      case PackagePreloadingMode.No =>
+      case PackagePreloadingMode.Synchronous =>
         builder += "synchronously_preload" -> preload
-      case PreloadingMode.Asynchronous =>
+      case PackagePreloadingMode.Asynchronous =>
         builder += "asynchronously_preload" -> enqueuePreload
     }
     builder += "filter_known_packages" -> filterKnownPackages
