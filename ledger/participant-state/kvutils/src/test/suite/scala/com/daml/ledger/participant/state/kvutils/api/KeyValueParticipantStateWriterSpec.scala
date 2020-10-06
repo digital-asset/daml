@@ -39,7 +39,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       val transactionCaptor = captor[Bytes]
       val correlationIdCaptor = captor[String]
       val metadataCaptor = captor[CommitMetadata]
-      val writer = createWriter(transactionCaptor, correlationIdCaptor, metadataCaptor)
+      val writer = createWriter(transactionCaptor, metadataCaptor, correlationIdCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
       val recordTime = newRecordTime()
       val expectedCorrelationId = "correlation ID"
@@ -61,35 +61,47 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
     "upload a package" in {
       val packageUploadCaptor = captor[Bytes]
-      val writer = createWriter(packageUploadCaptor)
+      val metadataCaptor = captor[CommitMetadata]
+      val writer = createWriter(packageUploadCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
       verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(packageUploadCaptor.getValue)(_.hasPackageUploadEntry)
+      val actualCommitMetadata = metadataCaptor.getValue
+      actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
+      actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "submit a configuration" in {
       val configurationCaptor = captor[Bytes]
-      val writer = createWriter(configurationCaptor)
+      val metadataCaptor = captor[CommitMetadata]
+      val writer = createWriter(configurationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
       verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(configurationCaptor.getValue)(_.hasConfigurationSubmission)
+      val actualCommitMetadata = metadataCaptor.getValue
+      actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
+      actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "allocate a party without hint" in {
       val partyAllocationCaptor = captor[Bytes]
-      val writer = createWriter(partyAllocationCaptor)
+      val metadataCaptor = captor[CommitMetadata]
+      val writer = createWriter(partyAllocationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
       verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(partyAllocationCaptor.getValue)(_.hasPartyAllocationEntry)
+      val actualCommitMetadata = metadataCaptor.getValue
+      actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
+      actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
   }
 
@@ -120,8 +132,8 @@ object KeyValueParticipantStateWriterSpec {
 
   private def createWriter(
       envelopeCaptor: ArgumentCaptor[Bytes],
-      correlationIdCaptor: ArgumentCaptor[String] = captor[String],
-      metadataCaptor: ArgumentCaptor[CommitMetadata] = captor[CommitMetadata]): LedgerWriter = {
+      metadataCaptor: ArgumentCaptor[CommitMetadata],
+      correlationIdCaptor: ArgumentCaptor[String] = captor[String]): LedgerWriter = {
     val writer = mock[LedgerWriter]
     when(
       writer
