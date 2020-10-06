@@ -27,6 +27,7 @@ object ServiceMain {
   def startServer(
       host: String,
       port: Int,
+      authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
@@ -38,6 +39,7 @@ object ServiceMain {
         Server(
           host,
           port,
+          authConfig,
           ledgerConfig,
           restartConfig,
           encodedDar,
@@ -66,6 +68,10 @@ object ServiceMain {
               case Success(dar) => dar
             }
           }
+        val authConfig: AuthConfig = config.authUri match {
+          case None => NoAuth
+          case Some(uri) => AuthMiddleware(uri)
+        }
         val ledgerConfig =
           LedgerConfig(
             config.ledgerHost,
@@ -83,6 +89,7 @@ object ServiceMain {
             Server(
               config.address,
               config.httpPort,
+              authConfig,
               ledgerConfig,
               restartConfig,
               encodedDar,

@@ -45,6 +45,7 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
+        "//triggers/service/auth:oauth-middleware",  # TODO[AH] Extract request/response types
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",

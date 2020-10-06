@@ -62,14 +62,18 @@ object Request {
 
   /** Auth endpoint query parameters
     */
-  case class Auth(claims: Claims)
+  case class Auth(claims: Claims) {
+    def toQuery: Uri.Query = Uri.Query("claims" -> claims.toQueryString())
+  }
 
   /** Login endpoint query parameters
     *
     * @param redirectUri Redirect target after the login flow completed. I.e. the original request URI on the trigger service.
     * @param claims Required ledger claims.
     */
-  case class Login(redirectUri: Uri, claims: Claims)
+  case class Login(redirectUri: Uri, claims: Claims) {
+    def toQuery: Uri.Query = Uri.Query("redirect_uri" -> redirectUri.toString, "claims" -> claims.toQueryString())
+  }
 
 }
 

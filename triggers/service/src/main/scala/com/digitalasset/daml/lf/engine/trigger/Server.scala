@@ -4,30 +4,29 @@
 package com.daml.lf
 package engine.trigger
 
+import akka.actor.ActorSystem
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.server.{Directive, Directive1}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
 import akka.util.ByteString
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+import com.daml.oauth.middleware.{JsonProtocol => AuthJsonProtocol, Request => AuthRequest, Response => AuthResponse}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.{
-  ConcurrentCompiledPackages,
-  MutableCompiledPackages,
-  Result,
-  ResultDone,
-  ResultNeedPackage
-}
+import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
 import com.daml.lf.engine.trigger.dao._
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.lf.engine.trigger.Response._
@@ -43,7 +42,10 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
+import com.daml.lf.data.Ref
+
 class Server(
+    authConfig: AuthConfig,
     ledgerConfig: LedgerConfig,
     restartConfig: TriggerRestartConfig,
     triggerDao: RunningTriggerDao)(
@@ -96,7 +98,8 @@ class Server(
 
   private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
     import cats.implicits._ // needed for traverse
-    triggers.traverse_(t => startTrigger(t.triggerParty, t.triggerName, Some(t.triggerInstance)))
+    triggers.traverse_(t =>
+      startTrigger(t.triggerParty, t.triggerName, t.triggerToken, Some(t.triggerInstance)))
   }
 
   private def triggerRunnerName(triggerInstance: UUID): String =
@@ -110,6 +113,7 @@ class Server(
   private def startTrigger(
       party: Party,
       triggerName: Identifier,
+      token: Option[String],
       existingInstance: Option[UUID] = None): Either[String, JsValue] = {
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
@@ -117,7 +121,7 @@ class Server(
         case None =>
           val newInstance = UUID.randomUUID
           triggerDao
-            .addRunningTrigger(RunningTrigger(newInstance, triggerName, party))
+            .addRunningTrigger(RunningTrigger(newInstance, triggerName, party, token))
             .map(_ => newInstance)
         case Some(instance) => Right(instance)
       }
@@ -171,20 +175,65 @@ class Server(
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
     triggerLog.getOrDefault(uuid, Vector.empty)
 
-  private val route = concat(
+  private def authorize(claims: AuthRequest.Claims)(
+      implicit ec: ExecutionContext,
+      system: ActorSystem): Directive1[Option[String]] = Directive { inner => ctx =>
+    authConfig match {
+      case NoAuth => inner(Tuple1(None))(ctx)
+      case AuthMiddleware(authUri) =>
+        val uri = authUri
+          .withPath(Path./("auth"))
+          .withQuery(AuthRequest.Auth(claims).toQuery)
+        // forward cookies
+        val cookies = ctx.request.header[headers.Cookie]
+        val req = HttpRequest(uri = uri, headers = cookies.toList)
+        import AuthJsonProtocol._
+        for {
+          resp <- Http().singleRequest(req)
+          result <- resp.status match {
+            case StatusCodes.OK =>
+              Unmarshal(resp).to[AuthResponse.Authorize].flatMap { auth =>
+                inner(Tuple1(Some(auth.accessToken)))(ctx)
+              }
+            case StatusCodes.Unauthorized =>
+              val uri = authUri
+                .withPath(Path./("login"))
+                // TODO[AH]: Define redirect URI
+                .withQuery(AuthRequest.Login(Uri("TODO"), claims).toQuery)
+              ctx.redirect(uri, StatusCodes.Found)
+            case statusCode =>
+              Unmarshal(resp).to[String].flatMap { msg =>
+                logger.error(s"Failed to authorize with middleware ($statusCode): $msg")
+                // TODO[AH] Choose appropriate status code. Is this 401 or 500 or something else?
+                ctx.complete(
+                  errorResponse(
+                    StatusCodes.InternalServerError,
+                    "Failed to authorize with middleware"))
+              }
+          }
+        } yield result
+    }
+  }
+
+  private def route(implicit ec: ExecutionContext, system: ActorSystem) = concat(
     post {
       concat(
         // Start a new trigger given its identifier and the party it
         // should be running as.  Returns a UUID for the newly
         // started trigger.
         path("v1" / "start") {
-          entity(as[StartParams]) { params =>
-            startTrigger(params.party, params.triggerName) match {
-              case Left(err) =>
-                complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-              case Right(triggerInstance) =>
-                complete(successResponse(triggerInstance))
-            }
+          entity(as[StartParams]) {
+            params =>
+              val claims = AuthRequest.Claims(actAs = List(Ref.Party.assertFromString(params.party.toString)))
+              // TODO[AH] Why do we need to pass ec, system explicitly?
+              authorize(claims)(ec, system) { token =>
+                startTrigger(params.party, params.triggerName, token) match {
+                  case Left(err) =>
+                    complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                  case Right(triggerInstance) =>
+                    complete(successResponse(triggerInstance))
+                }
+              }
           }
         },
         // upload a DAR as a multi-part form request with a single field called
@@ -265,6 +314,7 @@ object Server {
   def apply(
       host: String,
       port: Int,
+      authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
       initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
@@ -299,11 +349,11 @@ object Server {
     val (dao, server): (RunningTriggerDao, Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(ledgerConfig, restartConfig, dao)
+        val server = new Server(authConfig, ledgerConfig, restartConfig, dao)
         (dao, server)
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(ledgerConfig, restartConfig, dao)
+        val server = new Server(authConfig, ledgerConfig, restartConfig, dao)
         val recovery: Either[String, Unit] = for {
           _ <- dao.initialize
           packages <- dao.readPackages
