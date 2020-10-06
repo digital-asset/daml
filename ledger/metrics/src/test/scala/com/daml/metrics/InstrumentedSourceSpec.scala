@@ -1,15 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.akka.stream
+package com.daml.metrics
 
-import akka.stream.{OverflowStrategy, QueueOfferResult}
+import java.util.concurrent.atomic.AtomicLong
+
 import akka.stream.scaladsl.{Keep, Sink}
+import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.Counter
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 
 final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
@@ -17,15 +19,14 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
   it should "correctly enqueue and track the buffer saturation" in {
 
-    val bufferSize = 10000
+    val bufferSize = 500
 
+    val capacityCounter = new Counter()
     val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
 
-    // The throttling allows us to flood the source queue initially
-    // and to reliably poll the instrumentation for testing
     val (source, sink) =
       InstrumentedSource
-        .queue[Int](bufferSize, OverflowStrategy.backpressure, maxBuffered)
+        .queue[Int](bufferSize, OverflowStrategy.backpressure, capacityCounter, maxBuffered)
         .toMat(Sink.seq)(Keep.both)
         .run()
 
@@ -34,18 +35,21 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
     for {
       results <- Future.sequence(input.map(source.offer))
+      _ = capacityCounter.getCount shouldEqual bufferSize
       _ = source.complete()
       output <- sink
     } yield {
       all(results) shouldBe QueueOfferResult.Enqueued
       output shouldEqual input
       maxBuffered.getCount shouldEqual bufferSize
+      capacityCounter.getCount shouldEqual 0
+      maxBuffered.decrements.get shouldEqual bufferSize
     }
   }
 
   it should "track the buffer saturation correctly when dropping items" in {
 
-    val bufferSize = 10000
+    val bufferSize = 500
 
     // Due to differences in scheduling, we accept that the highest
     // possible recorded saturation value to be more or less equal
@@ -56,12 +60,14 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     val highAcceptanceThreshold = bufferSize + acceptanceTolerance
 
     val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
+    val capacityCounter = new Counter()
 
-    // The throttling allows us to flood the source queue initially
-    // and to reliably poll the instrumentation for testing
+    val stop = Promise[Unit]()
+
     val (source, termination) =
       InstrumentedSource
-        .queue[Int](bufferSize, OverflowStrategy.dropNew, maxBuffered)
+        .queue[Int](bufferSize, OverflowStrategy.dropNew, capacityCounter, maxBuffered)
+        .mapAsync(1)(_ => stop.future) // Block until completed to overflow queue.
         .watchTermination()(Keep.both)
         .toMat(Sink.ignore)(Keep.left)
         .run()
@@ -73,6 +79,8 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
     for {
       results <- Future.sequence(input.map(source.offer))
+      _ = capacityCounter.getCount shouldEqual bufferSize
+      _ = stop.success(())
       _ = source.complete()
       _ <- termination
     } yield {
@@ -89,6 +97,8 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
       assert(dropped <= bufferSize)
       assert(maxBuffered.getCount >= lowAcceptanceThreshold)
       assert(maxBuffered.getCount <= highAcceptanceThreshold)
+      capacityCounter.getCount shouldEqual 0
+
     }
   }
 
@@ -99,10 +109,15 @@ object InstrumentedSourceSpec {
   // For testing only, this counter will never decrease
   // so that we can test the maximum value read
   private final class MaxValueCounter extends Counter {
+    val decrements = new AtomicLong(0)
 
-    override def dec(): Unit = ()
+    override def dec(): Unit = {
+      val _ = decrements.incrementAndGet()
+    }
 
-    override def dec(n: Long): Unit = ()
+    override def dec(n: Long): Unit = {
+      val _ = decrements.addAndGet(n)
+    }
 
   }
 

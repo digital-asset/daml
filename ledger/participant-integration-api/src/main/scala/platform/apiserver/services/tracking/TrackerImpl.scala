@@ -7,13 +7,13 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Keep, Sink, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy}
 import com.codahale.metrics.Counter
-import com.daml.akka.stream.InstrumentedSource
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.InstrumentedSource
 import com.daml.platform.server.api.ApiException
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
@@ -78,12 +78,11 @@ private[services] object TrackerImpl {
         Ctx[Promise[Completion], Completion],
         Materialized[NotUsed, Promise[Completion]]],
       inputBufferSize: Int,
-      sizeCounter: Counter,
-      saturationCounter: Counter,
+      capacityCounter: Counter,
+      lengthCounter: Counter,
   )(implicit materializer: Materializer, loggingContext: LoggingContext): TrackerImpl = {
-    sizeCounter.inc(inputBufferSize.toLong)
     val ((queue, mat), foreachMat) = InstrumentedSource
-      .queue[QueueInput](inputBufferSize, OverflowStrategy.dropNew, saturationCounter)
+      .queue[QueueInput](inputBufferSize, OverflowStrategy.dropNew, capacityCounter, lengthCounter)
       .viaMat(tracker)(Keep.both)
       .toMat(Sink.foreach {
         case Ctx(promise, result) =>

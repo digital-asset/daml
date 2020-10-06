@@ -1,7 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-package com.daml.akka.stream
+package com.daml.metrics
 
 import akka.Done
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
@@ -15,7 +12,7 @@ object InstrumentedSource {
 
   final class QueueWithComplete[T](
       delegate: SourceQueueWithComplete[T],
-      saturation: Counter,
+      lengthCounter: Counter,
   ) extends SourceQueueWithComplete[T] {
 
     override def complete(): Unit = delegate.complete()
@@ -31,7 +28,7 @@ object InstrumentedSource {
       // update of the queue, so to offer the most consistent
       // reading possible via the counter
       result.foreach {
-        case QueueOfferResult.Enqueued => saturation.inc()
+        case QueueOfferResult.Enqueued => lengthCounter.inc()
         case _ => // do nothing
       }(DirectExecutionContext)
       result
@@ -41,7 +38,7 @@ object InstrumentedSource {
   /**
     * Returns a `Source` that can be fed via the materialized queue.
     *
-    * The saturation counter can at most be eventually consistent due to
+    * The queue length counter can at most be eventually consistent due to
     * the counter increment and decrement operation being scheduled separately
     * and possibly not in the same order as the actual enqueuing and dequeueing
     * of items.
@@ -53,18 +50,32 @@ object InstrumentedSource {
     * that its buffering will likely skew the measurements to be greater than the
     * actual value, rather than the other way around.
     *
-    * FIXME The clean (but involved) thing to do, would be to re-implement
-    * FIXME `Source.queue` from scratch, adding the possibility of
-    * FIXME instrumenting it.
+    * We track the queue capacity as a counter as we may want to aggregate
+    * the metrics for multiple individual queues of the same kind and we want to be able
+    * to decrease the capacity when the queue gets completed.
     */
-  def queue[T](bufferSize: Int, overflowStrategy: OverflowStrategy, saturation: Counter)(
+  def queue[T](
+      bufferSize: Int,
+      overflowStrategy: OverflowStrategy,
+      capacityCounter: Counter,
+      lengthCounter: Counter)(
       implicit materializer: Materializer,
   ): Source[T, QueueWithComplete[T]] = {
     val (queue, source) = Source.queue[T](bufferSize, overflowStrategy).preMaterialize()
-    val instrumentedQueue = new QueueWithComplete[T](queue, saturation)
-    // Using `map` and not `wireTap` because the latter is skipped on backpressure
+
+    val instrumentedQueue =
+      new QueueWithComplete[T](queue, lengthCounter)
+    // Using `map` and not `wireTap` because the latter is skipped on backpressure.
+
+    capacityCounter.inc(bufferSize.toLong)
+    instrumentedQueue
+      .watchCompletion()
+      .map { _ =>
+        capacityCounter.dec(bufferSize.toLong)
+      }(DirectExecutionContext)
+
     source.mapMaterializedValue(_ => instrumentedQueue).map { item =>
-      saturation.dec()
+      lengthCounter.dec()
       item
     }
   }

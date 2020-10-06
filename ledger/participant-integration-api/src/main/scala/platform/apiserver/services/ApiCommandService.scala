@@ -120,16 +120,16 @@ private[apiserver] final class ApiCommandService private (
           if (configuration.limitMaxCommandsInFlight)
             MaxInFlight(
               configuration.maxCommandsInFlight,
-              maxInFlightCounter = metrics.daml.commands.maxInFlightSize(submitter.party),
-              saturationCounter = metrics.daml.commands.maxInFlightSaturation(submitter.party),
+              capacityCounter = metrics.daml.commands.maxInFlightCapacity(submitter.party),
+              lengthCounter = metrics.daml.commands.maxInFlightLength(submitter.party),
             ).joinMat(tracker)(Keep.right)
           else
             tracker
         TrackerImpl(
           trackingFlow,
           configuration.inputBufferSize,
-          sizeCounter = metrics.daml.commands.inputBufferSize(submitter.party),
-          saturationCounter = metrics.daml.commands.inputBufferSaturation(submitter.party),
+          capacityCounter = metrics.daml.commands.inputBufferCapacity(submitter.party),
+          lengthCounter = metrics.daml.commands.inputBufferLength(submitter.party),
         )
       }
     }

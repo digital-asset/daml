@@ -17,10 +17,10 @@ import org.slf4j.LoggerFactory
   * except that if the output stream is failed, cancelled or completed, the input stream is completed.
   */
 // TODO(mthvedt): This should have unit tests.
-class MaxInFlight[I, O](maxInFlight: Int, maxInFlightCounter: Counter, saturationCounter: Counter)
+class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounter: Counter)
     extends GraphStage[BidiShape[I, I, O, O]] {
 
-  maxInFlightCounter.inc(maxInFlight.toLong)
+  capacityCounter.inc(maxInFlight.toLong)
 
   private val logger = LoggerFactory.getLogger(MaxInFlight.getClass.getName)
 
@@ -67,7 +67,7 @@ class MaxInFlight[I, O](maxInFlight: Int, maxInFlightCounter: Counter, saturatio
           logger.trace("Received input.")
           push(out1, elem)
           freeCapacity -= 1
-          saturationCounter.inc()
+          lengthCounter.inc()
           admitting = false
         }, () => complete(out1))
       }
@@ -82,7 +82,7 @@ class MaxInFlight[I, O](maxInFlight: Int, maxInFlightCounter: Counter, saturatio
             logger.trace("Emitting output")
             push(out2, elemToEmit)
             freeCapacity += 1
-            saturationCounter.dec()
+            lengthCounter.dec()
 
             checkMaxInFlight(elemToEmit)
 
@@ -94,7 +94,13 @@ class MaxInFlight[I, O](maxInFlight: Int, maxInFlightCounter: Counter, saturatio
             }
           }
 
+          override def onUpstreamFinish(): Unit = {
+            capacityCounter.dec(maxInFlight.toLong)
+            super.onUpstreamFinish()
+          }
+
           override def onUpstreamFailure(ex: Throwable): Unit = {
+            capacityCounter.dec(maxInFlight.toLong)
             fail(out2, ex)
             completeStage()
           }
@@ -123,8 +129,8 @@ object MaxInFlight {
 
   def apply[I, O](
       maxInFlight: Int,
-      maxInFlightCounter: Counter,
-      saturationCounter: Counter,
+      capacityCounter: Counter,
+      lengthCounter: Counter,
   ): BidiFlow[I, I, O, O, NotUsed] =
-    BidiFlow.fromGraph(new MaxInFlight[I, O](maxInFlight, maxInFlightCounter, saturationCounter))
+    BidiFlow.fromGraph(new MaxInFlight[I, O](maxInFlight, capacityCounter, lengthCounter))
 }
