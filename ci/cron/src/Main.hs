@@ -24,6 +24,7 @@ import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
+import qualified System.Environment
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
 import qualified System.Process as System
@@ -93,24 +94,21 @@ build_and_push temp versions = do
             putStrLn $ "Building " <> show version <> "..."
             build version
             putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
-            push (temp </> show version) $ show version
+            push version
             putStrLn "Done.")
     where
         restore_sha io =
-            Control.Exception.bracket (init <$> shell "git rev-parse HEAD")
+            Control.Exception.bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
                                       (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
                                       (const io)
         build version = do
             shell_ $ "git checkout v" <> show version
-            build_helper version
-
-        build_helper version = do
             robustly_download_nix_packages
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> temp </> show version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> temp </> show version
-        push local remote =
-            shell_ $ "aws s3 cp " <> local </> " " <> "s3://docs-daml-com" </> remote </> " --recursive --acl public-read"
+        push version =
+            shell_ $ "aws s3 cp " <> (temp </> show version) </> " " <> "s3://docs-daml-com" </> show version </> " --recursive --acl public-read"
 
 fetch_if_missing :: FilePath -> Version -> IO ()
 fetch_if_missing temp v = do
@@ -236,8 +234,8 @@ fetch_s3_versions = do
                   Just s3_json -> return $ map (\s -> PreVersion prerelease (version s)) $ H.keys s3_json
                   Nothing -> Exit.die "Failed to get versions from s3"
 
-main :: IO ()
-main = do
+docs :: IO ()
+docs = do
     Control.forM_ [IO.stdout, IO.stderr] $
         \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
@@ -246,7 +244,6 @@ main = do
     if s3_versions == gh_versions
     then do
         putStrLn "Versions match, nothing to do."
-        Exit.exitSuccess
     else do
         -- We may have added versions. We need to build and push them.
         let added = Set.toList $ all_versions gh_versions `Set.difference` all_versions s3_versions
@@ -261,3 +258,13 @@ main = do
             putStrLn "Updating versions.json & hidden.json"
             update_s3 temp_dir gh_versions
         reset_cloudfront
+
+check_signatures :: IO ()
+check_signatures = do
+    putStrLn "FIXME"
+
+main :: IO ()
+main = System.Environment.getArgs >>= parse
+  where parse ["docs"] = docs
+        parse ["check-signatures"] = check_signatures
+        parse _ = Exit.die "Arg required: docs, check-signatures"
