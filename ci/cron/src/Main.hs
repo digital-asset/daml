@@ -4,6 +4,7 @@
 module Main (main) where
 
 import Data.Function ((&))
+import Data.Semigroup ((<>))
 import System.FilePath.Posix ((</>))
 
 import qualified Control.Exception
@@ -20,11 +21,11 @@ import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
+import qualified Options.Applicative as Opt
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
-import qualified System.Environment
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
 import qualified System.Process as System
@@ -259,12 +260,27 @@ docs = do
             update_s3 temp_dir gh_versions
         reset_cloudfront
 
-check_signatures :: IO ()
-check_signatures = do
-    putStrLn "FIXME"
+check_releases :: String -> IO ()
+check_releases bash_lib = do
+    putStrLn $ "arg: " <> bash_lib
+
+data CliArgs = Docs | Check { bash_lib :: String }
+
+parser :: Opt.ParserInfo CliArgs
+parser = info "This program is meant to be run by CI cron. You probably don't have sufficient access rights to run it locally."
+              (Opt.hsubparser (Opt.command "docs" docs
+                            <> Opt.command "check" check))
+  where info t p = Opt.info (p Opt.<**> Opt.helper) (Opt.progDesc t)
+        docs = info "Build & push latest docs, if needed."
+                    (pure Docs)
+        check = info "Check existing releases."
+                     (Check <$> Opt.strOption (Opt.long "bash-lib"
+                                         <> Opt.metavar "PATH"
+                                         <> Opt.help "Path to Bash library file."))
 
 main :: IO ()
-main = System.Environment.getArgs >>= parse
-  where parse ["docs"] = docs
-        parse ["check-signatures"] = check_signatures
-        parse _ = Exit.die "Arg required: docs, check-signatures"
+main = do
+    opts <- Opt.execParser parser
+    case opts of
+      Docs -> docs
+      Check { bash_lib } -> check_releases bash_lib

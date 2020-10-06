@@ -17,6 +17,7 @@ da_haskell_binary(
         "http-client",
         "http-client-tls",
         "http-types",
+        "optparse-applicative",
         "process",
         "regex-tdfa",
         "semver",
