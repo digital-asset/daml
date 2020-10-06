@@ -129,7 +129,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
               case ParticipantMode.LedgerApiServer =>
-                Resource.successful(())
+                Resource.unit
             }
             _ <- participantConfig.mode match {
               case ParticipantMode.Full | ParticipantMode.LedgerApiServer =>
@@ -149,7 +149,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
               case ParticipantMode.Indexer =>
-                Resource.successful(())
+                Resource.unit
             }
           } yield ()
         })
