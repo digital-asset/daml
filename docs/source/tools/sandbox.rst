@@ -377,6 +377,30 @@ further sent to deduplication and interpretation.
 A timer. Time to validate submitted commands before they are
 fed to the DAML interpreter.
 
+``daml.commands.<party_name>.input_buffer_size``
+----------------------------------------------
+
+A counter. The size of the queue accepting submissions on
+the CommandService.
+
+``daml.commands.<party_name>.input_buffer_saturation``
+----------------------------------------------
+
+A counter. The number of currently pending submissions on
+the CommandService.
+
+``daml.commands.<party_name>.max_in_flight_size``
+----------------------------------------------
+
+A counter. The size of the queue tracking completions on
+the CommandService.
+
+``daml.commands.<party_name>.max_in_flight_saturation``
+----------------------------------------------
+
+A counter. The number of currently pending completions on
+the CommandService.
+
 
 ``daml.execution.get_lf_package``
 ---------------------------------
