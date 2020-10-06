@@ -213,7 +213,6 @@ test_deps = [
 
 da_scala_test_suite(
     name = "participant-integration-api-tests",
-    size = "enormous",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = ["src/test/suite/**/ResetService*IT.scala"],
