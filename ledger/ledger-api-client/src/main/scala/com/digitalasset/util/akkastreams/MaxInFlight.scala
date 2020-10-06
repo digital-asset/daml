@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory
 class MaxInFlight[I, O](maxInFlight: Int, maxInFlightCounter: Counter, saturationCounter: Counter)
     extends GraphStage[BidiShape[I, I, O, O]] {
 
-  maxInFlightCounter.inc(maxInFlight)
+  maxInFlightCounter.inc(maxInFlight.toLong)
 
   private val logger = LoggerFactory.getLogger(MaxInFlight.getClass.getName)
 

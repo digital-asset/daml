@@ -6,6 +6,7 @@ package com.daml.ledger.client.services.commands
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import com.codahale.metrics.Counter
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
@@ -93,7 +94,8 @@ final class CommandClient(
     for {
       tracker <- trackCommandsUnbounded[Context](parties, token)
     } yield {
-      MaxInFlight(config.maxCommandsInFlight)
+      // The counters are ignored on the client
+      MaxInFlight(config.maxCommandsInFlight, new Counter, new Counter)
         .joinMat(tracker)(Keep.right)
     }
   }
