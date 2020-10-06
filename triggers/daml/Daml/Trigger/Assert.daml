@@ -65,6 +65,11 @@ testRule trigger party acsBuilder commandsInFlight s = do
         , userState = s
         , commandsInFlight = commandsInFlight
         }
+  -- A sufficiently powerful `TriggerF` command will entail redoing this as a
+  -- natural transformation from `Free TriggerF` to `Free ScriptF`, which in
+  -- turn will likely require exposing `ScriptF` or both in some "internal"
+  -- fashion.  Meanwhile, it is worth pushing `simulateRule` as far as possible
+  -- to forestall that outcome. -SC
   let (_, commands, _) = simulateRule (runRule trigger.rule) time state
   pure commands
 
