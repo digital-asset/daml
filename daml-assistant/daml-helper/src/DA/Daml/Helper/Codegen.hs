@@ -50,7 +50,7 @@ runCodegen lang args =
                 projectConfig
             pure $
               [darPath, "-o", outputPath] ++
-              ["-s " <> npmScope | Just npmScope <- [mbNpmScope]]
+              ["-s" <> npmScope | Just npmScope <- [mbNpmScope]]
           else pure args
       daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
       withProcessWait_' (proc daml2js args') (const $ pure ()) `catchIO`
