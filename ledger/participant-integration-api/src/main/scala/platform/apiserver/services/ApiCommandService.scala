@@ -118,7 +118,11 @@ private[apiserver] final class ApiCommandService private (
         )
         val trackingFlow =
           if (configuration.limitMaxCommandsInFlight)
-            MaxInFlight(configuration.maxCommandsInFlight).joinMat(tracker)(Keep.right)
+            MaxInFlight(
+              configuration.maxCommandsInFlight,
+              maxInFlightCounter = metrics.daml.commands.maxInFlightSize(submitter.party),
+              saturationCounter = metrics.daml.commands.maxInFlightSaturation(submitter.party),
+            ).joinMat(tracker)(Keep.right)
           else
             tracker
         TrackerImpl(
@@ -174,13 +178,14 @@ private[apiserver] object ApiCommandService {
       services: LocalServices,
       timeProvider: TimeProvider,
       ledgerConfigProvider: LedgerConfigProvider,
+      metrics: Metrics,
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
       loggingContext: LoggingContext
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
-      new ApiCommandService(services, configuration, ledgerConfigProvider),
+      new ApiCommandService(services, configuration, ledgerConfigProvider, metrics),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
