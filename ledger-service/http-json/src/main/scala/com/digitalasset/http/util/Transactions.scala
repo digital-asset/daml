@@ -29,6 +29,6 @@ object Transactions {
     val filters =
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(InclusiveFilters(templateIds.map(apiIdentifier))))
-    TransactionFilter(Map(parties.map(party => lar.Party.unwrap(party) -> filters).toList: _*)) // lar.Party.unwrap(party) -> filters))
+    TransactionFilter(lar.Party.unsubst(parties.iterator).map(_ -> filters).toMap) // lar.Party.unwrap(party) -> filters))
   }
 }

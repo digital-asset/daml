@@ -459,6 +459,6 @@ private[http] object ContractsFetch {
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
 
-    TransactionFilter(Map(parties.map(party => domain.Party.unwrap(party) -> filters).toList: _*))
+    TransactionFilter(domain.Party.unsubst(parties.iterator).map(_ -> filters).toMap)
   }
 }
