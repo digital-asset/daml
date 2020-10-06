@@ -8,7 +8,6 @@ import com.github.ghik.silencer.silent
 
 import doobie._
 import doobie.implicits._
-import doobie.postgres.implicits._
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
@@ -124,9 +123,10 @@ object Queries {
       )
     }
 
+  @silent("pls .* never used")
   def lastOffset(parties: Set[String], tpid: SurrogateTpId)(
-      implicit log: LogHandler): ConnectionIO[Option[String]] =
-    sql"""SELECT min(last_offset), count(last_offset) FROM ledger_offset WHERE (party = ANY(${parties.toList}) AND tpid = $tpid)"""
+      implicit log: LogHandler, pls: Put[Array[String]]): ConnectionIO[Option[String]] =
+    sql"""SELECT min(last_offset), count(last_offset) FROM ledger_offset WHERE (party = ANY(${parties.toArray}) AND tpid = $tpid)"""
       .query[(Option[String], Int)]
       .unique
       .map {
@@ -199,12 +199,13 @@ object Queries {
   }
 
   @silent(" gvs .* never used")
+  @silent(" pas .* never used")
   private[http] def selectContracts(
-      parties: List[String],
+      parties: Array[String],
       tpid: SurrogateTpId,
       predicate: Fragment)(
       implicit log: LogHandler,
-      gvs: Get[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+      gvs: Get[Vector[String]], pas: Put[Array[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
     val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
                   FROM contract AS c
                   WHERE (signatories && $parties::text[] OR observers && $parties::text[])

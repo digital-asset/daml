@@ -37,7 +37,8 @@ object ContractDao {
     Queries.dropAllTablesIfExist *> Queries.initDatabase
 
   def lastOffset(parties: Set[domain.Party], templateId: domain.TemplateId.RequiredPkg)(
-      implicit log: LogHandler): ConnectionIO[Option[domain.Offset]] =
+      implicit log: LogHandler): ConnectionIO[Option[domain.Offset]] = {
+    import doobie.postgres.implicits._
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
@@ -45,6 +46,7 @@ object ContractDao {
         templateId.entityName)
       offset <- Queries.lastOffset(parties.map(_.unwrap), tpId).map(_.map(domain.Offset(_)))
     } yield offset
+  }
 
   def updateOffset(
       parties: Set[domain.Party],
@@ -80,7 +82,7 @@ object ContractDao {
         templateId.entityName)
 
       dbContracts <- Queries
-        .selectContracts(parties.map(_.unwrap).toList, tpId, predicate)
+        .selectContracts(parties.map(_.unwrap).toArray, tpId, predicate)
         .to(Vector)
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
