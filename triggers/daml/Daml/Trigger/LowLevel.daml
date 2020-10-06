@@ -46,7 +46,7 @@ module Daml.Trigger.LowLevel
   ) where
 
 import qualified DA.Action.State as State
-import DA.Functor ((<&>), ($>))
+import DA.Functor ((<&>))
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
 import Daml.Script.Free (Free(..), lift, foldFree)

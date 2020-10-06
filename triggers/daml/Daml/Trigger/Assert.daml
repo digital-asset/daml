@@ -64,7 +64,6 @@ testRule trigger party acsBuilder commandsInFlight s = do
         , party = party
         , userState = s
         , commandsInFlight = commandsInFlight
-        , nextCommandId = 0
         }
   let (_, commands, _) = simulateRule (runRule trigger.rule) time state
   pure commands
