@@ -135,7 +135,7 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
       version: LanguageVersion,
   ): (PackageId, DamlLf.ArchivePayload) = (hash, lf)
 
-  // archive Reader that just check package hash.
+  // Archive Reader that just checks package hash.
   val HashChecker = new Reader[Unit] {
     override protected[this] def readArchivePayloadOfVersion(
         hash: PackageId,

@@ -167,10 +167,10 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
     archives.iterator().asScala.map(_.getHash).toSet shouldBe committedPackages.toSet[String]
   }
 
-  s"PackageCommitter" should {
+  "PackageCommitter" should {
     def newCommitter = new CommitterWrapper(ValidationMode.No, PreloadingMode.No)
 
-    // Don't need to run those tests for all instance of PackageCommitter.
+    // Don't need to run the below test cases for all instances of PackageCommitter.
     "set record time in log entry if record time is available" in {
       val submission1 = buildSubmission(archive1)
       val output = newCommitter.packageCommitter.run(
@@ -212,7 +212,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
       )
     }
 
-    "reject non authorize submissions" in {
+    "reject not authorized submissions" in {
       val committer = newCommitter
 
       val submission1 = buildSubmission(archive1)
@@ -225,7 +225,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
       shouldFailWith(output, PARTICIPANT_NOT_AUTHORIZED)
     }
 
-    "reject double submissions" in {
+    "reject duplicate submissions" in {
       val committer = newCommitter
 
       val submission = buildSubmission(archive1)
@@ -249,7 +249,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
       shouldFailWith(
         committer.submit(submission1),
         INVALID_PACKAGE,
-        s"${pkgId1} appears more than once",
+        s"$pkgId1 appears more than once",
       )
 
       // when archive1 is known
