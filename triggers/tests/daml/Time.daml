@@ -8,17 +8,18 @@ import Daml.Trigger.LowLevel
 
 test : Trigger (Bool, [Time])
 test = Trigger
-  { initialState = \party _ _ ->
-      ((False, []), [Commands (CommandId "a") [createCmd (T party)]])
-  , update = \time msg (done, ts) ->
-  case msg of
-    MTransaction (Transaction _ _ events) ->
-      let cmds = case (done, events) of
-            (False, [CreatedEvent (fromCreated @T -> Some (_, _, t))]) -> [Commands (CommandId "b") [createCmd t]]
-            _ -> []
-          newState = (True, time :: ts)
-      in (newState, cmds)
-    _ -> ((done, ts), [])
+  { initialState = \party _ -> do
+      submitCommands $ Commands (CommandId "a") [createCmd (T party)]
+      pure (False, [])
+  , update = \msg -> case msg of
+    MTransaction (Transaction _ _ events) -> do
+      (done, ts) <- get
+      case (done, events) of
+        (False, [CreatedEvent (fromCreated @T -> Some (_, _, t))]) -> submitCommands $ Commands (CommandId "b") [createCmd t]
+        _ -> pure ()
+      time <- getTime
+      put (True, time :: ts)
+    _ -> pure ()
   , registeredTemplates = AllInDar
   , heartbeat = None
   }

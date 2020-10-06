@@ -36,6 +36,9 @@ for production use today.
    * - `project : DABL <https://projectdabl.com/>`__
      - `Managed cloud enviroment <https://projectdabl.com/>`__
      - `Digital Asset <https://digitalasset.com/>`__
+   * - `Hyperledger Besu <https://besu.hyperledger.org/>`__
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+     - `Press release, March 2020 <https://hub.digitalasset.com/press-release/ethereum-compatible-hyperledger-besu-now-has-enterprise-grade-daml-smart-contracts>`__
 
 .. _deploy-ref_open_source:
 
@@ -76,9 +79,6 @@ The following table lists the ledgers that are implementing support for running 
    * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
      - `VMware <https://www.vmware.com/>`__
      - `Press release, April 2019 <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
-   * - `Hyperledger Besu <https://besu.hyperledger.org/>`__
-     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-     - `Press release, March 2020 <https://hub.digitalasset.com/press-release/ethereum-compatible-hyperledger-besu-now-has-enterprise-grade-daml-smart-contracts>`__
    * - `FISCO BCOS <http://www.fisco-bcos.org/>`__
      - `WeBank <https://fintech.webank.com/en/>`__
      - `Press release, April 2020 <https://hub.digitalasset.com/press-release/topic/fisco-bcos>`__

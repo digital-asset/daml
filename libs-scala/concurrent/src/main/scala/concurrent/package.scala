@@ -3,10 +3,10 @@
 
 package com.daml
 
+import scalaz.Id.Id
+
 import scala.util.Try
 import scala.{concurrent => sc}
-
-import scalaz.Id.Id
 
 /** A compatible layer for `scala.concurrent` with extra type parameters to
   * control `ExecutionContext`s.  Deliberately uses the same names as the
@@ -78,6 +78,8 @@ package object concurrent {
 // keeping the companions with the same-named type aliases in same file
 package concurrent {
 
+  import java.util.concurrent.ExecutorService
+
   object Future {
 
     /** {{{
@@ -106,5 +108,8 @@ package concurrent {
       */
     def apply[EC](ec: sc.ExecutionContext): ExecutionContext[EC] =
       ExecutionContextOf.Instance.subst[Id, EC](ec)
+
+    def fromExecutorService[EC](e: ExecutorService): ExecutionContext[EC] =
+      apply(sc.ExecutionContext.fromExecutorService(e))
   }
 }

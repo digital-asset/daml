@@ -30,6 +30,7 @@ const App: React.FC = () => {
       token: <your authentication token>
       httpBaseUrl?: <optional http base url>
       wsBaseUrl?: <optional websocket base url>
+      reconnectThreshold?: <optional delay in ms>
       party: <the logged in party>
     >
       <MainScreen />

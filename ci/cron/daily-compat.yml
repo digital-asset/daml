@@ -234,3 +234,4 @@ jobs:
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ../daily_tell_slack.yml

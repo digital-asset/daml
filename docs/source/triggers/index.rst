@@ -103,7 +103,7 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
     data Trigger s = Trigger
       { initialize : ACS -> s
       , updateState : ACS -> Message -> s -> s
-      , rule : Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ()
+      , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
       , registeredTemplates : RegisteredTemplates
       , heartbeat : Optional RelTime
       }
@@ -117,13 +117,13 @@ the ACS and the transaction or completion. Since our DAML trigger does
 not have any interesting user-defined state, we will not go into
 details here.
 
-The ``rule`` function is the core of a DAML trigger. It
-defines which commands need to be sent to the ledger based on the
-party the trigger is executed at, the current state of the ACS, the
-current time, the commands in flight and the user defined state.
-The type ``TriggerA`` allows you to emit commands that are then sent
-to the ledger. Like ``Scenario`` or ``Update``, you can use ``do``
-notation with ``TriggerA``.
+The ``rule`` function is the core of a DAML trigger. It defines which
+commands need to be sent to the ledger based on the party the trigger is
+executed at, the current state of the ACS, the commands in flight and
+the user defined state.  The type ``TriggerA`` allows you to emit
+commands that are then sent to the ledger. Like ``Scenario`` or
+``Update``, you can use ``do`` notation and ``getTime`` with
+``TriggerA``.
 
 We can specify the templates that our trigger will operate
 on. In our case, we will simply specify ``AllInDar`` which means that

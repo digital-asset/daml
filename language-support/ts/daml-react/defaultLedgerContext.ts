@@ -3,7 +3,7 @@
 
 import { createLedgerContext, FetchResult, QueryResult, LedgerProps } from "./createLedgerContext";
 import { ContractId, Party, Template } from '@daml/types';
-import Ledger, { Query } from '@daml/ledger';
+import Ledger, { Query, StreamCloseEvent } from '@daml/ledger';
 
 /**
  * @internal
@@ -90,14 +90,13 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
  *
  * @param template The template of the contracts to match.
  * @param queryFactory A function returning a query. If the query is omitted, all visible contracts of the given template are returned.
- * @param queryDeps The dependencies of the query (for which a change triggers an update of the result)
+ * @param queryDeps The dependencies of the query (for which a change triggers an update of the result).
+ * @param closeHandler A callback that will be called if the underlying WebSocket connection fails in an unrecoverable way.
  *
  * @return The matching contracts.
  */
-export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
-export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
-export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
-  return ledgerContext.useStreamQuery(template, queryFactory, queryDeps);
+export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void): QueryResult<T, K, I> {
+  return ledgerContext.useStreamQuery(template, queryFactory, queryDeps, closeHandler);
 }
 
 /**
@@ -109,7 +108,8 @@ export function useStreamQuery<T extends object, K, I extends string>(template: 
  *
  * @param template The template of the contracts to match.
  * @param queryFactory A function returning a contract key.
- * @param queryDeps The dependencies of the query (for which a change triggers an update of the result)
+ * @param queryDeps The dependencies of the query (for which a change triggers an update of the result).
+ * @param closeHandler A callback that will be called if the underlying WebSocket connection fails in an unrecoverable way.
  *
  * @return The matching (unique) contract.
  */

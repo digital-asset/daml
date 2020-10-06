@@ -8,6 +8,7 @@ import java.util.concurrent.CompletionStage
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.codahale.metrics.{Counter, Timer}
+import com.daml.concurrent
 import com.daml.dec.DirectExecutionContext
 
 import scala.concurrent.Future
@@ -26,6 +27,13 @@ object Timed {
   }
 
   def future[T](timer: Timer, future: => Future[T]): Future[T] = {
+    val ctx = timer.time()
+    val result = future
+    result.onComplete(_ => ctx.stop())(DirectExecutionContext)
+    result
+  }
+
+  def future[EC, T](timer: Timer, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
     val ctx = timer.time()
     val result = future
     result.onComplete(_ => ctx.stop())(DirectExecutionContext)

@@ -7,6 +7,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
@@ -20,7 +21,6 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
-import spray.json._
 
 // This is an implementation of the trigger service authentication middleware
 // for OAuth2 as specified in `/triggers/service/authentication.md`
@@ -90,17 +90,14 @@ object Server extends StrictLogging {
             redirectUri = toRedirectUri(request.uri),
             scope = Some(login.claims),
             state = Some(requestId.toString))
-          redirect(
-            config.oauthUri
-              .withPath(Uri.Path./("authorize"))
-              .withQuery(authorize.toQuery),
-            StatusCodes.Found)
+          redirect(config.oauthAuth.withQuery(authorize.toQuery), StatusCodes.Found)
         }
       }
 
   private def loginCallback(config: Config, requests: TrieMap[UUID, Uri])(
       implicit system: ActorSystem,
       ec: ExecutionContext) =
+    // TODO[AH] Implement error response handler https://tools.ietf.org/html/rfc6749#section-4.1.2.1
     parameters(('code, 'state ?))
       .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
         extractRequest { request =>
@@ -119,13 +116,22 @@ object Server extends StrictLogging {
                 redirectUri = toRedirectUri(request.uri),
                 clientId = config.clientId,
                 clientSecret = config.clientSecret)
-              val req = HttpRequest(
-                uri = config.oauthUri.withPath(Uri.Path./("token")),
-                entity = HttpEntity(MediaTypes.`application/json`, body.toJson.compactPrint),
-                method = HttpMethods.POST)
+              import com.daml.oauth.server.Request.Token.marshalRequestEntity
               val tokenRequest = for {
+                entity <- Marshal(body).to[RequestEntity]
+                req = HttpRequest(
+                  uri = config.oauthToken,
+                  entity = entity,
+                  method = HttpMethods.POST)
                 resp <- Http().singleRequest(req)
-                tokenResp <- Unmarshal(resp).to[OAuthResponse.Token]
+                tokenResp <- if (resp.status != StatusCodes.OK) {
+                  Unmarshal(resp).to[String].flatMap { msg =>
+                    Future.failed(new RuntimeException(
+                      s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+                  }
+                } else {
+                  Unmarshal(resp).to[OAuthResponse.Token]
+                }
               } yield tokenResp
               onSuccess(tokenRequest) { token =>
                 setCookie(HttpCookie(cookieName, token.toCookieValue)) {

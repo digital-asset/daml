@@ -69,7 +69,7 @@ const TOKEN = 'test_token';
 const PARTY = 'test_party';
 
 function renderDamlHook<P, R>(callback: (props: P) => R): RenderHookResult<P, R> {
-  const wrapper: ComponentType = ({children}) => React.createElement(DamlLedger, {token: TOKEN, party: PARTY}, children);
+  const wrapper: ComponentType = ({children}) => React.createElement(DamlLedger, {token: TOKEN, party: PARTY, reconnectThreshold: 1337}, children);
   return renderHook(callback, {wrapper});
 }
 
@@ -86,7 +86,7 @@ beforeEach(() => {
 test('DamlLedger', () => {
   renderDamlHook(() => { return; });
   expect(mockConstructor).toHaveBeenCalledTimes(1);
-  expect(mockConstructor).toHaveBeenLastCalledWith({token: TOKEN, httpBaseUrl: undefined, wsBaseUrl: undefined});
+  expect(mockConstructor).toHaveBeenLastCalledWith({token: TOKEN, httpBaseUrl: undefined, wsBaseUrl: undefined, reconnectThreshold: 1337});
 });
 
 test('useParty', () => {
@@ -346,6 +346,25 @@ describe('useStreamQuery', () => {
     expect(hookResult.result.current).toEqual({contracts: [], loading: false});
   });
 
+  test('closeHandler gets called', () => {
+    // setup
+    const query = 'foo-query';
+    const [stream, emitter] = mockStream();
+    mockStreamQueries.mockReturnValueOnce(stream);
+    const closeHandler = jest.fn();
+    const hookResult = renderDamlHook(() => useStreamQuery(Foo, () => ({query}), [query], closeHandler));
+    expect(mockStreamQueries).toHaveBeenCalledTimes(1);
+    expect(mockStreamQueries).toHaveBeenLastCalledWith(Foo, [{query}]);
+
+    // no events have been emitted.
+    expect(hookResult.result.current).toEqual({contracts: [], loading:true});
+
+    expect(closeHandler).toHaveBeenCalledTimes(0);
+    act(() => void emitter.emit('close', {code: 4000, reason: ''}));
+    expect(closeHandler).toHaveBeenCalledTimes(1);
+    expect(closeHandler).toHaveBeenLastCalledWith({code: 4000, reason: ''});
+  });
+
   test('empty stream', () => {
     // setup
     const query = 'foo-query';
@@ -446,6 +465,9 @@ describe('useStreamFetchByKey', () => {
     const {result} = renderDamlHook(() => useStreamFetchByKey(Foo, () => key, [key]));
     expect(mockStreamFetchByKeys).toHaveBeenCalledTimes(1);
     expect(mockStreamFetchByKeys).toHaveBeenLastCalledWith(Foo, [key]);
+    expect(result.current).toEqual({contract: null, loading: true});
+
+    act(() => void emitter.emit('live'));
     expect(result.current).toEqual({contract: null, loading: false});
 
     act(() => void emitter.emit('change', [null]));
@@ -460,6 +482,9 @@ describe('useStreamFetchByKey', () => {
     const {result} = renderDamlHook(() => useStreamFetchByKey(Foo, () => key, [key]));
     expect(mockStreamFetchByKeys).toHaveBeenCalledTimes(1);
     expect(mockStreamFetchByKeys).toHaveBeenLastCalledWith(Foo, [key]);
+    expect(result.current).toEqual({contract: null, loading: true});
+
+    act(() => void emitter.emit('live'));
     expect(result.current).toEqual({contract: null, loading: false});
 
     act(() => void emitter.emit('change', [contract]));
@@ -469,7 +494,7 @@ describe('useStreamFetchByKey', () => {
   test('changed key triggers reload', () => {
     const contract = {k1 : 'Alice', k2: 'Bob'};
     const key1 = contract.k1;
-    const key2 = contract.k2
+    const key2 = contract.k2;
     const [stream, emitter] = mockStream();
     mockStreamFetchByKeys.mockReturnValueOnce(stream);
     const {result} = renderDamlHook(() => {
@@ -477,6 +502,7 @@ describe('useStreamFetchByKey', () => {
       const fetchResult = useStreamFetchByKey(Foo, () => key, [key]);
       return {fetchResult, key, setKey};
     })
+    act(() => void emitter.emit('live'));
     act(() => void emitter.emit('change', [contract]));
     expect(mockStreamFetchByKeys).toHaveBeenCalledTimes(1);
     expect(mockStreamFetchByKeys).toHaveBeenLastCalledWith(Foo, [key1]);

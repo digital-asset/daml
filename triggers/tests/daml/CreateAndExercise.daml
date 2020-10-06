@@ -18,9 +18,9 @@ createAndExerciseTrigger = Trigger
 
 -- Create a T template and immediately call choice C on it to create a
 -- U.
-createAndExerciseRule : Party -> ACS -> Time -> Map CommandId [Command] -> ()
+createAndExerciseRule : Party -> ACS -> Map CommandId [Command] -> ()
   -> TriggerA ()
-createAndExerciseRule party acs _ _ _
+createAndExerciseRule party acs _ _
   | [] <- getContracts @T acs = dedupCreateAndExercise (T { p = party }) (C {})
   | otherwise = pure ()
 

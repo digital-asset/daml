@@ -22,6 +22,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_jvm",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -34,6 +35,7 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//libs-scala/concurrent",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",

@@ -26,8 +26,8 @@ upgradeTrigger = Trigger with
 -- TRIGGER_BOILERPLATE_END
 
 -- TRIGGER_RULE_BEGIN
-triggerRule : Party -> ACS -> Time -> Map CommandId [Command] -> () -> TriggerA ()
-triggerRule issuer acs _ _ _ = do
+triggerRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
+triggerRule issuer acs _ _ = do
   let agreements =
         filter (\(_cid, agreement) -> agreement.issuer == issuer) $
         getContracts @UpgradeCoinAgreement acs

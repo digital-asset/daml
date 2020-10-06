@@ -36,25 +36,7 @@ import DA.Functor
 import DA.Optional
 import DA.Stack
 import DA.Time
-
--- | A free monad
-data Free f a
-  = Pure a
-  | Free (f (Free f a))
-
-instance Functor f => Functor (Free f) where
-  fmap f (Pure a) = Pure (f a)
-  fmap f (Free x) = Free (fmap f <$> x)
-
-instance Functor f => Applicative (Free f) where
-  pure = Pure
-  Pure f <*> Pure a = Pure (f a)
-  Pure f <*> Free x = Free (fmap f <$> x)
-  Free x <*> my     = Free ((<*> my) <$> x)
-
-instance Functor f => Action (Free f) where
-  Pure a >>= f = f a
-  Free x >>= f = Free ((>>= f) <$> x)
+import Daml.Script.Free (Free(..))
 
 -- | A free applicative, since we don’t have existentials we have to use the weird RankNTypes encoding, this is isomorphic to
 -- forall b. Ap (f b) (Ap f (b -> a))
