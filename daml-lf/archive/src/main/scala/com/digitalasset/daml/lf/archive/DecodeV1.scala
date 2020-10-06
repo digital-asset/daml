@@ -1074,13 +1074,15 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
               "Update.Exercise.choice.choice"
             ),
             cidE = decodeExpr(exercise.getCid, definition),
-            actorsE =
+            actorsE = if (versionIsOlderThan(LV.Features.noExerciseActor)) {
+              if (!exercise.hasActor)
+                throw ParseError(s"Update.Exercise.actors is required by DAML-LF {1.$minor}")
+              Some(decodeExpr(exercise.getActor, definition))
+            } else {
               if (exercise.hasActor)
-                Some(decodeExpr(exercise.getActor, definition))
-              else {
-                assertSince(LV.Features.optionalExerciseActor, "Update.Exercise.actors optional")
-                None
-              },
+                throw ParseError(s"Update.Exercise.actors is not supported by DAML-LF {1.$minor}")
+              None
+            },
             argE = decodeExpr(exercise.getArg, definition)
           )
 

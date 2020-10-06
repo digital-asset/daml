@@ -362,13 +362,16 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
         case UpdateFetch(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateExercise(templateId, choice, cid, actors, arg) =>
-          if (actors.isEmpty)
-            assertSince(LV.Features.optionalExerciseActor, "Update.Exercise.actors optional")
           val b = PLF.Update.Exercise.newBuilder()
           b.setTemplate(templateId)
           setString(choice, b.setChoiceStr, b.setChoiceInternedStr)
           b.setCid(cid)
-          actors.foreach(b.setActor(_))
+          if (versionIsOlderThan(LV.Features.noExerciseActor))
+            b.setActor(
+              actors.getOrElse(
+                throw EncodeError(s"Update.Exercise.actors is required by DAML-LF 1.$minor")))
+          else if (actors.isDefined)
+            throw EncodeError(s"Update.Exercise.actors is not supported by DAML-LF 1.$minor")
           b.setArg(arg)
           builder.setExercise(b)
         case UpdateGetTime =>
