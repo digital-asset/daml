@@ -30,7 +30,7 @@ object CommitMetadata {
   val Empty: CommitMetadata =
     SimpleCommitMetadata(estimatedInterpretationCost = None)
 
-  def fromSubmission(
+  def apply(
       submission: DamlSubmission,
       inputEstimatedInterpretationCost: Option[Long]): CommitMetadata = new CommitMetadata {
     override def estimatedInterpretationCost: Option[Long] = inputEstimatedInterpretationCost

@@ -32,8 +32,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         transactionMeta,
         transaction,
       )
-    val metadata = SimpleCommitMetadata(
-      estimatedInterpretationCost = Some(estimatedInterpretationCost))
+    val metadata = CommitMetadata(submission, Some(estimatedInterpretationCost))
     commit(correlationId = submitterInfo.commandId, submission = submission, metadata = metadata)
   }
 

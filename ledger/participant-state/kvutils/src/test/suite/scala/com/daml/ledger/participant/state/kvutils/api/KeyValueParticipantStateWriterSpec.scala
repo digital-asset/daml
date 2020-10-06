@@ -34,7 +34,8 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
     "submit a transaction" in {
       val transactionCaptor = captor[Bytes]
       val correlationIdCaptor = captor[String]
-      val writer = createWriter(transactionCaptor, correlationIdCaptor)
+      val metadataCaptor = captor[CommitMetadata]
+      val writer = createWriter(transactionCaptor, correlationIdCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
       val recordTime = newRecordTime()
       val expectedCorrelationId = "correlation ID"
@@ -48,6 +49,10 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
       correlationIdCaptor.getValue should be(expectedCorrelationId)
+      val actualCommitMetadata = metadataCaptor.getValue
+      actualCommitMetadata.estimatedInterpretationCost shouldBe defined
+      actualCommitMetadata.inputKeys should not be empty
+      actualCommitMetadata.outputKeys should not be empty
     }
 
     "upload a package" in {
@@ -108,10 +113,12 @@ object KeyValueParticipantStateWriterSpec {
 
   private def createWriter(
       envelopeCaptor: ArgumentCaptor[Bytes],
-      correlationIdCaptor: ArgumentCaptor[String] = captor[String]): LedgerWriter = {
+      correlationIdCaptor: ArgumentCaptor[String] = captor[String],
+      metadataCaptor: ArgumentCaptor[CommitMetadata] = captor[CommitMetadata]): LedgerWriter = {
     val writer = mock[LedgerWriter]
     when(
-      writer.commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), any[CommitMetadata]))
+      writer
+        .commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), metadataCaptor.capture()))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer
