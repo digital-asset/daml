@@ -28,7 +28,15 @@ sealed trait CommitMetadata {
 
 object CommitMetadata {
   val Empty: CommitMetadata =
-    SimpleCommitMetadata(estimatedInterpretationCost = None)
+    new CommitMetadata {
+      override def estimatedInterpretationCost: Option[Long] = None
+
+      override def inputKeys(
+          serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] = Iterable.empty
+
+      override def outputKeys(
+          serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] = Iterable.empty
+    }
 
   def apply(
       submission: DamlSubmission,
@@ -46,7 +54,8 @@ object CommitMetadata {
   }
 }
 
-final case class SimpleCommitMetadata(override val estimatedInterpretationCost: Option[Long])
+private[api] final case class SimpleCommitMetadata(
+    override val estimatedInterpretationCost: Option[Long])
     extends CommitMetadata {
   override def inputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] =
     throw new NotImplementedError()

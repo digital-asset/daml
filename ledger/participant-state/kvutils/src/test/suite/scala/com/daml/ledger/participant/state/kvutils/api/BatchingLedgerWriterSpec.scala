@@ -58,11 +58,12 @@ class BatchingLedgerWriterSpec
       for {
         submissionResult <- batchingWriter.commit(aCorrelationId, aSubmission, someCommitMetadata)
       } yield {
-        val expectedCommitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = None)
         verify(mockWriter).commit(
           anyString(),
           ArgumentMatchers.eq(expectedBatch),
-          ArgumentMatchers.eq(expectedCommitMetadata))
+          ArgumentMatchers.argThat((metadata: CommitMetadata) =>
+            metadata.estimatedInterpretationCost.isEmpty)
+        )
         submissionResult should be(SubmissionResult.Acknowledged)
       }
     }
