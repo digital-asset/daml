@@ -11,14 +11,12 @@ data TriggerState = TriggerState
   { activeAssets : [ContractId Asset]
   , successfulCompletions : Int
   , failedCompletions : Int
-  , nextCommandId : Int
   , party : Party
   }
 
 initState : Party -> ActiveContracts -> TriggerState
 initState party (ActiveContracts events) = TriggerState
   { activeAssets = (foldl updateAcs [] events)
-  , nextCommandId = 0
   , party = party
   , successfulCompletions = 0
   , failedCompletions = 0
@@ -50,8 +48,8 @@ test = Trigger
       let (state', cmds) = case foldl updateEvent ([], state.activeAssets) (events t) of
             ([], acs) -> (state { activeAssets = acs }, [])
             (cmds, acs) ->
-              ( state { activeAssets = acs, nextCommandId = state.nextCommandId + 1 }
-              , [Commands (CommandId $ "command_" <> show state.nextCommandId) cmds]
+              ( state { activeAssets = acs }
+              , [cmds]
               )
       put state'
       mapA_ submitCommands cmds
