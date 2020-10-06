@@ -200,7 +200,7 @@ Version: 1.5 (deprecated)
 
   + **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``.
 
-  + **Change** ``Update.Exercise`` such that ``actor`` is dropped.
+  + **Change** ``Update.Exercise`` such that ``actor`` must not be set anymore.
 
   + **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for
     parsing integer and decimal values.
