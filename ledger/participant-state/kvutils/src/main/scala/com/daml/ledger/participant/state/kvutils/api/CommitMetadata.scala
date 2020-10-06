@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting}
-import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
+import com.daml.ledger.validator.StateKeySerializationStrategy
 
 import scala.collection.JavaConverters._
 
@@ -21,9 +21,9 @@ sealed trait CommitMetadata {
     */
   def estimatedInterpretationCost: Option[Long]
 
-  def inputKeys: Iterable[Bytes]
+  def inputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes]
 
-  def outputKeys: Iterable[Bytes]
+  def outputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes]
 }
 
 object CommitMetadata {
@@ -35,20 +35,22 @@ object CommitMetadata {
       inputEstimatedInterpretationCost: Option[Long]): CommitMetadata = new CommitMetadata {
     override def estimatedInterpretationCost: Option[Long] = inputEstimatedInterpretationCost
 
-    override def inputKeys: Iterable[Bytes] =
+    override def inputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] =
       submission.getInputDamlStateList.asScala
-        .map(DefaultStateKeySerializationStrategy.serializeStateKey)
+        .map(serializationStrategy.serializeStateKey)
 
-    override def outputKeys: Iterable[Bytes] =
+    override def outputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] =
       KeyValueCommitting
         .submissionOutputs(submission)
-        .map(DefaultStateKeySerializationStrategy.serializeStateKey)
+        .map(serializationStrategy.serializeStateKey)
   }
 }
 
 final case class SimpleCommitMetadata(override val estimatedInterpretationCost: Option[Long])
     extends CommitMetadata {
-  override def inputKeys: Iterable[Bytes] = throw new NotImplementedError()
+  override def inputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] =
+    throw new NotImplementedError()
 
-  override def outputKeys: Iterable[Bytes] = throw new NotImplementedError()
+  override def outputKeys(serializationStrategy: StateKeySerializationStrategy): Iterable[Bytes] =
+    throw new NotImplementedError()
 }

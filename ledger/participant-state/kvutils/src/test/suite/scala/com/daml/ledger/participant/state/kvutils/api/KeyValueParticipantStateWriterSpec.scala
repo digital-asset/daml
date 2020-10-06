@@ -13,9 +13,13 @@ import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWri
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.validator.{
+  DefaultStateKeySerializationStrategy,
+  StateKeySerializationStrategy
+}
 import com.daml.lf.crypto
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
 import org.mockito.ArgumentCaptor
@@ -51,8 +55,8 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       correlationIdCaptor.getValue should be(expectedCorrelationId)
       val actualCommitMetadata = metadataCaptor.getValue
       actualCommitMetadata.estimatedInterpretationCost shouldBe defined
-      actualCommitMetadata.inputKeys should not be empty
-      actualCommitMetadata.outputKeys should not be empty
+      actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
+      actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "upload a package" in {
@@ -110,6 +114,9 @@ object KeyValueParticipantStateWriterSpec {
   )
 
   private val anInterpretationCost = 123L
+
+  private val aSerializationStrategy: StateKeySerializationStrategy =
+    DefaultStateKeySerializationStrategy
 
   private def createWriter(
       envelopeCaptor: ArgumentCaptor[Bytes],
