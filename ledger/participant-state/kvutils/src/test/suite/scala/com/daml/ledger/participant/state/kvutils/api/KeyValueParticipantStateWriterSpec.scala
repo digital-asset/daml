@@ -31,16 +31,13 @@ import org.scalatest.{Assertion, Matchers, WordSpec}
 import scala.concurrent.Future
 
 class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
-
-  private def newMetrics = new Metrics(new MetricRegistry)
-
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = captor[Bytes]
       val correlationIdCaptor = captor[String]
       val metadataCaptor = captor[CommitMetadata]
       val writer = createWriter(transactionCaptor, metadataCaptor, correlationIdCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
+      val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
       val recordTime = newRecordTime()
       val expectedCorrelationId = "correlation ID"
 
@@ -63,7 +60,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       val packageUploadCaptor = captor[Bytes]
       val metadataCaptor = captor[CommitMetadata]
       val writer = createWriter(packageUploadCaptor, metadataCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
+      val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
@@ -78,7 +75,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       val configurationCaptor = captor[Bytes]
       val metadataCaptor = captor[CommitMetadata]
       val writer = createWriter(configurationCaptor, metadataCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
+      val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
@@ -93,7 +90,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       val partyAllocationCaptor = captor[Bytes]
       val metadataCaptor = captor[CommitMetadata]
       val writer = createWriter(partyAllocationCaptor, metadataCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
+      val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
@@ -161,6 +158,8 @@ object KeyValueParticipantStateWriterSpec {
     optNodeSeeds = None,
     optByKeyNodes = None
   )
+
+  private def newMetrics(): Metrics = new Metrics(new MetricRegistry)
 
   private def newRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
