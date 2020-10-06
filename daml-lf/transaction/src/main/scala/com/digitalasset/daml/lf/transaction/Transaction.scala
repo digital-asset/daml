@@ -7,6 +7,7 @@ package transaction
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.GenTransaction.WithTxValue
 import com.daml.lf.value.Value
 import scalaz.Equal
@@ -279,6 +280,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 
   def nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]]
+
   def roots: ImmArray[Nid]
 
   /**
@@ -419,6 +421,18 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
     acc
   }
 
+  final def guessSubmitter: Either[String, Party] =
+    roots.map(nodes(_).requiredAuthorizers) match {
+      case ImmArray() =>
+        Left(s"Empty transaction")
+      case ImmArrayCons(head, _) if head.size != 1 =>
+        Left(s"Transaction's roots do not have exactly one authorizer: $this")
+      case ImmArrayCons(head, tail) if tail.toSeq.exists(_ != head) =>
+        Left(s"Transaction's roots have different authorizers: $this")
+      case ImmArrayCons(head, _) =>
+        Right(head.head)
+    }
+
 }
 
 object GenTransaction extends value.CidContainer3[GenTransaction] {
@@ -466,6 +480,42 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
           Node.GenNode.foreach3(f1, f2, f3)(node)
       }
   }
+
+  // crashes if transaction's keys contain contract Ids.
+  @throws[IllegalArgumentException]
+  def duplicatedContractKeys(tx: VersionedTransaction[NodeId, Value.ContractId]): Set[GlobalKey] = {
+
+    import GlobalKey.{assertBuild => globalKey}
+
+    case class State(active: Set[GlobalKey], duplicates: Set[GlobalKey]) {
+      def created(key: GlobalKey): State =
+        if (active(key)) copy(duplicates = duplicates + key) else copy(active = active + key)
+      def consumed(key: GlobalKey): State =
+        copy(active = active - key)
+      def referenced(key: GlobalKey): State =
+        copy(active = active + key)
+    }
+
+    tx.fold(State(Set.empty, Set.empty)) {
+        case (state, (_, node)) =>
+          node match {
+            case Node.NodeCreate(_, c, _, _, _, Some(key)) =>
+              state.created(globalKey(c.template, key.key.value))
+            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key)) =>
+              state.consumed(globalKey(tmplId, key.key.value))
+            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key)) =>
+              state.referenced(globalKey(tmplId, key.key.value))
+            case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key)) =>
+              state.referenced(globalKey(tmplId, key.key.value))
+            case Node.NodeLookupByKey(tmplId, _, key, Some(_)) =>
+              state.referenced(globalKey(tmplId, key.key.value))
+            case _ =>
+              state
+          }
+      }
+      .duplicates
+  }
+
 }
 
 object Transaction {
@@ -561,5 +611,10 @@ object Transaction {
       templateId: TypeConName,
       consumedBy: transaction.NodeId)
       extends TransactionError
+
+  final case class AuthFailureDuringExecution(
+      nid: transaction.NodeId,
+      fa: FailedAuthorization,
+  ) extends TransactionError
 
 }

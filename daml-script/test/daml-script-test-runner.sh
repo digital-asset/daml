@@ -58,6 +58,7 @@ ScriptExample:initializeFixed SUCCESS
 ScriptTest:testStack SUCCESS
 ScriptTest:testMaxInboundMessageSize SUCCESS
 ScriptTest:testQueryContractId SUCCESS
+ScriptTest:testQueryContractKey SUCCESS
 EOF
 )"
 

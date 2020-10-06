@@ -118,15 +118,10 @@ final class LedgerTestCasesRunner(
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val participantSessionManager = new ParticipantSessionManager
-    val ledgerSession = new LedgerSession(config, participantSessionManager)
-
-    def uploadDars(): Future[Unit] =
+    def uploadDars(participantSessionManager: ParticipantSessionManager): Future[Unit] =
       Future
-        .sequence(config.participants.map { hostAndPort =>
-          val participant = config.forParticipant(hostAndPort)
+        .sequence(participantSessionManager.allSessions.map { session =>
           for {
-            session <- participantSessionManager.getOrCreate(participant)
             context <- session.createInitContext("upload-dars", identifierSuffix)
             _ <- Future.sequence(Dars.resources.map { name =>
               logger.info("Uploading DAR \"{}\"...", name)
@@ -140,6 +135,7 @@ final class LedgerTestCasesRunner(
         .map(_ => ())
 
     def runTestCases(
+        ledgerSession: LedgerSession,
         testCases: Vector[LedgerTestCase],
         concurrency: Int,
     ): Future[Vector[LedgerTestSummary]] = {
@@ -155,22 +151,36 @@ final class LedgerTestCasesRunner(
     }
 
     val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
+    ParticipantSessionManager(config.participants)
+      .flatMap { participantSessionManager =>
+        val ledgerSession = LedgerSession(participantSessionManager, config.shuffleParticipants)
+        val testResults =
+          for {
+            _ <- uploadDars(participantSessionManager)
+            concurrentTestResults <- runTestCases(
+              ledgerSession,
+              concurrentTestCases,
+              concurrentTestRuns,
+            )
+            sequentialTestResults <- runTestCases(
+              ledgerSession,
+              sequentialTestCases,
+              concurrency = 1,
+            )
+          } yield concurrentTestResults ++ sequentialTestResults
 
-    val testResults =
-      for {
-        _ <- uploadDars()
-        concurrentTestsResults <- runTestCases(concurrentTestCases, concurrentTestRuns)
-        sequentialTestsResults <- runTestCases(sequentialTestCases, concurrency = 1)
-      } yield concurrentTestsResults ++ sequentialTestsResults
-
-    testResults
-      .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }
+        testResults
+          .recover { case NonFatal(e) => throw new LedgerTestCasesRunner.UncaughtExceptionError(e) }
+          .andThen { case _ => participantSessionManager.disconnectAll() }
+      }
+      .andThen {
+        case _ =>
+          materializer.shutdown()
+          system.terminate().failed.foreach { throwable =>
+            logger.error("The actor system failed to terminate.", throwable)
+          }
+      }
       .onComplete { result =>
-        participantSessionManager.closeAll()
-        materializer.shutdown()
-        system.terminate().failed.foreach { throwable =>
-          logger.error("The actor system failed to terminate.", throwable)
-        }
         completionCallback(result)
       }
   }

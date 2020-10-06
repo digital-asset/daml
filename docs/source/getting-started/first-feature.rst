@@ -64,30 +64,26 @@ As with the ``Follow`` choice, there are a few aspects to note here.
     - The body of the choice first ensures that the sender is a user that the receiver is following and then creates the ``Message`` contract with the ``receiver`` being the signatory of the ``User`` contract.
 
 This completes the workflow for messaging in our app.
-Now let's integrate this functionality into the UI.
 
-TypeScript Code Generation
-==========================
+Running the New Feature
+=======================
 
-Remember that we interface with the DAML model from the UI components using generated TypeScript.
-Since we have changed our DAML code, we also need to rerun the TypeScript code generator.
-Open a new terminal and run the following commands::
+We need to terminate the previous ``daml start`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start`` again we will
 
-  daml build
-  daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
+  - Compile our DAML code into a *DAR file containing the new feature*
+  - Generate a JavaScript library under ``ui/daml.js`` to connect the UI with your DAML code
+  - Run a fresh instance of the *Sandbox with the new DAR file*
+  - Start the HTTP JSON API
 
-The result is an up-to-date TypeScript interface to our DAML model, in particular to the new ``Message`` template and ``SendMessage`` choice.
+First, navigate to the terminal window where the ``daml start`` process is running and terminate the active process by hitting ``Ctrl-C``.
+This shuts down the previous instances of the sandbox.
+Then in the root ``create-daml-app`` folder run ``daml start``.
 
-To make sure that Yarn picks up the newly generated JavaScript code,
-we have to run the following command in the ``ui`` directory::
+As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an
+in-memory store, which means it loses its state when stopped or restarted. That means that all user
+data and follower relationships are lost.
 
-  yarn install --force --frozen-lockfile
-
-Once that command finishes, you have to close Visual Studio Code
-and restart it by running ``daml studio`` from the root directory of
-your project.
-
-We can now implement our messaging feature in the UI!
+Now let's integrate the new functionality into the UI.
 
 Messaging UI
 ============
@@ -182,22 +178,11 @@ You can see we simply follow the formatting of the previous panels and include t
 That is all for the implementation!
 Let's give the new functionality a spin.
 
-Running the New Feature
-=======================
+Running the updated UI
+======================
 
-We need to terminate the previous ``daml start`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start`` again we will
+If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``npm start`` command, which will start the UI.
 
-  - Compile our DAML code into a *DAR file containing the new feature*
-  - Run a fresh instance of the *Sandbox with the new DAR file*
-  - Start the HTTP JSON API
-
-First, navigate to the terminal window where the ``daml start`` process is running and terminate the active process by hitting ``Ctrl-C``.
-This shuts down the previous instances of the sandbox.
-Then in the root ``create-daml-app`` folder run ``daml start``.
-
-As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost.
-
-If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yarn start`` command, which will start the UI.
 Once you've done all these changes you should see the same login page as before at http://localhost:3000.
 
    .. figure:: images/create-daml-app-login-screen.png
@@ -224,11 +209,13 @@ You'll notice that new messages appear in the UI as soon as they are sent (due t
       :scale: 50 %
       :alt: In the create-daml-app as soon as you send the message it will appear in the "Messsaging" panel
 
+.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to project:DABL <https://daml.com/learn/getting-started/deploy-to-dabl/>`_
+
 Next Steps
 ==========
 
 We've gone through the process of setting up a full-stack DAML app and implementing a useful feature end to end.
 As the next step we encourage you to really dig into the fundamentals of DAML and understand its core concepts such as parties, signatories, observers, and controllers.
 You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/learn/fundamental-concepts>`_.
+
 After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.
-Last but not least learn how to deploy your application to a ledger hosted on `project:DABL <https://daml.com/learn/getting-started/deploy-to-dabl/>`_.

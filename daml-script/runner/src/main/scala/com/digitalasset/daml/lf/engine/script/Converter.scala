@@ -1,19 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 package script
 
 import io.grpc.StatusRuntimeException
-import java.util
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Struct, Time}
+import com.daml.lf.data.{Ref, Struct, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -29,6 +28,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.CompiledPackages
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.v1.value
+import com.daml.script.converter.ConverterException
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -55,26 +55,19 @@ object ScriptIds {
   }
 }
 
-class ConverterException(message: String) extends RuntimeException(message)
-
 case class AnyTemplate(ty: Identifier, arg: SValue)
 case class AnyChoice(name: ChoiceName, arg: SValue)
 case class AnyContractKey(key: SValue)
 
 object Converter {
+  import com.daml.script.converter.Converter._
+
   private val DA_TYPES_PKGID =
     PackageId.assertFromString("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
   private def daTypes(s: String): Identifier =
     Identifier(
       DA_TYPES_PKGID,
       QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)))
-
-  private val DA_INTERNAL_ANY_PKGID =
-    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
-  private def daInternalAny(s: String): Identifier =
-    Identifier(
-      DA_INTERNAL_ANY_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
 
   def toFuture[T](s: Either[String, T]): Future[T] = s match {
     case Left(err) => Future.failed(new ConverterException(err))
@@ -133,28 +126,22 @@ object Converter {
     }
   }
 
-  def toCreateCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
+  def toCreateCommand(v: SValue): Either[String, command.Command] =
     v match {
       // template argument, continuation
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
         } yield
-          ScriptLedgerClient.CreateCommand(
+          command.CreateCommand(
             templateId = anyTemplate.ty,
-            argument = anyTemplate.arg
+            argument = anyTemplate.arg.toValue
           )
       }
       case _ => Left(s"Expected Create but got $v")
     }
 
-  def toContractId(v: SValue): Either[String, ContractId] =
-    v match {
-      case SContractId(cid: ContractId) => Right(cid)
-      case _ => Left(s"Expected ContractId but got $v")
-    }
-
-  def toExerciseCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
+  def toExerciseCommand(v: SValue): Either[String, command.Command] =
     v match {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 => {
@@ -163,17 +150,17 @@ object Converter {
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
         } yield
-          ScriptLedgerClient.ExerciseCommand(
+          command.ExerciseCommand(
             templateId = tplId,
             contractId = cid,
-            choice = anyChoice.name,
-            argument = anyChoice.arg,
+            choiceId = anyChoice.name,
+            argument = anyChoice.arg.toValue,
           )
       }
       case _ => Left(s"Expected Exercise but got $v")
     }
 
-  def toExerciseByKeyCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
+  def toExerciseByKeyCommand(v: SValue): Either[String, command.Command] =
     v match {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 => {
@@ -182,28 +169,28 @@ object Converter {
           anyKey <- toAnyContractKey(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
         } yield
-          ScriptLedgerClient.ExerciseByKeyCommand(
+          command.ExerciseByKeyCommand(
             templateId = tplId,
-            key = anyKey.key,
-            choice = anyChoice.name,
-            argument = anyChoice.arg,
+            contractKey = anyKey.key.toValue,
+            choiceId = anyChoice.name,
+            argument = anyChoice.arg.toValue,
           )
       }
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
 
-  def toCreateAndExerciseCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
+  def toCreateAndExerciseCommand(v: SValue): Either[String, command.Command] =
     v match {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
           anyChoice <- toAnyChoice(vals.get(1))
         } yield
-          ScriptLedgerClient.CreateAndExerciseCommand(
+          command.CreateAndExerciseCommand(
             templateId = anyTemplate.ty,
-            template = anyTemplate.arg,
-            choice = anyChoice.name,
-            argument = anyChoice.arg,
+            createArgument = anyTemplate.arg.toValue,
+            choiceId = anyChoice.name,
+            choiceArgument = anyChoice.arg.toValue,
           )
       }
       case _ => Left(s"Expected CreateAndExercise but got $v")
@@ -236,7 +223,7 @@ object Converter {
             Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))
           case v => Left(s"Expected binary SStruct but got $v")
         }
-      case SResultError(err) => Left(Pretty.prettyError(err, machine.ptx).render(80))
+      case SResultError(err) => Left(Pretty.prettyError(err).render(80))
       case res => Left(res.toString)
     }
   }
@@ -244,35 +231,35 @@ object Converter {
   // Walk over the free applicative and extract the list of commands
   def toCommands(
       compiledPackages: CompiledPackages,
-      freeAp: SValue): Either[String, List[ScriptLedgerClient.Command]] = {
+      freeAp: SValue,
+  ): Either[String, List[command.Command]] = {
     @tailrec
-    def iter(v: SValue, commands: List[ScriptLedgerClient.Command])
-      : Either[String, List[ScriptLedgerClient.Command]] = {
+    def iter(v: SValue, commands: List[command.Command]): Either[String, List[command.Command]] = {
       v match {
-        case SVariant(_, "PureA", _, _) => Right(commands)
+        case SVariant(_, "PureA", _, _) => Right(commands.reverse)
         case SVariant(_, "Ap", _, v) =>
           toApFields(compiledPackages, v) match {
             case Right((SVariant(_, "Create", _, create), v)) =>
               // This can’t be a for-comprehension since it trips up tailrec optimization.
               toCreateCommand(create) match {
                 case Left(err) => Left(err)
-                case Right(r) => iter(v, commands ++ Seq(r))
+                case Right(r) => iter(v, r :: commands)
               }
             case Right((SVariant(_, "Exercise", _, exercise), v)) =>
               // This can’t be a for-comprehension since it trips up tailrec optimization.
               toExerciseCommand(exercise) match {
                 case Left(err) => Left(err)
-                case Right(r) => iter(v, commands ++ Seq(r))
+                case Right(r) => iter(v, r :: commands)
               }
             case Right((SVariant(_, "ExerciseByKey", _, exerciseByKey), v)) =>
               toExerciseByKeyCommand(exerciseByKey) match {
                 case Left(err) => Left(err)
-                case Right(r) => iter(v, commands ++ Seq(r))
+                case Right(r) => iter(v, r :: commands)
               }
             case Right((SVariant(_, "CreateAndExercise", _, createAndExercise), v)) =>
               toCreateAndExerciseCommand(createAndExercise) match {
                 case Left(err) => Left(err)
-                case Right(r) => iter(v, commands ++ Seq(r))
+                case Right(r) => iter(v, r :: commands)
               }
             case Right((fb, _)) =>
               Left(s"Expected Create, Exercise ExerciseByKey or CreateAndExercise but got $fb")
@@ -377,9 +364,9 @@ object Converter {
     go(initialFreeAp, allEventResults, List())
   }
 
-  def toParty(v: SValue): Either[String, SParty] =
+  def toParty(v: SValue): Either[String, Ref.Party] =
     v match {
-      case p @ SParty(_) => Right(p)
+      case SParty(p) => Right(p)
       case _ => Left(s"Expected SParty but got $v")
     }
 
@@ -388,11 +375,6 @@ object Converter {
       case STimestamp(t) => Right(t)
       case _ => Left(s"Expected STimestamp but got $v")
     }
-
-  def toText(v: SValue): Either[String, String] = v match {
-    case SText(s) => Right(s)
-    case v => Left(s"Expected SText but got $v")
-  }
 
   def toInt(v: SValue): Either[String, Int] = v match {
     case SInt64(n) => Right(n.toInt)
@@ -443,14 +425,6 @@ object Converter {
         }
       case _ => Left(s"Expected SList but got $v")
     }
-
-  // Helper to construct a record
-  def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-    val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to[ImmArray]
-    val args =
-      new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
-    SRecord(ty, fieldNames, args)
-  }
 
   def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
     for {

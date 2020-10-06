@@ -12,6 +12,10 @@ resource "google_storage_bucket" "data" {
 
   # Use a normal region since the storage_class is regional
   location = "${local.region}"
+
+  versioning {
+    enabled = true
+  }
 }
 
 resource "google_storage_bucket_acl" "data" {
@@ -25,10 +29,34 @@ resource "google_storage_bucket_acl" "data" {
 }
 
 // allow rw access for CI writer (see writer.tf)
-resource "google_storage_bucket_iam_member" "data" {
+resource "google_storage_bucket_iam_member" "data_create" {
   bucket = "${google_storage_bucket.data.name}"
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.writer.email}"
+}
+resource "google_storage_bucket_iam_member" "data_read" {
+  bucket = "${google_storage_bucket.data.name}"
+
+  # https://cloud.google.com/storage/docs/access-control/iam-roles
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.writer.email}"
+}
+
+// allow read access for appr team, as requested by Moritz
+variable "appr" {
+  description = "Application Runtime team members"
+  default = [
+    "user:andreas.herrmann@digitalasset.com",
+    "user:gary.verhaegen@digitalasset.com",
+    "user:moritz.kiefer@digitalasset.com",
+    "user:stephen.compall@digitalasset.com",
+  ]
+}
+resource "google_storage_bucket_iam_member" "appr" {
+  count  = "${length(var.appr)}"
+  bucket = "${google_storage_bucket.data.name}"
+  role   = "roles/storage.objectViewer"
+  member = "${var.appr[count.index]}"
 }

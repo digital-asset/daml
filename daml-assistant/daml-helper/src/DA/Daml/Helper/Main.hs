@@ -11,19 +11,18 @@ import Data.List.Extra
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
-import System.FilePath
 import System.IO
-import System.Process.Typed
+import System.Process (showCommandForUser)
 import Text.Read (readMaybe)
 
 import DA.Signals
-import DA.Daml.Project.Consts
 import DA.Daml.Helper.Init
 import DA.Daml.Helper.Ledger
 import DA.Daml.Helper.New
 import DA.Daml.Helper.Start
 import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
+import DA.Daml.Helper.Codegen
 
 main :: IO ()
 main = do
@@ -54,7 +53,7 @@ data Command
         , logbackConfig :: FilePath
         , shutdownStdinClose :: Bool
         }
-    | New { targetFolder :: FilePath, templateNameM :: Maybe String }
+    | New { targetFolder :: FilePath, appTemplate :: AppTemplate }
     | CreateDamlApp { targetFolder :: FilePath }
     -- ^ CreateDamlApp is sufficiently special that in addition to
     -- `daml new foobar create-daml-app` we also make `daml create-daml-app foobar` work.
@@ -64,6 +63,7 @@ data Command
       { sandboxPortM :: Maybe SandboxPortSpec
       , openBrowser :: OpenBrowser
       , startNavigator :: Maybe StartNavigator
+      , navigatorPort :: NavigatorPort
       , jsonApiCfg :: JsonApiConfig
       , onStartM :: Maybe String
       , waitForSignal :: WaitForSignal
@@ -82,7 +82,11 @@ data Command
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
 
-data Lang = Java | Scala | JavaScript
+data AppTemplate
+  = AppTemplateDefault
+  | AppTemplateViaOption String
+  | AppTemplateViaArgument String
+
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
@@ -130,18 +134,18 @@ commandParser = subparser $ fold
         <*> stdinCloseOpt
 
     newCmd =
-        let tplOpts :: HasMetavar a => Mod a String
-            tplOpts =
-                metavar "TEMPLATE" <>
-                help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")
+        let templateHelpStr = "Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")"
+            appTemplateFlag = asum
+              [ AppTemplateViaOption
+                  <$> strOption (long "template" <> metavar "TEMPLATE" <> help templateHelpStr)
+              , AppTemplateViaArgument <$> argument str (metavar "TEMPLATE_ARG" <> help ("Deprecated. " <> templateHelpStr))
+              , pure AppTemplateDefault
+              ]
         in asum
         [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
         , New
             <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-            <*> optional
-                  (strOption (long "template" <> tplOpts) <|>
-                   argument str tplOpts
-                  )
+            <*> appTemplateFlag
         ]
 
     createDamlAppCmd =
@@ -155,6 +159,7 @@ commandParser = subparser $ fold
         <$> optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
         <*> optional navigatorFlag
+        <*> navigatorPortOption
         <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
@@ -163,7 +168,7 @@ commandParser = subparser $ fold
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
         <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
-        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Run with Sandbox Classic."))
+        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic."))
 
     navigatorFlag =
         -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
@@ -181,6 +186,13 @@ commandParser = subparser $ fold
                 s -> Left ("Expected \"yes\", \"true\", \"no\", \"false\" or \"auto\" but got " <> show s)
             -- To make things less confusing, we do not mention yes, no and auto here.
             helpText = "Start navigator as part of daml start. Can be set to true or false. Defaults to true."
+
+    navigatorPortOption = NavigatorPort <$> option auto
+        (long "navigator-port"
+        <> metavar "PORT_NUM"
+        <> value 7500
+        <> help "Port number for navigator (default is 7500).")
+
     deployCmdInfo = mconcat
         [ progDesc $ concat
               [ "Deploy the current DAML project to a remote DAML ledger. "
@@ -350,8 +362,8 @@ commandParser = subparser $ fold
     timeoutOption = option auto $ mconcat
         [ long "timeout"
         , metavar "INT"
-        , value 30
-        , help "Timeout of gRPC operations in seconds. Defaults to 30s. Must be > 0."
+        , value 60
+        , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
         ]
 
 runCommand :: Command -> IO ()
@@ -363,7 +375,22 @@ runCommand = \case
     RunPlatformJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runPlatformJar args logbackConfig
-    New {..} -> runNew targetFolder templateNameM
+    New {..} -> do
+        templateNameM <- case appTemplate of
+            AppTemplateDefault -> pure Nothing
+            AppTemplateViaOption templateName -> pure (Just templateName)
+            AppTemplateViaArgument templateName -> do
+                hPutStrLn stderr $ unlines
+                    [ "WARNING: Specifying the template via"
+                    , ""
+                    , "    " <> showCommandForUser "daml" ["new", targetFolder, templateName]
+                    , ""
+                    , "is deprecated. The recommended way of specifying the template is"
+                    , ""
+                    , "    " <> showCommandForUser "daml" ["new", targetFolder, "--template", templateName]
+                    ]
+                pure (Just templateName)
+        runNew targetFolder templateNameM
     CreateDamlApp{..} -> runNew targetFolder (Just "create-daml-app")
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
@@ -372,6 +399,7 @@ runCommand = \case
         runStart
             sandboxPortM
             startNavigator
+            navigatorPort
             jsonApiCfg
             openBrowser
             onStartM
@@ -387,19 +415,4 @@ runCommand = \case
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
-    Codegen {..} ->
-        case lang of
-            JavaScript -> do
-                daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
-                withProcessWait_' (proc daml2js remainingArguments) (const $ pure ()) `catchIO`
-                    (\e -> hPutStrLn stderr "Failed to invoke daml2js." *> throwIO e)
-            Java ->
-                runJar
-                    "daml-sdk/daml-sdk.jar"
-                    (Just "daml-sdk/codegen-logback.xml")
-                    (["codegen", "java"] ++ remainingArguments)
-            Scala ->
-                runJar
-                    "daml-sdk/daml-sdk.jar"
-                    (Just "daml-sdk/codegen-logback.xml")
-                    (["codegen", "scala"] ++ remainingArguments)
+    Codegen {..} -> runCodegen lang remainingArguments

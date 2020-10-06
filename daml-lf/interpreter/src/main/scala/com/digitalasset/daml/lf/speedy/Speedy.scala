@@ -9,13 +9,14 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.ledger.{Authorize, CheckAuthorizationMode}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.transaction.{TransactionVersion, TransactionVersions}
-import com.daml.lf.value.{ValueVersion, ValueVersions, Value => V}
+import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.value.{ValueVersion, Value => V}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -96,8 +97,9 @@ private[lf] object Speedy {
 
   private type Actuals = util.ArrayList[SValue]
 
-  /** The speedy CEK machine. */
-  final class Machine(
+  private[lf] sealed trait LedgerMode
+
+  private[lf] final case class OnLedger(
       /* Transaction versions that the machine can read */
       val inputValueVersions: VersionRange[ValueVersion],
       /* Transaction versions that the machine can output */
@@ -106,6 +108,26 @@ private[lf] object Speedy {
        * it. If this is false, the committers must be a singleton set.
        */
       val validating: Boolean,
+      /* Controls if authorization checks are performed during evaluation */
+      val checkAuthorization: CheckAuthorizationMode,
+      /* The current partial transaction */
+      var ptx: PartialTransaction,
+      /* Committers of the action. */
+      var committers: Set[Party],
+      /* Commit location, if a scenario commit is in progress. */
+      var commitLocation: Option[Location],
+      /* Flag to trace usage of get_time builtins */
+      var dependsOnTime: Boolean,
+      // local contracts, that are contracts created in the current transaction)
+      var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
+      // global contract discriminators, that are discriminators from contract created in previous transactions
+      var globalDiscriminators: Set[crypto.Hash],
+  ) extends LedgerMode
+
+  private[lf] final case object OffLedger extends LedgerMode
+
+  /** The speedy CEK machine. */
+  final class Machine(
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -126,22 +148,10 @@ private[lf] object Speedy {
       var kontStack: util.ArrayList[Kont],
       /* The last encountered location */
       var lastLocation: Option[Location],
-      /* The current partial transaction */
-      var ptx: PartialTransaction,
-      /* Committers of the action. */
-      var committers: Set[Party],
-      /* Commit location, if a scenario commit is in progress. */
-      var commitLocation: Option[Location],
       /* The trace log. */
       val traceLog: TraceLog,
       /* Compiled packages (DAML-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
-      /* Flag to trace usage of get_time builtins */
-      var dependsOnTime: Boolean,
-      // local contracts, that are contracts created in the current transaction)
-      var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
-      // global contract discriminators, that are discriminators from contract created in previous transactions
-      var globalDiscriminators: Set[crypto.Hash],
       /* Used when enableLightweightStepTracing is true */
       var steps: Int,
       /* Used when enableInstrumentation is true */
@@ -153,13 +163,19 @@ private[lf] object Speedy {
          Triggers. It is safe to use on ledger for off ledger code but
          not the other way around.
        */
-      val onLedger: Boolean,
+      val ledgerMode: LedgerMode,
   ) {
 
     /* kont manipulation... */
 
     @inline
     private[speedy] def kontDepth(): Int = kontStack.size()
+
+    private[lf] def withOnLedger[T](op: String)(f: OnLedger => T): T =
+      ledgerMode match {
+        case onLedger @ OnLedger(_, _, _, _, _, _, _, _, _, _) => f(onLedger)
+        case OffLedger => throw SRequiresOnLedger(op)
+      }
 
     @inline
     private[speedy] def pushKont(k: Kont): Unit = {
@@ -267,22 +283,46 @@ private[lf] object Speedy {
       s.result()
     }
 
-    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
-      coid match {
-        case V.ContractId.V1(discriminator, _) if globalDiscriminators.contains(discriminator) =>
-          crash("Conflicting discriminators between a global and local contract ID.")
-        case _ =>
-          localContracts = localContracts.updated(coid, templateId -> SValue)
+    private[lf] def contextActors: Set[Party] =
+      withOnLedger("ptx") { onLedger =>
+        onLedger.ptx.context.exeContext match {
+          case Some(ctx) =>
+            ctx.actingParties union ctx.signatories
+          case None =>
+            onLedger.committers
+        }
       }
 
-    def addGlobalCid(cid: V.ContractId) = cid match {
-      case V.ContractId.V1(discriminator, _) =>
-        if (localContracts.isDefinedAt(V.ContractId.V1(discriminator)))
-          crash("Conflicting discriminators between a global and local contract ID.")
-        else
-          globalDiscriminators = globalDiscriminators + discriminator
-      case _ =>
-    }
+    private[lf] def auth: Option[Authorize] =
+      withOnLedger("checkAuthorization") { onLedger =>
+        onLedger.checkAuthorization match {
+          case CheckAuthorizationMode.On => Some(Authorize(this.contextActors))
+          case CheckAuthorizationMode.Off => None
+        }
+      }
+
+    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
+      withOnLedger("addLocalContract") { onLedger =>
+        coid match {
+          case V.ContractId.V1(discriminator, _)
+              if onLedger.globalDiscriminators.contains(discriminator) =>
+            crash("Conflicting discriminators between a global and local contract ID.")
+          case _ =>
+            onLedger.localContracts = onLedger.localContracts.updated(coid, templateId -> SValue)
+        }
+      }
+
+    def addGlobalCid(cid: V.ContractId) =
+      withOnLedger("addGlobalCid") { onLedger =>
+        cid match {
+          case V.ContractId.V1(discriminator, _) =>
+            if (onLedger.localContracts.isDefinedAt(V.ContractId.V1(discriminator)))
+              crash("Conflicting discriminators between a global and local contract ID.")
+            else
+              onLedger.globalDiscriminators = onLedger.globalDiscriminators + discriminator
+          case _ =>
+        }
+      }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
       Do not use if the machine is partway though an existing evaluation.
@@ -541,17 +581,17 @@ private[lf] object Speedy {
 
     // reinitialize the state of the machine with a new fresh submission seed.
     // Should be used only when running scenario
-    private[lf] def clearCommit: Unit = {
+    private[lf] def clearCommit: Unit = withOnLedger("clearCommit") { onLedger =>
       val freshSeed =
         crypto.Hash.deriveTransactionSeed(
-          ptx.context.nextChildrenSeed,
+          onLedger.ptx.context.nextChildrenSeed,
           scenarioServiceParticipant,
-          ptx.submissionTime,
+          onLedger.ptx.submissionTime,
         )
-      committers = Set.empty
-      commitLocation = None
-      ptx = PartialTransaction.initial(
-        submissionTime = ptx.submissionTime,
+      onLedger.committers = Set.empty
+      onLedger.commitLocation = None
+      onLedger.ptx = PartialTransaction.initial(
+        submissionTime = onLedger.ptx.submissionTime,
         InitialSeeding.TransactionSeed(freshSeed),
       )
     }
@@ -586,24 +626,21 @@ private[lf] object Speedy {
             SRecord(id, names, values)
           case V.ValueRecord(None, _) =>
             crash("SValue.fromValue: record missing identifier")
-          case V.ValueStruct(fs) =>
-            val values = new util.ArrayList[SValue](fs.size)
-            val fieldNames = fs.mapValues { v =>
-              values.add(go(v))
-              ()
-            }
-            SStruct(fieldNames, values)
           case V.ValueVariant(None, _variant @ _, _value @ _) =>
             crash("SValue.fromValue: variant without identifier")
           case V.ValueEnum(None, constructor @ _) =>
             crash("SValue.fromValue: enum without identifier")
           case V.ValueOptional(mbV) =>
             SOptional(mbV.map(go))
-          case V.ValueTextMap(map) =>
-            STextMap(map.mapValue(go).toHashMap)
+          case V.ValueTextMap(entries) =>
+            SGenMap(
+              isTextMap = true,
+              entries = entries.iterator.map { case (k, v) => SText(k) -> go(v) }
+            )
           case V.ValueGenMap(entries) =>
             SGenMap(
-              entries.iterator.map { case (k, v) => go(k) -> go(v) }
+              isTextMap = false,
+              entries = entries.iterator.map { case (k, v) => go(k) -> go(v) }
             )
           case V.ValueVariant(Some(id), variant, arg) =>
             compiledPackages.getPackage(id.packageId) match {
@@ -663,13 +700,10 @@ private[lf] object Speedy {
         inputValueVersions: VersionRange[ValueVersion],
         outputTransactionVersions: VersionRange[TransactionVersion],
         validating: Boolean = false,
-        onLedger: Boolean = true,
+        checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine =
       new Machine(
-        inputValueVersions = inputValueVersions,
-        outputTransactionVersions = outputTransactionVersions,
-        validating = validating,
         ctrl = expr,
         returnValue = null,
         frame = null,
@@ -677,20 +711,25 @@ private[lf] object Speedy {
         env = emptyEnv,
         kontStack = initialKontStack(),
         lastLocation = None,
-        ptx = PartialTransaction.initial(submissionTime, initialSeeding),
-        committers = committers,
-        commitLocation = None,
+        ledgerMode = OnLedger(
+          inputValueVersions = inputValueVersions,
+          outputTransactionVersions = outputTransactionVersions,
+          validating = validating,
+          checkAuthorization = checkAuthorization,
+          ptx = PartialTransaction.initial(submissionTime, initialSeeding),
+          committers = committers,
+          commitLocation = None,
+          dependsOnTime = false,
+          localContracts = Map.empty,
+          globalDiscriminators = globalCids.collect {
+            case V.ContractId.V1(discriminator, _) => discriminator
+          },
+        ),
         traceLog = traceLog,
         compiledPackages = compiledPackages,
-        dependsOnTime = false,
-        localContracts = Map.empty,
-        globalDiscriminators = globalCids.collect {
-          case V.ContractId.V1(discriminator, _) => discriminator
-        },
         steps = 0,
         track = Instrumentation(),
         profile = new Profile(),
-        onLedger = onLedger,
       )
 
     @throws[PackageNotFound]
@@ -737,18 +776,22 @@ private[lf] object Speedy {
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
-        onLedger: Boolean = true,
+        traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine =
-      Machine(
+      new Machine(
+        ctrl = expr,
+        returnValue = null,
+        frame = null,
+        actuals = null,
+        env = emptyEnv,
+        kontStack = initialKontStack(),
+        lastLocation = None,
+        ledgerMode = OffLedger,
+        traceLog = traceLog,
         compiledPackages = compiledPackages,
-        submissionTime = Time.Timestamp.MinValue,
-        initialSeeding = InitialSeeding.NoSeed,
-        expr = expr,
-        globalCids = Set.empty,
-        committers = Set.empty,
-        inputValueVersions = ValueVersions.Empty,
-        outputTransactionVersions = TransactionVersions.Empty,
-        onLedger = onLedger,
+        steps = 0,
+        track = Instrumentation(),
+        profile = new Profile(),
       )
 
     @throws[PackageNotFound]
@@ -757,9 +800,8 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
-        onLedger: Boolean = true,
     ): Machine =
-      fromPureSExpr(compiledPackages, compiledPackages.compiler.unsafeCompile(expr), onLedger)
+      fromPureSExpr(compiledPackages, compiledPackages.compiler.unsafeCompile(expr))
 
   }
 
@@ -947,8 +989,8 @@ private[lf] object Speedy {
           }
         }
       case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
-            _) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) | SAny(_, _) |
-          STypeRep(_) | STNat(_) | _: SPAP | SToken =>
+            _) | SStruct(_, _) | SGenMap(_, _) | SRecord(_, _, _) | SAny(_, _) | STypeRep(_) |
+          STNat(_) | _: SPAP | SToken =>
         crash("Match on non-matchable value")
     }
 

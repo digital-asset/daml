@@ -159,6 +159,7 @@ abstract class ValidationError extends java.lang.RuntimeException with Product w
   def context: Context
   override def toString: String = productPrefix + productIterator.mkString("(", ", ", ")")
   def pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
+  override def getMessage: String = pretty
   protected def prettyInternal: String
 }
 

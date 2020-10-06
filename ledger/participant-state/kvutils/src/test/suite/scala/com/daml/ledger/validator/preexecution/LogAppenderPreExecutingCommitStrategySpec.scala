@@ -3,7 +3,6 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry,
@@ -11,30 +10,33 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils, `Bytes Ordering`}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.TestHelper.{aLogEntry, aLogEntryId, aParticipantId}
-import com.google.protobuf.ByteString
+import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategySpec._
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, when}
+import org.mockito.invocation.InvocationOnMock
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-class LogAppenderPreExecutingCommitStrategySpec
+final class LogAppenderPreExecutingCommitStrategySpec
     extends AsyncWordSpec
     with Matchers
     with MockitoSugar {
   "generateWriteSets" should {
     "serialize keys according to strategy" in {
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
-      val expectedStateKey = ByteString.copyFromUtf8("some key")
       when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
-        .thenReturn(expectedStateKey)
+        .thenAnswer((invocation: InvocationOnMock) =>
+          invocation.getArgument[DamlStateKey](0).getContractIdBytes)
+
       val logEntryId = aLogEntryId()
       val expectedLogEntryKey = logEntryId.toByteString
       val preExecutionResult = PreExecutionResult(
         readSet = Set.empty,
         successfulLogEntry = aLogEntry,
-        stateUpdates = Map(aStateKey(0) -> aStateValue, aStateKey(1) -> aStateValue),
+        stateUpdates = (1 to 100).map(key => aStateKey(key) -> aStateValue).toMap,
         outOfTimeBoundsLogEntry = aRejectionLogEntry,
         minimumRecordTime = None,
         maximumRecordTime = None
@@ -46,6 +48,7 @@ class LogAppenderPreExecutingCommitStrategySpec
           verify(mockStateKeySerializationStrategy, times(preExecutionResult.stateUpdates.size))
             .serializeStateKey(any[DamlStateKey])
           actual.successWriteSet.state should have size preExecutionResult.stateUpdates.size.toLong
+          actual.successWriteSet.state.map(_._1).toSeq should be(sorted)
           actual.successWriteSet.logEntryKey should be(expectedLogEntryKey)
 
           actual.outOfTimeBoundsWriteSet.state should have size 0
@@ -55,7 +58,9 @@ class LogAppenderPreExecutingCommitStrategySpec
       }
     }
   }
+}
 
+object LogAppenderPreExecutingCommitStrategySpec {
   private def aStateKey(id: Int) =
     DamlStateKey
       .newBuilder()

@@ -5,7 +5,7 @@ package com.daml.platform.apiserver
 
 import java.io.File
 import java.nio.file.Files
-import java.time.Instant
+import java.time.{Clock, Instant}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -47,6 +47,7 @@ final class StandaloneApiServer(
     ledgerConfig: LedgerConfiguration,
     optWriteService: Option[WriteService],
     authService: AuthService,
+    healthChecks: HealthChecks,
     metrics: Metrics,
     timeServiceBackend: Option[TimeServiceBackend] = None,
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
@@ -77,12 +78,8 @@ final class StandaloneApiServer(
           lfValueTranslationCache,
         )
         .map(index => new TimedIndexService(index, metrics))
-      authorizer = new Authorizer(
-        () => java.time.Clock.systemUTC.instant(),
-        ledgerId,
-        participantId)
-      healthChecks = new HealthChecks(
-        Seq("index" -> indexService) ++ optWriteService.toList.map("write" -> _): _*)
+      authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)
+      healthChecksWithIndexService = healthChecks + ("index" -> indexService)
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
@@ -99,7 +96,7 @@ final class StandaloneApiServer(
         partyConfig = partyConfig,
         optTimeServiceBackend = timeServiceBackend,
         metrics = metrics,
-        healthChecks = healthChecks,
+        healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))

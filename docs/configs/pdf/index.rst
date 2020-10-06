@@ -100,13 +100,14 @@ Early Access Features
    triggers/index
    tools/visual
 
-Support and updates
--------------------
+DAML Ecosystem
+--------------
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
 
+   support/overview
+   support/releases
+   support/compatibility
    support/support
-   support/release-notes
-   Roadmap <support/roadmap>

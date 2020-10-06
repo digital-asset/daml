@@ -52,7 +52,7 @@ da_scala_binary(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
-        "//libs-scala/direct-execution-context",
+        "//libs-scala/concurrent",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

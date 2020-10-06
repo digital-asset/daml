@@ -60,6 +60,20 @@ private[speedy] sealed abstract class SBuiltinPure(val arity1: Int) extends SBui
   private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
 }
 
+private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
+    extends SBuiltin(arity)
+    with Product {
+
+  protected def execute(
+      args: util.ArrayList[SValue],
+      machine: Machine,
+      onLedger: OnLedger
+  ): Unit
+
+  final override def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+    machine.withOnLedger(productPrefix)(execute(args, machine, _))
+}
+
 private[lf] object SBuiltin {
 
   //
@@ -312,10 +326,11 @@ private[lf] object SBuiltin {
         machine: Machine): Unit = {
       args.get(0) match {
         case SContractId(cid) =>
-          if (machine.onLedger) {
-            machine.returnValue = SValue.SValue.None
-          } else {
-            machine.returnValue = SOptional(Some(SText(cid.coid)))
+          machine.ledgerMode match {
+            case _: OnLedger =>
+              machine.returnValue = SValue.SValue.None
+            case _: OffLedger.type =>
+              machine.returnValue = SOptional(Some(SText(cid.coid)))
           }
         case _ => crash(s"type mismatch toTextContractId: $args")
       }
@@ -493,73 +508,14 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBTextMapInsert extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(2) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              STextMap(map.updated(key, args.get(1)))
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapInsert, expected Text got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapInsert, expected TextMap got $x")
-      }
-    }
-  }
-
-  final case object SBTextMapLookup extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(1) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              SOptional(map.get(key))
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapLookup, expected Text get $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapLookup, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapDelete extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(1) match {
-        case STextMap(map) =>
-          args.get(0) match {
-            case SText(key) =>
-              STextMap(map - key)
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextMapDelete, expected Text get $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapDelete, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapToList extends SBuiltinPure(1) {
+  final case object SBGenMapToList extends SBuiltinPure(1) {
 
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case map: STextMap =>
-          SValue.toList(map)
+        case SGenMap(_, entries) =>
+          SValue.toList(entries)
         case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapToList, expected TextMap get $x")
-      }
-    }
-  }
-
-  final case object SBTextMapSize extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case STextMap(map) =>
-          SInt64(map.size.toLong)
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextMapSize, expected TextMap get $x")
+          throw SErrorCrash(s"type mismatch SBGenMapToList, expected GenMap get $x")
       }
     }
   }
@@ -567,10 +523,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapInsert extends SBuiltinPure(3) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(2) match {
-        case SGenMap(map) =>
+        case SGenMap(isTextMap, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SGenMap(map.updated(key, args.get(1)))
+          SGenMap(isTextMap, entries.updated(key, args.get(1)))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapInsert, expected GenMap got $x")
       }
@@ -580,10 +536,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapLookup extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(1) match {
-        case SGenMap(value) =>
+        case SGenMap(_, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SOptional(value.get(key))
+          SOptional(entries.get(key))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapLookup, expected GenMap get $x")
       }
@@ -593,10 +549,10 @@ private[lf] object SBuiltin {
   final case object SBGenMapDelete extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(1) match {
-        case SGenMap(value) =>
+        case SGenMap(isTextMap, entries) =>
           val key = args.get(0)
           SGenMap.comparable(key)
-          SGenMap(value - key)
+          SGenMap(isTextMap, entries - key)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapDelete, expected GenMap get $x")
       }
@@ -606,8 +562,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapKeys extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SList(ImmArray(value.keys) ++: FrontStack.empty)
+        case SGenMap(_, entries) =>
+          SList(ImmArray(entries.keys) ++: FrontStack.empty)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapKeys, expected GenMap get $x")
       }
@@ -617,8 +573,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapValues extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SList(ImmArray(value.values) ++: FrontStack.empty)
+        case SGenMap(_, entries) =>
+          SList(ImmArray(entries.values) ++: FrontStack.empty)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapValues, expected GenMap get $x")
       }
@@ -628,8 +584,8 @@ private[lf] object SBuiltin {
   final case object SBGenMapSize extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SGenMap(value) =>
-          SInt64(value.size.toLong)
+        case SGenMap(_, entries) =>
+          SInt64(entries.size.toLong)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapSize, expected GenMap get $x")
       }
@@ -892,15 +848,14 @@ private[lf] object SBuiltin {
     *    -> List Party (signatories)
     *    -> List Party (observers)
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
-    *    -> Token
     *    -> ContractId arg
     */
-  final case class SBUCreate(templateId: TypeConName) extends SBuiltin(6) {
-    override private[speedy] final def execute(
+  final case class SBUCreate(templateId: TypeConName) extends OnLedgerBuiltin(5) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(5))
       val createArg = args.get(0)
       val createArgValue = createArg.toValue
       val agreement = args.get(1) match {
@@ -910,9 +865,10 @@ private[lf] object SBuiltin {
       val sigs = extractParties(args.get(2))
       val obs = extractParties(args.get(3))
       val key = extractOptionalKeyWithMaintainers(args.get(4))
-
-      val (coid, newPtx) = machine.ptx
+      val auth = machine.auth
+      val (coid, newPtx) = onLedger.ptx
         .insertCreate(
+          auth = auth,
           coinst =
             V.ContractInst(template = templateId, arg = createArgValue, agreementText = agreement),
           optLocation = machine.lastLocation,
@@ -923,8 +879,8 @@ private[lf] object SBuiltin {
         .fold(err => throw DamlETransactionError(err), identity)
 
       machine.addLocalContract(coid, templateId, createArg)
-      machine.ptx = newPtx
-      checkAborted(machine.ptx)
+      onLedger.ptx = newPtx
+      checkAborted(onLedger.ptx)
       machine.returnValue = SContractId(coid)
     }
   }
@@ -937,20 +893,20 @@ private[lf] object SBuiltin {
     *    -> List Party                                    (observers)
     *    -> List Party                                    (choice controllers)
     *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
-    *    -> Token
     *    -> ()
     */
   final case class SBUBeginExercise(
       templateId: TypeConName,
       choiceId: ChoiceName,
       consuming: Boolean,
-  ) extends SBuiltin(9) {
+      byKey: Boolean,
+  ) extends OnLedgerBuiltin(7) {
 
-    override private[speedy] final def execute(
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(8))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
@@ -960,18 +916,16 @@ private[lf] object SBuiltin {
         case SOptional(optValue) => optValue.map(extractParties)
         case v => crash(s"expect optional parties, got: $v")
       }
-      val byKey = args.get(3) match {
-        case SBool(b) => b
-        case v => crash(s"expect boolean flag, got: $v")
-      }
-      val sigs = extractParties(args.get(4))
-      val obs = extractParties(args.get(5))
-      val ctrls = extractParties(args.get(6))
+      val sigs = extractParties(args.get(3))
+      val obs = extractParties(args.get(4))
+      val ctrls = extractParties(args.get(5))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
+      val auth = machine.auth
 
-      machine.ptx = machine.ptx
+      onLedger.ptx = onLedger.ptx
         .beginExercises(
+          auth = auth,
           targetId = coid,
           templateId = templateId,
           choiceId = choiceId,
@@ -986,46 +940,44 @@ private[lf] object SBuiltin {
           chosenValue = arg,
         )
         .fold(err => throw DamlETransactionError(err), identity)
-      checkAborted(machine.ptx)
+      checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
     }
   }
 
   /** $endExercise[T]
-    *    :: Token
-    *    -> Value   (result of the exercise)
+    *    :: Value   (result of the exercise)
     *    -> ()
     */
-  final case class SBUEndExercise(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBUEndExercise(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(0))
-      val exerciseResult = args.get(1).toValue
-      machine.ptx = machine.ptx.endExercises(exerciseResult)
-      checkAborted(machine.ptx)
+      val exerciseResult = args.get(0).toValue
+      onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
+      checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
     }
   }
 
   /** $fetch[T]
     *    :: ContractId a
-    *    -> Token
     *    -> a
     */
-  final case class SBUFetch(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBUFetch(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(1))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
 
-      machine.localContracts.get(coid) match {
+      onLedger.localContracts.get(coid) match {
         case Some((tmplId, contract)) =>
           if (tmplId != templateId)
             crash(s"contract $coid ($templateId) not found from partial transaction")
@@ -1036,7 +988,7 @@ private[lf] object SBuiltin {
             SResultNeedContract(
               coid,
               templateId,
-              machine.committers,
+              onLedger.committers,
               cbMissing = _ => machine.tryHandleException(),
               cbPresent = {
                 case V.ContractInst(actualTmplId, V.VersionedValue(version, arg), _) =>
@@ -1046,9 +998,9 @@ private[lf] object SBuiltin {
                   machine.ctrl =
                     if (actualTmplId != templateId)
                       SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
-                    else if (!machine.inputValueVersions.contains(version))
+                    else if (!onLedger.inputValueVersions.contains(version))
                       SEDamlException(
-                        DamlEDisallowedInputValueVersion(machine.inputValueVersions, version),
+                        DamlEDisallowedInputValueVersion(onLedger.inputValueVersions, version),
                       )
                     else
                       SEImportValue(arg)
@@ -1064,15 +1016,15 @@ private[lf] object SBuiltin {
     *    -> List Party    (signatories)
     *    -> List Party    (observers)
     *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
-    *    -> Token
     *    -> ()
     */
-  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean) extends SBuiltin(5) {
-    override private[speedy] final def execute(
+  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean)
+      extends OnLedgerBuiltin(4) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(4))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
@@ -1080,16 +1032,11 @@ private[lf] object SBuiltin {
       val signatories = extractParties(args.get(1))
       val observers = extractParties(args.get(2))
       val key = extractOptionalKeyWithMaintainers(args.get(3))
-
       val stakeholders = observers union signatories
-      val contextActors = machine.ptx.context.exeContext match {
-        case Some(ctx) =>
-          ctx.actingParties union ctx.signatories
-        case None =>
-          machine.committers
-      }
-
-      machine.ptx = machine.ptx.insertFetch(
+      val contextActors = machine.contextActors
+      val auth = machine.auth
+      onLedger.ptx = onLedger.ptx.insertFetch(
+        auth,
         coid,
         templateId,
         machine.lastLocation,
@@ -1099,27 +1046,26 @@ private[lf] object SBuiltin {
         key,
         byKey,
       )
-      checkAborted(machine.ptx)
+      checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
     }
   }
 
   /** $lookupKey[T]
     *   :: { key: key, maintainers: List Party }
-    *   -> Token
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBULookupKey(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(1))
       val keyWithMaintainers =
         extractKeyWithMaintainers(args.get(0))
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
-      machine.ptx.keys.get(gkey) match {
+      onLedger.ptx.keys.get(gkey) match {
         case Some(mbCoid) =>
           machine.returnValue = SOptional(mbCoid.map { coid =>
             SContractId(coid)
@@ -1130,16 +1076,16 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              machine.committers, {
+              onLedger.committers, {
                 case SKeyLookupResult.Found(cid) =>
-                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
+                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
                   machine.ctrl = SEImportValue(V.ValueOptional(Some(V.ValueContractId(cid))))
                   true
                 case SKeyLookupResult.NotFound =>
-                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
                   machine.returnValue = SV.None
                   true
                 case SKeyLookupResult.NotVisible =>
@@ -1154,15 +1100,14 @@ private[lf] object SBuiltin {
   /** $insertLookup[T]
     *    :: { key : key, maintainers: List Party}
     *    -> Maybe (ContractId T)
-    *    -> Token
     *    -> ()
     */
-  final case class SBUInsertLookupNode(templateId: TypeConName) extends SBuiltin(3) {
-    override private[speedy] final def execute(
+  final case class SBUInsertLookupNode(templateId: TypeConName) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(2))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
@@ -1172,7 +1117,9 @@ private[lf] object SBuiltin {
           }
         case _ => crash(s"Non option value when inserting lookup node")
       }
-      machine.ptx = machine.ptx.insertLookup(
+      val auth = machine.auth
+      onLedger.ptx = onLedger.ptx.insertLookup(
+        auth,
         templateId,
         machine.lastLocation,
         Node.KeyWithMaintainers(
@@ -1181,26 +1128,25 @@ private[lf] object SBuiltin {
         ),
         mbCoid,
       )
-      checkAborted(machine.ptx)
+      checkAborted(onLedger.ptx)
       machine.returnValue = SV.Unit
     }
   }
 
   /** $fetchKey[T]
     *   :: { key: key, maintainers: List Party }
-    *   -> Token
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBUFetchKey(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
-      checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
-      machine.ptx.keys.get(gkey) match {
+      onLedger.ptx.keys.get(gkey) match {
         case Some(None) =>
           crash(s"Could not find key $gkey")
         case Some(Some(coid)) =>
@@ -1211,16 +1157,16 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              machine.committers, {
+              onLedger.committers, {
                 case SKeyLookupResult.Found(cid) =>
-                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
+                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
                   machine.ctrl = SEImportValue(V.ValueContractId(cid))
                   true
                 case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
-                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
                   machine.tryHandleException()
               },
             ),
@@ -1244,41 +1190,44 @@ private[lf] object SBuiltin {
   }
 
   /** $beginCommit :: Party -> Token -> () */
-  final case class SBSBeginCommit(optLocation: Option[Location]) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBSBeginCommit(optLocation: Option[Location]) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
       checkToken(args.get(1))
-      machine.localContracts = Map.empty
-      machine.globalDiscriminators = Set.empty
-      machine.committers = extractParties(args.get(0))
-      machine.commitLocation = optLocation
+      onLedger.localContracts = Map.empty
+      onLedger.globalDiscriminators = Set.empty
+      onLedger.committers = extractParties(args.get(0))
+      onLedger.commitLocation = optLocation
       machine.returnValue = SV.Unit
     }
   }
 
   /** $endCommit[mustFail?] :: result -> Token -> () */
-  final case class SBSEndCommit(mustFail: Boolean) extends SBuiltin(2) {
-    override private[speedy] final def execute(
+  final case class SBSEndCommit(mustFail: Boolean) extends OnLedgerBuiltin(2) {
+    override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
+        onLedger: OnLedger
     ): Unit = {
       checkToken(args.get(1))
-      if (mustFail) executeMustFail(args, machine)
-      else executeCommit(args, machine)
+      if (mustFail) executeMustFail(args, machine, onLedger)
+      else executeCommit(args, machine, onLedger)
     }
 
     private[this] final def executeMustFail(
         args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+        machine: Machine,
+        onLedger: OnLedger): Unit = {
       // A mustFail commit evaluated the update with
       // a catch. The second argument is a boolean
       // that marks whether an exception was thrown
       // or not.
-      val committerOld = machine.committers
-      val ptxOld = machine.ptx
-      val commitLocationOld = machine.commitLocation
+      val committerOld = onLedger.committers
+      val ptxOld = onLedger.ptx
+      val commitLocationOld = onLedger.commitLocation
 
       args.get(0) match {
         case SBool(true) =>
@@ -1290,7 +1239,7 @@ private[lf] object SBuiltin {
 
         case SBool(false) =>
           ptxOld.finish(
-            machine.outputTransactionVersions,
+            onLedger.outputTransactionVersions,
             machine.compiledPackages.packageLanguageVersion,
           ) match {
             case PartialTransaction.CompleteTransaction(tx) =>
@@ -1311,10 +1260,13 @@ private[lf] object SBuiltin {
       }
     }
 
-    private[this] def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ptx
+    private[this] def executeCommit(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger): Unit =
+      onLedger.ptx
         .finish(
-          machine.outputTransactionVersions,
+          onLedger.outputTransactionVersions,
           machine.compiledPackages.packageLanguageVersion,
         ) match {
         case PartialTransaction.CompleteTransaction(tx) =>
@@ -1322,7 +1274,7 @@ private[lf] object SBuiltin {
             SResultScenarioCommit(
               value = args.get(0),
               tx = tx,
-              committers = machine.committers,
+              committers = onLedger.committers,
               callback = newValue => {
                 machine.clearCommit
                 machine.returnValue = newValue
@@ -1612,6 +1564,8 @@ private[lf] object SBuiltin {
     */
   private[this] def checkAborted(ptx: PartialTransaction): Unit =
     ptx.aborted match {
+      case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
+        throw DamlEFailedAuthorization(nid, fa)
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
       case Some(Tx.EndExerciseInRootContext) =>

@@ -16,16 +16,15 @@ import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Split as Split
-import qualified Data.Maybe as Maybe
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import qualified Data.Traversable as Traversable
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
+import qualified System.Environment
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
 import qualified System.Process as System
@@ -95,29 +94,21 @@ build_and_push temp versions = do
             putStrLn $ "Building " <> show version <> "..."
             build version
             putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
-            push (temp </> show version) $ show version
+            push version
             putStrLn "Done.")
     where
         restore_sha io =
-            Control.Exception.bracket (init <$> shell "git rev-parse HEAD")
+            Control.Exception.bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
                                       (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
                                       (const io)
         build version = do
             shell_ $ "git checkout v" <> show version
-            -- The release-triggering commit does not have a tag, so we need to
-            -- find it by walking through the git history of the LATEST file.
-            sha <- find_commit_for_version version
-            Control.Exception.bracket_
-                (shell_ $ "git checkout " <> sha <> " -- docs/source/support/release-notes.rst")
-                (shell_ "git reset --hard")
-                (build_helper version)
-        build_helper version = do
             robustly_download_nix_packages
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> temp </> show version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> temp </> show version
-        push local remote =
-            shell_ $ "aws s3 cp " <> local </> " " <> "s3://docs-daml-com" </> remote </> " --recursive --acl public-read"
+        push version =
+            shell_ $ "aws s3 cp " <> (temp </> show version) </> " " <> "s3://docs-daml-com" </> show version </> " --recursive --acl public-read"
 
 fetch_if_missing :: FilePath -> Version -> IO ()
 fetch_if_missing temp v = do
@@ -171,25 +162,6 @@ reset_cloudfront = do
     shell_ $ "aws cloudfront create-invalidation"
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
-
-find_commit_for_version :: Version -> IO String
-find_commit_for_version version = do
-    ver_sha <- init <$> (shell $ "git rev-parse v" <> show version)
-    let expected = ver_sha <> " " <> show version
-    -- git log -G 'regex' returns all the commits for which 'regex' appears in
-    -- the diff. To find out the commit that "released" the version. The commit
-    -- we want is a commit that added a single line, which matches the version
-    -- we are checking for.
-    matching_commits <- lines <$> (shell $ "git log --format=%H --all -G '" <> ver_sha <> "' -- LATEST")
-    matching <- Maybe.catMaybes <$> Traversable.for matching_commits (\sha -> do
-        after <- Set.fromList . lines <$> (shell $ "git show " <> sha <> ":LATEST")
-        before <- Set.fromList . lines <$> (shell $ "git show " <> sha <> "~:LATEST")
-        return $ case Set.toList(after `Set.difference` before) of
-                     [line] | line == expected -> Just sha
-                     _ -> Nothing)
-    case matching of
-      [sha] -> return sha
-      _ -> fail $ "Expected single commit to match release " <> show version <> ", but instead found: " <> show matching
 
 fetch_gh_paginated :: JSON.FromJSON a => String -> IO [a]
 fetch_gh_paginated url = do
@@ -262,8 +234,8 @@ fetch_s3_versions = do
                   Just s3_json -> return $ map (\s -> PreVersion prerelease (version s)) $ H.keys s3_json
                   Nothing -> Exit.die "Failed to get versions from s3"
 
-main :: IO ()
-main = do
+docs :: IO ()
+docs = do
     Control.forM_ [IO.stdout, IO.stderr] $
         \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
@@ -272,7 +244,6 @@ main = do
     if s3_versions == gh_versions
     then do
         putStrLn "Versions match, nothing to do."
-        Exit.exitSuccess
     else do
         -- We may have added versions. We need to build and push them.
         let added = Set.toList $ all_versions gh_versions `Set.difference` all_versions s3_versions
@@ -287,3 +258,13 @@ main = do
             putStrLn "Updating versions.json & hidden.json"
             update_s3 temp_dir gh_versions
         reset_cloudfront
+
+check_signatures :: IO ()
+check_signatures = do
+    putStrLn "FIXME"
+
+main :: IO ()
+main = System.Environment.getArgs >>= parse
+  where parse ["docs"] = docs
+        parse ["check-signatures"] = check_signatures
+        parse _ = Exit.die "Arg required: docs, check-signatures"

@@ -53,7 +53,6 @@ class EngineTest
     with BazelRunfiles {
 
   import EngineTest._
-  import EngineConfig.Dev.allowedLanguageVersions
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
@@ -140,7 +139,7 @@ class EngineTest
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine.DevEngine()
   val preprocessor =
-    new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
+    new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
 
   "valid data variant identifier" should {
     "found and return the argument types" in {
@@ -394,7 +393,7 @@ class EngineTest
         loadPackage("daml-lf/tests/Optional.dar")
 
       val translator =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
 
       val id = Identifier(optionalPkgId, "Optional:Rec")
       val someValue =
@@ -419,7 +418,7 @@ class EngineTest
 
     "returns correct error when resuming" in {
       val translator =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(allowedLanguageVersions))
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord =
         ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
@@ -468,8 +467,9 @@ class EngineTest
 
     "be validated" in {
       val Right((tx, meta)) = interpretResult
+      val Right(submitter) = tx.guessSubmitter
       val validated = engine
-        .validate(tx, let, participant, meta.submissionTime, submissionSeed)
+        .validate(submitter, tx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -521,6 +521,7 @@ class EngineTest
               .consume(lookupContract, lookupPackage, lookupKey)
         }
     val Right((tx, txMeta)) = interpretResult
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       val Right((rtx, _)) = engine
@@ -546,7 +547,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let, participant, let, submissionSeed)
+        .validate(submitter, tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -556,8 +557,7 @@ class EngineTest
     }
 
     "events are collected" in {
-      val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(tx, Set(party))
+      val blindingInfo = Blinding.blind(tx)
       val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
@@ -625,6 +625,7 @@ class EngineTest
               .consume(lookupContract, lookupPackage, lookupKey)
         }
     val Right((tx, txMeta)) = result
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       val submitResult = engine
@@ -646,7 +647,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let, participant, let, submissionSeed)
+        .validate(submitter, tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -656,8 +657,7 @@ class EngineTest
     }
 
     "events are collected" in {
-      val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(tx, Set(alice))
+      val blindingInfo = Blinding.blind(tx)
       val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains alice)
       partyEvents.size shouldBe 1
@@ -712,6 +712,7 @@ class EngineTest
         }
 
     val Right((tx, txMeta)) = interpretResult
+    val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
       tx.roots should have length 2
@@ -732,7 +733,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let, participant, let, submissionSeed)
+        .validate(submitter, tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -947,8 +948,7 @@ class EngineTest
       (rtx.transaction isReplayedBy tx.transaction) shouldBe true
     }
 
-    val Right(blindingInfo) =
-      Blinding.checkAuthorizationAndBlind(tx, Set(bob))
+    val blindingInfo = Blinding.blind(tx)
 
     "reinterpret to the same result" in {
 
@@ -1032,8 +1032,7 @@ class EngineTest
           )
           .consume(lookupContract, lookupPackage, lookupKey)
       val Seq(_, noid1) = tx.transaction.nodes.keys.toSeq.sortBy(_.index)
-      val Right(blindingInfo) =
-        Blinding.checkAuthorizationAndBlind(tx, Set(bob))
+      val blindingInfo = Blinding.blind(tx)
       val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
       val partyEvents = events.filter(_.witnesses contains bob)
       partyEvents.roots.length shouldBe 1
@@ -1106,7 +1105,7 @@ class EngineTest
     val fetcher2TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(party)),
       (Some[Name]("obs"), ValueParty(alice)),
-      (Some[Name]("fetcher"), ValueParty(party)),
+      (Some[Name]("fetcher"), ValueParty(clara)),
     )
 
     def makeContract[Cid <: ContractId](
@@ -1179,8 +1178,8 @@ class EngineTest
 
     "not propagate the parent's signatories nor actors when not stakeholders" in {
 
-      val Right((tx, _)) = runExample(fetcher2Cid, party)
-      txFetchActors(tx.transaction) shouldBe Set()
+      val Right((tx, _)) = runExample(fetcher2Cid, clara)
+      txFetchActors(tx.transaction) shouldBe Set(clara)
     }
 
     "be retained when reinterpreting single fetch nodes" in {
@@ -1205,7 +1204,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      runExample(fetcher2Cid, party).map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+      runExample(fetcher2Cid, clara).map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
     }
   }
 
@@ -1253,7 +1252,7 @@ class EngineTest
 
       val reinterpreted =
         engine
-          .reinterpret(Set.empty, fetchNode, None, let, let)
+          .reinterpret(Set(alice), fetchNode, None, let, let)
           .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe 'right
@@ -1338,7 +1337,7 @@ class EngineTest
         Engine
           .DevEngine()
           .reinterpret(
-            Set.empty,
+            Set(alice),
             lookupNode,
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
@@ -1367,7 +1366,7 @@ class EngineTest
       val Right((reinterpreted, _)) =
         Engine
           .DevEngine()
-          .reinterpret(Set.empty, lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
+          .reinterpret(Set(alice), lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
           .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
@@ -1508,7 +1507,7 @@ class EngineTest
       ValueRecord(
         Some(forkableTemplateId),
         ImmArray(
-          (Some[Name]("party"), ValueParty(alice)),
+          (Some[Name]("party"), ValueParty(party)),
           (Some[Name]("parent"), ValueOptional(None)))
       )
 
@@ -1536,9 +1535,12 @@ class EngineTest
 
     "be validable in whole" in {
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
-        engine
-          .validate(tx, let, participant, metaData.submissionTime, submissionSeed)
-          .consume(_ => None, lookupPackage, _ => None)
+        for {
+          submitter <- tx.guessSubmitter.left.map(ValidationError)
+          res <- engine
+            .validate(submitter, tx, let, participant, metaData.submissionTime, submissionSeed)
+            .consume(_ => None, lookupPackage, _ => None)
+        } yield res
 
       run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
       run(3).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())

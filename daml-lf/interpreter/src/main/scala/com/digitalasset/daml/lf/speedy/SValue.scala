@@ -12,7 +12,7 @@ import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
-import scala.collection.immutable.{HashMap, TreeMap}
+import scala.collection.immutable.TreeMap
 
 /** Speedy values. These are the value types recognized by the
   * machine. In addition to the usual types present in the LF value,
@@ -32,9 +32,7 @@ sealed trait SValue {
       case SBool(x) => V.ValueBool(x)
       case SUnit => V.ValueUnit
       case SDate(x) => V.ValueDate(x)
-      case SStruct(fields, svalues) =>
-        val valuesIterator = svalues.iterator()
-        V.ValueStruct(fields.mapValues(_ => valuesIterator.next().toValue))
+
       case SRecord(id, fields, svalues) =>
         V.ValueRecord(
           Some(id),
@@ -52,12 +50,17 @@ sealed trait SValue {
         V.ValueList(lst.map(_.toValue))
       case SOptional(mbV) =>
         V.ValueOptional(mbV.map(_.toValue))
-      case STextMap(mVal) =>
-        V.ValueTextMap(SortedLookupList(mVal).mapValue(_.toValue))
-      case SGenMap(values) =>
-        V.ValueGenMap(ImmArray(values.map { case (k, v) => k.toValue -> v.toValue }))
+      case SGenMap(true, entries) =>
+        V.ValueTextMap(SortedLookupList(entries.map {
+          case (SText(t), v) => t -> v.toValue
+          case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
+        }))
+      case SGenMap(false, entries) =>
+        V.ValueGenMap(ImmArray(entries.map { case (k, v) => k.toValue -> v.toValue }))
       case SContractId(coid) =>
         V.ValueContractId(coid)
+      case SStruct(_, _) =>
+        throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAny")
       case STypeRep(_) =>
@@ -92,11 +95,10 @@ sealed trait SValue {
         SList(lst.map(_.mapContractId(f)))
       case SOptional(mbV) =>
         SOptional(mbV.map(_.mapContractId(f)))
-      case STextMap(value) =>
-        STextMap(value.transform((_, v) => v.mapContractId(f)))
-      case SGenMap(value) =>
+      case SGenMap(isTextMap, value) =>
         SGenMap(
-          value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) }
+          isTextMap,
+          value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) },
         )
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
@@ -155,9 +157,10 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  final case class STextMap(textMap: HashMap[String, SValue]) extends SValue
-
-  final case class SGenMap private (genMap: TreeMap[SValue, SValue]) extends SValue
+  // We make the constructor private to ensure entries are sorted according `SGenMap Ordering`
+  final case class SGenMap private (textMap: Boolean, entries: TreeMap[SValue, SValue])
+      extends SValue
+      with NoCopy
 
   object SGenMap {
     implicit def `SGenMap Ordering`: Ordering[SValue] = svalue.Ordering
@@ -169,15 +172,13 @@ object SValue {
       ()
     }
 
-    val Empty = SGenMap(TreeMap.empty)
-
-    def apply(xs: Iterator[(SValue, SValue)]): SGenMap = {
+    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SGenMap = {
       type O[_] = TreeMap[SValue, SValue]
-      SGenMap(xs.map { case p @ (k, _) => comparable(k); p }.to[O])
+      SGenMap(isTextMap, entries.map { case p @ (k, _) => comparable(k); p }.to[O])
     }
 
-    def apply(xs: (SValue, SValue)*): SGenMap =
-      SGenMap(xs.iterator)
+    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SGenMap =
+      SGenMap(isTextMap: Boolean, entries.iterator)
   }
 
   final case class SAny(ty: Type, value: SValue) extends SValue
@@ -213,8 +214,8 @@ object SValue {
     val False = new SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
-    val EmptyMap = STextMap(HashMap.empty)
-    val EmptyGenMap = SGenMap.Empty
+    val EmptyTextMap = SGenMap(true)
+    val EmptyGenMap = SGenMap(false)
     val Token = SToken
   }
 
@@ -224,7 +225,7 @@ object SValue {
     val True: X = apply(SValue.True)
     val False: X = apply(SValue.False)
     val EmptyList: X = apply(SValue.EmptyList)
-    val EmptyMap: X = apply(SValue.EmptyMap)
+    val EmptyTextMap: X = apply(SValue.EmptyTextMap)
     val EmptyGenMap: X = apply(SValue.EmptyGenMap)
     val None: X = apply(SValue.None)
     val Token: X = apply(SValue.Token)
@@ -244,13 +245,8 @@ object SValue {
     SStruct(entryFields, args)
   }
 
-  def toList(textMap: STextMap): SList = {
-    val entries = SortedLookupList(textMap.textMap).toImmArray
-    SList(FrontStack(entries.map { case (k, v) => entry(SText(k), v) }))
-  }
-
-  def toList(genMap: SGenMap): SList =
-    SList(FrontStack(genMap.genMap.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
+  def toList(entries: TreeMap[SValue, SValue]): SList =
+    SList(FrontStack(entries.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
 
   private def mapArrayList(
       as: util.ArrayList[SValue],

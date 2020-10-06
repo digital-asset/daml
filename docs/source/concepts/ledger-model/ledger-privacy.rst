@@ -85,8 +85,8 @@ for, providing privacy to `A` and `P` with respect to the bank.
 
 .. _def-informee:
 
-As a design choice, DAML Ledgers show to observers on a contract only the :ref:`state changing
-<def-contract-state>` actions on the contract.
+As a design choice, DAML Ledgers show to observers on a contract only the
+:ref:`state changing <def-contract-state>` actions on the contract.
 More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to the observers - except when they are
 the actors of these actions.
 This motivates the following definition: a party `p` is an **informee** of an action `A` if one of the following holds:
@@ -139,8 +139,8 @@ Examine each party's projection in turn:
    (again, recall that all consequences of an exercise action are a
    part of the action itself).
 
-#. Alice is a stakeholder in both the `Iou Bank A` and `PaintOffer A
-   B Bank` contracts. As all top-level actions in the ledger are
+#. Alice is a stakeholder in both the `Iou Bank A` and
+   `PaintOffer A B Bank` contracts. As all top-level actions in the ledger are
    performed on one of these two contracts, Alice's projection
    includes all the transactions from the ledger intact.
 
@@ -207,8 +207,9 @@ contracts should only be shown to their stakeholders. However,
 ledger projections can cause contracts to become visible to other
 parties as well.
 
-In the example of `ledger projections of the paint offer
-<#da-ledgers-projections-example>`__, the exercise on the `PaintOffer`
+In the example of
+`ledger projections of the paint offer <#da-ledgers-projections-example>`__,
+the exercise on the `PaintOffer`
 is visible to both the painter and Alice.  As a consequence, the
 exercise on the `Iou Bank A` is visible to the painter, and the
 creation of `Iou Bank P` is visible to Alice. As actions also contain

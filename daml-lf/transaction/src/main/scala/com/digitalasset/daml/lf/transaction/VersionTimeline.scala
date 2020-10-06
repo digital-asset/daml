@@ -178,4 +178,13 @@ object VersionTimeline {
       .getOrElse(minimum)
   }
 
+  private[lf] val stableLanguageVersions =
+    VersionRange(
+      min = LanguageVersion(LMV.V1, "6"),
+      max = LanguageVersion(LMV.V1, "8"),
+    )
+
+  private[lf] val devLanguageVersions =
+    stableLanguageVersions.copy(max = LanguageVersion(LMV.V1, Dev))
+
 }

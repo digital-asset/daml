@@ -14,7 +14,7 @@ To begin with, you're going to write a very small DAML template, which represent
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder ``1_Token`` by running ``daml new 1_Token daml-intro-1``
+  Remember that you can load all the code for this section into a folder ``1_Token`` by running ``daml new 1_Token --template daml-intro-1``
 
 DAML ledger basics
 ------------------
@@ -26,6 +26,8 @@ Like most structures called ledgers, a DAML Ledger is just a list of *commits*. 
 A contract is *active* from the point where there is a committed transaction that creates it, up to the point where there is a committed transaction that *archives* it again.
 
 .. Graphic with timeline inactive -> create -> active -> archive -> inactive
+
+Individual contracts are *immutable* in the sense that an active contract can not be changed. You can only change the *active contract set* by creating a new contract, or archiving an old one.
 
 DAML specifies what transactions are legal on a DAML Ledger. The rules the DAML code specifies are collectively called a *DAML model* or *contract model*.
 
@@ -65,11 +67,11 @@ DAML is whitespace-aware and uses layout to structure *blocks*. Everything that'
 Signatories
 -----------
 
-The ``signatory`` keyword specifies the *signatories* of a contract instance. These are the parties whose *authority* is required to create the contract or archive it again -- just like a real contract. Every contract must have at least one signatory.
+The ``signatory`` keyword specifies the *signatories* of a contract. These are the parties whose *authority* is required to create the contract or archive it again -- just like a real contract. Every contract must have at least one signatory.
 
 Furthermore, DAML ledgers *guarantee* that parties see all transactions where their authority is used. This means that signatories of a contract are guaranteed to see the creation and archival of that contract.
 
 Next up
 -------
 
-In :doc:`2_Scenario`, you'll learn about how to try out the ``Token`` contract template in DAML's inbuilt ``scenario`` testing language.
+In :doc:`2_DamlScript`, you'll learn about how to try out the ``Token`` contract template in DAML's inbuilt DAML Script testing language.

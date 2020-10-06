@@ -27,10 +27,9 @@
       "  ${4:${5:x}::${6:xs} } -> ${expression}"
     ]
   },
-  "daml-version-and-module-name": {
+  "daml-module-name": {
     "prefix": "daml",
     "body": [
-      "daml ${1:1.2}",
       "module ${3:${2:Module}.${TM_FILENAME_BASE}} where",
       "",
       "$0"

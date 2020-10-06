@@ -1,8 +1,10 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Integration Kit - ALPHA
-############################
+DAML Integration Kit
+####################
+
+The DAML Integration Kit is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`. It comprises the components needed to build your own :ref:`DAML Drivers <ecosystem-architecture>`.
 
 .. toctree::
    :hidden:
@@ -63,8 +65,8 @@ ALPHA (current status)
 
   That said: we highly value your feedback and input on where you find DAML software and this integration kit most useful.
   You can get into contact with us using the feedback form on this
-  documentation page or by creating issues or pull-requests against the `digital-asset/daml
-  <https://github.com/digital-asset/daml>`__ GitHub repository.
+  documentation page or by creating issues or pull-requests against the
+  `digital-asset/daml <https://github.com/digital-asset/daml>`__ GitHub repository.
 
 
 BETA
@@ -228,7 +230,7 @@ Library infrastructure overview
 
 To help you implement your server and validator, we provide the following
 four Scala libraries as part of the DAML SDK. Changes
-to them are explained as part of the :doc:`/support/release-notes`.
+to them are explained as part of the :ref:`release-notes`.
 
 As explained in :ref:`integration-kit_writing_code`,
 this section is best read jointly with the code in
@@ -245,8 +247,8 @@ this section is best read jointly with the code in
   These utilities provide methods to succintly implement interfaces from
   ``participant-state.jar`` on top of a key-value state storage.
 
-  See documentation in `package.scala
-  <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
+  See documentation in
+  `package.scala <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
 
 ``ledger-api-server.jar`` (`source code for API server <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/StandaloneApiServer.scala>`__, `source code for indexer <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/indexer/StandaloneIndexerServer.scala>`__)
   Contains code that implements a DAML Ledger API server and the SQL-backed indexer
@@ -364,10 +366,10 @@ For reference, you can have a look at how authorization is implemented in the sa
 Testing a DAML Ledger
 *********************
 
-You can test your DAML ledger implementation using :doc:`Ledger API Test Tool
-</tools/ledger-api-test-tool/index>`, which will assess correctness of
-implementation of the :doc:`Ledger API
-</app-dev/ledger-api>`. For example, it will show you if
+You can test your DAML ledger implementation using 
+:doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`,
+which will assess correctness of implementation of the
+:doc:`Ledger API </app-dev/ledger-api>`. For example, it will show you if
 there are consistency or conformance problem with your implementation.
 
 Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you can use the tool in the following manner:

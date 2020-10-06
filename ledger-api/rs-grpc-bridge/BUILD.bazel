@@ -33,16 +33,6 @@ da_scala_library(
     ],
     deps = [
         ":rs-grpc-bridge",
-        "//ledger-api/rs-grpc-testing-utils",
-        "@maven//:com_google_code_findbugs_jsr305",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:org_reactivestreams_reactive_streams",
-        "@maven//:org_reactivestreams_reactive_streams_examples",
-        "@maven//:org_reactivestreams_reactive_streams_tck",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_slf4j_slf4j_api",
-        "@maven//:org_testng_testng",
     ],
 )
 

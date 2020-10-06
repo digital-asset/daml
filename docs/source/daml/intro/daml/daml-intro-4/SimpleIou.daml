@@ -4,6 +4,8 @@
 
 module SimpleIou where
 
+import Daml.Script
+
 data Cash = Cash with
   currency : Text
   amount : Decimal
@@ -25,15 +27,15 @@ template SimpleIou
         do
           create this with owner = newOwner
 
-test_iou = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  charlie <- getParty "Charlie"
-  dora <- getParty "Dora"
+test_iou = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  dora <- allocateParty "Dora"
 
   -- The bank issues an Iou for $100 to Alice.
   iou <- submit dora do
-    create SimpleIou with
+    createCmd SimpleIou with
       issuer = dora
       owner = alice
       cash = Cash with
@@ -42,11 +44,11 @@ test_iou = scenario do
 
   -- Alice transfers it to Bob.
   iou2 <- submit alice do
-    exercise iou Transfer with
+    exerciseCmd iou Transfer with
       newOwner = bob
 
   -- Bob transfers it to Charlie.
   submit bob do
-    exercise iou2 Transfer with
+    exerciseCmd iou2 Transfer with
       newOwner = charlie
 

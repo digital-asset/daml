@@ -399,6 +399,7 @@ genrule(
     name = "repl-test",
     srcs = [
         "ReplTest.daml",
+        "Colliding.daml",
         "repl-test-indirect.dar",
     ],
     outs = ["repl-test.dar"],
@@ -407,6 +408,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location ReplTest.daml) $$TMP_DIR/daml
+      cp -L $(location Colliding.daml) $$TMP_DIR/daml
       cp -L $(location repl-test-indirect.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -454,11 +456,47 @@ EOF
     visibility = ["//visibility:public"],
 )
 
+genrule(
+    name = "repl-multi-test",
+    srcs = [
+        "ReplMulti.daml",
+        ":repl-test.dar",
+        ":repl-test-two.dar",
+    ],
+    outs = ["repl-multi-test.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location ReplMulti.daml) $$TMP_DIR/daml
+      cp -L $(location repl-test-two.dar) $$TMP_DIR
+      cp -L $(location repl-test.dar) $$TMP_DIR
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: repl-multi-test
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-stdlib
+  - daml-prim
+data-dependencies:
+  - repl-test.dar
+  - repl-test-two.dar
+build-options: ["--ghc-option", "-Werror"]
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-multi-test.dar)
+      rm -rf $$TMP_DIR
+  """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
 da_haskell_test(
     name = "repl",
     timeout = "long",
     srcs = ["src/DA/Test/Repl.hs"],
     data = [
+        ":repl-multi-test.dar",
         ":repl-test.dar",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",

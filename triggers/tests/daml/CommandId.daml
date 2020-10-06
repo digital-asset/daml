@@ -8,14 +8,16 @@ import Daml.Trigger.LowLevel
 
 test : Trigger [Text]
 test = Trigger
-  { initialState = \party _ _ ->
-      ([], [Commands (CommandId "mycreateid") [createCmd (T party)]])
-  , update = \_time msg s -> case (s, msg) of
-      (cmdIds, MTransaction (Transaction _ (Some (CommandId cmdId)) [CreatedEvent (fromCreated @T -> Some (_, cid, _))])) ->
-        (cmdId :: cmdIds, [Commands (CommandId "myexerciseid") [exerciseCmd cid Archive]])
-      (cmdIds, MTransaction (Transaction _ (Some (CommandId cmdId)) [ArchivedEvent (fromArchived @T -> Some _)])) ->
-        (cmdId :: cmdIds, [])
-      _ -> (s, [])
+  { initialState = \party _ -> do
+      submitCommands $ Commands (CommandId "mycreateid") [createCmd (T party)]
+      pure []
+  , update = \msg -> case msg of
+      MTransaction (Transaction _ (Some (CommandId cmdId)) [CreatedEvent (fromCreated @T -> Some (_, cid, _))]) -> do
+        submitCommands $ Commands (CommandId "myexerciseid") [exerciseCmd cid Archive]
+        modify (cmdId ::)
+      MTransaction (Transaction _ (Some (CommandId cmdId)) [ArchivedEvent (fromArchived @T -> Some _)]) ->
+        modify (cmdId ::)
+      _ -> pure ()
   , registeredTemplates = AllInDar
   , heartbeat = None
   }

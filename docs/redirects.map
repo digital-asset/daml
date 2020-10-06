@@ -1,9 +1,7 @@
 app-arch/index.html -> /app-dev/app-arch.html
-release-notes.html -> /support/release-notes.html
 tools/extractor.html
 integration.html -> /app-dev/app-arch.html
 index.html
-support.html -> /support/support.html
 daml.html -> /daml/reference/index.html
 daml/reference/template-reference.html -> /daml/reference/index.html
 daml/anti-patterns.html
@@ -812,3 +810,10 @@ getting-started/installation.htm -> /getting-started/installation.html
 gsg.html -> /getting-started/installation.html
 getting-started/quickstart.html -> /getting-started/index.html
 app-dev/authentication.html -> /app-dev/authorization.html
+daml/intro/2_Scenario.html -> /daml/intro/2_DamlScript.html
+daml-script/daml-script-docs.html -> /daml-script/api/index.html
+triggers/trigger-docs.html -> /triggers/api/index.html
+support.html -> /support/support.html
+release-notes.html -> support/releases.html#release-notes
+support/release-notes.html -> support/releases.html#release-notes
+support/roadmap.html -> support/releases.html#roadmap

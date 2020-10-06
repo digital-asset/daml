@@ -3671,7 +3671,7 @@ ordered by keys.
 
   [*Available in versions >= 1.3*]
 
-* ``TEXTMAP_LIST : ∀ α. 'TextMap' α → 'List' ⟨ key: 'Text', value: α  ⟩``
+* ``TEXTMAP_TO_LIST : ∀ α. 'TextMap' α → 'List' ⟨ key: 'Text', value: α  ⟩``
 
   Converts to a list of key/value pairs. The output list is guaranteed to be
   sorted according to the ordering of its keys.
@@ -4194,7 +4194,7 @@ TextMap
 The deserialization process will reject any DAML-LF 1.2 (or earlier)
 program using the builtin type ``TEXTMAP`` or the builtin functions
 ``TEXTMAP_EMPTY``, ``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``,
-``TEXTMAP_DELETE``, ``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
+``TEXTMAP_DELETE``, ``TEXTMAP_TO_LIST``, ``TEXTMAP_SIZE``,
 
 ``'TextMap'`` was called ``'Map'`` in versions < 1.8.
 

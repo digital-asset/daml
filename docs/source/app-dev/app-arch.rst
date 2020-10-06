@@ -32,8 +32,8 @@ architecture, providing you with an excellent starting point for your own applic
 Backend
 ~~~~~~~
 
-The backend for your application can be any DAML ledger implementation running your DAR (:ref:`DAML
-Archive <dar-file-dalf-file>`) file.
+The backend for your application can be any DAML ledger implementation running your DAR
+(:ref:`DAML Archive <dar-file-dalf-file>`) file.
 
 We recommend using the :ref:`DAML JSON API <json-api>` as an interface to your frontend. It is
 served by the HTTP JSON API server connected to the ledger API server. It provides simple HTTP
@@ -49,17 +49,17 @@ with a JSON API server by running
 
 in the root of the project. This is the most simple DAML ledger implementation. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and DAML artifacts of your project to a production ledger. See :ref:`Deploying to DAML
-Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
+your frontend and DAML artifacts of your project to a production ledger. See
+:ref:`Deploying to DAML Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
 Frontend
 ~~~~~~~~
 
 We recommended building your frontend with the `React <https://reactjs.org>`_ framework. However,
-you can choose virtually any language for your frontend and interact with the ledger via :ref:`HTTP
-JSON <json-api>` endpoints. In addition, we provide support libraries for :ref:`Java
-<java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the :ref:`gRPC API
-<grpc>` directly.
+you can choose virtually any language for your frontend and interact with the ledger via
+:ref:`HTTP JSON <json-api>` endpoints. In addition, we provide support libraries for
+:ref:`Java <java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the
+:ref:`gRPC API <grpc>` directly.
 
 
 We provide two libraries to build your React frontend for a DAML application.
@@ -72,8 +72,8 @@ We provide two libraries to build your React frontend for a DAML application.
 | `@daml/ledger <https://www.npmjs.com/package/@daml/ledger>`_ | DAML ledger object to connect and directly submit commands to the ledger |
 +--------------------------------------------------------------+--------------------------------------------------------------------------+
 
-You can install any of these libraries by running ``yarn add <library>`` in the ``ui`` directory of
-your project, e.g. ``yarn add @daml/react``. Please explore the ``create-daml-app`` example project
+You can install any of these libraries by running ``npm install <library>`` in the ``ui`` directory of
+your project, e.g. ``npm install @daml/react``. Please explore the ``create-daml-app`` example project
 to see the usage of these libraries.
 
 To make your life easy when interacting with the ledger, the DAML assistant can generate JavaScript
@@ -81,7 +81,7 @@ libraries with TypeScript typings from the data types declared in the deployed D
 
 .. code-block:: bash
 
-  daml codegen js .daml/dist/<your-project-name.dar> -o daml.js
+  daml codegen js .daml/dist/<your-project-name.dar> -o ui/daml.js
 
 This command will generate a JavaScript library for each DALF in you DAR, containing metadata about
 types and templates in the DALF and TypeScript typings them. In ``create-daml-app``, ``ui/package.json`` refers to these
@@ -111,7 +111,7 @@ Developer workflow
 The DAML SDK enables a local development environment with fast iteration cycles. If you run
 ``daml-reload-on-change.sh`` of the ``create-daml-app``, a local DAML sandbox ledger is started that
 is updated with your most recent DAML code on any change. Next, you can start your frontend in
-development mode by changing to your ``ui`` directory and run ``yarn start``. This will reload your
+development mode by changing to your ``ui`` directory and run ``npm start``. This will reload your
 frontend whenever you make changes to it. You can add unit tests for your DAML models by writing
 :ref:`DAML scenarios <testing-using-scenarios>`. These will also be reevaluated on change.  A
 typical DAML developer workflow is to
@@ -165,14 +165,14 @@ between such eventually consistent Ledger API endpoints to tolerate server
 failures. You can do this using the following two steps.
 
 First, your application must keep track of the last ledger offset received
-from the :ref:`transaction service <transaction-service>` or the :ref:`command
-completion service <command-completion-service>`.  When switching to a new
+from the :ref:`transaction service <transaction-service>` or the
+:ref:`command completion service <command-completion-service>`.  When switching to a new
 Ledger API endpoint, it must resume consumption of the transaction (tree)
 and/or the command completion streams starting from this last received
 offset.
 
-Second, your application must retry on ``OUT_OF_RANGE`` errors (see `gRPC
-status codes <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_)
+Second, your application must retry on ``OUT_OF_RANGE`` errors (see
+`gRPC status codes <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_)
 received from a stream subscription -- using an appropriate backoff strategy
 to avoid overloading the server. Such errors can be raised because of eventual
 consistency. The Ledger API endpoint that the application is newly subscribing
@@ -189,21 +189,22 @@ new endpoint, it will resume normal operation.
 Dealing with time
 *****************
 
-The DAML language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”. The notion of time comes with a lot of problems in a distributed setting: different participants might run slightly different clocks, transactions would not be allowed to “overtake” each other during DAML interpretation, i.e., a long-running command could block all other commands, and many more.
+The DAML language contains a function :ref:`getTime <daml-ref-gettime>` which returns a rough estimate of “current time” called *Ledger Time*. The notion of time comes with a lot of problems in a distributed setting: different participants might run different clocks, there may be latencies due to calculation and network, clocks may drift against each other over time, etc.
 
-To avoid such problems, DAML provides the following concept of *ledger time*:
+In order to provide a useful notion of time in DAML without incurring severe performance or liveness penalties, DAML has two notions of time: *Ledger Time* and *Record Time*:
 
-- As part of command interpretation, each transaction is automatically assigned a *ledger time* by the participant server.
-- All calls to ``getTime`` within a transaction return the *ledger time* assigned to that transaction.
-- *Ledger time* is reasonably close to real time. To avoid transactions being rejected because the assigned *ledger time* does not match the ledger's system time exactly, DAML Ledgers define a tolerance interval around its system time. The system time is part of the ledger synchronization/consensus protocol, but is not known by the participant node at interpretation time. Transactions with a *ledger time* outside this tolerance interval will be rejected.
-- *Ledger time* respects causal monotonicity: if a transaction ``x`` uses a contract created in another transaction ``y``, transaction ``x``\ s ledger time will be greater than or equal to the ledger time of the referenced transaction ``y``.
+- As part of command interpretation, each transaction is automatically assigned a *Ledger Time* by the participant server.
+- All calls to ``getTime`` within a transaction return the *Ledger Time* assigned to that transaction.
+- *Ledger Time* is chosen (and validated) to respect Causal Monotonicity: The Create action on a contract *c* always precedes all other actions on *c* in Ledger Time.
+- As part of the commit/synchronization protocol of the underlying infrastructure, every transaction is assigned a *Record Time*, which can be thought of as the infrastructures "system time". It's the best available notion of "real time", but the only guarantees on it are the guarantees the underlying infrastructure can give. It is also not known at interpretation time.
+- *Ledger Time* is kept close to "real time" by bounding it against *Record Time*. Transactions where *Ledger* and *Record Time* are too far apart are rejected.
 
-Some commands might take a long time to process, and by the time the resulting transaction is about to be committed to the ledger, it might violate the condition that *ledger time* should  be reasonably close to real time (even when considering the ledger's tolerance interval). To avoid such problems, applications can set the optional parameters :ref:`min_ledger_time_abs <com.daml.ledger.api.v1.Commands.min_ledger_time_abs>` or :ref:`min_ledger_time_rel <com.daml.ledger.api.v1.Commands.min_ledger_time_rel>` command parameters that specify (in absolute or relative terms) the minimal *ledger time* for the transaction. The ledger will then process the command, but wait with committing the resulting transaction until *ledger time* fits within the ledger's tolerance interval.
+Some commands might take a long time to process, and by the time the resulting transaction is about to be committed to the ledger, it might violate the condition that *Ledger Time* should  be reasonably close to *Record Time* (even when considering the ledger's tolerance interval). To avoid such problems, applications can set the optional parameters :ref:`min_ledger_time_abs <com.daml.ledger.api.v1.Commands.min_ledger_time_abs>` or :ref:`min_ledger_time_rel <com.daml.ledger.api.v1.Commands.min_ledger_time_rel>` that specify (in absolute or relative terms) the minimal *Ledger Time* for the transaction. The ledger will then process the command, but wait with committing the resulting transaction until *Ledger Time* fits within the ledger's tolerance interval.
 
 How is this used in practice?
 
-- Be aware that ``getTime`` is only reasonably close to real time. Avoid DAML workflows that rely on very accurate time measurements or high frequency time changes.
+- Be aware that ``getTime`` is only reasonably close to real time, and not completely monotonic. Avoid DAML workflows that rely on very accurate time measurements or high frequency time changes.
 - Set ``min_ledger_time_abs`` or ``min_ledger_time_rel`` if the duration of command interpretation and transmission is likely to take a long time relative to the tolerance interval set by the ledger.
-- In some corner cases, the participant node may be unable to determine a suitable ledger time by itself. If you get an error that no ledger time could be found, check whether you have contention on any contract referenced by your command or whether the referenced contracts are sensitive to small changes of ``getTime``.
+- In some corner cases, the participant node may be unable to determine a suitable Ledger Time by itself. If you get an error that no Ledger Time could be found, check whether you have contention on any contract referenced by your command or whether the referenced contracts are sensitive to small changes of ``getTime``.
 
-For details, see :ref:`Background concepts - time <time>`.
+For more details, see :ref:`Background concepts - time <time>`.

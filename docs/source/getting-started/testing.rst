@@ -18,7 +18,7 @@ Of course there are more to choose from, but this is one combination that works.
 To install Puppeteer and some other testing utilities we are going to use,
 run the following command in the ``ui`` directory::
 
-    yarn add --dev puppeteer wait-on @types/jest @types/node @types/puppeteer @types/wait-on
+    npm add --only=dev puppeteer wait-on @types/jest @types/node @types/puppeteer @types/wait-on
 
 
 Setting up our tests
@@ -31,7 +31,7 @@ To run this test suite, create a new file ``ui/src/index.test.ts``, copy the
 code in this section into that file and run the following command in the ``ui``
 folder::
 
-    yarn test
+    npm test
 
 The actual tests are the clauses beginning with ``test``.
 You can scroll down to the important ones with the following descriptions (the first argument to each ``test``):
@@ -43,11 +43,11 @@ You can scroll down to the important ones with the following descriptions (the f
 
 Before this, we need to set up the environment in which the tests run.
 At the top of the file we have some global state that we use throughout.
-Specifically, we have child processes for the ``daml start`` and ``yarn start`` commands, which run for the duration of our tests.
+Specifically, we have child processes for the ``daml start`` and ``npm start`` commands, which run for the duration of our tests.
 We also have a single Puppeteer browser that we share among tests, opening new browser pages for each one.
 
 The ``beforeAll()`` section is a function run once before any of the tests run.
-We use it to spawn the ``daml start`` and ``yarn start`` processes and launch the browser.
+We use it to spawn the ``daml start`` and ``npm start`` processes and launch the browser.
 On the other hand the ``afterAll()`` section is used to shut down these processes and close the browser.
 This step is important to prevent child processes persisting in the background after our program has finished.
 

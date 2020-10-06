@@ -48,6 +48,7 @@ import DA.Daml.Helper.Util
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
+import DA.Daml.Helper.Codegen
 
 -- [Note] The `platform-version` field:
 --
@@ -177,6 +178,7 @@ withOptsFromProjectConfig fieldName cliOpts projectConfig = do
 runStart
     :: Maybe SandboxPortSpec
     -> Maybe StartNavigator
+    -> NavigatorPort
     -> JsonApiConfig
     -> OpenBrowser
     -> Maybe String
@@ -190,6 +192,7 @@ runStart
 runStart
   sandboxPortM
   mbStartNavigator
+  navigatorPort
   (JsonApiConfig mbJsonApiPort)
   (OpenBrowser shouldOpenBrowser)
   onStartM
@@ -221,6 +224,13 @@ runStart
     jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOpts projectConfig
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
+    forM_ [minBound :: Lang .. maxBound :: Lang] $ \lang -> do
+      mbOutputPath :: Maybe String <-
+        requiredE ("Failed to parse codegen entry for " <> showLang lang) $
+        queryProjectConfig
+          ["codegen", showLang lang, "output-directory"]
+          projectConfig
+      when (isJust mbOutputPath) $ runCodegen lang []
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
         withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
@@ -248,7 +258,6 @@ runStart
                   void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
 
     where
-        navigatorPort = NavigatorPort 7500
         defaultSandboxPort = SpecifiedPort (SandboxPort 6865)
         withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator

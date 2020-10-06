@@ -90,7 +90,7 @@ Comparison operators
    * - ``<``, ``<=``, ``>``, ``>=``
      - ``Bool``, ``Text``, ``Int``, ``Decimal``, ``Party``, ``Time``
    * - ``==``, ``/=``
-     - ``Bool``, ``Text``, ``Int``, ``Decimal``, ``Party``, ``Time``, and :ref:`identifiers of contract instances <daml-ref_contract-identifiers>` stemming from the same contract template
+     - ``Bool``, ``Text``, ``Int``, ``Decimal``, ``Party``, ``Time``, and :ref:`identifiers of contracts <daml-ref_contract-identifiers>` stemming from the same contract template
 
 Logical operators
 *****************

@@ -3,13 +3,8 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
-)
-load(
-    "//bazel_tools/client_server:client_server_test.bzl",
-    "client_server_test",
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
@@ -112,16 +107,14 @@ EOF
 )
 
 da_scala_library(
-    name = "test-lib",
-    srcs = glob(
-        ["src/**/*.scala"],
-        exclude = ["src/com/digitalasset/daml/lf/engine/script/test/JsonApiIt.scala"],
-    ),
-    resources = glob(["src/main/resources/**/*"]),
+    name = "test-utils",
+    srcs = glob(["src/test-utils/**/*.scala"]),
     deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/interface",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -129,43 +122,44 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//ledger-service/jwt",
+        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "@maven//:com_github_scopt_scopt_2_12",
+        "//ledger/ledger-on-memory",
+        "//ledger/ledger-on-memory:ledger-on-memory-app",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils/app",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
-da_scala_binary(
-    name = "test_client_single_participant",
-    main_class = "com.daml.lf.engine.script.test.SingleParticipant",
-    deps = [
-        ":test-lib",
-        "//libs-scala/auth-utils",
-    ],
-)
-
-da_scala_binary(
-    name = "test_client_multi_participant",
-    main_class = "com.daml.lf.engine.script.test.MultiParticipant",
-    deps = [":test-lib"],
-)
-
 da_scala_test_suite(
-    name = "test_json",
-    srcs = [
-        "src/com/digitalasset/daml/lf/engine/script/test/JsonApiIt.scala",
-    ],
+    name = "test",
+    srcs = glob(["src/com/**/*.scala"]),
     data = [
         ":script-test.dar",
+        ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
+        "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/main/resources/**/*"]),
     deps = [
-        ":test-lib",
+        ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -186,147 +180,21 @@ da_scala_test_suite(
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils/app",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//libs-scala/auth-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
-)
-
-client_server_test(
-    name = "test_static_time",
-    client = ":test_client_single_participant",
-    client_files = [
-        "$(rootpath :script-test.dar)",
-        "$(rootpath :script-test-1.dev.dar)",
-    ],
-    data = [
-        ":script-test.dar",
-        ":script-test-1.dev.dar",
-    ],
-    server = "//ledger/sandbox-classic:sandbox-classic-binary",
-    server_args = [
-        "--static-time",
-        "--port=0",
-    ],
-    server_files = [
-        "$(rootpath :script-test.dar)",
-        "$(rootpath :script-test-1.dev.dar)",
-    ],
-)
-
-client_server_test(
-    name = "test_wallclock_time",
-    client = ":test_client_single_participant",
-    client_args = ["-w"],
-    client_files = [
-        "$(rootpath :script-test.dar)",
-        "$(rootpath :script-test-1.dev.dar)",
-    ],
-    data = [
-        ":script-test.dar",
-        ":script-test-1.dev.dar",
-    ],
-    server = "//ledger/sandbox-classic:sandbox-classic-binary",
-    server_args = [
-        "--wall-clock-time",
-        "--port=0",
-    ],
-    server_files = [
-        "$(rootpath :script-test.dar)",
-        "$(rootpath :script-test-1.dev.dar)",
-    ],
-)
-
-client_server_test(
-    name = "test_wallclock_time_authenticated",
-    client = ":test_client_single_participant",
-    client_args = [
-        "-w",
-        "--auth",
-    ],
-    client_files = [
-        "$(rootpath :script-test.dar)",
-        "$(rootpath :script-test-1.dev.dar)",
-    ],
-    data = [
-        ":script-test.dar",
-        ":script-test-1.dev.dar",
-    ],
-    server = "//ledger/sandbox-classic:sandbox-classic-binary",
-    server_args = [
-        "--wall-clock-time",
-        "--port=0",
-        "--auth-jwt-hs256-unsafe=secret",
-    ],
-    server_files = ["$(rootpath :script-test.dar)"],
-)
-
-client_server_test(
-    name = "test_wallclock_time_tls",
-    client = ":test_client_single_participant",
-    client_args = [
-        "-w",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-    ],
-    client_files = [
-        "$(rootpath :script-test.dar)",
-        "$(rootpath :script-test-1.dev.dar)",
-    ],
-    data = [
-        ":script-test.dar",
-        ":script-test-1.dev.dar",
-        "//ledger/test-common/test-certificates:ca.crt",
-        "//ledger/test-common/test-certificates:server.crt",
-        "//ledger/test-common/test-certificates:server.pem",
-    ],
-    server = "//ledger/sandbox-classic:sandbox-classic-binary",
-    server_args = [
-        "--wall-clock-time",
-        "--port=0",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
-        "--client-auth=none",
-    ],
-    server_files = [
-        "$(rootpath :script-test.dar)",
-        "$(rootpath :script-test-1.dev.dar)",
-    ],
-)
-
-client_server_test(
-    name = "test_multiparticipant",
-    client = ":test_client_multi_participant",
-    client_args = [
-        "-w",
-        "--target-port=6865",
-        "--extra-participant-port=6866",
-    ],
-    client_files = ["$(rootpath :script-test.dar)"],
-    data = [":script-test.dar"],
-    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
-    runner_args = [
-        "6865",
-        "6866",
-    ],
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--participant participant-id=daml_on_x,port=6865",
-        "--participant participant-id=daml_on_x2,port=6866",
-    ],
-    server_files = ["$(rootpath :script-test.dar)"],
-    tags = ["exclusive"],
 )
 
 sh_test(

@@ -42,9 +42,9 @@ Your screen should now look like the image below.
 
 6. Remove the parse error by restoring the ``=`` sign.
 
-We recommend reviewing the `Visual Studio Code documentation
-<https://code.visualstudio.com/docs/editor/codebasics>`_ to learn more
-about how to use it.
+We recommend reviewing the
+`Visual Studio Code documentation <https://code.visualstudio.com/docs/editor/codebasics>`_
+to learn more about how to use it.
 To learn more about DAML, see :doc:`reference/index`.
 
 Supported features
@@ -97,7 +97,7 @@ You can `hover`_ over most symbols in the code to display additional information
 
 .. _hover: https://code.visualstudio.com/docs/editor/editingevolved#_hover
 
-.. _scenario-results:
+.. _scenario-script-results:
 
 Scenario and DAML Script results
 ================================

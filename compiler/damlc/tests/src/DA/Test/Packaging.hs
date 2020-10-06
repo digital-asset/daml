@@ -205,7 +205,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
         archive <- Zip.toArchive <$> BSL.readFile dar
         Just entry <- pure $ Zip.findEntryByPath "META-INF/MANIFEST.MF" archive
         let lines = BSL.Char8.lines (Zip.fromEntry entry)
-            expectedLine = "Sdk-Version: " <> BSL.Char8.pack (SdkVersion.toGhcPkgVersion sdkVersion)
+            expectedLine = "Sdk-Version: " <> BSL.Char8.pack sdkVersion
         assertBool "META-INF/MANIFEST.MF picked up the wrong sdk version" (expectedLine `elem` lines)
 
     , testCase "Non-root sources files" $ withTempDir $ \projDir -> do
@@ -416,7 +416,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
           writeFileUTF8 (projDir </> "A.daml") $ unlines
-              [ "daml 1.2 module A where"
+              [ "module A where"
               ]
           withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=1.dev"]
           Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (projDir </> "foobar.dar")
@@ -627,7 +627,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "build-options: [--target=1.8]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
-              [ "daml 1.2 module A where"
+              [ "module A where"
               ]
           withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar"]
 
@@ -646,7 +646,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "build-options: [--target=1.7]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
-              [ "daml 1.2 module B where"
+              [ "module B where"
               , "import A ()"
               ]
           buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.7 but dependencies have newer LF versions"
@@ -663,7 +663,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "build-options: [--target=1.8]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
-              [ "daml 1.2 module A where"
+              [ "module A where"
               ]
           withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar"]
 
@@ -681,7 +681,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "build-options: [--target=1.7]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
-              [ "daml 1.2 module B where"
+              [ "module B where"
               , "import A ()"
               ]
           buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.7 but dependencies have newer LF versions"
@@ -854,7 +854,7 @@ lfVersionTests damlc = testGroup "LF version dependencies"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
           writeFileUTF8 (projDir </> "A.daml") $ unlines
-              [ "daml 1.2 module A where"]
+              [ "module A where"]
           withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "proj.dar", "--target", LF.renderVersion version]
           archive <- Zip.toArchive <$> BSL.readFile (projDir </> "proj.dar")
           DalfManifest {mainDalfPath, dalfPaths} <- either fail pure $ readDalfManifest archive
@@ -891,8 +891,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           step "Build proja"
           createDirectoryIfMissing True (proja </> "src")
           writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
-              [" daml 1.2"
-              , "module A where"
+              [ "module A where"
               , "import DA.Text"
               , "data A = A Int deriving Show"
               -- This ensures that we have a reference to daml-stdlib and therefore daml-prim.
@@ -1022,7 +1021,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
           writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
-              [ "daml 1.2 module Lib where"
+              [ "module Lib where"
               , "inc : Int -> Int"
               , "inc = (+ 1)"
               ]
@@ -1042,7 +1041,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "  - " <> show (tmpDir </> "lib" </> "lib.dar")
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
-              [ "daml 1.2 module A where"
+              [ "module A where"
               , "import Lib"
               , "two : Int"
               , "two = inc 1"
@@ -1065,7 +1064,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "data-dependencies: [" <> show (tmpDir </> "a" </> "a.dar") <> "]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
-              [ "daml 1.2 module B where"
+              [ "module B where"
               , "import Lib"
               , "import A"
               , "three : Int"
@@ -1215,7 +1214,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
                   , "dependencies: [daml-prim, daml-stdlib]"
                   ]
               writeFileUTF8 (projDir </> "Lib.daml") $ unlines
-                  [ "daml 1.2 module Lib where"
+                  [ "module Lib where"
                   , "data X" <> version <> " = X"
                   ]
               withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "lib.dar"]
@@ -1233,7 +1232,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
                , "- " <> show (tmpDir </> "lib-1" </> "lib.dar")
                ]
           writeFileUTF8 (projDir </> "A.daml") $ unlines
-              [ "daml 1.2 module A where"
+              [ "module A where"
               , "import Lib"
               , "data A = A X1"
               ]
@@ -1253,7 +1252,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
                , "- " <> show (tmpDir </> "a" </> "a.dar")
                ]
           writeFileUTF8 (projDir </> "B.daml") $ unlines
-              [ "daml 1.2 module B where"
+              [ "module B where"
               , "import Lib"
               , "import A"
               , "data B1 = B1 A"
@@ -1278,7 +1277,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
                , "- " <> show (tmpDir </> "lib-2" </> "lib.dar")
                ]
           writeFileUTF8 (projDir </> "C.daml") $ unlines
-              [ "daml 1.2 module C where"
+              [ "module C where"
               , "import B"
               , "import Lib"
               , "f : B2 -> X2"
@@ -1560,7 +1559,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "build-options: [--target=1.dev]"
               ]
           writeFileUTF8 (tmpDir </> "type" </> "Proxy.daml") $ unlines
-              [ "daml 1.2 module Proxy where"
+              [ "module Proxy where"
               , "data Proxy a = Proxy {}"
               ]
           withCurrentDirectory (tmpDir </> "type") $ callProcessSilent damlc ["build", "-o", "type.dar"]
@@ -1577,7 +1576,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "build-options: [ \"--target=1.dev\" ]"
               ]
           writeFileUTF8 (tmpDir </> "dependency" </> "Dependency.daml") $ unlines
-             [ "daml 1.2 module Dependency where"
+             [ "module Dependency where"
              , "import Proxy"
              , "instance Functor Proxy where"
              , "  fmap _ Proxy = Proxy"
@@ -1596,7 +1595,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "build-options: [ \"--target=1.dev\" ]"
               ]
           writeFileUTF8 (tmpDir </> "data-dependency" </> "DataDependency.daml") $ unlines
-             [ "daml 1.2 module DataDependency where"
+             [ "module DataDependency where"
              , "import Proxy"
              , "instance Functor Proxy where"
              , "  fmap _ Proxy = Proxy"
@@ -1618,7 +1617,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "build-options: [--target=1.dev]"
               ]
           writeFileUTF8 (tmpDir </> "top" </> "Top.daml") $ unlines
-              [ "daml 1.2 module Top where"
+              [ "module Top where"
               , "import DataDependency"
               , "import Proxy"
               -- Test that we can use the Applicaive instance of Proxy from the data-dependency
@@ -1714,6 +1713,114 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             , "matchD d ="
             , "  case d of"
             , "    D () -> ()"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
+
+    , testCaseSteps "HasField across data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test checks that HasField instances are correctly imported via
+        -- data-dependencies. This is a regression test for issue #7284.
+        step "building project with type definition"
+        createDirectoryIfMissing True (tmpDir </> "type")
+        writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: type"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "type" </> "P1.daml") $ unlines
+            [ "module P1 where"
+            , "data T x y"
+            , "   = A with a: x"
+            , "   | B with b: y"
+            ]
+        withCurrentDirectory (tmpDir </> "type") $
+            callProcessSilent damlc ["build", "-o", "type.dar"]
+
+        step "building project that uses it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "type" </> "type.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "P2.daml") $ unlines
+            [ "module P2 where"
+            , "import P1"
+            , "getA : T x y -> x"
+            , "getA t = t.a"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
+
+    , testCaseSteps "Dictionary function names match despite conflicts" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test checks that dictionary function names are recreated correctly.
+        -- This is a regression test for issue #7362.
+        step "building project with type definition"
+        createDirectoryIfMissing True (tmpDir </> "type")
+        writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: type"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "type" </> "P1.daml") $ unlines
+            [ "module P1 where"
+            , "data T t = T {}"
+            , "instance Show (T Int) where show T = \"T\""
+            , "instance Show (T Bool) where show T = \"T\""
+            , "instance Show (T Text) where show T = \"T\""
+            , "instance Show (T (Optional Int)) where show T = \"T\""
+            , "instance Show (T (Optional Bool)) where show T = \"T\""
+            , "instance Show (T (Optional Text)) where show T = \"T\""
+            , "instance Show (T [Int]) where show T = \"T\""
+            , "instance Show (T [Bool]) where show T = \"T\""
+            , "instance Show (T [Text]) where show T = \"T\""
+            , "instance Show (T [Optional Int]) where show T = \"T\""
+            , "instance Show (T [Optional Bool]) where show T = \"T\""
+            , "instance Show (T [Optional Text]) where show T = \"T\""
+            ] -- ^ These instances all have conflicting dictionary function names,
+              -- so GHC numbers them 1, 2, 3, 4, ... after the first.
+              --
+              -- NB: It's important to have more than 10 instances here, so we can test
+              -- that we handle non-lexicographically ordered conflicts correctly
+              -- (i.e. instances numbered 10, 11, etc will not be in the correct order
+              -- just by sorting definitions by value name, lexicographically).
+        withCurrentDirectory (tmpDir </> "type") $
+            callProcessSilent damlc ["build", "-o", "type.dar"]
+
+        step "building project that uses it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "type" </> "type.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "P2.daml") $ unlines
+            [ "module P2 where"
+            , "import P1"
+            , "f1 = show @(T Int)"
+            , "f2 = show @(T Bool)"
+            , "f3 = show @(T Text)"
+            , "f4 = show @(T (Optional Int))"
+            , "f5 = show @(T (Optional Bool))"
+            , "f6 = show @(T (Optional Text))"
+            , "f7 = show @(T [Int])"
+            , "f8 = show @(T [Bool])"
+            , "f9 = show @(T [Text])"
+            , "f10 = show @(T [Optional Int])"
+            , "f11 = show @(T [Optional Bool])"
+            , "f12 = show @(T [Optional Text])"
             ]
         withCurrentDirectory (tmpDir </> "proj") $
             callProcessSilent damlc ["build"]

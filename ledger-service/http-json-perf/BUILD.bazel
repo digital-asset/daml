@@ -5,12 +5,10 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
     "lf_scalacopts",
 )
-load("//rules_daml:daml.bzl", "daml_compile")
 
-hj_scalacopts = lf_scalacopts + [
+scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
 
@@ -20,7 +18,8 @@ da_scala_library(
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    scalacopts = hj_scalacopts,
+    resources = glob(["src/main/resources/**/*"]),
+    scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:http-json-perf:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -32,6 +31,8 @@ da_scala_library(
         "//ledger-service/http-json",
         "//ledger-service/http-json-testing",
         "//ledger-service/jwt",
+        "//libs-scala/gatling-utils",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/scala-utils",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_fasterxml_jackson_core_jackson_databind",
@@ -45,6 +46,8 @@ da_scala_library(
         "@maven//:io_gatling_gatling_core",
         "@maven//:io_gatling_gatling_http",
         "@maven//:io_gatling_gatling_http_client",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -59,7 +62,7 @@ da_scala_binary(
         "-Dlogback.configurationFile=$(location :release/json-api-perf-logback.xml)",
     ],
     main_class = "com.daml.http.perf.Main",
-    scalacopts = hj_scalacopts,
+    scalacopts = scalacopts,
     tags = [
         "maven_coordinates=com.daml:http-json-perf-deploy:__VERSION__",
         "no_scala_version_suffix",
@@ -67,8 +70,6 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:io_gatling_gatling_charts",
-        "@maven//:io_gatling_highcharts_gatling_highcharts",
     ],
     deps = [
         ":http-json-perf",
@@ -77,6 +78,7 @@ da_scala_binary(
         "//ledger-service/http-json",
         "//ledger-service/http-json-testing",
         "//ledger-service/jwt",
+        "//libs-scala/gatling-utils",
         "//libs-scala/scala-utils",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_fasterxml_jackson_core_jackson_databind",
@@ -90,6 +92,8 @@ da_scala_binary(
         "@maven//:io_gatling_gatling_core",
         "@maven//:io_gatling_gatling_http",
         "@maven//:io_gatling_gatling_http_client",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],

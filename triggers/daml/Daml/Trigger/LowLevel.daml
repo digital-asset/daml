@@ -1,5 +1,6 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Daml.Trigger.LowLevel
@@ -33,10 +34,23 @@ module Daml.Trigger.LowLevel
   , RegisteredTemplates(..)
   , registeredTemplate
   , RelTime(..)
+  , execStateT
+  , ActionTrigger(..)
+  , TriggerSetup(..)
+  , TriggerRule(..)
+  , ActionState(..)
+  , modify
+  , zoom
+  , submitCommands
+  , simulateRule
   ) where
 
+import qualified DA.Action.State as State
+import DA.Foldable (mapA_)
+import DA.Functor ((<&>), ($>))
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
+import Daml.Script.Free (Free(..), lift, foldFree)
 
 -- | This type represents the contract id of an unknown template.
 -- You can use `fromAnyContractId` to check which template it corresponds to.
@@ -44,6 +58,10 @@ data AnyContractId = AnyContractId
   { templateId : TemplateTypeRep
   , contractId : ContractId ()
   } deriving Eq
+
+#ifdef DAML_GENERIC_COMPARISON
+deriving instance Ord AnyContractId
+#endif
 
 -- We can’t derive the Show instance since TemplateTypeRep does not have a Show instance
 -- but it is useful for debugging so we add one that omits the type.
@@ -74,7 +92,7 @@ newtype EventId = EventId Text
   deriving (Show, Eq)
 
 newtype CommandId = CommandId Text
-  deriving (Show, Eq, MapKey)
+  deriving (Show, Eq, Ord, MapKey)
 
 data Transaction = Transaction
  { transactionId : TransactionId
@@ -150,8 +168,8 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- | Trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
 data Trigger s = Trigger
-  { initialState : Party -> Time -> ActiveContracts -> (s, [Commands])
-  , update : Time -> Message -> s -> (s, [Commands])
+  { initialState : Party -> ActiveContracts -> TriggerSetup s
+  , update : Message -> TriggerRule s ()
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
   }
@@ -239,3 +257,77 @@ data Commands = Commands
   { commandId : CommandId
   , commands : [Command]
   }
+
+newtype StateT s m a = StateT { runStateT : s -> m (a, s) }
+  deriving Functor
+
+liftStateT : Functor m => m a -> StateT s m a
+liftStateT ma = StateT $ \s -> (,s) <$> ma
+
+instance Action m => Applicative (StateT s m) where
+  pure a = StateT (\s -> pure (a, s))
+  f <*> x = f >>= (<$> x)
+  
+instance Action m => Action (StateT s m) where
+  StateT x >>= f = StateT $ \s -> do
+    (x', s') <- x s
+    runStateT (f x') s'
+
+class ActionState s m | m -> s where
+  get : m s
+  put : s -> m ()
+
+modify : (Action m, ActionState s m) => (s -> s) -> m ()
+modify f = put . f =<< get
+
+instance Applicative m => ActionState s (StateT s m) where
+  get = StateT $ \s -> pure (s, s)
+  put s = StateT $ const $ pure ((), s)
+
+execStateT : Functor m => StateT s m a -> s -> m s
+execStateT (StateT fa) = fmap snd . fa
+
+zoom : Functor m => (t -> s) -> (t -> s -> t) -> StateT s m a -> StateT t m a
+zoom r w (StateT smas) = StateT $ \t ->
+  smas (r t) <&> \(a, s) -> (a, w t s)
+
+-- Must be kept in sync with Runner#handleStepFreeResult
+data TriggerF a =
+  GetTime (Time -> a)
+  | Submit (Commands, () -> a)
+  deriving Functor
+
+newtype TriggerSetup a = TriggerSetup { runTriggerSetup : Free TriggerF a }
+  deriving (Functor, Applicative, Action)
+
+newtype TriggerRule s a = TriggerRule { runTriggerRule : StateT s (Free TriggerF) a }
+  deriving (Functor, Applicative, Action)
+
+-- | Run a rule without running it.  May lose information from the rule;
+-- meant for testing purposes only.
+simulateRule : TriggerRule s a -> Time -> s -> (s, [Commands], a)
+simulateRule rule time s = (s', reverse cmds, a)
+  where ((a, s'), cmds) = State.runState (foldFree sim (runStateT (runTriggerRule rule) s)) []
+        sim : TriggerF x -> State.State [Commands] x
+        sim (GetTime f) = pure (f time)
+        sim (Submit (cmds, f)) = State.modify (cmds ::) $> f ()
+
+deriving instance ActionState s (TriggerRule s)
+
+class HasTime m => ActionTrigger m where
+  liftTF : TriggerF a -> m a
+
+instance ActionTrigger TriggerSetup where
+  liftTF = TriggerSetup . lift
+
+instance ActionTrigger (TriggerRule s) where
+  liftTF = TriggerRule . liftStateT . lift
+
+instance HasTime TriggerSetup where
+  getTime = liftTF (GetTime identity)
+
+instance HasTime (TriggerRule s) where
+  getTime = liftTF (GetTime identity)
+
+submitCommands : ActionTrigger m => Commands -> m ()
+submitCommands cmds = liftTF (Submit (cmds, identity))

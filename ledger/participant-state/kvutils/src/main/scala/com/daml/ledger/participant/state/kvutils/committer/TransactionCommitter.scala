@@ -67,7 +67,7 @@ private[kvutils] class TransactionCommitter(
     "validate_ledger_time" -> validateLedgerTime,
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
-    "authorize_and_blind" -> authorizeAndBlind
+    "blind" -> blind
   )
 
   // -------------------------------------------------------------------------------
@@ -227,6 +227,7 @@ private[kvutils] class TransactionCommitter(
 
         engine
           .validate(
+            transactionEntry.submitter,
             SubmittedTransaction(transactionEntry.transaction),
             transactionEntry.ledgerEffectiveTime,
             commitContext.getParticipantId,
@@ -248,20 +249,11 @@ private[kvutils] class TransactionCommitter(
       })
 
   /** Validate the submission's conformance to the DAML model */
-  private def authorizeAndBlind: Step =
-    (commitContext, transactionEntry) =>
-      Blinding
-        .checkAuthorizationAndBlind(
-          transactionEntry.transaction,
-          initialAuthorizers = Set(transactionEntry.submitter),
-        )
-        .fold(
-          error =>
-            reject(
-              commitContext.getRecordTime,
-              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(error.msg))),
-          blindingInfo => buildFinalResult(commitContext, transactionEntry, blindingInfo)
-      )
+  private def blind: Step =
+    (commitContext, transactionEntry) => {
+      val blindingInfo = Blinding.blind(transactionEntry.transaction)
+      buildFinalResult(commitContext, transactionEntry, blindingInfo)
+    }
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
     val damlState = commitContext.inputs

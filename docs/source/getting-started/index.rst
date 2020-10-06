@@ -32,14 +32,8 @@ Please make sure that you have the DAML SDK, Java 8 or higher, and Visual Studio
 You will also need some common software tools to build and interact with the template project.
 
 - `Git <https://git-scm.com/downloads>`_ version control system
-- `Yarn <https://classic.yarnpkg.com/en/docs/install/>`_ package manager for JavaScript. You have to have yarn version 1.10.0 or higher.
-
-  Note: Ubuntu 17.04 and higher come with ``cmdtest`` package installed by default. If you are getting errors when installing yarn, you may want to run ``sudo apt remove cmdtest`` first and then install yarn. More information can be found `here <https://github.com/yarnpkg/yarn/issues/2821>`_ as well as in the official `yarn installation docs for Debian / Ubuntu <https://classic.yarnpkg.com/en/docs/install/#debian-stable>`_
-- `NodeJS <https://nodejs.org/en/download/>`_ in version 8.16 or higher. This will usually be
-  installed automatically as part of installing Yarn.
-
-  Note: On Ubuntu 18.04, NodeJS 8.10 will be installed as part of installing Yarn which is too old.
-  You can find instructions for installing newer versions at `NodeSource <https://github.com/nodesource/distributions/blob/master/README.md#installation-instructions>`_.
+- `Node <https://docs.npmjs.com/downloading-and-installing-node-js-and-npm>`_ package manager for JavaScript.
+  Note: On Ubuntu 18.04, NodeJS 8.10 will be installed but its too old.
 - A terminal application for command line interaction
 
 
@@ -60,25 +54,6 @@ Change to the new folder::
 
     cd create-daml-app
 
-Next we need to compile the DAML code to a DAR file::
-
-    daml build
-
-Once the DAR file is created you will see this message in terminal ``Created .daml/dist/create-daml-app-0.1.0.dar``.
-
-Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a command line tool in the DAML SDK for building and running DAML apps.
-In order to connect the UI code to this DAML, we need to run a code generation step::
-
-    daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
-
-Now, changing to the ``ui`` folder, use Yarn to install the project dependencies::
-
-    cd ui
-    yarn install --force --frozen-lockfile
-
-This step may take a couple of moments (it's worth it!).
-You should see ``success Saved lockfile.`` in the output if everything worked as expected.
-
 .. TODO: Give instructions for possible failures.
 
 We can now run the app in two steps.
@@ -87,18 +62,29 @@ In one terminal, at the root of the ``create-daml-app`` directory, run the comma
 
     daml start
 
+Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a
+command line tool in the DAML SDK for building and running DAML apps.
+
 You will know that the command has started successfully when you see the ``INFO  com.daml.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 
-    1. Compiles the DAML code to a DAR file as in the previous ``daml build`` step.
-    2. Starts an instance of the :doc:`Sandbox </tools/sandbox>`, an in-memory ledger useful for development, loaded with our DAR.
-    3. Starts a server for the :doc:`HTTP JSON API </json-api/index>`, a simple way to run commands against a DAML ledger (in this case the running Sandbox).
+    1. Compiles the DAML code to a DAR file.
+    2. Generates a JavaScript library in ``ui/daml.js`` to connect the UI with your DAML code.
+    3. Starts an instance of the :doc:`Sandbox </tools/sandbox>`, an in-memory ledger useful for development, loaded with our DAR.
+    4. Starts a server for the :doc:`HTTP JSON API </json-api/index>`, a simple way to run commands against a DAML ledger (in this case the running Sandbox).
 
 We'll leave these processes running to serve requests from our UI.
 
-In a second terminal, navigate to the ``create-daml-app/ui`` folder and run the application::
+In a second terminal, navigate to the ``create-daml-app/ui`` folder and use ``npm`` to install the project dependencies::
 
-    cd ui
-    yarn start
+    cd create-daml-app/ui
+    npm install --frozen-lockfile
+
+This step may take a couple of moments (it's worth it!).
+You should see ``success Saved lockfile.`` in the output if everything worked as expected.
+
+Now you can start the UI with::
+
+    npm start
 
 This starts the web UI connected to the running Sandbox and JSON API server.
 The command should automatically open a window in your default browser at http://localhost:3000.
@@ -147,3 +133,5 @@ Just switch to the window where you are logged in as yourself - the network shou
 Play around more with the app at your leisure: create new users and start following more users.
 Observe when a user becomes visible to others - this will be important to understanding DAML's privacy model later.
 When you're ready, let's move on to the :doc:`architecture of our app <app-architecture>`.
+
+.. tip:: Congratulations on completing the first part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your first of 3 getting started badges <https://discuss.daml.com/badges/125/it-works>`_! You can get the next one by :doc:`implementing your first feature </getting-started/first-feature>`.

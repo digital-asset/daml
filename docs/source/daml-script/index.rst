@@ -7,7 +7,7 @@ DAML Script
 .. toctree::
    :hidden:
 
-   daml-script-docs
+   api/index
 
 DAML scenarios provide a simple way for testing DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
@@ -18,11 +18,10 @@ e.g., your UI or :doc:`DAML triggers </triggers/index>`.
 DAML Script addresses this problem by providing you with an API with
 the simplicity of DAML scenarios and all the benefits such as being
 able to reuse your DAML types and logic while running against an actual
-ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-results>`.
+ledger in addition to allowing you to experiment in :ref:`DAML Studio <scenario-script-results>`.
 This means that you can use it to test automation logic, your
-UI but also for :ref:`ledger initialization
-<script-ledger-initialization>` where scenarios cannot be used (with
-the exception of :doc:`/tools/sandbox`).
+UI but also for :ref:`ledger initialization <script-ledger-initialization>`
+where scenarios cannot be used (with the exception of :doc:`/tools/sandbox`).
 
 You can also use DAML Script interactively using :doc:`/daml-repl/index`.
 
@@ -99,7 +98,9 @@ scenarios. However, ``Commands`` requires that the individual commands
 do not depend on each other. This matches the restriction on the
 Ledger API where a transaction consists of a list of commands.  Using
 ``ApplicativeDo`` we can still use ``do``-notation as long as we
-respect this. In ``Commands`` we use ``createCmd`` instead of
+respect this and the last statement in the ``do``-block is of the form
+``return expr`` or ``pure expr``.
+In ``Commands`` we use ``createCmd`` instead of
 ``create`` and ``exerciseCmd`` instead of ``exercise``.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
@@ -233,15 +234,44 @@ translated to DAML script but there are a few things to keep in mind:
 #. Instead of specifying a ``scenario`` field in your ``daml.yaml``,
    you need to specify an ``init-script`` field. The initialization
    script is specified via ``Module:identifier`` for both fields.
-#. DAML script only supports the commands available on the ledger API
-   so you cannot call functions like ``fetch`` directly. This is
-   intentional. Your initialization scripts should not be able to
-   create transactions that a ledger client would not be able to
-   create. If you want to call methods not exposed via the Ledger API,
-   you can create a new template with a single choice
-   and call that via ``createAndExercise``.
-#. You need to replace calls to ``getParty x`` by
-   ``allocatePartyWithHint x (PartyIdHint x)``.
+#. In DAML script, ``submit`` and ``submitMustFail`` are limited to
+   the functionality provided by the ledger API: A list of independent
+   commands consisting of ``createCmd``, ``exerciseCmd``,
+   ``createAndExerciseCmd`` and ``exerciseByKeyCmd``. There are two
+   issues you might run into when migrating an existing scenario:
+
+   #. Your commands depend on each other, e.g., you use the result of
+      a ``create`` within a following command in the same
+      ``submit``. In this case, you have two options: If it is not
+      important that they are part of a single transaction, split
+      them into multiple calls to ``submit``. If you do need them to
+      be within the same transaction, you can move the logic to a
+      choice and call that using ``createAndExerciseCmd``.
+
+   #. You use something that is not part of the 4 ledger API command
+      types, e.g., ``fetch``. For ``fetch`` and ``fetchByKey``, you
+      can instead use ``queryContractId`` and ``queryContractKey``
+      with the caveat that they do not run within the same
+      transaction. Other types of ``Update`` statements can be moved
+      to a choice that you call via ``createAndExerciseCmd``.
+#. Instead of Scenario’s ``getParty``, DAML Script provides you with
+   ``allocateParty`` and ``allocatePartyWithHint``. There are a few
+   important differences:
+
+   #. Allocating a party always gives you back a new party (or
+      fails). If you have multiple calls to ``getParty`` with the same
+      string and expect to get back the same party, you should instead
+      allocate the party once at the beginning and pass it along to
+      the rest of the code.
+
+   #. If you want to allocate a party with a specific party id, you
+      can use ``allocatePartyWithHint x (PartyIdHint x)`` as a replacement for `getParty x`. Note that
+      while this is supported in DAML Studio and DAML for PostgreSQL, other
+      ledgers can behave differently and ignore the party id hint or
+      interpret it another way. Try to not rely on any specific
+      party id.
+#. Instead of ``pass`` and ``passToDate``, DAML Script provides
+   ``passTime`` and ``setTime``.
 
 .. _daml-script-distributed:
 
@@ -283,10 +313,10 @@ you need to specify an access token. There are two ways of doing that:
 2. If you need multiple tokens, e.g., because you only have
    single-party tokens you can use the ``access_token`` field in the
    participant config specified via ``--participant-config``. The
-   section on :ref:`using DAML Script in distributed topologies
-   <daml-script-distributed>` contains an example. Note that you can
-   specify the same participant twice if you want different auth
-   tokens.
+   section on
+   :ref:`using DAML Script in distributed topologies <daml-script-distributed>`
+   contains an example. Note that you can specify the same participant
+   twice if you want different auth tokens.
 
 If you specify both ``--access-token-file`` and
 ``--participant-config``, the participant config takes precedence and
@@ -298,8 +328,8 @@ have a token specified in the config.
 Running DAML Script against the HTTP JSON API
 =============================================
 
-In some cases, you only have access to the :doc:`HTTP JSON API
-</json-api/index>` but not to the gRPC of a ledger, e.g., on
+In some cases, you only have access to the
+:doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on
 `project:DABL <https://projectdabl.com>`_. For this usecase, DAML
 script can be run against the JSON API. Note that if you do have
 access to the gRPC API, running DAML script against the JSON API does

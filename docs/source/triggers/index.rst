@@ -7,10 +7,9 @@ DAML Triggers - Off-Ledger Automation in DAML
 .. toctree::
    :hidden:
 
-   trigger-docs
+   api/index
 
-**WARNING:** DAML Triggers are an early access feature that is actively
-being designed and is *subject to breaking changes*.
+DAML Triggers are currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 We welcome feedback about DAML triggers on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_,
 `our forum <https://discuss.daml.com>`_, or `on Slack <https://slack.daml.com>`_.
@@ -90,7 +89,8 @@ library to the ``dependencies`` field in ``daml.yaml``.
 In addition to that you also need to import the ``Daml.Trigger``
 module.
 
-DAML triggers automatically track the active contract set and the
+DAML triggers automatically track the active contract set (ACS), i.e., the set of contracts
+that have been created and have not been archived, and the
 commands in flight for you. In addition to that, they allow you to
 have user-defined state that is updated based on new transactions and
 command completions. For our copy trigger, the ACS is sufficient, so
@@ -103,7 +103,7 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
     data Trigger s = Trigger
       { initialize : ACS -> s
       , updateState : ACS -> Message -> s -> s
-      , rule : Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ()
+      , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
       , registeredTemplates : RegisteredTemplates
       , heartbeat : Optional RelTime
       }
@@ -117,13 +117,13 @@ the ACS and the transaction or completion. Since our DAML trigger does
 not have any interesting user-defined state, we will not go into
 details here.
 
-The ``rule`` function is the core of a DAML trigger. It
-defines which commands need to be sent to the ledger based on the
-party the trigger is executed at, the current state of the ACS, the
-current time, the commands in flight and the user defined state.
-The type ``TriggerA`` allows you to emit commands that are then sent
-to the ledger. Like ``Scenario`` or ``Update``, you can use ``do``
-notation with ``TriggerA``.
+The ``rule`` function is the core of a DAML trigger. It defines which
+commands need to be sent to the ledger based on the party the trigger is
+executed at, the current state of the ACS, the commands in flight and
+the user defined state.  The type ``TriggerA`` allows you to emit
+commands that are then sent to the ledger. Like ``Scenario`` or
+``Update``, you can use ``do`` notation and ``getTime`` with
+``TriggerA``.
 
 We can specify the templates that our trigger will operate
 on. In our case, we will simply specify ``AllInDar`` which means that
@@ -271,8 +271,14 @@ read the token from the file ``token.jwt``.
 When not to use DAML triggers
 =============================
 
+DAML Triggers are not suited for automation that needs to interact
+with services or data outside of the ledger. For those cases, you can
+write a ledger client using the
+:doc:`JavaScript bindings </app-dev/bindings-ts/index>`
+running against the HTTP JSON API or the
+:doc:`Java bindings</app-dev/bindings-java/index>` running against the
+gRPC Ledger API.
+
 DAML triggers deliberately only allow you to express automation that
 listens for ledger events and reacts to them by sending commands to
-the ledger. If your automation needs to interact with data outside of
-the ledger then DAML triggers are not the right tool. For this case,
-you can use the HTTP JSON API.
+the ledger.

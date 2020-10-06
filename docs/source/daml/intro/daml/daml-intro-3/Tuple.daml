@@ -6,8 +6,9 @@ module Tuple where
 
 -- TUPLE_TEST_BEGIN
 import DA.Tuple
+import Daml.Script
 
-tuple_test = scenario do
+tuple_test = script do
   let
     my_key_value = ("Key", 1)
     my_coordinate = (1.0 : Decimal, 2.0 : Decimal, 3.0 : Decimal)

@@ -426,8 +426,6 @@ case object LedgerApiV1 {
       case v: Model.ApiList => fillInListTI(v, typ, ctx)
       case v: Model.ApiRecord => fillInRecordTI(v, typ, ctx)
       case v: Model.ApiVariant => fillInVariantTI(v, typ, ctx)
-      case _: Model.ApiImpossible =>
-        Left(GenericConversionError("unserializable Struct appeared of serializable type"))
     }
 
   def readCompletion(completion: V1.completion.Completion): Result[Option[Model.CommandStatus]] = {

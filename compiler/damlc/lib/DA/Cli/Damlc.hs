@@ -224,14 +224,14 @@ cmdInspect =
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
-    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar (early access)" <> fullDesc
+    command "visual" $ info (helper <*> cmd) $ progDesc "Early Access (Labs). Generate visual from dar" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> dotFileOpt
       vis a b = Command Visual Nothing $ execVisual a b
 
 cmdVisualWeb :: Mod CommandFields Command
 cmdVisualWeb =
-    command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar (early access)" <> fullDesc
+    command "visual-web" $ info (helper <*> cmd) $ progDesc "Early Access (Labs). Generate D3-Web Visual from dar" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> htmlOutFile <*> openBrowser
       vis a b browser = Command Visual Nothing $ execVisualHtml a b browser
@@ -361,7 +361,7 @@ cmdInit numProcessors =
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
     command "package" $ info (helper <*> cmd) $
-       progDesc "Compile the DAML program into a DAML Archive (DAR)"
+       progDesc "Compile the DAML program into a DAR (deprecated)"
     <> fullDesc
   where
     cmd = execPackage
@@ -408,7 +408,7 @@ cmdDocTest :: Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
     command "doctest" $
     info (helper <*> cmd) $
-    progDesc "doc tests" <> fullDesc
+    progDesc "Early Access (Labs). doc tests" <> fullDesc
   where
     cmd = execDocTest
         <$> optionsParser numProcessors (EnableScenarioService True) optPackageName
@@ -616,12 +616,19 @@ execRepl
     -> ReplClient.ReplTimeMode
     -> Command
 execRepl projectOpts opts scriptDar dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
-  where effect = do
+  where
+        toPackageFlag (LF.PackageName name, Nothing) =
+            ExposePackage "--import" (PackageArg $ T.unpack name) (ModRenaming True [])
+        toPackageFlag (name, mbVer) =
+            ExposePackage "--import" (UnitIdArg (pkgNameVersion name mbVer)) (ModRenaming True [])
+        pkgFlags = [ toPackageFlag pkg | pkg <- importPkgs ]
+        effect = do
             -- We change directory so make this absolute
             dars <- mapM makeAbsolute dars
             opts <- pure opts
                 { optDlintUsage = DlintDisabled
                 , optScenarioService = EnableScenarioService False
+                , optPackageImports = optPackageImports opts ++ pkgFlags
                 }
             logger <- getLogger opts "repl"
             runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
@@ -674,6 +681,17 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
   Command Package (Just projectOpts) effect
   where
     effect = withProjectRoot' projectOpts $ \relativize -> do
+      hPutStrLn stderr $ unlines
+        [ "WARNING: The comannd"
+        , ""
+        , "    daml damlc package"
+        , ""
+        , "is deprecated. Please use"
+        , ""
+        , "    daml build"
+        , ""
+        , "instead."
+        ]
       loggerH <- getLogger opts "package"
       filePath <- relativize filePath
       withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do

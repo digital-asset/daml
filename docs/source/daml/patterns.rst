@@ -13,7 +13,7 @@ You can checkout the examples locally via ``daml new daml-patterns --template da
 :doc:`patterns/multiparty-agreement`
     The Multiple Party Agreement pattern uses a Pending contract as a wrapper for the Agreement contract. Any one of the signatory parties can kick off the workflow by creating a Pending contract on the ledger, filling in themselves in all the signatory fields. The Agreement contract is not created on the ledger until all parties have agreed to the Pending contract, and replaced the initiator's signature with their own.
 :doc:`patterns/delegation`
-    The Delegation pattern gives one party the right to exercise a choice on behalf of another party. The agent can control a contract instance on the ledger without the principal explicitly committing the action.
+    The Delegation pattern gives one party the right to exercise a choice on behalf of another party. The agent can control a contract on the ledger without the principal explicitly committing the action.
 :doc:`patterns/authorization`
     The Authorization pattern demonstrates how to make sure a controlling party is authorized before they take certain actions.
 :doc:`patterns/locking`

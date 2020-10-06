@@ -4,6 +4,8 @@
 Extractor
 #########
 
+The Extractor is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`.
+
 Introduction
 ************
 
@@ -38,7 +40,7 @@ $ daml extractor --help
 Trying it out
 *************
 
-This example extracts: 
+This example extracts:
 
 - all contract data from the beginning of the ledger to the current latest transaction
 - for the party ``Scrooge_McDuck``
@@ -51,7 +53,7 @@ This example extracts:
 
     $ daml extractor postgresql --user postgres --connecturl jdbc:postgresql:daml_export --party Scrooge_McDuck -h 192.168.1.12 -p 6865 --to head
 
-This terminates after reaching the transaction which was the latest at the time the Extractor started streaming. 
+This terminates after reaching the transaction which was the latest at the time the Extractor started streaming.
 
 To run the Extractor indefinitely, and thus keeping the database up to date as new transactions arrive on the ledger, omit the ``--to head`` parameter to fall back to the default streaming-indefinitely approach, or state explicitly by using the ``--to follow`` parameter.
 
@@ -297,8 +299,8 @@ When updating packages, you can end up with multiple versions of the same packag
 
 Let’s say you have a template called ``My.Company.Finance.Account``::
 
-  daml 1.2 module My.Company.Finance.Account where
- 
+  module My.Company.Finance.Account where
+
   template Account
     with
       provider: Party
@@ -312,8 +314,8 @@ This is built into a package with a resulting hash ``6021727fe0822d688ddd5459974
 
 Later you add a new field, ``displayName``::
 
-  daml 1.2 module My.Company.Finance.Account where
- 
+  module My.Company.Finance.Account where
+
   template Account
     with
       provider: Party
@@ -326,24 +328,24 @@ Later you add a new field, ``displayName``::
 
 The hash of the new package with the update is ``1239d1c5df140425f01a5112325d2e4edf2b7ace223f8c1d2ebebe76a8ececfe``.
 
-There are contract instances of first version of the template which were created before the new field is added, and there are contract instances of the new version which were created since. Let’s say you have one instance of each::
+There are contracts of first version of the template which were created before the new field is added, and there are contracts of the new version which were created since. Let’s say you have one instance of each::
 
-  {  
+  {
     "owner":"Bob",
     "provider":"Bob",
     "accountId":"6021-5678",
-    "observers":[  
+    "observers":[
         "Alice"
     ]
   }
 
 and::
 
-  {  
+  {
     "owner":"Bob",
     "provider":"Bob",
     "accountId":"1239-4321",
-    "observers":[  
+    "observers":[
         "Alice"
     ],
     "displayName":"Personal"
@@ -357,7 +359,7 @@ They will look like this when extracted:
 To have a consistent view of the two versions with a default value ``NULL`` for the missing field of instances of older versions, you can create a view which contains all ``Account`` rows::
 
   CREATE VIEW account_view AS
-  SELECT 
+  SELECT
      create_arguments->>'owner' AS owner
     ,create_arguments->>'provider' AS provider
     ,create_arguments->>'accountId' AS accountId
@@ -370,7 +372,7 @@ To have a consistent view of the two versions with a default value ``NULL`` for 
     AND
     template = 'My.Company.Finance.Account'
   UNION
-  SELECT 
+  SELECT
      create_arguments->>'owner' AS owner
     ,create_arguments->>'provider' AS provider
     ,create_arguments->>'accountId' AS accountId
@@ -383,7 +385,7 @@ To have a consistent view of the two versions with a default value ``NULL`` for 
     AND
     template = 'My.Company.Finance.Account';
 
-Then, ``account_view will`` contain both contract instances:
+Then, ``account_view will`` contain both contracts:
 
 .. figure:: images/account.png
    :align: center
@@ -391,14 +393,14 @@ Then, ``account_view will`` contain both contract instances:
 Logging
 *******
 
-By default, the Extractor logs to stderr, with INFO verbose level. To change the level, use the ``-DLOGLEVEL=[level]`` option, e.g. ``-DLOGLEVEL=TRACE``. 
+By default, the Extractor logs to stderr, with INFO verbose level. To change the level, use the ``-DLOGLEVEL=[level]`` option, e.g. ``-DLOGLEVEL=TRACE``.
 
 You can supply your own logback configuration file via the standard method: https://logback.qos.ch/manual/configuration.html
 
 Continuity
 **********
 
-When you terminate the Extractor and restart it, it will continue from where it left off. This happens because, when running, it saves its state into the ``state`` table in the ``public`` schema of the database. When started, it reads the contents of this table. If there’s a saved state from a previous run, it restarts from where it left off. There’s no need to explicitly specify anything, this is done automatically. 
+When you terminate the Extractor and restart it, it will continue from where it left off. This happens because, when running, it saves its state into the ``state`` table in the ``public`` schema of the database. When started, it reads the contents of this table. If there’s a saved state from a previous run, it restarts from where it left off. There’s no need to explicitly specify anything, this is done automatically.
 
 DO NOT modify content of the ``state`` table. Doing so can result in the Extractor not being able to continue running against the database. If that happens, you must delete all data from the database and start again.
 
@@ -409,7 +411,7 @@ The only parameters that you can change between two sessions running against the
 Fault tolerance
 ***************
 
-Once the Extractor connects to the Ledger Node and the database and creates the table structure from the fetched DAML packages, it wraps the transaction stream in a restart logic with an exponential backoff. This results in the Extractor not terminating even when the transaction stream is aborted for some reason (the ledger node is down, there’s a network partition, etc.). 
+Once the Extractor connects to the Ledger Node and the database and creates the table structure from the fetched DAML packages, it wraps the transaction stream in a restart logic with an exponential backoff. This results in the Extractor not terminating even when the transaction stream is aborted for some reason (the ledger node is down, there’s a network partition, etc.).
 
 Once the connection is back, it continues the stream from where it left off. If it can’t reach the node on the host/port pair the Extractor was started with, you need to manually stop it and restart with the updated address.
 
@@ -420,7 +422,7 @@ Troubleshooting
 
 Can’t connect to the Ledger Node
 ================================
-  
+
 If the Extractor can’t connect to the Ledger node on startup, you’ll see a message like this in the logs, and the Extractor will terminate::
 
   16:47:51.208 ERROR c.d.e.Main$@[akka.actor.default-dispatcher-7] - FAILURE:

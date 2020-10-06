@@ -86,7 +86,6 @@ object ScenarioLedger {
       transactionId: LedgerString,
       transaction: CommittedTransaction,
       blindingInfo: BlindingInfo,
-      failedAuthorizations: FailedAuthorizations,
   )
 
   object RichTransaction {
@@ -104,8 +103,6 @@ object ScenarioLedger {
         transactionId: LedgerString,
         submittedTransaction: SubmittedTransaction,
     ): RichTransaction = {
-      val failedAuthorizations =
-        AuthorizingTransaction.checkAuthFailures(Authorize(Set(committer)), submittedTransaction)
       val blindingInfo =
         BlindingTransaction.calculateBlindingInfo(submittedTransaction)
       new RichTransaction(
@@ -114,7 +111,6 @@ object ScenarioLedger {
         transactionId = transactionId,
         transaction = Tx.commitTransaction(submittedTransaction),
         blindingInfo = blindingInfo,
-        failedAuthorizations = failedAuthorizations,
       )
     }
 
@@ -228,9 +224,6 @@ object ScenarioLedger {
 
   sealed trait CommitError
   object CommitError {
-    final case class FailedAuthorizations(
-        errors: ledger.FailedAuthorizations,
-    ) extends CommitError
     final case class UniqueKeyViolation(
         error: ScenarioLedger.UniqueKeyViolation,
     ) extends CommitError
@@ -251,27 +244,23 @@ object ScenarioLedger {
     // chars limit when concatenate in EventId#toLedgerString method.
     val transactionId = l.scenarioStepId.id
     val richTr = RichTransaction(committer, effectiveAt, transactionId, tx)
-    if (richTr.failedAuthorizations.nonEmpty)
-      Left(CommitError.FailedAuthorizations(richTr.failedAuthorizations))
-    else {
-      processTransaction(l.scenarioStepId, richTr, l.ledgerData) match {
-        case Left(err) => Left(CommitError.UniqueKeyViolation(err))
-        case Right(updatedCache) =>
-          Right(
-            CommitResult(
-              l.copy(
-                scenarioSteps = l.scenarioSteps + (l.scenarioStepId.index -> Commit(
-                  l.scenarioStepId,
-                  richTr,
-                  optLocation)),
-                scenarioStepId = l.scenarioStepId.next,
-                ledgerData = updatedCache,
-              ),
-              l.scenarioStepId,
-              richTr,
+    processTransaction(l.scenarioStepId, richTr, l.ledgerData) match {
+      case Left(err) => Left(CommitError.UniqueKeyViolation(err))
+      case Right(updatedCache) =>
+        Right(
+          CommitResult(
+            l.copy(
+              scenarioSteps = l.scenarioSteps + (l.scenarioStepId.index -> Commit(
+                l.scenarioStepId,
+                richTr,
+                optLocation)),
+              scenarioStepId = l.scenarioStepId.next,
+              ledgerData = updatedCache,
             ),
-          )
-      }
+            l.scenarioStepId,
+            richTr,
+          ),
+        )
     }
   }
 
@@ -322,8 +311,6 @@ object ScenarioLedger {
           fs.foreach {
             case (_, v) => collect(v)
           }
-        case ValueStruct(fs) =>
-          fs.values.foreach(collect)
         case ValueVariant(_, _, arg) => collect(arg)
         case _: ValueEnum => ()
         case ValueList(vs) =>

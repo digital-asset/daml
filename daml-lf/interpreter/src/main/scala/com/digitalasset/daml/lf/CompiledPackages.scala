@@ -13,8 +13,7 @@ import com.daml.lf.speedy.{Compiler, SExpr}
   * compiled speedy expressions.
   */
 private[lf] abstract class CompiledPackages(
-    stackTraceMode: Compiler.StackTraceMode,
-    profilingMode: Compiler.ProfilingMode,
+    compilerConfig: Compiler.Config,
 ) {
   def getPackage(pkgId: PackageId): Option[Package]
   def getDefinition(dref: SDefinitionRef): Option[SExpr]
@@ -27,7 +26,7 @@ private[lf] abstract class CompiledPackages(
   def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     packages andThen (_.languageVersion)
 
-  final def compiler: Compiler = Compiler(packages, stackTraceMode, profilingMode)
+  final def compiler: Compiler = new Compiler(packages, compilerConfig)
 }
 
 /** Important: use the constructor only if you _know_ you have all the definitions! Otherwise
@@ -36,9 +35,8 @@ private[lf] abstract class CompiledPackages(
 private[lf] final class PureCompiledPackages(
     packages: Map[PackageId, Package],
     defns: Map[SDefinitionRef, SExpr],
-    stackTraceMode: Compiler.StackTraceMode,
-    profilingMode: Compiler.ProfilingMode,
-) extends CompiledPackages(stackTraceMode, profilingMode) {
+    compilerConfig: Compiler.Config,
+) extends CompiledPackages(compilerConfig) {
   override def packageIds: Set[PackageId] = packages.keySet
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
   override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
@@ -52,18 +50,16 @@ private[lf] object PureCompiledPackages {
   def apply(
       packages: Map[PackageId, Package],
       defns: Map[SDefinitionRef, SExpr],
-      stacktracing: Compiler.StackTraceMode,
-      profiling: Compiler.ProfilingMode
+      compilerConfig: Compiler.Config,
   ): PureCompiledPackages =
-    new PureCompiledPackages(packages, defns, stacktracing, profiling)
+    new PureCompiledPackages(packages, defns, compilerConfig)
 
   def apply(
       packages: Map[PackageId, Package],
-      stacktracing: Compiler.StackTraceMode = Compiler.FullStackTrace,
-      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
+      compilerConfig: Compiler.Config = Compiler.Config.Default,
   ): Either[String, PureCompiledPackages] =
     Compiler
-      .compilePackages(packages, stacktracing, profiling)
-      .map(apply(packages, _, stacktracing, profiling))
+      .compilePackages(packages, compilerConfig)
+      .map(apply(packages, _, compilerConfig))
 
 }

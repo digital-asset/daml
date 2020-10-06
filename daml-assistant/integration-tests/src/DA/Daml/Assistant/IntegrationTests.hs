@@ -105,8 +105,7 @@ packagingTests = testGroup "packaging"
             , "  - daml-stdlib"
             ]
         writeFileUTF8 (myDepDir </> "daml" </> "MyDep.daml") $ unlines
-          [ "daml 1.2"
-          , "module MyDep where"
+          [ "module MyDep where"
           ]
         withCurrentDirectory myDepDir $ callCommandSilent "daml build -o mydep.dar"
         let myTriggerDir = tmpDir </> "mytrigger"
@@ -123,8 +122,7 @@ packagingTests = testGroup "packaging"
             , "  - " <> myDepDir </> "mydep.dar"
             ]
         writeFileUTF8 (myTriggerDir </> "daml/Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
+            [ "module Main where"
             , "import MyDep ()"
             , "import Daml.Trigger ()"
             ]
@@ -157,8 +155,10 @@ packagingTests = testGroup "packaging"
           ]
         writeFileUTF8 (tmpDir </> "proj" </> "A.daml") $ unlines
           [ "module A where"
-          , "import Main (Asset)"
-          , "type X = Asset"
+          , "import Daml.Script"
+          , "import Main"
+          , "f = setup >> allocateParty \"foobar\""
+          -- This also checks that we get the same Script type within an SDK version.
           ]
         withCurrentDirectory (tmpDir </> "proj") $ callCommandSilent "daml build"
      , testCase "DAML Script --input-file and --output-file" $ withTempDir $ \projDir -> do
@@ -214,8 +214,7 @@ packagingTests = testGroup "packaging"
           , "  - --wall-clock-time"
           ]
         writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
-          [ "daml 1.2"
-          , "module Main where"
+          [ "module Main where"
           , "import Daml.Script"
           , "template T with p : Party where signatory p"
           , "init : Script ()"
@@ -281,8 +280,7 @@ packagingTests = testGroup "packaging"
           , "  - daml-stdlib"
           ]
         writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
-          [ "daml 1.2"
-          , "module Main where"
+          [ "module Main where"
           , "template T with p : Party where signatory p"
           ]
         sandboxPort :: Int <- fromIntegral <$> getFreePort
@@ -341,7 +339,7 @@ packagingTests = testGroup "packaging"
                   , "--json-api-option=--port-file=jsonapi.port"
                   ]
           withCurrentDirectory tmpDir $
-              withCreateProcess startProc $ \_ _ _ _ph -> do
+              withCreateProcess startProc $ \_ _ _ ph -> do
               jsonApiPort <- readPortFile maxRetries "jsonapi.port"
               let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
                     { JWT.unregisteredClaims = JWT.ClaimsMap $
@@ -361,6 +359,48 @@ packagingTests = testGroup "packaging"
               manager <- newManager defaultManagerSettings
               queryResponse <- httpLbs queryRequest manager
               responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess ph
+      , testCase "daml start invokes codegen" $ withTempDir $ \tmpDir -> do
+            writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> sdkVersion
+                , "name: codegen"
+                , "version: \"1.0\""
+                , "source: ."
+                , "dependencies:"
+                , "- daml-prim"
+                , "- daml-stdlib"
+                , "start-navigator: false"
+                , "codegen:"
+                , "  js:"
+                , "    output-directory: ui/daml.js"
+                , "  java:"
+                , "    output-directory: ui/java"
+                , "  scala:"
+                , "    output-directory: ui/scala"
+                -- this configuration option shouldn't be mandatory according to docs, but it is.
+                -- See https://github.com/digital-asset/daml/issues/7547.
+                , "    package-prefix: com.digitalasset"
+                ]
+            let startProc = shell $ unwords
+                    [ "daml"
+                    , "start"
+                    ]
+            withCurrentDirectory tmpDir $
+              withCreateProcess startProc $ \_ _ _ startPh -> do
+              race_ (waitForProcess' startProc startPh) $ do
+                -- 15 secs for all the codegens to complete
+                threadDelay 15000000
+                didGenerateJsCode <-
+                  doesFileExist ("ui" </> "daml.js" </> "codegen-1.0" </> "package.json")
+                didGenerateJavaCode <-
+                  doesFileExist
+                    ("ui" </> "java" </> "da" </> "internal" </> "template" </> "Archive.java")
+                didGenerateScalaCode <- doesFileExist ("ui" </> "scala" </> "com" </> "digitalasset" </> "PackageIDs.scala" )
+                didGenerateJsCode @?= True
+                didGenerateJavaCode @?= True
+                didGenerateScalaCode @?= True
+                terminateProcess startPh
      , testCase "daml start with relative DAML_PROJECT path" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "project"
         createDirectoryIfMissing True (projDir </> "daml")
@@ -377,8 +417,7 @@ packagingTests = testGroup "packaging"
           , "  - daml-stdlib"
           ]
         writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
-          [ "daml 1.2"
-          , "module Main where"
+          [ "module Main where"
           , "template T with p : Party where signatory p"
           ]
         sandboxPort :: Int <- fromIntegral <$> getFreePort
@@ -552,7 +591,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
               callCommandSilent $ unwords
                     [ "daml script"
                     , "--dar .daml/dist/quickstart-0.0.1.dar"
-                    , "--script-name Setup:initialize"
+                    , "--script-name Main:initialize"
                     , "--static-time"
                     , "--ledger-host localhost"
                     , "--ledger-port", show sandboxPort

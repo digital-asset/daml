@@ -98,6 +98,31 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "1.3.0-snapshot.20200617.4484.0.7e0a6848",
+        "platform_ranges": [
+            {
+                "start": "1.6.0-snapshot.20200922.5258.0.cd4a06db",
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/7400
+                    "WronglyTypedContractIdIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.3.0-snapshot.20200623.4546.0.4f68cfc4",
+        "end": "1.6.0-snapshot.20200915.5208.0.09014dc6",
+        "platform_ranges": [
+            {
+                "start": "1.6.0-snapshot.20200922.5258.0.cd4a06db",
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/7400
+                    "WronglyTypedContractIdIT:WTFetchFails",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
@@ -271,7 +296,8 @@ def create_daml_app_test(
             "$(rootpath %s)" % daml_ledger,
             "$(rootpath %s)" % daml_react,
             "$(rootpath %s)" % messaging_patch,
-            "$(rootpath @nodejs//:yarn)",
+            "$(rootpath @nodejs//:npm_bin)",
+            "$(rootpath @nodejs//:node)",
             "$(rootpath @patch_dev_env//:patch)",
             "$(rootpath //bazel_tools/create-daml-app:testDeps.json)",
             "$(rootpath //bazel_tools/create-daml-app:index.test.ts)",
@@ -280,7 +306,8 @@ def create_daml_app_test(
         ],
         data = data + depset(direct = [
             "//bazel_tools/create-daml-app:runner",
-            "@nodejs//:yarn",
+            "@nodejs//:npm_bin",
+            "@nodejs//:node",
             "@patch_dev_env//:patch",
             "//bazel_tools/create-daml-app:testDeps.json",
             "//bazel_tools/create-daml-app:index.test.ts",

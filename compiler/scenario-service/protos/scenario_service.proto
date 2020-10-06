@@ -266,10 +266,6 @@ message Record {
   repeated Field fields = 2;
 }
 
-message Tuple {
-  repeated Field fields = 1;
-}
-
 message Variant {
   Identifier variant_id = 1;
   string constructor = 2;
@@ -298,25 +294,24 @@ message Environment {
 message Value {
   oneof Sum {
     Record record = 1;
-    Tuple tuple = 2;
-    Variant variant = 3;
-    string contract_id = 4;
-    List list = 5;
-    sint64 int64 = 6;
-    string decimal = 7;
-    string text = 8;
-    sfixed64 timestamp = 9;
-    string party = 10;
-    bool bool = 11;
-    Empty unit = 12;
-    int32 date = 13;
-    Optional optional = 15;
-    Map map = 16;
-    Enum enum = 17;
-    GenMap gen_map = 18;
+    Variant variant = 2;
+    string contract_id = 3;
+    List list = 4;
+    sint64 int64 = 5;
+    string decimal = 6;
+    string text = 7;
+    sfixed64 timestamp = 8;
+    string party = 9;
+    bool bool = 10;
+    Empty unit = 11;
+    int32 date = 12;
+    Optional optional = 13;
+    Map map = 14;
+    Enum enum = 15;
+    GenMap gen_map = 16;
 
     // An unserializable value, e.g. closure. Contains a description of the value.
-    string unserializable = 14;
+    string unserializable = 17;
   }
 }
 
@@ -476,7 +471,7 @@ message FailedAuthorization {
 }
 
 message FailedAuthorizations {
-  repeated FailedAuthorization failed_authorizations = 1;
+  repeated FailedAuthorization failed_authorizations = 1; //at most one now
 }
 
 message GlobalKey {
@@ -498,7 +493,7 @@ message Transaction {
   repeated NodeId nodes = 4;
 
   // If non-empty, the transaction failed due to these failed authorizations.
-  FailedAuthorizations failed_authorizations = 6;
+  FailedAuthorizations failed_authorizations = 6; //this is always empty now
 }
 
 message ContractInstance {

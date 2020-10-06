@@ -5,6 +5,13 @@ package com.daml.lf.ledger
 
 import com.daml.lf.data.Ref.{ChoiceName, Identifier, Location, Party}
 
+sealed abstract class CheckAuthorizationMode extends Product with Serializable
+
+object CheckAuthorizationMode {
+  case object On extends CheckAuthorizationMode
+  case object Off extends CheckAuthorizationMode
+}
+
 /** Authorize the transaction using the provided parties as initial authorizers for the dynamic authorization. */
 final case class Authorize(authParties: Set[Party])
 

@@ -15,11 +15,13 @@ module "bazel_cache" {
   name                 = "${local.bazel_cache_name}"
   project              = "${local.project}"
   region               = "${local.region}"
-  ssl_certificate      = "${local.ssl_certificate}"
+  ssl_certificate      = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/bazel-cache"
   cache_retention_days = 60
 }
 
 // allow rw access for CI writer (see writer.tf)
+// Note: it looks like the Bazel cache does not work properly if it does not
+// have delete permission, wich is a bit scary.
 resource "google_storage_bucket_iam_member" "bazel_cache_writer" {
   bucket = "${module.bazel_cache.bucket_name}"
 

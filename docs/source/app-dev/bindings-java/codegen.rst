@@ -567,7 +567,7 @@ functions to convert back the container's entries.
       );
 
 
-.. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html
+.. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Value.html
 .. _Unit: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
 .. _Bool: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Bool.html
 .. _Int64: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Int64.html

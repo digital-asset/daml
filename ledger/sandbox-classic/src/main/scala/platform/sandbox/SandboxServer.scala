@@ -47,7 +47,6 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
-import com.github.ghik.silencer.silent
 import scalaz.syntax.tag._
 
 import scala.collection.JavaConverters._
@@ -143,10 +142,8 @@ final class SandboxServer(
 ) extends AutoCloseable {
 
   private[this] val engine = {
-    @silent("SandboxClassicStable in object EngineConfig is deprecated")
-    @silent("SandboxClassicDev in object EngineConfig is deprecated")
     val engineConfig =
-      (if (config.devMode) EngineConfig.SandboxClassicDev else EngineConfig.SandboxClassicStable)
+      (if (config.devMode) EngineConfig.Dev else EngineConfig.Stable)
         .copy(
           profileDir = config.profileDir,
           stackTraceMode = config.stackTraces,

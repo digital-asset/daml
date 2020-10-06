@@ -12,7 +12,7 @@ In this section you will learn about how to define simple data transformations u
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``4_Transformations`` by running ``daml new 4_Transformations daml-intro-4``
+  Remember that you can load all the code for this section into a folder called ``4_Transformations`` by running ``daml new 4_Transformations --template daml-intro-4``
 
 Choices as methods
 ------------------
@@ -41,9 +41,19 @@ Let's unpack the code snippet above:
 
 There is nothing here explicitly saying that the current ``Contact`` should be archived. That's because choices are *consuming* by default. That means when the above choice is exercised on a contract, that contract is archived.
 
-If you paid a lot of attention in :doc:`3_Data`, you may have noticed that the ``create`` statement returns an ``Update (ContractId Contact)``, not a ``ContractId Contact``. As a ``do`` block always returns the value of the last statement within it, the whole ``do`` block returns an ``Update``, but the return type on the choice is just a ``ContractId Contact``. This is a convenience. Choices *always* return an ``Update`` so for readability it's omitted on the type declaration of a choice.
+As mentioned in :doc:`3_Data`, within a choice we use ``create``
+instead of ``createCmd``. Whereas ``createCmd`` builds up a list of
+commands to be sent to the ledger, ``create`` builds up a more
+flexible ``Update`` that is executed directly by the ledger. You might
+have noticed that ``create`` returns an ``Update (ContractId
+Contact)``, not a ``ContractId Contact``. As a ``do`` block always
+returns the value of the last statement within it, the whole ``do``
+block returns an ``Update``, but the return type on the choice is just
+a ``ContractId Contact``. This is a convenience. Choices *always*
+return an ``Update`` so for readability it's omitted on the type
+declaration of a choice.
 
-Now to exercise the new choice in a scenario:
+Now to exercise the new choice in a script:
 
 .. literalinclude:: daml/daml-intro-4/Contact.daml
   :language: daml
@@ -52,14 +62,27 @@ Now to exercise the new choice in a scenario:
 
 You exercise choices using the ``exercise`` function, which takes a ``ContractId a``, and a value of type ``c``, where ``c`` is a choice on template ``a``. Since ``c`` is just a record, you can also just fill in the choice parameters using the ``with`` syntax you are already familiar with.
 
-``exercise`` returns an ``Update r`` where ``r`` is the return type specified on the choice, allowing the new ``ContractId Contact`` to be stored in the variable ``new_contactCid``.
+``exerciseCmd`` returns a ``Commands r`` where ``r`` is the return
+type specified on the choice, allowing the new ``ContractId Contact``
+to be stored in the variable ``new_contactCid``. Just like for
+``createCmd`` and ``create``, there is also ``exerciseCmd`` and
+``exercise``. The versions with the ``cmd`` suffix is always used on
+the client side to build up the list of commands on the ledger. The
+versions without the suffix are used within choices and are executed
+directly on the server.
+
+There is also ``createAndExerciseCmd`` and ``createAndExercise`` which
+we have seen in the previous section. This allows you to create a new
+contract with the given arguments and immediately exercise a choice on
+it. For a consuming choice, this archives the contract so the contract
+is created and archived within the same transaction.
 
 Choices as delegation
 ---------------------
 
 Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. In other words, the ``owner`` of a ``Contact`` should be able to *delegate* the right to perform a certain kind of data transformation to ``party``.
 
-The below demonstrates this using an ``UpdateAddress`` choice and corresponding extension of the scenario:
+The below demonstrates this using an ``UpdateAddress`` choice and corresponding extension of the script:
 
 .. literalinclude:: daml/daml-intro-4/Contact.daml
   :language: daml
@@ -71,7 +94,7 @@ The below demonstrates this using an ``UpdateAddress`` choice and corresponding 
   :start-after: -- DELEGATION_TEST_BEGIN
   :end-before: -- DELEGATION_TEST_END
 
-If you open the scenario view in the IDE, you will notice that Bob sees the ``Contact``. Controllers specified via ``controller c can`` syntax become *observers* of the contract. More on *observers* later, but in short, they get to see any changes to the contract.
+If you open the script view in the IDE, you will notice that Bob sees the ``Contact``. Controllers specified via ``controller c can`` syntax become *observers* of the contract. More on *observers* later, but in short, they get to see any changes to the contract.
 
 .. _choices:
 
@@ -87,7 +110,7 @@ A *transaction* is a list of *actions*, and there are just four kinds of action:
 - An ``exercise`` action exercises a choice on a contract resulting in a transaction (list of sub-actions) called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 - A ``key assertion`` records the assertion that the given contract key (see :ref:`contract_keys`) is not assigned to any active contract on the ledger.
 
-Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. As ``fetch``, ``create`` and ``key assertion`` actions have no consequences, they are always leaf nodes. You can see the actions and their consequences in the transaction view of the above scenario:
+Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. As ``fetch``, ``create`` and ``key assertion`` actions have no consequences, they are always leaf nodes. You can see the actions and their consequences in the transaction view of the above script:
 
 .. code-block:: none
 
@@ -148,7 +171,7 @@ Each action can be visualized as a tree, where the action is the root node, and 
 
   Return value: {}
 
-There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have IDs of the form ``#commit_number:action_number``. Contract IDs are just the ID of their ``create`` action.
+There are four commits corresponding to the four ``submit`` statements in the script. Within each commit, we see that it's actually actions that have IDs of the form ``#commit_number:action_number``. Contract IDs are just the ID of their ``create`` action.
 
 So commits ``#2`` and ``#4`` contain ``exercise`` actions with IDs ``#2:0`` and ``#4:0``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:1`` and ``#4:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 

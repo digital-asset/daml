@@ -5,22 +5,102 @@ package com.daml.lf
 package speedy
 package svalue
 
-import com.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Utf8}
-import com.daml.lf.data.ScalazEqual._
-import com.daml.lf.language.TypeOrdering
-import com.daml.lf.speedy.SError.SErrorCrash
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.ContractId
+import data.{Bytes, Utf8}
+import language.TypeOrdering
+import value.Value.ContractId
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 object Ordering extends scala.math.Ordering[SValue] {
 
-  private def compareText(text1: String, text2: String): Int =
-    Utf8.Ordering.compare(text1, text2)
+  @throws[SError.SErrorCrash]
+  // Ordering between two SValues of same type.
+  // This follows the equality defined in the daml-lf spec.
+  def compare(x: SValue, y: SValue): Int = {
+    import SValue._
 
-  private def compareCid(cid1: ContractId, cid2: ContractId): Int =
+    var diff = 0
+    var stackX = List(Iterator.single(x))
+    var stackY = List(Iterator.single(y))
+    // invariant: stackX.length == stackY.length
+
+    @inline
+    def push(xs: Iterator[SValue], ys: Iterator[SValue]): Unit = {
+      stackX = xs :: stackX
+      stackY = ys :: stackY
+    }
+
+    @inline
+    def pop(): Unit = {
+      stackX = stackX.tail
+      stackY = stackY.tail
+    }
+
+    @inline
+    def step(tuple: (SValue, SValue)) =
+      tuple match {
+        case (SUnit, SUnit) =>
+          ()
+        case (SBool(x), SBool(y)) =>
+          diff = x compareTo y
+        case (SInt64(x), SInt64(y)) =>
+          diff = x compareTo y
+        case (SNumeric(x), SNumeric(y)) =>
+          diff = x compareTo y
+        case (SText(x), SText(y)) =>
+          diff = Utf8.Ordering.compare(x, y)
+        case (SDate(x), SDate(y)) =>
+          diff = x compareTo y
+        case (STimestamp(x), STimestamp(y)) =>
+          diff = x compareTo y
+        case (SParty(x), SParty(y)) =>
+          // parties are ASCII, so UTF16 comparison matches UTF8 comparison.
+          diff = x compareTo y
+        case (SContractId(x), SContractId(y)) =>
+          diff = compareCid(x, y)
+        case (SEnum(_, _, xRank), SEnum(_, _, yRank)) =>
+          diff = xRank compareTo yRank
+        case (SRecord(_, _, xs), SRecord(_, _, ys)) =>
+          push(xs.iterator().asScala, ys.iterator().asScala)
+        case (SVariant(_, _, xRank, x), SVariant(_, _, yRank, y)) =>
+          diff = xRank compareTo yRank
+          push(Iterator.single(x), Iterator.single(y))
+        case (SList(xs), SList(ys)) =>
+          push(xs.iterator, ys.iterator)
+        case (SOptional(xOpt), SOptional(yOpt)) =>
+          push(xOpt.iterator, yOpt.iterator)
+        case (SGenMap(_, xMap), SGenMap(_, yMap)) =>
+          push(
+            new InterlacedIterator(xMap.keys.iterator, xMap.values.iterator),
+            new InterlacedIterator(yMap.keys.iterator, yMap.values.iterator),
+          )
+        case (SStruct(_, xs), SStruct(_, ys)) =>
+          push(xs.iterator().asScala, ys.iterator().asScala)
+        case (SAny(xType, x), SAny(yType, y)) =>
+          diff = TypeOrdering.compare(xType, yType)
+          push(Iterator.single(x), Iterator.single(y))
+        case (STypeRep(xType), STypeRep(yType)) =>
+          diff = TypeOrdering.compare(xType, yType)
+        case (_: SPAP, _: SPAP) =>
+          throw SError.SErrorCrash("functions are not comparable")
+        // We should never hit this case at runtime.
+        case _ =>
+          throw SError.SErrorCrash("BUG: comparison of incomparable values")
+      }
+
+    while (diff == 0 && stackX.nonEmpty) {
+      diff = stackX.head.hasNext compare stackY.head.hasNext
+      if (diff == 0)
+        if (stackX.head.hasNext)
+          step((stackX.head.next(), stackY.head.next()))
+        else
+          pop()
+    }
+
+    diff
+  }
+  @inline
+  private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int =
     (cid1, cid2) match {
       case (ContractId.V0(s1), ContractId.V0(s2)) =>
         s1 compareTo s2
@@ -35,113 +115,8 @@ object Ordering extends scala.math.Ordering[SValue] {
         else if (suffix1.isEmpty == suffix2.isEmpty)
           Bytes.ordering.compare(suffix1, suffix2)
         else
-          throw SErrorCrash("Conflicting discriminators between a local and global contract id")
+          throw SError.SErrorCrash(
+            "Conflicting discriminators between a local and global contract id")
     }
-
-  @tailrec
-  // Only value of the same type can be compared.
-  private[this] def compareValue(stack0: FrontStack[(SValue, SValue)]): Int =
-    stack0 match {
-      case FrontStack() =>
-        0
-      case FrontStackCons(tuple, stack) =>
-        val (x, toPush) = tuple.match2 {
-          case SUnit => {
-            case SUnit =>
-              0 -> ImmArray.empty
-          }
-          case SBool(b1) => {
-            case SBool(b2) =>
-              (b1 compareTo b2) -> ImmArray.empty
-          }
-          case SInt64(i1) => {
-            case SInt64(i2) =>
-              (i1 compareTo i2) -> ImmArray.empty
-          }
-          case STimestamp(ts1) => {
-            case STimestamp(ts2) =>
-              (ts1.micros compareTo ts2.micros) -> ImmArray.empty
-          }
-          case SDate(d1) => {
-            case SDate(d2) =>
-              (d1.days compareTo d2.days) -> ImmArray.empty
-          }
-          case SNumeric(n1) => {
-            case SNumeric(n2) =>
-              (n1 compareTo n2) -> ImmArray.empty
-          }
-          case SText(t1) => {
-            case SText(t2) =>
-              (compareText(t1, t2)) -> ImmArray.empty
-          }
-          case SParty(p1) => {
-            case SParty(p2) =>
-              (compareText(p1, p2)) -> ImmArray.empty
-          }
-          case SContractId(coid1: ContractId) => {
-            case SContractId(coid2: ContractId) =>
-              compareCid(coid1, coid2) -> ImmArray.empty
-          }
-          case STypeRep(t1) => {
-            case STypeRep(t2) =>
-              // the type-checker ensures t1 and t2 are comparable,
-              TypeOrdering.compare(t1, t2) -> ImmArray.empty
-          }
-          case SEnum(_, _, rank1) => {
-            case SEnum(_, _, rank2) =>
-              (rank1 compareTo rank2) -> ImmArray.empty
-          }
-          case SRecord(_, _, args1) => {
-            case SRecord(_, _, args2) =>
-              0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]
-          }
-          case SVariant(_, _, rank1, arg1) => {
-            case SVariant(_, _, rank2, arg2) =>
-              (rank1 compareTo rank2) -> ImmArray((arg1, arg2))
-          }
-          case SList(FrontStack()) => {
-            case SList(l2) =>
-              (false compareTo l2.nonEmpty) -> ImmArray.empty
-          }
-          case SList(FrontStackCons(head1, tail1)) => {
-            case SList(FrontStackCons(head2, tail2)) =>
-              0 -> ImmArray((head1, head2), (SList(tail1), SList(tail2)))
-            case SList(FrontStack()) =>
-              1 -> ImmArray.empty
-          }
-          case SOptional(v1) => {
-            case SOptional(v2) =>
-              (v1.nonEmpty compareTo v2.nonEmpty) -> (v1.iterator zip v2.iterator).to[ImmArray]
-          }
-          case map1: STextMap => {
-            case map2: STextMap =>
-              0 -> ImmArray((toList(map1), toList(map2)))
-          }
-          case map1: SGenMap => {
-            case map2: SGenMap =>
-              0 -> ImmArray((toList(map1), toList(map2)))
-          }
-          case SStruct(_, args1) => {
-            case SStruct(_, args2) =>
-              0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]
-          }
-          case SAny(t1, v1) => {
-            case SAny(t2, v2) =>
-              // the type-checker ensures t1 and t2 are comparable.
-              TypeOrdering.compare(t1, t2) -> ImmArray((v1, v2))
-          }
-          case SPAP(_, _, _) => {
-            case SPAP(_, _, _) =>
-              throw SErrorCrash("functions are not comparable")
-          }
-        }(fallback = throw SErrorCrash("try to compare unrelated type"))
-        if (x != 0)
-          x
-        else
-          compareValue(toPush ++: stack)
-    }
-
-  def compare(v1: SValue, v2: SValue): Int =
-    compareValue(FrontStack((v1, v2)))
 
 }

@@ -45,11 +45,15 @@ class CollectAuthorityState {
     val packagesMap = packages.all.map {
       case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
     }.toMap
-    val stacktracing = Compiler.NoStackTrace
+
+    val compilerConfig =
+      Compiler.Config.Default.copy(
+        stacktracing = Compiler.NoStackTrace
+      )
 
     // NOTE(MH): We use a static seed to get reproducible runs.
     val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("scenario-perf"))
-    val compiledPackages = PureCompiledPackages(packagesMap, stacktracing).right.get
+    val compiledPackages = data.assertRight(PureCompiledPackages(packagesMap, compilerConfig))
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(
@@ -91,7 +95,7 @@ class CollectAuthorityState {
   // This is the initial setup run (not benchmarked), where we cache the results of
   // interacting with the ledger, so they can be reused during the benchmark runs.
 
-  def setup(): Unit = {
+  def setup(): Unit = machine.withOnLedger("CollectAuthority") { onLedger =>
     var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
     var step = 0
     var finalValue: SValue = null
@@ -110,7 +114,7 @@ class CollectAuthorityState {
           ScenarioLedger.commitTransaction(
             committers.head,
             ledger.currentTime,
-            machine.commitLocation,
+            onLedger.commitLocation,
             tx,
             ledger
           ) match {

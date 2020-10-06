@@ -7,10 +7,11 @@ import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
+import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
 import com.daml.lf.value.{Value, ValueVersion}
-import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.value.Value.ContractId
+import com.daml.lf.scenario.ScenarioLedger
 
 object SError {
 
@@ -24,6 +25,11 @@ object SError {
   final case class SErrorCrash(reason: String) extends SError {
     override def toString = "CRASH: " + reason
   }
+
+  /** Operation is only supported in on-ledger mode but was
+    * called in off-ledger mode.
+    */
+  final case class SRequiresOnLedger(operation: String) extends SError
 
   def crash[A](reason: String): A =
     throw SErrorCrash(reason)
@@ -97,6 +103,12 @@ object SError {
       actual: ValueVersion,
   ) extends SErrorDamlException
 
+  /** There was an authorization failure during execution. */
+  final case class DamlEFailedAuthorization(
+      nid: NodeId,
+      fa: FailedAuthorization,
+  ) extends SErrorDamlException
+
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'. */
   final case class ScenarioErrorContractNotVisible(
@@ -116,7 +128,7 @@ object SError {
       stakeholders: Set[Party],
   ) extends SErrorScenario
 
-  /** The commit of the transaction failed due to authorization errors. */
+  /** The transaction failed due to a commit error */
   final case class ScenarioErrorCommitError(commitError: ScenarioLedger.CommitError)
       extends SErrorScenario
 

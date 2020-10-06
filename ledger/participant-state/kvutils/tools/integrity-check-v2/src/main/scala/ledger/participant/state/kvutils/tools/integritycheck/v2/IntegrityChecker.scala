@@ -90,8 +90,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               commitStrategy,
             )
             actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
-            sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-            _ = compareWriteSets(expectedWriteSet, sortedActualWriteSet)
+            _ = compareWriteSets(expectedWriteSet, actualWriteSet)
           } yield ()
       }
       .runWith(Sink.fold(0)((n, _) => n + 1))

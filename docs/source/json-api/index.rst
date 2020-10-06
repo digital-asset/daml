@@ -6,8 +6,8 @@
 HTTP JSON API Service
 #####################
 
-The **JSON API** provides a significantly simpler way to interact with a ledger than :doc:`the Ledger
-API </app-dev/ledger-api>` by providing *basic active contract set functionality*:
+The **JSON API** provides a significantly simpler way to interact with a ledger than
+:doc:`the Ledger API </app-dev/ledger-api>` by providing *basic active contract set functionality*:
 
 - creating contracts,
 - exercising choices on contracts,
@@ -20,15 +20,14 @@ complicating concerns including, but not limited to:
 - inspecting transactions,
 - asynchronous submit/completion workflows,
 - temporal queries (e.g. active contracts *as of a certain time*), and
-- ledger metaprogramming (e.g. retrieving packages and templates).
 
 For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
 
-We welcome feedback about the JSON API on `our issue tracker
-<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-`on our forum <https://discuss.daml.com>`_, or `on Slack
-<https://slack.daml.com>`_.
+We welcome feedback about the JSON API on
+`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
+`on our forum <https://discuss.daml.com>`_, or
+`on Slack <https://slack.daml.com>`_.
 
 .. toctree::
    :hidden:
@@ -70,10 +69,30 @@ This will start the JSON API on port 7575 and connect it to a ledger running on 
 
 .. note:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
 
+Standalone JAR
+--------------
+
+The ``daml json-api`` command is great during development since it is
+included with the SDK and integrates with ``daml start`` and other
+commands. Once you are ready to deploy your application, you can
+download the standalone JAR from
+`Github releases <https://github.com/digital-asset/daml/releases>`_. It is much smaller
+than the whole SDK and easier to deploy since it only requires a JVM
+but no other dependencies and no installation process. The JAR accepts
+exactly the same command line parameters as ``daml json-api``, so to
+start the standalone JAR, you can use the following command:
+
+.. code-block:: shell
+
+    java -jar http-json-1.5.0.jar --ledger-host localhost --ledger-port 6865 --http-port 7575
+
+Replace the version number ``1.5.0`` by the version of the SDK you are
+using.
+
 With Query Store
 ------------------
 
-To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is save to reinitialize the database at any time.
+To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is safe to reinitialize the database at any time.
 
 To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
 
@@ -136,7 +155,7 @@ token.  You can use an arbitrary secret here. The default "header" is fine.  Und
       }
     }
 
-The value of the ``ledgerId`` field has to match the ``ledgerId` of your underlying DAML Ledger.
+The value of the ``ledgerId`` field has to match the ``ledgerId`` of your underlying DAML Ledger.
 For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
@@ -324,7 +343,7 @@ Examples
 Create a new Contract
 *********************
 
-To create an instance of an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
+To create an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
 .. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
@@ -1437,8 +1456,8 @@ Example:
         {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
     ]
 
-The output stream has the same format as the output from the `Contracts
-Query Stream`_. We further guarantee that for every ``archived`` event
+The output stream has the same format as the output from the
+`Contracts Query Stream`_. We further guarantee that for every ``archived`` event
 appearing on the stream there has been a matching ``created`` event
 earlier in the stream, except in the case of missing
 ``contractIdAtOffset`` fields in the case described below.

@@ -218,11 +218,9 @@ object Hash {
           add(variant).addTypedValue(v)
         case Value.ValueEnum(_, v) =>
           add(v)
-        case Value.ValueGenMap(_) =>
-          error("Hashing of generic map not implemented")
-        // Struct: should never be encountered
-        case Value.ValueStruct(_) =>
-          error("Hashing of struct values is not supported")
+        case Value.ValueGenMap(entries) =>
+          iterateOver(entries.iterator, entries.length)((acc, x) =>
+            acc.addTypedValue(x._1).addTypedValue(x._2))
       }
   }
 

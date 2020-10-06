@@ -7,6 +7,9 @@ package speedy
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.ledger.Authorize
+import com.daml.lf.ledger.FailedAuthorization
+
 import com.daml.lf.transaction.{
   GenTransaction,
   GlobalKey,
@@ -253,6 +256,7 @@ private[lf] case class PartialTransaction(
     * contract instance.
     */
   def insertCreate(
+      auth: Option[Authorize],
       coinst: Value.ContractInst[Value[Value.ContractId]],
       optLocation: Option[Location],
       signatories: Set[Party],
@@ -284,7 +288,7 @@ private[lf] case class PartialTransaction(
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
         nodeSeeds = nodeSeeds :+ (nid -> nodeSeed),
-      )
+      ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(createNode), auth)
 
       // if we have a contract key being added, include it in the list of
       // active keys
@@ -300,6 +304,7 @@ private[lf] case class PartialTransaction(
   private[this] def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
+      auth: Option[Authorize],
       coid: Value.ContractId,
       templateId: TypeConName,
       optLocation: Option[Location],
@@ -308,33 +313,39 @@ private[lf] case class PartialTransaction(
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
-  ): PartialTransaction =
+  ): PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
+    val node = Node.NodeFetch(
+      coid,
+      templateId,
+      optLocation,
+      Some(actingParties),
+      signatories,
+      stakeholders,
+      key
+    )
     mustBeActive(
       coid,
       templateId,
-      insertLeafNode(
-        Node
-          .NodeFetch(
-            coid,
-            templateId,
-            optLocation,
-            Some(actingParties),
-            signatories,
-            stakeholders,
-            key),
-        byKey,
-      ),
-    )
+      insertLeafNode(node, byKey)
+    ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
+  }
 
   def insertLookup(
+      auth: Option[Authorize],
       templateId: TypeConName,
       optLocation: Option[Location],
       key: Node.KeyWithMaintainers[Value[Nothing]],
       result: Option[Value.ContractId],
-  ): PartialTransaction =
-    insertLeafNode(Node.NodeLookupByKey(templateId, optLocation, key, result), byKey = true)
+  ): PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
+    val node = Node.NodeLookupByKey(templateId, optLocation, key, result)
+    insertLeafNode(node, byKey = true)
+      .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
+  }
 
   def beginExercises(
+      auth: Option[Authorize],
       targetId: Value.ContractId,
       templateId: TypeConName,
       choiceId: ChoiceName,
@@ -356,6 +367,23 @@ private[lf] case class PartialTransaction(
       )
     } else {
       val nid = NodeId(nextNodeIdx)
+      val ec =
+        ExercisesContext(
+          targetId = targetId,
+          templateId = templateId,
+          contractKey = mbKey,
+          choiceId = choiceId,
+          optLocation = optLocation,
+          consuming = consuming,
+          actingParties = actingParties,
+          chosenValue = chosenValue,
+          signatories = signatories,
+          stakeholders = stakeholders,
+          controllers = controllers,
+          nodeId = nid,
+          parent = context,
+        )
+
       Right(
         mustBeActive(
           targetId,
@@ -363,23 +391,7 @@ private[lf] case class PartialTransaction(
           copy(
             nextNodeIdx = nextNodeIdx + 1,
             byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes,
-            context = Context(
-              ExercisesContext(
-                targetId = targetId,
-                templateId = templateId,
-                contractKey = mbKey,
-                choiceId = choiceId,
-                optLocation = optLocation,
-                consuming = consuming,
-                actingParties = actingParties,
-                chosenValue = chosenValue,
-                signatories = signatories,
-                stakeholders = stakeholders,
-                controllers = controllers,
-                nodeId = nid,
-                parent = context,
-              ),
-            ),
+            context = Context(ec),
             // important: the semantics of DAML dictate that contracts are immediately
             // inactive as soon as you exercise it. therefore, mark it as consumed now.
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
@@ -389,7 +401,7 @@ private[lf] case class PartialTransaction(
               case _ => keys
             },
           ),
-        ),
+        ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(ec), auth)
       )
     }
   }
@@ -422,6 +434,23 @@ private[lf] case class PartialTransaction(
       case None =>
         noteAbort(Tx.EndExerciseInRootContext)
     }
+
+  /** Note that the transaction building failed due to an authorization failure */
+  private def noteAuthFails(
+      nid: NodeId,
+      f: Authorize => List[FailedAuthorization],
+      authM: Option[Authorize],
+  ): PartialTransaction = {
+    authM match {
+      case None => this // authorization checking is disabled
+      case Some(auth) =>
+        f(auth) match {
+          case Nil => this
+          case fa :: _ => // take just the first failure //TODO: dont compute all!
+            noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
+        }
+    }
+  }
 
   /** Note that the transaction building failed due to the given error */
   private[this] def noteAbort(err: Tx.TransactionError): PartialTransaction =

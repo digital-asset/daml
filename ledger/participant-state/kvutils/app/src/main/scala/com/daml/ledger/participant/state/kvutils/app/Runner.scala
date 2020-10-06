@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.lf.archive.DarReader
@@ -113,6 +114,10 @@ final class Runner[T <: ReadWriteService, Extra](
               .acquire()
             readService = new TimedReadService(ledger, metrics)
             writeService = new TimedWriteService(ledger, metrics)
+            healthChecks = new HealthChecks(
+              "read" -> readService,
+              "write" -> writeService,
+            )
             _ <- Resource.fromFuture(
               Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
             _ <- new StandaloneIndexerServer(
@@ -129,6 +134,7 @@ final class Runner[T <: ReadWriteService, Extra](
               ledgerConfig = factory.ledgerConfig(config),
               optWriteService = Some(writeService),
               authService = factory.authService(config),
+              healthChecks = healthChecks,
               metrics = metrics,
               timeServiceBackend = factory.timeServiceBackend(config),
               otherInterceptors = factory.interceptors(config),

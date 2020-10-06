@@ -11,13 +11,14 @@ import qualified DA.Service.Logger as L
 import qualified DA.Service.Logger.Impl.Pure as L
 import qualified DA.Service.Logger.Impl.GCP as L
 import DA.Daml.Project.Config
+import DA.Daml.Project.Consts (sdkVersionEnvVar)
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Command
 import DA.Daml.Assistant.Version
 import DA.Daml.Assistant.Install
 import DA.Daml.Assistant.Util
-import System.Environment (getArgs)
+import System.Environment (getArgs, lookupEnv)
 import System.FilePath
 import System.Directory
 import System.Process.Typed
@@ -181,6 +182,7 @@ runCommand env@Env{..} = \case
         availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
+        envSelectedVersionM <- lookupEnv sdkVersionEnvVar
         snapshotVersionsE <- tryAssistant $
             if vSnapshots
                 then getAvailableSdkSnapshotVersions
@@ -212,7 +214,9 @@ runCommand env@Env{..} = \case
                     Right vs -> (`elem` vs)
 
             versionAttrs v = catMaybes
-                [ "project SDK version from daml.yaml"
+                [ ("selected by env var " <> pack sdkVersionEnvVar)
+                    <$ guard (Just (unpack $ versionToText v) == envSelectedVersionM)
+                , "project SDK version from daml.yaml"
                     <$ guard (Just v == projectVersionM && isJust envProjectPath)
                 , "default SDK version for new projects"
                     <$ guard (Just v == defaultVersionM && isNothing envProjectPath)

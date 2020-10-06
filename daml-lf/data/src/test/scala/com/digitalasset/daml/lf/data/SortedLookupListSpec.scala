@@ -43,9 +43,9 @@ class SortedLookupListSpec extends WordSpec with Matchers with PropertyChecks {
       ImmArray("2" -> 2, "3" -> 3, "1" -> 1)
     )
 
-    forAll(negativeTestCases)(l => SortedLookupList.fromSortedImmArray(l) shouldBe 'right)
+    forAll(negativeTestCases)(l => SortedLookupList.fromOrderedImmArray(l) shouldBe 'right)
 
-    forAll(positiveTestCases)(l => SortedLookupList.fromSortedImmArray(l) shouldBe 'left)
+    forAll(positiveTestCases)(l => SortedLookupList.fromOrderedImmArray(l) shouldBe 'left)
 
   }
 

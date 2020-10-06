@@ -134,6 +134,13 @@ data Map a b =
 data ContractId a =
   ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
+#ifdef DAML_GENERIC_COMPARISON
+instance Ord (ContractId a) where
+  (<) = primitive @"BELess"
+  (<=) = primitive @"BELessEq"
+  (>) = primitive @"BEGreater"
+  (>=) = primitive @"BEGreaterEq"
+#endif
 instance Show (ContractId a) where
 #ifdef DAML_TO_TEXT_CONTRACT_ID
   show cid = case primitive @"BEToTextContractId" cid of
@@ -251,4 +258,12 @@ data TypeRep = TypeRep Opaque
 #ifdef DAML_TYPE_REP
 instance Eq TypeRep where
   (==) = primitive @"BEEqual"
+
+#ifdef DAML_GENERIC_COMPARISON
+instance Ord TypeRep where
+  (<=) = primitive @"BELessEq"
+  (>=) = primitive @"BEGreaterEq"
+  (<) = primitive @"BELess"
+  (>) = primitive @"BEGreater"
+#endif -- DAML_GENERIC_COMPARISON
 #endif

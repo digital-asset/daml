@@ -26,7 +26,7 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "//libs-scala/direct-execution-context",
+        "//libs-scala/concurrent",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",

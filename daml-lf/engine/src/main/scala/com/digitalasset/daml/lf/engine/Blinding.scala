@@ -6,7 +6,7 @@ package com.daml.lf.engine
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
-import com.daml.lf.transaction.{BlindingInfo, GenTransaction, NodeId, Transaction}
+import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
 
@@ -14,75 +14,18 @@ import scala.annotation.tailrec
 
 object Blinding {
 
-  private[this] def maybeAuthorizeAndBlind(
-      tx: Transaction.Transaction,
-      authorization: Authorize): Either[AuthorizationError, BlindingInfo] = {
-
-    val failedAuthorizations =
-      AuthorizingTransaction.checkAuthFailures(authorization, tx)
-
-    def authorizationErrors(failures: Map[NodeId, FailedAuthorization]) = {
-      failures
-        .map {
-          case (id, failure) =>
-            failure match {
-              case nc: FailedAuthorization.NoControllers =>
-                s"node $id (${nc.templateId}) has no controllers"
-              case am: FailedAuthorization.ActorMismatch =>
-                s"node $id (${am.templateId}) controllers don't match given actors ${am.givenActors.mkString(",")}"
-              case ma: FailedAuthorization.CreateMissingAuthorization =>
-                s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
-                  .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
-              case ma: FailedAuthorization.FetchMissingAuthorization =>
-                s"node $id requires one of the stakeholders ${ma.stakeholders} of the fetched contract to be an authorizer, but authorizers were ${ma.authorizingParties}"
-              case ma: FailedAuthorization.ExerciseMissingAuthorization =>
-                s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
-                  .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
-              case ns: FailedAuthorization.NoSignatories =>
-                s"node $id (${ns.templateId}) has no signatories"
-              case nlbk: FailedAuthorization.LookupByKeyMissingAuthorization =>
-                s"node $id (${nlbk.templateId}) requires authorizers ${nlbk.maintainers} for lookup by key, but it only has ${nlbk.authorizingParties}"
-              case mns: FailedAuthorization.MaintainersNotSubsetOfSignatories =>
-                s"node $id (${mns.templateId}) has maintainers ${mns.maintainers} which are not a subset of the signatories ${mns.signatories}"
-
-            }
-        }
-        .mkString(";")
-    }
-    if (failedAuthorizations.isEmpty) {
-      val blindingInfo = BlindingTransaction.calculateBlindingInfo(tx)
-      Right(blindingInfo)
-    } else {
-      Left(
-        AuthorizationError(
-          s"The following errors occured: ${authorizationErrors(failedAuthorizations)}"))
-    }
-  }
-
   /**
     * Given a transaction provide concise information on visibility
-    * for all stakeholders returns error if the transaction is not
-    * well-authorized.
+    * for all stakeholders
     *
     * We keep this in Engine since it needs the packages and your
     * typical engine already has a way to look those up and we do not
     * want to reinvent the wheel.
     *
     *  @param tx transaction to be blinded
-    *  @param initialAuthorizers set of parties claimed to be authorizers of the transaction
-    */
-  def checkAuthorizationAndBlind(
-      tx: Transaction.Transaction,
-      initialAuthorizers: Set[Party],
-  ): Either[AuthorizationError, BlindingInfo] =
-    maybeAuthorizeAndBlind(tx, Authorize(initialAuthorizers))
-
-  /**
-    * Like checkAuthorizationAndBlind, but does not authorize the transaction, just blinds it.
     */
   def blind(tx: Transaction.Transaction): BlindingInfo =
-    BlindingTransaction
-      .calculateBlindingInfo(tx)
+    BlindingTransaction.calculateBlindingInfo(tx)
 
   /** Returns the part of the transaction which has to be divulged to the given party.
     *

@@ -7,12 +7,10 @@ package com.daml.ledger.validator.batch
   *
   * @param cpuParallelism Amount of parallelism to use for CPU bound steps.
   * @param readParallelism Amount of parallelism to use for ledger read operations.
-  * @param commitParallelism Amount of parallelism to use for ledger commit operations.
   */
 case class BatchedSubmissionValidatorParameters(
     cpuParallelism: Int,
     readParallelism: Int,
-    commitParallelism: Int
 )
 
 object BatchedSubmissionValidatorParameters {
@@ -21,7 +19,6 @@ object BatchedSubmissionValidatorParameters {
     BatchedSubmissionValidatorParameters(
       cpuParallelism = availableProcessors,
       readParallelism = availableProcessors,
-      commitParallelism = 1
     )
   }
 }

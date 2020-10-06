@@ -4,6 +4,8 @@
 
 module Variants where
 
+import Daml.Script
+
 -- CASH_BALANCE_BEGIN
 data Bank = Bank with
   party : Party
@@ -35,10 +37,10 @@ template CashBalance
   where
     signatory accountant
 
-cash_balance_test = scenario do
-  accountant <- getParty "Bob"
-  owner <- getParty "Alice"
-  bank_party <- getParty "Bank"
+cash_balance_test = do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
   let
     bank = Bank with
       party = bank_party
@@ -52,14 +54,14 @@ cash_balance_test = scenario do
       amount = 100.0
 
   submit accountant do
-    create CashBalance with
+    createCmd CashBalance with
       accountant
       owner
       cash
       location = InHand
 
   submit accountant do
-    create CashBalance with
+    createCmd CashBalance with
       accountant
       owner
       cash
@@ -96,7 +98,7 @@ data Either a b
   | Right b
 -}
 
-variant_access_test = scenario do
+variant_access_test = script do
   let
     l : Either Int Text = Left 1
     r : Either Int Text = Right "r"

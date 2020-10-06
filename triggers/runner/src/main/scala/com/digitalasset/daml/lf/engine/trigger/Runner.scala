@@ -14,6 +14,7 @@ import java.util.UUID
 
 import scalaz.syntax.tag._
 
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
@@ -22,6 +23,7 @@ import com.daml.lf.{CompiledPackages, PureCompiledPackages}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
+import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
@@ -29,7 +31,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event._
@@ -42,6 +44,9 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.script.converter.Converter.{DamlTuple2, DamlAnyModuleRecord, unrollFree}
+import com.daml.script.converter.Converter.Implicits._
+import com.daml.script.converter.ConverterException
 
 import com.google.protobuf.empty.Empty
 
@@ -72,7 +77,7 @@ object Machine extends StrictLogging {
     machine.run() match {
       case SResultFinalValue(v) => v
       case SResultError(err) => {
-        logger.error(Pretty.prettyError(err, machine.ptx).render(80))
+        logger.error(Pretty.prettyError(err).render(80))
         throw err
       }
       case res => {
@@ -217,53 +222,74 @@ class Runner(
 
   private[this] def logger = ContextualizedLogger get getClass
 
-  // Handles the result of initialState or update, i.e., (s, [Commands], Text)
-  // by submitting the commands, printing the log message and returning
-  // the new state
-  private def handleStepResult(v: SValue, submit: SubmitRequest => Unit): SValue =
-    v match {
-      case SRecord(recordId, _, values)
-          if recordId.qualifiedName ==
-            QualifiedName(
-              DottedName.assertFromString("DA.Types"),
-              DottedName.assertFromString("Tuple2")) => {
-        val newState = values.get(0)
-        val commandVal = values.get(1)
-        logger.debug(s"New state: $newState")
-        commandVal match {
-          case SList(transactions) =>
-            // Each transaction is a list of commands
-            for (commands <- transactions) {
-              converter.toCommands(commands) match {
-                case Left(err) => throw new ConverterException(err)
-                case Right((commandId, commands)) => {
-                  if (usedCommandIds.contains(commandId)) {
-                    throw new RuntimeException(s"Duplicate command id: $commandId")
-                  }
-                  usedCommandIds += commandId
-                  val commandUUID = UUID.randomUUID
-                  commandIdMap += (commandUUID -> commandId)
-                  val commandsArg = Commands(
-                    ledgerId = client.ledgerId.unwrap,
-                    applicationId = applicationId.unwrap,
-                    commandId = commandUUID.toString,
-                    party = party,
-                    commands = commands
-                  )
-                  logger.debug(
-                    s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
-                  submit(SubmitRequest(commands = Some(commandsArg)))
-                }
-              }
+  @throws[RuntimeException]
+  private def handleCommands[Z](
+      commandId: String,
+      commands: Seq[Command],
+      submit: SubmitRequest => Z): Z = {
+    if (usedCommandIds.contains(commandId)) {
+      throw new RuntimeException(s"Duplicate command id: $commandId")
+    }
+    usedCommandIds += commandId
+    val commandUUID = UUID.randomUUID
+    commandIdMap += (commandUUID -> commandId)
+    val commandsArg = Commands(
+      ledgerId = client.ledgerId.unwrap,
+      applicationId = applicationId.unwrap,
+      commandId = commandUUID.toString,
+      party = party,
+      commands = commands
+    )
+    logger.debug(s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
+    submit(SubmitRequest(commands = Some(commandsArg)))
+  }
+
+  import Runner.DamlFun
+
+  // Handles the value of update.
+  private def handleStepFreeResult(
+      clientTime: Timestamp,
+      v: SValue,
+      submit: SubmitRequest => Unit): SValue = {
+    def evaluate(se: SExpr) = {
+      val machine: Speedy.Machine =
+        Speedy.Machine.fromPureSExpr(compiledPackages, se)
+      // Evaluate it.
+      machine.setExpressionToEvaluate(se)
+      Machine.stepToValue(machine)
+    }
+    @tailrec def go(v: SValue): SValue = {
+      val resumed = unrollFree(v) match {
+        case Right(Right(vvv @ (variant, vv))) =>
+          vvv.match2 {
+            case "GetTime" /*(Time -> a)*/ => {
+              case DamlFun(timeA) => Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
             }
-          case _ => {}
-        }
-        newState
+            case "Submit" /*(Commands, () -> a)*/ => {
+              case DamlTuple2(commands, DamlFun(unitA)) =>
+                converter.toCommands(commands) match {
+                  case Left(err) => throw new ConverterException(err)
+                  case Right((commandId, commands)) =>
+                    handleCommands(commandId, commands, submit)
+                }
+                Right(evaluate(makeAppD(unitA, SUnit)))
+            }
+            case _ =>
+              val msg = s"unrecognized TriggerF step $variant"
+              logger.error(msg)
+              throw new ConverterException(msg)
+          }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
+        case Right(Left(newState)) => Left(newState)
+        case Left(e) => throw new ConverterException(e)
       }
-      case v => {
-        throw new RuntimeException(s"Expected Tuple2 but got $v")
+      resumed match {
+        case Left(newState) => newState
+        case Right(suspended) => go(suspended)
       }
     }
+
+    go(v)
+  }
 
   // This function produces a pair of a source of trigger messages
   // and a function to call in the event of a command submission
@@ -358,17 +384,22 @@ class Runner(
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     // Setup an application expression of initialState on the ACS.
     val initialState: SExpr =
-      makeApp(
-        getInitialState,
-        Array(SParty(Party.assertFromString(party)), STimestamp(clientTime), createdValue))
-    // Prepare a speedy machine for evaluting expressions.
+      makeApp(getInitialState, Array(SParty(Party.assertFromString(party)), createdValue))
+    // Prepare a speedy machine for evaluating expressions.
     val machine: Speedy.Machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, initialState, onLedger = false)
+      Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
-    val value = Machine.stepToValue(machine)
-    val evaluatedInitialState: SValue = handleStepResult(value, submit)
+    val value = Machine
+      .stepToValue(machine)
+      .expect("TriggerSetup", {
+        case DamlAnyModuleRecord("TriggerSetup", fts) => fts
+      })
+      .orConverterException
+    val evaluatedInitialState: SValue = handleStepFreeResult(clientTime, v = value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
+    machine.setExpressionToEvaluate(update)
+    val evaluatedUpdate: SValue = Machine.stepToValue(machine)
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -430,17 +461,31 @@ class Runner(
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(
-          makeApp(update, Array(STimestamp(clientTime): SValue, messageVal, state)))
-        val value = Machine.stepToValue(machine)
-        val newState = handleStepResult(value, submit)
-        newState
+        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
+        val stateFun = Machine
+          .stepToValue(machine)
+          .expect("TriggerRule", {
+            case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) => fun
+          })
+          .orConverterException
+        machine.setExpressionToEvaluate(makeAppD(stateFun, state))
+        val updateWithNewState = Machine.stepToValue(machine)
+
+        handleStepFreeResult(clientTime, v = updateWithNewState, submit = submit)
+          .expect("TriggerRule new state", {
+            case DamlTuple2(SUnit, newState) =>
+              logger.debug(s"New state: $newState")
+              newState
+          })
+          .orConverterException
       }))(Keep.right[NotUsed, Future[SValue]])
   }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
     SEApp(func, values.map(SEValue(_)))
   }
+
+  private[this] def makeAppD(func: SValue, values: SValue*) = makeApp(SEValue(func), values.toArray)
 
   // Query the ACS. This allows you to separate the initialization of
   // the initial state from the first run.
@@ -495,6 +540,10 @@ object Runner extends StrictLogging {
       case TimeProviderType.WallClock => TimeProvider.UTC
       case _ => throw new RuntimeException(s"Unexpected TimeProviderType: $ty")
     }
+  }
+
+  private object DamlFun {
+    def unapply(v: SPAP): Some[SPAP] = Some(v)
   }
 
   // Convience wrapper that creates the runner and runs the trigger.

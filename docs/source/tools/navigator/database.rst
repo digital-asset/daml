@@ -59,3 +59,4 @@ Filter on the content of an array if the index is specified::
 Filter on the content of an array if the index is not specified::
 
     sql select contract.id from contract, json_tree(contract.value) where atom is not null and json_tree.path like '$.template.choices[%]' and json_tree.value ='Accept'
+ 

@@ -15,16 +15,23 @@ module "nix_cache" {
   name                 = "${local.nix_cache_name}"
   project              = "${local.project}"
   region               = "${local.region}"
-  ssl_certificate      = "${local.ssl_certificate}"
+  ssl_certificate      = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/nix-cache"
   cache_retention_days = 360
 }
 
 // allow rw access for CI writer (see writer.tf)
-resource "google_storage_bucket_iam_member" "nix_cache_writer" {
+resource "google_storage_bucket_iam_member" "nix_cache_writer_create" {
   bucket = "${module.nix_cache.bucket_name}"
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.writer.email}"
+}
+resource "google_storage_bucket_iam_member" "nix_cache_writer_read" {
+  bucket = "${module.nix_cache.bucket_name}"
+
+  # https://cloud.google.com/storage/docs/access-control/iam-roles
+  role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.writer.email}"
 }
 

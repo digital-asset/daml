@@ -241,7 +241,14 @@ additional_languages:
 Click "Next" once you are ready. You will be able to modify the project view
 file whenever you like, so don't worry too much.
  
-IntelliJ will now import the project. This process will take a while.
+The first import of the project might fail due to a resolution error of the 
+`bazel` binary. In order to solve this, configure the Bazel plugin settings
+with the location of the `bazel` binary, 
+by setting _Preferences_ -> _Bazel Settings_ -> _Bazel binary location_ 
+to `./dev-env/bin/bazel`.
+
+Now, re-trigger a sync of the workspace (IntelliJ Action: 
+_Sync project with BUILD files_). This process will take a while.
 
 [intellij_project_view]: https://ij.bazel.build/docs/project-views.html
 
@@ -299,6 +306,12 @@ configuration: Give a suitable name, select the Bazel target, and choose the
 Bazel command (`run`, `test`, etc.). If applicable, you can also define Bazel
 command-line flags or command-line flags to the executable. Click on "Apply",
 or "OK" to add the run configuration.
+
+#### Attaching sources to scala library
+
+If you do not have the Scala library sources linked (you only see the decompiled
+ sources), you can attach it manually by selecting the `Choose sources...` 
+ button on the yellow bar at the top, and selecting `scala-library...-src.jar`. 
 
 ### Known Issues
 
@@ -1006,4 +1019,3 @@ poisoned Nix cache. To clear that run through the following steps:
 ### Working in environments with low or intermittent connectivity
 
 Bazel tries to leverage the remote cache to speed up the build process but this can turn out to work against you if you are working in an environment with low or intermittent connectivity. To disable fetching from the remote cache in such scenario, you can use the `--noremote_accept_cached` option.
-

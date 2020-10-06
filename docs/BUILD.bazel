@@ -254,11 +254,29 @@ genrule(
 ) if not is_windows else None
 
 genrule(
+    name = "hoogle_db",
+    srcs = [
+        "//compiler/damlc:daml-base-hoogle.txt",
+        "//daml-script/daml:daml-script-hoogle.txt",
+        "//triggers/daml:daml-trigger-hoogle.txt",
+    ],
+    outs = ["hoogle_db.tar.gz"],
+    cmd = """
+    mkdir hoogle
+    cp -L $(location //compiler/damlc:daml-base-hoogle.txt) hoogle/
+    cp -L $(location //daml-script/daml:daml-script-hoogle.txt) hoogle/
+    cp -L $(location //triggers/daml:daml-trigger-hoogle.txt) hoogle/
+    $(execpath //bazel_tools/sh:mktgz) $@ hoogle
+  """,
+    tools = ["//bazel_tools/sh:mktgz"],
+)
+
+genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
-        "//triggers/daml:daml-trigger-rst-docs",
-        "//daml-script/daml:daml-script-rst-docs",
+        "//triggers/daml:daml-trigger-rst.tar.gz",
+        "//daml-script/daml:daml-script-rst.tar.gz",
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
@@ -274,10 +292,16 @@ genrule(
             -C source/daml/stdlib
 
         # Copy in daml-trigger documentation
-        cp -rL $(location //triggers/daml:daml-trigger-rst-docs) source/triggers/trigger-docs.rst
+        mkdir -p source/triggers/api/
+        tar xf $(location //triggers/daml:daml-trigger-rst.tar.gz) \\
+            --strip-components 1 \\
+            -C source/triggers/api/
 
         # Copy in daml-script documentation
-        cp -rL $(location //daml-script/daml:daml-script-rst-docs) source/daml-script/daml-script-docs.rst
+        mkdir -p source/daml-script/api/
+        tar xf $(location //daml-script/daml:daml-script-rst.tar.gz) \\
+            --strip-components 1 \\
+            -C source/daml-script/api/
 
         # Copy in Protobufs
         cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
@@ -362,7 +386,7 @@ genrule(
     ]) + [
         ":sources",
         ":theme",
-        "//compiler/damlc:daml-base-hoogle.txt",
+        ":hoogle_db.tar.gz",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
@@ -371,6 +395,8 @@ genrule(
         "//templates:create-daml-app-docs",
         "//templates:create-daml-app-test-resources/index.test.ts",
         "@daml-cheat-sheet//:site",
+        ":scripts/check-closing-quotes.sh",
+        ":scripts/check-closing-quotes.sh.allow",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -395,6 +421,10 @@ genrule(
         # Copy create-daml-app tests
         mkdir $$CODE_DIR/testing
         cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
+
+        if ! docs/scripts/check-closing-quotes.sh . docs/scripts/check-closing-quotes.sh.allow; then
+            exit 1
+        fi
 
         # Build with Sphinx
         cd build
@@ -443,8 +473,7 @@ genrule(
         tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html/cheat-sheet
 
         # Copy in hoogle DB
-        mkdir -p html/hoogle_db
-        cp -rL ../$(location //compiler/damlc:daml-base-hoogle.txt) html/hoogle_db/base.txt
+        cp -L ../$(location :hoogle_db.tar.gz) html/hoogle_db.tar.gz
 
         ../$(execpath //bazel_tools/sh:mktgz) ../$@ html
         """.format(sdk = sdk_version),
@@ -560,7 +589,6 @@ genrule(
         "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml",
         "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml",
         "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml",
-        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml",
         "//daml-script/daml:daml-script.dar",
     ],
     outs = ["quickstart-model.dar"],
@@ -571,7 +599,6 @@ genrule(
       cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
       cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
       cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml) $$TMP_DIR/daml/
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -657,9 +684,6 @@ daml_test(
     name = "quickstart-daml-test",
     srcs = glob(
         include = ["source/app-dev/bindings-java/quickstart/template-root/daml/**/*.daml"],
-        # excluding Setup.daml, because it doesn't contain any scenarios,
-        # and we cannot conveniently add daml-script as a dependency for daml_test
-        exclude = ["source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml"],
     ),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -676,7 +700,27 @@ daml_test(
 
 daml_test(
     name = "daml-intro-daml-test",
-    srcs = glob(["source/daml/intro/daml/**/*.daml"]),
+    srcs = glob(
+        ["source/daml/intro/daml/**/*.daml"],
+        exclude = ["source/daml/intro/daml/daml-intro-8/**"],
+    ),
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-8-daml-test",
+    srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
+    data_deps = [":daml-intro-7.dar"],
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_build_test(
+    name = "daml-intro-7",
+    daml_yaml = ":daml-intro-7.yaml",
+    dar_dict = {
+        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+    },
+    project_dir = "source/daml/intro/daml/daml-intro-7",
 )
 
 daml_build_test(

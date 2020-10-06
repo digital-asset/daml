@@ -68,7 +68,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
   where
     modDoc :: TypecheckedModule -> Maybe DocText
     modDoc
-        = fmap (docToText . unLoc)
+        = fmap (moduleDocToText . unLoc)
         . hsmodHaddockModHeader . unLoc
         . pm_parsed_source . tm_parsed_module
 

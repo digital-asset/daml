@@ -1,7 +1,7 @@
--- @ERROR Stakeholders: 's'
--- @ERROR Stakeholders: 's'
--- @ERROR Stakeholders: 's'
--- @ERROR Stakeholders: 's'
+-- @ERROR failed due to a missing authorization from 's'
+-- @ERROR failed due to a missing authorization from 's'
+-- @ERROR failed due to a missing authorization from 's'
+-- @ERROR failed due to a missing authorization from 's'
 
 -- We make this a separate test since it’s annoying to assert
 -- which scenario an error message belongs to

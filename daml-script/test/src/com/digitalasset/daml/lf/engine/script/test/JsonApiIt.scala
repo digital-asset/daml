@@ -80,7 +80,7 @@ trait JsonApiFixture
   protected val secret: String = "secret"
 
   // We have to use a different actorsystem for the JSON API since package reloading
-  // blocks everything so it will timeout as sandbox cannot make progres simultaneously.
+  // blocks everything so it will timeout as sandbox cannot make progress simultaneously.
   private val jsonApiActorSystem: ActorSystem = ActorSystem("json-api")
   private val jsonApiMaterializer: Materializer = Materializer(system)
   private val jsonApiExecutionSequencerFactory: ExecutionSequencerFactory =
@@ -365,6 +365,19 @@ final class JsonApiIt
       for {
         clients <- getClients()
         result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonQueryContractId"))
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "queryContractKey" in {
+      // fresh party to avoid key collisions with other tests
+      val party = "jsonQueryContractKey"
+      for {
+        clients <- getClients(parties = List(party))
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonQueryContractKey"),
+          inputValue = Some(JsString(party)))
       } yield {
         assert(result == SUnit)
       }

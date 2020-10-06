@@ -18,7 +18,6 @@ import com.daml.ledger.participant.state.kvutils.export.{
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.JavaConverters._
-import scala.collection.SortedMap
 
 final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
     extends LedgerDataExporter
@@ -30,13 +29,14 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
   override def close(): Unit = output.close()
 
   private object Writer extends LedgerDataWriter {
-    override def write(submissionInfo: SubmissionInfo, writeSet: SortedMap[Key, Value]): Unit = {
+    override def write(submissionInfo: SubmissionInfo, writeSet: Seq[(Key, Value)]): Unit = {
       val entry = LedgerExportEntry.newBuilder
         .setSubmissionInfo(buildSubmissionInfo(submissionInfo))
         .addAllWriteSet(buildWriteSet(writeSet).asJava)
         .build
       output.synchronized {
         entry.writeDelimitedTo(output)
+        output.flush()
       }
     }
 
@@ -51,7 +51,7 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
         .build()
 
     private def buildWriteSet(
-        writeSet: SortedMap[Key, Value],
+        writeSet: Seq[(Key, Value)],
     ): Iterable[LedgerExportEntry.WriteEntry] =
       writeSet.map(
         writeEntry =>

@@ -82,6 +82,7 @@ final class Conversions(
 
     err match {
       case SError.SErrorCrash(reason) => setCrash(reason)
+      case SError.SRequiresOnLedger(operation) => setCrash(operation)
 
       case SError.DamlEMatchError(reason) =>
         setCrash(reason)
@@ -109,6 +110,13 @@ final class Conversions(
             .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
             .build,
         )
+      case SError.DamlEFailedAuthorization(nid, fa) =>
+        builder.setScenarioCommitError(
+          proto.CommitError.newBuilder
+            .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
+            .build
+        )
+
       case SError.ScenarioErrorContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScenarioContractNotEffective(
           proto.ScenarioError.ContractNotEffective.newBuilder
@@ -180,8 +188,6 @@ final class Conversions(
     commitError match {
       case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
         builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
-      case ScenarioLedger.CommitError.FailedAuthorizations(fas) =>
-        builder.setFailedAuthorizations(convertFailedAuthorizations(fas))
     }
     builder.build
   }
@@ -217,110 +223,107 @@ final class Conversions(
     builder.setMessage(msgAndLoc._1).build
   }
 
-  def convertFailedAuthorizations(fas: FailedAuthorizations): proto.FailedAuthorizations = {
+  def convertFailedAuthorization(
+      nodeId: NodeId,
+      fa: FailedAuthorization,
+  ): proto.FailedAuthorizations = {
     val builder = proto.FailedAuthorizations.newBuilder
-    fas.map {
-      case (nodeId, fa) =>
-        builder.addFailedAuthorizations {
-          val faBuilder = proto.FailedAuthorization.newBuilder
-          faBuilder.setNodeId(convertTxNodeId(nodeId))
-          fa match {
-            case FailedAuthorization.CreateMissingAuthorization(
-                templateId,
-                optLocation,
-                authParties,
-                reqParties,
-                ) =>
-              val cmaBuilder =
-                proto.FailedAuthorization.CreateMissingAuthorization.newBuilder
-                  .setTemplateId(convertIdentifier(templateId))
-                  .addAllAuthorizingParties(authParties.map(convertParty).asJava)
-                  .addAllRequiredAuthorizers(reqParties.map(convertParty).asJava)
-              optLocation.map(loc => cmaBuilder.setLocation(convertLocation(loc)))
-              faBuilder.setCreateMissingAuthorization(cmaBuilder.build)
+    builder.addFailedAuthorizations {
+      val faBuilder = proto.FailedAuthorization.newBuilder
+      faBuilder.setNodeId(convertTxNodeId(nodeId))
+      fa match {
+        case FailedAuthorization.CreateMissingAuthorization(
+            templateId,
+            optLocation,
+            authParties,
+            reqParties,
+            ) =>
+          val cmaBuilder =
+            proto.FailedAuthorization.CreateMissingAuthorization.newBuilder
+              .setTemplateId(convertIdentifier(templateId))
+              .addAllAuthorizingParties(authParties.map(convertParty).asJava)
+              .addAllRequiredAuthorizers(reqParties.map(convertParty).asJava)
+          optLocation.map(loc => cmaBuilder.setLocation(convertLocation(loc)))
+          faBuilder.setCreateMissingAuthorization(cmaBuilder.build)
 
-            case FailedAuthorization.MaintainersNotSubsetOfSignatories(
-                templateId,
-                optLocation,
-                signatories,
-                maintainers,
-                ) =>
-              val maintNotSignBuilder =
-                proto.FailedAuthorization.MaintainersNotSubsetOfSignatories.newBuilder
-                  .setTemplateId(convertIdentifier(templateId))
-                  .addAllSignatories(signatories.map(convertParty).asJava)
-                  .addAllMaintainers(maintainers.map(convertParty).asJava)
-              optLocation.map(loc => maintNotSignBuilder.setLocation(convertLocation(loc)))
-              faBuilder.setMaintainersNotSubsetOfSignatories(maintNotSignBuilder.build)
+        case FailedAuthorization.MaintainersNotSubsetOfSignatories(
+            templateId,
+            optLocation,
+            signatories,
+            maintainers,
+            ) =>
+          val maintNotSignBuilder =
+            proto.FailedAuthorization.MaintainersNotSubsetOfSignatories.newBuilder
+              .setTemplateId(convertIdentifier(templateId))
+              .addAllSignatories(signatories.map(convertParty).asJava)
+              .addAllMaintainers(maintainers.map(convertParty).asJava)
+          optLocation.map(loc => maintNotSignBuilder.setLocation(convertLocation(loc)))
+          faBuilder.setMaintainersNotSubsetOfSignatories(maintNotSignBuilder.build)
 
-            case fma: FailedAuthorization.FetchMissingAuthorization =>
-              val fmaBuilder =
-                proto.FailedAuthorization.FetchMissingAuthorization.newBuilder
-                  .setTemplateId(convertIdentifier(fma.templateId))
-                  .addAllAuthorizingParties(fma.authorizingParties.map(convertParty).asJava)
-                  .addAllStakeholders(fma.stakeholders.map(convertParty).asJava)
-              fma.optLocation.map(loc => fmaBuilder.setLocation(convertLocation(loc)))
-              faBuilder.setFetchMissingAuthorization(fmaBuilder.build)
+        case fma: FailedAuthorization.FetchMissingAuthorization =>
+          val fmaBuilder =
+            proto.FailedAuthorization.FetchMissingAuthorization.newBuilder
+              .setTemplateId(convertIdentifier(fma.templateId))
+              .addAllAuthorizingParties(fma.authorizingParties.map(convertParty).asJava)
+              .addAllStakeholders(fma.stakeholders.map(convertParty).asJava)
+          fma.optLocation.map(loc => fmaBuilder.setLocation(convertLocation(loc)))
+          faBuilder.setFetchMissingAuthorization(fmaBuilder.build)
 
-            case FailedAuthorization.ExerciseMissingAuthorization(
-                templateId,
-                choiceId,
-                optLocation,
-                authParties,
-                reqParties,
-                ) =>
-              val emaBuilder =
-                proto.FailedAuthorization.ExerciseMissingAuthorization.newBuilder
-                  .setTemplateId(convertIdentifier(templateId))
-                  .setChoiceId(choiceId)
-                  .addAllAuthorizingParties(authParties.map(convertParty).asJava)
-                  .addAllRequiredAuthorizers(reqParties.map(convertParty).asJava)
-              optLocation.map(loc => emaBuilder.setLocation(convertLocation(loc)))
-              faBuilder.setExerciseMissingAuthorization(emaBuilder.build)
-            case FailedAuthorization.ActorMismatch(
-                templateId,
-                choiceId,
-                optLocation,
-                givenActors) =>
-              val amBuilder =
-                proto.FailedAuthorization.ActorMismatch.newBuilder
-                  .setTemplateId(convertIdentifier(templateId))
-                  .setChoiceId(choiceId)
-                  .addAllGivenActors(givenActors.map(convertParty).asJava)
-              optLocation.map(loc => amBuilder.setLocation(convertLocation(loc)))
-              faBuilder.setActorMismatch(amBuilder.build)
-            case FailedAuthorization.NoSignatories(templateId, optLocation) =>
-              val nsBuilder =
-                proto.FailedAuthorization.NoSignatories.newBuilder
-                  .setTemplateId(convertIdentifier(templateId))
-              optLocation.map(loc => nsBuilder.setLocation(convertLocation(loc)))
-              faBuilder.setNoSignatories(nsBuilder.build)
+        case FailedAuthorization.ExerciseMissingAuthorization(
+            templateId,
+            choiceId,
+            optLocation,
+            authParties,
+            reqParties,
+            ) =>
+          val emaBuilder =
+            proto.FailedAuthorization.ExerciseMissingAuthorization.newBuilder
+              .setTemplateId(convertIdentifier(templateId))
+              .setChoiceId(choiceId)
+              .addAllAuthorizingParties(authParties.map(convertParty).asJava)
+              .addAllRequiredAuthorizers(reqParties.map(convertParty).asJava)
+          optLocation.map(loc => emaBuilder.setLocation(convertLocation(loc)))
+          faBuilder.setExerciseMissingAuthorization(emaBuilder.build)
+        case FailedAuthorization.ActorMismatch(templateId, choiceId, optLocation, givenActors) =>
+          val amBuilder =
+            proto.FailedAuthorization.ActorMismatch.newBuilder
+              .setTemplateId(convertIdentifier(templateId))
+              .setChoiceId(choiceId)
+              .addAllGivenActors(givenActors.map(convertParty).asJava)
+          optLocation.map(loc => amBuilder.setLocation(convertLocation(loc)))
+          faBuilder.setActorMismatch(amBuilder.build)
+        case FailedAuthorization.NoSignatories(templateId, optLocation) =>
+          val nsBuilder =
+            proto.FailedAuthorization.NoSignatories.newBuilder
+              .setTemplateId(convertIdentifier(templateId))
+          optLocation.map(loc => nsBuilder.setLocation(convertLocation(loc)))
+          faBuilder.setNoSignatories(nsBuilder.build)
 
-            case FailedAuthorization.NoControllers(templateId, choiceId, optLocation) =>
-              val ncBuilder =
-                proto.FailedAuthorization.NoControllers.newBuilder
-                  .setTemplateId(convertIdentifier(templateId))
-                  .setChoiceId(choiceId)
-              optLocation.map(loc => ncBuilder.setLocation(convertLocation(loc)))
-              faBuilder.setNoControllers(ncBuilder.build)
+        case FailedAuthorization.NoControllers(templateId, choiceId, optLocation) =>
+          val ncBuilder =
+            proto.FailedAuthorization.NoControllers.newBuilder
+              .setTemplateId(convertIdentifier(templateId))
+              .setChoiceId(choiceId)
+          optLocation.map(loc => ncBuilder.setLocation(convertLocation(loc)))
+          faBuilder.setNoControllers(ncBuilder.build)
 
-            case FailedAuthorization.LookupByKeyMissingAuthorization(
-                templateId,
-                optLocation,
-                maintainers,
-                authorizers,
-                ) =>
-              val lbkmaBuilder =
-                proto.FailedAuthorization.LookupByKeyMissingAuthorization.newBuilder
-                  .setTemplateId(convertIdentifier(templateId))
-                  .addAllMaintainers(maintainers.map(convertParty).asJava)
-                  .addAllAuthorizingParties(authorizers.map(convertParty).asJava)
-              optLocation.foreach(loc => lbkmaBuilder.setLocation(convertLocation(loc)))
-              faBuilder.setLookupByKeyMissingAuthorization(lbkmaBuilder)
-          }
-          faBuilder.build
-        }
+        case FailedAuthorization.LookupByKeyMissingAuthorization(
+            templateId,
+            optLocation,
+            maintainers,
+            authorizers,
+            ) =>
+          val lbkmaBuilder =
+            proto.FailedAuthorization.LookupByKeyMissingAuthorization.newBuilder
+              .setTemplateId(convertIdentifier(templateId))
+              .addAllMaintainers(maintainers.map(convertParty).asJava)
+              .addAllAuthorizingParties(authorizers.map(convertParty).asJava)
+          optLocation.foreach(loc => lbkmaBuilder.setLocation(convertLocation(loc)))
+          faBuilder.setLookupByKeyMissingAuthorization(lbkmaBuilder)
+      }
+      faBuilder.build
     }
+
     builder.build
   }
 
@@ -376,7 +379,9 @@ final class Conversions(
       .setEffectiveAt(rtx.effectiveAt.micros)
       .addAllRoots(rtx.transaction.roots.map(convertNodeId(rtx.transactionId, _)).toSeq.asJava)
       .addAllNodes(rtx.transaction.nodes.keys.map(convertNodeId(rtx.transactionId, _)).asJava)
-      .setFailedAuthorizations(convertFailedAuthorizations(rtx.failedAuthorizations))
+      .setFailedAuthorizations(
+        proto.FailedAuthorizations.newBuilder.build
+      )
       .build
   }
 
@@ -617,22 +622,6 @@ final class Conversions(
                     .setValue(convertValue(fieldValue))
                     .build
               }.asJava,
-            )
-            .build,
-        )
-      case V.ValueStruct(fields) =>
-        builder.setTuple(
-          proto.Tuple.newBuilder
-            .addAllFields(
-              fields.iterator
-                .map { field =>
-                  proto.Field.newBuilder
-                    .setLabel(field._1)
-                    .setValue(convertValue(field._2))
-                    .build
-                }
-                .toSeq
-                .asJava,
             )
             .build,
         )

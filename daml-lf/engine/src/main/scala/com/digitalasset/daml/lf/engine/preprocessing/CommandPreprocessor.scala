@@ -12,7 +12,7 @@ import com.daml.lf.value.Value
 
 import scala.annotation.tailrec
 
-private[preprocessing] final class CommandPreprocessor(compiledPackages: MutableCompiledPackages) {
+private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) {
 
   import Preprocessor._
 

@@ -9,6 +9,7 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.testtool.infrastructure.{
   Dars,
+  Errors,
   LedgerSessionConfiguration,
   LedgerTestCase,
   LedgerTestCasesRunner,
@@ -161,8 +162,12 @@ object LedgerApiTestTool {
           config.verbose,
         ).report(summaries)
         sys.exit(exitCode(summaries, config.mustFail))
-      case Failure(e) =>
-        logger.error(e.getMessage, e)
+      case Failure(exception: Errors.FrameworkException) =>
+        logger.error(exception.getMessage)
+        logger.debug(exception.getMessage, exception)
+        sys.exit(1)
+      case Failure(exception) =>
+        logger.error(exception.getMessage, exception)
         sys.exit(1)
     }
   }
@@ -172,11 +177,11 @@ object LedgerApiTestTool {
       cases: Iterable[LedgerTestCase],
       concurrencyOverride: Option[Int] = None): LedgerTestCasesRunner =
     new LedgerTestCasesRunner(
-      LedgerSessionConfiguration(
+      new LedgerSessionConfiguration(
         config.participants,
-        config.shuffleParticipants,
         config.tlsConfig,
         config.partyAllocation,
+        config.shuffleParticipants,
       ),
       cases.toVector,
       identifierSuffix,

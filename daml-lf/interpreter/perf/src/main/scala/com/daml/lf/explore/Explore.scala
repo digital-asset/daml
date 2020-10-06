@@ -19,9 +19,12 @@ object Explore extends App {
 
 object PlaySpeedy {
 
+  private[this] val compilerConfig =
+    Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
+
   def main(args0: List[String]) = {
     val config: Config = parseArgs(args0)
-    val compiler: Compiler = Compiler(Map.empty, Compiler.FullStackTrace, Compiler.NoProfile)
+    val compiler: Compiler = new Compiler(Map.empty, compilerConfig)
 
     val names: List[String] = config.names match {
       case Nil => examples.toList.map(_._1)
@@ -62,7 +65,7 @@ object PlaySpeedy {
   }
 
   private val noPackages =
-    data.assertRight(PureCompiledPackages(Map.empty, Compiler.NoStackTrace, Compiler.NoProfile))
+    PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
 
   def runMachine(name: String, machine: Machine, expected: Int): Unit = {
 
@@ -128,11 +131,16 @@ object PlaySpeedy {
       (
         "free", // let (a,b,c) = (30,100,21) in twice (\x -> x - (a-c)) b
         82,
-        SELet(
-          Array(num(30), num(100), num(21)),
-          SEApp(
-            twice,
-            Array(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)))) //100
+        SELet1General(
+          num(30),
+          SELet1General(
+            num(100),
+            SELet1General(
+              num(21),
+              SEApp(
+                twice,
+                Array(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)))) //100
+          ))
       )
     )
 

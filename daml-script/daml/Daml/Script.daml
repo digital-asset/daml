@@ -8,6 +8,8 @@ module Daml.Script
   , submitMustFail
   , query
   , queryContractId
+  , queryContractKey
+  , queryFilter
   , PartyIdHint (..)
   , ParticipantName (..)
   , PartyDetails(..)
@@ -34,25 +36,7 @@ import DA.Functor
 import DA.Optional
 import DA.Stack
 import DA.Time
-
--- | A free monad
-data Free f a
-  = Pure a
-  | Free (f (Free f a))
-
-instance Functor f => Functor (Free f) where
-  fmap f (Pure a) = Pure (f a)
-  fmap f (Free x) = Free (fmap f <$> x)
-
-instance Functor f => Applicative (Free f) where
-  pure = Pure
-  Pure f <*> Pure a = Pure (f a)
-  Pure f <*> Free x = Free (fmap f <$> x)
-  Free x <*> my     = Free ((<*> my) <$> x)
-
-instance Functor f => Action (Free f) where
-  Pure a >>= f = f a
-  Free x >>= f = Free ((>>= f) <$> x)
+import Daml.Script.Free (Free(..))
 
 -- | A free applicative, since we don’t have existentials we have to use the weird RankNTypes encoding, this is isomorphic to
 -- forall b. Ap (f b) (Ap f (b -> a))
@@ -80,7 +64,8 @@ data CommandsF a
 -- If you enable the `ApplicativeDo` extension by adding
 -- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
 -- use `do`-notation but the individual commands must not depend
--- on each other.
+-- on each other and the last statement in a `do` block
+-- must be of the form ``return expr`` or ``pure expr``.
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
 
@@ -89,6 +74,7 @@ data ScriptF a
   | SubmitMustFail (SubmitMustFailCmd a)
   | Query (QueryACS a)
   | QueryContractId (QueryContractIdPayload a)
+  | QueryContractKey (QueryContractKeyPayload a)
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
   | GetTime (Time -> a)
@@ -106,6 +92,11 @@ data QueryACS a = QueryACS
 -- that are visible to the given party.
 query : forall t. Template t => Party -> Script [(ContractId t, t)]
 query p = lift $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
+
+-- | Query the set of active contracts of the template
+-- that are visible to the given party and match the given predicate.
+queryFilter : Template c => Party -> (c -> Bool) -> Script [(ContractId c, c)]
+queryFilter p f = filter (\(_, c) -> f c) <$> query p
 
 data QueryContractIdPayload a = QueryContractIdPayload
   { party : Party
@@ -126,6 +117,24 @@ queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   cid = coerceContractId c
   continue = pure . fmap (fromSome . fromAnyTemplate)
 
+data QueryContractKeyPayload a = QueryContractKeyPayload
+  { party : Party
+  , tplId : TemplateTypeRep
+  , key : AnyContractKey
+  , continue : Optional (ContractId (), AnyTemplate) -> a
+  } deriving Functor
+
+-- Returns `None` if there is no active contract with the given key that
+-- the party is a stakeholder on.
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractKey : forall t k. TemplateKey t k => Party -> k -> Script (Optional (ContractId t, t))
+queryContractKey p k = lift $ Free $ QueryContractKey QueryContractKeyPayload with
+  party = p
+  tplId = templateTypeRep @t
+  key = toAnyContractKey @t k
+  continue = pure . fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
+
 data SetTimePayload a = SetTimePayload
   with
     time : Time
@@ -134,7 +143,8 @@ data SetTimePayload a = SetTimePayload
 
 -- | Set the time via the time service.
 --
--- This is only supported in static time mode when running over the gRPC API.
+-- This is only supported in static time mode when running over the gRPC API
+-- and in DAML Studio.
 --
 -- Note that the ledger time service does not support going backwards in time.
 -- However, you can go back in time in DAML Studio.
@@ -293,14 +303,19 @@ instance HasSubmit Script Commands where
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
-newtype Script a = Script { runScript : () -> (Free ScriptF (a, ())) }
--- We use an inlined StateT () to separate evaluation of something of type Script from execution and to ensure
--- proper sequencing of evaluation. This is mainly so that `debug` does something
--- slightly more sensible.
+data Script a = Script with
+    runScript : () -> (Free ScriptF (a, ()))
+    -- We use an inlined StateT () to separate evaluation of
+    -- something of type Script from execution and to ensure
+    -- proper sequencing of evaluation. This is mainly so that `debug` does something
+    -- slightly more sensible.
+    dummy : ()
+    -- Dummy field to make sure damlc does not consider this an old-style
+    -- typeclass.
   deriving Functor
 
 instance CanAbort Script where
-  abort s = Script (\_ -> error s)
+  abort s = Script (\_ -> error s) ()
 
 instance ActionFail Script where
   fail = abort
@@ -333,22 +348,28 @@ archiveCmd : Choice t Archive () => ContractId t -> Commands ()
 archiveCmd cid = exerciseCmd cid Archive
 
 instance Applicative Script where
-    pure a = Script $ \ s -> return (a, s)
+    pure a = Script (\s -> return (a, s)) ()
 
-    Script mf <*> Script mx = Script $ \ s -> do
+    Script mf _ <*> Script mx _ = Script with
+      runScript = \ s -> do
         (f, s') <- mf s
         (x, s'') <- mx s'
         return (f x, s'')
+      dummy = ()
 
 instance Action Script where
-    m >>= k  = Script $ \ s -> do
+    m >>= k  = Script with
+      runScript = \ s -> do
         (a, s') <- runScript m s
         runScript (k a) s'
+      dummy = ()
 
 lift : Free ScriptF a -> Script a
-lift m = Script $ \s -> do
-  a <- m
-  pure (a, s)
+lift m = Script with
+  runScript = \s -> do
+    a <- m
+    pure (a, s)
+  dummy = ()
 
 -- | Convenience helper to declare you are writing a Script.
 --

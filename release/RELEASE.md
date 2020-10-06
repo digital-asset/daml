@@ -71,7 +71,12 @@ patches we backport to the 1.0 release branch).
    > Linux, you can use Remmina.
    >
    > Remmina notes: when creating an RDP connection, you may want to specify custom
-   > resolution. The default setting is to `use client resolution`.
+   > resolution. The default setting is to `use client resolution`. You may notice a
+   > failure due to color depth settings. You can adjust those in the settings panel
+   > right below the resolution settings.
+   >
+   > The ad-hoc machines take a bit of time to be available after being reported as
+   > created, so be patient for a bit if your first connection attempt(s) fail.
    >
    > The first thing you should do is install Firefox, because Internet
    > Explorer is a pain. Open IE, go to Internet Options (gear icon in the top
@@ -87,11 +92,10 @@ patches we backport to the 1.0 release branch).
    >
    > [adoptopenjdk]: https://adoptopenjdk.net
    >
-   > [node], [yarn] and [VS Code] installers all add to PATH by default so
-   > those are just download > next > next installations.
+   > [node] and [VS Code] installers add to PATH by default so those are just
+   > download > next > next installations.
    >
    > [node]: https://nodejs.org/en/
-   > [yarn]: https://classic.yarnpkg.com/en/docs/install/
    > [VS Code]: https://code.visualstudio.com
    >
    > All of the commands mentioned in this document can be run from a simple
@@ -101,8 +105,6 @@ patches we backport to the 1.0 release branch).
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
     - [Node.js](https://nodejs.org/en/download/)
       - Just the bare install; no need to build C dependencies.
-    - [Yarn](https://classic.yarnpkg.com/en/docs/install/)
-      - Install Node.js first.
 
 1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.
@@ -125,15 +127,15 @@ patches we backport to the 1.0 release branch).
 
        1. `daml build`
 
-       1. `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js`
+       1. `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o ui/daml.js`
 
        1. `daml start`
 
     1. In a new terminal, from the `ui` folder:
 
-       1. `yarn install`
+       1. `npm install`
 
-       1. `yarn start`
+       1. `npm start`
 
     1. Open two browser windows (you want to see them simultaneously ideally) at `localhost:3000`.
 
@@ -147,7 +149,7 @@ patches we backport to the 1.0 release branch).
        the list of users `Bob` is following. Verify in the other
        browser window that `Bob` shows up in `Alice`’s network.
 
-    1. Kill the `daml start` process and the `yarn start` process.
+    1. Kill the `daml start` process and the `npm start` process.
 
     1. Open the your first feature section of the GSG, e.g., from
        https://docs.daml.com/$VERSION/getting-started/first-feature.html
@@ -163,9 +165,9 @@ patches we backport to the 1.0 release branch).
 
     1. Close VSCode.
 
-    1. Run `daml build` then `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js` from the project root.
+    1. Run `daml build` then `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o ui/daml.js` from the project root.
 
-    1. From the `ui` directory run `yarn install --force --frozen-lockfile`.
+    1. From the `ui` directory run `npm install --frozen-lockfile`.
 
     1. Run `code .` from the project root directory (the extension is
        already installed, no need to use `daml studio`).
@@ -179,7 +181,7 @@ patches we backport to the 1.0 release branch).
 
     1. Run `daml start` from the project root directory.
 
-    1. In a separate terminal, run `yarn start` from the `ui` directory.
+    1. In a separate terminal, run `npm start` from the `ui` directory.
 
     1. As before, open two browser windows at `localhost:3000` and log
        in as `Alice` and `Bob`.
@@ -199,7 +201,7 @@ patches we backport to the 1.0 release branch).
     1. Verify that `Bob` has received the message in the other window.
 
     1. You can now close both browser windows and both running processes (`daml
-       start` and `yarn start`).
+       start` and `npm start`).
 
     1. Don't forget to run this on the other platform! E.g. if you just ran
        through on Linux or macOS, you still need to run on Windows, and vice
@@ -226,7 +228,7 @@ patches we backport to the 1.0 release branch).
     1. In 3 separate terminals (since each command blocks), run:
 
        1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
-       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
+       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
        1. `daml codegen java && mvn compile exec:java@run-quickstart`
 
        > Note: It takes some time for our artifacts to be available on Maven
@@ -262,19 +264,19 @@ patches we backport to the 1.0 release branch).
 
     1. Open `daml/Main.daml`.
 
-    1. Click on `Scenario results` above `setup` and wait for the scenario
+    1. Click on `Script results` above `setup` and wait for the script
        results to appear.
 
-    1. Add `+` at the end of line 12, after `"Alice"` and confirm you get an
-       error in line 13.
+    1. Add `+` at the end of line 14, after `"Alice")` and confirm you get an
+       error in line 15.
 
-    1. Add `1` after the `+` and confirm you get an error in line 12.
+    1. Add `1` after the `+` and confirm you get an error in line 14.
 
-    1. Delete the `+1` and the `e` in `Alice` and verify that the scenario
-       results are updated to the misspelled name.
+    1. Delete the `+1` and the `e` in the second `"Alice"` and verify
+       that the script results are updated to the misspelled name.
 
-    1. Right click on `eurBank` in line 18 and verify that "Go to Definition"
-       takes you to the definition in line 15.
+    1. Right click on `eurBank` in line 20 and verify that "Go to Definition"
+       takes you to the definition in line 17.
 
     1. Close all files.
 
@@ -295,8 +297,8 @@ patches we backport to the 1.0 release branch).
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the scenario result appears within 30 seconds.
-   1. Add `+` at the end of line 23 after `"Alice"` and verify that you get an
-      error.
+   1. Add `+` at the end of line 25 after `(PartyIdHint "Alice")` and verify that
+      you get an error on line 26.
 
 1. On your PR, add the comment:
 

@@ -67,8 +67,7 @@ beforeAll(async () => {
     ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
      '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
-    ['-Dakka.http.server.request-timeout=60s',
-     '-Dlogback.configurationFile=' + getEnv("JSON_API_LOGBACK")],
+    ['-Dakka.http.server.request-timeout=60s'],
   )
   await waitOn({resources: [`file:${JSON_API_PORT_FILE}`]})
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
@@ -311,4 +310,151 @@ test('create + fetch & exercise', async () => {
   expect(nonTopLevelContract.payload).toEqual(nonTopLevel);
   const nonTopLevelContracts = await aliceLedger.query(buildAndLint.Lib.Mod.NonTopLevel);
   expect(nonTopLevelContracts).toEqual([nonTopLevelContract]);
+});
+
+test("multi-{key,query} stream", async () => {
+  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+
+  function collect<T extends object, K, I extends string, State>(stream: Stream<T, K, I, State>): [State, readonly Event<T, K, I>[]][] {
+    const res = [] as [State, readonly Event<T, K, I>[]][];
+    stream.on('change', (state, events) => res.push([state, events]));
+    return res;
+  }
+  async function create(t: string): Promise<void> {
+    await ledger.create(buildAndLint.Main.Counter, {p: ALICE_PARTY, t, c: "0"});
+  }
+  async function update(t: string, c: number): Promise<void> {
+    await ledger.exerciseByKey(buildAndLint.Main.Counter.Change, {_1: ALICE_PARTY, _2: t}, {n: c.toString()});
+  }
+  async function archive(t: string): Promise<void> {
+    await ledger.archiveByKey(buildAndLint.Main.Counter, {_1: ALICE_PARTY, _2: t});
+  }
+  function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  async function close<T extends object, K, I extends string, State>(s: Stream<T, K, I, State>): Promise<void> {
+    const p = pEvent(s, 'close');
+    s.close();
+    await p;
+  }
+  // Add support for comparison queries
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const streamQueriesWithComparison = ledger.streamQueries.bind(ledger) as (t: any, qs: any) => any;
+  const q = streamQueriesWithComparison(
+    buildAndLint.Main.Counter,
+    [{p: ALICE_PARTY, t: "included"},
+     {c: {"%gt": 5}}]);
+  const queryResult = collect(q);
+  const ks = ledger.streamFetchByKeys(
+    buildAndLint.Main.Counter,
+    [{_1: ALICE_PARTY, _2: "included"},
+     {_1: ALICE_PARTY, _2: "byKey"},
+     {_1: ALICE_PARTY, _2: "included"}]);
+  const byKeysResult = collect(ks);
+
+  await create("included");
+  await create("byKey");
+  await create("excluded");
+
+  await update("excluded", 10);
+  await update("byKey", 3);
+  await update("byKey", 6);
+  await update("excluded", 3);
+  await update("included", 2);
+
+  await archive("included");
+  await archive("byKey");
+
+  await create("included");
+
+  await sleep(500);
+
+  await close(q);
+  await close(ks);
+
+  expect(queryResult).toMatchObject(
+    [[[{"payload": {"c": "0", "t": "included"}}],
+      [{"created": {"payload": {"c": "0", "t": "included"}}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}},
+       {"payload": {"c": "10", "t": "excluded"}}],
+      [{"archived": {}},
+       {"created": {"payload": {"c": "10", "t": "excluded"}}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}},
+       {"payload": {"c": "10", "t": "excluded"}}],
+      [{"archived": {}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}},
+       {"payload": {"c": "10", "t": "excluded"}},
+       {"payload": {"c": "6", "t": "byKey"}}],
+      [{"archived": {}},
+       {"created": {"payload": {"c": "6", "t": "byKey"}}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}},
+       {"payload": {"c": "6", "t": "byKey"}}],
+      [{"archived": {}}]],
+
+     [[{"payload": {"c": "6", "t": "byKey"}},
+       {"payload": {"c": "2", "t": "included"}}],
+      [{"archived": {}},
+       {"created": {"payload": {"c": "2", "t": "included"}}}]],
+
+     [[{"payload": {"c": "6", "t": "byKey"}}],
+      [{"archived": {}}]],
+
+     [[],
+      [{"archived": {}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}}],
+      [{"created": {"payload": {"c": "0", "t": "included"}}}]]]
+
+  );
+
+  expect(byKeysResult).toMatchObject(
+    [[[{"payload": {"c": "0", "t": "included"}},
+       null,
+       {"payload": {"c": "0", "t": "included"}}],
+      [{"created": {"payload": {"c": "0", "t": "included"}}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}},
+       {"payload": {"c": "0", "t": "byKey"}},
+       {"payload": {"c": "0", "t": "included"}}],
+      [{"created": {"payload": {"c": "0", "t": "byKey"}}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}},
+       {"payload": {"c": "3", "t": "byKey"}},
+       {"payload": {"c": "0", "t": "included"}}],
+      [{"archived": {}},
+       {"created": {"payload": {"c": "3", "t": "byKey"}}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}},
+       {"payload": {"c": "6", "t": "byKey"}},
+       {"payload": {"c": "0", "t": "included"}}],
+      [{"archived": {}},
+       {"created": {"payload": {"c": "6", "t": "byKey"}}}]],
+
+     [[{"payload": {"c": "2", "t": "included"}},
+       {"payload": {"c": "6", "t": "byKey"}},
+       {"payload": {"c": "2", "t": "included"}}],
+      [{"archived": {}},
+       {"created": {"payload": {"c": "2", "t": "included"}}}]],
+
+     [[null,
+       {"payload": {"c": "6", "t": "byKey"}},
+       null],
+      [{"archived": {}}]],
+
+     [[null,
+       null,
+       null],
+      [{"archived": {}}]],
+
+     [[{"payload": {"c": "0", "t": "included"}},
+       null,
+       {"payload": {"c": "0", "t": "included"}}],
+      [{"created": {"payload": {"c": "0", "t": "included"}}}]]
+    ]
+  );
+
 });

@@ -79,9 +79,12 @@ config_setting(
     if versions.is_at_least(sdk_version, platform_version)
 ]
 
+last_pre_7456_trigger_version = "1.6.0-snapshot.20200930.5312.0.b9a1905d"
+
 [
     daml_trigger_dar(sdk_version)
     for sdk_version in sdk_versions
+    if not versions.is_at_most(last_pre_7456_trigger_version, sdk_version)
 ]
 
 [
@@ -94,7 +97,8 @@ config_setting(
     # Test that the DAML trigger runner can run DARs built with an older SDK
     # version. I.e. where the runner version is at least the SDK version or
     # more recent.
-    if versions.is_at_least(sdk_version, platform_version)
+    if (not versions.is_at_most(last_pre_7456_trigger_version, sdk_version)) and
+       versions.is_at_least(sdk_version, platform_version)
 ]
 
 # We have two migration tests: migration-stable runs through all stable releases

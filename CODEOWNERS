@@ -24,22 +24,22 @@ azure-cron.yml      @garyverhaegen-da
 /compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
-/daml-lf/governance.rst @gerolf-da @S11001001
-/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit @gerolf-da
+/daml-lf/governance.rst @hurryabit @S11001001
+/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit
 /daml-lf/engine/ @hurryabit @remyhaemmerle-da
 /daml-lf/interpreter/ @hurryabit @remyhaemmerle-da
 /daml-lf/repl/ @hurryabit @remyhaemmerle-da
 /daml-lf/scenario-interpreter/ @hurryabit @remyhaemmerle-da
-/daml-lf/spec/value.rst @S11001001 @gerolf-da
-/daml-lf/spec/transaction.rst @S11001001 @gerolf-da
-/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @gerolf-da
+/daml-lf/spec/value.rst @S11001001 @hurryabit
+/daml-lf/spec/transaction.rst @S11001001 @hurryabit
+/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit
 /daml-lf/data-scalacheck/  @S11001001
 /daml-lf/transaction-test-lib/  @S11001001
 /daml-lf/validation/    @remyhaemmerle-da
 /daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001
 /daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001
 
-/ledger-service/    @leo-da @S11001001 @cocreature
+/ledger-service/    @S11001001 @cocreature
 
 /ledger/      @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
 /ledger-api/  @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
@@ -49,13 +49,13 @@ azure-cron.yml      @garyverhaegen-da
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da
-/language-support/java/     @gerolf-da @stefanobaghino-da @cocreature
-/language-support/scala/    @leo-da @S11001001 @cocreature
+/language-support/java/     @cocreature
+/language-support/scala/    @S11001001 @cocreature
 /language-support/ts/       @hurryabit @robin-da @cocreature @garyverhaegen-da
 
 # Tools
-/extractor/         @leo-da @S11001001
-/navigator/         @rautenrieth-da
+/extractor/         @S11001001
+/navigator/         @cocreature
 
 # Misc
 /docs/              @bame-da @nemanja-da @hurryabit

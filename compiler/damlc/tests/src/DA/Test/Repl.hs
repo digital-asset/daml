@@ -11,6 +11,7 @@ import Data.Aeson
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
+import Data.List
 import qualified Data.Text as T
 import DA.Test.Util
 import System.Environment.Blank
@@ -35,6 +36,7 @@ main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
+    multiTestDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-multi-test.dar")
     certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
     defaultMain $
         testGroup "repl"
@@ -64,6 +66,7 @@ main = do
                   , mbLedgerId = Just testLedgerId
                   } $ \getSandboxPort ->
               importTests damlc scriptDar testDar getSandboxPort
+            , multiPackageTests damlc scriptDar multiTestDar
             , noLedgerTests damlc scriptDar
             ]
 
@@ -266,6 +269,40 @@ testImport damlc scriptDar testDar ledgerPort imports successful = do
                      , "--script-lib"
                      , scriptDar
                      , testDar
+                     ]
+                   , [ "--import=" <> pkg | pkg <- imports ]
+                   ]
+
+multiPackageTests :: FilePath -> FilePath -> FilePath -> TestTree
+multiPackageTests damlc scriptDar multiTestDar = testGroup "multi-package"
+  [ testCase "import both unversioned" $ do
+      out <- readCreateProcess (cp ["repl-test", "repl-test-two"]) $ unlines
+        [ "let Some alice = partyFromText \"p\""
+        , "let x = T alice alice"
+        , "let y = T2 alice"
+        ]
+      out @?= "daml> daml> daml> daml> Goodbye.\n"
+  , testCase "import both versioned" $ do
+      out <- readCreateProcess (cp ["repl-test-0.1.0", "repl-test-two-0.1.0"]) $ unlines
+        [ "let Some alice = partyFromText \"p\""
+        , "let x = T alice alice"
+        , "let y = T2 alice"
+        ]
+      out @?= "daml> daml> daml> daml> Goodbye.\n"
+  , testCase "import only repl-test" $ do
+      out <- readCreateProcess (cp ["repl-test-0.1.0"]) $ unlines
+        [ "let Some alice = partyFromText \"p\""
+        , "let x = T alice alice"
+        , "let y = T2 alice"
+        ]
+      unless ("Data constructor not in scope: T2" `isInfixOf` out) $
+        assertFailure ("Unexpected output: " <> show out)
+  ]
+   where cp imports = proc damlc $ concat
+                   [ [ "repl"
+                     , "--script-lib"
+                     , scriptDar
+                     , multiTestDar
                      ]
                    , [ "--import=" <> pkg | pkg <- imports ]
                    ]

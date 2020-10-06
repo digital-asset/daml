@@ -1,40 +1,41 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=51:26-51:42; Use uncurry
--- @INFO range=65:8-65:18; Redundant identity
--- @INFO range=66:12-66:26; Redundant identity
--- @INFO range=67:22-67:60; Redundant identity
--- @INFO range=89:8-89:17; Evaluate
--- @INFO range=93:12-93:21; Use elem
+-- @INFO range=52:26-52:42; Use uncurry
+-- @INFO range=66:8-66:18; Redundant identity
+-- @INFO range=67:12-67:26; Redundant identity
+-- @INFO range=68:22-68:60; Redundant identity
+-- @INFO range=90:8-90:17; Evaluate
 -- @INFO range=94:12-94:21; Use elem
--- @INFO range=95:10-95:19; Use elem
--- @INFO range=99:22-99:59; Redundant if
--- @INFO range=108:23-108:61; Redundant if
--- @INFO range=111:12-111:36; Use ||
--- @INFO range=113:11-113:34; Use ||
--- @INFO range=114:11-114:26; Use ||
--- @INFO range=117:12-117:37; Use &&
--- @INFO range=119:12-119:36; Use &&
--- @INFO range=120:11-120:27; Use &&
--- @INFO range=155:11-155:35; Use isNone
--- @INFO range=155:20-155:34; Use $>
--- @INFO range=161:9-161:55; Evaluate
--- @INFO range=162:9-162:58; Evaluate
--- @INFO range=175:16-175:35; Use ++
--- @INFO range=179:8-179:21; Redundant flip
--- @INFO range=180:14-180:37; Redundant flip
--- @INFO range=206:12-206:52; Evaluate
--- @INFO range=218:9-218:28; Take on a non-positive
--- @INFO range=224:9-224:28; Drop on a non-positive
--- @INFO range=290:27-290:38; Use zip
--- @INFO range=291:37-291:48; Use zip
--- @INFO range=295:37-295:50; Use zip3
--- @INFO range=296:52-296:65; Use zip3
--- @INFO range=308:8-308:20; Evaluate
--- @INFO range=311:10-311:22; Evaluate
--- @INFO range=315:12-315:19; Evaluate
-
+-- @INFO range=95:12-95:21; Use elem
+-- @INFO range=96:10-96:19; Use elem
+-- @INFO range=100:22-100:59; Redundant if
+-- @INFO range=109:23-109:61; Redundant if
+-- @INFO range=112:12-112:36; Use ||
+-- @INFO range=114:11-114:34; Use ||
+-- @INFO range=115:11-115:26; Use ||
+-- @INFO range=118:12-118:37; Use &&
+-- @INFO range=120:12-120:36; Use &&
+-- @INFO range=121:11-121:27; Use &&
+-- @INFO range=157:11-157:35; Use isNone
+-- @INFO range=157:20-157:34; Use $>
+-- @INFO range=163:9-163:55; Evaluate
+-- @INFO range=164:9-164:58; Evaluate
+-- @INFO range=177:16-177:35; Use ++
+-- @INFO range=181:8-181:21; Redundant flip
+-- @INFO range=182:14-182:37; Redundant flip
+-- @INFO range=208:12-208:52; Evaluate
+-- @INFO range=220:9-220:28; Take on a non-positive
+-- @INFO range=226:9-226:28; Drop on a non-positive
+-- @INFO range=292:27-292:38; Use zip
+-- @INFO range=293:37-293:48; Use zip
+-- @INFO range=297:37-297:50; Use zip3
+-- @INFO range=298:52-298:65; Use zip3
+-- @INFO range=310:8-310:20; Evaluate
+-- @INFO range=313:10-313:22; Evaluate
+-- @INFO range=317:12-317:19; Evaluate
+-- @ERROR range=384:0-384:16; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
+-- @ERROR range=388:0-388:17; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
 
 module PreludeTest where
 
@@ -138,6 +139,7 @@ testFmap = scenario do
   [] === (T.length <$> [])
   Right 2 === fmap T.length (Right "10" : Either Text Text)
   Left "a" === fmap (+10) (Left "a")
+  (1, 3) === fmap T.length (1, "abc")
 
 testOptional = scenario do
   Some 11 === fmap (+10) (Some 1)
@@ -377,3 +379,11 @@ testDiv = scenario do
 testDayOfWeek = scenario do
     assert $ dayOfWeek (date 1900 Jan 01) == Monday
     assert $ dayOfWeek (date 2018 Jan 17) == Wednesday
+    assert $ dayOfWeek (date 2020 Feb 29) == Saturday
+
+testDateOverflow = scenario do
+    pure $ date 2100 Feb 29
+      -- 2100 is not a leap year!
+
+testDateUnderflow = scenario do
+    pure $ date 2000 Jan 0

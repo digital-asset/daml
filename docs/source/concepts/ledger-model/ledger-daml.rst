@@ -27,7 +27,7 @@ Intuitively, the allowed actions are:
    the template arguments satisfy the `ensure` clause of the
    template
 
-#. **Exercise** actions on a contract instance corresponding to
+#. **Exercise** actions on a contract corresponding to
    choices on that template, with given
    choice arguments, such that:
 
@@ -39,7 +39,7 @@ Intuitively, the allowed actions are:
       as create, exercise and fetch actions and key assertions in the consequences of the exercise
       action.
 
-#. **Fetch** actions on a contract instance corresponding to
+#. **Fetch** actions on a contract corresponding to
    a *fetch* of that instance inside of an update block.
    The actors must be a non-empty subset of the contract stakeholders.
    The actors are determined dynamically as follows: if the fetch appears in an update block of a choice
@@ -51,7 +51,7 @@ Intuitively, the allowed actions are:
 
 #. **NoSuchKey** assertions corresponding to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
 
-An instance of a template, that is, a **DAML contract** or **contract instance**,
+An instance of a DAML template, that is, a **DAML contract**,
 is a triple of:
 
 #. a contract identifier
