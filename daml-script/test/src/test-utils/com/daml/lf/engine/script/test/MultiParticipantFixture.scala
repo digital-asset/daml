@@ -47,7 +47,8 @@ trait MultiParticipantFixture
     portFile = Some(participant1Portfile),
     serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId1),
     allowExistingSchemaForIndex = false,
-    maxCommandsInFlight = None
+    maxCommandsInFlight = None,
+    managementServiceTimeout = ParticipantConfig.defaultManagementServiceTimeout,
   )
   private val participantId2 = v1.ParticipantId.assertFromString("participant2")
   private val participant2 = ParticipantConfig(
@@ -57,7 +58,8 @@ trait MultiParticipantFixture
     portFile = Some(participant2Portfile),
     serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId2),
     allowExistingSchemaForIndex = false,
-    maxCommandsInFlight = None
+    maxCommandsInFlight = None,
+    managementServiceTimeout = ParticipantConfig.defaultManagementServiceTimeout,
   )
   override protected lazy val suiteResource = {
     implicit val ec: ExecutionContext = system.dispatcher
