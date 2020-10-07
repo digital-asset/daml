@@ -65,14 +65,14 @@ object ContractDao {
     import scalaz.std.set._
     import scalaz.syntax.foldable._
     val partyVector = domain.Party.unsubst(parties.toVector)
+    val lastOffsetsStr: Map[String, String] = domain.Party.unsubst[Map[?, String], String](
+      domain.Offset.tag.unsubst[Map[domain.Party, ?], String](lastOffsets))
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      rowCount <- Queries.updateOffset(partyVector, tpId, newOffset.unwrap, lastOffsets.map({
-        case (k, v) => (k.unwrap, v.unwrap)
-      }))
+      rowCount <- Queries.updateOffset(partyVector, tpId, newOffset.unwrap, lastOffsetsStr)
       _ <- if (rowCount == partyVector.size)
         fconn.pure(())
       else
