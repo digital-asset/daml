@@ -17,7 +17,6 @@ import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import qualified Data.List.Split as Split
-import qualified Data.Maybe
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
@@ -189,8 +188,8 @@ data Asset = Asset { uri :: Network.URI.URI }
 instance JSON.FromJSON Asset where
     parseJSON = JSON.withObject "Asset" $ \v -> Asset
         <$> (do
-            url_as_string <- v JSON..: "browser_download_url"
-            return $ Data.Maybe.fromJust $ Network.URI.parseURI url_as_string)
+            Just url <- Network.URI.parseURI <$> v JSON..: "browser_download_url"
+            return url)
 
 data GitHubRelease = GitHubRelease { prerelease :: Bool, tag :: Version, assets :: [Asset] }
 instance JSON.FromJSON GitHubRelease where
