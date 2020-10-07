@@ -74,7 +74,7 @@ data Trigger s = Trigger
   , updateState : ACS -> Message -> s -> s
   -- ^ Update the user-defined state based on the ACS and a transaction or
   -- completion message.
-  , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
+  , rule : Party -> ACS -> s -> TriggerA ()
   -- ^ The rule defines the main logic of your trigger. It can send commands
   -- to the ledger using `emitCommands` to change the ACS.
   -- The rule depends on the following arguments:
