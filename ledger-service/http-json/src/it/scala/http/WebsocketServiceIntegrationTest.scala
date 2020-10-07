@@ -666,7 +666,7 @@ class WebsocketServiceIntegrationTest
               .map {
                 case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
               }
-              .toSet)
+              .toSet + lastSeenOffset)
               .size - 1
           } yield
             (
