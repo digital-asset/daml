@@ -108,11 +108,11 @@ runRule rule = do
   state <- get
   TriggerRule . zoom zoomIn zoomOut . runTriggerRule . runTriggerA
       $ rule state.party state.acs state.commandsInFlight state.userState
-  where zoomIn state = TriggerAState state.commandsInFlight [] state.acs.pendingContracts state.nextCommandId
+  where zoomIn state = TriggerAState state.commandsInFlight [] state.acs.pendingContracts
         zoomOut state aState =
           let commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
               acs = state.acs { pendingContracts = aState.pendingContracts }
-          in state { nextCommandId = aState.nextCommandId, commandsInFlight, acs }
+          in state { commandsInFlight, acs }
 
 runTriggerA : TriggerA a -> TriggerRule TriggerAState a
 runTriggerA (TriggerA f) = do
@@ -131,8 +131,6 @@ data TriggerAState = TriggerAState
   -- ^ Emitted commands in reverse because I can’t be bothered to implement a dlist.
   , pendingContracts : Map CommandId [AnyContractId]
   -- ^ Map from command ids to the contract ids marked pending by that command.
-  , nextCommandId : Int
-  -- ^ Command id used for the next submit
   }
 
 data TriggerState s = TriggerState
@@ -140,5 +138,4 @@ data TriggerState s = TriggerState
   , party : Party
   , userState : s
   , commandsInFlight : Map CommandId [Command]
-  , nextCommandId : Int
   }

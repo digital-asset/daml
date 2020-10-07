@@ -40,7 +40,7 @@ case class Converter(
     fromHeartbeat: SValue,
     fromACS: Seq[CreatedEvent] => Either[String, SValue],
     toFiniteDuration: SValue => Either[String, FiniteDuration],
-    toCommands: SValue => Either[String, (String, Seq[Command])],
+    toCommands: SValue => Either[String, Seq[Command]],
     toRegisteredTemplates: SValue => Either[String, Seq[Identifier]],
 )
 
@@ -302,12 +302,6 @@ object Converter {
         FiniteDuration(microseconds, MICROSECONDS)
     })
 
-  private def toCommandId(v: SValue): Either[String, String] =
-    v match {
-      case SRecord(_, _, JavaList(elem)) => toText(elem)
-      case _ => Left(s"Expected CommandId but got $v")
-    }
-
   private def toIdentifier(v: SValue): Either[String, Identifier] =
     v expect ("STypeRep", {
       case STypeRep(TTyCon(id)) => id
@@ -459,15 +453,13 @@ object Converter {
     }
   }
 
-  private def toCommands(v: SValue): Either[String, (String, Seq[Command])] =
+  private def toCommands(v: SValue): Either[String, Seq[Command]] =
     for {
-      rContents <- v expect ("Commands", {
-        case SRecord(_, _, JavaList(scmdId, SList(cmdValues))) => (scmdId, cmdValues)
+      cmdValues <- v expect ("[Command]", {
+        case SList(cmdValues) => cmdValues
       })
-      (scmdId, cmdValues) = rContents
-      commandId <- toCommandId(scmdId)
       commands <- cmdValues.traverse(toCommand)
-    } yield (commandId, commands.toImmArray.toSeq)
+    } yield commands.toImmArray.toSeq
 
   private def fromACS(
       valueTranslator: preprocessing.ValueTranslator,

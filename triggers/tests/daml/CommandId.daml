@@ -9,11 +9,11 @@ import Daml.Trigger.LowLevel
 test : Trigger [Text]
 test = Trigger
   { initialState = \party _ -> do
-      submitCommands $ Commands (CommandId "mycreateid") [createCmd (T party)]
+      submitCommands [createCmd (T party)]
       pure []
   , update = \msg -> case msg of
       MTransaction (Transaction _ (Some (CommandId cmdId)) [CreatedEvent (fromCreated @T -> Some (_, cid, _))]) -> do
-        submitCommands $ Commands (CommandId "myexerciseid") [exerciseCmd cid Archive]
+        submitCommands [exerciseCmd cid Archive]
         modify (cmdId ::)
       MTransaction (Transaction _ (Some (CommandId cmdId)) [ArchivedEvent (fromArchived @T -> Some _)]) ->
         modify (cmdId ::)
