@@ -121,9 +121,6 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
              create @Mod:Person person;
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
              exercise @Mod:Person Sleep cId ();
-           val anExerciseWithActor: (ContractId Mod:Person) -> List Party -> Update Int64 =
-             \(cId: ContractId Mod:Person) (parties: List Party) ->
-                exercise_with_actors @Mod:Person Nap cId parties 1;
            val aFecthByKey: Party -> Update <contract: Mod:Person, contractId: ContractId Mod:Person> = \(party: Party) ->
              fetch_by_key @Mod:Person party;
            val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) = \(party: Party) ->

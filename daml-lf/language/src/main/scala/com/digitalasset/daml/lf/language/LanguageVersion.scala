@@ -47,7 +47,7 @@ object LanguageVersion {
     val contractKeys = v1_3
     val textMap = v1_3
     val complexContactKeys = v1_4
-    val optionalExerciseActor = v1_5
+    val noExerciseActor = v1_5
     val numberParsing = v1_5
     val coerceContractId = v1_5
     val textPacking = v1_6

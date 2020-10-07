@@ -351,11 +351,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       case t ~ choice ~ cid ~ arg => UpdateExercise(t, choice, cid, None, arg)
     }
 
-  private lazy val updateExerciseWithActors =
-    `exercise_with_actors` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ^^ {
-      case t ~ choice ~ cid ~ actor ~ arg => UpdateExercise(t, choice, cid, Some(actor), arg)
-    }
-
   private lazy val updateFetchByKey =
     `fetch_by_key` ~! `@` ~> fullIdentifier ~ expr ^^ {
       case t ~ eKey => UpdateFetchByKey(RetrieveByKey(t, eKey))
@@ -380,7 +375,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateCreate |
       updateFetch |
       updateExercise |
-      updateExerciseWithActors |
       updateFetchByKey |
       updateLookupByKey |
       updateGetTime |

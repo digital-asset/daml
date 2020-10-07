@@ -1093,7 +1093,7 @@ message Update {
     // contract id
     Expr cid = 3;
     // actors
-    // *optional since version 1.5*
+    // *Available in version < 1.5*
     Expr actor = 4;
     // argument
     Expr arg = 5;
