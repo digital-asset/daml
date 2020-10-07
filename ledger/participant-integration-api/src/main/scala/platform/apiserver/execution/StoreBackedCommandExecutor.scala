@@ -46,7 +46,9 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
-    val submissionResult = engine.submit(commands.commands, participant, submissionSeed)
+    val submissionResult = Timed.trackedValue(
+      metrics.daml.execution.engineRunning,
+      engine.submit(commands.commands, participant, submissionSeed))
     consume(commands.submitter, submissionResult)
       .map { submission =>
         (for {
@@ -109,7 +111,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
             .flatMap { instance =>
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
               lookupActiveContractCount.incrementAndGet()
-              resolveStep(resume(instance))
+              resolveStep(
+                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(instance)))
             }
 
         case ResultNeedKey(key, resume) =>
@@ -121,7 +124,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
             .flatMap { contractId =>
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
               lookupContractKeyCount.incrementAndGet()
-              resolveStep(resume(contractId))
+              resolveStep(
+                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(contractId)))
             }
 
         case ResultNeedPackage(packageId, resume) =>
@@ -148,7 +152,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
           }
 
           promise.future.flatMap { maybePackage =>
-            resolveStep(resume(maybePackage))
+            resolveStep(
+              Timed.trackedValue(metrics.daml.execution.engineRunning, resume(maybePackage)))
           }
       }
 

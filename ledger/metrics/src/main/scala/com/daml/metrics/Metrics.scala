@@ -27,6 +27,7 @@ final class Metrics(val registry: MetricRegistry) {
 
       val validation: Timer = registry.timer(Prefix :+ "validation")
       val submissions: Timer = registry.timer(Prefix :+ "submissions")
+      val submissionsRunning: Meter = registry.meter(Prefix :+ "submissions_running")
 
       val failedCommandInterpretations: Meter =
         registry.meter(Prefix :+ "failed_command_interpretations")
@@ -62,7 +63,13 @@ final class Metrics(val registry: MetricRegistry) {
         registry.histogram(Prefix :+ "lookup_contract_key_count_per_execution")
       val getLfPackage: Timer = registry.timer(Prefix :+ "get_lf_package")
       val retry: Meter = registry.meter(Prefix :+ "retry")
+
+      // Total time for command execution (including data fetching)
       val total: Timer = registry.timer(Prefix :+ "total")
+      val totalRunning: Meter = registry.meter(Prefix :+ "total_running")
+
+      // Commands being executed by the engine (not currently fetching data)
+      val engineRunning: Meter = registry.meter(Prefix :+ "engine_running")
     }
 
     object kvutils {
@@ -494,6 +501,7 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = services.Prefix :+ "write"
 
         val submitTransaction: Timer = registry.timer(Prefix :+ "submit_transaction")
+        val submitTransactionRunning: Meter = registry.meter(Prefix :+ "submit_transaction_running")
         val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
         val allocateParty: Timer = registry.timer(Prefix :+ "allocate_party")
         val submitConfiguration: Timer = registry.timer(Prefix :+ "submit_configuration")

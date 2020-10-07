@@ -262,7 +262,51 @@ docs = do
 
 check_releases :: String -> IO ()
 check_releases bash_lib = do
-    putStrLn $ "arg: " <> bash_lib
+    out <- shell $ unlines ["bash -c '",
+              "set -euo pipefail",
+              "eval \"$(dev-env/bin/dade assist)\"",
+              "source \"" <> bash_lib <> "\"",
+
+              "LOG=$(mktemp)",
+              "DIR=$(mktemp -d)",
+              "trap \"rm -rf \\\"$DIR\\\"\" EXIT",
+              "cd \"$DIR\"",
+
+              "shopt -s extglob", -- enable !() pattern: things that _don't_ match
+
+              -- TODO: get all releases (GH paginates by 30)
+              "RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s)",
+              "for i in $(seq 1 $(echo \"$RELEASES\" | jq length)); do",
+                  "VERSION=$(echo \"$RELEASES\" | jq -r \".[$i-1].tag_name\")",
+                  "mkdir \"$VERSION\"",
+                  "cd \"$VERSION\"",
+                  "PIDS=\"\"",
+                  "for ass in $(seq 1 $(echo \"$RELEASES\" | jq \".[$i-1].assets | length\")); do",
+                      "{",
+                          "wget --quiet \"$(echo \"$RELEASES\" | jq -r \".[$i-1].assets[$ass-1].browser_download_url\")\" &",
+                      "} >$LOG 2>&1",
+                      "PIDS=\"$PIDS $!\"",
+                  "done",
+                  "for pid in $PIDS; do",
+                      "wait $pid >$LOG 2>&1",
+                  "done",
+                  "for f in !(*.asc); do",
+                      "p=github/$VERSION/$f",
+                      "if ! test -f $f.asc; then",
+                          "echo $p: no signature file",
+                      "else",
+                          "if gpg_verify $f.asc >$LOG 2>&1; then",
+                              "echo $p: signature matches",
+                          "else",
+                              "echo $p: signature does not match",
+                          "fi",
+                      "fi",
+                  "done",
+                  "cd \"$DIR\"",
+                  "rm -rf \"$VERSION\"",
+              "done",
+          "'"]
+    putStrLn out
 
 data CliArgs = Docs | Check { bash_lib :: String }
 
