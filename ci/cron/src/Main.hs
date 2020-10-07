@@ -305,6 +305,7 @@ check_releases bash_lib = do
                           "echo $p: signature matches",
                       "else",
                           "echo $p: signature does not match",
+                          "exit 2",
                       "fi",
                   "fi",
               "done",
