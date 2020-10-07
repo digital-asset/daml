@@ -6,7 +6,7 @@ package com.daml.metrics
 import akka.Done
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import com.codahale.metrics.Counter
+import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
 
 import scala.concurrent.Future
@@ -14,8 +14,9 @@ import scala.concurrent.Future
 object InstrumentedSource {
 
   final class QueueWithComplete[T](
-      delegate: SourceQueueWithComplete[T],
+      delegate: SourceQueueWithComplete[(Timer.Context, T)],
       lengthCounter: Counter,
+      delayTimer: Timer,
   ) extends SourceQueueWithComplete[T] {
 
     override def complete(): Unit = delegate.complete()
@@ -25,13 +26,17 @@ object InstrumentedSource {
     override def watchCompletion(): Future[Done] = delegate.watchCompletion()
 
     override def offer(elem: T): Future[QueueOfferResult] = {
-      val result = delegate.offer(elem)
+      val result = delegate.offer(
+        delayTimer.time() -> elem
+      )
       // Use the `DirectExecutionContext` to ensure that the
       // counter is updated as closely as possible to the
       // update of the queue, so to offer the most consistent
       // reading possible via the counter
       result.foreach {
-        case QueueOfferResult.Enqueued => lengthCounter.inc()
+        case QueueOfferResult.Enqueued =>
+          lengthCounter.inc()
+
         case _ => // do nothing
       }(DirectExecutionContext)
       result
@@ -61,25 +66,29 @@ object InstrumentedSource {
       bufferSize: Int,
       overflowStrategy: OverflowStrategy,
       capacityCounter: Counter,
-      lengthCounter: Counter)(
+      lengthCounter: Counter,
+      delayTimer: Timer)(
       implicit materializer: Materializer,
   ): Source[T, QueueWithComplete[T]] = {
-    val (queue, source) = Source.queue[T](bufferSize, overflowStrategy).preMaterialize()
+    val (queue, source) =
+      Source.queue[(Timer.Context, T)](bufferSize, overflowStrategy).preMaterialize()
 
     val instrumentedQueue =
-      new QueueWithComplete[T](queue, lengthCounter)
+      new QueueWithComplete[T](queue, lengthCounter, delayTimer)
     // Using `map` and not `wireTap` because the latter is skipped on backpressure.
 
     capacityCounter.inc(bufferSize.toLong)
     instrumentedQueue
       .watchCompletion()
-      .map { _ =>
-        capacityCounter.dec(bufferSize.toLong)
+      .andThen {
+        case _ => capacityCounter.dec(bufferSize.toLong)
       }(DirectExecutionContext)
 
-    source.mapMaterializedValue(_ => instrumentedQueue).map { item =>
-      lengthCounter.dec()
-      item
+    source.mapMaterializedValue(_ => instrumentedQueue).map {
+      case (timingContext, item) =>
+        timingContext.stop()
+        lengthCounter.dec()
+        item
     }
   }
 

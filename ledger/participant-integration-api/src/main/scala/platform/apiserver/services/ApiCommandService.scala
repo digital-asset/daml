@@ -130,6 +130,7 @@ private[apiserver] final class ApiCommandService private (
           configuration.inputBufferSize,
           capacityCounter = metrics.daml.commands.inputBufferCapacity(submitter.party),
           lengthCounter = metrics.daml.commands.inputBufferLength(submitter.party),
+          delayTimer = metrics.daml.commands.inputBufferDelay(submitter.party)
         )
       }
     }

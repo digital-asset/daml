@@ -521,6 +521,12 @@ the CommandService for a given party.
 A counter. The number of currently pending submissions on
 the CommandService for a given party.
 
+``daml.commands.<party_name>.input_buffer_delay``
+-------------------------------------------------
+
+A timer. Measures the queuing delay for pending submissions
+on the CommandService.
+
 ``daml.commands.<party_name>.max_in_flight_capacity``
 -------------------------------------------------
 

@@ -7,11 +7,12 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{OverflowStrategy, QueueOfferResult}
-import com.codahale.metrics.Counter
+import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration.DurationInt
 
 final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
@@ -23,10 +24,16 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
     val capacityCounter = new Counter()
     val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
+    val delayTimer = new Timer()
 
     val (source, sink) =
       InstrumentedSource
-        .queue[Int](bufferSize, OverflowStrategy.backpressure, capacityCounter, maxBuffered)
+        .queue[Int](
+          bufferSize,
+          OverflowStrategy.backpressure,
+          capacityCounter,
+          maxBuffered,
+          delayTimer)
         .toMat(Sink.seq)(Keep.both)
         .run()
 
@@ -47,6 +54,37 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     }
   }
 
+  it should "correctly measure queue delay" in {
+    val capacityCounter = new Counter()
+    val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
+    val delayTimer = new Timer()
+    val bufferSize = 2
+
+    val (source, sink) =
+      InstrumentedSource
+        .queue[Int](16, OverflowStrategy.backpressure, capacityCounter, maxBuffered, delayTimer)
+        .map { x =>
+          // Sleep to delay the processing of the next element.
+          Thread.sleep(5)
+          x
+        }
+        .toMat(Sink.seq)(Keep.both)
+        .run()
+
+    val input = Seq.fill(bufferSize)(util.Random.nextInt)
+
+    for {
+      result <- Future.sequence(input.map(source.offer))
+      _ = source.complete()
+      output <- sink
+    } yield {
+      all(result) shouldBe QueueOfferResult.Enqueued
+      output shouldEqual input
+      delayTimer.getCount shouldEqual bufferSize
+      delayTimer.getSnapshot.getMax should be >= 5.millis.toNanos
+    }
+  }
+
   it should "track the buffer saturation correctly when dropping items" in {
 
     val bufferSize = 500
@@ -61,12 +99,13 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
     val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
     val capacityCounter = new Counter()
+    val delayTimer = new Timer()
 
     val stop = Promise[Unit]()
 
     val (source, termination) =
       InstrumentedSource
-        .queue[Int](bufferSize, OverflowStrategy.dropNew, capacityCounter, maxBuffered)
+        .queue[Int](bufferSize, OverflowStrategy.dropNew, capacityCounter, maxBuffered, delayTimer)
         .mapAsync(1)(_ => stop.future) // Block until completed to overflow queue.
         .watchTermination()(Keep.both)
         .toMat(Sink.ignore)(Keep.left)
