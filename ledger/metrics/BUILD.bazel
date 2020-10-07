@@ -32,8 +32,14 @@ da_scala_test_suite(
     srcs = glob(["src/test/scala/**/*.scala"]),
     deps = [
         ":metrics",
+        "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//libs-scala/concurrent",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

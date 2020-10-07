@@ -241,6 +241,7 @@ private[daml] object ApiServices {
           ),
           timeProvider,
           ledgerConfigProvider,
+          metrics,
         )
         val apiPartyManagementService =
           ApiPartyManagementService

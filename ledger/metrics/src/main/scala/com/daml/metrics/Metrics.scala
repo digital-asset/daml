@@ -37,6 +37,15 @@ final class Metrics(val registry: MetricRegistry) {
         registry.meter(Prefix :+ "delayed_submissions")
       val validSubmissions: Meter =
         registry.meter(Prefix :+ "valid_submissions")
+
+      def inputBufferLength(party: String): Counter =
+        registry.counter(Prefix :+ party :+ "input_buffer_length")
+      def inputBufferCapacity(party: String): Counter =
+        registry.counter(Prefix :+ party :+ "input_buffer_capacity")
+      def maxInFlightLength(party: String): Counter =
+        registry.counter(Prefix :+ party :+ "max_in_flight_length")
+      def maxInFlightCapacity(party: String): Counter =
+        registry.counter(Prefix :+ party :+ "max_in_flight_capacity")
     }
 
     object execution {
