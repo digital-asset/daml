@@ -301,7 +301,7 @@ class CommonCli(name: LedgerName) {
         .optional()
         .action((value, config) => config.copy(managementServiceTimeout = value))
         .text(
-          s"The timeout used for requests by management services of the Ledger API. The default is set to ${SandboxConfig.DefaultManagementServiceTimeout.toSeconds} seconds.")
+          s"The timeout used for requests by management services of the Ledger API. The default is set to ${SandboxConfig.DefaultManagementServiceTimeout.getSeconds} seconds.")
 
       help("help").text("Print the usage text")
 
