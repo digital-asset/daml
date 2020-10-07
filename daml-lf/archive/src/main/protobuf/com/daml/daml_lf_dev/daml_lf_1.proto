@@ -1191,7 +1191,7 @@ message TemplateChoice {
   bool consuming = 2;
 
   // The controllers of the choice. They have type `List Party` and the
-  // template parameter in scope, but not the choice parameter. All of these
+  // template parameter in scope, and (since 1.2) also the choice parameter. All of these
   // controllers need to authorize the exercising of this choice (aka
   // conjunctive choice controllers).
   Expr controllers = 3;
