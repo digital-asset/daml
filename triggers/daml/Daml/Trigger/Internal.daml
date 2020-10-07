@@ -123,14 +123,13 @@ runTriggerA (TriggerA f) = do
 
 data TriggerAState = TriggerAState
   { commandsInFlight : Map CommandId [Command]
-  -- This is not modified during a run (new commands end up in emittedCommands)
-  -- but for simplicity we keep it in TriggerAState instead of layering a
-  -- Reader on top of it.
-  -- This will be used for dedupCreateCmd/dedupExerciseCmd helpers.
+  -- ^ Zoomed from TriggerAState; used for dedupCreateCmd/dedupExerciseCmd
+  -- helpers and extended by emitCommands.
   , emittedCommands : [Commands]
   -- ^ Emitted commands in reverse because I can’t be bothered to implement a dlist.
   , pendingContracts : Map CommandId [AnyContractId]
-  -- ^ Map from command ids to the contract ids marked pending by that command.
+  -- ^ Map from command ids to the contract ids marked pending by that command;
+  -- zoomed from TriggerState's acs.
   }
 
 data TriggerState s = TriggerState
