@@ -17,6 +17,9 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":oauth-test-server",  # TODO[AH] Extract OAuth2 request/response types
+        "//daml-lf/data",
+        "//ledger-service/jwt",
+        "//ledger/ledger-api-auth",
         "//libs-scala/ports",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -27,6 +30,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -107,8 +111,11 @@ da_scala_test(
     deps = [
         ":oauth-middleware",
         ":oauth-test-server",
+        "//daml-lf/data",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger-service/jwt",
+        "//ledger/ledger-api-auth",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -119,5 +126,6 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

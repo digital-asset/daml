@@ -58,7 +58,9 @@ object Client {
                     clientId = config.clientId,
                     redirectUri = redirectUri,
                     scope = Some(params.parties.map(p => "actAs:" + p).mkString(" ")),
-                    state = None)
+                    state = None,
+                    audience = Some("https://daml.com/ledger-api")
+                  )
                   redirect(
                     config.authServerUrl
                       .withQuery(authParams.toQuery)
