@@ -378,25 +378,25 @@ A timer. Time to validate submitted commands before they are
 fed to the DAML interpreter.
 
 ``daml.commands.<party_name>.input_buffer_capacity``
-------------------------------------------------
+----------------------------------------------------
 
 A counter. The capacity of the queue accepting submissions on
 the CommandService for a given party.
 
 ``daml.commands.<party_name>.input_buffer_length``
-------------------------------------------------------
+--------------------------------------------------
 
 A counter. The number of currently pending submissions on
 the CommandService for a given party.
 
 ``daml.commands.<party_name>.max_in_flight_capacity``
--------------------------------------------------
+-----------------------------------------------------
 
 A counter. The capacity of the queue tracking completions on
 the CommandService for a given party.
 
 ``daml.commands.<party_name>.max_in_flight_length``
--------------------------------------------------------
+---------------------------------------------------
 
 A counter. The number of currently pending completions on
 the CommandService for a given party.
