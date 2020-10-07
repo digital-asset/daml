@@ -108,25 +108,19 @@ runRule rule = do
   state <- get
   TriggerRule . zoom zoomIn zoomOut . runTriggerRule . runTriggerA
       $ rule state.party state.acs state.userState
-  where zoomIn state = TriggerAState state.commandsInFlight [] state.acs.pendingContracts
+  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts
         zoomOut state aState =
           let commandsInFlight = aState.commandsInFlight
               acs = state.acs { pendingContracts = aState.pendingContracts }
           in state { commandsInFlight, acs }
 
 runTriggerA : TriggerA a -> TriggerRule TriggerAState a
-runTriggerA (TriggerA f) = do
-  a <- f
-  s' <- get
-  put s' { emittedCommands = reverse s'.emittedCommands }
-  pure a
+runTriggerA (TriggerA f) = f
 
 data TriggerAState = TriggerAState
   { commandsInFlight : Map CommandId [Command]
   -- ^ Zoomed from TriggerAState; used for dedupCreateCmd/dedupExerciseCmd
   -- helpers and extended by emitCommands.
-  , emittedCommands : [Commands]
-  -- ^ Emitted commands in reverse because I can’t be bothered to implement a dlist.
   , pendingContracts : Map CommandId [AnyContractId]
   -- ^ Map from command ids to the contract ids marked pending by that command;
   -- zoomed from TriggerState's acs.
