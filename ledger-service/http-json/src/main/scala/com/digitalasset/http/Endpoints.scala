@@ -6,7 +6,13 @@ package com.daml.http
 import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, ModeledCustomHeader, ModeledCustomHeaderCompanion, OAuth2BearerToken, `X-Forwarded-Proto`}
+import akka.http.scaladsl.model.headers.{
+  Authorization,
+  ModeledCustomHeader,
+  ModeledCustomHeaderCompanion,
+  OAuth2BearerToken,
+  `X-Forwarded-Proto`
+}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString

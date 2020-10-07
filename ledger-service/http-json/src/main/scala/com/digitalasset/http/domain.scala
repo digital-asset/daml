@@ -61,11 +61,14 @@ object domain {
       applicationId: ApplicationId,
       readAs: List[Party],
       actAs: List[Party],
-      parties: OneAnd[Set, Party]) {
-  }
+      parties: OneAnd[Set, Party]) {}
 
   object JwtPayload {
-    def apply(ledgerId: LedgerId, applicationId: ApplicationId, readAs: List[Party], actAs: List[Party]): Option[JwtPayload] = {
+    def apply(
+        ledgerId: LedgerId,
+        applicationId: ApplicationId,
+        readAs: List[Party],
+        actAs: List[Party]): Option[JwtPayload] = {
       (readAs ++ actAs) match {
         case Nil => None
         case p :: ps =>

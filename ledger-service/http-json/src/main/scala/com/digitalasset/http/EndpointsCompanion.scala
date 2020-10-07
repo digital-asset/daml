@@ -133,7 +133,7 @@ object EndpointsCompanion {
                     lar.ApplicationId(applicationId),
                     actAs = payload.actAs.map(lar.Party(_)),
                     readAs = payload.readAs.map(lar.Party(_))
-                ).toRightDisjunction(Unauthorized("No parties in actAs and readAs"))
+                  ).toRightDisjunction(Unauthorized("No parties in actAs and readAs"))
                 } yield payload
             )
         }

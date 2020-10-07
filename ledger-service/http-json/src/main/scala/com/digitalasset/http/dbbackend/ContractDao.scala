@@ -45,7 +45,9 @@ object ContractDao {
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      offset <- Queries.lastOffset(OneAnd(parties.head.unwrap, domain.Party.unsubst(parties.tail)), tpId).map(_.map { case (k,v) => (domain.Party(k), domain.Offset(v))})
+      offset <- Queries
+        .lastOffset(OneAnd(parties.head.unwrap, domain.Party.unsubst(parties.tail)), tpId)
+        .map(_.map { case (k, v) => (domain.Party(k), domain.Offset(v)) })
     } yield offset
   }
 
@@ -53,7 +55,8 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
-      lastOffsets: Map[domain.Party, domain.Offset])(implicit log: LogHandler): ConnectionIO[Unit] = {
+      lastOffsets: Map[domain.Party, domain.Offset])(
+      implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.implicits._
     import doobie.postgres.implicits._
     import scalaz.OneAnd._
@@ -65,7 +68,9 @@ object ContractDao {
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      rowCount <- Queries.updateOffset(partyVector, tpId, newOffset.unwrap, lastOffsets.map({case (k, v) => (k.unwrap, v.unwrap)}))
+      rowCount <- Queries.updateOffset(partyVector, tpId, newOffset.unwrap, lastOffsets.map({
+        case (k, v) => (k.unwrap, v.unwrap)
+      }))
       _ <- if (rowCount == partyVector.size)
         fconn.pure(())
       else
@@ -87,7 +92,10 @@ object ContractDao {
         templateId.entityName)
 
       dbContracts <- Queries
-        .selectContracts(OneAnd(parties.head.unwrap, domain.Party.unsubst(parties.tail)), tpId, predicate)
+        .selectContracts(
+          OneAnd(parties.head.unwrap, domain.Party.unsubst(parties.tail)),
+          tpId,
+          predicate)
         .to(Vector)
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts

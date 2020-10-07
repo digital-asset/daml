@@ -4,7 +4,18 @@
 package com.daml.http
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Keep, Partition, RunnableGraph, Sink, SinkQueueWithCancel, Source}
+import akka.stream.scaladsl.{
+  Broadcast,
+  Concat,
+  Flow,
+  GraphDSL,
+  Keep,
+  Partition,
+  RunnableGraph,
+  Sink,
+  SinkQueueWithCancel,
+  Source
+}
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao.StaleOffsetException
@@ -13,7 +24,9 @@ import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
-import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => lfValueToDbJsValue}
+import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
+  apiValueToJsValue => lfValueToDbJsValue
+}
 import com.daml.http.util.IdentifierConverters.apiIdentifier
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.daml.util.ExceptionOps._

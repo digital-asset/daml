@@ -129,7 +129,8 @@ object Queries {
 
   @silent("pls .* never used")
   def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(
-      implicit log: LogHandler, pls: Put[Vector[String]]): ConnectionIO[Map[String, String]] = {
+      implicit log: LogHandler,
+      pls: Put[Vector[String]]): ConnectionIO[Map[String, String]] = {
     val partyVector = parties.toVector
     sql"""SELECT party, last_offset FROM ledger_offset WHERE (party = ANY(${partyVector}) AND tpid = $tpid)"""
       .query[(String, String)]
@@ -156,7 +157,10 @@ object Queries {
   private[http] def updateOffset[F[_]: cats.Foldable](
       parties: F[String],
       tpid: SurrogateTpId,
-    newOffset: String, lastOffsets: Map[String, String])(implicit log: LogHandler, pls: Put[List[String]]): ConnectionIO[Int] = {
+      newOffset: String,
+      lastOffsets: Map[String, String])(
+      implicit log: LogHandler,
+      pls: Put[List[String]]): ConnectionIO[Int] = {
     import spray.json.DefaultJsonProtocol._
     val (existingParties, newParties) = parties.toList.partition(p => lastOffsets.contains(p))
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
@@ -165,7 +169,8 @@ object Queries {
       logHandler0 = log)
     // If a concurrent transaction updated the offset for an existing party, we will get
     // fewer rows and throw a StaleOffsetException in the caller.
-    val update = sql"""UPDATE ledger_offset SET last_offset = $newOffset WHERE party = ANY($existingParties::text[]) AND tpid = $tpid AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
+    val update =
+      sql"""UPDATE ledger_offset SET last_offset = $newOffset WHERE party = ANY($existingParties::text[]) AND tpid = $tpid AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
     for {
       inserted <- if (newParties.empty) { Applicative[ConnectionIO].pure(0) } else {
         insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
@@ -222,7 +227,8 @@ object Queries {
       tpid: SurrogateTpId,
       predicate: Fragment)(
       implicit log: LogHandler,
-      gvs: Get[Vector[String]], pvs: Put[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
     val partyVector = parties.toVector
     val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
                   FROM contract AS c
