@@ -495,12 +495,12 @@ jobs:
 
           cd $(Build.StagingDirectory)/release
           for f in *; do
-              save_gcp_data "$GCRED" "$f" "gs://daml-data/releases/$(release_tag)/github/$f"
+              gcs "$GCRED" cp "$f" "gs://daml-data/releases/$(release_tag)/github/$f"
           done
 
           cd $(Build.StagingDirectory)/artifactory
           for f in *; do
-              save_gcp_data "$GCRED" "$f" "gs://daml-data/releases/$(release_tag)/artifactory/$f"
+              gcs "$GCRED" cp "$f" "gs://daml-data/releases/$(release_tag)/artifactory/$f"
           done
         name: backup_to_gcs
         env:
@@ -774,7 +774,7 @@ jobs:
           # expression Azure would otherwise substitute, i.e. the literal value
           # of the string in the `env:` block below.
           if [[ "${GCRED:1:${#GCRED}-1}" != '(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)' ]]; then
-              save_gcp_data "$GCRED" "$REPORT_GZ" "gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz"
+              gcs "$GCRED" cp "$REPORT_GZ" "gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz"
           else
               echo "Could not save build data: no credentials."
           fi
