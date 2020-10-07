@@ -798,7 +798,7 @@ data TemplateChoice = TemplateChoice
     -- instance or not.
   , chcControllers :: !Expr
     -- ^ The controllers of the choice. They have type @List Party@ and the
-    -- template parameter in scope, but not the choice parameter.
+    -- template parameter in scope, and (since 1.2) also the choice parameter.
   , chcSelfBinder :: !ExprVarName
     -- ^ Variable to bind the ContractId of the contract this choice is
     -- exercised on to.
