@@ -47,8 +47,10 @@ object ContractDao {
         templateId.entityName)
       offset <- Queries
         .lastOffset(domain.Party.unsubst(parties), tpId)
-        .map(_.map { case (k, v) => (domain.Party(k), domain.Offset(v)) })
-    } yield offset
+    } yield {
+      type L[a] = Map[a, domain.Offset]
+      domain.Party.subst[L, String](domain.Offset.tag.subst(offset))
+    }
   }
 
   def updateOffset(
