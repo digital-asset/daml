@@ -175,6 +175,10 @@ dedupExerciseByKey k c = do
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
 
+-- | Retrieve command submissions made by this trigger that have not yet
+-- completed.  If the trigger has restarted, it will not contain
+-- commands from before the restart; therefore, this should be treated
+-- as an optimization rather than an absolute authority on ledger state.
 getCommandsInFlight : TriggerA (Map CommandId [Command])
 getCommandsInFlight = do
   TriggerA $ get <&> \s -> s.commandsInFlight
