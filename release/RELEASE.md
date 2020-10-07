@@ -125,15 +125,11 @@ patches we backport to the 1.0 release branch).
 
     1. `cd create-daml-app`
 
-       1. `daml build`
-
-       1. `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o ui/daml.js`
-
        1. `daml start`
 
     1. In a new terminal, from the `ui` folder:
 
-       1. `npm install`
+       1. `npm install --frozen-lockfile`
 
        1. `npm start`
 
@@ -141,15 +137,20 @@ patches we backport to the 1.0 release branch).
 
     1. Log in as `Alice` in the first window, log in as `Bob` in the second window.
 
-    1. Make `Alice` follow `Bob`. Verify that `Bob` appears in the
+    1. In the first window, where you are logged in as`Alice`,
+       follow `Bob` by typing their name in the text input and pressing enter.
+       Verify that `Bob` appears in the
        list of users `Alice` is following. Verify in the other
        browser window that `Alice` shows up in `Bob`’s network.
 
-    1. Make `Bob` follow `Alice`. Verify that `Alice` appears in
+    1. In the second window, where you are logged in as `Bob`,
+       follow `Alice` by clicking on the "add user" logo to right of
+       `Alice` name below the "The Network" heading.
+       Verify that `Alice` appears in
        the list of users `Bob` is following. Verify in the other
        browser window that `Bob` shows up in `Alice`’s network.
 
-    1. Kill the `daml start` process and the `npm start` process.
+    1. Kill the `daml start` process.
 
     1. Open the your first feature section of the GSG, e.g., from
        https://docs.daml.com/$VERSION/getting-started/first-feature.html
@@ -165,9 +166,7 @@ patches we backport to the 1.0 release branch).
 
     1. Close VSCode.
 
-    1. Run `daml build` then `daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o ui/daml.js` from the project root.
-
-    1. From the `ui` directory run `npm install --frozen-lockfile`.
+    1. Run `daml start` from the project root directory.
 
     1. Run `code .` from the project root directory (the extension is
        already installed, no need to use `daml studio`).
@@ -178,10 +177,6 @@ patches we backport to the 1.0 release branch).
     1. Verify that you do not see errors in the typescript code in VSCode.
 
     1. Close VSCode.
-
-    1. Run `daml start` from the project root directory.
-
-    1. In a separate terminal, run `npm start` from the `ui` directory.
 
     1. As before, open two browser windows at `localhost:3000` and log
        in as `Alice` and `Bob`.
@@ -270,7 +265,8 @@ patches we backport to the 1.0 release branch).
     1. Add `+` at the end of line 14, after `"Alice")` and confirm you get an
        error in line 15.
 
-    1. Add `1` after the `+` and confirm you get an error in line 14.
+    1. Add `1` after the `+` and confirm you get a type error in line 14,
+       which says that `Script Party` does not match `Int`.
 
     1. Delete the `+1` and the `e` in the second `"Alice"` and verify
        that the script results are updated to the misspelled name.
@@ -307,7 +303,7 @@ patches we backport to the 1.0 release branch).
 1. If the release is bad, delete the release from [the releases page]. Mention
    why it is bad as a comment on your PR, and **stop the process here**.
 
-1. Announce the release on the relevant internal Slack channels (`#product-daml`,
+1. Announce the release on the relevant internal Slack channels (`#product-daml-connect`,
    `#team-daml`). For a stable release, direct people to the release blog post;
    for a prerelease, you can include the raw output of the `unreleased.sh`
    script.
