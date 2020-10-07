@@ -662,12 +662,9 @@ class WebsocketServiceIntegrationTest
             ContractDelta(Vector(), Vector(archivedCid2), Some(lastSeenOffset)) <- readOne
             _ = archivedCid2.contractId shouldBe cid2
             heartbeats <- drain
-            hbCount = (heartbeats.iterator
-              .map {
-                case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
-              }
-              .toSet + lastSeenOffset)
-              .size - 1
+            hbCount = (heartbeats.iterator.map {
+              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
+            }.toSet + lastSeenOffset).size - 1
           } yield
             (
               // don't count empty events block if lastSeenOffset does not change
