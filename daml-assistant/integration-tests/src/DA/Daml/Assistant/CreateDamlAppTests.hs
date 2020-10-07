@@ -112,7 +112,6 @@ tests =
         withCurrentDirectory uiDir $ do
           patchTsDependencies uiDir "package.json"
           step "Install UI dependencies again to incorporate the changes"
-          callCommandSilent "npm-cli.js install --frozen-lockfile"
           step "Run linter again"
           callCommandSilent "npm-cli.js run-script lint -- --max-warnings 0"
           step "Build the new UI"

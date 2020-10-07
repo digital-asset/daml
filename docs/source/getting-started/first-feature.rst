@@ -78,11 +78,6 @@ Open a new terminal and run the following commands::
 
 The result is an up-to-date TypeScript interface to our DAML model, in particular to the new ``Message`` template and ``SendMessage`` choice.
 
-To make sure that Yarn picks up the newly generated JavaScript code,
-we have to run the following command in the ``ui`` directory::
-
-  npm install --frozen-lockfile
-
 Once that command finishes, you have to close Visual Studio Code
 and restart it by running ``daml studio`` from the root directory of
 your project.
