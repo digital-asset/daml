@@ -10,7 +10,7 @@ import akka.stream.Materializer
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.withHttpService
-import com.daml.http.domain.LedgerId
+import com.daml.http.domain.{JwtPayload, LedgerId}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
 import com.daml.http.{EndpointsCompanion, HttpService, JdbcConfig}
@@ -172,10 +172,12 @@ object Main extends StrictLogging {
     }
   }
 
-  private def getLedgerId(jwt: Jwt): EndpointsCompanion.Unauthorized \/ LedgerId =
+  private def getLedgerId(jwt: Jwt): EndpointsCompanion.Unauthorized \/ LedgerId = {
+    import EndpointsCompanion.JwtPayloadInstances._
     EndpointsCompanion
-      .decodeAndParsePayload(jwt, HttpService.decodeJwt)
+      .decodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
       .map { case (_, payload) => payload.ledgerId }
+  }
 
   private def runGatlingScenario(config: Config[String], jsonApiHost: String, jsonApiPort: Int)(
       implicit sys: ActorSystem,
