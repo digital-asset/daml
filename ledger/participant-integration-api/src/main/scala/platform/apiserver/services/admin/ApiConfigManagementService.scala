@@ -3,6 +3,8 @@
 
 package com.daml.platform.apiserver.services.admin
 
+import java.time.{Duration => JDuration}
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
@@ -110,7 +112,7 @@ private[apiserver] final class ApiConfigManagementService private (
           index,
           ledgerEndBeforeRequest,
         ),
-        timeToLive = params.timeToLive,
+        timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
       )
       entry <- synchronousResponse.submitAndWait(
         submissionId,

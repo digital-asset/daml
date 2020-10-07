@@ -48,6 +48,7 @@ final case class SandboxConfig(
     profileDir: Option[Path],
     stackTraces: Boolean,
     devMode: Boolean,
+    managementServiceTimeout: Duration
 )
 
 object SandboxConfig {
@@ -64,6 +65,8 @@ object SandboxConfig {
 
   val DefaultParticipantId: v1.ParticipantId =
     v1.ParticipantId.assertFromString("sandbox-participant")
+
+  val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
 
   lazy val defaultConfig: SandboxConfig =
     SandboxConfig(
@@ -93,6 +96,7 @@ object SandboxConfig {
       profileDir = None,
       stackTraces = true,
       devMode = true,
+      managementServiceTimeout = DefaultManagementServiceTimeout,
     )
 
 }

@@ -3,6 +3,9 @@
 
 package com.daml.platform.apiserver.services.admin
 
+import java.time.Duration
+import java.util.concurrent.TimeUnit
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.domain.LedgerOffset
@@ -22,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
   */
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
-    timeToLive: FiniteDuration,
+    timeToLive: Duration,
 ) {
 
   def submitAndWait(submissionId: SubmissionId, input: Input)(
@@ -42,7 +45,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
               case isAccepted(entry) => Future.successful(entry)
               case isRejected(exception) => Future.failed(exception)
             }
-            .completionTimeout(timeToLive)
+            .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
             .recoverWith {
               case _: TimeoutException =>
