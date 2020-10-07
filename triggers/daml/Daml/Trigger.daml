@@ -24,6 +24,7 @@ module Daml.Trigger
  , dedupCreate
  , dedupExerciseByKey
  , dedupCreateAndExercise
+ , getCommandsInFlight
  , Message(..)
  , Completion(..)
  , Transaction(..)
@@ -34,6 +35,7 @@ module Daml.Trigger
  ) where
 
 import DA.Action
+import DA.Functor ((<&>))
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import qualified DA.Map as GMap
 #endif
@@ -171,6 +173,10 @@ dedupExerciseByKey k c = do
   let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
+
+getCommandsInFlight : TriggerA (Map CommandId [Command])
+getCommandsInFlight = do
+  TriggerA $ get <&> \s -> s.commandsInFlight
 
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
