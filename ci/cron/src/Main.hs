@@ -17,15 +17,16 @@ import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import qualified Data.List.Split as Split
+import qualified Data.Maybe
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import qualified Data.Vector
 import qualified Options.Applicative as Opt
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
+import qualified Network.URI
 import qualified System.Directory as Directory
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
@@ -184,20 +185,19 @@ fetch_gh_paginated url = do
                 (_, _, _, [url, rel]) -> (rel, url)
                 _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
-data GitHubRelease = GitHubRelease { prerelease :: Bool, tag :: Version, assets :: [String] }
-  deriving Show
+data Asset = Asset { uri :: Network.URI.URI }
+instance JSON.FromJSON Asset where
+    parseJSON = JSON.withObject "Asset" $ \v -> Asset
+        <$> (do
+            url_as_string <- v JSON..: "browser_download_url"
+            return $ Data.Maybe.fromJust $ Network.URI.parseURI url_as_string)
+
+data GitHubRelease = GitHubRelease { prerelease :: Bool, tag :: Version, assets :: [Asset] }
 instance JSON.FromJSON GitHubRelease where
     parseJSON = JSON.withObject "GitHubRelease" $ \v -> GitHubRelease
         <$> (v JSON..: "prerelease")
         <*> (version . Text.tail <$> v JSON..: "tag_name")
-        <*> (do
-              assets <- (v JSON..: "assets")
-              JSON.withArray
-                "assets"
-                (\arr -> do
-                  let ls = Data.Vector.toList arr
-                  sequence $ map (JSON.withObject "asset" $ \ass -> ass JSON..: "browser_download_url") ls)
-                assets)
+        <*> (v JSON..: "assets")
 
 data Version = Version Data.SemVer.Version
     deriving (Ord, Eq)
@@ -287,28 +287,28 @@ check_releases bash_lib = do
 
               "shopt -s extglob", -- enable !() pattern: things that _don't_ match
 
-                  "PIDS=\"\"",
-                  "for ass in " <> Data.List.intercalate " " (assets release) <> "; do",
-                      "{",
-                          "wget --quiet \"$ass\" &",
-                      "} >$LOG 2>&1",
-                      "PIDS=\"$PIDS $!\"",
-                  "done",
-                  "for pid in $PIDS; do",
-                      "wait $pid >$LOG 2>&1",
-                  "done",
-                  "for f in !(*.asc); do",
-                      "p=github/" <> v <> "/$f",
-                      "if ! test -f $f.asc; then",
-                          "echo $p: no signature file",
+              "PIDS=\"\"",
+              "for ass in " <> unwords (map (show . uri) $ assets release) <> "; do",
+                  "{",
+                      "wget --quiet \"$ass\" &",
+                  "} >$LOG 2>&1",
+                  "PIDS=\"$PIDS $!\"",
+              "done",
+              "for pid in $PIDS; do",
+                  "wait $pid >$LOG 2>&1",
+              "done",
+              "for f in !(*.asc); do",
+                  "p=github/" <> v <> "/$f",
+                  "if ! test -f $f.asc; then",
+                      "echo $p: no signature file",
+                  "else",
+                      "if gpg_verify $f.asc >$LOG 2>&1; then",
+                          "echo $p: signature matches",
                       "else",
-                          "if gpg_verify $f.asc >$LOG 2>&1; then",
-                              "echo $p: signature matches",
-                          "else",
-                              "echo $p: signature does not match",
-                          "fi",
+                          "echo $p: signature does not match",
                       "fi",
-                  "done",
+                  "fi",
+              "done",
           "'"]
         putStrLn out)
 
