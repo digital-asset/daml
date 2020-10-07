@@ -15,6 +15,7 @@ import scalaz.syntax.std.option._
 import scalaz.std.AllInstances._
 import spray.json._
 import cats.instances.list._
+import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.foldable._
 import cats.syntax.apply._
@@ -128,15 +129,12 @@ object Queries {
 
   @silent("pls .* never used")
   def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(
-      implicit log: LogHandler, pls: Put[Vector[String]]): ConnectionIO[Option[String]] = {
+      implicit log: LogHandler, pls: Put[Vector[String]]): ConnectionIO[Map[String, String]] = {
     val partyVector = parties.toVector
-    sql"""SELECT min(last_offset), count(last_offset) FROM ledger_offset WHERE (party = ANY(${partyVector}) AND tpid = $tpid)"""
-      .query[(Option[String], Int)]
-      .unique
-      .map {
-        case (Some(offset), count) if count == partyVector.size => Some(offset)
-        case _ => None
-      }
+    sql"""SELECT party, last_offset FROM ledger_offset WHERE (party = ANY(${partyVector}) AND tpid = $tpid)"""
+      .query[(String, String)]
+      .to[Vector]
+      .map(_.toMap)
   }
 
   /** Consistency of the whole database mostly pivots around the offset update
@@ -154,14 +152,28 @@ object Queries {
     * If A inserts but B updates, the transactions are sufficiently serialized that
     * there are no logical conflicts.
     */
+  @silent(" pls .* never used")
   private[http] def updateOffset[F[_]: cats.Foldable](
       parties: F[String],
       tpid: SurrogateTpId,
-      newOffset: String)(implicit log: LogHandler): ConnectionIO[Int] = {
-    val upd = Update[(String, SurrogateTpId, String)](
-      """INSERT INTO ledger_offset VALUES(?, ?, ?) ON CONFLICT (party, tpid) DO UPDATE SET last_offset = EXCLUDED.last_offset WHERE ledger_offset.last_offset < EXCLUDED.last_offset""",
+    newOffset: String, lastOffsets: Map[String, String])(implicit log: LogHandler, pls: Put[List[String]]): ConnectionIO[Int] = {
+    import spray.json.DefaultJsonProtocol._
+    val (existingParties, newParties) = parties.toList.partition(p => lastOffsets.contains(p))
+    // If a concurrent transaction inserted an offset for a new party, the insert will fail.
+    val insert = Update[(String, SurrogateTpId, String)](
+      """INSERT INTO ledger_offset VALUES(?, ?, ?)""",
       logHandler0 = log)
-    upd.updateMany(parties.toList.map(p => (p, tpid, newOffset)))
+    // If a concurrent transaction updated the offset for an existing party, we will get
+    // fewer rows and throw a StaleOffsetException in the caller.
+    val update = sql"""UPDATE ledger_offset SET last_offset = $newOffset WHERE party = ANY($existingParties::text[]) AND tpid = $tpid AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
+    for {
+      inserted <- if (newParties.empty) { Applicative[ConnectionIO].pure(0) } else {
+        insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
+      }
+      updated <- if (existingParties.empty) { Applicative[ConnectionIO].pure(0) } else {
+        update.update.run
+      }
+    } yield { inserted + updated }
   }
 
   @silent(" pas .* never used")

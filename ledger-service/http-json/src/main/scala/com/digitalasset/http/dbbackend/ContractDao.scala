@@ -38,14 +38,14 @@ object ContractDao {
     Queries.dropAllTablesIfExist *> Queries.initDatabase
 
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
-      implicit log: LogHandler): ConnectionIO[Option[domain.Offset]] = {
+      implicit log: LogHandler): ConnectionIO[Map[domain.Party, domain.Offset]] = {
     import doobie.postgres.implicits._
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      offset <- Queries.lastOffset(OneAnd(parties.head.unwrap, domain.Party.unsubst(parties.tail)), tpId).map(_.map(domain.Offset(_)))
+      offset <- Queries.lastOffset(OneAnd(parties.head.unwrap, domain.Party.unsubst(parties.tail)), tpId).map(_.map { case (k,v) => (domain.Party(k), domain.Offset(v))})
     } yield offset
   }
 
@@ -53,8 +53,9 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
-      lastOffset: Option[domain.Offset])(implicit log: LogHandler): ConnectionIO[Unit] = {
+      lastOffsets: Map[domain.Party, domain.Offset])(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.implicits._
+    import doobie.postgres.implicits._
     import scalaz.OneAnd._
     import scalaz.std.set._
     import scalaz.syntax.foldable._
@@ -64,11 +65,11 @@ object ContractDao {
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      rowCount <- Queries.updateOffset(partyVector, tpId, newOffset.unwrap)
+      rowCount <- Queries.updateOffset(partyVector, tpId, newOffset.unwrap, lastOffsets.map({case (k, v) => (k.unwrap, v.unwrap)}))
       _ <- if (rowCount == partyVector.size)
         fconn.pure(())
       else
-        fconn.raiseError(StaleOffsetException(parties, templateId, newOffset, lastOffset))
+        fconn.raiseError(StaleOffsetException(parties, templateId, newOffset, lastOffsets))
     } yield ()
   }
 
@@ -114,7 +115,7 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
-      lastOffset: Option[domain.Offset])
+      lastOffset: Map[domain.Party, domain.Offset])
       extends java.sql.SQLException(
         s"parties: $parties, templateId: $templateId, newOffset: $newOffset, lastOffset: $lastOffset",
         StaleOffsetException.SqlState

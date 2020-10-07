@@ -26,6 +26,7 @@ import doobie.postgres.sqlstate.{class23 => postgres_class23}
 import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.std.vector._
+import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
@@ -109,10 +110,9 @@ private class ContractsFetch(
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
-      offset0 <- ContractDao.lastOffset(parties, templateId)
-      ob0 = offset0.cata(AbsoluteBookmark(_), LedgerBegin)
-      offset1 <- contractsFromOffsetIo(jwt, parties, templateId, ob0, absEnd)
-      _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $ob0): $offset1")
+      offsets <- ContractDao.lastOffset(parties, templateId)
+      offset1 <- contractsFromOffsetIo(jwt, parties, templateId, offsets, absEnd)
+      _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $offsets): $offset1")
     } yield offset1
 
   private def prepareCreatedEventStorage(
@@ -149,12 +149,15 @@ private class ContractsFetch(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      offset: BeginBookmark[domain.Offset],
+      offsets: Map[domain.Party, domain.Offset],
       absEnd: Terminates.AtAbsolute,
   )(
       implicit ec: ExecutionContext,
       mat: Materializer,
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
+
+    import domain.Offset._
+    val offset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
@@ -210,7 +213,7 @@ private class ContractsFetch(
         case AbsoluteBookmark(str) =>
           val newOffset = domain.Offset(str)
           ContractDao
-            .updateOffset(parties, templateId, newOffset, offset.toOption)
+            .updateOffset(parties, templateId, newOffset, offsets)
             .map(_ => AbsoluteBookmark(newOffset))
         case LedgerBegin =>
           connection.pure(LedgerBegin)

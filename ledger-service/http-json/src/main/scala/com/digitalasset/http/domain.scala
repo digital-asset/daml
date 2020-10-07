@@ -13,6 +13,7 @@ import com.daml.ledger.api.{v1 => lav1}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
+import scalaz.std.string._
 import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -24,6 +25,7 @@ import scalaz.{
   Bitraverse,
   NonEmptyList,
   OneAnd,
+  Order,
   Semigroup,
   Show,
   Tag,
@@ -182,6 +184,7 @@ object domain {
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
+    implicit val ordering: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
   }
 
   final case class StartingOffset(offset: Offset)
