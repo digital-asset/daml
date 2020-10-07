@@ -45,46 +45,6 @@ object EndpointsCompanion {
 
   object ParsePayload {
     @inline def apply[A](implicit ev: ParsePayload[A]): ParsePayload[A] = ev
-  }
-
-  lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case HttpRequest(method, uri, _, _, _) =>
-      Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
-  }
-
-  private[http] def httpResponseError(error: Error): HttpResponse = {
-    import com.daml.http.json.JsonProtocol._
-    val resp = errorResponse(error)
-    httpResponse(resp.status, SprayJson.encodeUnsafe(resp))
-  }
-
-  private[http] def errorResponse(error: Error): domain.ErrorResponse = {
-    val (status, errorMsg): (StatusCode, String) = error match {
-      case InvalidUserInput(e) => StatusCodes.BadRequest -> e
-      case ServerError(e) => StatusCodes.InternalServerError -> e
-      case Unauthorized(e) => StatusCodes.Unauthorized -> e
-      case NotFound(e) => StatusCodes.NotFound -> e
-    }
-    domain.ErrorResponse(errors = List(errorMsg), warnings = None, status = status)
-  }
-
-  private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
-    HttpResponse(
-      status = status,
-      entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
-  }
-
-  private[http] def format(a: JsValue): ByteString = ByteString(a.compactPrint)
-
-  private[http] def decodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(
-      implicit parse: ParsePayload[A]): Unauthorized \/ (jwt.type, A) = {
-    for {
-      a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
-      p <- parse.parsePayload(a)
-    } yield (jwt, p)
-  }
-
-  object JwtPayloadInstances {
 
     private[http] implicit val jwtWriteParsePayload: ParsePayload[JwtWritePayload] =
       new ParsePayload[JwtWritePayload] {
@@ -139,6 +99,42 @@ object EndpointsCompanion {
         }
 
       }
+  }
 
+  lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
+    case HttpRequest(method, uri, _, _, _) =>
+      Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
+  }
+
+  private[http] def httpResponseError(error: Error): HttpResponse = {
+    import com.daml.http.json.JsonProtocol._
+    val resp = errorResponse(error)
+    httpResponse(resp.status, SprayJson.encodeUnsafe(resp))
+  }
+
+  private[http] def errorResponse(error: Error): domain.ErrorResponse = {
+    val (status, errorMsg): (StatusCode, String) = error match {
+      case InvalidUserInput(e) => StatusCodes.BadRequest -> e
+      case ServerError(e) => StatusCodes.InternalServerError -> e
+      case Unauthorized(e) => StatusCodes.Unauthorized -> e
+      case NotFound(e) => StatusCodes.NotFound -> e
+    }
+    domain.ErrorResponse(errors = List(errorMsg), warnings = None, status = status)
+  }
+
+  private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
+    HttpResponse(
+      status = status,
+      entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
+  }
+
+  private[http] def format(a: JsValue): ByteString = ByteString(a.compactPrint)
+
+  private[http] def decodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(
+      implicit parse: ParsePayload[A]): Unauthorized \/ (jwt.type, A) = {
+    for {
+      a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
+      p <- parse.parsePayload(a)
+    } yield (jwt, p)
   }
 }

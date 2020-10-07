@@ -173,7 +173,6 @@ object Main extends StrictLogging {
   }
 
   private def getLedgerId(jwt: Jwt): EndpointsCompanion.Unauthorized \/ LedgerId = {
-    import EndpointsCompanion.JwtPayloadInstances._
     EndpointsCompanion
       .decodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
       .map { case (_, payload) => payload.ledgerId }

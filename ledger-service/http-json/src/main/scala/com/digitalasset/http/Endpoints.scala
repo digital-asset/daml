@@ -59,7 +59,6 @@ class Endpoints(
   import json.JsonProtocol._
   import util.ErrorOps._
   import Uri.Path._
-  import JwtPayloadInstances._
 
   lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) => httpResponse(create(req))

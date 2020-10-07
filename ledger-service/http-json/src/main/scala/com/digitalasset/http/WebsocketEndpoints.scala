@@ -21,8 +21,6 @@ object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
   private[http] val wsProtocol: String = "daml.ws.auth"
 
-  import JwtPayloadInstances._
-
   private def findJwtFromSubProtocol(
       upgradeToWebSocket: UpgradeToWebSocket,
   ): Unauthorized \/ Jwt = {
