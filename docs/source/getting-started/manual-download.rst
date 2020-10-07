@@ -35,7 +35,7 @@ To do that:
 
 5. The next step is to extract the tarball and run the install script (unless you chose the Windows installer, in which case the next step is to double-click it)::
 
-     tar xzf daml-sdl-1.4.0-macos.tar.gz
+     tar xzf daml-sdk-1.4.0-macos.tar.gz
      cd sdk-1.4.0
      ./install.sh
 
