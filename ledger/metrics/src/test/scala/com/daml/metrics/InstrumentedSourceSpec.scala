@@ -51,7 +51,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
     val bufferSize = 500
 
-    // Due to differences in scheduling, we accept that the highest
+    // Due to differences in scheduling, we expect the highest
     // possible recorded saturation value to be more or less equal
     // to the buffer size. See the ScalaDoc of `InstrumentedQueue.source`
     // for more details
