@@ -129,7 +129,7 @@ patches we backport to the 1.0 release branch).
 
     1. In a new terminal, from the `ui` folder:
 
-       1. `npm install --frozen-lockfile`
+       1. `npm install`
 
        1. `npm start`
 
@@ -137,7 +137,7 @@ patches we backport to the 1.0 release branch).
 
     1. Log in as `Alice` in the first window, log in as `Bob` in the second window.
 
-    1. In the first window, where you are logged in as`Alice`,
+    1. In the first window, where you are logged in as `Alice`,
        follow `Bob` by typing their name in the text input and pressing enter.
        Verify that `Bob` appears in the
        list of users `Alice` is following. Verify in the other

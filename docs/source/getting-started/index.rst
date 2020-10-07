@@ -77,7 +77,7 @@ We'll leave these processes running to serve requests from our UI.
 In a second terminal, navigate to the ``create-daml-app/ui`` folder and use ``npm`` to install the project dependencies::
 
     cd create-daml-app/ui
-    npm install --frozen-lockfile
+    npm install
 
 This step may take a couple of moments (it's worth it!).
 You should see ``success Saved lockfile.`` in the output if everything worked as expected.
