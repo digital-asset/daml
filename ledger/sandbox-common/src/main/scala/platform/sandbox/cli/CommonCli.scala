@@ -296,6 +296,12 @@ class CommonCli(name: LedgerName) {
         .text(
           s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}.")
 
+      opt[Duration]("management-service-timeout")
+        .hidden()
+        .optional()
+        .action((value, config) => config.copy(managementServiceTimeout = value))
+        .text("The timeout used for requests by management services of the Ledger API.")
+
       help("help").text("Print the usage text")
 
       checkConfig(c => {

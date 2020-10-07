@@ -56,6 +56,7 @@ trait ConfigProvider[ExtraConfig] {
       eventsPageSize = config.eventsPageSize,
       portFile = participantConfig.portFile,
       seeding = config.seeding,
+      managementServiceTimeout = participantConfig.managementServiceTimeout
     )
 
   def commandConfig(

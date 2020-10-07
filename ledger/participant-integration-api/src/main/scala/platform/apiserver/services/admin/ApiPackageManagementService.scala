@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.io.ByteArrayInputStream
+import java.time.Duration
 import java.util.UUID
 import java.util.zip.ZipInputStream
 
@@ -30,7 +31,6 @@ import com.google.protobuf.timestamp.Timestamp
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -38,6 +38,7 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: WritePackagesService,
+    managementServiceTimeout: Duration,
     materializer: Materializer,
 )(implicit loggingContext: LoggingContext)
     extends PackageManagementService
@@ -54,7 +55,7 @@ private[apiserver] final class ApiPackageManagementService private (
       packagesIndex,
       packagesWrite,
     ),
-    timeToLive = 2.minutes,
+    timeToLive = managementServiceTimeout,
   )
 
   override def close(): Unit = ()
@@ -122,9 +123,15 @@ private[apiserver] object ApiPackageManagementService {
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
+      managementServiceTimeout: Duration,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
-    new ApiPackageManagementService(readBackend, transactionsService, writeBackend, mat)
+    new ApiPackageManagementService(
+      readBackend,
+      transactionsService,
+      writeBackend,
+      managementServiceTimeout,
+      mat)
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,

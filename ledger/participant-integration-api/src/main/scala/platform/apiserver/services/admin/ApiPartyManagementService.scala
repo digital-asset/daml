@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.services.admin
 
+import java.time.Duration
 import java.util.UUID
 
 import akka.stream.Materializer
@@ -26,13 +27,13 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
+    managementServiceTimeout: Duration,
     materializer: Materializer,
 )(implicit loggingContext: LoggingContext)
     extends PartyManagementService
@@ -45,7 +46,7 @@ private[apiserver] final class ApiPartyManagementService private (
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(transactionService, writeService, partyManagementService),
-    timeToLive = 2.minutes,
+    timeToLive = managementServiceTimeout,
   )
 
   override def close(): Unit = ()
@@ -112,12 +113,14 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
+      managementServiceTimeout: Duration,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
     : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
       transactionsService,
       writeBackend,
+      managementServiceTimeout,
       mat)
 
   private final class SynchronousResponseStrategy(
