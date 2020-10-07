@@ -101,6 +101,7 @@ emitCommands cmds pending = do
   let commands = Commands id cmds
   TriggerA $ modify $ \s -> s
     { emittedCommands = commands :: s.emittedCommands
+    , commandsInFlight = addCommands s.commandsInFlight commands
     , pendingContracts = Map.insert id pending s.pendingContracts
     }
   pure id

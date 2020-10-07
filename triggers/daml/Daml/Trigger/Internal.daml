@@ -110,7 +110,7 @@ runRule rule = do
       $ rule state.party state.acs state.commandsInFlight state.userState
   where zoomIn state = TriggerAState state.commandsInFlight [] state.acs.pendingContracts
         zoomOut state aState =
-          let commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
+          let commandsInFlight = aState.commandsInFlight
               acs = state.acs { pendingContracts = aState.pendingContracts }
           in state { commandsInFlight, acs }
 
