@@ -98,7 +98,7 @@ final class StandaloneApiServer(
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
-        managementServiceTimeout = config.managementServiceTimeout
+        managementServiceTimeout = config.managementServiceTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

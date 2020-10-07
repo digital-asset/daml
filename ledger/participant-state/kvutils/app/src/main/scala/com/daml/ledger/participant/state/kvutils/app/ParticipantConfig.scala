@@ -18,7 +18,7 @@ final case class ParticipantConfig(
     serverJdbcUrl: String,
     allowExistingSchemaForIndex: Boolean,
     maxCommandsInFlight: Option[Int],
-    managementServiceTimeout: Duration
+    managementServiceTimeout: Duration,
 )
 
 object ParticipantConfig {

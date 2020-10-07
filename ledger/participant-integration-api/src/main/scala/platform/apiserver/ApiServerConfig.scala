@@ -24,5 +24,5 @@ case class ApiServerConfig(
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     portFile: Option[Path],
     seeding: Seeding,
-    managementServiceTimeout: Duration
+    managementServiceTimeout: Duration,
 )

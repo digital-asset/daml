@@ -121,7 +121,8 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService,
       writeBackend,
       managementServiceTimeout,
-      mat)
+      mat,
+    )
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,

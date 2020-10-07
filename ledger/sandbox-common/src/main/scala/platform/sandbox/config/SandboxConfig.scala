@@ -96,7 +96,7 @@ object SandboxConfig {
       profileDir = None,
       stackTraces = true,
       devMode = true,
-      managementServiceTimeout = DefaultManagementServiceTimeout
+      managementServiceTimeout = DefaultManagementServiceTimeout,
     )
 
 }

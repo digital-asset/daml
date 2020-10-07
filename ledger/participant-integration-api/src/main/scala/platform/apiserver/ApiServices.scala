@@ -251,7 +251,8 @@ private[daml] object ApiServices {
               partyManagementService,
               transactionsService,
               writeService,
-              managementServiceTimeout)
+              managementServiceTimeout,
+            )
 
         val apiPackageManagementService =
           ApiPackageManagementService
@@ -259,7 +260,8 @@ private[daml] object ApiServices {
               indexService,
               transactionsService,
               writeService,
-              managementServiceTimeout)
+              managementServiceTimeout,
+            )
 
         val apiConfigManagementService =
           ApiConfigManagementService
