@@ -45,7 +45,7 @@ private[apiserver] final class ApiPartyManagementService private (
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(transactionService, writeService, partyManagementService),
-    timeToLive = 30.seconds,
+    timeToLive = 2.minutes,
   )
 
   override def close(): Unit = ()

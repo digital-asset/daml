@@ -54,7 +54,7 @@ private[apiserver] final class ApiPackageManagementService private (
       packagesIndex,
       packagesWrite,
     ),
-    timeToLive = 30.seconds,
+    timeToLive = 2.minutes,
   )
 
   override def close(): Unit = ()
