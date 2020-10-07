@@ -42,7 +42,6 @@ object Config {
   val DefaultPort: Port = Port(6865)
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
-
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
       mode = Mode.Run,
@@ -94,7 +93,7 @@ object Config {
 
       opt[Map[String, String]]("participant")
         .unbounded()
-        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight]")
+        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, management-service-timeout]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
@@ -103,6 +102,10 @@ object Config {
           val jdbcUrl =
             kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
           val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
+          val managementServiceTimeout = kv
+            .get("management-service-timeout")
+            .map(Duration.parse)
+            .getOrElse(ParticipantConfig.defaultManagementServiceTimeout)
           val partConfig = ParticipantConfig(
             participantId,
             address,
@@ -110,7 +113,8 @@ object Config {
             portFile,
             jdbcUrl,
             allowExistingSchemaForIndex = false,
-            maxCommandsInFlight = maxCommandsInFlight
+            maxCommandsInFlight = maxCommandsInFlight,
+            managementServiceTimeout = managementServiceTimeout,
           )
           config.copy(participants = config.participants :+ partConfig)
         })
