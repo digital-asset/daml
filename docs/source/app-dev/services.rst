@@ -35,7 +35,7 @@ For more help understanding these issues so you can build correct, performant an
 Glossary
 ========
 
-- The ledger is a list of ``transactions``. The transaction service returns these
+- The ledger is a list of ``transactions``. The transaction service returns these.
 - A ``transaction`` is a tree of ``actions``, also called ``events``, which are of type ``create``, ``exercise`` or ``archive``. The transaction service can return the whole tree, or a flattened list.
 - A ``submission`` is a proposed transaction, consisting of a list of ``commands``, which correspond to the top-level ``actions`` in that transaction.
 - A ``completion`` indicates the success or failure of a ``submission``.
