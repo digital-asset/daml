@@ -6,7 +6,6 @@ module TestTrigger where
 
 import DA.Action
 import DA.Foldable
-import DA.Next.Map (Map)
 import Daml.Trigger
 
 template A
@@ -31,8 +30,8 @@ trigger = Trigger with
   registeredTemplates = AllInDar
   heartbeat = None
 
-triggerRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
-triggerRule p acs _ _ = do
+triggerRule : Party -> ACS -> () -> TriggerA ()
+triggerRule p acs _ = do
   let as = filter (\(_, a) -> a.p == p) (getContracts @A acs)
   let bs = map (\(_, B x y) -> (x,y)) $ filter (\(_, b) -> b.p == p) (getContracts @B acs)
   forA_ as $ \(aCid, A x y) ->

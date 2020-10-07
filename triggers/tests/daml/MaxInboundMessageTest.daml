@@ -5,7 +5,6 @@
 module MaxInboundMessageTest where
 
 import DA.Action
-import DA.Next.Map (Map)
 import Daml.Trigger
 
 maxInboundMessageSizeTrigger : Trigger ()
@@ -17,9 +16,9 @@ maxInboundMessageSizeTrigger = Trigger
   , heartbeat = None
   }
 
-maxInboundMessageSizeRule : Party -> ACS -> Map CommandId [Command] -> ()
+maxInboundMessageSizeRule : Party -> ACS -> ()
   -> TriggerA ()
-maxInboundMessageSizeRule party acs _ _
+maxInboundMessageSizeRule party acs _
   | [] <- getContracts @MessageSize acs =
       void $ emitCommands [createAndExerciseCmd (MessageSize { p = party }) (CreateN {n = 50000})] []
   | otherwise = pure ()

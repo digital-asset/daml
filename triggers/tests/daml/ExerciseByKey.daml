@@ -4,8 +4,6 @@
 
 module ExerciseByKey where
 
-import DA.Next.Map (Map)
-
 import Daml.Trigger
 
 exerciseByKeyTrigger : Trigger Int
@@ -21,8 +19,8 @@ exerciseByKeyTrigger = Trigger
   }
 
 -- Create one T template and then call a choice by key to create T_.
-retryRule : Party -> ACS -> Map CommandId [Command] -> Int -> TriggerA ()
-retryRule party acs commandsInFlight allowedRetries
+retryRule : Party -> ACS -> Int -> TriggerA ()
+retryRule party acs allowedRetries
   | [] <- getContracts @T acs = do
     dedupCreate T { p = party }
   | ((_, T { p = party' } ) :: _) <- getContracts @T acs

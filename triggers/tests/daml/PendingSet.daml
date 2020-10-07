@@ -5,7 +5,6 @@
 module PendingSet where
 
 import DA.Foldable (mapA_)
-import DA.Next.Map (Map)
 import Daml.Trigger
 
 template Foo
@@ -42,8 +41,8 @@ booTrigger = Trigger with
   registeredTemplates = AllInDar
   heartbeat = None
 
-booRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
-booRule party acs _commandsInFlight _userState = do
+booRule : Party -> ACS -> () -> TriggerA ()
+booRule party acs _userState = do
   let foos : [(ContractId Foo, Foo)] = getContracts @Foo acs
   let boos : [(ContractId Boo, Boo)] = getContracts @Boo acs
   case (boos, foos) of
