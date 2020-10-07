@@ -46,7 +46,7 @@ object ContractDao {
         templateId.moduleName,
         templateId.entityName)
       offset <- Queries
-        .lastOffset(OneAnd(parties.head.unwrap, domain.Party.unsubst(parties.tail)), tpId)
+        .lastOffset(domain.Party.unsubst(parties), tpId)
         .map(_.map { case (k, v) => (domain.Party(k), domain.Offset(v)) })
     } yield offset
   }
@@ -92,10 +92,7 @@ object ContractDao {
         templateId.entityName)
 
       dbContracts <- Queries
-        .selectContracts(
-          OneAnd(parties.head.unwrap, domain.Party.unsubst(parties.tail)),
-          tpId,
-          predicate)
+        .selectContracts(domain.Party.unsubst(parties), tpId, predicate)
         .to(Vector)
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts

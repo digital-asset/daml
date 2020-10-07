@@ -111,8 +111,6 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected val jwt: Jwt = jwtForParties(List("Alice"))
 
-  protected val multiPartyJwt: Jwt = jwtForParties(List("Alice", "Bob"))
-
   protected val jwtAdminNoParty: Jwt = {
     val decodedJwt = DecodedJwt(
       """{"alg": "HS256", "typ": "JWT"}""",
