@@ -15,7 +15,7 @@ import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
-import qualified Data.List as List
+import qualified Data.List
 import qualified Data.List.Split as Split
 import qualified Data.Ord
 import qualified Data.SemVer
@@ -25,6 +25,7 @@ import qualified Options.Applicative as Opt
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
+import qualified Network.URI
 import qualified System.Directory as Directory
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
@@ -71,7 +72,7 @@ robustly_download_nix_packages = do
             case (exit, n) of
               (Exit.ExitSuccess, _) -> return ()
               (_, 0) -> die cmd exit out err
-              _ | "unexpected end-of-file" `List.isInfixOf` err -> h (n - 1)
+              _ | "unexpected end-of-file" `Data.List.isInfixOf` err -> h (n - 1)
               _ -> die cmd exit out err
 
 http_get :: JSON.FromJSON a => String -> IO (a, H.HashMap String String)
@@ -125,7 +126,7 @@ update_s3 :: FilePath -> Versions -> IO ()
 update_s3 temp vs = do
     putStrLn "Updating versions.json & hidden.json..."
     create_versions_json (dropdown vs) (temp </> "versions.json")
-    let hidden = List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
+    let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
     create_versions_json hidden (temp </> "hidden.json")
     shell_ $ "aws s3 cp " <> temp </> "versions.json s3://docs-daml-com/versions.json --acl public-read"
     shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/hidden.json --acl public-read"
@@ -139,7 +140,7 @@ update_s3 temp vs = do
             let versions_json = versions
                                 & map show
                                 & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
-                                & List.intercalate ", "
+                                & Data.List.intercalate ", "
                                 & \s -> "{" <> s <> "}"
             writeFile file versions_json
 
@@ -164,7 +165,7 @@ reset_cloudfront = do
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
 
-fetch_gh_paginated :: JSON.FromJSON a => String -> IO [a]
+fetch_gh_paginated :: String -> IO [GitHubRelease]
 fetch_gh_paginated url = do
     (resp_0, headers) <- http_get url
     case parse_next =<< H.lookup "link" headers of
@@ -183,12 +184,19 @@ fetch_gh_paginated url = do
                 (_, _, _, [url, rel]) -> (rel, url)
                 _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
-data PreVersion = PreVersion { prerelease :: Bool, tag :: Version }
-instance JSON.FromJSON PreVersion where
-    parseJSON = JSON.withObject "PreVersion" $ \v -> PreVersion
-        <$> v JSON..: "prerelease"
-        <*> let json_text = v JSON..: "tag_name"
-            in (version . Text.tail <$> json_text)
+data Asset = Asset { uri :: Network.URI.URI }
+instance JSON.FromJSON Asset where
+    parseJSON = JSON.withObject "Asset" $ \v -> Asset
+        <$> (do
+            Just url <- Network.URI.parseURI <$> v JSON..: "browser_download_url"
+            return url)
+
+data GitHubRelease = GitHubRelease { prerelease :: Bool, tag :: Version, assets :: [Asset] }
+instance JSON.FromJSON GitHubRelease where
+    parseJSON = JSON.withObject "GitHubRelease" $ \v -> GitHubRelease
+        <$> (v JSON..: "prerelease")
+        <*> (version . Text.tail <$> v JSON..: "tag_name")
+        <*> (v JSON..: "assets")
 
 data Version = Version Data.SemVer.Version
     deriving (Ord, Eq)
@@ -201,14 +209,14 @@ version t = Version $ (\case Left s -> (error s); Right v -> v) $ Data.SemVer.fr
 data Versions = Versions { top :: Version, all_versions :: Set.Set Version, dropdown :: [Version] }
     deriving Eq
 
-versions :: [PreVersion] -> Versions
+versions :: [GitHubRelease] -> Versions
 versions vs =
     let all_versions = Set.fromList $ map tag vs
         dropdown = vs
                    & filter (not . prerelease)
                    & map tag
                    & filter (>= version "1.0.0")
-                   & List.sortOn Data.Ord.Down
+                   & Data.List.sortOn Data.Ord.Down
         top = head dropdown
     in Versions {..}
 
@@ -232,7 +240,7 @@ fetch_s3_versions = do
               let type_annotated_value :: Maybe JSON.Object
                   type_annotated_value = JSON.decode $ LBS.fromString s3_raw
               case type_annotated_value of
-                  Just s3_json -> return $ map (\s -> PreVersion prerelease (version s)) $ H.keys s3_json
+                  Just s3_json -> return $ map (\s -> GitHubRelease prerelease (version s) []) $ H.keys s3_json
                   Nothing -> Exit.die "Failed to get versions from s3"
 
 docs :: IO ()
@@ -262,7 +270,11 @@ docs = do
 
 check_releases :: String -> IO ()
 check_releases bash_lib = do
-    out <- shell $ unlines ["bash -c '",
+    releases <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
+    Data.Foldable.for_ releases (\release -> do
+        let v = show $ tag release
+        putStrLn $ "Checking release " <> v <> " ..."
+        out <- shell $ unlines ["bash -c '",
               "set -euo pipefail",
               "eval \"$(dev-env/bin/dade assist)\"",
               "source \"" <> bash_lib <> "\"",
@@ -274,39 +286,30 @@ check_releases bash_lib = do
 
               "shopt -s extglob", -- enable !() pattern: things that _don't_ match
 
-              -- TODO: get all releases (GH paginates by 30)
-              "RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s)",
-              "for i in $(seq 1 $(echo \"$RELEASES\" | jq length)); do",
-                  "VERSION=$(echo \"$RELEASES\" | jq -r \".[$i-1].tag_name\")",
-                  "mkdir \"$VERSION\"",
-                  "cd \"$VERSION\"",
-                  "PIDS=\"\"",
-                  "for ass in $(seq 1 $(echo \"$RELEASES\" | jq \".[$i-1].assets | length\")); do",
-                      "{",
-                          "wget --quiet \"$(echo \"$RELEASES\" | jq -r \".[$i-1].assets[$ass-1].browser_download_url\")\" &",
-                      "} >$LOG 2>&1",
-                      "PIDS=\"$PIDS $!\"",
-                  "done",
-                  "for pid in $PIDS; do",
-                      "wait $pid >$LOG 2>&1",
-                  "done",
-                  "for f in !(*.asc); do",
-                      "p=github/$VERSION/$f",
-                      "if ! test -f $f.asc; then",
-                          "echo $p: no signature file",
+              "PIDS=\"\"",
+              "for ass in " <> unwords (map (show . uri) $ assets release) <> "; do",
+                  "{",
+                      "wget --quiet \"$ass\" &",
+                  "} >$LOG 2>&1",
+                  "PIDS=\"$PIDS $!\"",
+              "done",
+              "for pid in $PIDS; do",
+                  "wait $pid >$LOG 2>&1",
+              "done",
+              "for f in !(*.asc); do",
+                  "p=github/" <> v <> "/$f",
+                  "if ! test -f $f.asc; then",
+                      "echo $p: no signature file",
+                  "else",
+                      "if gpg_verify $f.asc >$LOG 2>&1; then",
+                          "echo $p: signature matches",
                       "else",
-                          "if gpg_verify $f.asc >$LOG 2>&1; then",
-                              "echo $p: signature matches",
-                          "else",
-                              "echo $p: signature does not match",
-                          "fi",
+                          "echo $p: signature does not match",
                       "fi",
-                  "done",
-                  "cd \"$DIR\"",
-                  "rm -rf \"$VERSION\"",
+                  "fi",
               "done",
           "'"]
-    putStrLn out
+        putStrLn out)
 
 data CliArgs = Docs | Check { bash_lib :: String }
 
