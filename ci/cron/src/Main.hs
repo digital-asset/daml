@@ -268,49 +268,57 @@ docs = do
             update_s3 temp_dir gh_versions
         reset_cloudfront
 
+download_assets :: FilePath -> GitHubRelease -> IO ()
+download_assets tmp release = do
+    shell_ $ unlines ["bash -c '",
+        "set -euo pipefail",
+        "eval \"$(dev-env/bin/dade assist)\"",
+        "cd \"" <> tmp <> "\"",
+        "PIDS=\"\"",
+        "for ass in " <> unwords (map (show . uri) $ assets release) <> "; do",
+            "{",
+                "wget --quiet \"$ass\" &",
+            "} >$LOG 2>&1",
+            "PIDS=\"$PIDS $!\"",
+        "done",
+        "for pid in $PIDS; do",
+            "wait $pid >$LOG 2>&1",
+        "done",
+        "'"]
+
+verify_signatures :: FilePath -> FilePath -> String -> IO String
+verify_signatures bash_lib tmp version_tag = do
+    shell $ unlines ["bash -c '",
+        "set -euo pipefail",
+        "eval \"$(dev-env/bin/dade assist)\"",
+        "source \"" <> bash_lib <> "\"",
+        "shopt -s extglob", -- enable !() pattern: things that _don't_ match
+        "cd \"" <> tmp <> "\"",
+        "for f in !(*.asc); do",
+            "p=github/" <> version_tag <> "/$f",
+            "if ! test -f $f.asc; then",
+                "echo $p: no signature file",
+            "else",
+                "if gpg_verify $f.asc >$LOG 2>&1; then",
+                    "echo $p: signature matches",
+                "else",
+                    "echo $p: signature does not match",
+                    "exit 2",
+                "fi",
+            "fi",
+       "done",
+       "'"]
+
 check_releases :: String -> IO ()
 check_releases bash_lib = do
     releases <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
     Data.Foldable.for_ releases (\release -> do
         let v = show $ tag release
         putStrLn $ "Checking release " <> v <> " ..."
-        out <- shell $ unlines ["bash -c '",
-              "set -euo pipefail",
-              "eval \"$(dev-env/bin/dade assist)\"",
-              "source \"" <> bash_lib <> "\"",
-
-              "LOG=$(mktemp)",
-              "DIR=$(mktemp -d)",
-              "trap \"rm -rf \\\"$DIR\\\"\" EXIT",
-              "cd \"$DIR\"",
-
-              "shopt -s extglob", -- enable !() pattern: things that _don't_ match
-
-              "PIDS=\"\"",
-              "for ass in " <> unwords (map (show . uri) $ assets release) <> "; do",
-                  "{",
-                      "wget --quiet \"$ass\" &",
-                  "} >$LOG 2>&1",
-                  "PIDS=\"$PIDS $!\"",
-              "done",
-              "for pid in $PIDS; do",
-                  "wait $pid >$LOG 2>&1",
-              "done",
-              "for f in !(*.asc); do",
-                  "p=github/" <> v <> "/$f",
-                  "if ! test -f $f.asc; then",
-                      "echo $p: no signature file",
-                  "else",
-                      "if gpg_verify $f.asc >$LOG 2>&1; then",
-                          "echo $p: signature matches",
-                      "else",
-                          "echo $p: signature does not match",
-                          "exit 2",
-                      "fi",
-                  "fi",
-              "done",
-          "'"]
-        putStrLn out)
+        IO.withTempDir $ \temp_dir -> do
+            download_assets temp_dir release
+            out <- verify_signatures bash_lib temp_dir v
+            putStrLn out)
 
 data CliArgs = Docs | Check { bash_lib :: String }
 
