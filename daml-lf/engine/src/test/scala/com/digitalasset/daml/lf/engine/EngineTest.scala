@@ -1633,6 +1633,36 @@ class EngineTest
       err.msg should not include ("Boom")
       err.msg should include("precondition violation")
     }
+
+    "not be create if has an empty set of maintainer" in {
+      val templateId =
+        Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
+      val createArg =
+        ValueRecord(
+          Some(templateId),
+          ImmArray((Some[Name]("sig"), ValueParty(alice)))
+        )
+
+      val Right((cmds, globalCids)) = preprocessor
+        .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
+        .consume(_ => None, lookupPackage, lookupKey)
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(txSeed),
+          globalCids = globalCids,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      result shouldBe 'left
+      val Left(err) = result
+      err.msg should include("Update failed due to a contract key with an empty sey of maintainers")
+    }
+
   }
 
   "Engine#submit" should {
