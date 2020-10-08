@@ -88,7 +88,8 @@ private[services] object TrackerImpl {
         OverflowStrategy.dropNew,
         capacityCounter,
         lengthCounter,
-        delayTimer)
+        delayTimer,
+      )
       .viaMat(tracker)(Keep.both)
       .toMat(Sink.foreach {
         case Ctx(promise, result) =>

@@ -33,7 +33,8 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
           OverflowStrategy.backpressure,
           capacityCounter,
           maxBuffered,
-          delayTimer)
+          delayTimer,
+        )
         .toMat(Sink.seq)(Keep.both)
         .run()
 
@@ -63,10 +64,8 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     val (source, sink) =
       InstrumentedSource
         .queue[Int](16, OverflowStrategy.backpressure, capacityCounter, maxBuffered, delayTimer)
-        .map { x =>
-          // Sleep to delay the processing of the next element.
-          Thread.sleep(5)
-          x
+        .mapAsync(1) { x =>
+          akka.pattern.after(5.millis, system.scheduler)(Future(x))
         }
         .toMat(Sink.seq)(Keep.both)
         .run()
