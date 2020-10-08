@@ -278,11 +278,11 @@ download_assets tmp release = do
         "for ass in " <> unwords (map (show . uri) $ assets release) <> "; do",
             "{",
                 "wget --quiet \"$ass\" &",
-            "} >$LOG 2>&1",
+            "}",
             "PIDS=\"$PIDS $!\"",
         "done",
         "for pid in $PIDS; do",
-            "wait $pid >$LOG 2>&1",
+            "wait $pid",
         "done",
         "'"]
 
@@ -299,7 +299,7 @@ verify_signatures bash_lib tmp version_tag = do
             "if ! test -f $f.asc; then",
                 "echo $p: no signature file",
             "else",
-                "if gpg_verify $f.asc >$LOG 2>&1; then",
+                "if gpg_verify $f.asc >/dev/null; then",
                     "echo $p: signature matches",
                 "else",
                     "echo $p: signature does not match",
