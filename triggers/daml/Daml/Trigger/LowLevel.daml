@@ -317,6 +317,7 @@ simulateRule rule time s = (s', reverse cmds, a)
 
 deriving instance ActionState s (TriggerRule s)
 
+-- | Low-level trigger actions.
 class HasTime m => ActionTrigger m where
   liftTF : TriggerF a -> m a
 

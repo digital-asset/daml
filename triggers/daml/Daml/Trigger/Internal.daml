@@ -48,7 +48,7 @@ data ACS = ACS
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
 newtype TriggerA a = TriggerA (TriggerRule TriggerAState a)
-  deriving (Functor, Applicative, Action, HasTime, ActionTrigger)
+  deriving (Functor, Applicative, Action, HasTime)
 
 -- Internal API
 
