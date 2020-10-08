@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOf
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.{DarReader, Decode}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party.ordering
@@ -101,7 +101,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       "provide an update" in participantState.use { ps =>
         val submissionId = newSubmissionId()
         for {
-          result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
+          result <- ps.uploadPackages(submissionId, List(anArchive), sourceDescription).toScala
           _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
@@ -110,7 +110,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         } yield {
           offset should be(toOffset(1))
           update.recordTime should be >= rt
-          matchPackageUpload(update, submissionId, List(archives.head))
+          matchPackageUpload(update, submissionId, List(anArchive))
         }
       }
 
@@ -131,16 +131,15 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       }
 
       "remove a duplicate package from the update" in participantState.use { ps =>
-        val archive1 :: archive2 :: _ = archives
         val (subId1, subId2, subId3) =
           (newSubmissionId(), newSubmissionId(), newSubmissionId())
 
         for {
-          result1 <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
+          result1 <- ps.uploadPackages(subId1, List(anArchive), sourceDescription).toScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
-          result2 <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
+          result2 <- ps.uploadPackages(subId2, List(anArchive), sourceDescription).toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
-          result3 <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
+          result3 <- ps.uploadPackages(subId3, List(anotherArchive), sourceDescription).toScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -149,11 +148,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           all(updates.map(_.recordTime)) should be >= rt
           // first upload arrives as head update:
           offset1 should be(toOffset(1))
-          matchPackageUpload(update1, subId1, List(archive1))
+          matchPackageUpload(update1, subId1, List(anArchive))
           offset2 should be(toOffset(2))
           matchPackageUpload(update2, subId2, List())
           offset3 should be(toOffset(3))
-          matchPackageUpload(update3, subId3, List(archive2))
+          matchPackageUpload(update3, subId3, List(anotherArchive))
         }
       }
 
@@ -183,14 +182,15 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
       "reject a duplicate submission" in participantState.use { ps =>
         val submissionIds = (newSubmissionId(), newSubmissionId())
-        val archive1 :: archive2 :: _ = archives
 
         for {
-          result1 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
+          result1 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).toScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           // Second submission is a duplicate, it fails without an update.
-          result2 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
-          result3 <- ps.uploadPackages(submissionIds._2, List(archive2), sourceDescription).toScala
+          result2 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).toScala
+          result3 <- ps
+            .uploadPackages(submissionIds._2, List(anotherArchive), sourceDescription)
+            .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -711,6 +711,15 @@ object ParticipantStateIntegrationSpecBase {
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
   private val darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
   private val archives = darReader.readArchiveFromFile(darFile).get.all
+
+  // 2 self consistent archives
+  protected val List(anArchive, anotherArchive) =
+    archives
+      .sortBy(_.getSerializedSize) // look at the smallest archives first to limit decoding work
+      .iterator
+      .filter(Decode.decodeArchive(_)._2.directDeps.isEmpty)
+      .take(2)
+      .toList
 
   private val alice = Ref.Party.assertFromString("alice")
 
