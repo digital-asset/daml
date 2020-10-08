@@ -167,7 +167,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
       output._1.hasRecordTime shouldBe false
     }
 
-    "filter out known packages" in {
+    "filter out already known packages" in {
       val committer = newCommitter
 
       shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))

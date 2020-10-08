@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.committer.Committer.{
 }
 import com.daml.lf
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.{Ast, Graphs}
@@ -137,26 +138,23 @@ final private[kvutils] class PackageCommitter(
               (seenOnce + hash, duplicates)
         }
 
-      val mbMsg =
-        if (seenOnce.isEmpty)
-          Some("No archives in submission")
-        else if (duplicates.nonEmpty)
-          Some(
+      if (seenOnce.isEmpty || duplicates.nonEmpty) {
+        val validationError =
+          if (seenOnce.isEmpty)
+            "No archives in submission"
+          else
             duplicates.iterator
               .map(pkgId => s"package ${pkgId.toStringUtf8} appears more than once")
-              .mkString(", "))
-        else None
-
-      mbMsg match {
-        case None => StepContinue(partialResult)
-        case Some(msg) =>
-          rejectionTraceLog(msg, uploadEntry)
-          reject(
-            ctx.getRecordTime,
-            uploadEntry.getSubmissionId,
-            uploadEntry.getParticipantId,
-            _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(msg))
-          )
+              .mkString(", ")
+        rejectionTraceLog(validationError, uploadEntry)
+        reject(
+          ctx.getRecordTime,
+          uploadEntry.getSubmissionId,
+          uploadEntry.getParticipantId,
+          _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(validationError))
+        )
+      } else {
+        StepContinue(partialResult)
       }
   }
 
@@ -165,7 +163,6 @@ final private[kvutils] class PackageCommitter(
   ): Either[String, Map[Ref.PackageId, Ast.Package]] =
     metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
       type Result = Either[List[String], Map[Ref.PackageId, Ast.Package]]
-      // toSet is constant time here.
       val knownPackages = engine.compiledPackages().packageIds.toSet[String]
 
       archives
@@ -189,9 +186,18 @@ final private[kvutils] class PackageCommitter(
         .map(_.mkString(", "))
     }
 
+  private[this] def decodePackagesIfNeeded(
+      pkgsCache: Map[Ref.PackageId, Ast.Package],
+      archives: Traversable[DamlLf.Archive],
+  ): Either[String, Map[PackageId, Ast.Package]] =
+    if (pkgsCache.isEmpty)
+      decodePackages(archives)
+    else
+      Right(pkgsCache)
+
   private[this] def validatePackages(
       uploadEntry: DamlPackageUploadEntry.Builder,
-      packages: Map[Ref.PackageId, Ast.Package],
+      pkgs: Map[Ref.PackageId, Ast.Package],
   ): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.validateTimer.time { () =>
       val allPkgIds = uploadEntry.getArchivesList
@@ -202,12 +208,11 @@ final private[kvutils] class PackageCommitter(
       engine.validatePackages(allPkgIds, pkgs).left.map(_.detailMsg)
     }
 
-// Validate packages
+  // Strict validation
   private[this] def strictlyValidatePackages: Step = {
-    case (ctx, (uploadEntry, mbPkgs)) =>
+    case (ctx, (uploadEntry, pkgsCache)) =>
       val result = for {
-        pkgs <- if (mbPkgs.isEmpty) decodePackages(uploadEntry.getArchivesList.asScala)
-        else Right(mbPkgs)
+        pkgs <- decodePackagesIfNeeded(pkgsCache, uploadEntry.getArchivesList.asScala)
         _ <- validatePackages(uploadEntry, pkgs)
       } yield StepContinue((uploadEntry, pkgs))
 
@@ -224,8 +229,8 @@ final private[kvutils] class PackageCommitter(
       }
   }
 
-// Minimal validation.
-// Checks that package IDs are valid and package payloads are non-empty.
+  // Minimal validation.
+  // Checks that package IDs are valid and package payloads are non-empty.
   private[this] def looselyValidatePackages: Step = {
     case (ctx, partialResult @ (uploadEntry, _)) =>
       val archives = uploadEntry.getArchivesList.asScala
@@ -253,7 +258,7 @@ final private[kvutils] class PackageCommitter(
       }
   }
 
-  def uploadPackages(pkgs: Map[Ref.PackageId, Ast.Package]): Either[String, Unit] =
+  private[this] def uploadPackages(pkgs: Map[Ref.PackageId, Ast.Package]): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.preloadTimer.time { () =>
       val errors = Graphs.topoSort(pkgs.transform((_, pkg) => pkg.directDeps)) match {
         case Left(cycles) =>
@@ -266,6 +271,8 @@ final private[kvutils] class PackageCommitter(
               .fold(err => List(err.detailMsg), _ => List.empty)
           }.toList
       }
+      metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
+        engine.compiledPackages().packageIds.size)
       Either.cond(
         errors.isEmpty,
         (),
@@ -273,12 +280,10 @@ final private[kvutils] class PackageCommitter(
       )
     }
 
-// Preload decoded packages
-  private[this] def preload: Step = {
-    case (ctx, (uploadEntry, mbPkgs)) =>
+  private[this] def preloadSynchronously: Step = {
+    case (ctx, (uploadEntry, pkgsCache)) =>
       val result = for {
-        pkgs <- if (mbPkgs.isEmpty) decodePackages(uploadEntry.getArchivesList.asScala)
-        else Right(mbPkgs)
+        pkgs <- decodePackagesIfNeeded(pkgsCache, uploadEntry.getArchivesList.asScala)
         _ <- uploadPackages(pkgs)
       } yield StepContinue((uploadEntry, pkgs))
 
@@ -311,22 +316,21 @@ final private[kvutils] class PackageCommitter(
     *
     * This assumes the engine validates the archive it receives.
     */
-  private[this] def enqueuePreload: Step = {
-    case (_, partialResult @ (uploadEntry, mbPkgs)) =>
+  private[this] def preloadAsynchronously: Step = {
+    case (_, partialResult @ (uploadEntry, pkgsCache)) =>
       // we need to extract the archives synchronously as other steps may modify uploadEntry
       val archives = uploadEntry.getArchivesList.iterator().asScala.toList
       preloadExecutor.execute { () =>
         traceLog(s"Uploading ${uploadEntry.getArchivesCount} archive", uploadEntry)
         val result = for {
-          pkgs <- if (mbPkgs.isEmpty) decodePackages(archives) else Right(mbPkgs)
+          pkgs <- decodePackagesIfNeeded(pkgsCache, archives)
           _ <- uploadPackages(pkgs)
         } yield ()
+
         result.fold(
           msg => traceLog(s"Uploading failed: $msg", uploadEntry),
           _ => traceLog("Uploading successful", uploadEntry),
         )
-        metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
-          engine.compiledPackages().packageIds.size)
       }
       StepContinue(partialResult)
   }
@@ -392,9 +396,9 @@ final private[kvutils] class PackageCommitter(
     preloadingMode match {
       case PackagePreloadingMode.No =>
       case PackagePreloadingMode.Synchronous =>
-        builder += "synchronously_preload" -> preload
+        builder += "synchronously_preload" -> preloadSynchronously
       case PackagePreloadingMode.Asynchronous =>
-        builder += "asynchronously_preload" -> enqueuePreload
+        builder += "asynchronously_preload" -> preloadAsynchronously
     }
     builder += "filter_known_packages" -> filterKnownPackages
     builder += "build_log_entry" -> buildLogEntry
