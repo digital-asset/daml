@@ -2,20 +2,22 @@
     "homepage": "http://msys2.github.io",
     "version": "20180531",
     "url": [
-        "https://mirror.yandex.ru/mirrors/msys2/distrib/x86_64/msys2-base-x86_64-20180531.tar.xz",
-        "https://mirror.yandex.ru/mirrors/msys2/mingw/x86_64/mingw-w64-x86_64-jq-1.6-2-any.pkg.tar.xz#/jq.msys2",
-        "https://mirror.yandex.ru/mirrors/msys2/msys/x86_64/gnu-netcat-0.7.1-1-x86_64.pkg.tar.xz#/netcat.msys2",
-        "https://mirror.yandex.ru/mirrors/msys2/msys/x86_64/patch-2.7.6-1-x86_64.pkg.tar.xz#/patch.msys2",
-        "https://mirror.yandex.ru/mirrors/msys2/mingw/x86_64/mingw-w64-x86_64-openssl-1.1.1.c-1-any.pkg.tar.xz#/openssl.msys2",
-        "https://mirror.yandex.ru/mirrors/msys2/mingw/x86_64/mingw-w64-x86_64-postgresql-11.3-1-any.pkg.tar.xz#/pgsql.msys2"
+        "https://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-20180531.tar.xz",
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-jq-1.6-2-any.pkg.tar.xz#/jq.msys2",
+        "https://repo.msys2.org/msys/x86_64/gnu-netcat-0.7.1-1-x86_64.pkg.tar.xz#/netcat.msys2",
+        "https://repo.msys2.org/msys/x86_64/patch-2.7.6-1-x86_64.pkg.tar.xz#/patch.msys2",
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-openssl-1.1.1.g-1-any.pkg.tar.xz#/openssl.msys2",
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-python-3.8.2-2-any.pkg.tar.xz#/python.msys2",
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-postgresql-12.2-1-any.pkg.tar.xz#/pgsql.msys2"
     ],
     "hash": [
         "4e799b5c3efcf9efcb84923656b7bcff16f75a666911abd6620ea8e5e1e9870c",
         "da8a3b88d6ad1f5d28bc190405de9ca0f802ebcae19080a5b5b2b30a7614272b",
         "32fa739d26fd49a3f8c22717ae338472d71d4798844cbc0db5e7780131fe69aa",
         "5c18ce8979e9019d24abd2aee7ddcdf8824e31c4c7e162a204d4dc39b3b73776",
-        "28c8f3acbfa3b5435cd3759cd3f051e7cdeb0c6bb5cfccb7bacb70c8b91f66db",
-        "df53271e77f85f9f2b5fc959da1976af8482cc9ae24229ac8ffd6103f6428123"
+        "8e18dbfadb4261fd0882ef8edb7eb58d9129d31d8d9921a4431e55dc7b33fd10",
+        "47fe3be25879151677e9827e08eb3d17eb97cf4d3508163fb92b352052cb0432",
+        "e43179f90814e20210ffc5e023839725da372b3a7f2a61f9c95b2db4680fca17"
     ],
     "env_add_path": ".",
     "installer": {
@@ -31,6 +33,7 @@
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /netcat.msys2'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /patch.msys2'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /openssl.msys2'\"",
+            "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /python.msys2'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /pgsql.msys2'\"",
             "$ErrorActionPreference = 'Stop'",
             "rm $dir\\*.msys2",

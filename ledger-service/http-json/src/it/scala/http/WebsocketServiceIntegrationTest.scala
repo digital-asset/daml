@@ -359,6 +359,110 @@ class WebsocketServiceIntegrationTest
         }
   }
 
+  "multi-party query should receive deltas as contracts are archived/created" in withHttpService {
+    (uri, encoder, _) =>
+      import spray.json._
+
+      val f1 =
+        postCreateCommand(
+          accountCreateCommand(domain.Party("Alice"), "abc123"),
+          encoder,
+          uri,
+          headers = headersWithPartyAuth(List("Alice")))
+      val f2 =
+        postCreateCommand(
+          accountCreateCommand(domain.Party("Bob"), "def456"),
+          encoder,
+          uri,
+          headers = headersWithPartyAuth(List("Bob")))
+
+      val query =
+        """[
+          {"templateIds": ["Account:Account"]}
+        ]"""
+
+      def resp(
+          cid1: domain.ContractId,
+          cid2: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume.interpret(
+          for {
+            ContractDelta(Vector((account1, _)), Vector(), None) <- readOne
+            _ = Seq(cid1, cid2) should contain(account1)
+            ContractDelta(Vector((account2, _)), Vector(), None) <- readOne
+            _ = Seq(cid1, cid2) should contain(account2)
+            ContractDelta(Vector(), _, Some(liveStartOffset)) <- readOne
+            _ <- liftF(
+              postCreateCommand(
+                accountCreateCommand(domain.Party("Alice"), "abc234"),
+                encoder,
+                uri,
+                headers = headersWithPartyAuth(List("Alice"))))
+            ContractDelta(Vector((_, aliceAccount)), _, Some(_)) <- readOne
+            _ = inside(aliceAccount) {
+              case JsObject(obj) =>
+                inside((obj get "owner", obj get "number")) {
+                  case (Some(JsString(owner)), Some(JsString(number))) =>
+                    owner shouldBe "Alice"
+                    number shouldBe "abc234"
+                }
+            }
+            _ <- liftF(
+              postCreateCommand(
+                accountCreateCommand(domain.Party("Bob"), "def567"),
+                encoder,
+                uri,
+                headers = headersWithPartyAuth(List("Bob"))))
+            ContractDelta(Vector((_, bobAccount)), _, Some(lastSeenOffset)) <- readOne
+            _ = inside(bobAccount) {
+              case JsObject(obj) =>
+                inside((obj get "owner", obj get "number")) {
+                  case (Some(JsString(owner)), Some(JsString(number))) =>
+                    owner shouldBe "Bob"
+                    number shouldBe "def567"
+                }
+            }
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map {
+              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
+            }.toSet + lastSeenOffset).size - 1
+          } yield
+            (
+              // don't count empty events block if lastSeenOffset does not change
+              ShouldHaveEnded(
+                liveStartOffset = liveStartOffset,
+                msgCount = 5 + hbCount,
+                lastSeenOffset = lastSeenOffset
+              )
+            ))
+      }
+
+      for {
+        r1 <- f1
+        _ = r1._1 shouldBe 'success
+        cid1 = getContractId(getResult(r1._2))
+
+        r2 <- f2
+        _ = r2._1 shouldBe 'success
+        cid2 = getContractId(getResult(r2._2))
+
+        lastState <- singleClientQueryStream(jwtForParties(List("Alice", "Bob")), uri, query) via parseResp runWith resp(
+          cid1,
+          cid2)
+        liveOffset = inside(lastState) {
+          case ShouldHaveEnded(liveStart, 5, lastSeen) =>
+            lastSeen.unwrap should be > liveStart.unwrap
+            liveStart
+        }
+        rescan <- (singleClientQueryStream(jwt, uri, query, Some(liveOffset))
+          via parseResp runWith remainingDeltas)
+      } yield
+        inside(rescan) {
+          case (Vector(_), _, Some(_)) => succeed
+        }
+  }
+
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
     (uri, encoder, _) =>
       val templateId = domain.TemplateId(None, "Account", "Account")
@@ -506,6 +610,99 @@ class WebsocketServiceIntegrationTest
       results should matchJsValues(expected)
 
     }
+  }
+
+  "multi-party fetch-by-key query should receive deltas as contracts are archived/created" in withHttpService {
+    (uri, encoder, _) =>
+      import spray.json._
+
+      val templateId = domain.TemplateId(None, "Account", "Account")
+
+      val f1 =
+        postCreateCommand(
+          accountCreateCommand(domain.Party("Alice"), "abc123"),
+          encoder,
+          uri,
+          headers = headersWithPartyAuth(List("Alice")))
+      val f2 =
+        postCreateCommand(
+          accountCreateCommand(domain.Party("Bob"), "def456"),
+          encoder,
+          uri,
+          headers = headersWithPartyAuth(List("Bob")))
+
+      val query =
+        """[
+          {"templateId": "Account:Account", "key": ["Alice", "abc123"]},
+          {"templateId": "Account:Account", "key": ["Bob", "def456"]}
+        ]"""
+
+      def resp(
+          cid1: domain.ContractId,
+          cid2: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume.interpret(
+          for {
+            ContractDelta(Vector((account1, _)), Vector(), None) <- readOne
+            _ = Seq(cid1, cid2) should contain(account1)
+            ContractDelta(Vector((account2, _)), Vector(), None) <- readOne
+            _ = Seq(cid1, cid2) should contain(account2)
+            ContractDelta(Vector(), _, Some(liveStartOffset)) <- readOne
+            _ <- liftF(postArchiveCommand(templateId, cid1, encoder, uri))
+            ContractDelta(Vector(), Vector(archivedCid1), Some(_)) <- readOne
+            _ = archivedCid1.contractId shouldBe cid1
+            _ <- liftF(
+              postArchiveCommand(
+                templateId,
+                cid2,
+                encoder,
+                uri,
+                headers = headersWithPartyAuth(List("Bob"))))
+            ContractDelta(Vector(), Vector(archivedCid2), Some(lastSeenOffset)) <- readOne
+            _ = archivedCid2.contractId shouldBe cid2
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map {
+              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
+            }.toSet + lastSeenOffset).size - 1
+          } yield
+            (
+              // don't count empty events block if lastSeenOffset does not change
+              ShouldHaveEnded(
+                liveStartOffset = liveStartOffset,
+                msgCount = 5 + hbCount,
+                lastSeenOffset = lastSeenOffset
+              )
+            ))
+      }
+
+      for {
+        r1 <- f1
+        _ = r1._1 shouldBe 'success
+        cid1 = getContractId(getResult(r1._2))
+
+        r2 <- f2
+        _ = r2._1 shouldBe 'success
+        cid2 = getContractId(getResult(r2._2))
+
+        lastState <- singleClientFetchStream(jwtForParties(List("Alice", "Bob")), uri, query) via parseResp runWith resp(
+          cid1,
+          cid2)
+        liveOffset = inside(lastState) {
+          case ShouldHaveEnded(liveStart, 5, lastSeen) =>
+            lastSeen.unwrap should be > liveStart.unwrap
+            liveStart
+        }
+        rescan <- (singleClientFetchStream(
+          jwtForParties(List("Alice", "Bob")),
+          uri,
+          query,
+          Some(liveOffset))
+          via parseResp runWith remainingDeltas)
+      } yield
+        inside(rescan) {
+          case (Vector(), Vector(_, _), Some(_)) => succeed
+        }
   }
 
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {

@@ -20,7 +20,7 @@ import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
-import com.daml.http.domain.JwtPayload
+import com.daml.http.domain.{JwtPayload, JwtWritePayload}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
@@ -32,7 +32,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
+import scalaz.{-\/, EitherT, NonEmptyList, OneAnd, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -86,7 +86,7 @@ class Endpoints(
 
   def create(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
-      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
+      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -104,7 +104,7 @@ class Endpoints(
 
   def exercise(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
-      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
+      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -130,7 +130,7 @@ class Endpoints(
 
   def createAndExercise(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
-      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
+      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -171,7 +171,7 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def retrieveAll(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    inputAndJwtPayload(req).map {
+    inputAndJwtPayload[JwtPayload](req).map {
       _.map {
         case (jwt, jwtPayload, _) =>
           val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
@@ -186,7 +186,7 @@ class Endpoints(
     }
 
   def query(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    inputAndJwtPayload(req).map {
+    inputAndJwtPayload[JwtPayload](req).map {
       _.flatMap {
         case (jwt, jwtPayload, reqBody) =>
           SprayJson
@@ -346,16 +346,18 @@ class Endpoints(
       jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
     } yield (t2._1, jsVal)
 
-  private[http] def withJwtPayload[A](fa: (Jwt, A)): Unauthorized \/ (Jwt, JwtPayload, A) =
-    decodeAndParsePayload(fa._1, decodeJwt).map(t2 => (t2._1, t2._2, fa._2))
+  private[http] def withJwtPayload[A, P](fa: (Jwt, A))(
+      implicit parse: ParsePayload[P]): Unauthorized \/ (Jwt, P, A) =
+    decodeAndParsePayload[P](fa._1, decodeJwt).map(t2 => (t2._1, t2._2, fa._2))
 
-  private[http] def inputAndJwtPayload(
+  private[http] def inputAndJwtPayload[P](
       req: HttpRequest
-  ): Future[Unauthorized \/ (Jwt, JwtPayload, String)] =
-    input(req).map(_.flatMap(withJwtPayload))
+  )(implicit parse: ParsePayload[P]): Future[Unauthorized \/ (Jwt, P, String)] =
+    input(req).map(_.flatMap(withJwtPayload[String, P]))
 
-  private[http] def inputJsValAndJwtPayload(req: HttpRequest): ET[(Jwt, JwtPayload, JsValue)] =
-    inputJsVal(req).flatMap(x => either(withJwtPayload(x)))
+  private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(
+      implicit parse: ParsePayload[P]): ET[(Jwt, P, JsValue)] =
+    inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x)))
 
   private[http] def inputSource(
       req: HttpRequest
@@ -397,11 +399,11 @@ class Endpoints(
 
   private def resolveReference(
       jwt: Jwt,
-      jwtPayload: JwtPayload,
+      jwtPayload: JwtWritePayload,
       reference: domain.ContractLocator[LfValue])
     : Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
-      .resolveContractReference(jwt, jwtPayload, reference)
+      .resolveContractReference(jwt, OneAnd(jwtPayload.party, Set.empty), reference)
       .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
         val a: Error \/ domain.ResolvedContractRef[LfValue] =
           o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))

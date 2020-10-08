@@ -12,8 +12,12 @@ import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
+import scalaz.std.AllInstances._
 import spray.json._
+import cats.instances.list._
+import cats.Applicative
 import cats.syntax.applicative._
+import cats.syntax.foldable._
 import cats.syntax.apply._
 import cats.syntax.functor._
 
@@ -123,11 +127,16 @@ object Queries {
       )
     }
 
-  def lastOffset(party: String, tpid: SurrogateTpId)(
-      implicit log: LogHandler): ConnectionIO[Option[String]] =
-    sql"""SELECT last_offset FROM ledger_offset WHERE (party = $party AND tpid = $tpid)"""
-      .query[String]
-      .option
+  @silent("pls .* never used")
+  def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(
+      implicit log: LogHandler,
+      pls: Put[Vector[String]]): ConnectionIO[Map[String, String]] = {
+    val partyVector = parties.toVector
+    sql"""SELECT party, last_offset FROM ledger_offset WHERE (party = ANY(${partyVector}) AND tpid = $tpid)"""
+      .query[(String, String)]
+      .to[Vector]
+      .map(_.toMap)
+  }
 
   /** Consistency of the whole database mostly pivots around the offset update
     * check, since an offset read and write bookend the update.
@@ -144,16 +153,33 @@ object Queries {
     * If A inserts but B updates, the transactions are sufficiently serialized that
     * there are no logical conflicts.
     */
-  private[http] def updateOffset(
-      party: String,
+  @silent(" pls .* never used")
+  private[http] def updateOffset[F[_]: cats.Foldable](
+      parties: F[String],
       tpid: SurrogateTpId,
       newOffset: String,
-      lastOffsetO: Option[String])(implicit log: LogHandler): ConnectionIO[Int] =
-    lastOffsetO.cata(
-      lastOffset =>
-        sql"""UPDATE ledger_offset SET last_offset = $newOffset where party = $party AND tpid = $tpid AND last_offset = $lastOffset""".update.run,
-      sql"""INSERT INTO ledger_offset VALUES ($party, $tpid, $newOffset)""".update.run
-    )
+      lastOffsets: Map[String, String])(
+      implicit log: LogHandler,
+      pls: Put[List[String]]): ConnectionIO[Int] = {
+    import spray.json.DefaultJsonProtocol._
+    val (existingParties, newParties) = parties.toList.partition(p => lastOffsets.contains(p))
+    // If a concurrent transaction inserted an offset for a new party, the insert will fail.
+    val insert = Update[(String, SurrogateTpId, String)](
+      """INSERT INTO ledger_offset VALUES(?, ?, ?)""",
+      logHandler0 = log)
+    // If a concurrent transaction updated the offset for an existing party, we will get
+    // fewer rows and throw a StaleOffsetException in the caller.
+    val update =
+      sql"""UPDATE ledger_offset SET last_offset = $newOffset WHERE party = ANY($existingParties::text[]) AND tpid = $tpid AND last_offset = (${lastOffsets.toJson}::jsonb->>party)"""
+    for {
+      inserted <- if (newParties.empty) { Applicative[ConnectionIO].pure(0) } else {
+        insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
+      }
+      updated <- if (existingParties.empty) { Applicative[ConnectionIO].pure(0) } else {
+        update.update.run
+      }
+    } yield { inserted + updated }
+  }
 
   @silent(" pas .* never used")
   def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
@@ -195,12 +221,18 @@ object Queries {
   }
 
   @silent(" gvs .* never used")
-  private[http] def selectContracts(party: String, tpid: SurrogateTpId, predicate: Fragment)(
+  @silent(" pvs .* never used")
+  private[http] def selectContracts(
+      parties: OneAnd[Set, String],
+      tpid: SurrogateTpId,
+      predicate: Fragment)(
       implicit log: LogHandler,
-      gvs: Get[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+    val partyVector = parties.toVector
     val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
                   FROM contract AS c
-                  WHERE (signatories @> ARRAY[$party::text] OR observers @> ARRAY[$party::text])
+                  WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
                    AND tpid = $tpid AND (""" ++ predicate ++ sql")"
     q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
       case (cid, key, payload, signatories, observers, agreement) =>

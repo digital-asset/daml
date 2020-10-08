@@ -14,7 +14,7 @@ import akka.stream.scaladsl.{
   RunnableGraph,
   Sink,
   SinkQueueWithCancel,
-  Source,
+  Source
 }
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.daml.scalautil.Statement.discard
@@ -25,7 +25,7 @@ import com.daml.http.domain.TemplateId
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
-  apiValueToJsValue => lfValueToDbJsValue,
+  apiValueToJsValue => lfValueToDbJsValue
 }
 import com.daml.http.util.IdentifierConverters.apiIdentifier
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
@@ -36,12 +36,16 @@ import com.daml.ledger.api.{v1 => lav1}
 import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 import doobie.postgres.sqlstate.{class23 => postgres_class23}
+import scalaz.OneAnd._
+import scalaz.std.set._
 import scalaz.std.vector._
+import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
+import scalaz.syntax.foldable._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, OneAnd, \/, \/-}
 import spray.json.{JsNull, JsValue}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
@@ -64,7 +68,7 @@ private class ContractsFetch(
 
   def fetchAndPersist(
       jwt: Jwt,
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(
       implicit ec: ExecutionContext,
@@ -79,7 +83,7 @@ private class ContractsFetch(
     connectionIOFuture(getTermination(jwt)) flatMap {
       _ cata (absEnd =>
         templateIds.traverse {
-          fetchAndPersist(jwt, party, absEnd, _)
+          fetchAndPersist(jwt, parties, absEnd, _)
       }, fc.pure(templateIds map (_ => LedgerBegin)))
     }
 
@@ -87,7 +91,7 @@ private class ContractsFetch(
 
   private[this] def fetchAndPersist(
       jwt: Jwt,
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(
@@ -99,7 +103,7 @@ private class ContractsFetch(
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      contractsIo_(jwt, party, absEnd, templateId).exceptSql {
+      contractsIo_(jwt, parties, absEnd, templateId).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
           logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
           connection.rollback flatMap (_ => loop(maxAttempts - 1))
@@ -114,15 +118,14 @@ private class ContractsFetch(
 
   private def contractsIo_(
       jwt: Jwt,
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
-      offset0 <- ContractDao.lastOffset(party, templateId)
-      ob0 = offset0.cata(AbsoluteBookmark(_), LedgerBegin)
-      offset1 <- contractsFromOffsetIo(jwt, party, templateId, ob0, absEnd)
-      _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $ob0): $offset1")
+      offsets <- ContractDao.lastOffset(parties, templateId)
+      offset1 <- contractsFromOffsetIo(jwt, parties, templateId, offsets, absEnd)
+      _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $offsets): $offset1")
     } yield offset1
 
   private def prepareCreatedEventStorage(
@@ -157,14 +160,17 @@ private class ContractsFetch(
 
   private def contractsFromOffsetIo(
       jwt: Jwt,
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      offset: BeginBookmark[domain.Offset],
+      offsets: Map[domain.Party, domain.Offset],
       absEnd: Terminates.AtAbsolute,
   )(
       implicit ec: ExecutionContext,
       mat: Materializer,
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
+
+    import domain.Offset._
+    val offset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
@@ -175,7 +181,7 @@ private class ContractsFetch(
 
         val txnK = getCreatesAndArchivesSince(
           jwt,
-          transactionFilter(party, List(templateId)),
+          transactionFilter(parties, List(templateId)),
           _: lav1.ledger_offset.LedgerOffset,
           absEnd,
         )
@@ -186,7 +192,7 @@ private class ContractsFetch(
             val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
             stepsAndOffset.in <~ getActiveContracts(
               jwt,
-              transactionFilter(party, List(templateId)),
+              transactionFilter(parties, List(templateId)),
               true,
             )
             (stepsAndOffset.out0, stepsAndOffset.out1)
@@ -220,7 +226,7 @@ private class ContractsFetch(
         case AbsoluteBookmark(str) =>
           val newOffset = domain.Offset(str)
           ContractDao
-            .updateOffset(party, templateId, newOffset, offset.toOption)
+            .updateOffset(parties, templateId, newOffset, offsets)
             .map(_ => AbsoluteBookmark(newOffset))
         case LedgerBegin =>
           connection.pure(LedgerBegin)
@@ -450,7 +456,7 @@ private[http] object ContractsFetch {
   }
 
   private def transactionFilter(
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       templateIds: List[TemplateId.RequiredPkg],
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
@@ -459,6 +465,6 @@ private[http] object ContractsFetch {
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
 
-    TransactionFilter(Map(domain.Party.unwrap(party) -> filters))
+    TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
   }
 }
