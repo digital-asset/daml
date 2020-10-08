@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver
 
 import java.time.Duration
+import java.util.concurrent.Executors
 
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
@@ -100,34 +101,39 @@ private[daml] object ApiServices {
     private val configManagementService: IndexConfigManagementService = indexService
     private val submissionService: IndexSubmissionService = indexService
 
-    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] =
-      Resource(
-        for {
-          ledgerId <- identityService.getLedgerId()
-          ledgerConfigProvider = LedgerConfigProvider.create(
-            configManagementService,
-            optWriteService,
-            timeProvider,
-            ledgerConfiguration)
-          services = createServices(ledgerId, ledgerConfigProvider)(materializer.system.dispatcher)
-          _ <- ledgerConfigProvider.ready
-        } yield (ledgerConfigProvider, services)
-      ) {
-        case (ledgerConfigProvider, services) =>
-          Future {
-            services.foreach {
-              case closeable: AutoCloseable => closeable.close()
-              case _ => ()
-            }
-            ledgerConfigProvider.close()
-          }
-      }.map(x => ApiServicesBundle(x._2))
-
-    private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
-        implicit executionContext: ExecutionContext): List[BindableService] = {
-
+    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
 
+      for {
+        ledgerId <- Resource.fromFuture(indexService.getLedgerId())
+        ledgerConfigProvider <- LedgerConfigProvider
+          .owner(
+            indexService,
+            optWriteService,
+            timeProvider,
+            ledgerConfiguration,
+          )
+          .acquire()
+        servicesExecutionContext <- ResourceOwner
+          .forExecutorService(() => Executors.newWorkStealingPool())
+          .acquire()
+          .map(ExecutionContext.fromExecutorService)
+        services <- Resource(
+          Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext)))(
+          services =>
+            Future {
+              services.foreach {
+                case closeable: AutoCloseable => closeable.close()
+                case _ => ()
+              }
+          })
+      } yield ApiServicesBundle(services)
+    }
+
+    private def createServices(
+        ledgerId: LedgerId,
+        ledgerConfigProvider: LedgerConfigProvider,
+    )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService)
 
@@ -149,22 +155,16 @@ private[daml] object ApiServices {
         ApiActiveContractsService.create(ledgerId, activeContractsService)
 
       val apiTimeServiceOpt =
-        optTimeServiceBackend.map { tsb =>
-          new TimeServiceAuthorization(
-            ApiTimeService.create(
-              ledgerId,
-              tsb,
-            ),
-            authorizer
-          )
-        }
+        optTimeServiceBackend.map(tsb =>
+          new TimeServiceAuthorization(ApiTimeService.create(ledgerId, tsb), authorizer))
 
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
           ledgerId,
           ledgerConfigProvider,
           apiCompletionService,
-          apiTransactionService)
+          apiTransactionService,
+        )
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
@@ -190,11 +190,7 @@ private[daml] object ApiServices {
         ledgerConfigProvider: LedgerConfigProvider,
         apiCompletionService: GrpcCommandCompletionService,
         apiTransactionService: GrpcTransactionService,
-    )(
-        implicit materializer: Materializer,
-        executionContext: ExecutionContext,
-        loggingContext: LoggingContext,
-    ): List[BindableService] = {
+    )(implicit executionContext: ExecutionContext): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>
         val commandExecutor = new TimedCommandExecutor(
           new LedgerTimeAwareCommandExecutor(

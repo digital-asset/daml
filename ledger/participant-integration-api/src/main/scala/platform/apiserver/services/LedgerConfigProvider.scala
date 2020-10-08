@@ -6,9 +6,9 @@ package com.daml.platform.apiserver.services
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
-import akka.{Done, NotUsed}
-import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
+import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
+import akka.{Done, NotUsed}
 import com.daml.api.util.TimeProvider
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
@@ -20,13 +20,14 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   WriteService
 }
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.{DurationInt, DurationLong}
+import scala.concurrent.{Future, Promise}
 
 /**
   * Subscribes to ledger configuration updates coming from the index,
@@ -166,14 +167,15 @@ private[apiserver] final class LedgerConfigProvider private (
 }
 
 private[apiserver] object LedgerConfigProvider {
-
-  def create(
+  def owner(
       index: IndexConfigManagementService,
       optWriteService: Option[WriteService],
       timeProvider: TimeProvider,
-      config: LedgerConfiguration)(
+      config: LedgerConfiguration,
+  )(
       implicit materializer: Materializer,
       loggingContext: LoggingContext,
-  ): LedgerConfigProvider =
-    new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
+  ): ResourceOwner[LedgerConfigProvider] =
+    ResourceOwner.forCloseable(() =>
+      new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer))
 }
