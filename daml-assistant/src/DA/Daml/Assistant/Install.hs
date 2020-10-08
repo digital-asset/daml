@@ -135,7 +135,7 @@ installExtracted env@InstallEnv{..} sourcePath =
                     ,  "Suggested fix:"
                     ,  "  - Go to https://github.com/digital-asset/daml/releases/latest"
                     ,  "  - Download and run Windows installer."
-                    ,  "  - Reinstall the DAML SDK from scratch."
+                    ,  "  - Reinstall the SDK from scratch."
                     ]
                 exitFailure
 
@@ -444,7 +444,7 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
     if exists then do
         when (Just (DamlAssistantSdkVersion sdkVersion) == envDamlAssistantSdkVersion) $ do
             hPutStr stderr . unlines $
-                [ "Cannot uninstall currently activated DAML SDK version."
+                [ "Cannot uninstall currently activated SDK version."
                 , "Please activate a different SDK version and try again."
                 , "To activate a different version, run:"
                 , ""
@@ -458,7 +458,7 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
         requiredIO "Failed to remove SDK files." $ do
             removePathForcibly path
 
-        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " has been uninstalled.")
+        putStrLn ("SDK version " <> versionToString sdkVersion <> " has been uninstalled.")
 
     else do
-        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " is not installed.")
+        putStrLn ("SDK version " <> versionToString sdkVersion <> " is not installed.")

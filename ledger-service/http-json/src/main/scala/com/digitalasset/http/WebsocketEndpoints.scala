@@ -15,6 +15,7 @@ import scalaz.\/
 
 import scala.concurrent.Future
 import EndpointsCompanion._
+import com.daml.http.domain.JwtPayload
 
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
@@ -40,7 +41,7 @@ object WebsocketEndpoints {
         s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol",
       )
       jwt0 <- findJwtFromSubProtocol(req)
-      payload <- decodeAndParsePayload(jwt0, decodeJwt)
+      payload <- decodeAndParsePayload[JwtPayload](jwt0, decodeJwt)
     } yield payload
 }
 

@@ -100,6 +100,7 @@ abstract class Reader[+Pkg] {
 }
 
 object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
+
   final case class ParseError(error: String) extends RuntimeException(error)
 
   def damlLfCodedInputStreamFromBytes(
@@ -133,4 +134,14 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
       lf: DamlLf.ArchivePayload,
       version: LanguageVersion,
   ): (PackageId, DamlLf.ArchivePayload) = (hash, lf)
+
+  // Archive Reader that just checks package hash.
+  val HashChecker = new Reader[Unit] {
+    override protected[this] def readArchivePayloadOfVersion(
+        hash: PackageId,
+        lf: DamlLf.ArchivePayload,
+        version: LanguageVersion,
+    ): Unit = ()
+  }
+
 }

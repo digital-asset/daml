@@ -13,6 +13,7 @@ import com.daml.ledger.api.{v1 => lav1}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
+import scalaz.std.string._
 import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -24,6 +25,7 @@ import scalaz.{
   Bitraverse,
   NonEmptyList,
   OneAnd,
+  Order,
   Semigroup,
   Show,
   Tag,
@@ -49,7 +51,31 @@ object domain {
 
   type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
-  case class JwtPayload(ledgerId: LedgerId, applicationId: ApplicationId, party: Party)
+  // Until we get multi-party submissions, write endpoints require a single party.
+  case class JwtWritePayload(ledgerId: LedgerId, applicationId: ApplicationId, party: Party)
+
+  // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
+  // read endpoints but once we get multi-party submissions, this can also be used for write endpoints.
+  sealed abstract case class JwtPayload private (
+      ledgerId: LedgerId,
+      applicationId: ApplicationId,
+      readAs: List[Party],
+      actAs: List[Party],
+      parties: OneAnd[Set, Party]) {}
+
+  object JwtPayload {
+    def apply(
+        ledgerId: LedgerId,
+        applicationId: ApplicationId,
+        readAs: List[Party],
+        actAs: List[Party]): Option[JwtPayload] = {
+      (readAs ++ actAs) match {
+        case Nil => None
+        case p :: ps =>
+          Some(new JwtPayload(ledgerId, applicationId, readAs, actAs, OneAnd(p, ps.toSet)) {})
+      }
+    }
+  }
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
@@ -161,6 +187,7 @@ object domain {
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
+    implicit val ordering: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
   }
 
   final case class StartingOffset(offset: Offset)

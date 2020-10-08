@@ -17,6 +17,8 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
+import com.daml.lf.validation.Validation
+
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -402,9 +404,64 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     compiledPackages.addPackage(pkgId, pkg)
 
+  /** This method checks a set of packages is self-consistent (it
+    * contains all its dependencies), contains only well-formed
+    * packages (See daml LF spec for more details) and uses only the
+    * allowed language versions (as described by the engine
+    * config).
+    * This is not affected by [[config.packageValidation]] flag.
+    * Package in [[pkgIds]] but not in [[pkgs]] are assumed to be
+    * preloaded.
+    * */
+  def validatePackages(
+      pkgIds: Set[PackageId],
+      pkgs: Map[PackageId, Package],
+  ): Either[Error, Unit] = {
+    val allPackages = pkgs orElse compiledPackages().packages
+    for {
+      _ <- pkgs
+        .collectFirst {
+          case (pkgId, pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+            Error(
+              s"Disallowed language version in package $pkgId: " +
+                s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
+            )
+        }
+        .toLeft(())
+      _ <- {
+        val unknownPackages = pkgIds.filterNot(allPackages.isDefinedAt)
+        Either.cond(
+          unknownPackages.isEmpty,
+          (),
+          Error(s"Unknown packages ${unknownPackages.mkString(", ")}")
+        )
+      }
+      _ <- {
+        val missingDeps = pkgIds.flatMap(pkgId => allPackages(pkgId).directDeps).filterNot(pkgIds)
+        Either.cond(
+          missingDeps.isEmpty,
+          (),
+          Error(
+            s"The set of packages ${pkgIds.mkString("{'", "', '", "'}")} is not self consistent, the missing dependencies are ${missingDeps
+              .mkString("{'", "', '", "'}")}.")
+        )
+      }
+      _ <- {
+        pkgIds.iterator
+        // we trust already loaded packages
+          .filterNot(compiledPackages.packageIds)
+          .map(Validation.checkPackage(allPackages, _))
+          .collectFirst { case Left(err) => Error(err.pretty) }
+      }.toLeft(())
+
+    } yield ()
+  }
+
 }
 
 object Engine {
+
+  type Packages = Map[PackageId, Package]
 
   def initialSeeding(
       submissionSeed: crypto.Hash,

@@ -91,8 +91,8 @@ commandParser :: [SdkCommandInfo] -> Parser Command
 commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
     [ subparser -- visible commands
         $  builtin "version" "Display DAML version information" mempty (Version <$> versionParser <**> helper)
-        <> builtin "install" "Install the specified DAML SDK version" mempty (Install <$> installParser <**> helper)
-        <> builtin "uninstall" "Uninstall the specified DAML SDK version" mempty (Uninstall <$> uninstallParser <**> helper)
+        <> builtin "install" "Install the specified SDK version" mempty (Install <$> installParser <**> helper)
+        <> builtin "uninstall" "Uninstall the specified SDK version" mempty (Uninstall <$> uninstallParser <**> helper)
         <> foldMap dispatch visible
     , subparser -- hidden commands
         $  internal

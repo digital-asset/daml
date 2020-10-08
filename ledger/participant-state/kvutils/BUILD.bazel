@@ -108,6 +108,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "kvutils-tests",
     size = "small",
+    timeout = "moderate",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
         "//ledger/test-common:model-tests.dar",
@@ -124,8 +125,11 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/encoder",
         "//daml-lf/engine",
+        "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_java_proto",
         "//daml-lf/transaction:value_java_proto",

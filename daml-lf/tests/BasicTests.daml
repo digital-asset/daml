@@ -4,6 +4,7 @@
 
 
 module BasicTests where
+
 import DA.Time
 import DA.Date
 
@@ -589,3 +590,11 @@ template ComputeContractKeyWhenExecutingCreate with
       do
         let _ignore = create ComputeContractKeyAfterEnsureClause with owner
         pure ()
+
+template NoMaintainer
+  with
+    sig: Party
+  where
+    signatory sig
+    key sig : Party
+    maintainer [] @Party

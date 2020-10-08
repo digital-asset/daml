@@ -12,6 +12,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
+import scalaz.OneAnd
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 
@@ -36,40 +37,52 @@ object ContractDao {
   def initialize(implicit log: LogHandler): ConnectionIO[Unit] =
     Queries.dropAllTablesIfExist *> Queries.initDatabase
 
-  def lastOffset(party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
-      implicit log: LogHandler): ConnectionIO[Option[domain.Offset]] =
+  def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
+      implicit log: LogHandler): ConnectionIO[Map[domain.Party, domain.Offset]] = {
+    import doobie.postgres.implicits._
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      offset <- Queries.lastOffset(party.unwrap, tpId).map(_.map(domain.Offset(_)))
-    } yield offset
+      offset <- Queries
+        .lastOffset(domain.Party.unsubst(parties), tpId)
+    } yield {
+      type L[a] = Map[a, domain.Offset]
+      domain.Party.subst[L, String](domain.Offset.tag.subst(offset))
+    }
+  }
 
   def updateOffset(
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
-      lastOffset: Option[domain.Offset])(implicit log: LogHandler): ConnectionIO[Unit] =
+      lastOffsets: Map[domain.Party, domain.Offset])(
+      implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.implicits._
+    import doobie.postgres.implicits._
+    import scalaz.OneAnd._
+    import scalaz.std.set._
+    import scalaz.syntax.foldable._
+    val partyVector = domain.Party.unsubst(parties.toVector)
+    val lastOffsetsStr: Map[String, String] =
+      domain.Party.unsubst[Map[?, String], String](domain.Offset.tag.unsubst(lastOffsets))
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      rowCount <- Queries.updateOffset(
-        party.unwrap,
-        tpId,
-        newOffset.unwrap,
-        lastOffset.map(_.unwrap))
-      _ <- if (rowCount == 1)
+      rowCount <- Queries.updateOffset(partyVector, tpId, newOffset.unwrap, lastOffsetsStr)
+      _ <- if (rowCount == partyVector.size)
         fconn.pure(())
       else
-        fconn.raiseError(StaleOffsetException(party, templateId, newOffset, lastOffset))
+        fconn.raiseError(StaleOffsetException(parties, templateId, newOffset, lastOffsets))
     } yield ()
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def selectContracts(
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       predicate: doobie.Fragment)(
       implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
@@ -80,7 +93,9 @@ object ContractDao {
         templateId.moduleName,
         templateId.entityName)
 
-      dbContracts <- Queries.selectContracts(party.unwrap, tpId, predicate).to(Vector)
+      dbContracts <- Queries
+        .selectContracts(domain.Party.unsubst(parties), tpId, predicate)
+        .to(Vector)
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
   }
@@ -104,12 +119,12 @@ object ContractDao {
   }
 
   final case class StaleOffsetException(
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
-      lastOffset: Option[domain.Offset])
+      lastOffset: Map[domain.Party, domain.Offset])
       extends java.sql.SQLException(
-        s"party: $party, templateId: $templateId, newOffset: $newOffset, lastOffset: $lastOffset",
+        s"parties: $parties, templateId: $templateId, newOffset: $newOffset, lastOffset: $lastOffset",
         StaleOffsetException.SqlState
       )
 

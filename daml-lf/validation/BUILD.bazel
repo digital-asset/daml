@@ -13,7 +13,10 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-validation:__VERSION__"],
-    visibility = ["//visibility:public"],
+    visibility = [
+        "//compiler/scenario-service:__subpackages__",
+        "//daml-lf:__subpackages__",
+    ],
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",

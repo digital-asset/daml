@@ -117,6 +117,14 @@ final class Conversions(
             .build
         )
 
+      case SError.DamlEEmptyContractKeyMaintainers(tid, arg, key) =>
+        builder.setUpdateEmptyContractKeyMaintainers(
+          proto.ScenarioError.EmptyContractKeyMaintainers.newBuilder
+            .setTemplateId(convertIdentifier(tid))
+            .setArg(convertValue(arg))
+            .setKey(convertValue(key))
+        )
+
       case SError.ScenarioErrorContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScenarioContractNotEffective(
           proto.ScenarioError.ContractNotEffective.newBuilder

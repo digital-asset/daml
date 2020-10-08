@@ -13,6 +13,7 @@ da_haskell_library(
     ),
     hackage_deps = [
         "aeson",
+        "ansi-terminal",
         "async",
         "base",
         "bytestring",
