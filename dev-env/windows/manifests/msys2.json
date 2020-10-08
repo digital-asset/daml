@@ -2,12 +2,12 @@
     "homepage": "http://msys2.github.io",
     "version": "20180531",
     "url": [
-        "https://mirror.yandex.ru/mirrors/msys2/distrib/x86_64/msys2-base-x86_64-20180531.tar.xz",
-        "https://mirror.yandex.ru/mirrors/msys2/mingw/x86_64/mingw-w64-x86_64-jq-1.6-2-any.pkg.tar.xz#/jq.msys2",
-        "https://mirror.yandex.ru/mirrors/msys2/msys/x86_64/gnu-netcat-0.7.1-1-x86_64.pkg.tar.xz#/netcat.msys2",
-        "https://mirror.yandex.ru/mirrors/msys2/msys/x86_64/patch-2.7.6-1-x86_64.pkg.tar.xz#/patch.msys2",
-        "https://mirror.yandex.ru/mirrors/msys2/mingw/x86_64/mingw-w64-x86_64-openssl-1.1.1.c-1-any.pkg.tar.xz#/openssl.msys2",
-        "https://mirror.yandex.ru/mirrors/msys2/mingw/x86_64/mingw-w64-x86_64-postgresql-11.3-1-any.pkg.tar.xz#/pgsql.msys2"
+        "https://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-20180531.tar.xz",
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-jq-1.6-2-any.pkg.tar.xz#/jq.msys2",
+        "https://repo.msys2.org/msys/x86_64/gnu-netcat-0.7.1-1-x86_64.pkg.tar.xz#/netcat.msys2",
+        "https://repo.msys2.org/msys/x86_64/patch-2.7.6-1-x86_64.pkg.tar.xz#/patch.msys2",
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-openssl-1.1.1.c-1-any.pkg.tar.xz#/openssl.msys2",
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-postgresql-11.3-1-any.pkg.tar.xz#/pgsql.msys2"
     ],
     "hash": [
         "4e799b5c3efcf9efcb84923656b7bcff16f75a666911abd6620ea8e5e1e9870c",
