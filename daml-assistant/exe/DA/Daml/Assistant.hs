@@ -71,7 +71,7 @@ main = do
                                 | Just v <- envSdkVersion = versionToString v
                                 | otherwise = "latest"
                         hPutStr stderr . unlines $
-                            [ "DAML SDK not installed. Cannot run command without SDK."
+                            [ "SDK not installed. Cannot run command without SDK."
                             , "To proceed, please install the SDK by running:"
                             , ""
                             , "    daml install " <> installTarget
@@ -100,7 +100,7 @@ versionChecks Env{..} =
         -- Project SDK version is outdated.
         when (not isHead && projectSdkVersionIsOld) $ do
             hPutStr stderr . unlines $
-                [ "DAML SDK " <> versionToString latestVersion <> " has been released!"
+                [ "SDK " <> versionToString latestVersion <> " has been released!"
                 , "See https://github.com/digital-asset/daml/releases/tag/v"
                   <> versionToString latestVersion <> " for details."
                 -- Carefully crafted wording to make sure it’s < 80 characters so
@@ -247,7 +247,7 @@ runCommand env@Env{..} = \case
                     ]
                 | (v,attrs) <- versionTable ]
 
-        putStr . unpack $ T.unlines ("DAML SDK versions:" : versionLines)
+        putStr . unpack $ T.unlines ("SDK versions:" : versionLines)
 
     Builtin (Install options) -> wrapErr "Installing the SDK." $ do
         install options envDamlPath envProjectPath envDamlAssistantSdkVersion

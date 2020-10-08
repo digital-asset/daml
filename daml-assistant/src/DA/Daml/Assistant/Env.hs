@@ -89,7 +89,7 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
       <> "check the daml project config file, or run \"daml install\" to install the latest "
       <> "version of the SDK." )
     , ( maybe (pure False) (doesDirectoryExist . unwrapSdkPath) envSdkPath
-      ,  "The DAML SDK directory does not exist. Please check if DAML_SDK or DAML_SDK_VERSION "
+      ,  "The SDK directory does not exist. Please check if DAML_SDK or DAML_SDK_VERSION "
       <> "are incorrectly set, or run \"daml install\" to install the appropriate SDK version.")
     , ( maybe (pure True) (doesDirectoryExist . unwrapProjectPath) envProjectPath
       , "The project directory does not exist. Please check if DAML_PROJECT is incorrectly set.")
