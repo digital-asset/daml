@@ -12,7 +12,7 @@ import com.daml.http.domain.{
   CreateCommand,
   ExerciseCommand,
   ExerciseResponse,
-  JwtPayload
+  JwtWritePayload
 }
 import com.daml.http.util.ClientUtil.uniqueCommandId
 import com.daml.http.util.FutureUtil._
@@ -40,7 +40,7 @@ class CommandService(
 
   import CommandService._
 
-  def create(jwt: Jwt, jwtPayload: JwtPayload, input: CreateCommand[lav1.value.Record])
+  def create(jwt: Jwt, jwtPayload: JwtWritePayload, input: CreateCommand[lav1.value.Record])
     : Future[Error \/ ActiveContract[lav1.value.Value]] = {
 
     val et: ET[ActiveContract[lav1.value.Value]] = for {
@@ -55,7 +55,7 @@ class CommandService(
 
   def exercise(
       jwt: Jwt,
-      jwtPayload: JwtPayload,
+      jwtPayload: JwtWritePayload,
       input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef])
     : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
 
@@ -73,7 +73,7 @@ class CommandService(
 
   def createAndExercise(
       jwt: Jwt,
-      jwtPayload: JwtPayload,
+      jwtPayload: JwtWritePayload,
       input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value])
     : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
 
@@ -132,7 +132,7 @@ class CommandService(
           .createAndExercise(refApiIdentifier(tpId), input.payload, input.choice, input.argument))
 
   private def submitAndWaitRequest(
-      jwtPayload: JwtPayload,
+      jwtPayload: JwtWritePayload,
       meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command): lav1.command_service.SubmitAndWaitRequest = {
 
