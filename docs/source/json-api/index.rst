@@ -138,7 +138,7 @@ If the token cannot be read from the provided path or the Ledger API reports an 
 Party-specific Access Tokens
 ----------------------------
 
-Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the the format :doc:`described in the Token Payload section here </tools/sandbox>`. The set of parties listed in `actAs` and `readAs` must contain exactly one party. In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
+Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the the format :doc:`described in the Token Payload section here </tools/sandbox>`. For command submissions, The set of parties listed in `actAs` and `readAs` must contain exactly one party. Queries require at least one party (note that before SDK 1.7.0, queries also required exactly one party). In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
 
 .. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
 
