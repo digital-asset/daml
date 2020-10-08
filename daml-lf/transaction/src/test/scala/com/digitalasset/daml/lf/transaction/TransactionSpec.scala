@@ -234,6 +234,7 @@ object TransactionSpec {
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       key = None,
+      byKey = false
     )
 
   val dummyCid = V.ContractId.V1.assertBuild(

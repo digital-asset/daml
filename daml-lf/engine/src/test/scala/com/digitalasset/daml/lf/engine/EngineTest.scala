@@ -20,6 +20,7 @@ import com.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction,
   TransactionVersion,
+  VersionedTransaction,
   GenTransaction => GenTx,
   Transaction => Tx,
   TransactionVersions => TxVersions
@@ -57,6 +58,9 @@ class EngineTest
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
+
+  private[this] def byKeyNodes[Nid, Cid](tx: VersionedTransaction[Nid, Cid]) =
+    tx.nodes.collect { case (nodeId, node) if node.byKey => nodeId }.toSet
 
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
@@ -486,7 +490,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      interpretResult.map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
 
   }
@@ -669,11 +673,12 @@ class EngineTest
     }
 
     "mark all the exercise nodes as performed byKey" in {
-      val exerciseNodes = tx.nodes.collect {
+      val expectedNodes = tx.nodes.collect {
         case (id, _: Node.NodeExercises[_, _, _]) => id
       }
-      txMeta.byKeyNodes shouldBe 'nonEmpty
-      txMeta.byKeyNodes.toSeq.toSet shouldBe exerciseNodes.toSet
+      val actualNodes = byKeyNodes(tx)
+      actualNodes shouldBe 'nonEmpty
+      actualNodes shouldBe expectedNodes.toSet
     }
   }
 
@@ -744,7 +749,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      interpretResult.map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
   }
 
@@ -985,7 +990,9 @@ class EngineTest
             _,
             children,
             _,
-            _) =>
+            _,
+            _,
+            ) =>
           coid shouldBe originalCoid
           consuming shouldBe true
           actingParties shouldBe Set(bob)
@@ -1132,7 +1139,8 @@ class EngineTest
 
     def actFetchActors[Nid, Cid, Val](n: Node.GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, _, actingParties, _, _, _) => actingParties.getOrElse(Set.empty)
+        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _) =>
+          actingParties.getOrElse(Set.empty)
         case _ => Set()
       }
     }
@@ -1187,7 +1195,7 @@ class EngineTest
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
       val fetchNodes =
         tx.transaction.fold(Seq[(NodeId, Node.GenNode.WithTxValue[NodeId, ContractId])]()) {
-          case (ns, (nid, n @ Node.NodeFetch(_, _, _, _, _, _, _))) => ns :+ ((nid, n))
+          case (ns, (nid, n @ Node.NodeFetch(_, _, _, _, _, _, _, _))) => ns :+ ((nid, n))
           case (ns, _) => ns
         }
 
@@ -1205,7 +1213,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      runExample(fetcher2Cid, clara).map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+      runExample(fetcher2Cid, clara).map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
   }
 
@@ -1247,6 +1255,7 @@ class EngineTest
         signatories = Set.empty,
         stakeholders = Set.empty,
         key = None,
+        byKey = false,
       )
 
       val let = Time.Timestamp.now()
@@ -1308,16 +1317,16 @@ class EngineTest
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
-      val Right((tx, txMeta)) = engine
+      val Right((tx, _)) = engine
         .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
-      val lookupNodes = tx.transaction.nodes.collect {
+      val expectedByKeyNodes = tx.transaction.nodes.collect {
         case (id, _: Node.NodeLookupByKey[_, _]) => id
       }
-
-      txMeta.byKeyNodes shouldBe 'nonEmpty
-      txMeta.byKeyNodes.toSeq.toSet shouldBe lookupNodes.toSet
+      val actualByKeyNodes = byKeyNodes(tx)
+      actualByKeyNodes shouldBe 'nonEmpty
+      actualByKeyNodes shouldBe expectedByKeyNodes.toSet
     }
 
     "be reinterpreted to the same node when lookup finds a contract" in {
@@ -1452,7 +1461,7 @@ class EngineTest
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.NodeFetch(_, _, _, _, _, _, key)) =>
+        case Some(Node.NodeFetch(_, _, _, _, _, _, key, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1500,7 +1509,7 @@ class EngineTest
           ))
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
-      val Right((tx, txMeta)) = engine
+      val Right((tx, _)) = engine
         .interpretCommands(
           validating = false,
           submitters = Set(alice),
@@ -1521,7 +1530,7 @@ class EngineTest
                 assert(maintainers == Set(alice))
               case None => fail("the recomputed fetch didn't have a key")
             }
-            txMeta.byKeyNodes shouldBe ImmArray(id)
+            byKeyNodes(tx) shouldBe Set(id)
         }
         .getOrElse(fail("didn't find the fetch node resulting from fetchByKey"))
     }
@@ -1577,7 +1586,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1880,6 +1889,7 @@ object EngineTest {
                       _,
                       _,
                       _,
+                      _,
                       _))) =>
                 (contracts - targetCoid, keys)
               case (
@@ -1924,8 +1934,8 @@ object EngineTest {
             usedPackages = Set.empty,
             dependsOnTime = dependsOnTime,
             nodeSeeds = nodeSeeds.toImmArray,
-            byKeyNodes = ImmArray.empty,
-          ))
+          )
+        )
     }
   }
 

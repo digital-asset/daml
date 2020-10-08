@@ -97,6 +97,7 @@ private[lf] object PartialTransaction {
     *                         finished this sub-transaction.
     *  @param parent The context in which the exercises is
     *                       happening.
+    *  @param byKey True if the exercise is done "by key"
     */
   case class ExercisesContext(
       targetId: Value.ContractId,
@@ -112,6 +113,7 @@ private[lf] object PartialTransaction {
       controllers: Set[Party],
       nodeId: NodeId,
       parent: Context,
+      byKey: Boolean
   )
 
   def initial(
@@ -122,7 +124,6 @@ private[lf] object PartialTransaction {
     nextNodeIdx = 0,
     nodes = HashMap.empty,
     nodeSeeds = BackStack.empty,
-    byKeyNodes = BackStack.empty,
     consumedBy = Map.empty,
     context = Context(initialSeeds),
     aborted = None,
@@ -142,10 +143,6 @@ private[lf] object PartialTransaction {
   *
   *  @param nodes The nodes of the transaction graph being built up.
   *  @param nodeSeeds The seeds of Create and Exercise nodes
-  *  @param byKeyNodes The list of the IDs of each node that
-  *           corresponds to a FetchByKey, LookupByKey, or
-  *           ExerciseByKey commands. Empty in case of validation
-  *           or reinterpretation.
   *  @param consumedBy 'ContractId's of all contracts that have
   *                    been consumed by nodes up to now.
   *  @param context The context of what sub-transaction is being
@@ -172,7 +169,6 @@ private[lf] case class PartialTransaction(
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, PartialTransaction.Node],
     nodeSeeds: BackStack[(NodeId, crypto.Hash)],
-    byKeyNodes: BackStack[NodeId],
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
@@ -322,12 +318,13 @@ private[lf] case class PartialTransaction(
       Some(actingParties),
       signatories,
       stakeholders,
-      key
+      key,
+      byKey
     )
     mustBeActive(
       coid,
       templateId,
-      insertLeafNode(node, byKey)
+      insertLeafNode(node)
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
   }
 
@@ -340,7 +337,7 @@ private[lf] case class PartialTransaction(
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val node = Node.NodeLookupByKey(templateId, optLocation, key, result)
-    insertLeafNode(node, byKey = true)
+    insertLeafNode(node)
       .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
   }
 
@@ -382,6 +379,7 @@ private[lf] case class PartialTransaction(
           controllers = controllers,
           nodeId = nid,
           parent = context,
+          byKey = byKey
         )
 
       Right(
@@ -390,7 +388,6 @@ private[lf] case class PartialTransaction(
           templateId,
           copy(
             nextNodeIdx = nextNodeIdx + 1,
-            byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes,
             context = Context(ec),
             // important: the semantics of DAML dictate that contracts are immediately
             // inactive as soon as you exercise it. therefore, mark it as consumed now.
@@ -423,6 +420,7 @@ private[lf] case class PartialTransaction(
           children = context.children.toImmArray,
           exerciseResult = Some(value),
           key = ec.contractKey,
+          byKey = ec.byKey,
         )
         val nodeId = ec.nodeId
         val nodeSeed = ec.parent.nextChildrenSeed
@@ -473,13 +471,12 @@ private[lf] case class PartialTransaction(
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(node: LeafNode, byKey: Boolean): PartialTransaction = {
+  def insertLeafNode(node: LeafNode): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = context.addChild(nid),
       nodes = nodes.updated(nid, node),
-      byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes
     )
   }
 

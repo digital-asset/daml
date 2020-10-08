@@ -185,6 +185,7 @@ object TransactionBuilder {
       consuming: Boolean,
       actingParties: Set[String],
       argument: Value,
+      byKey: Boolean = true,
   ): Exercise =
     Exercise(
       targetCoid = contract.coid,
@@ -199,9 +200,19 @@ object TransactionBuilder {
       children = ImmArray.empty,
       exerciseResult = None,
       key = contract.key,
+      byKey = byKey
     )
 
-  def fetch(contract: Create): Fetch =
+  def exerciseByKey(
+      contract: Create,
+      choice: String,
+      consuming: Boolean,
+      actingParties: Set[String],
+      argument: Value,
+  ): Exercise =
+    exercise(contract, choice, consuming, actingParties, argument, byKey = true)
+
+  def fetch(contract: Create, byKey: Boolean = true): Fetch =
     Fetch(
       coid = contract.coid,
       templateId = contract.coinst.template,
@@ -210,7 +221,11 @@ object TransactionBuilder {
       signatories = contract.signatories,
       stakeholders = contract.stakeholders,
       key = contract.key,
+      byKey = byKey,
     )
+
+  def fetchByKey(contract: Create): Fetch =
+    fetch(contract, byKey = true)
 
   def lookupByKey(contract: Create, found: Boolean): LookupByKey =
     LookupByKey(

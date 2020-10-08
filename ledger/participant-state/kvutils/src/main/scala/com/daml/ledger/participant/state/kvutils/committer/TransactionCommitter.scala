@@ -281,7 +281,7 @@ private[kvutils] class TransactionCommitter(
       .fold((true, keys)) {
         case (
             (allUnique, existingKeys),
-            (_, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _)))
+            (_, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _)))
             if exe.key.isDefined && exe.consuming =>
           val stateKey = Conversions.globalKeyToStateKey(
             GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))

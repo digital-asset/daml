@@ -174,7 +174,7 @@ object TransactionCoder {
           nodeBuilder.setCreate(createBuilder).build()
         }
 
-      case nf @ NodeFetch(_, _, _, _, _, _, _) =>
+      case nf @ NodeFetch(_, _, _, _, _, _, _, _) =>
         val fetchBuilder = TransactionOuterClass.NodeFetch
           .newBuilder()
           .setTemplateId(ValueCoder.encodeIdentifier(nf.templateId))
@@ -203,7 +203,7 @@ object TransactionCoder {
           nodeBuilder.setFetch(fetchBuilder).build()
         }
 
-      case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         for {
           argValue <- encodeValue(encodeCid, ne.chosenValue)
           retValue <- ne.exerciseResult traverse (v => encodeValue(encodeCid, v))
@@ -354,7 +354,8 @@ object TransactionCoder {
           else if (txVersion precedes minContractKeyInFetch)
             Left(DecodeError(s"$txVersion is too old to support NodeFetch's `key` field"))
           else decodeKeyWithMaintainers(decodeCid, protoFetch.getKeyWithMaintainers).map(Some(_))
-        } yield (ni, NodeFetch(c, templateId, None, actingParties, signatories, stakeholders, key))
+        } yield
+          (ni, NodeFetch(c, templateId, None, actingParties, signatories, stakeholders, key, false))
 
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
@@ -437,6 +438,7 @@ object TransactionCoder {
               children = children,
               exerciseResult = rv,
               key = keyWithMaintainers,
+              byKey = false,
             ),
           )
       case NodeTypeCase.LOOKUP_BY_KEY =>

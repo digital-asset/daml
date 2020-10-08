@@ -158,9 +158,11 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
           controllersDifferFromActors @ _,
           children @ _,
           exerciseResult @ _,
-          key @ _) =>
+          key @ _,
+          byKey @ _,
+          ) =>
         templateId
-      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _) =>
+      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _, _) =>
         templateId
       case Node.NodeLookupByKey(templateId, _, key @ _, _) =>
         templateId
