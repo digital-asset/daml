@@ -864,7 +864,12 @@ private[lf] object SBuiltin {
       }
       val sigs = extractParties(args.get(2))
       val obs = extractParties(args.get(3))
-      val key = extractOptionalKeyWithMaintainers(args.get(4))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(4))
+      mbKey.foreach {
+        case Node.KeyWithMaintainers(key, maintainers) =>
+          if (maintainers.isEmpty)
+            throw DamlEEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
+      }
       val auth = machine.auth
       val (coid, newPtx) = onLedger.ptx
         .insertCreate(
@@ -874,7 +879,7 @@ private[lf] object SBuiltin {
           optLocation = machine.lastLocation,
           signatories = sigs,
           stakeholders = sigs union obs,
-          key = key,
+          key = mbKey,
         )
         .fold(err => throw DamlETransactionError(err), identity)
 
