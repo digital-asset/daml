@@ -121,18 +121,18 @@ final class Runner[T <: ReadWriteService, Extra](
             _ <- Resource.fromFuture(
               Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
             _ <- participantConfig.mode match {
-              case ParticipantMode.Full | ParticipantMode.Indexer =>
+              case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                 new StandaloneIndexerServer(
                   readService = readService,
                   config = factory.indexerConfig(participantConfig, config),
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
-              case ParticipantMode.LedgerApiServer =>
+              case ParticipantRunMode.LedgerApiServer =>
                 Resource.unit
             }
             _ <- participantConfig.mode match {
-              case ParticipantMode.Full | ParticipantMode.LedgerApiServer =>
+              case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
                 new StandaloneApiServer(
                   ledgerId = config.ledgerId,
                   config = factory.apiServerConfig(participantConfig, config),
@@ -148,7 +148,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
-              case ParticipantMode.Indexer =>
+              case ParticipantRunMode.Indexer =>
                 Resource.unit
             }
           } yield ()

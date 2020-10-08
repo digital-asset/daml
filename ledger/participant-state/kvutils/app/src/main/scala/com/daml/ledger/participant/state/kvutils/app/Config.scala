@@ -93,20 +93,20 @@ object Config {
 
       opt[Map[String, String]]("participant")
         .unbounded()
-        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, mode]")
+        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, run-mode]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
           val address = kv.get("address")
           val portFile = kv.get("port-file").map(new File(_).toPath)
-          val mode: ParticipantMode = kv.get("mode") match {
-            case None => ParticipantMode.Full
-            case Some("full") => ParticipantMode.Full
-            case Some("indexer") => ParticipantMode.Indexer
-            case Some("ledger-api-server") => ParticipantMode.LedgerApiServer
+          val runMode: ParticipantRunMode = kv.get("run-mode") match {
+            case None => ParticipantRunMode.Combined
+            case Some("combined") => ParticipantRunMode.Combined
+            case Some("indexer") => ParticipantRunMode.Indexer
+            case Some("ledger-api-server") => ParticipantRunMode.LedgerApiServer
             case Some(unknownMode) =>
               throw new RuntimeException(
-                s"$unknownMode is not a valid participant mode. Valid modes are: full, indexer, ledger-api-server")
+                s"$unknownMode is not a valid run mode. Valid modes are: combined, indexer, ledger-api-server. Default mode is combined.")
           }
           val jdbcUrl =
             kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
@@ -116,7 +116,7 @@ object Config {
             .map(Duration.parse)
             .getOrElse(ParticipantConfig.defaultManagementServiceTimeout)
           val partConfig = ParticipantConfig(
-            mode,
+            runMode,
             participantId,
             address,
             port,

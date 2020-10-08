@@ -11,7 +11,7 @@ import com.daml.ports.Port
 import java.time.Duration
 
 final case class ParticipantConfig(
-    mode: ParticipantMode,
+    mode: ParticipantRunMode,
     participantId: ParticipantId,
     address: Option[String],
     port: Port,
