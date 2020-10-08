@@ -1,6 +1,8 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- cache-reset: 1
+
 module DamlcVisualize (main) where
 
 import qualified "zip-archive" Codec.Archive.Zip as Zip
