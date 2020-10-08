@@ -490,6 +490,13 @@ A timer. Time to fully process a submission (validation, deduplication and
 interpretation) before it is handed over to the ledger to be finalized (either
 committed or rejected).
 
+``daml.commands.submissions_running``
+-------------------------------------
+
+A meter. Number of submissions that are currently being handled by the ledger
+API server (including validation, deduplication, interpretation, and handing
+the transaction to the ledger).
+
 ``daml.commands.valid_submissions``
 -----------------------------------
 
@@ -501,6 +508,30 @@ deduplication and interpretation.
 
 A timer. Time to validate submitted commands before they are fed to the DAML
 interpreter.
+
+``daml.commands.<party_name>.input_buffer_capacity``
+------------------------------------------------
+
+A counter. The capacity of the queue accepting submissions on
+the CommandService for a given party.
+
+``daml.commands.<party_name>.input_buffer_length``
+------------------------------------------------------
+
+A counter. The number of currently pending submissions on
+the CommandService for a given party.
+
+``daml.commands.<party_name>.max_in_flight_capacity``
+-------------------------------------------------
+
+A counter. The capacity of the queue tracking completions on
+the CommandService for a given party.
+
+``daml.commands.<party_name>.max_in_flight_length``
+-------------------------------------------------------
+
+A counter. The number of currently pending completions on
+the CommandService for a given party.
 
 
 ``daml.execution.get_lf_package``
@@ -550,7 +581,18 @@ ledger effective time.
 ------------------------
 
 A timer. Time spent interpreting a valid command into a transaction ready to be
-submitted to the ledger for finalization.
+submitted to the ledger for finalization (includes executing DAML and fetching
+data).
+
+``daml.execution.total_running``
+--------------------------------
+A meter. Number of commands that are currently being interpreted (includes
+executing DAML code and fetching data).
+
+``daml.execution.engine_running``
+--------------------------------
+A meter. Number of commands that are currently being executed by the DAML engine
+(excluding fetching data).
 
 ``daml.index.db.connection.sandbox.pool``
 -----------------------------------------

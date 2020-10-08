@@ -209,6 +209,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     eventsPageSize = config.eventsPageSize,
                     portFile = config.portFile,
                     seeding = config.seeding.get,
+                    managementServiceTimeout = config.managementServiceTimeout,
                   ),
                   engine = engine,
                   commandConfig = config.commandConfig,

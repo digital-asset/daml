@@ -3,13 +3,12 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.{Flow}
-import com.daml.lf.data.FrontStack
+import akka.stream.scaladsl.Flow
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
-import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
@@ -20,10 +19,13 @@ import scalaz.syntax.traverse._
 import com.daml.lf.engine.trigger.TriggerMsg
 import com.daml.lf.engine.trigger.RunnerConfig
 
+import java.util.UUID
+
 abstract class AbstractFuncTests
     extends AsyncWordSpec
     with AbstractTriggerTest
     with Matchers
+    with Inside
     with SuiteResourceManagementAroundAll
     with TryValues {
   self: Suite =>
@@ -352,7 +354,14 @@ abstract class AbstractFuncTests
           // 1 for completion
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
         } yield {
-          assert(finalState == SList(FrontStack(SText("myexerciseid"), SText("mycreateid"))))
+          inside(finalState) {
+            case SList(commandIds) =>
+              commandIds.toSet should have size 2
+              // ensure all are UUIDs
+              commandIds.map(inside(_) {
+                case SText(s) => SText(UUID.fromString(s).toString)
+              }) should ===(commandIds)
+          }
         }
       }
     }

@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.BidiFlow
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, BidiShape, Inlet, Outlet}
+import com.codahale.metrics.Counter
 import org.slf4j.LoggerFactory
 
 /**
@@ -16,7 +17,10 @@ import org.slf4j.LoggerFactory
   * except that if the output stream is failed, cancelled or completed, the input stream is completed.
   */
 // TODO(mthvedt): This should have unit tests.
-class MaxInFlight[I, O](maxInFlight: Int) extends GraphStage[BidiShape[I, I, O, O]] {
+class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounter: Counter)
+    extends GraphStage[BidiShape[I, I, O, O]] {
+
+  capacityCounter.inc(maxInFlight.toLong)
 
   private val logger = LoggerFactory.getLogger(MaxInFlight.getClass.getName)
 
@@ -63,6 +67,7 @@ class MaxInFlight[I, O](maxInFlight: Int) extends GraphStage[BidiShape[I, I, O, 
           logger.trace("Received input.")
           push(out1, elem)
           freeCapacity -= 1
+          lengthCounter.inc()
           admitting = false
         }, () => complete(out1))
       }
@@ -77,6 +82,7 @@ class MaxInFlight[I, O](maxInFlight: Int) extends GraphStage[BidiShape[I, I, O, 
             logger.trace("Emitting output")
             push(out2, elemToEmit)
             freeCapacity += 1
+            lengthCounter.dec()
 
             checkMaxInFlight(elemToEmit)
 
@@ -88,7 +94,13 @@ class MaxInFlight[I, O](maxInFlight: Int) extends GraphStage[BidiShape[I, I, O, 
             }
           }
 
+          override def onUpstreamFinish(): Unit = {
+            capacityCounter.dec(maxInFlight.toLong)
+            super.onUpstreamFinish()
+          }
+
           override def onUpstreamFailure(ex: Throwable): Unit = {
+            capacityCounter.dec(maxInFlight.toLong)
             fail(out2, ex)
             completeStage()
           }
@@ -115,6 +127,10 @@ class MaxInFlight[I, O](maxInFlight: Int) extends GraphStage[BidiShape[I, I, O, 
 
 object MaxInFlight {
 
-  def apply[I, O](maxInFlight: Int): BidiFlow[I, I, O, O, NotUsed] =
-    BidiFlow.fromGraph(new MaxInFlight[I, O](maxInFlight))
+  def apply[I, O](
+      maxInFlight: Int,
+      capacityCounter: Counter,
+      lengthCounter: Counter,
+  ): BidiFlow[I, I, O, O, NotUsed] =
+    BidiFlow.fromGraph(new MaxInFlight[I, O](maxInFlight, capacityCounter, lengthCounter))
 }

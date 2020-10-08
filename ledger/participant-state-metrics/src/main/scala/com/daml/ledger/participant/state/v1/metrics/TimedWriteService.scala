@@ -19,8 +19,9 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long
   ): CompletionStage[SubmissionResult] =
-    Timed.completionStage(
+    Timed.timedAndTrackedCompletionStage(
       metrics.daml.services.write.submitTransaction,
+      metrics.daml.services.write.submitTransactionRunning,
       delegate.submitTransaction(
         submitterInfo,
         transactionMeta,

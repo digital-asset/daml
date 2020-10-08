@@ -4,18 +4,20 @@
 
 module Time where
 
+import DA.Functor (void)
+
 import Daml.Trigger.LowLevel
 
 test : Trigger (Bool, [Time])
 test = Trigger
   { initialState = \party _ -> do
-      submitCommands $ Commands (CommandId "a") [createCmd (T party)]
+      submitCommands [createCmd (T party)]
       pure (False, [])
   , update = \msg -> case msg of
     MTransaction (Transaction _ _ events) -> do
       (done, ts) <- get
       case (done, events) of
-        (False, [CreatedEvent (fromCreated @T -> Some (_, _, t))]) -> submitCommands $ Commands (CommandId "b") [createCmd t]
+        (False, [CreatedEvent (fromCreated @T -> Some (_, _, t))]) -> void $ submitCommands [createCmd t]
         _ -> pure ()
       time <- getTime
       put (True, time :: ts)

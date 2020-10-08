@@ -455,19 +455,13 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected final def storeSync(commands: Vector[(Offset, LedgerEntry.Transaction)])(
       implicit ec: ExecutionContext): Future[Vector[(Offset, LedgerEntry.Transaction)]] = {
 
-    import scalaz.{Free, NaturalTransformation}
-    import scalaz.syntax.traverse._
     import scalaz.std.vector._
     import scalaz.std.scalaFuture._
-
-    val storeDelayed = (a: (Offset, LedgerEntry.Transaction)) => Free.suspend(Free.liftF(store(a)))
+    import JdbcLedgerDaoSuite._
 
     // force synchronous future processing with Free monad
     // to provide the guarantees that all transactions persisted in the specified order
-    val xs: Free[Future, Vector[(Offset, LedgerEntry.Transaction)]] =
-      commands.traverse(storeDelayed)
-
-    xs.foldMap(NaturalTransformation.refl[Future])
+    commands traverseFM store
   }
 
   /** A transaction that creates the given key */

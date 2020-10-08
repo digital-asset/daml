@@ -12,7 +12,14 @@ import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
 
+import scalaz.Functor
+import scalaz.\/.fromTryCatchThrowable
+import scalaz.std.option._
+import scalaz.syntax.functor._
 import scalaz.syntax.tag._
+import scalaz.syntax.std.boolean._
+
+import scala.language.higherKinds
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -205,34 +212,32 @@ class Runner(
     applicationId: ApplicationId,
     party: String,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
+  import Runner.{SeenMsgs, alterF}
+
   // Compiles LF expressions into Speedy expressions.
   private val compiler: Compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
   private val converter: Converter = Converter(compiledPackages, trigger.triggerIds)
-  // This is a map from the command IDs used on the ledger API to the
-  // command IDs used internally in the trigger which are just
-  // incremented at each step. This map can grow without bound. TODO :
-  // limit the size.
-  private var commandIdMap: Map[UUID, String] = Map.empty
-  // This is the set of command IDs emitted by the trigger.  We track
-  // this to detect collisions.
-  private var usedCommandIds: Set[String] = Set.empty
+  // These are the command IDs used on the ledger API to submit commands for
+  // this trigger for which we are awaiting either a completion or transaction
+  // message, or both.
+  private[this] var pendingCommandIds: Map[UUID, SeenMsgs] = Map.empty
   private val transactionFilter: TransactionFilter =
     TransactionFilter(Seq((party, trigger.filters)).toMap)
 
   private[this] def logger = ContextualizedLogger get getClass
 
+  // return whether uuid *was* present in pendingCommandIds
+  private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
+    val newMap = alterF(pendingCommandIds, uuid)(_ map (_ see seeOne))
+    newMap foreach { pendingCommandIds = _ }
+    newMap.isDefined
+  }
+
   @throws[RuntimeException]
-  private def handleCommands[Z](
-      commandId: String,
-      commands: Seq[Command],
-      submit: SubmitRequest => Z): Z = {
-    if (usedCommandIds.contains(commandId)) {
-      throw new RuntimeException(s"Duplicate command id: $commandId")
-    }
-    usedCommandIds += commandId
+  private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    commandIdMap += (commandUUID -> commandId)
+    pendingCommandIds += ((commandUUID, SeenMsgs.Neither))
     val commandsArg = Commands(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
@@ -240,8 +245,9 @@ class Runner(
       party = party,
       commands = commands
     )
-    logger.debug(s"submitting command ID $commandId, commands ${commands.map(_.command.value)}")
-    submit(SubmitRequest(commands = Some(commandsArg)))
+    logger.debug(
+      s"submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}")
+    (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
 
   import Runner.DamlFun
@@ -265,14 +271,12 @@ class Runner(
             case "GetTime" /*(Time -> a)*/ => {
               case DamlFun(timeA) => Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
             }
-            case "Submit" /*(Commands, () -> a)*/ => {
-              case DamlTuple2(commands, DamlFun(unitA)) =>
-                converter.toCommands(commands) match {
-                  case Left(err) => throw new ConverterException(err)
-                  case Right((commandId, commands)) =>
-                    handleCommands(commandId, commands, submit)
-                }
-                Right(evaluate(makeAppD(unitA, SUnit)))
+            case "Submit" /*([Command], Text -> a)*/ => {
+              case DamlTuple2(sCommands, DamlFun(textA)) =>
+                val commands = converter.toCommands(sCommands).orConverterException
+                val (commandUUID, submitRequest) = handleCommands(commands)
+                submit(submitRequest)
+                Right(evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))
             }
             case _ =>
               val msg = s"unrecognized TriggerF step $variant"
@@ -411,32 +415,22 @@ class Runner(
     Flow[TriggerMsg]
       .wireTap(logReceivedMsg _)
       .mapConcat[TriggerMsg]({
-        case CompletionMsg(c) =>
-          try {
-            commandIdMap.get(UUID.fromString(c.commandId)) match {
-              case None =>
-                List()
-              case Some(internalCommandId) =>
-                List(CompletionMsg(c.copy(commandId = internalCommandId)))
-            }
-          } catch {
-            // This happens for invalid UUIDs which we might get for
-            // completions not emitted by the trigger.
-            case _: IllegalArgumentException => List()
-          }
-        case TransactionMsg(t) =>
-          try {
-            commandIdMap.get(UUID.fromString(t.commandId)) match {
-              case None =>
-                List(TransactionMsg(t.copy(commandId = "")))
-              case Some(internalCommandId) =>
-                List(TransactionMsg(t.copy(commandId = internalCommandId)))
-            }
-          } catch {
-            // This happens for invalid UUIDs which we might get for
-            // transactions not emitted by the trigger.
-            case _: IllegalArgumentException => List(TransactionMsg(t.copy(commandId = "")))
-          }
+        case msg @ CompletionMsg(c) =>
+          // This happens for invalid UUIDs which we might get for
+          // completions not emitted by the trigger.
+          val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
+            UUID.fromString(c.commandId)).toOption
+          ouuid.flatMap { uuid =>
+            useCommandId(uuid, SeenMsgs.Completion) option msg
+          }.toList
+        case msg @ TransactionMsg(t) =>
+          // This happens for invalid UUIDs which we might get for
+          // transactions not emitted by the trigger.
+          val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
+            UUID.fromString(t.commandId)).toOption
+          List(ouuid flatMap { uuid =>
+            useCommandId(uuid, SeenMsgs.Transaction) option msg
+          } getOrElse TransactionMsg(t.copy(commandId = "")))
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
       .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
@@ -544,6 +538,35 @@ object Runner extends StrictLogging {
 
   private object DamlFun {
     def unapply(v: SPAP): Some[SPAP] = Some(v)
+  }
+
+  private def alterF[K, V, F[_]: Functor](m: Map[K, V], k: K)(
+      f: Option[V] => F[Option[V]]): F[Map[K, V]] = {
+    val ov = m get k
+    f(ov) map {
+      (ov, _) match {
+        case (_, Some(v)) => m updated (k, v)
+        case (None, None) => m
+        case (Some(_), None) => m - k
+      }
+    }
+  }
+
+  private sealed abstract class SeenMsgs {
+    import Runner.{SeenMsgs => S}
+    def see(msg: S.One): Option[SeenMsgs] =
+      (this, msg).match2 {
+        case S.Completion => { case S.Transaction => None }
+        case S.Transaction => { case S.Completion => None }
+        case S.Neither => { case one => Some(one: SeenMsgs) }
+      }(fallback = Some(this))
+  }
+
+  private object SeenMsgs {
+    sealed abstract class One extends SeenMsgs
+    case object Completion extends One
+    case object Transaction extends One
+    case object Neither extends SeenMsgs
   }
 
   // Convience wrapper that creates the runner and runs the trigger.

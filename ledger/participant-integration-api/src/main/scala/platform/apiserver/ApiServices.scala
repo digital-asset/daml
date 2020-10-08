@@ -3,6 +3,8 @@
 
 package com.daml.platform.apiserver
 
+import java.time.Duration
+
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -23,13 +25,13 @@ import com.daml.platform.apiserver.execution.{
   StoreBackedCommandExecutor,
   TimedCommandExecutor
 }
+import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
   ApiPartyManagementService
 }
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
-import com.daml.platform.apiserver.services._
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
@@ -80,7 +82,8 @@ private[daml] object ApiServices {
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: Metrics,
       healthChecks: HealthChecks,
-      seedService: SeedService
+      seedService: SeedService,
+      managementServiceTimeout: Duration,
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
@@ -241,14 +244,25 @@ private[daml] object ApiServices {
           ),
           timeProvider,
           ledgerConfigProvider,
+          metrics,
         )
         val apiPartyManagementService =
           ApiPartyManagementService
-            .createApiService(partyManagementService, transactionsService, writeService)
+            .createApiService(
+              partyManagementService,
+              transactionsService,
+              writeService,
+              managementServiceTimeout,
+            )
 
         val apiPackageManagementService =
           ApiPackageManagementService
-            .createApiService(indexService, transactionsService, writeService)
+            .createApiService(
+              indexService,
+              transactionsService,
+              writeService,
+              managementServiceTimeout,
+            )
 
         val apiConfigManagementService =
           ApiConfigManagementService

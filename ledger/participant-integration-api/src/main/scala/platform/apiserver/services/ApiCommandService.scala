@@ -28,6 +28,7 @@ import com.daml.ledger.client.services.commands.{CommandCompletionSource, Comman
 import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
@@ -48,6 +49,7 @@ private[apiserver] final class ApiCommandService private (
     services: LocalServices,
     configuration: ApiCommandService.Configuration,
     ledgerConfigProvider: LedgerConfigProvider,
+    metrics: Metrics,
 )(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
@@ -116,10 +118,19 @@ private[apiserver] final class ApiCommandService private (
         )
         val trackingFlow =
           if (configuration.limitMaxCommandsInFlight)
-            MaxInFlight(configuration.maxCommandsInFlight).joinMat(tracker)(Keep.right)
+            MaxInFlight(
+              configuration.maxCommandsInFlight,
+              capacityCounter = metrics.daml.commands.maxInFlightCapacity(submitter.party),
+              lengthCounter = metrics.daml.commands.maxInFlightLength(submitter.party),
+            ).joinMat(tracker)(Keep.right)
           else
             tracker
-        TrackerImpl(trackingFlow, configuration.inputBufferSize)
+        TrackerImpl(
+          trackingFlow,
+          configuration.inputBufferSize,
+          capacityCounter = metrics.daml.commands.inputBufferCapacity(submitter.party),
+          lengthCounter = metrics.daml.commands.inputBufferLength(submitter.party),
+        )
       }
     }
   }
@@ -167,13 +178,14 @@ private[apiserver] object ApiCommandService {
       services: LocalServices,
       timeProvider: TimeProvider,
       ledgerConfigProvider: LedgerConfigProvider,
+      metrics: Metrics,
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
       loggingContext: LoggingContext
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
-      new ApiCommandService(services, configuration, ledgerConfigProvider),
+      new ApiCommandService(services, configuration, ledgerConfigProvider, metrics),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,

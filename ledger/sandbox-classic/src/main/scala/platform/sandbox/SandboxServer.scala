@@ -333,6 +333,7 @@ final class SandboxServer(
         metrics = metrics,
         healthChecks = healthChecks,
         seedService = seedingService,
+        managementServiceTimeout = config.managementServiceTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(

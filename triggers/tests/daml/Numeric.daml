@@ -9,7 +9,7 @@ import Daml.Trigger.LowLevel
 test : Trigger Bool
 test = Trigger
   { initialState = \party _ -> do
-      submitCommands $ Commands (CommandId "mycreate1") [createCmd (T party 1.06)]
+      submitCommands [createCmd (T party 1.06)]
       pure False
   , update = \msg -> do
       s <- get
@@ -17,8 +17,8 @@ test = Trigger
         (False, MTransaction (Transaction _ _ [CreatedEvent (fromCreated @T -> Some (_, _, t))])) -> do
           -- This verifies that t.v has the proper scale as otherwise the interpreter will
           -- throw an assertion error
+          submitCommands [createCmd (t { v = t.v + 1.0 })]
           put True
-          submitCommands $ Commands (CommandId "mycreate2") [createCmd (t { v = t.v + 1.0 })]
         _ -> pure ()
   , registeredTemplates = AllInDar
   , heartbeat = None

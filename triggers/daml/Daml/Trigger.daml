@@ -95,15 +95,12 @@ data Trigger s = Trigger
 -- a failing completion.
 emitCommands : [Command] -> [AnyContractId] -> TriggerA CommandId
 emitCommands cmds pending = do
-  state <- TriggerA get
-  let id = CommandId $ show $ state.nextCommandId
+  id <- submitCommands cmds
   let commands = Commands id cmds
   TriggerA $ modify $ \s -> s
     { emittedCommands = commands :: s.emittedCommands
     , pendingContracts = Map.insert id pending s.pendingContracts
-    , nextCommandId = s.nextCommandId + 1
     }
-  submitCommands commands
   pure id
 
 -- | Create the template if it’s not already in the list of commands
@@ -187,7 +184,7 @@ runTrigger userTrigger = LowLevel.Trigger
     initialState party (ActiveContracts createdEvents) =
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
           userState = userTrigger.initialize acs
-          state = TriggerState acs party userState Map.empty 0
+          state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
     update msg = do
       time <- getTime
