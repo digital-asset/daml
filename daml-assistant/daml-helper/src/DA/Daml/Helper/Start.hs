@@ -36,19 +36,22 @@ import DA.PortFile
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.HTTP.Simple as HTTP
+import System.Console.ANSI
 import System.Environment (getEnvironment, getEnv, lookupEnv)
 import System.FilePath
 import System.Process.Typed
 import System.IO.Extra
+import System.Info.Extra
 import Web.Browser
 import qualified Web.JWT as JWT
 import Data.Aeson
 
+import DA.Daml.Helper.Codegen
+import DA.Daml.Helper.Ledger
 import DA.Daml.Helper.Util
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
-import DA.Daml.Helper.Codegen
 
 -- [Note] The `platform-version` field:
 --
@@ -224,13 +227,8 @@ runStart
     jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOpts projectConfig
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
-    forM_ [minBound :: Lang .. maxBound :: Lang] $ \lang -> do
-      mbOutputPath :: Maybe String <-
-        requiredE ("Failed to parse codegen entry for " <> showLang lang) $
-        queryProjectConfig
-          ["codegen", showLang lang, "output-directory"]
-          projectConfig
-      when (isJust mbOutputPath) $ runCodegen lang []
+    doCodegen projectConfig
+    listenForKeyPress projectConfig
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
         withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
@@ -267,6 +265,44 @@ runStart
             case mbJsonApiPort of
                 Nothing -> f sandboxPh
                 Just jsonApiPort -> withJsonApi sandboxPort jsonApiPort args f
+        doCodegen projectConfig =
+          forM_ [minBound :: Lang .. maxBound :: Lang] $ \lang -> do
+            mbOutputPath :: Maybe String <-
+              requiredE ("Failed to parse codegen entry for " <> showLang lang) $
+              queryProjectConfig
+                ["codegen", showLang lang, "output-directory"]
+                projectConfig
+            whenJust mbOutputPath $ \_outputPath -> do
+              runCodegen lang []
+        doUploadDar =
+          runLedgerUploadDar (LedgerFlags Nothing Nothing Nothing Nothing 10) Nothing
+        listenForKeyPress projectConfig = do
+          hSetBuffering stdin NoBuffering
+          void $
+            forkIO $
+             do
+              threadDelay 20000000
+              -- give sandbox 20 secs to startup before printing rebuild instructions
+              forever $ do
+                printRebuildInstructions
+                c <- getChar
+                when (c == 'r' || c == 'R') $ rebuild projectConfig
+                threadDelay 1000000
+
+        rebuild projectConfig = do
+          putStrLn "re-building and uploading package"
+          doBuild
+          doCodegen projectConfig
+          doUploadDar
+          putStrLn "rebuild complete"
+        printRebuildInstructions = do
+          setSGR [SetColor Foreground Vivid Red]
+          putStrLn reloadInstructions
+          setSGR [Reset]
+          hFlush stdout
+        reloadInstructions
+          | isWindows = "\nPress 'r' + 'Enter' to re-build and upload the package to the sandbox.\nPress 'Ctrl-C' to quit."
+          | otherwise = "\nPress 'r' to re-build and upload the package to the sandbox.\nPress 'Ctrl-C' to quit."
 
 platformVersionEnvVar :: String
 platformVersionEnvVar = "DAML_PLATFORM_VERSION"
