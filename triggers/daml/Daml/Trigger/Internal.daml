@@ -6,6 +6,7 @@
 module Daml.Trigger.Internal
   ( ACS (..)
   , TriggerA (..)
+  , TriggerStateA (..)
   , addCommands
   , insertTpl
   , groupActiveContracts
@@ -18,6 +19,7 @@ module Daml.Trigger.Internal
   , TriggerState (..)
   ) where
 
+import DA.Action.State
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
@@ -49,6 +51,12 @@ data ACS = ACS
 -- send commands to the ledger.
 newtype TriggerA a = TriggerA (TriggerRule TriggerAState a)
   deriving (Functor, Applicative, Action, HasTime, ActionTrigger)
+
+-- | TriggerStateA is the type used in the `updateState` of a DAML trigger.
+newtype TriggerStateA s a = TriggerStateA { runTriggerStateA : State s a }
+  deriving (Functor, Applicative, Action)
+
+deriving instance ActionState s (TriggerStateA s)
 
 -- Internal API
 
