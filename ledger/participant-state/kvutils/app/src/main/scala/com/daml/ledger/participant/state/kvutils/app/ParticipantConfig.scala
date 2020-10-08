@@ -13,7 +13,7 @@ import java.time.Duration
 final case class ParticipantConfig(
     mode: ParticipantRunMode,
     participantId: ParticipantId,
-    /** A name of the participant shard in a horizontally scaled participant. */
+    // A name of the participant shard in a horizontally scaled participant.
     shardName: Option[String],
     address: Option[String],
     port: Port,
