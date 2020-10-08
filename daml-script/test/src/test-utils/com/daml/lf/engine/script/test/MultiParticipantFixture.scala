@@ -43,6 +43,7 @@ trait MultiParticipantFixture
   private val participant1 = ParticipantConfig(
     mode = ParticipantRunMode.Combined,
     participantId = participantId1,
+    shardName = None,
     address = Some("localhost"),
     port = Port.Dynamic,
     portFile = Some(participant1Portfile),
@@ -55,6 +56,7 @@ trait MultiParticipantFixture
   private val participant2 = ParticipantConfig(
     mode = ParticipantRunMode.Combined,
     participantId = participantId2,
+    shardName = None,
     address = Some("localhost"),
     port = Port.Dynamic,
     portFile = Some(participant2Portfile),

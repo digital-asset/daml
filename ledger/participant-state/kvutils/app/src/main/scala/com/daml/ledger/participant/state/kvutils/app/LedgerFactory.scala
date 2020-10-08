@@ -87,8 +87,12 @@ trait ConfigProvider[ExtraConfig] {
   def createMetrics(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig],
-  ): Metrics =
-    new Metrics(SharedMetricRegistries.getOrCreate(participantConfig.participantId))
+  ): Metrics = {
+    val registryName = participantConfig.participantId + participantConfig.shardName
+      .map("-" + _)
+      .getOrElse("")
+    new Metrics(SharedMetricRegistries.getOrCreate(registryName))
+  }
 }
 
 trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[ExtraConfig] {

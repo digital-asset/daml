@@ -93,7 +93,7 @@ object Config {
 
       opt[Map[String, String]]("participant")
         .unbounded()
-        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, run-mode]")
+        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, run-mode, shard-name]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
@@ -115,9 +115,11 @@ object Config {
             .get("management-service-timeout")
             .map(Duration.parse)
             .getOrElse(ParticipantConfig.defaultManagementServiceTimeout)
+          val shardName = kv.get("shard-name")
           val partConfig = ParticipantConfig(
             runMode,
             participantId,
+            shardName,
             address,
             port,
             portFile,
@@ -128,6 +130,7 @@ object Config {
           )
           config.copy(participants = config.participants :+ partConfig)
         })
+
       opt[String]("ledger-id")
         .optional()
         .text("The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
@@ -228,6 +231,24 @@ object Config {
                   Mode.DumpIndexMetadata(jdbcUrls :+ jdbcUrl)
               }))
         }
+
+      checkConfig(c => {
+        val participantsIdsWithNonUniqueShardNames = c.participants
+          .map(pc => pc.participantId -> pc.shardName)
+          .groupBy(_._1)
+          .map { case (k, v) => (k, v.map(_._2)) }
+          .filter { case (_, v) => v.length != v.distinct.length }
+          .keys
+        if (participantsIdsWithNonUniqueShardNames.nonEmpty)
+          failure(
+            participantsIdsWithNonUniqueShardNames.mkString(
+              "The following participant IDs are duplicate, but the individual shards don't have unique names: ",
+              ",",
+              ". Use the optional 'shard-name' key when specifying horizontally scaled participants."
+            ))
+        else
+          success
+      })
 
       help("help").text(s"$name as a service.")
     }
