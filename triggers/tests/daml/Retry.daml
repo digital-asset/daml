@@ -4,8 +4,6 @@
 
 module Retry where
 
-import DA.Next.Map (Map)
-
 import Daml.Trigger
 
 retryTrigger : Trigger Int
@@ -22,8 +20,8 @@ retryTrigger = Trigger
 
 -- We first create a T template, then we try to exercise C 3 times until allowedRetries is 0
 -- finally we create Done
-retryRule : Party -> ACS -> Map CommandId [Command] -> Int -> TriggerA ()
-retryRule party acs commandsInFlight allowedRetries
+retryRule : Party -> ACS -> Int -> TriggerA ()
+retryRule party acs allowedRetries
   | [] <- getContracts @T acs = do
     dedupCreate T { p = party }
   | ((cid, _) :: _) <- getContracts @T acs

@@ -103,7 +103,7 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
     data Trigger s = Trigger
       { initialize : ACS -> s
       , updateState : ACS -> Message -> s -> s
-      , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
+      , rule : Party -> ACS -> s -> TriggerA ()
       , registeredTemplates : RegisteredTemplates
       , heartbeat : Optional RelTime
       }
@@ -119,11 +119,11 @@ details here.
 
 The ``rule`` function is the core of a DAML trigger. It defines which
 commands need to be sent to the ledger based on the party the trigger is
-executed at, the current state of the ACS, the commands in flight and
-the user defined state.  The type ``TriggerA`` allows you to emit
-commands that are then sent to the ledger. Like ``Scenario`` or
-``Update``, you can use ``do`` notation and ``getTime`` with
-``TriggerA``.
+executed at, the current state of the ACS, and the user defined state.
+The type ``TriggerA`` allows you to emit commands that are then sent to
+the ledger, as well as retrieve the commands in flight with
+``getCommandsInFlight``.  Like ``Scenario`` or ``Update``, you can use
+``do`` notation and ``getTime`` with ``TriggerA``.
 
 We can specify the templates that our trigger will operate
 on. In our case, we will simply specify ``AllInDar`` which means that
@@ -156,13 +156,14 @@ where we are the owner, the ``Subscriber`` contracts where we are in
 the ``subscribedTo`` field and the ``Copy`` contracts where we are the
 ``owner`` of the corresponding ``Original``.
 
-The commands in flight will be useful to avoid sending the same
-command multiple times if ``copyRule`` is run multiple times before we
-get the corresponding transaction. Note that DAML triggers are
-expected to be designed such that they can cope with this, e.g., after
-a restart or a crash where the commands in flight do not contain
-commands in flight from before the restart, so this is an optimization
-rather than something required for them to function correctly.
+The commands in flight, retrievable with ``getCommandsInFlight``, will
+be useful to avoid sending the same command multiple times if
+``copyRule`` is run multiple times before we get the corresponding
+transaction. Note that DAML triggers are expected to be designed such
+that they can cope with this, e.g., after a restart or a crash where the
+commands in flight do not contain commands in flight from before the
+restart, so this is an optimization rather than something required for
+them to function correctly.
 
 First, we get all ``Subscriber``, ``Original`` and ``Copy`` contracts
 from the ACS. For that, the DAML trigger API provides a

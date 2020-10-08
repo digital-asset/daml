@@ -31,8 +31,9 @@ trigger : Trigger Int
 trigger = Trigger with
   initialize = const 0
   updateState = \acs _msg count -> length (getContracts @T acs)
-  rule = \party acs _commandsInFlight count -> do
+  rule = \party acs count -> do
     when (count == 1) do
+      priorCIF <- getCommandsInFlight
       -- Create two additional T.
       dedupCreate T with party, count
       dedupCreate T with party, count = succ count
@@ -41,6 +42,11 @@ trigger = Trigger with
       dedupExercise tId Poke with n = 0
       -- Exercise a choice by key
       dedupExerciseByKey @T (party, 0) Poke with n = 1
+      newCIF <- getCommandsInFlight
+      let changedCIF = Map.size (Map.filterWithKey (\k _ -> not (Map.member k priorCIF)) newCIF)
+      if (changedCIF == 4)
+        then pure ()
+        else error $ show changedCIF <> " new commands in flight instead of 4"
   registeredTemplates = RegisteredTemplates [registeredTemplate @T]
   heartbeat = None
 

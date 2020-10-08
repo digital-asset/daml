@@ -102,35 +102,28 @@ applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
 runRule
-  : (Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ())
+  : (Party -> ACS -> s -> TriggerA ())
   -> TriggerRule (TriggerState s) ()
 runRule rule = do
   state <- get
   TriggerRule . zoom zoomIn zoomOut . runTriggerRule . runTriggerA
-      $ rule state.party state.acs state.commandsInFlight state.userState
-  where zoomIn state = TriggerAState state.commandsInFlight [] state.acs.pendingContracts
+      $ rule state.party state.acs state.userState
+  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts
         zoomOut state aState =
-          let commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
+          let commandsInFlight = aState.commandsInFlight
               acs = state.acs { pendingContracts = aState.pendingContracts }
           in state { commandsInFlight, acs }
 
 runTriggerA : TriggerA a -> TriggerRule TriggerAState a
-runTriggerA (TriggerA f) = do
-  a <- f
-  s' <- get
-  put s' { emittedCommands = reverse s'.emittedCommands }
-  pure a
+runTriggerA (TriggerA f) = f
 
 data TriggerAState = TriggerAState
   { commandsInFlight : Map CommandId [Command]
-  -- This is not modified during a run (new commands end up in emittedCommands)
-  -- but for simplicity we keep it in TriggerAState instead of layering a
-  -- Reader on top of it.
-  -- This will be used for dedupCreateCmd/dedupExerciseCmd helpers.
-  , emittedCommands : [Commands]
-  -- ^ Emitted commands in reverse because I can’t be bothered to implement a dlist.
+  -- ^ Zoomed from TriggerState; used for dedupCreateCmd/dedupExerciseCmd
+  -- helpers and extended by emitCommands.
   , pendingContracts : Map CommandId [AnyContractId]
-  -- ^ Map from command ids to the contract ids marked pending by that command.
+  -- ^ Map from command ids to the contract ids marked pending by that command;
+  -- zoomed from TriggerState's acs.
   }
 
 data TriggerState s = TriggerState
