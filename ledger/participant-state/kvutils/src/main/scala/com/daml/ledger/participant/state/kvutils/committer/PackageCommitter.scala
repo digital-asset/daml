@@ -94,7 +94,7 @@ final private[kvutils] class PackageCommitter(
         StepContinue(partialResult)
       } else {
         val msg =
-          s"Participant ID '${uploadEntry.getParticipantId}' did not match authenticated participant ID '${ctx.getParticipantId}'"
+          s"Participant ID '${uploadEntry.getParticipantId}' did not match authorized participant ID '${ctx.getParticipantId}'"
         rejectionTraceLog(msg, uploadEntry)
         reject(
           ctx.getRecordTime,
@@ -191,7 +191,7 @@ final private[kvutils] class PackageCommitter(
 
   private[this] def validatePackages(
       uploadEntry: DamlPackageUploadEntry.Builder,
-      pkgs: Map[Ref.PackageId, Ast.Package],
+      packages: Map[Ref.PackageId, Ast.Package],
   ): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.validateTimer.time { () =>
       val allPkgIds = uploadEntry.getArchivesList
@@ -323,7 +323,7 @@ final private[kvutils] class PackageCommitter(
         } yield ()
         result.fold(
           msg => traceLog(s"Uploading failed: $msg", uploadEntry),
-          _ => traceLog(s"Uploading successful", uploadEntry),
+          _ => traceLog("Uploading successful", uploadEntry),
         )
         metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
           engine.compiledPackages().packageIds.size)

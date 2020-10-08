@@ -24,10 +24,10 @@ object PackageValidationMode {
     * loaded into the engine.  */
   case object Lenient extends PackageValidationMode
 
-  /** Specifies that the committer should not perform any validation the
+  /** Specifies that the committer should not perform any validation of
     * packages before committing them to the ledger.
     * This should be used only by non distributed ledgers, like
-    * DAML-on-SQL, where the validation done in the API server is
+    * DAML-on-SQL, where the validation done in the API server
     * can be trusted.  */
   case object No extends PackageValidationMode
 }
