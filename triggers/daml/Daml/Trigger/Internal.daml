@@ -119,7 +119,7 @@ runTriggerA (TriggerA f) = f
 
 data TriggerAState = TriggerAState
   { commandsInFlight : Map CommandId [Command]
-  -- ^ Zoomed from TriggerAState; used for dedupCreateCmd/dedupExerciseCmd
+  -- ^ Zoomed from TriggerState; used for dedupCreateCmd/dedupExerciseCmd
   -- helpers and extended by emitCommands.
   , pendingContracts : Map CommandId [AnyContractId]
   -- ^ Map from command ids to the contract ids marked pending by that command;
