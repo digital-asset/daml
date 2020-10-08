@@ -230,15 +230,18 @@ prettyScenarioErrorError (Just err) =  do
                   scenarioError_ContractNotActiveContractRef
         ]
     ScenarioErrorErrorUpdateEmptyContractKeyMaintainers ScenarioError_EmptyContractKeyMaintainers{..} ->
-      pure $
-        "Attempt to create a contract key with an empty set of maintainers in:"
-          $$ nest 2
-          (   "create"
-          <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_EmptyContractKeyMaintainersTemplateId
-          $$ (   keyword_ "with"
-              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' False 0 world) scenarioError_EmptyContractKeyMaintainersArg)
-             )
-          )
+      pure $ vcat
+        [ "Attempt to operate on a contract key with an empty set of maintainers"
+        , "at" <-> prettyMayLocation world scenarioError_EmptyContractKeyMaintainersLocation
+        , label_ "Template:"
+            $ prettyMay "<missing template id>"
+                (prettyDefName world)
+                scenarioError_EmptyContractKeyMaintainersTemplateId
+        , label_ "Key: "
+            $ prettyMay "<missing key>"
+                (prettyValue' False 0 world)
+                scenarioError_EmptyContractKeyMaintainersKey
+        ]
     ScenarioErrorErrorScenarioContractNotActive ScenarioError_ContractNotActive{..} -> do
       pure $ vcat
         [ "Attempt to exercise a consumed contract"

@@ -167,8 +167,10 @@ message ScenarioError {
 
   message EmptyContractKeyMaintainers {
     Identifier template_id = 1;
-    Value arg = 2;
-    Value key = 3;
+    Value key = 2;
+    // Optional location of the update expression leading
+    // to the violation.
+    Location location = 3;
   }
 
   message ContractNotActive {

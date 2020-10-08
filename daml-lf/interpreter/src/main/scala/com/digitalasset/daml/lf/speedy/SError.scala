@@ -74,8 +74,8 @@ object SError {
   /** A create with a contract key without maintainers */
   final case class DamlEEmptyContractKeyMaintainers(
       templateId: TypeConName,
-      arg: Value[ContractId],
       key: Value[Nothing],
+      optLoc: Option[Location],
   ) extends SErrorDamlException
 
   /** Errors from scenario interpretation. */

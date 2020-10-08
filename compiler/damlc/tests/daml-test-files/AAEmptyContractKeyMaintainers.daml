@@ -1,0 +1,24 @@
+-- @ERROR Attempt to operate on a contract key with an empty set of maintainers
+-- @ERROR Attempt to operate on a contract key with an empty set of maintainers
+module AAEmptyContractKeyMaintainers where
+
+template NoMaintainer
+  with
+    sig: Party
+  where
+    signatory sig
+    key sig : Party
+    maintainer [] @Party
+
+createNoMaintainer = scenario do
+  alice <- getParty "Alice"
+
+  submit alice $ create NoMaintainer with sig = alice
+  pure ()
+
+lookupNoMaintainer = scenario do
+ alice <- getParty "Alice"
+
+ submit alice $ lookupByKey @NoMaintainer alice
+ pure ()
+

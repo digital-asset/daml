@@ -868,7 +868,7 @@ private[lf] object SBuiltin {
       mbKey.foreach {
         case Node.KeyWithMaintainers(key, maintainers) =>
           if (maintainers.isEmpty)
-            throw DamlEEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
+            throw DamlEEmptyContractKeyMaintainers(templateId, key, machine.lastLocation)
       }
       val auth = machine.auth
       val (coid, newPtx) = onLedger.ptx
@@ -1066,15 +1066,18 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger
     ): Unit = {
-      val keyWithMaintainers =
-        extractKeyWithMaintainers(args.get(0))
+      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      if (keyWithMaintainers.maintainers.isEmpty)
+        throw DamlEEmptyContractKeyMaintainers(
+          templateId,
+          keyWithMaintainers.key,
+          machine.lastLocation,
+        )
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
         case Some(mbCoid) =>
-          machine.returnValue = SOptional(mbCoid.map { coid =>
-            SContractId(coid)
-          })
+          machine.returnValue = SOptional(mbCoid.map(SContractId))
         case None =>
           // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
           // that.
