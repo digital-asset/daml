@@ -5,15 +5,15 @@
 
 #
 # DAML is an open-source privacy-aware smart contract language.
-# This script downloads and installs the DAML SDK on Linux and macOS.
+# This script downloads and installs the SDK on Linux and macOS.
 # This will overwrite any existing installation in ~/.daml
 # For more information please visit https://daml.com/ and https://docs.daml.com/
 #
 
 #
 # USAGE:
-#    get-daml.sh            Download and install the latest DAML SDK release.
-#    get-daml.sh VERSION    Download and install given version of DAML SDK.
+#    get-daml.sh            Download and install the latest SDK release.
+#    get-daml.sh VERSION    Download and install given version of SDK.
 #
 
 set -eu
@@ -83,7 +83,7 @@ fi
 readonly TARBALL="daml-sdk-$VERSION-$OS.tar.gz"
 readonly URL="https://github.com/digital-asset/daml/releases/download/v$VERSION/$TARBALL"
 
-echo "$(tput setaf 3)Downloading DAML SDK $VERSION. This may take a while.$(tput sgr 0)"
+echo "$(tput setaf 3)Downloading SDK $VERSION. This may take a while.$(tput sgr 0)"
 curl -SLf $URL --output $TARBALL --progress-bar
 if [ ! -f $TARBALL ] ; then
   echo "Failed to download SDK tarball."
