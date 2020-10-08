@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 # Welcome to the DAML repository!
 
 This repository hosts all code for the [DAML smart contract language and SDK](https://daml.com/), originally created by
-[Digital Asset](https://www.digitalasset.com). DAML is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The DAML SDK is a set of tools to help you develop applications based on DAML.
+[Digital Asset](https://www.digitalasset.com). DAML is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The SDK is a set of tools to help you develop applications based on DAML.
 
 ## Using DAML
 
