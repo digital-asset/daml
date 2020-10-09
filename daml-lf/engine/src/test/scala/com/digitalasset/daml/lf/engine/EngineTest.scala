@@ -1392,9 +1392,9 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
-      result shouldBe 'left
-      val Left(err) = result
-      err.msg should include("Update failed due to a contract key with an empty sey of maintainers")
+      inside (result) {
+        case Left(err) =>  err.msg should include("Update failed due to a contract key with an empty sey of maintainers")
+      }
     }
   }
 
