@@ -143,12 +143,12 @@ applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
 runRule
-  : (Party -> ACS -> s -> TriggerA ())
+  : (Party -> s -> TriggerA ())
   -> TriggerRule (TriggerState s) ()
 runRule rule = do
   state <- get
   TriggerRule . zoom zoomIn zoomOut . runTriggerRule . flip runTriggerA state.acs
-      $ rule state.party state.acs state.userState
+      $ rule state.party state.userState
   where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts
         zoomOut state aState =
           let commandsInFlight = aState.commandsInFlight

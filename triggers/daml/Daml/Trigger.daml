@@ -78,20 +78,23 @@ instance ActionTriggerUpdate (TriggerStateA s) where
 data Trigger s = Trigger
   { initialize : ACS -> s
   -- ^ Initialize the user-defined state based on the ACS.
-  , updateState : ACS -> Message -> TriggerStateA s ()
-  -- ^ Update the user-defined state based on the ACS and a transaction
-  -- or completion message.  It can manipulate the state with `get`,
-  -- `put`, and `modify`.
-  , rule : Party -> ACS -> s -> TriggerA ()
+  , updateState : Message -> TriggerStateA s ()
+  -- ^ Update the user-defined state based on a transaction or
+  -- completion message.  It can manipulate the state with `get`, `put`,
+  -- and `modify`, or query the ACS with `query`.
+  , rule : Party -> s -> TriggerA ()
   -- ^ The rule defines the main logic of your trigger. It can send commands
   -- to the ledger using `emitCommands` to change the ACS.
   -- The rule depends on the following arguments:
   --
   --   * The party your trigger is running as.
+  --   * The user-defined state.
+  --
+  -- and can retrieve other data with functions in `TriggerA`:
+  --
   --   * The current state of the ACS.
   --   * The current time (UTC in wallclock mode, Unix epoch in static mode)
   --   * The commands in flight.
-  --   * The user-defined state.
   , registeredTemplates : RegisteredTemplates
   -- ^ The templates the trigger will receive events for.
   , heartbeat : Optional RelTime
@@ -204,7 +207,7 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-    utUpdateState acs msg = execState $ flip runTriggerStateA acs $ userTrigger.updateState acs msg
+    utUpdateState acs msg = execState $ flip runTriggerStateA acs $ userTrigger.updateState msg
     update msg = do
       time <- getTime
       state <- get
