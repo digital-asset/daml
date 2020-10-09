@@ -49,16 +49,43 @@ data ACS = ACS
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
-newtype TriggerA a = TriggerA (TriggerRule TriggerAState a)
-  deriving (Functor, Applicative, Action, HasTime)
+newtype TriggerA a = TriggerA { runTriggerA : ACS -> TriggerRule TriggerAState a }
+
+instance Functor TriggerA where
+  fmap f (TriggerA r) = TriggerA $ rliftFmap fmap f r
+
+instance Applicative TriggerA where
+  pure = TriggerA . rliftPure pure
+  TriggerA ff <*> TriggerA fa = TriggerA $ rliftAp (<*>) ff fa
+
+instance Action TriggerA where
+  TriggerA fa >>= f = TriggerA $ rliftBind (>>=) fa (runTriggerA . f)
+
+instance HasTime TriggerA where
+  getTime = TriggerA $ const getTime
 
 -- | TriggerStateA is the type used in the `updateState` of a DAML
 -- trigger.  It has similar actions in common with `TriggerA`, but
 -- cannot use `emitCommands` or `getTime`.
-newtype TriggerStateA s a = TriggerStateA { runTriggerStateA : State s a }
-  deriving (Functor, Applicative, Action)
+newtype TriggerStateA s a = TriggerStateA { runTriggerStateA : ACS -> State s a }
 
-deriving instance ActionState s (TriggerStateA s)
+instance Functor (TriggerStateA s) where
+  fmap f (TriggerStateA r) = TriggerStateA $ rliftFmap fmap f r
+
+instance Applicative (TriggerStateA s) where
+  pure = TriggerStateA . rliftPure pure
+  TriggerStateA ff <*> TriggerStateA fa = TriggerStateA $ rliftAp (<*>) ff fa
+
+instance Action (TriggerStateA s) where
+  TriggerStateA fa >>= f = TriggerStateA $ rliftBind (>>=) fa (runTriggerStateA . f)
+
+instance ActionState s (TriggerStateA s) where
+  -- TODO SC
+
+-- | Features possible in both `updateState` and `rule`.
+class ActionTriggerUpdate m where
+  -- | Extract the contracts of a given template from the ACS.
+  query : Template a => m [(ContractId a, a)]
 
 -- Internal API
 
@@ -124,9 +151,6 @@ runRule rule = do
               acs = state.acs { pendingContracts = aState.pendingContracts }
           in state { commandsInFlight, acs }
 
-runTriggerA : TriggerA a -> TriggerRule TriggerAState a
-runTriggerA (TriggerA f) = f
-
 data TriggerAState = TriggerAState
   { commandsInFlight : Map CommandId [Command]
   -- ^ Zoomed from TriggerState; used for dedupCreateCmd/dedupExerciseCmd
@@ -142,3 +166,15 @@ data TriggerState s = TriggerState
   , userState : s
   , commandsInFlight : Map CommandId [Command]
   }
+
+rliftFmap : ((a -> b) -> f a -> f b) -> (a -> b) -> (r -> f a) -> r -> f b
+rliftFmap ub f r = ub f . r
+
+rliftPure : (a -> f a) -> a -> r -> f a
+rliftPure ub = const . ub
+
+rliftAp : (f (a -> b) -> f a -> f b) -> (r -> f (a -> b)) -> (r -> f a) -> r -> f b
+rliftAp ub ff fa r = ff r `ub` fa r
+
+rliftBind : (f a -> (a -> f b) -> f b) -> (r -> f a) -> (a -> r -> f b) -> r -> f b
+rliftBind ub fa f r = fa r `ub` \a -> f a r
