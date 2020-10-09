@@ -25,7 +25,7 @@ template B
 trigger : Trigger ()
 trigger = Trigger with
   initialize = \_ -> ()
-  updateState = \_ _ _ -> ()
+  updateState = \_ _ -> pure ()
   rule = triggerRule
   registeredTemplates = AllInDar
   heartbeat = None

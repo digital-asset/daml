@@ -30,7 +30,7 @@ template T
 trigger : Trigger Int
 trigger = Trigger with
   initialize = const 0
-  updateState = \acs _msg count -> length (getContracts @T acs)
+  updateState = \acs _msg -> put $ length (getContracts @T acs)
   rule = \party acs count -> do
     when (count == 1) do
       priorCIF <- getCommandsInFlight

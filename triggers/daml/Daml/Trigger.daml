@@ -9,6 +9,10 @@ module Daml.Trigger
  , getTemplates
  , Trigger(..)
  , TriggerA
+ , TriggerStateA
+ , get
+ , put
+ , modify
  , emitCommands
  , runTrigger
  , CommandId
@@ -35,6 +39,7 @@ module Daml.Trigger
  ) where
 
 import DA.Action
+import DA.Action.State (execState)
 import DA.Functor ((<&>))
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import qualified DA.Map as GMap
@@ -71,9 +76,10 @@ getContracts (ACS tpls pending) = mapOptional fromAny
 data Trigger s = Trigger
   { initialize : ACS -> s
   -- ^ Initialize the user-defined state based on the ACS.
-  , updateState : ACS -> Message -> s -> s
-  -- ^ Update the user-defined state based on the ACS and a transaction or
-  -- completion message.
+  , updateState : ACS -> Message -> TriggerStateA s ()
+  -- ^ Update the user-defined state based on the ACS and a transaction
+  -- or completion message.  It can manipulate the state with `get`,
+  -- `put`, and `modify`.
   , rule : Party -> ACS -> s -> TriggerA ()
   -- ^ The rule defines the main logic of your trigger. It can send commands
   -- to the ledger using `emitCommands` to change the ACS.
@@ -196,12 +202,13 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
+    utUpdateState acs msg = execState $ runTriggerStateA $ userTrigger.updateState acs msg
     update msg = do
       time <- getTime
       state <- get
       case msg of
         MCompletion completion ->
-          let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
+          let userState = utUpdateState state.acs (MCompletion completion) state.userState
           in case completion.status of
             Succeeded {} ->
               -- We delete successful completions when we receive the corresponding transaction
@@ -214,7 +221,7 @@ runTrigger userTrigger = LowLevel.Trigger
                 runRule userTrigger.rule
         MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
-              userState = userTrigger.updateState acs (MTransaction transaction) state.userState
+              userState = utUpdateState acs (MTransaction transaction) state.userState
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
@@ -222,6 +229,6 @@ runTrigger userTrigger = LowLevel.Trigger
           put $ state { acs = acs', userState, commandsInFlight }
           runRule userTrigger.rule
         MHeartbeat -> do
-          let userState = userTrigger.updateState state.acs MHeartbeat state.userState
+          let userState = utUpdateState state.acs MHeartbeat state.userState
           put $ state { userState }
           runRule userTrigger.rule

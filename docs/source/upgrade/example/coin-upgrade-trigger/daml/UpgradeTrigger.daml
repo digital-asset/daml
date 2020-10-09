@@ -18,7 +18,7 @@ import UpgradeFromCoinV1
 upgradeTrigger : Trigger ()
 upgradeTrigger = Trigger with
   initialize = \_acs -> ()
-  updateState = \_acs _msg () -> ()
+  updateState = \_acs _msg -> pure ()
   registeredTemplates = AllInDar
   heartbeat = None
   rule = triggerRule

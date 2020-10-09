@@ -9,10 +9,10 @@ import Daml.Trigger
 retryTrigger : Trigger Int
 retryTrigger = Trigger
   { initialize = \_acs -> 3
-  , updateState = \_acs msg allowedFail -> case msg of
+  , updateState = \_acs msg -> case msg of
       MCompletion c
-        | Failed {} <- c.status -> allowedFail - 1
-      _ -> allowedFail
+        | Failed {} <- c.status -> modify (subtract 1)
+      _ -> pure ()
   , rule = retryRule
   , registeredTemplates = AllInDar
   , heartbeat = None
