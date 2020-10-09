@@ -75,11 +75,11 @@ overrideSdkVersion pkgConfig = do
         Just sdkVersion -> do
             when (pSdkVersion pkgConfig /= PackageSdkVersion sdkVersion) $
                 hPutStrLn stderr $ unwords
-                    [ "Warning: Using DAML SDK version"
+                    [ "Warning: Using SDK version"
                     , sdkVersion
                     , "from"
                     , sdkVersionEnvVar
-                    , "enviroment variable instead of DAML SDK version"
+                    , "enviroment variable instead of SDK version"
                     , unPackageSdkVersion (pSdkVersion pkgConfig)
                     , "from"
                     , projectConfigName
