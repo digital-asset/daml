@@ -7,7 +7,7 @@ Notes on the format of this file:
 - For lines that start `$`, type them at the terminal.
 - For lines that start `Alice>` or `Bob>` or `Charlie>`, type them at the relevant `nim` console. You'll end up with three terminals running simultaneously.
 
-## 0. Setup: Build application and update the DAML SDK
+## 0. Setup: Build application and update the SDK
 
     $ cd daml
     $ bazel build language-support/hs/bindings/examples/nim/...

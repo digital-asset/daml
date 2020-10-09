@@ -282,7 +282,7 @@ data SubmitFailure = SubmitFailure
 -- | Details of the @submit@ command.
 --
 -- The @handleFailure@ field is kept on @submit@ for backwards compatibility.
--- Older versions of the DAML SDK didn't distinguish @Submit@ and
+-- Older versions of the SDK didn't distinguish @Submit@ and
 -- @SubmitMustFail@ in the script runner.
 data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a, locations : [(Text, SrcLoc)] }
   deriving Functor

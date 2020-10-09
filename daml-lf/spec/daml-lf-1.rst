@@ -66,7 +66,7 @@ and operate on the same major version of the serialization format in
 a backward compatible way. This document describes DAML-LF major version
 1, including all its minor versions.
 
-Starting from DAML SDK 1.0 release, DAML-LF versions older than 1.6 are
+Starting from SDK 1.0 release, DAML-LF versions older than 1.6 are
 deprecated. An engine compliant with the present specification must handle
 all versions newer than or equal to DAML-LF 1.6, no requirement is made on
 handling older version.
