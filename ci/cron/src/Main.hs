@@ -17,6 +17,7 @@ import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import qualified Data.List.Split as Split
+import qualified Data.Maybe
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
@@ -268,11 +269,19 @@ docs = do
             update_s3 temp_dir gh_versions
         reset_cloudfront
 
+bash :: Maybe FilePath -> [String] -> IO String
+bash bash_lib cmd = do
+    shell $ unlines $ concat [
+        ["bash -c '",
+         "set -euo pipefail",
+         "eval \"$(dev-env/bin/dade assist)\"",
+         Data.Maybe.maybe "" (\l -> "source \"" <> l <> "\"") bash_lib],
+        cmd,
+        ["'"]]
+
 download_assets :: FilePath -> GitHubRelease -> IO ()
 download_assets tmp release = do
-    shell_ $ unlines ["bash -c '",
-        "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
+    _ <- bash Nothing [
         "cd \"" <> tmp <> "\"",
         "PIDS=\"\"",
         "for ass in " <> unwords (map (show . uri) $ assets release) <> "; do",
@@ -283,15 +292,12 @@ download_assets tmp release = do
         "done",
         "for pid in $PIDS; do",
             "wait $pid",
-        "done",
-        "'"]
+        "done"]
+    pure ()
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
-    shell $ unlines ["bash -c '",
-        "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
-        "source \"" <> bash_lib <> "\"",
+    bash (Just bash_lib) [
         "shopt -s extglob", -- enable !() pattern: things that _don't_ match
         "cd \"" <> tmp <> "\"",
         "for f in !(*.asc); do",
@@ -309,31 +315,21 @@ verify_signatures bash_lib tmp version_tag = do
                     "exit 2",
                 "fi",
             "fi",
-       "done",
-       "'"]
+        "done"]
 
 does_backup_exist :: String -> FilePath -> FilePath -> IO Bool
 does_backup_exist gcp_credentials bash_lib path = do
-    out <- shell $ unlines ["bash -c '",
-        "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
-        "source \"" <> bash_lib <> "\"",
+    read <$> bash (Just bash_lib) [
         "if gcs \"" <> gcp_credentials <> "\" ls \"" <> path <> "\"; then",
             "echo True",
         "else",
             "echo False",
-        "fi",
-        "'"]
-    return $ read out
+        "fi"]
 
 push_to_gcp :: String -> FilePath -> FilePath  -> FilePath -> IO ()
 push_to_gcp gcp_credentials bash_lib local_path remote_path = do
-    shell_ $ unlines ["bash -c '",
-        "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
-        "source \"" <> bash_lib <> "\"",
-        "gcs \"" <> gcp_credentials <> "\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\"",
-        "'"]
+    _ <- bash (Just bash_lib) ["gcs \"" <> gcp_credentials <> "\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\""]
+    return ()
 
 check_releases :: String -> String -> IO ()
 check_releases gcp_credentials bash_lib = do
