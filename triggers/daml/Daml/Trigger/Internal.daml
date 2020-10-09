@@ -52,7 +52,9 @@ data ACS = ACS
 newtype TriggerA a = TriggerA (TriggerRule TriggerAState a)
   deriving (Functor, Applicative, Action, HasTime, ActionTrigger)
 
--- | TriggerStateA is the type used in the `updateState` of a DAML trigger.
+-- | TriggerStateA is the type used in the `updateState` of a DAML
+-- trigger.  It has similar actions in common with `TriggerA`, but
+-- cannot use `emitCommands` or `getTime`.
 newtype TriggerStateA s a = TriggerStateA { runTriggerStateA : State s a }
   deriving (Functor, Applicative, Action)
 

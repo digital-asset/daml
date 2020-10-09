@@ -77,8 +77,9 @@ data Trigger s = Trigger
   { initialize : ACS -> s
   -- ^ Initialize the user-defined state based on the ACS.
   , updateState : ACS -> Message -> TriggerStateA s ()
-  -- ^ Update the user-defined state based on the ACS and a transaction or
-  -- completion message.
+  -- ^ Update the user-defined state based on the ACS and a transaction
+  -- or completion message.  It can manipulate the state with `get`,
+  -- `put`, and `modify`.
   , rule : Party -> ACS -> s -> TriggerA ()
   -- ^ The rule defines the main logic of your trigger. It can send commands
   -- to the ledger using `emitCommands` to change the ACS.
