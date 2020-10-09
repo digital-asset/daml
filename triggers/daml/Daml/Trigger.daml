@@ -6,7 +6,6 @@
 module Daml.Trigger
  ( ACS
  , getContracts
- , getTemplates
  , ActionTriggerUpdate(..)
  , Trigger(..)
  , TriggerA
@@ -54,10 +53,6 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
-
-{-# DEPRECATED getTemplates "getTemplates is deprecated in favor of getContracts" #-}
-getTemplates : forall a. Template a => ACS -> [(ContractId a, a)]
-getTemplates = getContracts
 
 -- | Extract the contracts of a given template from the ACS.
 getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
