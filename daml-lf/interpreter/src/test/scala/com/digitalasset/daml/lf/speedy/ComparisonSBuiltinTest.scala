@@ -421,10 +421,10 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
       val rightName = Ref.Name.assertFromString("Right")
 
       def left(leftT: Type, rightT: Type)(l: Expr) =
-        EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), rightName, l)
+        EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), leftName, l)
 
       def right(leftT: Type, rightT: Type)(r: Expr) =
-        EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), leftName, r)
+        EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), rightName, r)
 
       val tupleT = t"Mod:Tuple"
       val TTyCon(tupleTyCon) = tupleT
