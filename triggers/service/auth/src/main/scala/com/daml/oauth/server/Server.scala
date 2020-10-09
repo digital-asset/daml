@@ -60,7 +60,14 @@ object Server {
     val route = concat(
       path("authorize") {
         get {
-          parameters(('response_type, 'client_id, 'redirect_uri.as[Uri], 'scope ?, 'state ?))
+          parameters(
+            (
+              'response_type,
+              'client_id,
+              'redirect_uri.as[Uri],
+              'scope ?,
+              'state ?,
+              'audience.as[Uri] ?))
             .as[Request.Authorize](Request.Authorize) {
               request =>
                 val authorizationCode = UUID.randomUUID()

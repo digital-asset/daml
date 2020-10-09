@@ -192,7 +192,7 @@ jobs:
           eval "$(dev-env/bin/dade assist)"
 
           bazel build //ci/cron:cron
-          bazel-bin/ci/cron/cron check --bash-lib $(bash_lib)
+          bazel-bin/ci/cron/cron check --bash-lib $(bash_lib) --gcp-creds "$GCRED"
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

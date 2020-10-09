@@ -52,10 +52,10 @@ lazy val commonSettings = Seq(
 
 // <doc-ref:dependencies>
 lazy val codeGenDependencies = Seq(
-  "com.daml" %% "bindings-scala" % daSdkVersion
+  "com.daml" %% "bindings-scala" % damlSdkVersion
 )
 
 lazy val applicationDependencies = Seq(
-  "com.daml" %% "bindings-akka" % daSdkVersion
+  "com.daml" %% "bindings-akka" % damlSdkVersion
 )
 // </doc-ref:dependencies>

@@ -103,7 +103,7 @@ data Trigger s = Trigger
 -- a failing completion.
 emitCommands : [Command] -> [AnyContractId] -> TriggerA CommandId
 emitCommands cmds pending = do
-  id <- submitCommands cmds
+  id <- TriggerA $ submitCommands cmds
   let commands = Commands id cmds
   TriggerA $ modify $ \s -> s
     { commandsInFlight = addCommands s.commandsInFlight commands

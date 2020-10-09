@@ -3,13 +3,13 @@
 
 object Versions {
 
-  private val daSdkVersionKey = "da.sdk.version"
+  private val damlSdkVersionKey = "daml.sdk.version"
 
   private val errorMsg =
-    s"Error: cannot determine DA SDK version, either specify it with '-D${daSdkVersionKey}=<VERSION>' or use 'daml.yaml' with configured 'sdk-version' field."
+    s"Error: cannot determine SDK version, either specify it with '-D${damlSdkVersionKey}=<VERSION>' or use 'daml.yaml' with configured 'sdk-version' field."
 
-  val daSdkVersion: String = sys.props
-    .get(daSdkVersionKey)
+  val damlSdkVersion: String = sys.props
+    .get(damlSdkVersionKey)
     .getOrElse(
       sdkVersionFromFile(new java.io.File("daml.yaml")).fold(
         error => { println(errorMsg); throw error },
@@ -17,7 +17,7 @@ object Versions {
       )
     )
 
-  println(s"$daSdkVersionKey = ${daSdkVersion: String}")
+  println(s"$damlSdkVersionKey = ${damlSdkVersion: String}")
 
   private def sdkVersionFromFile(file: java.io.File): Either[io.circe.Error, String] = {
     import io.circe.yaml.parser

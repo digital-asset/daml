@@ -21,33 +21,21 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
 * Create a new native application.
   - Provide a name (`ex-daml-auth-middleware`).
   - Select the authorized API (`ex-daml-api`).
-  - Configure the allowed callback URLs in the settings (`http://localhost:3000`).
+  - Configure the allowed callback URLs in the settings (`http://localhost:3000/cb`).
   - Note the "Client ID" and "Client Secret" displayed in the "Basic
     Information" pane of the application settings.
   - Note the "OAuth Authorization URL" and the "OAuth Token URL" in the
     "Endpoints" tab of the advanced settings.
-* Create a "Hook" for "Client Credential Exchange".
+* Create a new empty rule.
   - Provide a name (`ex-daml-claims`).
   - Provide a script
     ``` javascript
-    /**
-    @param {object} client - information about the client
-    @param {string} client.name - name of client
-    @param {string} client.id - client id
-    @param {string} client.tenant - Auth0 tenant name
-    @param {object} client.metadata - client metadata
-    @param {array|undefined} scope - array of strings representing the scope claim or undefined
-    @param {string} audience - token's audience claim
-    @param {object} context - additional authorization context
-    @param {object} context.webtask - webtask context
-    @param {function} cb - function (error, accessTokenClaims)
-    */
-    module.exports = function(client, scope, audience, context, cb) {
-      var access_token = {};
+    function (user, context, callback) {
+      // Grant all requested claims
+      const scope = (context.request.query.scope || "").split(" ");
       var actAs = [];
       var readAs = [];
       var admin = false;
-      // TODO[AH] specify mapping from scope to ledger claims.
       scope.forEach(s => {
         if (s.startsWith("actAs:")) {
           actAs.push(s.slice(6));
@@ -56,17 +44,21 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
         } else if (s.startsWith("admin")) {
           admin = true;
         }
-      })
-      access_token['https://daml.com/ledger-api'] = {
+      });
+
+      // Construct access token.
+      const namespace = 'https://daml.com/ledger-api';
+      context.accessToken[namespace] = {
         // NOTE change the ledger ID to match your deployment.
         "ledgerId": "2D105384-CE61-4CCC-8E0E-37248BA935A3",
-        "applicationId": client.name,
+        "applicationId": context.clientName,
         "actAs": actAs,
         "readAs": readAs,
         "admin": admin
       };
-      cb(null, access_token);
-    };
+
+      return callback(null, user, context);
+    }
     ```
 * Create a new user.
   - Provide an email address (`alice@localhost`)
