@@ -67,21 +67,18 @@ case class Participants[+T](
   def getPartyParticipant(party: Party): Either[String, T] =
     party_participants.get(party) match {
       case None =>
-        default_participant.fold[Either[String, T]](
-          Left(s"No participant for party $party and no default participant"))(Right(_))
+        default_participant.toRight(s"No participant for party $party and no default participant")
       case Some(participant) => getParticipant(Some(participant))
     }
   def getParticipant(participantOpt: Option[Participant]): Either[String, T] =
     participantOpt match {
       case None =>
-        default_participant.fold[Either[String, T]](Left(s"No default participant"))(Right(_))
+        default_participant.toRight(s"No default participant")
       case Some(participant) =>
-        participants.get(participant) match {
-          case None =>
-            default_participant.fold[Either[String, T]](
-              Left(s"No participant $participant and no default participant"))(Right(_))
-          case Some(t) => Right(t)
-        }
+        participants
+          .get(participant)
+          .orElse(default_participant)
+          .toRight(s"No participant $participant and no default participant")
     }
 }
 
@@ -339,23 +336,20 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
     for {
       pkg <- compiledPackages
         .getPackage(id.packageId)
-        .fold[Either[String, Package]](Left(s"Failed to find package ${id.packageId}"))(Right(_))
+        .toRight(s"Failed to find package ${id.packageId}")
       module <- pkg.modules
         .get(id.qualifiedName.module)
-        .fold[Either[String, Module]](Left(s"Failed to find module ${id.qualifiedName.module}"))(
-          Right(_))
+        .toRight(s"Failed to find module ${id.qualifiedName.module}")
       definition <- module.definitions
         .get(id.qualifiedName.name)
-        .fold[Either[String, Definition]](Left(s"Failed to find ${id.qualifiedName.name}"))(
-          Right(_))
+        .toRight(s"Failed to find ${id.qualifiedName.name}")
       tpl <- definition match {
         case DDataType(_, _, DataRecord(_, Some(tpl))) => Right(tpl)
         case _ => Left(s"Expected template definition but got $definition")
       }
       choice <- tpl.choices
         .get(choice)
-        .fold[Either[String, TemplateChoice]](Left(s"Failed to find choice $choice in $id"))(
-          Right(_))
+        .toRight(s"Failed to find choice $choice in $id")
     } yield choice.returnType
 
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
