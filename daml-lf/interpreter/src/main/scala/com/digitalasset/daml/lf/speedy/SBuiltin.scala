@@ -868,7 +868,7 @@ private[lf] object SBuiltin {
       mbKey.foreach {
         case Node.KeyWithMaintainers(key, maintainers) =>
           if (maintainers.isEmpty)
-            throw DamlEEmptyContractKeyMaintainers(templateId, key)
+            throw DamlECreateEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
       }
       val auth = machine.auth
       val (coid, newPtx) = onLedger.ptx
@@ -1068,7 +1068,7 @@ private[lf] object SBuiltin {
     ): Unit = {
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
-        throw DamlEEmptyContractKeyMaintainers(templateId, keyWithMaintainers.key)
+        throw DamlEFetchEmptyContractKeyMaintainers(templateId, keyWithMaintainers.key)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {

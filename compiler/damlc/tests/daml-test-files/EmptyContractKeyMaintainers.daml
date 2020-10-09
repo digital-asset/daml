@@ -1,5 +1,5 @@
--- @ERROR Attempt to create or operate on a contract key with an empty set of maintainers
--- @ERROR Attempt to create or operate on a contract key with an empty set of maintainers
+-- @ERROR Attempt to create a contract key with an empty set of maintainers
+-- @ERROR Attempt to fetch or lookup a contract key with an empty set of maintainers
 module EmptyContractKeyMaintainers where
 
 template NoMaintainer

@@ -87,10 +87,16 @@ private[lf] object Pretty {
           actual,
         )
 
-      case DamlEEmptyContractKeyMaintainers(tid, arg) =>
+      case DamlECreateEmptyContractKeyMaintainers(tid, arg, key) =>
         text("Update failed due to a contract key with an empty sey of maintainers when creating") &
-          prettyTypeConName(tid) &
-          text("with") & prettyValue(true)(arg)
+          prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
+          text("The computed key is") & prettyValue(true)(key)
+
+      case DamlEFetchEmptyContractKeyMaintainers(tid, key) =>
+        text(
+          "Update failed due to a contract key with an empty sey of maintainers when fetching or looking up by key") &
+          prettyTypeConName(tid) /
+            text("The provided key is") & prettyValue(true)(key)
 
       case DamlEDisallowedInputValueVersion(VersionRange(expectedMin, expectedMax), actual) =>
         text("Update failed due to disallowed value version") /
