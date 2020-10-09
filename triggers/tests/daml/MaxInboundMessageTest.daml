@@ -10,7 +10,7 @@ import Daml.Trigger
 maxInboundMessageSizeTrigger : Trigger ()
 maxInboundMessageSizeTrigger = Trigger
   { initialize = \_ -> ()
-  , updateState = \_ _ _ -> ()
+  , updateState = \_ _ -> pure ()
   , rule = maxInboundMessageSizeRule
   , registeredTemplates = AllInDar
   , heartbeat = None

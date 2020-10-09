@@ -10,6 +10,9 @@ module Daml.Trigger
  , Trigger(..)
  , TriggerA
  , TriggerStateA
+ , get
+ , put
+ , modify
  , emitCommands
  , runTrigger
  , CommandId

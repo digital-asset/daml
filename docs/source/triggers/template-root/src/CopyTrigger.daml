@@ -51,7 +51,7 @@ deriving instance Ord Copy
 copyTrigger : Trigger ()
 copyTrigger = Trigger
   { initialize = \_acs -> ()
-  , updateState = \_acs _message () -> ()
+  , updateState = \_acs _message -> pure ()
   , rule = copyRule
   , registeredTemplates = AllInDar
   , heartbeat = None

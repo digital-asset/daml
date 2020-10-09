@@ -9,7 +9,7 @@ import Daml.Trigger
 createAndExerciseTrigger : Trigger ()
 createAndExerciseTrigger = Trigger
   { initialize = \_ -> ()
-  , updateState = \_ _ _ -> ()
+  , updateState = \_ _ -> pure ()
   , rule = createAndExerciseRule
   , registeredTemplates = AllInDar
   , heartbeat = None

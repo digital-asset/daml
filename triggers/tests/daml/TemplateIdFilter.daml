@@ -10,7 +10,7 @@ import Daml.Trigger
 test : RegisteredTemplates -> Trigger ()
 test registered = Trigger
   { initialize = \_acs -> ()
-  , updateState = \_acs _message () -> ()
+  , updateState = \_acs _message -> pure ()
   , registeredTemplates = registered
   , rule = \party acs () -> do
       let ones = getContracts @One acs
