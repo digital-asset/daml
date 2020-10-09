@@ -295,7 +295,7 @@ verify_signatures bash_lib tmp version_tag = do
         "shopt -s extglob", -- enable !() pattern: things that _don't_ match
         "cd \"" <> tmp <> "\"",
         "for f in !(*.asc); do",
-            "p=github/" <> version_tag <> "/$f",
+            "p=" <> version_tag <> "/github/$f",
             "if ! test -f $f.asc; then",
                 "echo $p: no signature file",
             "else",
@@ -345,7 +345,7 @@ check_releases gcp_credentials bash_lib = do
             download_assets temp_dir release
             verify_signatures bash_lib temp_dir v >>= putStrLn
             Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
-                let gcp_path = "gs://daml-data/releases/github/" <> v <> "/" <> f
+                let gcp_path = "gs://daml-data/releases/" <> v <> "/github/" <> f
                 exists <- does_backup_exist gcp_credentials bash_lib gcp_path
                 if exists then do
                     putStrLn $ gcp_path <> " already exists."
