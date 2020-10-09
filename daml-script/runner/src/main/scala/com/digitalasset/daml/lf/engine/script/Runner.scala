@@ -151,7 +151,7 @@ object Script {
     val scriptExpr = SEVal(LfDefRef(scriptId))
     val scriptTy = compiledPackages
       .getPackage(scriptId.packageId)
-      .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
+      .flatMap(_.lookupDefinition(scriptId.qualifiedName).toOption) match {
       case Some(DValue(ty, _, _, _)) => Right(ty)
       case Some(d @ DTypeSyn(_, _)) => Left(s"Expected DAML script but got synonym $d")
       case Some(d @ DDataType(_, _, _)) => Left(s"Expected DAML script but got datatype $d")
@@ -340,13 +340,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       module <- pkg.modules
         .get(id.qualifiedName.module)
         .toRight(s"Failed to find module ${id.qualifiedName.module}")
-      definition <- module.definitions
+      tpl <- module.templates
         .get(id.qualifiedName.name)
-        .toRight(s"Failed to find ${id.qualifiedName.name}")
-      tpl <- definition match {
-        case DDataType(_, _, DataRecord(_, Some(tpl))) => Right(tpl)
-        case _ => Left(s"Expected template definition but got $definition")
-      }
+        .toRight(s"Failed to find template ${id.qualifiedName.name}")
       choice <- tpl.choices
         .get(choice)
         .toRight(s"Failed to find choice $choice in $id")

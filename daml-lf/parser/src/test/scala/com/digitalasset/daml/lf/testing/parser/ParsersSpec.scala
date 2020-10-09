@@ -393,9 +393,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val recDef = DDataType(
         false,
         ImmArray(n"a" -> KStar),
-        DataRecord(
-          ImmArray(n"value" -> t"a", n"left" -> t"Mod:Tree a", n"right" -> t"Mod:Tree a"),
-          None)
+        DataRecord(ImmArray(n"value" -> t"a", n"left" -> t"Mod:Tree a", n"right" -> t"Mod:Tree a"))
       )
       val enumDef = DDataType(
         false,
@@ -497,14 +495,15 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val recDef = DDataType(
         false,
         ImmArray.empty,
-        DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"), Some(template))
+        DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"))
       )
+      val name = DottedName.assertFromString("Person")
       parseModules(p) shouldBe Right(
         List(
           Module(
             name = modName,
-            definitions = List(DottedName.assertFromString("Person") -> recDef),
-            templates = List.empty,
+            definitions = List(name -> recDef),
+            templates = List(name -> template),
             featureFlags = FeatureFlags.default
           )))
 
@@ -542,15 +541,16 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val recDef = DDataType(
         false,
         ImmArray.empty,
-        DataRecord(ImmArray.empty, Some(template))
+        DataRecord(ImmArray.empty)
       )
+      val name = DottedName.assertFromString("R")
       parseModules(p) shouldBe Right(
         List(
           Module(
             name = modName,
-            definitions = List(DottedName.assertFromString("R") -> recDef),
-            templates = List.empty,
-            featureFlags = FeatureFlags.default
+            definitions = List(name -> recDef),
+            templates = List(name -> template),
+            featureFlags = FeatureFlags.default,
           )))
 
     }

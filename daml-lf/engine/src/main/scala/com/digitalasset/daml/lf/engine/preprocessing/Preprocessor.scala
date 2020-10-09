@@ -68,7 +68,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                   PackageLookup.lookupDataType(pkg, qualifiedName) match {
                     case Right(Ast.DDataType(_, _, dataType)) =>
                       val typesToProcess = dataType match {
-                        case Ast.DataRecord(fields, _) =>
+                        case Ast.DataRecord(fields) =>
                           fields.foldRight(typesToProcess0)(_._2 :: _)
                         case Ast.DataVariant(variants) =>
                           variants.foldRight(typesToProcess0)(_._2 :: _)

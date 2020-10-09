@@ -139,11 +139,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     modulesToCompile.foreach { mod =>
       if (!omitValidation)
         assertRight(Validation.checkModule(pkgs, homePackageId, mod.name).left.map(_.pretty))
-      modDefns += mod.name -> mod.definitions.flatMap {
-        case (defName, defn) =>
-          compiler
-            .unsafeCompileDefn(Identifier(homePackageId, QualifiedName(mod.name, defName)), defn)
-      }
+      modDefns +=
+        mod.name -> compiler.unsafeCompileModule(homePackageId, mod).toMap
     }
 
     defns = extDefns

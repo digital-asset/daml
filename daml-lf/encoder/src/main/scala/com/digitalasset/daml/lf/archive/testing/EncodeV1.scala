@@ -72,19 +72,12 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
       ): PLF.Module.Builder = {
         val (name, definition) = nameWithDefinition
         definition match {
-          case dataType @ DDataType(_, _, cons) =>
+          case dataType: DDataType =>
             builder.addDataTypes(name -> dataType)
-            cons match {
-              case DataRecord(_, Some(template)) =>
-                builder.addTemplates(name -> template)
-              case _ =>
-            }
-          case value @ DValue(_, _, _, _) =>
+          case value: DValue =>
             builder.addValues(name -> value)
-
-          case synonym @ DTypeSyn(_, _) =>
+          case synonym: DTypeSyn =>
             builder.addSynonyms(name -> synonym)
-
         }
         builder
       }
@@ -99,6 +92,7 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
           .setDontDiscloseNonConsumingChoicesToObservers(true)
       )
       builder.accumulateLeft(module.definitions.sortByKey)(addDefinition)
+      builder.accumulateLeft(module.templates.sortByKey)(_ addTemplates _)
       builder.build()
     }
 
@@ -612,7 +606,7 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
       builder.setSerializable(dataType.serializable)
 
       dataType.cons match {
-        case DataRecord(fields, _) =>
+        case DataRecord(fields) =>
           builder.setRecord(
             PLF.DefDataType.Fields.newBuilder().accumulateLeft(fields)(_ addFields _))
         case DataVariant(variants) =>

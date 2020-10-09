@@ -154,7 +154,7 @@ class EngineTest
   "valid data record identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val Right((_, DataRecord(fields, _))) =
+      val Right((_, DataRecord(fields))) =
         PackageLookup.lookupRecord(basicTestsPkg, id.qualifiedName)
       fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
     }
@@ -163,10 +163,10 @@ class EngineTest
   "valid template Identifier" should {
     "return the right argument type" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
-      val Right((_, DataRecord(fields, tpl))) =
+      val Right((_, DataRecord(fields))) =
         PackageLookup.lookupRecord(basicTestsPkg, id.qualifiedName)
+      PackageLookup.lookupTemplate(basicTestsPkg, id.qualifiedName) shouldBe 'right
       fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
-      tpl.isEmpty shouldBe false
     }
   }
 

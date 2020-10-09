@@ -9,7 +9,7 @@ import com.daml.lf.language.Ast._
 
 object PackageLookup {
   def lookupDefinition(pkg: Package, identifier: QualifiedName): Either[Error, Definition] =
-    pkg.lookupIdentifier(identifier).fold(err => Left(Error(err)), Right(_))
+    pkg.lookupDefinition(identifier).fold(err => Left(Error(err)), Right(_))
 
   def lookupDataType(pkg: Package, identifier: QualifiedName): Either[Error, DDataType] =
     for {
@@ -66,16 +66,6 @@ object PackageLookup {
     }
 
   def lookupTemplate(pkg: Package, identifier: QualifiedName): Either[Error, Template] =
-    for {
-      dataTyp <- lookupDataType(pkg, identifier)
-      tpl <- dataTyp.cons match {
-        case DataRecord(_, Some(template)) => Right(template)
-        case DataRecord(_, None) =>
-          Left(Error(s"Got record with no template when looking up $identifier"))
-        case _: DataVariant =>
-          Left(Error(s"Expecting template for identifier $identifier, got variant"))
-        case _: DataEnum =>
-          Left(Error(s"Expecting template for identifier $identifier, got enum"))
-      }
-    } yield tpl
+    pkg.lookupTemplate(identifier).left.map(Error(_))
+
 }

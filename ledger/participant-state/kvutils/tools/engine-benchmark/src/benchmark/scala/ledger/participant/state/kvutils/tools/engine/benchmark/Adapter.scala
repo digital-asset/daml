@@ -98,7 +98,7 @@ private[benchmark] final class Adapter(
 
   private[this] def lookup(id: Ref.Identifier): Either[String, Ref.Identifier] = {
     val pkgIds = packages.collect {
-      case (pkgId, pkg) if pkg.lookupIdentifier(id.qualifiedName).isRight => pkgId
+      case (pkgId, pkg) if pkg.lookupDefinition(id.qualifiedName).isRight => pkgId
     }
     pkgIds.toSeq match {
       case Seq(pkgId) => Right(id.copy(packageId = pkgId))

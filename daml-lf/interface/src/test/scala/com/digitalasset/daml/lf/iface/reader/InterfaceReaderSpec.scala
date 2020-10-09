@@ -98,8 +98,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
           primField("wait", Ast.BTInt64),
           primField("wait_", Ast.BTInt64),
           primField("wait__", Ast.BTInt64)
-        ),
-        None
+        )
       )
     )
 
@@ -129,9 +128,9 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       Ast.DataRecord(
         ImmArray(
           primField("map", Ast.BTTextMap, Ast.TBuiltin(Ast.BTInt64)),
-        ),
-        None
-      ))
+        )
+      )
+    )
 
     val actual = InterfaceReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
     val expectedResult = Map(

@@ -53,10 +53,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       observers = eParties,
       key = None
     )
-    val recordDefWithoutTemplate =
-      DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty, None))
-    val recordDefWithTemplate =
-      DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty, Some(template)))
+    val recordDef = DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty))
     val variantDef = DDataType(true, ImmArray.empty, DataVariant(ImmArray.empty))
     val valDef = DValue(TUnit, false, EUnit, false)
 
@@ -67,12 +64,12 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       Module.apply(
         name = modName1,
         definitions = List(
-          defName("def1") -> recordDefWithoutTemplate,
-          defName("def2") -> recordDefWithTemplate,
+          defName("def1") -> recordDef,
+          defName("def2") -> recordDef,
           defName("def3") -> variantDef,
           defName("def4") -> valDef
         ),
-        templates = List.empty,
+        templates = List(defName("def3") -> template),
         featureFlags = FeatureFlags.default,
       )
 
@@ -80,12 +77,12 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         Module.apply(
           name = modName1,
           definitions = List(
-            defName("def1") -> recordDefWithoutTemplate,
-            defName("def2") -> recordDefWithTemplate,
+            defName("def1") -> recordDef,
+            defName("def2") -> recordDef,
             defName("def3") -> variantDef,
             defName("def1") -> valDef
           ),
-          templates = List.empty,
+          templates = List(defName("def3") -> template),
           featureFlags = FeatureFlags.default,
         ))
 
@@ -96,8 +93,8 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       Module.apply(
         name = modName1,
         definitions = List(
-          defName("defName1") -> recordDefWithoutTemplate,
-          defName("defName2") -> recordDefWithTemplate,
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
         ),
         templates = List(
           defName("defName1") -> template,
@@ -109,40 +106,12 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         Module.apply(
           name = modName1,
           definitions = List(
-            defName("defName1") -> recordDefWithoutTemplate,
-            defName("defName2") -> recordDefWithTemplate,
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
           ),
           templates = List(
             defName("defName1") -> template,
             defName("defName1") -> template,
-          ),
-          featureFlags = FeatureFlags.default,
-        ))
-    }
-
-    "catch templates without record definition" in {
-
-      Module.apply(
-        name = modName1,
-        definitions = List(
-          defName("defName1") -> recordDefWithoutTemplate,
-          defName("defName2") -> recordDefWithTemplate,
-        ),
-        templates = List(
-          defName("defName1") -> template,
-        ),
-        featureFlags = FeatureFlags.default,
-      )
-
-      a[PackageError] shouldBe thrownBy(
-        Module.apply(
-          name = modName1,
-          definitions = List(
-            defName("defName1") -> recordDefWithoutTemplate,
-            defName("defName2") -> recordDefWithTemplate,
-          ),
-          templates = List(
-            defName("defName3") -> template,
           ),
           featureFlags = FeatureFlags.default,
         ))
