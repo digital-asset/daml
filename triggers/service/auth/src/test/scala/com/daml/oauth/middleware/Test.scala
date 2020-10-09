@@ -9,7 +9,11 @@ import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
 import akka.http.scaladsl.unmarshalling.Unmarshal
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.DecodedJwt
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.lf.data.Ref.Party
 import com.daml.oauth.server.{Response => OAuthResponse}
 import org.scalatest.AsyncWordSpec
 
@@ -20,6 +24,30 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     Uri()
       .withScheme("http")
       .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
+  }
+  private def makeToken(claims: Request.Claims): OAuthResponse.Token = {
+    val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
+    val jwtPayload = AuthServiceJWTPayload(
+      ledgerId = Some("test-ledger"),
+      applicationId = Some("test-application"),
+      participantId = None,
+      exp = None,
+      admin = claims.admin,
+      actAs = claims.actAs,
+      readAs = claims.readAs
+    )
+    OAuthResponse.Token(
+      accessToken = JwtSigner.HMAC256
+        .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(jwtPayload)), "secret")
+        .getOrElse(
+          throw new IllegalArgumentException("Failed to sign a token")
+        )
+        .value,
+      tokenType = "bearer",
+      expiresIn = None,
+      refreshToken = None,
+      scope = Some(claims.toQueryString())
+    )
   }
   "the /auth endpoint" should {
     "return unauthorized without cookie" in {
@@ -35,18 +63,13 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "return the token from a cookie" in {
-      val claims = "actAs:Alice"
-      val token = OAuthResponse.Token(
-        accessToken = "access",
-        tokenType = "bearer",
-        expiresIn = None,
-        refreshToken = Some("refresh"),
-        scope = Some(claims))
+      val claims = Request.Claims(actAs = List(Party.assertFromString("Alice")))
+      val token = makeToken(claims)
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       val req = HttpRequest(
         uri = middlewareUri
           .withPath(Path./("auth"))
-          .withQuery(Query(("claims", claims))),
+          .withQuery(Query(("claims", claims.toQueryString()))),
         headers = List(cookieHeader))
       for {
         resp <- Http().singleRequest(req)
@@ -60,18 +83,15 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "return unauthorized on insufficient claims" in {
-      val token = OAuthResponse.Token(
-        accessToken = "access",
-        tokenType = "bearer",
-        expiresIn = None,
-        refreshToken = Some("refresh"),
-        scope = Some("actAs:Alice"))
+      val token = makeToken(Request.Claims(actAs = List(Party.assertFromString("Alice"))))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       val req = HttpRequest(
         uri = middlewareUri
           .withPath(Path./("auth"))
-          .withQuery(Query(("claims", "actAs:Bob"))),
-        headers = List(cookieHeader))
+          .withQuery(Query(
+            ("claims", Request.Claims(actAs = List(Party.assertFromString("Bob"))).toQueryString))),
+        headers = List(cookieHeader)
+      )
       for {
         resp <- Http().singleRequest(req)
       } yield {
