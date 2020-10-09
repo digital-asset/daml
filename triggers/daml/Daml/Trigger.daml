@@ -7,6 +7,7 @@ module Daml.Trigger
  ( ACS
  , getContracts
  , getTemplates
+ , ActionTriggerUpdate(..)
  , Trigger(..)
  , TriggerA
  , TriggerStateA
@@ -70,6 +71,12 @@ getContracts (ACS tpls pending) = mapOptional fromAny
   where
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
     allPending = concatMap snd $ Map.toList pending
+
+instance ActionTriggerUpdate TriggerA where
+  query = TriggerA $ pure . getContracts
+
+instance ActionTriggerUpdate (TriggerStateA s) where
+  query = TriggerStateA $ pure . getContracts
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
