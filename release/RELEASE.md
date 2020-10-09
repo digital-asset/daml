@@ -150,8 +150,6 @@ patches we backport to the 1.0 release branch).
        the list of users `Bob` is following. Verify in the other
        browser window that `Bob` shows up in `Alice`’s network.
 
-    1. Kill the `daml start` process.
-
     1. Open the your first feature section of the GSG, e.g., from
        https://docs.daml.com/$VERSION/getting-started/first-feature.html
        if you did not build docs locally.
@@ -166,7 +164,8 @@ patches we backport to the 1.0 release branch).
 
     1. Close VSCode.
 
-    1. Run `daml start` from the project root directory.
+    1. In the terminal where `daml start` is running, press 'r' 
+       respectively 'r' + 'Enter' on Windows.
 
     1. Run `code .` from the project root directory (the extension is
        already installed, no need to use `daml studio`).
