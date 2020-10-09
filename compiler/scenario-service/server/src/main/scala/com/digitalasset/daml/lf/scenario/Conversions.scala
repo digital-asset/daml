@@ -117,12 +117,12 @@ final class Conversions(
             .build
         )
 
-      case SError.DamlEEmptyContractKeyMaintainers(tid, key, optLoc) =>
-        val updateErrorBuilder = proto.ScenarioError.EmptyContractKeyMaintainers.newBuilder
-          .setTemplateId(convertIdentifier(tid))
-          .setKey(convertValue(key))
-        optLoc.foreach(loc => updateErrorBuilder.setLocation(convertLocation(loc)))
-        builder.setUpdateEmptyContractKeyMaintainers(updateErrorBuilder)
+      case SError.DamlEEmptyContractKeyMaintainers(tid, key) =>
+        builder.setUpdateEmptyContractKeyMaintainers(
+          proto.ScenarioError.EmptyContractKeyMaintainers.newBuilder
+            .setTemplateId(convertIdentifier(tid))
+            .setKey(convertValue(key))
+        )
 
       case SError.ScenarioErrorContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScenarioContractNotEffective(

@@ -33,6 +33,7 @@ import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{EitherValues, Matchers, WordSpec}
+import org.scalatest.Inside._
 import scalaz.std.either._
 import scalaz.syntax.apply._
 
@@ -1392,8 +1393,10 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
-      inside (result) {
-        case Left(err) =>  err.msg should include("Update failed due to a contract key with an empty sey of maintainers")
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            "Update failed due to a contract key with an empty sey of maintainers")
       }
     }
   }
@@ -1659,7 +1662,7 @@ class EngineTest
       err.msg should include("precondition violation")
     }
 
-    "crash if uses a key with an empty set of maintainers" in {
+    "not be create if has an empty set of maintainer" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
       val createArg =
@@ -1683,11 +1686,12 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
-      result shouldBe 'left
-      val Left(err) = result
-      err.msg should include("Update failed due to a contract key with an empty sey of maintainers")
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            "Update failed due to a contract key with an empty sey of maintainers")
+      }
     }
-
   }
 
   "Engine#submit" should {

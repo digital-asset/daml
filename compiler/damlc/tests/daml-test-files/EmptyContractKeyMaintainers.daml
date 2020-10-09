@@ -1,6 +1,6 @@
--- @ERROR Attempt to operate on a contract key with an empty set of maintainers
--- @ERROR Attempt to operate on a contract key with an empty set of maintainers
-module AAEmptyContractKeyMaintainers where
+-- @ERROR Attempt to create or operate on a contract key with an empty set of maintainers
+-- @ERROR Attempt to create or operate on a contract key with an empty set of maintainers
+module EmptyContractKeyMaintainers where
 
 template NoMaintainer
   with

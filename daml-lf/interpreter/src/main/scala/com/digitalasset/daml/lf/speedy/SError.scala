@@ -75,7 +75,6 @@ object SError {
   final case class DamlEEmptyContractKeyMaintainers(
       templateId: TypeConName,
       key: Value[Nothing],
-      optLoc: Option[Location],
   ) extends SErrorDamlException
 
   /** Errors from scenario interpretation. */

@@ -231,8 +231,7 @@ prettyScenarioErrorError (Just err) =  do
         ]
     ScenarioErrorErrorUpdateEmptyContractKeyMaintainers ScenarioError_EmptyContractKeyMaintainers{..} ->
       pure $ vcat
-        [ "Attempt to operate on a contract key with an empty set of maintainers"
-        , "at" <-> prettyMayLocation world scenarioError_EmptyContractKeyMaintainersLocation
+        [ "Attempt to create or operate on a contract key with an empty set of maintainers"
         , label_ "Template:"
             $ prettyMay "<missing template id>"
                 (prettyDefName world)

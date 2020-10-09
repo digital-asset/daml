@@ -87,7 +87,7 @@ private[lf] object Pretty {
           actual,
         )
 
-      case DamlEEmptyContractKeyMaintainers(tid, arg, _) =>
+      case DamlEEmptyContractKeyMaintainers(tid, arg) =>
         text("Update failed due to a contract key with an empty sey of maintainers when creating") &
           prettyTypeConName(tid) &
           text("with") & prettyValue(true)(arg)
