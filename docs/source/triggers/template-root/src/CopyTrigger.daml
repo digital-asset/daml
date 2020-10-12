@@ -51,7 +51,7 @@ deriving instance Ord Copy
 copyTrigger : Trigger ()
 copyTrigger = Trigger
   { initialize = \_acs -> ()
-  , updateState = \_acs _message -> pure ()
+  , updateState = \_message -> pure ()
   , rule = copyRule
   , registeredTemplates = AllInDar
   , heartbeat = None
@@ -59,13 +59,13 @@ copyTrigger = Trigger
 -- TRIGGER_END
 
 -- RULE_SIGNATURE_BEGIN
-copyRule : Party -> ACS -> () -> TriggerA ()
-copyRule party acs () = do
+copyRule : Party -> () -> TriggerA ()
+copyRule party () = do
 -- RULE_SIGNATURE_END
 -- ACS_QUERY_BEGIN
-  let subscribers : [(ContractId Subscriber, Subscriber)] = getContracts @Subscriber acs
-  let originals : [(ContractId Original, Original)] = getContracts @Original acs
-  let copies : [(ContractId Copy, Copy)] = getContracts @Copy acs
+  subscribers : [(ContractId Subscriber, Subscriber)] <- query @Subscriber
+  originals : [(ContractId Original, Original)] <- query @Original
+  copies : [(ContractId Copy, Copy)] <- query @Copy
 -- ACS_QUERY_END
 
 -- ACS_FILTER_BEGIN

@@ -36,15 +36,15 @@ template Done
 booTrigger : Trigger ()
 booTrigger = Trigger with
   initialize = \acs -> ()
-  updateState = \acs _ -> pure ()
+  updateState = \_ -> pure ()
   rule = booRule
   registeredTemplates = AllInDar
   heartbeat = None
 
-booRule : Party -> ACS -> () -> TriggerA ()
-booRule party acs _userState = do
-  let foos : [(ContractId Foo, Foo)] = getContracts @Foo acs
-  let boos : [(ContractId Boo, Boo)] = getContracts @Boo acs
+booRule : Party -> () -> TriggerA ()
+booRule party _userState = do
+  foos : [(ContractId Foo, Foo)] <- query @Foo
+  boos : [(ContractId Boo, Boo)] <- query @Boo
   case (boos, foos) of
     ([], []) -> do
       -- initialization so we don’t have to create contracts from Scala
