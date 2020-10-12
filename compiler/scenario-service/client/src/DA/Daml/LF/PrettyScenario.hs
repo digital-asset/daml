@@ -229,16 +229,33 @@ prettyScenarioErrorError (Just err) =  do
                   (prettyContractRef world)
                   scenarioError_ContractNotActiveContractRef
         ]
-    ScenarioErrorErrorUpdateEmptyContractKeyMaintainers ScenarioError_EmptyContractKeyMaintainers{..} ->
-      pure $
-        "Attempt to create a contract key with an empty set of maintainers in:"
-          $$ nest 2
+    ScenarioErrorErrorCreateEmptyContractKeyMaintainers ScenarioError_CreateEmptyContractKeyMaintainers{..} ->
+      pure $ vcat
+        [ "Attempt to create a contract key with an empty set of maintainers:"
+        , nest 2
           (   "create"
-          <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_EmptyContractKeyMaintainersTemplateId
+          <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_CreateEmptyContractKeyMaintainersTemplateId
           $$ (   keyword_ "with"
-              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' False 0 world) scenarioError_EmptyContractKeyMaintainersArg)
+              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' False 0 world) scenarioError_CreateEmptyContractKeyMaintainersArg)
              )
           )
+        , label_ "Key: "
+          $ prettyMay "<missing key>"
+              (prettyValue' False 0 world)
+              scenarioError_CreateEmptyContractKeyMaintainersKey
+        ]
+    ScenarioErrorErrorFetchEmptyContractKeyMaintainers ScenarioError_FetchEmptyContractKeyMaintainers{..} ->
+      pure $ vcat
+        [ "Attempt to fetch or lookup a contract key with an empty set of maintainers"
+        , label_ "Template:"
+            $ prettyMay "<missing template id>"
+                (prettyDefName world)
+                scenarioError_FetchEmptyContractKeyMaintainersTemplateId
+        , label_ "Key: "
+            $ prettyMay "<missing key>"
+                (prettyValue' False 0 world)
+                scenarioError_FetchEmptyContractKeyMaintainersKey
+        ]
     ScenarioErrorErrorScenarioContractNotActive ScenarioError_ContractNotActive{..} -> do
       pure $ vcat
         [ "Attempt to exercise a consumed contract"

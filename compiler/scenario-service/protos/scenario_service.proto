@@ -165,11 +165,16 @@ message ScenarioError {
     Location location = 3;
   }
 
-  message EmptyContractKeyMaintainers {
+  message CreateEmptyContractKeyMaintainers {
     Identifier template_id = 1;
     Value arg = 2;
     Value key = 3;
   }
+
+   message FetchEmptyContractKeyMaintainers {
+      Identifier template_id = 1;
+      Value key = 2;
+    }
 
   message ContractNotActive {
     ContractRef contract_ref = 1;
@@ -236,17 +241,18 @@ message ScenarioError {
     // Errors related to update interpretation.
     TemplatePreconditionViolated template_precond_violated = 14;
     ContractNotActive update_local_contract_not_active = 15;
-    EmptyContractKeyMaintainers update_empty_contract_key_maintainers = 16;
+    CreateEmptyContractKeyMaintainers create_empty_contract_key_maintainers = 16;
+    FetchEmptyContractKeyMaintainers fetch_empty_contract_key_maintainers = 17;
 
     // Errors related to scenario interpretation
-    ContractNotEffective scenario_contract_not_effective = 17;
-    ContractNotActive scenario_contract_not_active = 18;
-    ContractNotVisible scenario_contract_not_visible = 19;
-    CommitError scenario_commit_error = 20;
-    Empty scenario_mustfail_succeeded = 21;
-    string scenario_invalid_party_name = 22;
-    ContractKeyNotVisible scenario_contract_key_not_visible = 23;
-    string scenario_party_already_exists = 24;
+    ContractNotEffective scenario_contract_not_effective = 18;
+    ContractNotActive scenario_contract_not_active = 19;
+    ContractNotVisible scenario_contract_not_visible = 20;
+    CommitError scenario_commit_error = 21;
+    Empty scenario_mustfail_succeeded = 22;
+    string scenario_invalid_party_name = 23;
+    ContractKeyNotVisible scenario_contract_key_not_visible = 24;
+    string scenario_party_already_exists = 25;
   }
 }
 

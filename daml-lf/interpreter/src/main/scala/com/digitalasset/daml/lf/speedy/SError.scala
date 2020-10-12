@@ -71,10 +71,16 @@ object SError {
       reason: String,
   ) extends SErrorDamlException
 
-  /** A create with a contract key without maintainers */
-  final case class DamlEEmptyContractKeyMaintainers(
+  /** A create a contract key without maintainers */
+  final case class DamlECreateEmptyContractKeyMaintainers(
       templateId: TypeConName,
       arg: Value[ContractId],
+      key: Value[Nothing],
+  ) extends SErrorDamlException
+
+  /** A fetch or lookup a contract key without maintainers */
+  final case class DamlEFetchEmptyContractKeyMaintainers(
+      templateId: TypeConName,
       key: Value[Nothing],
   ) extends SErrorDamlException
 
