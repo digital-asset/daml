@@ -70,7 +70,7 @@ object Request {
     *
     * @param redirectUri Redirect target after the login flow completed. I.e. the original request URI on the trigger service.
     * @param claims Required ledger claims.
-    * @param state State that will forwarded to the callback URI after authentication and authorization.
+    * @param state State that will be forwarded to the callback URI after authentication and authorization.
     */
   case class Login(redirectUri: Uri, claims: Claims, state: Option[String]) {
     def toQuery: Uri.Query = {
