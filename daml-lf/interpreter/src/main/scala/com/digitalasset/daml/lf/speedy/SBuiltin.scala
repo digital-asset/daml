@@ -1148,6 +1148,8 @@ private[lf] object SBuiltin {
         onLedger: OnLedger
     ): Unit = {
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      if (keyWithMaintainers.maintainers.isEmpty)
+        throw DamlEFetchEmptyContractKeyMaintainers(templateId, keyWithMaintainers.key)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {

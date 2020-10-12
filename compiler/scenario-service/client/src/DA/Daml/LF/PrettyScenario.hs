@@ -246,7 +246,7 @@ prettyScenarioErrorError (Just err) =  do
         ]
     ScenarioErrorErrorFetchEmptyContractKeyMaintainers ScenarioError_FetchEmptyContractKeyMaintainers{..} ->
       pure $ vcat
-        [ "Attempt to fetch or lookup a contract key with an empty set of maintainers"
+        [ "Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers"
         , label_ "Template:"
             $ prettyMay "<missing template id>"
                 (prettyDefName world)

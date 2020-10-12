@@ -677,6 +677,80 @@ class EngineTest
     }
   }
 
+  "exercise-by-key" should {
+    val seed = hash("exercise-by-key")
+
+    val now = Time.Timestamp.now
+
+    "crash if use a contract key with an empty set of maintainers" in {
+      val templateId =
+        Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
+
+      val cmds = ImmArray(
+        speedy.Command.ExerciseByKey(
+          templateId = templateId,
+          contractKey = SParty(alice),
+          choiceId = ChoiceName.assertFromString("Noop"),
+          argument = SValue.SUnit,
+        )
+      )
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+          globalCids = Set.empty,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            "Update failed due to a contract key with an empty sey of maintainers")
+      }
+    }
+  }
+
+  "fecth-by-key" should {
+    val seed = hash("fetch-by-key")
+
+    val now = Time.Timestamp.now
+
+    "crash if use a contract key with an empty set of maintainers" in {
+      val templateId =
+        Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
+
+      val cmds = ImmArray(
+        speedy.Command.FetchByKey(
+          templateId = templateId,
+          key = SParty(alice),
+        )
+      )
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+          globalCids = Set.empty,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            "Update failed due to a contract key with an empty sey of maintainers")
+      }
+    }
+  }
+
   "create-and-exercise command" should {
     val submissionSeed = hash("create-and-exercise command")
     val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")

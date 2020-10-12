@@ -598,3 +598,8 @@ template NoMaintainer
     signatory sig
     key sig : Party
     maintainer [] @Party
+
+    nonconsuming choice Noop: ()
+      controller sig
+      do
+        pure ()

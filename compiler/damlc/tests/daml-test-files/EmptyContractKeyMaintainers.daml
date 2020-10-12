@@ -1,5 +1,6 @@
 -- @ERROR Attempt to create a contract key with an empty set of maintainers
--- @ERROR Attempt to fetch or lookup a contract key with an empty set of maintainers
+-- @ERROR Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
 module EmptyContractKeyMaintainers where
 
 template NoMaintainer
@@ -17,8 +18,13 @@ createNoMaintainer = scenario do
   pure ()
 
 lookupNoMaintainer = scenario do
- alice <- getParty "Alice"
+  alice <- getParty "Alice"
 
- submit alice $ lookupByKey @NoMaintainer alice
- pure ()
+  submit alice $ lookupByKey @NoMaintainer alice
+  pure ()
 
+fetchNoMaintainer = scenario do
+  alice <- getParty "Alice"
+
+  submit alice $ fetchByKey @NoMaintainer alice
+  pure ()
