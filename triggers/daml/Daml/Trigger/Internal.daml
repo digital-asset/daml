@@ -88,8 +88,9 @@ instance ActionState s (TriggerStateA s) where
 
 -- | Features possible in both `updateState` and `rule`.
 class ActionTriggerUpdate m where
-  -- | Extract the contracts of a given template from the ACS.
-  query : Template a => m [(ContractId a, a)]
+  -- | Extract the contracts of a given template from the ACS.  (However, the
+  -- type parameters are in the 'm a' order, so it is not exported.)
+  implQuery : forall a. Template a => m [(ContractId a, a)]
 
 -- Internal API
 
