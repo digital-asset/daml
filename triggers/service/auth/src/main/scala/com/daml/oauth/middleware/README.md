@@ -51,7 +51,6 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
       context.accessToken[namespace] = {
         // NOTE change the ledger ID to match your deployment.
         "ledgerId": "2D105384-CE61-4CCC-8E0E-37248BA935A3",
-        "applicationId": context.clientName,
         "actAs": actAs,
         "readAs": readAs,
         "admin": admin
