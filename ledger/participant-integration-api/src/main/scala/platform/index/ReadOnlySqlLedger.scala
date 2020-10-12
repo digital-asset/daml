@@ -62,6 +62,9 @@ private[platform] object ReadOnlySqlLedger {
         loggingContext: LoggingContext,
     ): Future[LedgerId] = {
       val predicate: PartialFunction[Throwable, Boolean] = {
+        // If the index database schema is not yet fully created, querying for the
+        // ledger ID will throw SQL errors.
+        case _: java.sql.SQLNonTransientException => true
         case _: LedgerIdNotFoundException => true
         case _: MismatchException.LedgerId => false
         case _ => false

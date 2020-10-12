@@ -120,27 +120,37 @@ final class Runner[T <: ReadWriteService, Extra](
             )
             _ <- Resource.fromFuture(
               Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
-            _ <- new StandaloneIndexerServer(
-              readService = readService,
-              config = factory.indexerConfig(participantConfig, config),
-              metrics = metrics,
-              lfValueTranslationCache = lfValueTranslationCache,
-            ).acquire()
-            _ <- new StandaloneApiServer(
-              ledgerId = config.ledgerId,
-              config = factory.apiServerConfig(participantConfig, config),
-              commandConfig = factory.commandConfig(participantConfig, config),
-              partyConfig = factory.partyConfig(config),
-              ledgerConfig = factory.ledgerConfig(config),
-              optWriteService = Some(writeService),
-              authService = factory.authService(config),
-              healthChecks = healthChecks,
-              metrics = metrics,
-              timeServiceBackend = factory.timeServiceBackend(config),
-              otherInterceptors = factory.interceptors(config),
-              engine = sharedEngine,
-              lfValueTranslationCache = lfValueTranslationCache,
-            ).acquire()
+            _ <- participantConfig.mode match {
+              case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
+                new StandaloneIndexerServer(
+                  readService = readService,
+                  config = factory.indexerConfig(participantConfig, config),
+                  metrics = metrics,
+                  lfValueTranslationCache = lfValueTranslationCache,
+                ).acquire()
+              case ParticipantRunMode.LedgerApiServer =>
+                Resource.unit
+            }
+            _ <- participantConfig.mode match {
+              case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
+                new StandaloneApiServer(
+                  ledgerId = config.ledgerId,
+                  config = factory.apiServerConfig(participantConfig, config),
+                  commandConfig = factory.commandConfig(participantConfig, config),
+                  partyConfig = factory.partyConfig(config),
+                  ledgerConfig = factory.ledgerConfig(config),
+                  optWriteService = Some(writeService),
+                  authService = factory.authService(config),
+                  healthChecks = healthChecks,
+                  metrics = metrics,
+                  timeServiceBackend = factory.timeServiceBackend(config),
+                  otherInterceptors = factory.interceptors(config),
+                  engine = sharedEngine,
+                  lfValueTranslationCache = lfValueTranslationCache,
+                ).acquire()
+              case ParticipantRunMode.Indexer =>
+                Resource.unit
+            }
           } yield ()
         })
       } yield ()

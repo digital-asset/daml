@@ -93,12 +93,21 @@ object Config {
 
       opt[Map[String, String]]("participant")
         .unbounded()
-        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, management-service-timeout]")
+        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, management-service-timeout, run-mode, shard-name]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
           val address = kv.get("address")
           val portFile = kv.get("port-file").map(new File(_).toPath)
+          val runMode: ParticipantRunMode = kv.get("run-mode") match {
+            case None => ParticipantRunMode.Combined
+            case Some("combined") => ParticipantRunMode.Combined
+            case Some("indexer") => ParticipantRunMode.Indexer
+            case Some("ledger-api-server") => ParticipantRunMode.LedgerApiServer
+            case Some(unknownMode) =>
+              throw new RuntimeException(
+                s"$unknownMode is not a valid run mode. Valid modes are: combined, indexer, ledger-api-server. Default mode is combined.")
+          }
           val jdbcUrl =
             kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
           val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
@@ -106,8 +115,11 @@ object Config {
             .get("management-service-timeout")
             .map(Duration.parse)
             .getOrElse(ParticipantConfig.defaultManagementServiceTimeout)
+          val shardName = kv.get("shard-name")
           val partConfig = ParticipantConfig(
+            runMode,
             participantId,
+            shardName,
             address,
             port,
             portFile,
@@ -118,6 +130,7 @@ object Config {
           )
           config.copy(participants = config.participants :+ partConfig)
         })
+
       opt[String]("ledger-id")
         .optional()
         .text("The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
@@ -218,6 +231,24 @@ object Config {
                   Mode.DumpIndexMetadata(jdbcUrls :+ jdbcUrl)
               }))
         }
+
+      checkConfig(c => {
+        val participantsIdsWithNonUniqueShardNames = c.participants
+          .map(pc => pc.participantId -> pc.shardName)
+          .groupBy(_._1)
+          .map { case (k, v) => (k, v.map(_._2)) }
+          .filter { case (_, v) => v.length != v.distinct.length }
+          .keys
+        if (participantsIdsWithNonUniqueShardNames.nonEmpty)
+          failure(
+            participantsIdsWithNonUniqueShardNames.mkString(
+              "The following participant IDs are duplicate, but the individual shards don't have unique names: ",
+              ",",
+              ". Use the optional 'shard-name' key when specifying horizontally scaled participants."
+            ))
+        else
+          success
+      })
 
       help("help").text(s"$name as a service.")
     }
