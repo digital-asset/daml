@@ -1825,6 +1825,106 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
         withCurrentDirectory (tmpDir </> "proj") $
             callProcessSilent damlc ["build"]
 
+    , testCaseSteps "Simple default methods" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test checks that simple default methods work in data-dependencies.
+        step "building project with type definition"
+        createDirectoryIfMissing True (tmpDir </> "type")
+        writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: type"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "type" </> "P1.daml") $ unlines
+            [ "module P1 where"
+            , "class Foo t where"
+            , "    foo : t -> Int"
+            , "    foo _ = 42"
+            ]
+        withCurrentDirectory (tmpDir </> "type") $
+            callProcessSilent damlc ["build", "-o", "type.dar"]
+
+        step "building project that uses it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "type" </> "type.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "P2.daml") $ unlines
+            [ "module P2 where"
+            , "import P1"
+            , "data M = M"
+            , "instance Foo M"
+            , "useFoo : Int"
+            , "useFoo = foo M"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
+
+    , testCaseSteps "Using default method signatures" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test checks that simple default methods work in data-dependencies.
+        step "building project with type definition"
+        createDirectoryIfMissing True (tmpDir </> "type")
+        writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: type"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "type" </> "P1.daml") $ unlines
+            [ "module P1 where"
+            , "class Foo t where"
+            , "    foo : t -> Text"
+            , "    default foo : Show t => t -> Text"
+            , "    foo x = show x"
+
+            , "    bar : Action m => t -> m Text"
+            , "    default bar : (Show t, Action m) => t -> m Text"
+            , "    bar x = pure (show x)"
+
+            , "    baz : (Action m, Show y) => t -> y -> m Text"
+            , "    default baz : (Show t, Action m, Show y) => t -> y -> m Text"
+            , "    baz x y = pure (show x <> show y)"
+            ]
+        withCurrentDirectory (tmpDir </> "type") $
+            callProcessSilent damlc ["build", "-o", "type.dar"]
+
+        step "building project that uses it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "type" </> "type.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "P2.daml") $ unlines
+            [ "module P2 where"
+            , "import P1"
+            , "data M = M deriving Show"
+            , "instance Foo M"
+
+            , "useFoo : Text"
+            , "useFoo = foo M"
+
+            , "useBar : Update Text"
+            , "useBar = bar M"
+
+            , "useBaz : (Action m, Show t) => t -> m Text"
+            , "useBaz = baz M"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
+
     , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
         step "building project with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")
