@@ -8,5 +8,5 @@ module DA.Time.Types
   ) where
 
 -- | The `RelTime` type describes a time offset, i.e. relative time.
-newtype RelTime =
+newtype RelTime = -- | HIDE
   RelTime with microseconds : Int
