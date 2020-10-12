@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE EmptyCase #-}
-
+-- @WARN Modules compiled with the EmptyCase language extension might not work properly with data-dependencies.
 
 module Generics where
 

@@ -259,6 +259,14 @@ instance Binary   GetDlintDiagnostics
 
 type instance RuleResult GetDlintDiagnostics = ()
 
+data GetDataDependableDiagnostics = GetDataDependableDiagnostics
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GetDataDependableDiagnostics
+instance NFData   GetDataDependableDiagnostics
+instance Binary   GetDataDependableDiagnostics
+
+type instance RuleResult GetDataDependableDiagnostics = ()
+
 data GenerateDocTestModule = GenerateDocTestModule
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GenerateDocTestModule

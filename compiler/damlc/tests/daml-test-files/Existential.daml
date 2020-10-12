@@ -3,8 +3,8 @@
 
 {-# LANGUAGE ExistentialQuantification #-}
 
+-- @WARN Modules compiled with the ExistentialQuantification language extension might not work properly with data-dependencies.
 -- @ ERROR range=15:0-15:6; Pattern match with existential type.
--- @ TODO Existential quantification
 
 
 module Existential where

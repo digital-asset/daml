@@ -10,6 +10,7 @@ import TcIface (typecheckIface)
 import LoadIface (readIface)
 import TidyPgm
 import DynFlags
+import qualified EnumSet as ES
 import SrcLoc
 import qualified GHC
 import qualified Module as GHC
@@ -61,6 +62,7 @@ import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env, doesFileExist)
 import "ghc-lib" GHC hiding (typecheckModule, Succeeded)
+import "ghc-lib-parser" GHC.LanguageExtensions.Type
 import "ghc-lib-parser" Module (stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
 import System.Environment
@@ -976,7 +978,8 @@ ofInterestRule opts = do
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
         let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
-        _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
+        let dataDependableActions = map (use_ GetDataDependableDiagnostics) files
+        _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions <> dataDependableActions
         return ()
   where
       gc :: HashSet.HashSet NormalizedFilePath -> Action ()
@@ -1159,6 +1162,37 @@ getDlintDiagnosticsRule =
             , _tags = Nothing
       })
 
+getDataDependableDiagnosticsRule :: Rules ()
+getDataDependableDiagnosticsRule =
+    define $ \GetDataDependableDiagnostics file -> do
+        pm <- use_ GetParsedModule file
+        let exts = ES.toList (extensionFlags (ms_hspp_opts (pm_mod_summary pm)))
+        let badExts = filter (`Set.notMember` dataDependableExtensions) exts
+        pure (map (diagnostic file) badExts, Just ())
+  where
+    diagnostic :: NormalizedFilePath -> Extension -> FileDiagnostic
+    diagnostic file ext =
+        let diag = LSP.Diagnostic
+                { _range = range
+                , _severity = Just LSP.DsWarning
+                , _code = Nothing
+                , _source = Just "compiler"
+                , _message = T.unwords
+                    [ "Modules compiled with the", T.show ext, "language extension"
+                    , "might not work properly with data-dependencies."
+                    , "\nThis might stop the whole package from being extensible"
+                    , "or upgradable using another versions of the SDK."
+                    , "\nPlease use this language extension at your own risk."
+                    ]
+                , _relatedInformation = Nothing
+                , _tags = Nothing
+                }
+        in (file, ShowDiag, diag)
+    -- FIXME: We need to find the proper location of the language pragma,
+    -- which is unfortunately not contained in the `ParsedModule`.
+    range :: LSP.Range
+    range = LSP.Range (LSP.Position 0 0) (LSP.Position 0 1000000)
+
 --
 scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scenariosInModule m =
@@ -1228,6 +1262,7 @@ damlRule opts = do
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
+    getDataDependableDiagnosticsRule
     encodeModuleRule opts
     createScenarioContextRule
     getOpenVirtualResourcesRule
