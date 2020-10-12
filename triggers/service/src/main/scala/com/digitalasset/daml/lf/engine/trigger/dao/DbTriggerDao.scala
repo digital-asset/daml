@@ -143,7 +143,7 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
       triggerInstance: UUID,
       party: String,
       fullTriggerName: String): Either[String, RunningTrigger] = {
-    // TODO[AH] Handle triggerToken field.
+    // TODO[AH] Persist the access and refresh token.
     Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, Tag(party), None))
   }
 
