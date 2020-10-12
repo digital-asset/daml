@@ -70,9 +70,17 @@ object Request {
     *
     * @param redirectUri Redirect target after the login flow completed. I.e. the original request URI on the trigger service.
     * @param claims Required ledger claims.
+    * @param state State that will forwarded to the callback URI after authentication and authorization.
     */
-  case class Login(redirectUri: Uri, claims: Claims) {
-    def toQuery: Uri.Query = Uri.Query("redirect_uri" -> redirectUri.toString, "claims" -> claims.toQueryString())
+  case class Login(redirectUri: Uri, claims: Claims, state: Option[String]) {
+    def toQuery: Uri.Query = {
+      var params = Seq(
+        "redirect_uri" -> redirectUri.toString,
+        "claims" -> claims.toQueryString(),
+      )
+      state.foreach(x => params ++= Seq("state" -> x))
+      Uri.Query(params: _*)
+    }
   }
 
 }

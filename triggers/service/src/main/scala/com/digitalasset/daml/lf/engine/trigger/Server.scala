@@ -11,7 +11,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.Uri.{Path, Query}
+import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.{Directive, Directive1}
 import akka.http.scaladsl.server.Directives._
@@ -206,9 +206,13 @@ class Server(
               val uri = authUri
                 .withPath(Path./("login"))
                 .withQuery(AuthRequest.Login(
-                  // TODO[AH] Add state parameter to Login request
-                  ctx.request.uri.withPath(Path./("cb")).withQuery(Query(("state" -> requestId.toString))),
+                  // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
+                  Uri()
+                    .withScheme(ctx.request.uri.scheme)
+                    .withAuthority(ctx.request.uri.authority)
+                    .withPath(Path./("cb")),
                   claims,
+                  Some(requestId.toString),
                 ).toQuery)
               ctx.redirect(uri, StatusCodes.Found)
             case statusCode =>
