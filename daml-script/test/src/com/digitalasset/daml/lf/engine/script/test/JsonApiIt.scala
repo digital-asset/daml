@@ -30,7 +30,6 @@ import com.daml.lf.engine.script.{
   Runner,
   ScriptLedgerClient,
   ScriptTimeMode,
-  Party => ScriptParty
 }
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -38,6 +37,7 @@ import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpService
 import com.daml.jwt.{JwtSigner, HMAC256Verifier}
@@ -194,7 +194,7 @@ final class JsonApiIt
         httpPort,
         Some(getToken(defaultParty.toList, true)),
         applicationId)
-    val partyMap = parties.map(p => (ScriptParty(p), Participant(p))).toMap
+    val partyMap = parties.map(p => (Party.assertFromString(p), Participant(p))).toMap
     val participantMap = parties
       .map(
         p =>
@@ -207,6 +207,18 @@ final class JsonApiIt
               applicationId)))
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
+    Runner.jsonClients(participantParams, envIface)
+  }
+
+  private def getMultiPartyClients(
+      parties: List[String],
+      applicationId: Option[ApplicationId] = None,
+      envIface: EnvironmentInterface = envIface) = {
+    // We give the default participant some nonsense party so the checks for party mismatch fail
+    // due to the mismatch and not because the token does not allow inferring a party
+    val defaultParticipant =
+      ApiParameters("http://localhost", httpPort, Some(getToken(parties, true)), applicationId)
+    val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
     Runner.jsonClients(participantParams, envIface)
   }
 
@@ -266,7 +278,7 @@ final class JsonApiIt
             Some(JsString("Bob"))))
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command as Bob but token is only valid for Alice")
+          exception.getMessage === "Tried to submit a command as Bob but token provides claims for Alice")
       }
     }
     "application id mismatch" in {
@@ -294,7 +306,7 @@ final class JsonApiIt
             QualifiedName.assertFromString("ScriptTest:jsonQuery"),
             Some(JsString("Bob"))))
       } yield {
-        assert(exception.getMessage === "Tried to query as Bob but token is only valid for Alice")
+        assert(exception.getMessage === "Tried to query as Bob but token provides claims for Alice")
       }
     }
     "submit with no party fails" in {
@@ -304,7 +316,7 @@ final class JsonApiIt
           run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreate")))
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command as Alice but token does not provide a unique party identifier")
+          exception.getMessage === "Tried to submit a command as Alice but token contains no parties.")
       }
     }
     "submit fails on assertion failure" in {
@@ -380,6 +392,31 @@ final class JsonApiIt
           inputValue = Some(JsString(party)))
       } yield {
         assert(result == SUnit)
+      }
+    }
+    "multiPartyQuery" in {
+      // fresh parties to avoid key collisions with other tests
+      val party0 = "jsonMultiPartyQuery0"
+      val party1 = "jsonMultiPartyQuery1"
+      // We need to call DAML script twice since we need per-party tokens for the creates
+      // and a single token for the query.
+      for {
+        clients <- getClients(parties = List(party0, party1))
+        cids <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:multiPartyQueryCreate"),
+          inputValue = Some(JsArray(JsString(party0), JsString(party1))))
+        multiClients <- getMultiPartyClients(parties = List(party0, party1))
+        cids <- run(
+          multiClients,
+          QualifiedName.assertFromString("ScriptTest:multiPartyQueryQuery"),
+          inputValue = Some(
+            JsArray(
+              JsArray(JsString(party0), JsString(party1)),
+              ApiCodecCompressed.apiValueToJsValue(cids.toValue.mapContractId(_.coid))))
+        )
+      } yield {
+        assert(cids == SUnit)
       }
     }
   }

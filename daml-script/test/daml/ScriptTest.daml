@@ -270,6 +270,31 @@ testSetTime : Script (Time, Time) = do
   t1 <- getTime
   pure (t0, t1)
 
+testMultiPartyQueries : Script () = do
+  p0 <- allocateParty "p0"
+  p1 <- allocateParty "p1"
+  cids <- multiPartyQueryCreate (p0, p1)
+  multiPartyQueryQuery ((p0, p1), cids)
+
+multiPartyQueryCreate (p0, p1) = do
+  cid0 <- submit p0 $ createCmd (C p0 42)
+  cid1 <- submit p1 $ createCmd (C p1 23)
+  cidKey0 <- submit p0 $ createCmd (WithKey p0)
+  cidKey1 <- submit p1 $ createCmd (WithKey p1)
+  pure (cid0, cid1, cidKey0, cidKey1)
+
+multiPartyQueryQuery ((p0, p1), (cid0, cid1, cidKey0, cidKey1)) = do
+  r <- query @C [p0, p1]
+  sortOn (\(_, c) -> c.v) r === [(cid1, C p1 23), (cid0, C p0 42)]
+  Some r <- queryContractId @C [p0, p1] cid0
+  r === C p0 42
+  Some r <- queryContractId @C [p0, p1] cid1
+  r === C p1 23
+  Some (r, _) <- queryContractKey @WithKey [p0, p1] p0
+  r === cidKey0
+  Some (r, _) <- queryContractKey @WithKey [p0, p1] p1
+  r === cidKey1
+
 testQueryContractId : Script () = do
   p <- allocateParty "p"
   jsonQueryContractId p

@@ -582,7 +582,44 @@ main =
                     , "  \"logClient1\"\n"
                     , "  \"logLedger\"\n"
                     , "  \"logClient2\""
+                    ],
+              testCase "multi-party query" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import DA.List"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with p : Party, v : Int"
+                    , "  where"
+                    , "    signatory p"
+                    , "    key p : Party"
+                    , "    maintainer key"
+                    , "test = do"
+                    , "  p0 <- allocateParty \"p0\""
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  cid0 <- submit p0 (createCmd (T p0 42))"
+                    , "  cid1 <- submit p1 (createCmd (T p1 23))"
+                    , "  r <- query @T p0"
+                    , "  r === [(cid0, T p0 42)]"
+                    , "  r <- query @T p1"
+                    , "  r === [(cid1, T p1 23)]"
+                    , "  r <- query @T [p0, p1]"
+                    , "  sortOn (\\(_, c) -> c.v) r === [(cid1, T p1 23), (cid0, T p0 42)]"
+                    , "  Some r <- queryContractId @T [p0, p1] cid0"
+                    , "  r === T p0 42"
+                    , "  Some r <- queryContractId @T [p0, p1] cid1"
+                    , "  r === T p1 23"
+                    , "  Some (r, _) <- queryContractKey @T [p0, p1] p0"
+                    , "  r === cid0"
+                    , "  Some (r, _) <- queryContractKey @T [p0, p1] p1"
+                    , "  r === cid1"
+                    , "  pure ()"
                     ]
+                expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:  #0:0, #1:0"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

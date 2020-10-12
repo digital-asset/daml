@@ -12,12 +12,13 @@ import com.typesafe.scalalogging.StrictLogging
 import java.time.Clock
 
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.{Applicative, Traverse, \/-}
+import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.map._
 import scalaz.std.scalaFuture._
+import scalaz.std.set._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 
@@ -47,13 +48,12 @@ import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.VersionTimeline
-import com.daml.script.converter.Converter.{toContractId, unrollFree, JavaList}
+import com.daml.script.converter.Converter.{JavaList, toContractId, unrollFree}
 import com.daml.script.converter.ConverterException
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
 case class Participant(participant: String)
-case class Party(party: String)
 case class ApiParameters(
     host: String,
     port: Int,
@@ -70,6 +70,21 @@ case class Participants[+T](
         default_participant.toRight(s"No participant for party $party and no default participant")
       case Some(participant) => getParticipant(Some(participant))
     }
+  def getPartiesParticipant(parties: OneAnd[Set, Party]): Either[String, T] = {
+    import scalaz.syntax.foldable._
+    for {
+      participants <- NonEmptyList[Party](parties.head, parties.tail.toList: _*)
+        .traverse(getPartyParticipant(_))
+      participant <- if (participants.all(_ == participants.head)) {
+        Right(participants.head)
+      } else {
+        Left(
+          s"All parties must be on the same participant but parties were allocated as follows: ${parties.toList
+            .zip(participants.toList)}")
+      }
+    } yield participant
+  }
+
   def getParticipant(participantOpt: Option[Participant]): Either[String, T] =
     participantOpt match {
       case None =>
@@ -110,10 +125,10 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
   }
   implicit object PartyFormat extends JsonFormat[Party] {
     def read(value: JsValue) = value match {
-      case JsString(s) => Party(s)
+      case JsString(s) => Party.fromString(s).fold(deserializationError(_), identity)
       case _ => deserializationError("Expected Party string")
     }
-    def write(p: Party) = JsString(p.party)
+    def write(p: Party) = JsString(p)
   }
   implicit val ContractIdFormat: JsonFormat[ContractId] =
     new JsonFormat[ContractId] {
@@ -411,7 +426,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       commands <- Converter.toFuture(Converter
                         .toCommands(extendedCompiledPackages, freeAp))
                       client <- Converter.toFuture(clients
-                        .getPartyParticipant(Party(party)))
+                        .getPartyParticipant(party))
                       commitLocation <- restVals.headOption cata (sLoc =>
                         Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
                       Future(None))
@@ -465,7 +480,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       commands <- Converter.toFuture(Converter
                         .toCommands(extendedCompiledPackages, freeAp))
                       client <- Converter.toFuture(clients
-                        .getPartyParticipant(Party(party)))
+                        .getPartyParticipant(party))
                       commitLocation <- restVals.headOption cata (sLoc =>
                         Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
                       Future(None))
@@ -482,15 +497,15 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 }
               case "Query" =>
                 m2c("record with 3 fields") {
-                  case SRecord(_, _, JavaList(sParty, sTplId, continue)) =>
+                  case SRecord(_, _, JavaList(sParties, sTplId, continue)) =>
                     for {
-                      party <- Converter.toFuture(Converter
-                        .toParty(sParty))
+                      parties <- Converter.toFuture(Converter
+                        .toParties(sParties))
                       tplId <- Converter.toFuture(Converter
                         .typeRepToIdentifier(sTplId))
                       client <- Converter.toFuture(clients
-                        .getPartyParticipant(Party(party)))
-                      acs <- client.query(party, tplId)
+                        .getPartiesParticipant(parties))
+                      acs <- client.query(parties, tplId)
                       res <- Converter.toFuture(
                         FrontStack(acs)
                           .traverse(Converter
@@ -529,10 +544,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                             // If no participant is specified, we use default_participant so we don’t need to change anything.
                           }
                           case Some(participant) =>
-                            clients =
-                              clients
-                                .copy(party_participants = clients.party_participants + (Party(
-                                  party) -> participant))
+                            clients = clients
+                              .copy(
+                                party_participants = clients.party_participants + (party -> participant))
                         }
                         run(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
                       }
@@ -624,11 +638,11 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 m2c("record with 4 fields") {
                   case SRecord(_, _, JavaList(sParty, sTplId, sCid, continue)) =>
                     for {
-                      party <- Converter.toFuture(Converter.toParty(sParty))
+                      parties <- Converter.toFuture(Converter.toParties(sParty))
                       tplId <- Converter.toFuture(Converter.typeRepToIdentifier(sTplId))
                       cid <- Converter.toFuture(toContractId(sCid))
-                      client <- Converter.toFuture(clients.getPartyParticipant(Party(party)))
-                      optR <- client.queryContractId(party, tplId, cid)
+                      client <- Converter.toFuture(clients.getPartyParticipant(parties.head))
+                      optR <- client.queryContractId(parties, tplId, cid)
                       optR <- Converter.toFuture(
                         optR.traverse(Converter.fromContract(valueTranslator, _)))
                       v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
@@ -636,13 +650,13 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                 }
               case "QueryContractKey" =>
                 m2c("record with 4 fields") {
-                  case SRecord(_, _, JavaList(sParty, sTplId, sKey, continue)) =>
+                  case SRecord(_, _, JavaList(sParties, sTplId, sKey, continue)) =>
                     for {
-                      party <- Converter.toFuture(Converter.toParty(sParty))
+                      parties <- Converter.toFuture(Converter.toParties(sParties))
                       tplId <- Converter.toFuture(Converter.typeRepToIdentifier(sTplId))
                       key <- Converter.toFuture(Converter.toAnyContractKey(sKey))
-                      client <- Converter.toFuture(clients.getPartyParticipant(Party(party)))
-                      optR <- client.queryContractKey(party, tplId, key.key)
+                      client <- Converter.toFuture(clients.getPartiesParticipant(parties))
+                      optR <- client.queryContractKey(parties, tplId, key.key)
                       optR <- Converter.toFuture(
                         optR.traverse(Converter.fromCreated(valueTranslator, _)))
                       v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))
