@@ -133,7 +133,7 @@ object Trigger extends StrictLogging {
       pkg <- compiledPackages
         .getPackage(triggerId.packageId)
         .toRight(s"Could not find package: ${triggerId.packageId}")
-      definition <- pkg.lookupIdentifier(triggerId.qualifiedName)
+      definition <- pkg.lookupDefinition(triggerId.qualifiedName)
       expr <- definition match {
         case DValue(TApp(TTyCon(tcon), stateTy), _, _, _) => detectTriggerType(tcon, stateTy)
         case DValue(ty, _, _, _) => Left(s"$ty is not a valid type for a trigger")
@@ -182,14 +182,8 @@ object Trigger extends StrictLogging {
           case (pkgId, pkg) =>
             pkg.modules.toList.flatMap({
               case (modName, module) =>
-                module.definitions.toList.flatMap({
-                  case (entityName, definition) =>
-                    definition match {
-                      case DDataType(_, _, DataRecord(_, Some(_))) =>
-                        Seq(toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName))))
-                      case _ => Seq()
-                    }
-                })
+                module.templates.keys.map(entityName =>
+                  toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName))))
             })
         })
         Right(Filters(Some(InclusiveFilters(templateIds))))

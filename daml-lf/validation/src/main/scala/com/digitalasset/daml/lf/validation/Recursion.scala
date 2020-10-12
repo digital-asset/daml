@@ -15,7 +15,7 @@ private[validation] object Recursion {
   @throws[ValidationError]
   def checkPackage(pkgId: PackageId, pkg: Package): Unit = {
     val g = pkg.modules.map {
-      case (name, mod) => name -> (mod.definitions.values.flatMap(modRefs(pkgId, _)).toSet - name)
+      case (name, mod) => name -> (modRefs(pkgId, mod).toSet - name)
     }
 
     Graphs.topoSort(g).left.foreach(cycle => throw EImportCycle(NoContext, cycle.vertices))
@@ -23,7 +23,7 @@ private[validation] object Recursion {
     pkg.modules.foreach { case (modName, mod) => checkModule(pkgId, modName, mod) }
   }
 
-  def modRefs(pkgId: PackageId, definition: Definition): Set[ModuleName] = {
+  def modRefs(pkgId: PackageId, module: Module): Set[ModuleName] = {
 
     val modRefsInType: Set[ModuleName] = {
 
@@ -36,10 +36,10 @@ private[validation] object Recursion {
           (TypeTraversable(otherwise) foldLeft acc)(modRefsInType)
       }
 
-      (TypeTraversable(definition) foldLeft Set.empty[ModuleName])(modRefsInType)
+      (TypeTraversable(module) foldLeft Set.empty[ModuleName])(modRefsInType)
     }
 
-    val modRefsInVal: Set[ModuleName] = {
+    val modRefsInExprs: Set[ModuleName] = {
 
       def modRefsInVal(acc: Set[ModuleName], expr0: Expr): Set[ModuleName] = expr0 match {
         case EVal(valRef) if valRef.packageId == pkgId =>
@@ -51,11 +51,11 @@ private[validation] object Recursion {
           (ExprTraversable(otherwise) foldLeft acc)(modRefsInVal)
       }
 
-      (ExprTraversable(definition) foldLeft Set.empty[ModuleName])(modRefsInVal)
+      (ExprTraversable(module) foldLeft Set.empty[ModuleName])(modRefsInVal)
 
     }
 
-    modRefsInType | modRefsInVal
+    modRefsInType | modRefsInExprs
 
   }
 

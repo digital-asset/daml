@@ -38,14 +38,10 @@ private[validation] object TypeSubst {
       .filterNot(fv.contains)(0)
 
   def substitute(subst: Map[TypeVarName, Type], dataCons: DataCons): DataCons = dataCons match {
-    case DataRecord(fields, _) =>
-      DataRecord(fields.transform { (_, x) =>
-        substitute(subst, x)
-      }, None)
+    case DataRecord(fields) =>
+      DataRecord(fields.transform((_, x) => substitute(subst, x)))
     case DataVariant(variants) =>
-      DataVariant(variants.transform { (_, x) =>
-        substitute(subst, x)
-      })
+      DataVariant(variants.transform((_, x) => substitute(subst, x)))
     case dEnum: DataEnum =>
       dEnum
   }

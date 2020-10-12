@@ -505,8 +505,7 @@ object Ast {
 
   // Data constructor in data type definition.
   sealed abstract class DataCons extends Product with Serializable
-  final case class DataRecord(fields: ImmArray[(FieldName, Type)], optTemplate: Option[Template])
-      extends DataCons
+  final case class DataRecord(fields: ImmArray[(FieldName, Type)]) extends DataCons
   final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons {
     lazy val constructorRank: Map[VariantConName, Int] =
       variants.iterator.map(_._1).zipWithIndex.toMap
@@ -598,6 +597,7 @@ object Ast {
   case class Module private (
       name: ModuleName,
       definitions: Map[DottedName, Definition],
+      templates: Map[DottedName, Template],
       featureFlags: FeatureFlags
   )
 
@@ -608,15 +608,8 @@ object Ast {
 
     def apply(
         name: ModuleName,
-        definitions: Traversable[(DottedName, Definition)],
-        featureFlags: FeatureFlags
-    ): Module =
-      Module(name, definitions, List.empty, featureFlags)
-
-    def apply(
-        name: ModuleName,
-        definitions: Traversable[(DottedName, Definition)],
-        templates: Traversable[(DottedName, Template)],
+        definitions: Iterable[(DottedName, Definition)],
+        templates: Iterable[(DottedName, Template)],
         featureFlags: FeatureFlags
     ): Module = {
 
@@ -624,24 +617,11 @@ object Ast {
         throw PackageError(s"Collision on definition name ${defName.toString}")
       }
 
-      val defsMap = definitions.toMap
-
       findDuplicate(templates).foreach { templName =>
         throw PackageError(s"Collision on template name ${templName.toString}")
       }
 
-      val updatedRecords = templates.map {
-        case (templName, template) =>
-          defsMap.get(templName) match {
-            case Some(DDataType(serializable, params, DataRecord(fields, _))) =>
-              templName -> DDataType(serializable, params, DataRecord(fields, Some(template)))
-            case _ =>
-              throw PackageError(
-                s"Data type definition not found for template ${templName.toString}")
-          }
-      }
-
-      new Module(name, defsMap ++ updatedRecords, featureFlags)
+      new Module(name, definitions.toMap, templates.toMap, featureFlags)
     }
   }
 
@@ -653,20 +633,18 @@ object Ast {
       languageVersion: LanguageVersion,
       metadata: Option[PackageMetadata],
   ) {
-    def lookupIdentifier(identifier: QualifiedName): Either[String, Definition] = {
-      this.modules.get(identifier.module) match {
-        case None =>
-          Left(
-            s"Could not find module ${identifier.module.toString} for name ${identifier.toString}")
-        case Some(module) =>
-          module.definitions.get(identifier.name) match {
-            case None =>
-              Left(
-                s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}")
-            case Some(defn) => Right(defn)
-          }
-      }
-    }
+    def lookupModule(modName: ModuleName): Either[String, Module] =
+      modules.get(modName).toRight(s"Could not find module ${modName.toString}")
+    def lookupDefinition(identifier: QualifiedName): Either[String, Definition] =
+      lookupModule(identifier.module).flatMap(_.definitions
+        .get(identifier.name)
+        .toRight(
+          s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"))
+    def lookupTemplate(identifier: QualifiedName): Either[String, Template] =
+      lookupModule(identifier.module).flatMap(_.templates
+        .get(identifier.name)
+        .toRight(
+          s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"))
   }
 
   object Package {

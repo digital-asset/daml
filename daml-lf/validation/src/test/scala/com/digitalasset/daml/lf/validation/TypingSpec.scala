@@ -643,6 +643,17 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           choices { }
         } ;
       }
+      
+      module PositiveTestCase11{
+         // template without data type
+         template (this : T) =  {
+          precondition True,
+          signatories Cons @Party ['Bob'] (Nil @Party),
+          observers Cons @Party ['Alice'] (Nil @Party),
+          agreement "Agreement",
+          choices { }
+        } ;
+      }
       """
 
       val typeMismatchCases = Table(
@@ -677,6 +688,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       checkModule(pkg, "PositiveTestCase6")
       an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
       an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
+      an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase11"))
     }
 
   }
