@@ -178,8 +178,16 @@ class Server(
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
     triggerLog.getOrDefault(uuid, Vector.empty)
 
+  // TODO[AH] Make sure this is bounded in size.
   private val authRequests: TrieMap[UUID, HttpRequest] = TrieMap()
 
+  // This directive requires authorization for the given claims via the auth middleware, if configured.
+  // If no auth middleware is configured, then the request will proceed without attempting authorization.
+  //
+  // Authorization follows the steps defined in `triggers/service/authentication.md`.
+  // First asking for a token on the `/auth` endpoint and redirecting to `/login` if none was returned.
+  // If a login is required then this will store the current request in `authRequests`
+  // and register a callback to proceed with the request once the login flow completed.
   private def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
       system: ActorSystem): Directive1[Option[String]] = Directive { inner => ctx =>
@@ -218,7 +226,6 @@ class Server(
             case statusCode =>
               Unmarshal(resp).to[String].flatMap { msg =>
                 logger.error(s"Failed to authorize with middleware ($statusCode): $msg")
-                // TODO[AH] Choose appropriate status code. Is this 401 or 500 or something else?
                 ctx.complete(
                   errorResponse(
                     StatusCodes.InternalServerError,
