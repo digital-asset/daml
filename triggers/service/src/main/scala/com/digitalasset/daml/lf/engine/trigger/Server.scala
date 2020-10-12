@@ -11,7 +11,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.{Directive, Directive1}
 import akka.http.scaladsl.server.Directives._
@@ -43,6 +43,8 @@ import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
 import com.daml.lf.data.Ref
+
+import scala.collection.concurrent.TrieMap
 
 class Server(
     authConfig: AuthConfig,
@@ -175,6 +177,8 @@ class Server(
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
     triggerLog.getOrDefault(uuid, Vector.empty)
 
+  private val authRequests: TrieMap[UUID, HttpRequest] = TrieMap()
+
   private def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
       system: ActorSystem): Directive1[Option[String]] = Directive { inner => ctx =>
@@ -196,10 +200,15 @@ class Server(
                 inner(Tuple1(Some(auth.accessToken)))(ctx)
               }
             case StatusCodes.Unauthorized =>
+              val requestId = UUID.randomUUID
+              authRequests.update(requestId, ctx.request)
               val uri = authUri
                 .withPath(Path./("login"))
-                // TODO[AH]: Define redirect URI
-                .withQuery(AuthRequest.Login(Uri("TODO"), claims).toQuery)
+                .withQuery(AuthRequest.Login(
+                  // TODO[AH] Add state parameter to Login request
+                  ctx.request.uri.withPath(Path./("cb")).withQuery(Query(("state" -> requestId.toString))),
+                  claims,
+                ).toQuery)
               ctx.redirect(uri, StatusCodes.Found)
             case statusCode =>
               Unmarshal(resp).to[String].flatMap { msg =>
@@ -212,6 +221,20 @@ class Server(
               }
           }
         } yield result
+    }
+  }
+
+  private def authCallback(requestId: UUID)(implicit ec: ExecutionContext, system: ActorSystem): Route = ctx => {
+    authRequests.remove(requestId) match {
+      case None => complete(StatusCodes.NotFound)(ctx)
+      case Some(req) =>
+        // Replay the stored request forwarding any new cookies.
+        val newRequest = req
+          .addHeader(headers.Cookie(cookies = ctx.request.cookies))
+        val newCtx = ctx
+          .withRequest(newRequest)
+          .withUnmatchedPath(newRequest.uri.path)
+        route(ec, system)(newCtx)
     }
   }
 
@@ -304,6 +327,12 @@ class Server(
           case Right(Some(stoppedTriggerId)) =>
             complete(successResponse(stoppedTriggerId))
         }
+      }
+    },
+    // Authorization callback endpoint
+    path("cb") {
+      get {
+        parameters('state.as[UUID]) { requestId => authCallback(requestId) }
       }
     },
   )
