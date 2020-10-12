@@ -31,7 +31,7 @@ object TriggerRunnerImpl {
       server: ActorRef[Message],
       triggerInstance: UUID,
       party: Party,
-      // TODO(SF, 2020-06-09): Add access token field here in the presence of authentication.
+      token: Option[String],
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
@@ -67,9 +67,7 @@ object TriggerRunnerImpl {
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
-        // TODO(SF, 2020-06-09): In the presence of an authorization
-        // service, get an access token and pass it through here!
-        token = None,
+        token = config.token,
         maxInboundMessageSize = config.ledgerConfig.maxInboundMessageSize,
       )
 

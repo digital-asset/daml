@@ -133,6 +133,7 @@ class Server(
             ctx.self,
             triggerInstance,
             party,
+            token,
             compiledPackages,
             trigger,
             ledgerConfig,
