@@ -77,7 +77,7 @@ class NodeSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
   )
 
   val someChoiceName = Ref.Name.assertFromString("aChoiceName")
-  val anotherChoideName = Ref.Name.assertFromString("anotherChoiceName")
+  val anotherChoiceName = Ref.Name.assertFromString("anotherChoiceName")
 
   val someLocation =
     Location(pkgId, Ref.ModuleName.assertFromString("Mode"), "someDef", (0, 0), (2, 10))
@@ -245,7 +245,7 @@ class NodeSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
           lookup,
           exercise.copy(targetCoid = anotherContractId),
           exercise.copy(templateId = AnotherTemplateTyCon),
-          exercise.copy(choiceId = anotherChoideName),
+          exercise.copy(choiceId = anotherChoiceName),
           exercise.copy(consuming = !exercise.consuming),
           exercise.copy(actingParties = aliceAndBob),
           exercise.copy(chosenValue = anotherValue),
@@ -297,7 +297,9 @@ class NodeSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
           lookup.copy(templateId = AnotherTemplateTyCon),
           lookup.copy(key = lookup.key.copy(key = anotherKey)),
           lookup.copy(key = lookup.key.copy(key = lookup.key.key.copy(version = v7))),
-          lookup.copy(key = lookup.key.copy(maintainers = aliceAndBob))
+          lookup.copy(key = lookup.key.copy(maintainers = aliceAndBob)),
+          lookup.copy(result = Some(anotherContractId)),
+          lookup.copy(result = None),
         )
 
       forEvery(rightTestCases)(Node.isReplayedBy(lookup, _) shouldBe true)
@@ -311,6 +313,7 @@ class NodeSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
           lookup,
           lookup.copy(optLocation = None),
           lookup.copy(optLocation = Some(anotherLocation)),
+          lookup.copy(result = None),
         )
 
       val leftTestCases =
