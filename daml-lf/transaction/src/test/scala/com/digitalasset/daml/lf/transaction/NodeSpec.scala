@@ -302,7 +302,15 @@ class NodeSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
           lookup.copy(result = None),
         )
 
-      forEvery(rightTestCases)(Node.isReplayedBy(lookup, _) shouldBe true)
+      val leftTestCases =
+        Table(
+          "recorded node",
+          lookup.copy(result = None)
+        )
+
+      forEvery(rightTestCases)(Node.isReplayedBy(lookup, _) shouldBe false)
+      forEvery(leftTestCases)(Node.isReplayedBy(_, lookup) shouldBe false)
+
     }
 
     "accept valid replay of a lookup node" in {
@@ -313,7 +321,6 @@ class NodeSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
           lookup,
           lookup.copy(optLocation = None),
           lookup.copy(optLocation = Some(anotherLocation)),
-          lookup.copy(result = None),
         )
 
       val leftTestCases =
