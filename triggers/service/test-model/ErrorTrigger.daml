@@ -4,15 +4,14 @@
 module ErrorTrigger where
 
 import Daml.Trigger
-import DA.Next.Map (Map)
 
 trigger : Trigger ()
 trigger = Trigger with
   initialize = \_ -> ()
-  updateState = \_ _ _ -> ()
+  updateState = \_ _ -> pure ()
   rule = triggerRule
   registeredTemplates = AllInDar
   heartbeat = None
 
-triggerRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
-triggerRule _ _ _ _ = error "Intentional error"
+triggerRule : Party -> ACS -> () -> TriggerA ()
+triggerRule _ _ _ = error "Intentional error"

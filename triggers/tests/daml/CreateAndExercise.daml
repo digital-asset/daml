@@ -4,13 +4,12 @@
 
 module CreateAndExercise where
 
-import DA.Next.Map (Map)
 import Daml.Trigger
 
 createAndExerciseTrigger : Trigger ()
 createAndExerciseTrigger = Trigger
   { initialize = \_ -> ()
-  , updateState = \_ _ _ -> ()
+  , updateState = \_ _ -> pure ()
   , rule = createAndExerciseRule
   , registeredTemplates = AllInDar
   , heartbeat = None
@@ -18,9 +17,9 @@ createAndExerciseTrigger = Trigger
 
 -- Create a T template and immediately call choice C on it to create a
 -- U.
-createAndExerciseRule : Party -> ACS -> Map CommandId [Command] -> ()
+createAndExerciseRule : Party -> ACS -> ()
   -> TriggerA ()
-createAndExerciseRule party acs _ _
+createAndExerciseRule party acs _
   | [] <- getContracts @T acs = dedupCreateAndExercise (T { p = party }) (C {})
   | otherwise = pure ()
 

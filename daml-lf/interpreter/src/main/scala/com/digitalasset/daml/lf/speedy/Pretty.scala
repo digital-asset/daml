@@ -87,11 +87,17 @@ private[lf] object Pretty {
           actual,
         )
 
+      case DamlEEmptyContractKeyMaintainers(tid, arg, _) =>
+        text("Update failed due to a contract key with an empty sey of maintainers when creating") &
+          prettyTypeConName(tid) &
+          text("with") & prettyValue(true)(arg)
+
       case DamlEDisallowedInputValueVersion(VersionRange(expectedMin, expectedMax), actual) =>
         text("Update failed due to disallowed value version") /
           text("Expected value version between") & text(expectedMin.protoValue) &
           text("and") & text(expectedMax.protoValue) & text("but got") &
           text(actual.protoValue)
+
     }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..

@@ -27,7 +27,7 @@ import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
-import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
+import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
@@ -367,7 +367,7 @@ class WebSocketService(
         _.map {
           case (offPrefix, qq: Q.Query[q]) =>
             implicit val SQ: StreamQuery[q] = qq.alg
-            getTransactionSourceForParty[q](jwt, jwtPayload.party, offPrefix, qq.q: q)
+            getTransactionSourceForParty[q](jwt, jwtPayload.parties, offPrefix, qq.q: q)
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed]
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
@@ -389,7 +389,7 @@ class WebSocketService(
 
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
-      party: domain.Party,
+      parties: OneAnd[Set, domain.Party],
       offPrefix: Option[domain.StartingOffset],
       request: A): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
@@ -398,7 +398,7 @@ class WebSocketService(
 
     if (resolved.nonEmpty) {
       contractsService
-        .insertDeleteStepSource(jwt, party, resolved.toList, offPrefix, Terminates.Never)
+        .insertDeleteStepSource(jwt, parties, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .via(emitOffsetTicksAndFilterOutEmptySteps)
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))

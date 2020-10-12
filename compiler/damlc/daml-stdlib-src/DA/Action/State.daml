@@ -11,6 +11,8 @@ module DA.Action.State
   , modify
   ) where
 
+import DA.Action.State.Class
+
 -- | A value of type `State s a` represents a computation that has access to a state variable
 -- of type `s` and produces a value of type `a`.
 --
@@ -22,6 +24,15 @@ module DA.Action.State
 --
 -- >>> execState (modify (+1)) 0
 -- 1
+--
+-- >>> runState (do x <- get; modify (+1); pure x) 0
+-- (0, 1)
+--
+-- >>> runState (put 1) 0
+-- ((), 1)
+--
+-- >>> runState (modify (+1)) 0
+-- ((), 1)
 --
 -- Note that values of type `State s a` are not serializable.
 newtype State s a = State { runState : s -> (a, s) }
@@ -47,23 +58,7 @@ evalState a s = fst (runState a s)
 execState : State s a -> s -> s
 execState a s = snd (runState a s)
 
--- | Fetch the current value of the state variable.
---
--- >>> runState (do x <- get; modify (+1); pure x) 0
--- (0, 1)
-get : State s s
-get = State (\s -> (s, s))
-
--- | Set the value of the state variable.
---
--- >>> runState (put 1) 0
--- ((), 1)
-put : s -> State s ()
-put s = State (\_ -> ((), s))
-
--- | Modify the state variable with the given function.
---
--- >>> runState (modify (+1)) 0
--- ((), 1)
-modify : (s -> s) -> State s ()
-modify f = State (\s -> ((), f s))
+instance ActionState s (State s) where
+  get = State (\s -> (s, s))
+  put s = State (\_ -> ((), s))
+  modify f = State (\s -> ((), f s))

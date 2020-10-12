@@ -6,7 +6,6 @@ module UpgradeTrigger where
 import DA.Assert
 import DA.Foldable
 import qualified DA.Next.Map as Map
-import DA.Next.Map (Map)
 import Daml.Trigger
 import Daml.Trigger.Assert
 import qualified Daml.Script as Script
@@ -19,15 +18,15 @@ import UpgradeFromCoinV1
 upgradeTrigger : Trigger ()
 upgradeTrigger = Trigger with
   initialize = \_acs -> ()
-  updateState = \_acs _msg () -> ()
+  updateState = \_acs _msg -> pure ()
   registeredTemplates = AllInDar
   heartbeat = None
   rule = triggerRule
 -- TRIGGER_BOILERPLATE_END
 
 -- TRIGGER_RULE_BEGIN
-triggerRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
-triggerRule issuer acs _ _ = do
+triggerRule : Party -> ACS -> () -> TriggerA ()
+triggerRule issuer acs _ = do
   let agreements =
         filter (\(_cid, agreement) -> agreement.issuer == issuer) $
         getContracts @UpgradeCoinAgreement acs

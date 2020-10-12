@@ -108,7 +108,7 @@ jobs:
               echo "Baseline no longer valid, needs manual correction." > "$OUT"
           fi
 
-          save_gcp_data "$GCRED" "$OUT" gs://daml-data/perf/speedy/$START.json
+          gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
 
         displayName: measure perf
         env:
@@ -169,7 +169,7 @@ jobs:
 
           tar -zcvf ${OUT}.tgz ${OUT}
 
-          save_gcp_data "$GCRED" "$OUT.tgz" "gs://daml-data/perf/http-json/${REPORT_ID}.tgz"
+          gcs "$GCRED" cp "$OUT.tgz" "gs://daml-data/perf/http-json/${REPORT_ID}.tgz"
 
         displayName: measure http-json performance
         env:
@@ -192,7 +192,7 @@ jobs:
           eval "$(dev-env/bin/dade assist)"
 
           bazel build //ci/cron:cron
-          bazel-bin/ci/cron/cron check --bash-lib $(bash_lib)
+          bazel-bin/ci/cron/cron check --bash-lib $(bash_lib) --gcp-creds "$GCRED"
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

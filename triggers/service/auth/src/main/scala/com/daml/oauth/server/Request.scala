@@ -21,7 +21,8 @@ object Request {
       clientId: String,
       redirectUri: Uri, // optional in oauth but we require it
       scope: Option[String],
-      state: Option[String]) {
+      state: Option[String],
+      audience: Option[Uri]) { // required by auth0 to obtain an access_token
     def toQuery: Query = {
       var params: Seq[(String, String)] =
         Seq(
@@ -33,6 +34,9 @@ object Request {
       }
       state.foreach { state =>
         params ++= Seq(("state", state))
+      }
+      audience.foreach { audience =>
+        params ++= Seq(("audience", audience.toString))
       }
       Query(params: _*)
     }
@@ -54,7 +58,7 @@ object Request {
           "code" -> token.code,
           "redirect_uri" -> token.redirectUri.toString,
           "client_id" -> token.clientId,
-          "client_secret" -> token.clientSecret
+          "client_secret" -> token.clientSecret,
         )
       }
     implicit val unmarshalHttpEntity: Unmarshaller[HttpEntity, Token] =
@@ -64,7 +68,7 @@ object Request {
           code = form.fields.get("code").get,
           redirectUri = form.fields.get("redirect_uri").get,
           clientId = form.fields.get("client_id").get,
-          clientSecret = form.fields.get("client_secret").get
+          clientSecret = form.fields.get("client_secret").get,
         )
       }
   }

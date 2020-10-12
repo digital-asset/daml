@@ -176,7 +176,7 @@ installBundledExtension pathToVsix = do
     when (exitCode /= ExitSuccess) $ do
         hPutStr stderr . unlines $
            [ err
-           , "Failed to install DAML Studio extension from SDK bundle."
+           , "Failed to install DAML Studio extension from current SDK."
            , "Please open an issue on GitHub with the above message."
            , "https://github.com/digital-asset/daml/issues/new?template=bug_report.md"
            ]

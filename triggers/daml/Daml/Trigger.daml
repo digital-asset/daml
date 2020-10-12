@@ -9,6 +9,10 @@ module Daml.Trigger
  , getTemplates
  , Trigger(..)
  , TriggerA
+ , TriggerStateA
+ , get
+ , put
+ , modify
  , emitCommands
  , runTrigger
  , CommandId
@@ -24,6 +28,7 @@ module Daml.Trigger
  , dedupCreate
  , dedupExerciseByKey
  , dedupCreateAndExercise
+ , getCommandsInFlight
  , Message(..)
  , Completion(..)
  , Transaction(..)
@@ -34,6 +39,8 @@ module Daml.Trigger
  ) where
 
 import DA.Action
+import DA.Action.State (execState)
+import DA.Functor ((<&>))
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import qualified DA.Map as GMap
 #endif
@@ -69,10 +76,11 @@ getContracts (ACS tpls pending) = mapOptional fromAny
 data Trigger s = Trigger
   { initialize : ACS -> s
   -- ^ Initialize the user-defined state based on the ACS.
-  , updateState : ACS -> Message -> s -> s
-  -- ^ Update the user-defined state based on the ACS and a transaction or
-  -- completion message.
-  , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
+  , updateState : ACS -> Message -> TriggerStateA s ()
+  -- ^ Update the user-defined state based on the ACS and a transaction
+  -- or completion message.  It can manipulate the state with `get`,
+  -- `put`, and `modify`.
+  , rule : Party -> ACS -> s -> TriggerA ()
   -- ^ The rule defines the main logic of your trigger. It can send commands
   -- to the ledger using `emitCommands` to change the ACS.
   -- The rule depends on the following arguments:
@@ -95,10 +103,10 @@ data Trigger s = Trigger
 -- a failing completion.
 emitCommands : [Command] -> [AnyContractId] -> TriggerA CommandId
 emitCommands cmds pending = do
-  id <- submitCommands cmds
+  id <- TriggerA $ submitCommands cmds
   let commands = Commands id cmds
   TriggerA $ modify $ \s -> s
-    { emittedCommands = commands :: s.emittedCommands
+    { commandsInFlight = addCommands s.commandsInFlight commands
     , pendingContracts = Map.insert id pending s.pendingContracts
     }
   pure id
@@ -115,7 +123,7 @@ dedupCreate t = do
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
-  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
   unless (any ((Some t ==) . fromCreate) cmds) $
     void $ emitCommands [createCmd t] []
 
@@ -133,7 +141,7 @@ dedupCreateAndExercise t c = do
   -- commands in flight.  We probably want to change this to express
   -- the commands in flight as some kind of map to make these lookups
   -- cheaper.
-  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
   unless (any ((Some (t, c) ==) . fromCreateAndExercise) cmds) $
     void $ emitCommands [createAndExerciseCmd t c] []
 
@@ -152,7 +160,7 @@ dedupExercise cid c = do
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
-  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
   unless (any ((Some (cid, c) ==) . fromExercise) cmds) $
     void $ emitCommands [exerciseCmd cid c] []
 
@@ -168,9 +176,17 @@ dedupExerciseByKey k c = do
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
-  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
+
+-- | Retrieve command submissions made by this trigger that have not yet
+-- completed.  If the trigger has restarted, it will not contain
+-- commands from before the restart; therefore, this should be treated
+-- as an optimization rather than an absolute authority on ledger state.
+getCommandsInFlight : TriggerA (Map CommandId [Command])
+getCommandsInFlight = do
+  TriggerA $ get <&> \s -> s.commandsInFlight
 
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
@@ -186,12 +202,13 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
+    utUpdateState acs msg = execState $ runTriggerStateA $ userTrigger.updateState acs msg
     update msg = do
       time <- getTime
       state <- get
       case msg of
         MCompletion completion ->
-          let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
+          let userState = utUpdateState state.acs (MCompletion completion) state.userState
           in case completion.status of
             Succeeded {} ->
               -- We delete successful completions when we receive the corresponding transaction
@@ -204,7 +221,7 @@ runTrigger userTrigger = LowLevel.Trigger
                 runRule userTrigger.rule
         MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
-              userState = userTrigger.updateState acs (MTransaction transaction) state.userState
+              userState = utUpdateState acs (MTransaction transaction) state.userState
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
@@ -212,6 +229,6 @@ runTrigger userTrigger = LowLevel.Trigger
           put $ state { acs = acs', userState, commandsInFlight }
           runRule userTrigger.rule
         MHeartbeat -> do
-          let userState = userTrigger.updateState state.acs MHeartbeat state.userState
+          let userState = utUpdateState state.acs MHeartbeat state.userState
           put $ state { userState }
           runRule userTrigger.rule

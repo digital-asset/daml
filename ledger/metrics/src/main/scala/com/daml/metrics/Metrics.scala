@@ -42,6 +42,8 @@ final class Metrics(val registry: MetricRegistry) {
         registry.counter(Prefix :+ party :+ "input_buffer_length")
       def inputBufferCapacity(party: String): Counter =
         registry.counter(Prefix :+ party :+ "input_buffer_capacity")
+      def inputBufferDelay(party: String): Timer =
+        registry.timer(Prefix :+ party :+ "input_buffer_delay")
       def maxInFlightLength(party: String): Counter =
         registry.counter(Prefix :+ party :+ "max_in_flight_length")
       def maxInFlightCapacity(party: String): Counter =
@@ -117,6 +119,7 @@ final class Metrics(val registry: MetricRegistry) {
         object packageUpload {
           private val Prefix: MetricName = committer.Prefix :+ "package_upload"
 
+          val validateTimer: Timer = registry.timer(Prefix :+ "validate_timer")
           val preloadTimer: Timer = registry.timer(Prefix :+ "preload_timer")
           val decodeTimer: Timer = registry.timer(Prefix :+ "decode_timer")
           val accepts: Counter = registry.counter(Prefix :+ "accepts")

@@ -68,16 +68,11 @@ This completes the workflow for messaging in our app.
 Running the New Feature
 =======================
 
-We need to terminate the previous ``daml start`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start`` again we will
+Navigate to the terminal window where the ``daml start`` process is running and press 'r'. This will
 
   - Compile our DAML code into a *DAR file containing the new feature*
-  - Generate a JavaScript library under ``ui/daml.js`` to connect the UI with your DAML code
-  - Run a fresh instance of the *Sandbox with the new DAR file*
-  - Start the HTTP JSON API
-
-First, navigate to the terminal window where the ``daml start`` process is running and terminate the active process by hitting ``Ctrl-C``.
-This shuts down the previous instances of the sandbox.
-Then in the root ``create-daml-app`` folder run ``daml start``.
+  - Update the JavaScript library under ``ui/daml.js`` to connect the UI with your DAML code
+  - Upload the *new DAR file* to the sandbox
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an
 in-memory store, which means it loses its state when stopped or restarted. That means that all user

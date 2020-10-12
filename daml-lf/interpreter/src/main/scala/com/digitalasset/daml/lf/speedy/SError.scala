@@ -71,6 +71,13 @@ object SError {
       reason: String,
   ) extends SErrorDamlException
 
+  /** A create with a contract key without maintainers */
+  final case class DamlEEmptyContractKeyMaintainers(
+      templateId: TypeConName,
+      arg: Value[ContractId],
+      key: Value[Nothing],
+  ) extends SErrorDamlException
+
   /** Errors from scenario interpretation. */
   sealed trait SErrorScenario extends SError
 

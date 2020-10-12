@@ -29,12 +29,13 @@ steps:
         jq -n --arg message "$message" '{"text": $message}' \
          | curl -XPOST -i -H 'Content-Type: application/json' -d @- $channel
     }
-    save_gcp_data() {
-        local restore_trap cred local_file remote_path key cleanup
+    gcs() {
+        local args cleanup cmd cred key restore_trap ret
+        ret=1
 
         cred="$1"
-        local_file="$2"
-        remote_path="$3"
+        cmd="$2"
+        args=(${@:3})
 
         key=$(mktemp)
         # There may already be a trap; this will save it
@@ -44,10 +45,12 @@ steps:
         echo "$cred" > $key
         gcloud auth activate-service-account --key-file=$key
 
-        BOTO_CONFIG=/dev/null gsutil cp "$local_file" "$remote_path"
+        BOTO_CONFIG=/dev/null gsutil $cmd "${args[@]}"
+        ret=$?
         eval "$cleanup"
         trap - EXIT
         eval "$restore_trap"
+        return $ret
     }
     gpg_verify() {
         local key gpg_dir signature_file res

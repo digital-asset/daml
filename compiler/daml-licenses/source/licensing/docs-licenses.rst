@@ -3,10 +3,10 @@
 
 .. _sdk_docs_licenses:
 
-DAML SDK Documentation Third-Party Software Notices
+DAML Connect Documentation Third-Party Software Notices
 -------------------------------------------------------------------------
 
-DAML SDK Documentation includes components from the projects listed below.
+DAML Connect Documentation includes components from the projects listed below.
 Digital Asset relicenses these components under its Software License terms,
 except that components licensed under terms requiring that such components
 remain under their original license are being made available to you by Digital

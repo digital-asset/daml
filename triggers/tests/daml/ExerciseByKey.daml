@@ -4,25 +4,23 @@
 
 module ExerciseByKey where
 
-import DA.Next.Map (Map)
-
 import Daml.Trigger
 
 exerciseByKeyTrigger : Trigger Int
 exerciseByKeyTrigger = Trigger
   { initialize = \_acs -> 3
-  , updateState = \_acs msg allowedFail -> case msg of
+  , updateState = \_acs msg -> case msg of
       MCompletion c
-        | Failed {} <- c.status -> allowedFail - 1
-      _ -> allowedFail
+        | Failed {} <- c.status -> modify (subtract 1)
+      _ -> pure ()
   , rule = retryRule
   , registeredTemplates = AllInDar
   , heartbeat = None
   }
 
 -- Create one T template and then call a choice by key to create T_.
-retryRule : Party -> ACS -> Map CommandId [Command] -> Int -> TriggerA ()
-retryRule party acs commandsInFlight allowedRetries
+retryRule : Party -> ACS -> Int -> TriggerA ()
+retryRule party acs allowedRetries
   | [] <- getContracts @T acs = do
     dedupCreate T { p = party }
   | ((_, T { p = party' } ) :: _) <- getContracts @T acs
