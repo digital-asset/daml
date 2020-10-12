@@ -21,12 +21,22 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import com.daml.oauth.middleware.{JsonProtocol => AuthJsonProtocol, Request => AuthRequest, Response => AuthResponse}
+import com.daml.oauth.middleware.{
+  JsonProtocol => AuthJsonProtocol,
+  Request => AuthRequest,
+  Response => AuthResponse
+}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
+import com.daml.lf.engine.{
+  ConcurrentCompiledPackages,
+  MutableCompiledPackages,
+  Result,
+  ResultDone,
+  ResultNeedPackage
+}
 import com.daml.lf.engine.trigger.dao._
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.lf.engine.trigger.Response._
@@ -213,15 +223,18 @@ class Server(
               authRequests.update(requestId, ctx.request)
               val uri = authUri
                 .withPath(Path./("login"))
-                .withQuery(AuthRequest.Login(
-                  // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
-                  Uri()
-                    .withScheme(ctx.request.uri.scheme)
-                    .withAuthority(ctx.request.uri.authority)
-                    .withPath(Path./("cb")),
-                  claims,
-                  Some(requestId.toString),
-                ).toQuery)
+                .withQuery(
+                  AuthRequest
+                    .Login(
+                      // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
+                      Uri()
+                        .withScheme(ctx.request.uri.scheme)
+                        .withAuthority(ctx.request.uri.authority)
+                        .withPath(Path./("cb")),
+                      claims,
+                      Some(requestId.toString),
+                    )
+                    .toQuery)
               ctx.redirect(uri, StatusCodes.Found)
             case statusCode =>
               Unmarshal(resp).to[String].flatMap { msg =>
@@ -236,7 +249,8 @@ class Server(
     }
   }
 
-  private def authCallback(requestId: UUID)(implicit ec: ExecutionContext, system: ActorSystem): Route = ctx => {
+  private def authCallback(
+      requestId: UUID)(implicit ec: ExecutionContext, system: ActorSystem): Route = ctx => {
     authRequests.remove(requestId) match {
       case None => complete(StatusCodes.NotFound)(ctx)
       case Some(req) =>
@@ -259,7 +273,8 @@ class Server(
         path("v1" / "start") {
           entity(as[StartParams]) {
             params =>
-              val claims = AuthRequest.Claims(actAs = List(Ref.Party.assertFromString(params.party.toString)))
+              val claims =
+                AuthRequest.Claims(actAs = List(Ref.Party.assertFromString(params.party.toString)))
               // TODO[AH] Why do we need to pass ec, system explicitly?
               authorize(claims)(ec, system) { token =>
                 startTrigger(params.party, params.triggerName, token) match {
@@ -344,7 +359,9 @@ class Server(
     // Authorization callback endpoint
     path("cb") {
       get {
-        parameters('state.as[UUID]) { requestId => authCallback(requestId) }
+        parameters('state.as[UUID]) { requestId =>
+          authCallback(requestId)
+        }
       }
     },
   )
