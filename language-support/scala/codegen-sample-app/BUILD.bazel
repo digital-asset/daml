@@ -70,7 +70,9 @@ da_scala_library(
     deps = [
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
-        "@maven//:com_github_ghik_silencer_lib_2_12_12",
+        # silencer warns if this is absent, but we don't use it here;
+        # buildozer errors if you add it
+        # "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
