@@ -47,7 +47,7 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app",
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = [
@@ -70,7 +70,7 @@ da_scala_library(
     deps = [
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

@@ -69,7 +69,7 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
     ],
     scalacopts = lf_scalacopts + ["-P:silencer:checkUnused"],
     deps = [
@@ -82,7 +82,7 @@ da_scala_test(
         "//daml-lf/transaction-test-lib",
         "//libs-scala/scalatest-utils",
         "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",

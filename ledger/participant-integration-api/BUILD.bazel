@@ -67,7 +67,7 @@ da_scala_library(
     name = "participant-integration-api",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
     ],
     resources =
         glob(
@@ -82,14 +82,14 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = runtime_deps,
-    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
+    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_12"],
 )
 
 da_scala_library(
     name = "ledger-api-server",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
     ],
     resources =
         glob(
@@ -103,7 +103,7 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = runtime_deps,
-    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
+    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_12"],
 )
 
 da_scala_library(
@@ -235,7 +235,7 @@ scaladoc_jar(
     ],
     doctitle = "DAML participant integration API",
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
     ],
     root_content = "rootdoc.txt",
     scalacopts = ["-P:silencer:checkUnused"],

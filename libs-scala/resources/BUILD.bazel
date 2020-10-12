@@ -31,7 +31,7 @@ da_scala_test_suite(
     name = "resources-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
     ],
     scalacopts = [
         "-P:silencer:checkUnused",
@@ -39,6 +39,6 @@ da_scala_test_suite(
     deps = [
         ":resources",
         ":resources-test-lib",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_github_ghik_silencer_lib_2_12_12",
     ],
 )

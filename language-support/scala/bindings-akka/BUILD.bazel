@@ -11,7 +11,7 @@ da_scala_library(
     name = "bindings-akka",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     resources = glob(["src/main/resources/**/*"]),
@@ -52,7 +52,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:com_github_pureconfig_pureconfig_2_12",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -75,7 +75,7 @@ da_scala_test_suite(
         ],
     ),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
     ],
     scalacopts = [
         "-P:silencer:checkUnused",
@@ -92,7 +92,7 @@ da_scala_test_suite(
         "//language-support/scala/bindings-akka-testing",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-client",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

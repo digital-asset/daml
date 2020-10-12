@@ -162,7 +162,7 @@ da_scala_test(
         "//ledger/test-common/test-certificates",
     ],
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     resources = glob(["src/it/resources/**/*"]),
@@ -186,7 +186,7 @@ da_scala_test(
         "//libs-scala/postgresql-testing",
         "//libs-scala/scala-utils",
         "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
