@@ -8,7 +8,6 @@ import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.resources.ResourceContext._
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
@@ -17,12 +16,13 @@ import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events.LfValueTranslation
 import scalaz.Tag
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object IndexMetadata {
 
   def read(jdbcUrl: String)(
       implicit resourceContext: ResourceContext,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =
     ownDao(jdbcUrl).use { dao =>

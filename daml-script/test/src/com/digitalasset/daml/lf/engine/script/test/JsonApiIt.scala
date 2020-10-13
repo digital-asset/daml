@@ -24,7 +24,6 @@ import com.daml.ledger.api.testing.utils.{
   Resource => TestResource
 }
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.resources.ResourceContext._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref._

@@ -3,7 +3,6 @@
 
 package com.daml.platform.store
 
-import com.daml.ledger.resources.ResourceContext._
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.ServerRole
@@ -24,7 +23,7 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
 
   def validate()(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
-      Future {
+      Future.successful {
         val flyway = configurationBase(dbType).dataSource(ds).load()
         logger.info("Running Flyway validation...")
         flyway.validate()
@@ -35,7 +34,7 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
   def migrate(allowExistingSchema: Boolean = false)(
       implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
-      Future {
+      Future.successful {
         val flyway = configurationBase(dbType)
           .dataSource(ds)
           .baselineOnMigrate(allowExistingSchema)
@@ -49,7 +48,7 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
 
   def reset()(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
-      Future {
+      Future.successful {
         val flyway = configurationBase(dbType).dataSource(ds).load()
         logger.info("Running Flyway clean...")
         flyway.clean()

@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.resources.ResourceContext._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -50,14 +49,14 @@ object JdbcIndexer {
         implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
       new FlywayMigrations(config.jdbcUrl)
         .validate()
-        .map(_ => initialized())
+        .map(_ => initialized())(resourceContext.executionContext)
 
     def migrateSchema(
         allowExistingSchema: Boolean,
     )(implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
       new FlywayMigrations(config.jdbcUrl)
         .migrate(allowExistingSchema)
-        .map(_ => initialized())
+        .map(_ => initialized())(resourceContext.executionContext)
 
     def resetSchema(): Future[ResourceOwner[JdbcIndexer]] =
       Future.successful(for {
@@ -130,7 +129,7 @@ object JdbcIndexer {
             case retrievedLedgerId =>
               Future.failed(new common.MismatchException.ParticipantId(retrievedLedgerId, id))
           }
-        )
+        )(resourceContext.executionContext)
     }
 
   }

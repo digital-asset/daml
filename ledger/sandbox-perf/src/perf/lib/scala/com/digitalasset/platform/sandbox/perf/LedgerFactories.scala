@@ -4,10 +4,10 @@
 package com.daml.platform.sandbox.perf
 
 import java.io.File
+import java.util.concurrent.Executors
 
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
-import com.daml.ledger.resources.ResourceContext._
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
@@ -18,6 +18,8 @@ import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.services.time.TimeProviderType.Static
 import com.daml.ports.Port
 import com.daml.testing.postgresql.PostgresResource
+
+import scala.concurrent.ExecutionContext
 
 object LedgerFactories {
 
@@ -42,6 +44,7 @@ object LedgerFactories {
       darFiles: List[File],
   )(implicit resourceContext: ResourceContext): Resource[LedgerContext] = new OwnedResource(
     for {
+      executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
       jdbcUrl <- store match {
         case `mem` =>
           ResourceOwner.successful(None)
@@ -50,6 +53,8 @@ object LedgerFactories {
       }
       server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
       channel <- GrpcClientResource.owner(server.port)
-    } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))
+    } yield
+      new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
+        ExecutionContext.fromExecutorService(executor))
   )
 }

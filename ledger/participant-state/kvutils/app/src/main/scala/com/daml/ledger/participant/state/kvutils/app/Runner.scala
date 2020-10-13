@@ -13,7 +13,6 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
-import com.daml.ledger.resources.ResourceContext._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
@@ -53,21 +52,23 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def dumpIndexMetadata(jdbcUrls: Seq[String])(
-      implicit resourceContext: ResourceContext): Unit = {
+      implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
-    for (jdbcUrl <- jdbcUrls) {
-      newLoggingContext("jdbcUrl" -> jdbcUrl) { implicit loggingContext: LoggingContext =>
-        IndexMetadata.read(jdbcUrl).onComplete {
-          case Failure(exception) =>
-            logger.error("Error while retrieving the index metadata", exception)
-          case Success(metadata) =>
-            logger.warn(s"ledger_id: ${metadata.ledgerId}")
-            logger.warn(s"participant_id: ${metadata.participantId}")
-            logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
-            logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
-        }
+    import ExecutionContext.Implicits.global
+    Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
+      newLoggingContext("jdbcUrl" -> jdbcUrl) {
+        implicit loggingContext: LoggingContext =>
+          Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
+            case Failure(exception) =>
+              logger.error("Error while retrieving the index metadata", exception)
+            case Success(metadata) =>
+              logger.warn(s"ledger_id: ${metadata.ledgerId}")
+              logger.warn(s"participant_id: ${metadata.participantId}")
+              logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
+              logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
+          })
       }
-    }
+    })
   }
 
   private def run(config: Config[Extra])(
@@ -115,8 +116,8 @@ final class Runner[T <: ReadWriteService, Extra](
               "read" -> readService,
               "write" -> writeService,
             )
-            _ <- Resource.fromFuture(
-              Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
+            _ <- Resource.sequence(config.archiveFiles.map(path =>
+              Resource.fromFuture(uploadDar(path, writeService)(resourceContext.executionContext))))
             _ <- participantConfig.mode match {
               case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                 new StandaloneIndexerServer(

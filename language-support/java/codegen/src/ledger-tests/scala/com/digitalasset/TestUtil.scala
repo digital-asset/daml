@@ -20,7 +20,6 @@ import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.resources.ResourceContext._
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
@@ -55,7 +54,7 @@ object TestUtil {
       server <- SandboxServer.owner(config)
       channel <- GrpcClientResource.owner(server.port)
     } yield channel
-    channelOwner.use(channel => Future(testCode(channel)))
+    channelOwner.use(channel => Future(testCode(channel))(resourceContext.executionContext))
   }
 
   // unfortunately this is needed to help with passing functions to rxjava methods like Flowable#map
