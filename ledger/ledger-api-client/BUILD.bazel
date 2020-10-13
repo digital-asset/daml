@@ -38,7 +38,7 @@ da_scala_test_suite(
     name = "ledger-api-client-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
     ],
     scalacopts = ["-P:silencer:checkUnused"],
     deps = [
@@ -48,7 +48,7 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger/caching",
         "//libs-scala/concurrent",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
+        "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
