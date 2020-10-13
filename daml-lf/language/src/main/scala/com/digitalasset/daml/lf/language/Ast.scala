@@ -437,6 +437,12 @@ object Ast {
       actorsE: Option[Expr],
       argE: Expr)
       extends Update
+  final case class UpdateExerciseByKey(
+      templateId: TypeConName,
+      choice: ChoiceName,
+      keyE: Expr,
+      argE: Expr,
+  ) extends Update
   case object UpdateGetTime extends Update
   final case class UpdateFetchByKey(rbk: RetrieveByKey) extends Update
   final case class UpdateLookupByKey(rbk: RetrieveByKey) extends Update

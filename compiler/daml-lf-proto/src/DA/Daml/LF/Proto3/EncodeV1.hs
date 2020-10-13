@@ -647,6 +647,12 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseActor <- traverse encodeExpr' exeActors
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
+    UExerciseByKey{..} -> do
+        update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
+        update_ExerciseByKeyChoiceInternedStr <-  allocString (T.pack (show exeChoice))
+        update_ExerciseByKeyKey <- encodeExpr exeKey
+        update_ExerciseByKeyArg <- encodeExpr exeArg
+        pure $ P.UpdateSumExerciseByKey P.Update_ExerciseByKey{..}
     UFetch{..} -> do
         update_FetchTemplate <- encodeQualTypeConName fetTemplate
         update_FetchCid <- encodeExpr fetContractId

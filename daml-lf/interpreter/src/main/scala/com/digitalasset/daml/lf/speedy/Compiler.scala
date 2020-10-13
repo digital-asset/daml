@@ -679,6 +679,8 @@ private[lf] final class Compiler(
           optActors = actorsE.map(compile),
           argument = compile(argE),
         )
+      case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
+        compileExerciseByKey(tmplId, compile(keyE), chId, compile(argE))
       case UpdateGetTime =>
         SEGetTime
       case UpdateLookupByKey(RetrieveByKey(templateId, key)) =>

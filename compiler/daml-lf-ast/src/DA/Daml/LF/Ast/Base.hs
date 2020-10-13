@@ -581,7 +581,7 @@ data Update
     , creArg      :: !Expr
       -- ^ Argument for the contract template.
     }
-  -- | Exercise choice on a cotract template instance.
+  -- | Exercise choice on a contract template instance.
   | UExercise
     { exeTemplate   :: !(Qualified TypeConName)
       -- ^ Qualified type constructor corresponding to the contract template.
@@ -591,6 +591,17 @@ data Update
       -- ^ Contract id of the contract template instance to exercise choice on.
     , exeActors     :: !(Maybe Expr)
       -- ^ Parties exercising the choice.
+    , exeArg        :: !Expr
+      -- ^ Argument for the choice.
+    }
+  -- | Exercise by key a choice on a contract template instance.
+  | UExerciseByKey
+    { exeTemplate   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , exeChoice     :: !ChoiceName
+      -- ^ Choice to exercise.
+    , exeKey        :: !Expr
+      -- ^ Key of the contract template instance to exercise choice on.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
     }

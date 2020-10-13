@@ -81,6 +81,9 @@ private[validation] object ExprTraversable {
         f(cid)
         actors.foreach(f)
         f(arg)
+      case UpdateExerciseByKey(templateId @ _, choice @ _, key, arg) =>
+        f(key)
+        f(arg)
       case UpdateGetTime =>
       case UpdateFetchByKey(rbk) =>
         f(rbk.key)

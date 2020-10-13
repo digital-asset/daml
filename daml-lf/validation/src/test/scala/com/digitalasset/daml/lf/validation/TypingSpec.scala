@@ -246,10 +246,12 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"Mod:T → (( Update (ContractId Mod:T) ))",
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
           T"ContractId Mod:T → Int64 → (( Update Decimal ))",
+        E"λ (e₁: Party) (e₂: Int64) → (( exerciseByKey @Mod:T Ch e₁ e₂ ))" ->
+          T"Party → Int64 → (( Update Decimal ))",
         E"λ (e: ContractId Mod:T) → (( fetch @Mod:T e ))" ->
           T"ContractId Mod:T → (( Update Mod:T ))",
-        E"fetch_by_key @Mod:T 'Bob'" ->
-          T"Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩)",
+        E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
+          T"Party → (⟨ Update contract: Mod:T, contractId: ContractId Mod:T ⟩)",
         E"lookup_by_key @Mod:T 'Bob'" ->
           T"Update (Option (ContractId Mod:T))",
         E"(( uget_time ))" ->
