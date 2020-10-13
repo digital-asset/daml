@@ -468,20 +468,21 @@ Arguments:
   doctitle: title for Scalaadoc's index.html. Typically the name of the library
 """
 
-def _create_scaladoc_jar(**kwargs):
+def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scalacopts = [], generated_srcs = [], silent_annotations = False, **kwargs):
     # Limit execution to Linux and MacOS
     if is_windows == False:
-        plugins = []
-        if "plugins" in kwargs:
-            plugins = kwargs["plugins"]
-
+        if silent_annotations:
+            # as with _wrap_rule
+            scalacopts = ["-P:silencer:checkUnused"] + scalacopts
+            plugins = [silencer_plugin] + plugins
+            deps = [silencer_lib] + deps
         scaladoc_jar(
-            name = kwargs["name"] + "_scaladoc",
-            deps = kwargs.get("deps", []),
+            name = name + "_scaladoc",
+            deps = deps,
             plugins = plugins,
-            srcs = kwargs["srcs"],
-            scalacopts = kwargs.get("scalacopts", []),
-            generated_srcs = kwargs.get("generated_srcs", []),
+            srcs = srcs,
+            scalacopts = scalacopts,
+            generated_srcs = generated_srcs,
             tags = ["scaladoc"],
         )
 
