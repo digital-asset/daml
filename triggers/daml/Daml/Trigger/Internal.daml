@@ -23,6 +23,7 @@ module Daml.Trigger.Internal
   ) where
 
 import DA.Action.State
+import DA.Functor ((<&>))
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
@@ -52,19 +53,23 @@ data ACS = ACS
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
-newtype TriggerA a = TriggerA { runTriggerA : ACS -> TriggerRule TriggerAState a }
+newtype TriggerA s a = TriggerA { runTriggerA : ACS -> TriggerRule (TriggerAState s) a }
 
-instance Functor TriggerA where
+instance Functor (TriggerA s) where
   fmap f (TriggerA r) = TriggerA $ rliftFmap fmap f r
 
-instance Applicative TriggerA where
+instance Applicative (TriggerA s) where
   pure = TriggerA . rliftPure pure
   TriggerA ff <*> TriggerA fa = TriggerA $ rliftAp (<*>) ff fa
 
-instance Action TriggerA where
+instance Action (TriggerA s) where
   TriggerA fa >>= f = TriggerA $ rliftBind (>>=) fa (runTriggerA . f)
 
-instance HasTime TriggerA where
+instance ActionState s (TriggerA s) where
+  get = TriggerA $ const (get <&> \tas -> tas.userState)
+  modify f = TriggerA . const . modify $ \tas -> tas { userState = f tas.userState }
+
+instance HasTime (TriggerA s) where
   getTime = TriggerA $ const getTime
 
 -- | TriggerUpdateA is the type used in the `updateState` of a DAML
@@ -150,28 +155,31 @@ applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
 runRule
-  : (Party -> s -> TriggerA ())
-  -> TriggerRule (TriggerState s) ()
+  : (Party -> TriggerA s a)
+  -> TriggerRule (TriggerState s) a
 runRule rule = do
   state <- get
   TriggerRule . zoom zoomIn zoomOut . runTriggerRule . flip runTriggerA state.acs
-      $ rule state.party state.userState
-  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts
+      $ rule state.party
+  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts state.userState
         zoomOut state aState =
           let commandsInFlight = aState.commandsInFlight
               acs = state.acs { pendingContracts = aState.pendingContracts }
-          in state { commandsInFlight, acs }
+              userState = aState.userState
+          in state { commandsInFlight, acs, userState }
 
-liftTriggerRule : TriggerRule TriggerAState a -> TriggerA a
+liftTriggerRule : TriggerRule (TriggerAState s) a -> TriggerA s a
 liftTriggerRule = TriggerA . const
 
-data TriggerAState = TriggerAState
+data TriggerAState s = TriggerAState
   { commandsInFlight : Map CommandId [Command]
   -- ^ Zoomed from TriggerState; used for dedupCreateCmd/dedupExerciseCmd
   -- helpers and extended by emitCommands.
   , pendingContracts : Map CommandId [AnyContractId]
   -- ^ Map from command ids to the contract ids marked pending by that command;
   -- zoomed from TriggerState's acs.
+  , userState : s
+  -- ^ zoomed from TriggerState
   }
 
 data TriggerState s = TriggerState
