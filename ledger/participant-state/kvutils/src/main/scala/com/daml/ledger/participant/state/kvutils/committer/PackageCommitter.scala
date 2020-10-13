@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
-import com.daml.lf.language.{Ast, Graphs}
+import com.daml.lf.language.Ast
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
@@ -260,17 +260,13 @@ final private[kvutils] class PackageCommitter(
 
   private[this] def uploadPackages(pkgs: Map[Ref.PackageId, Ast.Package]): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.preloadTimer.time { () =>
-      val errors = Graphs.topoSort(pkgs.transform((_, pkg) => pkg.directDeps)) match {
-        case Left(cycles) =>
-          List(s"cycle in package definitions: ${cycles.vertices.mkString(" -> ")}")
-        case Right(pkgIds) =>
-          pkgIds.iterator.flatMap { pkgId =>
-            engine
-              .preloadPackage(pkgId, pkgs(pkgId))
-              .consume(_ => None, _ => None, _ => None)
-              .fold(err => List(err.detailMsg), _ => List.empty)
-          }.toList
-      }
+      val errors = pkgs.flatMap {
+        case (pkgId, pkg) =>
+          engine
+            .preloadPackage(pkgId, pkg)
+            .consume(_ => None, pkgs.get, _ => None)
+            .fold(err => List(err.detailMsg), _ => List.empty)
+      }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
         engine.compiledPackages().packageIds.size)
       Either.cond(

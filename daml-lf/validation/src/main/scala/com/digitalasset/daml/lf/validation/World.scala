@@ -36,12 +36,8 @@ private[validation] class World(packages: PartialFunction[PackageId, Ast.Package
     }
 
   def lookupTemplate(ctx: => Context, name: TypeConName): Ast.Template =
-    lookupDataType(ctx, name) match {
-      case Ast.DDataType(_, _, Ast.DataRecord(_, Some(tmpl))) =>
-        tmpl
-      case _ =>
-        throw EUnknownDefinition(ctx, LETemplate(name))
-    }
+    lookupModule(ctx, name.packageId, name.qualifiedName.module).templates
+      .getOrElse(name.qualifiedName.name, throw EUnknownDefinition(ctx, LEDataType(name)))
 
   def lookupChoice(ctx: => Context, tmpName: TypeConName, chName: ChoiceName): Ast.TemplateChoice =
     lookupTemplate(ctx, tmpName).choices

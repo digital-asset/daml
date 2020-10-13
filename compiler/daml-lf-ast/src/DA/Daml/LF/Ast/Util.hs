@@ -193,6 +193,10 @@ pattern TConApp tcon targs <- (view (leftSpine _TApp) -> (TCon tcon, targs))
   where
     TConApp tcon targs = foldl TApp (TCon tcon) targs
 
+pattern TForalls :: [(TypeVarName, Kind)] -> Type -> Type
+pattern TForalls binders ty <- (view _TForalls -> (binders, ty))
+  where TForalls binders ty = mkTForalls binders ty
+
 _TList :: Prism' Type Type
 _TList = prism' TList $ \case
   TList typ -> Just typ

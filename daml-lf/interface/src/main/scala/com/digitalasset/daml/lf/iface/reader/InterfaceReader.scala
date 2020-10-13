@@ -112,7 +112,10 @@ object InterfaceReader {
 
         val result = dataType match {
           case dfn: Ast.DataRecord =>
-            recordOrTemplate(fullName, tyVars, dfn)
+            module.templates.get(name) match {
+              case Some(tmpl) => template(fullName, dfn, tmpl)
+              case None => record(fullName, tyVars, dfn)
+            }
           case dfn: Ast.DataVariant =>
             variant(fullName, tyVars, dfn)
           case dfn: Ast.DataEnum =>
@@ -129,27 +132,22 @@ object InterfaceReader {
         state
     }
 
-  private[reader] def recordOrTemplate(
+  private[reader] def record(
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
-      record: Ast.DataRecord
+      record: Ast.DataRecord,
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-      decl <- record.optTemplate match {
-        case Some(tmpl) =>
-          template(name, tmpl, fields)
-        case None =>
-          \/-(name -> iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))))
-      }
-    } yield decl
+    } yield (name -> iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))))
 
   private[reader] def template(
       name: QualifiedName,
+      record: Ast.DataRecord,
       dfn: Ast.Template,
-      fields: ImmArraySeq[(Ast.FieldName, Type)]
   ) =
     for {
+      fields <- fieldsOrCons(name, record.fields)
       choices <- dfn.choices.toList traverse {
         case (choiceName, choice) => visitChoice(name, choice) map (x => choiceName -> x)
       }

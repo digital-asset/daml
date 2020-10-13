@@ -775,7 +775,7 @@ class DecodeV1Spec
       inside(
         decoder.decoder
           .decodePackage(pkgId, decoder.extract(dalfProto))
-          .lookupIdentifier(Ref.QualifiedName assertFromString "DarReaderTest:reverseCopy")) {
+          .lookupDefinition(Ref.QualifiedName assertFromString "DarReaderTest:reverseCopy")) {
         case Right(
             Ast.DValue(_, _, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _)) =>
           (resolvedExtId: String) should ===(extId: String)

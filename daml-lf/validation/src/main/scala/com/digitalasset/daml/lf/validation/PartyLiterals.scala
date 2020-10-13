@@ -10,11 +10,8 @@ import com.daml.lf.validation.traversable.ExprTraversable
 private[validation] object PartyLiterals {
 
   @throws[EForbiddenPartyLiterals]
-  def checkModule(world: World, pkgId: PackageId, module: Module): Unit =
+  def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
     module.definitions.foreach {
-      case (defName, DDataType(_, _, DataRecord(fields @ _, Some(template)))) =>
-        def context = ContextDefValue(pkgId, module.name, defName)
-        ExprTraversable(template).foreach(checkExpr(world, context, _))
       case (defName, DValue(typ @ _, noPartyLiterals, body, isTest @ _)) =>
         def context = ContextDefValue(pkgId, module.name, defName)
         if (noPartyLiterals)
@@ -23,6 +20,12 @@ private[validation] object PartyLiterals {
           throw EForbiddenPartyLiterals(context, ValRefWithPartyLiterals(context.ref))
       case _ =>
     }
+    module.templates.foreach {
+      case (defName, template) =>
+        def context = ContextDefValue(pkgId, module.name, defName)
+        ExprTraversable(template).foreach(checkExpr(world, context, _))
+    }
+  }
 
   private def checkExpr(world: World, context: => Context, expr: Expr): Unit =
     expr match {

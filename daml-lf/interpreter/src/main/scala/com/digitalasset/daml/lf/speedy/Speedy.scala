@@ -645,7 +645,7 @@ private[lf] object Speedy {
           case V.ValueVariant(Some(id), variant, arg) =>
             compiledPackages.getPackage(id.packageId) match {
               case Some(pkg) =>
-                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
                   case DDataType(_, _, data: DataVariant) =>
                     SVariant(id, variant, data.constructorRank(variant), go(arg))
                   case _ =>
@@ -664,7 +664,7 @@ private[lf] object Speedy {
           case V.ValueEnum(Some(id), constructor) =>
             compiledPackages.getPackage(id.packageId) match {
               case Some(pkg) =>
-                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
                   case DDataType(_, _, data: DataEnum) =>
                     SEnum(id, constructor, data.constructorRank(constructor))
                   case _ =>

@@ -33,6 +33,7 @@ import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{EitherValues, Matchers, WordSpec}
+import org.scalatest.Inside._
 import scalaz.std.either._
 import scalaz.syntax.apply._
 
@@ -154,7 +155,7 @@ class EngineTest
   "valid data record identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val Right((_, DataRecord(fields, _))) =
+      val Right((_, DataRecord(fields))) =
         PackageLookup.lookupRecord(basicTestsPkg, id.qualifiedName)
       fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
     }
@@ -163,10 +164,10 @@ class EngineTest
   "valid template Identifier" should {
     "return the right argument type" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
-      val Right((_, DataRecord(fields, tpl))) =
+      val Right((_, DataRecord(fields))) =
         PackageLookup.lookupRecord(basicTestsPkg, id.qualifiedName)
+      PackageLookup.lookupTemplate(basicTestsPkg, id.qualifiedName) shouldBe 'right
       fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
-      tpl.isEmpty shouldBe false
     }
   }
 
@@ -1262,7 +1263,7 @@ class EngineTest
 
   "lookup by key" should {
 
-    val submissionSeed = hash("interpreting lookup by key nodes")
+    val seed = hash("interpreting lookup by key nodes")
 
     val lookedUpCid = toContractId("#1")
     val lookerUpTemplate = "BasicTests:LookerUpByKey"
@@ -1308,7 +1309,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
+        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val lookupNodes = tx.transaction.nodes.collect {
@@ -1326,7 +1327,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
+        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
@@ -1355,7 +1356,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
+        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
@@ -1370,6 +1371,33 @@ class EngineTest
           .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+    }
+
+    "crash if use a contract key with an empty set of maintainers" in {
+      val templateId =
+        Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
+
+      val cmds = ImmArray(
+        speedy.Command.LookupByKey(templateId, SParty(alice))
+      )
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+          globalCids = Set.empty,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            "Update failed due to a contract key with an empty sey of maintainers")
+      }
     }
   }
 
@@ -1658,11 +1686,12 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
-      result shouldBe 'left
-      val Left(err) = result
-      err.msg should include("Update failed due to a contract key with an empty sey of maintainers")
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            "Update failed due to a contract key with an empty sey of maintainers")
+      }
     }
-
   }
 
   "Engine#submit" should {

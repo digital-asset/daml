@@ -21,7 +21,10 @@ private[daml] class AstRewriter(
     pkg.copy(modules = pkg.modules.transform((_, x) => apply(x)))
 
   def apply(module: Module): Module =
-    module.copy(definitions = module.definitions.transform((_, x) => apply(x)))
+    module.copy(
+      definitions = module.definitions.transform((_, x) => apply(x)),
+      templates = module.templates.transform((_, x) => apply(x)),
+    )
 
   def apply(identifier: Identifier): Identifier =
     if (identifierRule.isDefinedAt(identifier))
@@ -179,8 +182,8 @@ private[daml] class AstRewriter(
 
   def apply(x: Definition): Definition =
     x match {
-      case DDataType(serializable, params, DataRecord(fields, template)) =>
-        DDataType(serializable, params, DataRecord(fields.map(apply), template.map(apply)))
+      case DDataType(serializable, params, DataRecord(fields)) =>
+        DDataType(serializable, params, DataRecord(fields.map(apply)))
       case DDataType(serializable, params, DataVariant(variants)) =>
         DDataType(serializable, params, DataVariant(variants.map(apply)))
       case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>

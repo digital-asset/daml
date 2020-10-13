@@ -52,6 +52,30 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
     (pkgId, pkg) = pkgWithId
   } yield (pkg, pkgId, archive)
 
+  // [libraryArchive] contains another well-typed and self-consistent package
+  private[this] val libraryArchive = encodePackage(
+    p"""
+        metadata ( 'Color' : '0.0.1' )
+
+        module Color {
+          enum Primary = Red | Green | Blue;
+        }
+      """
+  )
+  val (libraryPackageId, libraryPackage) = Decode.decodeArchive(libraryArchive)
+
+  // [dependentArchive] contains a well-typed package that depends on [libraryArchive]
+  private[this] val dependentArchive = encodePackage(
+    p"""
+        metadata ( 'Quantum' : '0.0.1' )
+
+        module Chromodynamics {
+          record Charge = { value: '${libraryPackageId}':Color:Primary } ;
+        }
+      """
+  )
+  val (dependentPackageId, _) = Decode.decodeArchive(dependentArchive)
+
   private[this] val participantId = Ref.ParticipantId.assertFromString("participant")
 
   private[this] class CommitterWrapper(
@@ -322,29 +346,6 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
 
     "reject submissions containing missing dependencies" in {
 
-      // [libraryArchive] contains another well-typed and self-consistent package
-      val libraryArchive = encodePackage(
-        p"""
-        metadata ( 'Color' : '0.0.1' )
-
-        module Color {
-          enum Primary = Red | Green | Blue;
-        }
-      """
-      )
-      val (libraryPackageId, libraryPackage) = Decode.decodeArchive(libraryArchive)
-
-      // [dependentArchive] contains a well-typed package that depends on [libraryArchive]
-      val dependentArchive = encodePackage(
-        p"""
-        metadata ( 'Quantum' : '0.0.1' )
-
-        module Chromodynamics {
-          record Charge = { value: '${libraryPackageId}':Color:Primary } ;
-        }
-      """
-      )
-
       val committer = newCommitter
       val submission = buildSubmission(dependentArchive)
 
@@ -423,11 +424,32 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
 
     "preload the engine with packages already in the ledger" in {
       val committer = newCommitter
-      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
+      shouldSucceedWith(committer.submit(buildSubmission(libraryArchive)), Set(libraryPackageId))
       committer.restart()
-      shouldSucceedWith(committer.submit(buildSubmission(archive1, archive3)), Set(pkgId3))
+      shouldSucceedWith(
+        committer.submit(buildSubmission(libraryArchive, dependentArchive)),
+        Set(dependentPackageId),
+      )
       waitWhile(committer.engine.compiledPackages().packageIds.size < 2)
-      committer.engine.compiledPackages().packageIds shouldBe Set(pkgId1, pkgId3)
+      committer.engine.compiledPackages().packageIds shouldBe Set(
+        libraryPackageId,
+        dependentPackageId,
+      )
+    }
+
+    "preload the engine with packages when some are already in the engine" in {
+      val committer = newCommitter
+      shouldSucceedWith(committer.submit(buildSubmission(libraryArchive)), Set(libraryPackageId))
+      waitWhile(committer.engine.compiledPackages().packageIds.size < 1)
+      shouldSucceedWith(
+        committer.submit(buildSubmission(libraryArchive, dependentArchive)),
+        Set(dependentPackageId),
+      )
+      waitWhile(committer.engine.compiledPackages().packageIds.size < 2)
+      committer.engine.compiledPackages().packageIds shouldBe Set(
+        libraryPackageId,
+        dependentPackageId,
+      )
     }
   }
 
@@ -443,10 +465,29 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
 
     "preload the engine with packages already in the ledger" in {
       val committer = newCommitter
-      shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
+      shouldSucceedWith(committer.submit(buildSubmission(libraryArchive)), Set(libraryPackageId))
       committer.restart()
-      shouldSucceedWith(committer.submit(buildSubmission(archive1, archive3)), Set(pkgId3))
-      committer.engine.compiledPackages().packageIds shouldBe Set(pkgId1, pkgId3)
+      shouldSucceedWith(
+        committer.submit(buildSubmission(libraryArchive, dependentArchive)),
+        Set(dependentPackageId),
+      )
+      committer.engine.compiledPackages().packageIds shouldBe Set(
+        libraryPackageId,
+        dependentPackageId,
+      )
+    }
+
+    "preload the engine with packages when some are already in the engine" in {
+      val committer = newCommitter
+      shouldSucceedWith(committer.submit(buildSubmission(libraryArchive)), Set(libraryPackageId))
+      shouldSucceedWith(
+        committer.submit(buildSubmission(libraryArchive, dependentArchive)),
+        Set(dependentPackageId),
+      )
+      committer.engine.compiledPackages().packageIds shouldBe Set(
+        libraryPackageId,
+        dependentPackageId,
+      )
     }
   }
 

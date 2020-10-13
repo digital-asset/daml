@@ -167,7 +167,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 fail(
                   s"Mismatching record id, the type tells us $typeRecordId, but the value tells us $id"))
             val pkg = unsafeGetPackage(typeRecordId.packageId)
-            val (dataTypParams, DataRecord(recordFlds, _)) =
+            val (dataTypParams, DataRecord(recordFlds)) =
               assertRight(PackageLookup.lookupRecord(pkg, typeRecordId.qualifiedName))
             // note that we check the number of fields _before_ checking if we can do
             // field reordering by looking at the labels. this means that it's forbidden to

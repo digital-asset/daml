@@ -40,6 +40,7 @@ class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with
               EVal(Identifier(depPkgId, QualifiedName(depModName, u))),
               false)
         },
+        Map.empty,
         FeatureFlags.default
       )
 

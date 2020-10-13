@@ -253,18 +253,22 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompileDefn(
-      identifier: Identifier,
-      defn: Definition,
-  ): List[(SDefinitionRef, SExpr)] =
-    defn match {
-      case DValue(_, _, body, _) =>
-        val ref = LfDefRef(identifier)
-        List(ref -> withLabel(ref, unsafeCompile(body)))
+  def unsafeCompileModule(
+      pkgId: PackageId,
+      module: Module,
+  ): Iterable[(SDefinitionRef, SExpr)] = {
+    val builder = Iterable.newBuilder[(SDefinitionRef, SExpr)]
 
-      case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
-        val builder = List.newBuilder[(SDefinitionRef, SExpr)]
+    module.definitions.foreach {
+      case (defName, DValue(_, _, body, _)) =>
+        val ref = LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
+        builder += (ref -> withLabel(ref, unsafeCompile(body)))
+      case _ =>
+    }
 
+    module.templates.foreach {
+      case (tmplName, tmpl) =>
+        val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
         builder += compileCreate(identifier, tmpl)
         builder += compileFetch(identifier, tmpl)
 
@@ -275,11 +279,10 @@ private[lf] final class Compiler(
           builder += compileLookupByKey(identifier, tmplKey)
           tmpl.choices.values.foreach(builder += compileChoiceByKey(identifier, tmpl, tmplKey, _))
         }
-
-        builder.result()
-      case _ =>
-        List()
     }
+
+    builder.result()
+  }
 
   /** Validates and compiles all the definitions in the package provided.
     *
@@ -321,20 +324,14 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    val defns = for {
-      module <- lookupPackage(pkgId).modules.values
-      defnWithId <- module.definitions
-      (defnId, defn) = defnWithId
-      fullId = Identifier(pkgId, QualifiedName(module.name, defnId))
-      exprWithId <- unsafeCompileDefn(fullId, defn)
-    } yield exprWithId
-    val t2 = Time.Timestamp.now()
+    val result = lookupPackage(pkgId).modules.values.flatMap(unsafeCompileModule(pkgId, _))
 
+    val t2 = Time.Timestamp.now()
     logger.trace(
       s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms",
     )
 
-    defns
+    result
   }
 
   private[this] def patternNArgs(pat: SCasePat): Int = pat match {
@@ -989,7 +986,7 @@ private[lf] final class Compiler(
   private[this] def lookupRecordIndex(tapp: TypeConApp, field: FieldName): Int =
     lookupDefinition(tapp.tycon)
       .flatMap {
-        case DDataType(_, _, DataRecord(fields, _)) =>
+        case DDataType(_, _, DataRecord(fields)) =>
           val idx = fields.indexWhere(_._1 == field)
           if (idx < 0) None else Some(idx)
         case _ => None
