@@ -11,12 +11,8 @@ load(
 da_scala_library(
     name = "db-backend",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
-    ],
-    scalacopts = [
-        "-P:silencer:checkUnused",
-    ] + lf_scalacopts,
+    scalacopts = lf_scalacopts,
+    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:http-json-db-backend:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -27,7 +23,6 @@ da_scala_library(
     ],
     deps = [
         "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
