@@ -11,12 +11,10 @@ load("@build_environment//:configuration.bzl", "mvn_version")
 da_scala_library(
     name = "sandbox-classic",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
-    ],
     # Do not include logback.xml into the library: let the user
     # of the sandbox-as-a-library decide how to log.
     resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -56,7 +54,6 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
