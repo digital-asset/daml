@@ -185,7 +185,7 @@ object TransactionBuilder {
       consuming: Boolean,
       actingParties: Set[String],
       argument: Value,
-      byKey: Boolean = true,
+      byKey: Option[Boolean] = Some(false),
   ): Exercise =
     Exercise(
       targetCoid = contract.coid,
@@ -210,9 +210,9 @@ object TransactionBuilder {
       actingParties: Set[String],
       argument: Value,
   ): Exercise =
-    exercise(contract, choice, consuming, actingParties, argument, byKey = true)
+    exercise(contract, choice, consuming, actingParties, argument, byKey = Some(true))
 
-  def fetch(contract: Create, byKey: Boolean = true): Fetch =
+  def fetch(contract: Create, byKey: Option[Boolean] = Some(false)): Fetch =
     Fetch(
       coid = contract.coid,
       templateId = contract.coinst.template,
@@ -225,7 +225,7 @@ object TransactionBuilder {
     )
 
   def fetchByKey(contract: Create): Fetch =
-    fetch(contract, byKey = true)
+    fetch(contract, byKey = Some(true))
 
   def lookupByKey(contract: Create, found: Boolean): LookupByKey =
     LookupByKey(

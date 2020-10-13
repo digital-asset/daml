@@ -1489,6 +1489,8 @@ private[lf] final class Compiler(
       compileExerciseByKey(templateId, SEValue(contractKey), choiceId, SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       FetchDefRef(templateId)(SEValue(coid))
+    case Command.FetchByKey(templateId, coid) =>
+      FetchByKeyDefRef(templateId)(SEValue(coid))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
       compileCreateAndExercise(
         templateId,

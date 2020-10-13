@@ -39,6 +39,11 @@ object Command {
       coid: SContractId,
   ) extends Command
 
+  final case class FetchByKey(
+      templateId: Identifier,
+      contractKey: SValue,
+  ) extends Command
+
   final case class CreateAndExercise(
       templateId: Identifier,
       createArgument: SValue,

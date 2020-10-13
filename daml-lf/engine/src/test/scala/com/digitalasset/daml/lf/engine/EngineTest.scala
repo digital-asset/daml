@@ -59,9 +59,6 @@ class EngineTest
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
 
-  private[this] def byKeyNodes[Nid, Cid](tx: VersionedTransaction[Nid, Cid]) =
-    tx.nodes.collect { case (nodeId, node) if node.byKey => nodeId }.toSet
-
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
@@ -77,6 +74,22 @@ class EngineTest
     val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
     (mainPkgId, mainPkg, packagesMap)
   }
+
+  private[this] def dropByKeyFlags[Nid, Cid](tx: VersionedTransaction[Nid, Cid]) =
+    VersionedTransaction(
+      version = tx.version,
+      transaction.GenTransaction(
+        nodes = tx.nodes.map {
+          case (nid, exercise: Node.NodeExercises.WithTxValue[Nid, Cid]) =>
+            nid -> exercise.copy(byKey = None)
+          case (nid, fetch: Node.NodeFetch.WithTxValue[Cid]) =>
+            nid -> fetch.copy(byKey = None)
+          case otherwise =>
+            otherwise
+        },
+        roots = tx.roots
+      )
+    )
 
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
     "daml-lf/tests/BasicTests.dar")
@@ -126,22 +139,21 @@ class EngineTest
         withKeyContractInst
     )
 
-  val lookupContract = defaultContracts.get(_)
+  private[this] val lookupContract = defaultContracts.get(_)
 
-  def lookupPackage(pkgId: PackageId): Option[Package] = {
+  private[this] val defaultKeys =
+    Map(
+      GlobalKey(
+        BasicTests_WithKey,
+        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42))))
+      ) -> toContractId("#BasicTests:WithKey:1")
+    )
+
+  private[this] def lookupPackage(pkgId: PackageId): Option[Package] = {
     allPackages.get(pkgId)
   }
 
-  def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-    (key.globalKey.templateId, key.globalKey.key) match {
-      case (
-          BasicTests_WithKey,
-          ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-          ) =>
-        Some(toContractId("#BasicTests:WithKey:1"))
-      case _ =>
-        None
-    }
+  private[this] def lookupKey(key: GlobalKeyWithMaintainers) = defaultKeys.get(key.globalKey)
 
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine.DevEngine()
@@ -491,7 +503,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      interpretResult.map { case (tx, _) => tx.byKeyNodes.size } shouldBe Right(0)
     }
 
   }
@@ -645,10 +657,40 @@ class EngineTest
     "reinterpret to the same result" in {
 
       val reinterpretResult =
-        reinterpret(engine, Set(alice), tx.roots, tx, txMeta, let, lookupPackage, defaultContracts)
+        reinterpret(
+          engine,
+          Set(alice),
+          tx.roots,
+          tx,
+          txMeta,
+          let,
+          lookupPackage,
+          defaultContracts,
+          defaultKeys)
           .map(_._1)
       (result.map(_._1) |@| reinterpretResult)(_.transaction isReplayedBy _.transaction) shouldBe Right(
         true)
+    }
+
+    "reinterpret to the same result when byKey flags are ignored" in {
+
+      val txWithoutByKeyFlags = dropByKeyFlags(tx)
+
+      val reinterpretResult =
+        reinterpret(
+          engine,
+          Set(alice),
+          tx.roots,
+          txWithoutByKeyFlags,
+          txMeta,
+          let,
+          lookupPackage,
+          defaultContracts)
+          .map(_._1)
+
+      reinterpretResult shouldBe 'right
+
+      (txWithoutByKeyFlags.transaction isReplayedBy reinterpretResult.right.get.transaction) shouldBe true
     }
 
     "be validated" in {
@@ -677,7 +719,7 @@ class EngineTest
       val expectedNodes = tx.nodes.collect {
         case (id, _: Node.NodeExercises[_, _, _]) => id
       }
-      val actualNodes = byKeyNodes(tx)
+      val actualNodes = tx.byKeyNodes
       actualNodes shouldBe 'nonEmpty
       actualNodes shouldBe expectedNodes.toSet
     }
@@ -750,7 +792,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      interpretResult.map { case (tx, _) => tx.byKeyNodes.size } shouldBe Right(0)
     }
   }
 
@@ -1214,7 +1256,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      runExample(fetcher2Cid, clara).map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      runExample(fetcher2Cid, clara).map { case (tx, _) => tx.byKeyNodes.size } shouldBe Right(0)
     }
   }
 
@@ -1256,7 +1298,7 @@ class EngineTest
         signatories = Set.empty,
         stakeholders = Set.empty,
         key = None,
-        byKey = false,
+        byKey = Some(false),
       )
 
       val let = Time.Timestamp.now()
@@ -1325,7 +1367,7 @@ class EngineTest
       val expectedByKeyNodes = tx.transaction.nodes.collect {
         case (id, _: Node.NodeLookupByKey[_, _]) => id
       }
-      val actualByKeyNodes = byKeyNodes(tx)
+      val actualByKeyNodes = tx.byKeyNodes
       actualByKeyNodes shouldBe 'nonEmpty
       actualByKeyNodes shouldBe expectedByKeyNodes.toSet
     }
@@ -1531,7 +1573,7 @@ class EngineTest
                 assert(maintainers == Set(alice))
               case None => fail("the recomputed fetch didn't have a key")
             }
-            byKeyNodes(tx) shouldBe Set(id)
+            tx.byKeyNodes shouldBe Set(id)
         }
         .getOrElse(fail("didn't find the fetch node resulting from fetchByKey"))
     }
@@ -1843,7 +1885,8 @@ object EngineTest {
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
-      contracts: Map[ContractId, Tx.ContractInst[ContractId]] = Map.empty,
+      contractsById: Map[ContractId, Tx.ContractInst[ContractId]] = Map.empty,
+      contractsByKey: Map[GlobalKey, ContractId] = Map.empty,
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
@@ -1857,8 +1900,8 @@ object EngineTest {
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
     val iterate =
-      nodes.foldLeft[Either[Error, Acc]](
-        Right((HashMap.empty, BackStack.empty, false, BackStack.empty, contracts, Map.empty))) {
+      nodes.foldLeft[Either[Error, Acc]](Right(
+        (HashMap.empty, BackStack.empty, false, BackStack.empty, contractsById, contractsByKey))) {
         case (acc, nodeId) =>
           for {
             previousStep <- acc

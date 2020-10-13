@@ -355,7 +355,7 @@ object TransactionCoder {
             Left(DecodeError(s"$txVersion is too old to support NodeFetch's `key` field"))
           else decodeKeyWithMaintainers(decodeCid, protoFetch.getKeyWithMaintainers).map(Some(_))
         } yield
-          (ni, NodeFetch(c, templateId, None, actingParties, signatories, stakeholders, key, false))
+          (ni, NodeFetch(c, templateId, None, actingParties, signatories, stakeholders, key, None))
 
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
@@ -438,7 +438,7 @@ object TransactionCoder {
               children = children,
               exerciseResult = rv,
               key = keyWithMaintainers,
-              byKey = false,
+              byKey = None,
             ),
           )
       case NodeTypeCase.LOOKUP_BY_KEY =>

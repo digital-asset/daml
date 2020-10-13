@@ -50,8 +50,6 @@ object Node {
       */
     def requiredAuthorizers: Set[Party]
 
-    def byKey: Boolean
-
     def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit) =
       GenNode.foreach3(fNid, fCid, fVal)(this)
   }
@@ -202,7 +200,6 @@ object Node {
       with NodeInfo.Create {
 
     override def templateId: TypeConName = coinst.template
-    override def byKey: Boolean = false
   }
 
   object NodeCreate extends WithTxValue2[NodeCreate]
@@ -216,7 +213,8 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
-      override val byKey: Boolean // invariant (!byKey || exerciseResult.isDefined)
+      byKey: Option[Boolean] // None if unknown
+      // invariant (!byKey || exerciseResult.isDefined)
   ) extends LeafOnlyNode[Cid, Val]
       with NodeInfo.Fetch
 
@@ -247,9 +245,11 @@ object Node {
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
       key: Option[KeyWithMaintainers[Val]],
-      override val byKey: Boolean // invariant (!byKey || exerciseResult.isDefined)
+      byKey: Option[Boolean] // None if unknown
+      // invariant (byKey.forall( ! _  || exerciseResult.isDefined))
   ) extends GenNode[Nid, Cid, Val]
       with NodeInfo.Exercise {
+
     @deprecated("use actingParties instead", since = "1.1.2")
     private[daml] def controllers: actingParties.type = actingParties
   }
@@ -273,7 +273,7 @@ object Node {
         children: ImmArray[Nid],
         exerciseResult: Option[Val],
         key: Option[KeyWithMaintainers[Val]],
-        byKey: Boolean,
+        byKey: Option[Boolean],
     ): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
         targetCoid,
@@ -293,6 +293,13 @@ object Node {
       )
   }
 
+  object IsNodeExercises {
+    def unapply[Nid, Cid, Val](
+        arg: NodeExercises[Nid, Cid, Val],
+    ): Some[NodeExercises[Nid, Cid, Val]] =
+      Some(arg)
+  }
+
   final case class NodeLookupByKey[+Cid, +Val](
       override val templateId: TypeConName,
       optLocation: Option[Location],
@@ -303,7 +310,6 @@ object Node {
 
     override def keyMaintainers: Set[Party] = key.maintainers
     override def hasResult: Boolean = result.isDefined
-    override def byKey: Boolean = true
   }
 
   object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
@@ -362,13 +368,13 @@ object Node {
             signatories2,
             stakeholders2,
             key2,
-            _,
+            byKey2,
             ) =>
           import nf._
           coid === coid2 && templateId == templateId2 &&
           actingParties.forall(_ => actingParties == actingParties2) &&
           signatories == signatories2 && stakeholders == stakeholders2 &&
-          key.forall(_ => key == key2)
+          key.forall(_ => key == key2) && byKey.forall(_ => byKey == byKey2)
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
         case NodeExercises(
@@ -385,7 +391,7 @@ object Node {
             _,
             exerciseResult2,
             key2,
-            _,
+            byKey2,
             ) =>
           import ne._
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
@@ -393,7 +399,7 @@ object Node {
           stakeholders == stakeholders2 && signatories == signatories2 &&
           controllersDifferFromActors == controllersDifferFromActors2 &&
           exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2) &&
-          key.fold(true)(_ => key === key2)
+          key.fold(true)(_ => key === key2) && byKey.forall(_ => byKey == byKey2)
       }
       case nl: NodeLookupByKey[Cid, Val] => {
         case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>

@@ -34,42 +34,50 @@ private[preprocessing] final class TransactionPreprocessor(
     val (localCids, globalCids) = acc
 
     node match {
-      case Node.NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
-        val identifier = coinst.template
-        if (globalCids(coid))
+      case create: Node.NodeCreate[_, _] =>
+        val identifier = create.coinst.template
+        if (globalCids(create.coid))
           fail("Conflicting discriminators between a global and local contract ID.")
 
         val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessCreate(identifier, coinst.arg.value)
-        val newGlobalCids = globalCids + coid
+          commandPreprocessor.unsafePreprocessCreate(identifier, create.coinst.arg.value)
+        val newGlobalCids = globalCids + create.coid
         val newLocalCids = localCids | newCids.filterNot(globalCids)
         cmd -> (newLocalCids -> newGlobalCids)
-
-      case Node.NodeExercises(
-          coid,
-          template,
-          choice,
-          optLoc @ _,
-          consuming @ _,
-          actingParties @ _,
-          chosenVal,
-          stakeholders @ _,
-          signatories @ _,
-          controllersDifferFromActors @ _,
-          children @ _,
-          exerciseResult @ _,
-          key @ _,
-          byKey @ _) =>
-        val templateId = template
+      case exerciseByKey: Node.NodeExercises[_, _, _] if exerciseByKey.byKey.getOrElse(false) =>
+        val templateId = exerciseByKey.templateId
         val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, chosenVal.value)
+          commandPreprocessor
+            .unsafePreprocessExerciseByKey(
+              templateId,
+              exerciseByKey.key.fold(fail("unexpected exerciseByKey without key."))(_.key.value),
+              exerciseByKey.choiceId,
+              exerciseByKey.chosenValue.value,
+            )
         (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
-      case Node.NodeFetch(coid, templateId, _, _, _, _, _, _) =>
-        val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, coid)
+
+      case exercise: Node.NodeExercises[_, _, _] =>
+        val templateId = exercise.templateId
+        val (cmd, newCids) =
+          commandPreprocessor
+            .unsafePreprocessExercise(
+              templateId,
+              exercise.targetCoid,
+              exercise.choiceId,
+              exercise.chosenValue.value,
+            )
+        (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
+      case fetchByKey: Node.NodeFetch[_, _] if fetchByKey.byKey.getOrElse(false) =>
+        val (cmd, newCids) = commandPreprocessor.unsafePreprocessFetchByKey(
+          fetchByKey.templateId,
+          fetchByKey.key.fold(fail("unexpected exerciseByKey without key."))(_.key.value))
+        (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
+      case fetch: Node.NodeFetch[_, _] =>
+        val cmd = commandPreprocessor.unsafePreprocessFetch(fetch.templateId, fetch.coid)
         (cmd, acc)
-      case Node.NodeLookupByKey(templateId, _, key, _) =>
-        val keyValue = unsafeAsValueWithNoContractIds(key.key.value)
-        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(templateId, keyValue)
+      case lookup: Node.NodeLookupByKey[_, _] =>
+        val keyValue = unsafeAsValueWithNoContractIds(lookup.key.key.value)
+        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(lookup.templateId, keyValue)
         (cmd, acc)
     }
   }

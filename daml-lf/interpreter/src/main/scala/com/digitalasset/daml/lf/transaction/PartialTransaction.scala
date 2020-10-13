@@ -319,7 +319,7 @@ private[lf] case class PartialTransaction(
       signatories,
       stakeholders,
       key,
-      byKey
+      Some(byKey)
     )
     mustBeActive(
       coid,
@@ -420,7 +420,7 @@ private[lf] case class PartialTransaction(
           children = context.children.toImmArray,
           exerciseResult = Some(value),
           key = ec.contractKey,
-          byKey = ec.byKey,
+          byKey = Some(ec.byKey),
         )
         val nodeId = ec.nodeId
         val nodeSeed = ec.parent.nextChildrenSeed

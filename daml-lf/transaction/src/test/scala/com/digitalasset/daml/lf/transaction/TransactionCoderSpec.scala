@@ -399,9 +399,9 @@ class TransactionCoderSpec
   def withoutByKeyFlag[Nid, Cid, Val](gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
     gn match {
       case ne: NodeExercises[Nid, Cid, Val] =>
-        ne.copy(byKey = false)
+        ne.copy(byKey = None)
       case fe: NodeFetch[Cid, Val] =>
-        fe.copy(byKey = false)
+        fe.copy(byKey = None)
       case _ => gn
     }
 

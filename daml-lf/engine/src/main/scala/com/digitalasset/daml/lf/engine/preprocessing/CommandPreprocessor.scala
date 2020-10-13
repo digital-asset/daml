@@ -67,6 +67,16 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
   ): speedy.Command.Fetch =
     speedy.Command.Fetch(templateId, SValue.SContractId(coid))
 
+  def unsafePreprocessFetchByKey(
+      templateId: Ref.Identifier,
+      contractKey: Value[Value.ContractId],
+  ): (speedy.Command.FetchByKey, Set[Value.ContractId]) = {
+    val template = unsafeGetTemplate(templateId)
+    val ckTtype = unsafeGetContractKeyType(templateId, template)
+    val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
+    speedy.Command.FetchByKey(templateId, key) -> keyCids
+  }
+
   @throws[PreprocessorException]
   def unsafePreprocessExercise(
       templateId: Ref.Identifier,
