@@ -7,7 +7,8 @@ module Daml.Trigger.Internal
   ( ACS (..)
   , TriggerA (..)
   , TriggerUpdateA (..)
-  , ActionTriggerUpdate (..)
+  , TriggerInitializeA (..)
+  , ActionTriggerAny (..)
   , addCommands
   , insertTpl
   , groupActiveContracts
@@ -86,8 +87,13 @@ instance ActionState s (TriggerUpdateA s) where
   put = TriggerUpdateA . const . put
   modify = TriggerUpdateA . const . modify
 
--- | Features possible in both `updateState` and `rule`.
-class ActionTriggerUpdate m where
+-- | TriggerInitializeA is the type used in the `initialize` of a DAML
+-- trigger.  It can query, but not emit commands or update the state.
+newtype TriggerInitializeA a = TriggerInitializeA { runTriggerInitializeA : ACS -> a }
+  deriving (Functor, Applicative, Action)
+
+-- | Features possible in `initialize`, `updateState`, and `rule`.
+class ActionTriggerAny m where
   -- | Extract the contracts of a given template from the ACS.  (However, the
   -- type parameters are in the 'm a' order, so it is not exported.)
   implQuery : forall a. Template a => m [(ContractId a, a)]

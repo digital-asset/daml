@@ -4,13 +4,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Daml.Trigger
- ( ACS
- , getContracts
- , query
- , ActionTriggerUpdate
+ ( query
+ , ActionTriggerAny
  , Trigger(..)
  , TriggerA
  , TriggerUpdateA
+ , TriggerInitializeA
  , get
  , put
  , modify
@@ -69,19 +68,22 @@ getContracts (ACS tpls pending) = mapOptional fromAny
     allPending = concatMap snd $ Map.toList pending
 
 -- | Extract the contracts of a given template from the ACS.
-query : forall a m. (Template a, ActionTriggerUpdate m) => m [(ContractId a, a)]
+query : forall a m. (Template a, ActionTriggerAny m) => m [(ContractId a, a)]
 query = implQuery
 
-instance ActionTriggerUpdate TriggerA where
+instance ActionTriggerAny TriggerA where
   implQuery = TriggerA $ pure . getContracts
 
-instance ActionTriggerUpdate (TriggerUpdateA s) where
+instance ActionTriggerAny (TriggerUpdateA s) where
   implQuery = TriggerUpdateA $ pure . getContracts
+
+instance ActionTriggerAny TriggerInitializeA where
+  implQuery = TriggerInitializeA getContracts
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
 data Trigger s = Trigger
-  { initialize : ACS -> s
+  { initialize : TriggerInitializeA s
   -- ^ Initialize the user-defined state based on the ACS.
   , updateState : Message -> TriggerUpdateA s ()
   -- ^ Update the user-defined state based on a transaction or
@@ -209,7 +211,7 @@ runTrigger userTrigger = LowLevel.Trigger
   where
     initialState party (ActiveContracts createdEvents) =
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
-          userState = userTrigger.initialize acs
+          userState = runTriggerInitializeA userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
     utUpdateState acs msg = execState $ flip runTriggerUpdateA acs $ userTrigger.updateState msg
