@@ -139,6 +139,9 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
+silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_2_12_12"
+silencer_lib = "@maven//:com_github_ghik_silencer_lib_2_12_12"
+
 default_initial_heap_size = "128m"
 default_max_heap_size = "1g"
 default_scalac_stack_size = "2m"
@@ -173,11 +176,24 @@ def _set_jvm_flags(
     })
     return result
 
-def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], generated_srcs = [], **kwargs):
+def _wrap_rule(
+        rule,
+        name = "",
+        scalacopts = [],
+        plugins = [],
+        generated_srcs = [],  # hiding from the underlying rule
+        deps = [],
+        silent_annotations = False,
+        **kwargs):
+    if silent_annotations:
+        scalacopts = ["-P:silencer:checkUnused"] + scalacopts
+        plugins = [silencer_plugin] + plugins
+        deps = [silencer_lib] + deps
     rule(
         name = name,
         scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
+        deps = deps,
         **kwargs
     )
 
