@@ -176,6 +176,7 @@ final case class ScenarioRunner(
       cbMissing: Unit => Boolean,
       cbPresent: ContractInst[Tx.Value[ContractId]] => Unit) = {
 
+    // Once we support multi-party reads, we can drop this restriction.
     val committer =
       if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
@@ -185,7 +186,7 @@ final case class ScenarioRunner(
         throw SRunnerException(err)
 
     ledger.lookupGlobalContract(
-      view = ScenarioLedger.ParticipantView(committer),
+      view = ScenarioLedger.ParticipantView(Set(committer)),
       effectiveAt = effectiveAt,
       acoid) match {
       case ScenarioLedger.LookupOk(_, coinst, _) =>
@@ -219,6 +220,7 @@ final case class ScenarioRunner(
       committers: Set[Party],
       canContinue: SKeyLookupResult => Boolean,
   ): Unit = {
+    // Once we support multi-party reads, we can drop this restriction.
     val committer =
       if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
@@ -236,7 +238,7 @@ final case class ScenarioRunner(
         missingWith(SErrorCrash(s"Key $gk not found"))
       case Some(acoid) =>
         ledger.lookupGlobalContract(
-          view = ScenarioLedger.ParticipantView(committer),
+          view = ScenarioLedger.ParticipantView(Set(committer)),
           effectiveAt = effectiveAt,
           acoid) match {
           case ScenarioLedger.LookupOk(_, _, stakeholders) =>
