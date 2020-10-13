@@ -102,7 +102,7 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
 
     data Trigger s = Trigger
       { initialize : ACS -> s
-      , updateState : Message -> TriggerStateA s ()
+      , updateState : Message -> TriggerUpdateA s ()
       , rule : Party -> s -> TriggerA ()
       , registeredTemplates : RegisteredTemplates
       , heartbeat : Optional RelTime

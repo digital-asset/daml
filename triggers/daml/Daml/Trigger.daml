@@ -10,7 +10,7 @@ module Daml.Trigger
  , ActionTriggerUpdate
  , Trigger(..)
  , TriggerA
- , TriggerStateA
+ , TriggerUpdateA
  , get
  , put
  , modify
@@ -75,15 +75,15 @@ query = implQuery
 instance ActionTriggerUpdate TriggerA where
   implQuery = TriggerA $ pure . getContracts
 
-instance ActionTriggerUpdate (TriggerStateA s) where
-  implQuery = TriggerStateA $ pure . getContracts
+instance ActionTriggerUpdate (TriggerUpdateA s) where
+  implQuery = TriggerUpdateA $ pure . getContracts
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
 data Trigger s = Trigger
   { initialize : ACS -> s
   -- ^ Initialize the user-defined state based on the ACS.
-  , updateState : Message -> TriggerStateA s ()
+  , updateState : Message -> TriggerUpdateA s ()
   -- ^ Update the user-defined state based on a transaction or
   -- completion message.  It can manipulate the state with `get`, `put`,
   -- and `modify`, or query the ACS with `query`.
@@ -212,7 +212,7 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-    utUpdateState acs msg = execState $ flip runTriggerStateA acs $ userTrigger.updateState msg
+    utUpdateState acs msg = execState $ flip runTriggerUpdateA acs $ userTrigger.updateState msg
     update msg = do
       time <- getTime
       state <- get
