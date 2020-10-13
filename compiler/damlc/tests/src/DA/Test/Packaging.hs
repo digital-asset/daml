@@ -1078,26 +1078,26 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           validate $ tmpDir </> "b" </> "b.dar"
 
     , simpleImportTest "Tuples"
-              [ "module P1 where"
+              [ "module Lib where"
               , "data X = X (Text, Int)"
               -- ^ Check that tuples are mapped back to DAML tuples.
               ]
-              [ "module P2 where"
-              , "import P1"
+              [ "module Main where"
+              , "import Lib"
               , "f : X -> Text"
               , "f (X (a, b)) = a <> show b"
               ]
 
     , simpleImportTest "Type synonyms over data-dependencies"
-              [ "module P1 where"
+              [ "module Lib where"
               , "type MyInt' = Int"
               , "type MyArrow a b = a -> b"
               , "type MyUnit = ()"
               , "type MyOptional = Optional"
               , "type MyFunctor t = Functor t"
               ]
-              [ "module P2 where"
-              , "import P1"
+              [ "module Main where"
+              , "import Lib"
               , "x : MyInt'"
               , "x = 10"
               , "f : MyArrow Int Int"
@@ -1116,7 +1116,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
 
     , simpleImportTest "RankNTypes"
               [ "{-# LANGUAGE AllowAmbiguousTypes #-}"
-              , "module P1 where"
+              , "module Lib where"
               , "type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t"
               , "lensIdentity : Lens s t a b -> Lens s t a b"
               , "lensIdentity = identity"
@@ -1125,8 +1125,8 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "f : forall a. HasInt a => Int"
               , "f = getInt @a"
               ]
-              [ "module P2 where"
-              , "import P1"
+              [ "module Main where"
+              , "import Lib"
               , "x : Lens s t a b -> Lens s t a b"
                 -- ^ This also tests Rank N type synonyms!
               , "x = lensIdentity"
@@ -1560,11 +1560,11 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
         -- This test checks that data definitions of the form
         --    data A t = B t | C { x: t, y: t }
         -- are handled correctly. This is a regression test for issue #4707.
-            [ "module P1 where"
+            [ "module Lib where"
             , "data A t = B t | C { x: t, y: t }"
             ]
-            [ "module P2 where"
-            , "import P1"
+            [ "module Main where"
+            , "import Lib"
             , "mkA : A Int"
             , "mkA = C with"
             , "  x = 10"
@@ -1574,12 +1574,12 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
     , simpleImportTest "Empty variant constructors"
         -- This test checks that variant constructors without argument
         -- are preserved. This is a regression test for issue #7207.
-            [ "module P1 where"
+            [ "module Lib where"
             , "data A = B | C Int"
             , "data D = D ()" -- single-constructor case uses explicit unit
             ]
-            [ "module P2 where"
-            , "import P1"
+            [ "module Main where"
+            , "import Lib"
             , "mkA : A"
             , "mkA = B"
             , "matchA : A -> Int"
@@ -1598,13 +1598,13 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
     , simpleImportTest "HasField across data-dependencies"
         -- This test checks that HasField instances are correctly imported via
         -- data-dependencies. This is a regression test for issue #7284.
-            [ "module P1 where"
+            [ "module Lib where"
             , "data T x y"
             , "   = A with a: x"
             , "   | B with b: y"
             ]
-            [ "module P2 where"
-            , "import P1"
+            [ "module Main where"
+            , "import Lib"
             , "getA : T x y -> x"
             , "getA t = t.a"
             ]
@@ -1612,7 +1612,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
     , simpleImportTest "Dictionary function names match despite conflicts"
         -- This test checks that dictionary function names are recreated correctly.
         -- This is a regression test for issue #7362.
-            [ "module P1 where"
+            [ "module Lib where"
             , "data T t = T {}"
             , "instance Show (T Int) where show T = \"T\""
             , "instance Show (T Bool) where show T = \"T\""
@@ -1633,8 +1633,8 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               -- that we handle non-lexicographically ordered conflicts correctly
               -- (i.e. instances numbered 10, 11, etc will not be in the correct order
               -- just by sorting definitions by value name, lexicographically).
-            [ "module P2 where"
-            , "import P1"
+            [ "module Main where"
+            , "import Lib"
             , "f1 = show @(T Int)"
             , "f2 = show @(T Bool)"
             , "f3 = show @(T Text)"
@@ -1651,13 +1651,13 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
 
     , simpleImportTest "Simple default methods"
         -- This test checks that simple default methods work in data-dependencies.
-            [ "module P1 where"
+            [ "module Lib where"
             , "class Foo t where"
             , "    foo : t -> Int"
             , "    foo _ = 42"
             ]
-            [ "module P2 where"
-            , "import P1"
+            [ "module Main where"
+            , "import Lib"
             , "data M = M"
             , "instance Foo M"
             , "useFoo : Int"
@@ -1666,7 +1666,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
 
     , simpleImportTest "Using default method signatures"
         -- This test checks that simple default methods work in data-dependencies.
-            [ "module P1 where"
+            [ "module Lib where"
             , "class Foo t where"
             , "    foo : t -> Text"
             , "    default foo : Show t => t -> Text"
@@ -1680,8 +1680,8 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             , "    default baz : (Show t, Action m, Show y) => t -> y -> m Text"
             , "    baz x y = pure (show x <> show y)"
             ]
-            [ "module P2 where"
-            , "import P1"
+            [ "module Main where"
+            , "import Lib"
             , "data M = M deriving Show"
             , "instance Foo M"
 
@@ -1759,34 +1759,34 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
     ]
   where
     simpleImportTest :: String -> [String] -> [String] -> TestTree
-    simpleImportTest title importee importer =
+    simpleImportTest title lib main =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
             step "building project to be imported via data-dependencies"
-            createDirectoryIfMissing True (tmpDir </> "type")
-            writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+            createDirectoryIfMissing True (tmpDir </> "lib")
+            writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
-                , "name: type"
+                , "name: lib"
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [daml-prim, daml-stdlib]"
                 ]
-            writeFileUTF8 (tmpDir </> "type" </> "P1.daml") $ unlines importee
-            withCurrentDirectory (tmpDir </> "type") $
-                callProcessSilent damlc ["build", "-o", "type.dar"]
+            writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines lib
+            withCurrentDirectory (tmpDir </> "lib") $
+                callProcessSilent damlc ["build", "-o", "lib.dar"]
 
             step "building project that imports it via data-dependencies"
-            createDirectoryIfMissing True (tmpDir </> "proj")
-            writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            createDirectoryIfMissing True (tmpDir </> "main")
+            writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
-                , "name: proj"
+                , "name: main"
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [daml-prim, daml-stdlib]"
                 , "data-dependencies: "
-                , "  - " <> (tmpDir </> "type" </> "type.dar")
+                , "  - " <> (tmpDir </> "lib" </> "lib.dar")
                 ]
-            writeFileUTF8 (tmpDir </> "proj" </> "P2.daml") $ unlines importer
-            withCurrentDirectory (tmpDir </> "proj") $
+            writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines main
+            withCurrentDirectory (tmpDir </> "main") $
                 callProcessSilent damlc ["build"]
 
 -- | Check that the given file exists in the dar in the given directory.
