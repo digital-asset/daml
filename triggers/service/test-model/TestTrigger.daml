@@ -24,16 +24,16 @@ template B
 
 trigger : Trigger ()
 trigger = Trigger with
-  initialize = \_ -> ()
-  updateState = \_ _ -> pure ()
+  initialize = pure ()
+  updateState = \_ -> pure ()
   rule = triggerRule
   registeredTemplates = AllInDar
   heartbeat = None
 
-triggerRule : Party -> ACS -> () -> TriggerA ()
-triggerRule p acs _ = do
-  let as = filter (\(_, a) -> a.p == p) (getContracts @A acs)
-  let bs = map (\(_, B x y) -> (x,y)) $ filter (\(_, b) -> b.p == p) (getContracts @B acs)
+triggerRule : Party -> () -> TriggerA ()
+triggerRule p _ = do
+  as <- filter (\(_, a) -> a.p == p) <$> query @A
+  bs <- map (\(_, B x y) -> (x,y)) . filter (\(_, b) -> b.p == p) <$> query @B
   forA_ as $ \(aCid, A x y) ->
     when ((x,y) `notElem`  bs) $
     void $ emitCommands [createCmd (B x y)] [toAnyContractId aCid]

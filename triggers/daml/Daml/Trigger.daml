@@ -4,12 +4,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Daml.Trigger
- ( ACS
- , getContracts
- , getTemplates
+ ( query
+ , ActionTriggerAny
  , Trigger(..)
  , TriggerA
- , TriggerStateA
+ , TriggerUpdateA
+ , TriggerInitializeA
  , get
  , put
  , modify
@@ -54,10 +54,6 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
 
-{-# DEPRECATED getTemplates "getTemplates is deprecated in favor of getContracts" #-}
-getTemplates : forall a. Template a => ACS -> [(ContractId a, a)]
-getTemplates = getContracts
-
 -- | Extract the contracts of a given template from the ACS.
 getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
 getContracts (ACS tpls pending) = mapOptional fromAny
@@ -71,25 +67,41 @@ getContracts (ACS tpls pending) = mapOptional fromAny
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
     allPending = concatMap snd $ Map.toList pending
 
+-- | Extract the contracts of a given template from the ACS.
+query : forall a m. (Template a, ActionTriggerAny m) => m [(ContractId a, a)]
+query = implQuery
+
+instance ActionTriggerAny TriggerA where
+  implQuery = TriggerA $ pure . getContracts
+
+instance ActionTriggerAny (TriggerUpdateA s) where
+  implQuery = TriggerUpdateA $ pure . getContracts
+
+instance ActionTriggerAny TriggerInitializeA where
+  implQuery = TriggerInitializeA getContracts
+
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
 data Trigger s = Trigger
-  { initialize : ACS -> s
+  { initialize : TriggerInitializeA s
   -- ^ Initialize the user-defined state based on the ACS.
-  , updateState : ACS -> Message -> TriggerStateA s ()
-  -- ^ Update the user-defined state based on the ACS and a transaction
-  -- or completion message.  It can manipulate the state with `get`,
-  -- `put`, and `modify`.
-  , rule : Party -> ACS -> s -> TriggerA ()
+  , updateState : Message -> TriggerUpdateA s ()
+  -- ^ Update the user-defined state based on a transaction or
+  -- completion message.  It can manipulate the state with `get`, `put`,
+  -- and `modify`, or query the ACS with `query`.
+  , rule : Party -> s -> TriggerA ()
   -- ^ The rule defines the main logic of your trigger. It can send commands
   -- to the ledger using `emitCommands` to change the ACS.
   -- The rule depends on the following arguments:
   --
   --   * The party your trigger is running as.
+  --   * The user-defined state.
+  --
+  -- and can retrieve other data with functions in `TriggerA`:
+  --
   --   * The current state of the ACS.
   --   * The current time (UTC in wallclock mode, Unix epoch in static mode)
   --   * The commands in flight.
-  --   * The user-defined state.
   , registeredTemplates : RegisteredTemplates
   -- ^ The templates the trigger will receive events for.
   , heartbeat : Optional RelTime
@@ -103,9 +115,9 @@ data Trigger s = Trigger
 -- a failing completion.
 emitCommands : [Command] -> [AnyContractId] -> TriggerA CommandId
 emitCommands cmds pending = do
-  id <- TriggerA $ submitCommands cmds
+  id <- liftTriggerRule $ submitCommands cmds
   let commands = Commands id cmds
-  TriggerA $ modify $ \s -> s
+  liftTriggerRule $ modify $ \s -> s
     { commandsInFlight = addCommands s.commandsInFlight commands
     , pendingContracts = Map.insert id pending s.pendingContracts
     }
@@ -119,7 +131,7 @@ emitCommands cmds pending = do
 -- `emitCommands` with `createCmd` and handle filtering yourself.
 dedupCreate : (Eq t, Template t) => t -> TriggerA ()
 dedupCreate t = do
-  aState <- TriggerA get
+  aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
@@ -136,7 +148,7 @@ dedupCreate t = do
 -- and handle filtering yourself.
 dedupCreateAndExercise : (Eq t, Eq c, Template t, Choice t c r) => t -> c -> TriggerA ()
 dedupCreateAndExercise t c = do
-  aState <- TriggerA get
+  aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of
   -- commands in flight.  We probably want to change this to express
   -- the commands in flight as some kind of map to make these lookups
@@ -156,7 +168,7 @@ dedupCreateAndExercise t c = do
 -- `emitCommands` and adding the contract id to the pending set.
 dedupExercise : (Eq c, Choice t c r) => ContractId t -> c -> TriggerA ()
 dedupExercise cid c = do
-  aState <- TriggerA get
+  aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
@@ -172,7 +184,7 @@ dedupExercise cid c = do
 -- `emitCommands` with `exerciseCmd` and handle filtering yourself.
 dedupExerciseByKey : forall t c r k. (Eq c, Eq k, Choice t c r, TemplateKey t k) => k -> c -> TriggerA ()
 dedupExerciseByKey k c = do
-  aState <- TriggerA get
+  aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
@@ -186,7 +198,7 @@ dedupExerciseByKey k c = do
 -- as an optimization rather than an absolute authority on ledger state.
 getCommandsInFlight : TriggerA (Map CommandId [Command])
 getCommandsInFlight = do
-  TriggerA $ get <&> \s -> s.commandsInFlight
+  liftTriggerRule $ get <&> \s -> s.commandsInFlight
 
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
@@ -199,10 +211,10 @@ runTrigger userTrigger = LowLevel.Trigger
   where
     initialState party (ActiveContracts createdEvents) =
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
-          userState = userTrigger.initialize acs
+          userState = runTriggerInitializeA userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-    utUpdateState acs msg = execState $ runTriggerStateA $ userTrigger.updateState acs msg
+    utUpdateState acs msg = execState $ flip runTriggerUpdateA acs $ userTrigger.updateState msg
     update msg = do
       time <- getTime
       state <- get

@@ -101,15 +101,16 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
 .. code-block:: daml
 
     data Trigger s = Trigger
-      { initialize : ACS -> s
-      , updateState : ACS -> Message -> TriggerStateA s ()
-      , rule : Party -> ACS -> s -> TriggerA ()
+      { initialize : TriggerInitializeA s
+      , updateState : Message -> TriggerUpdateA s ()
+      , rule : Party -> s -> TriggerA ()
       , registeredTemplates : RegisteredTemplates
       , heartbeat : Optional RelTime
       }
 
 The ``initialize`` function is called on startup and allows you to
-initialize your user-defined state based on the active contract set.
+initialize your user-defined state based on querying the active contract
+set.
 
 The ``updateState`` function is called on new transactions and command
 completions and can be used to update your user-defined state based on
@@ -121,9 +122,10 @@ The ``rule`` function is the core of a DAML trigger. It defines which
 commands need to be sent to the ledger based on the party the trigger is
 executed at, the current state of the ACS, and the user defined state.
 The type ``TriggerA`` allows you to emit commands that are then sent to
-the ledger, as well as retrieve the commands in flight with
-``getCommandsInFlight``.  Like ``Scenario`` or ``Update``, you can use
-``do`` notation and ``getTime`` with ``TriggerA``.
+the ledger, query the ACS with ``query``, as well as retrieve the
+commands in flight with ``getCommandsInFlight``.  Like ``Scenario`` or
+``Update``, you can use ``do`` notation and ``getTime`` with
+``TriggerA``.
 
 We can specify the templates that our trigger will operate
 on. In our case, we will simply specify ``AllInDar`` which means that
@@ -166,9 +168,8 @@ restart, so this is an optimization rather than something required for
 them to function correctly.
 
 First, we get all ``Subscriber``, ``Original`` and ``Copy`` contracts
-from the ACS. For that, the DAML trigger API provides a
-``getContracts`` function that given the ACS will return a list of all
-contracts of a given template.
+from the ACS. For that, the DAML trigger API provides a ``query``
+function that will return a list of all contracts of a given template.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
    :language: daml
@@ -214,7 +215,7 @@ function. Each call to ``emitCommands`` takes a list of commands which
 will be submitted as a single transaction. The actual commands can be
 created using ``exerciseCmd`` and ``createCmd``. In addition to that,
 we also pass in a list of contract ids. Those contracts will be marked
-pending and not be included in the result of ``getContracts`` until
+pending and not be included in the result of ``query`` until
 the commands have either been comitted to the ledger or the command
 submission failed.
 
