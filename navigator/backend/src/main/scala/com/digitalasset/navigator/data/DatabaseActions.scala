@@ -5,7 +5,7 @@ package com.daml.navigator.data
 
 import java.sql.DriverManager
 
-import cats.effect.{ContextShift, IO}
+import cats.effect.{Blocker, ContextShift, IO}
 import cats.implicits._
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.model._
@@ -38,7 +38,7 @@ class DatabaseActions extends LazyLogging {
     */
   private val xa = Transactor.fromConnection[IO](
     DriverManager.getConnection("jdbc:sqlite::memory:"),
-    ExecutionContext.global)
+    Blocker liftExecutionContext ExecutionContext.global)
 
   /**
     * Creating the tables when initializing the DatabaseActions object
