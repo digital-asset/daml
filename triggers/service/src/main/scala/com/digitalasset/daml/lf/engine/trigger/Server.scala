@@ -52,8 +52,6 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
-import com.daml.lf.data.Ref
-
 import scala.collection.concurrent.TrieMap
 
 class Server(
@@ -274,7 +272,7 @@ class Server(
           entity(as[StartParams]) {
             params =>
               val claims =
-                AuthRequest.Claims(actAs = List(Ref.Party.assertFromString(params.party.toString)))
+                AuthRequest.Claims(actAs = List(params.party))
               // TODO[AH] Why do we need to pass ec, system explicitly?
               authorize(claims)(ec, system) { token =>
                 startTrigger(params.party, params.triggerName, token) match {

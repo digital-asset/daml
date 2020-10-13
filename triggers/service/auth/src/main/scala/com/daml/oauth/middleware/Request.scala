@@ -6,7 +6,7 @@ package com.daml.oauth.middleware
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.unmarshalling.Unmarshaller
-import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import spray.json.{
   DefaultJsonProtocol,
   JsString,
@@ -48,9 +48,9 @@ object Request {
             if (w == "admin") {
               admin = true
             } else if (w.startsWith("actAs:")) {
-              actAs.append(Party.assertFromString(w.stripPrefix("actAs:")))
+              actAs.append(Party(w.stripPrefix("actAs:")))
             } else if (w.startsWith("readAs:")) {
-              readAs.append(Party.assertFromString(w.stripPrefix("readAs:")))
+              readAs.append(Party(w.stripPrefix("readAs:")))
             } else {
               throw new IllegalArgumentException(s"Expected claim but got $w")
             }
