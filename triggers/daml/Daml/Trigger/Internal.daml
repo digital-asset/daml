@@ -175,14 +175,17 @@ data TriggerState s = TriggerState
   , commandsInFlight : Map CommandId [Command]
   }
 
-rliftFmap : ((a -> b) -> f a -> f b) -> (a -> b) -> (r -> f a) -> r -> f b
+-- unboxed newtype for common Trigger*A additions
+type TriggerAT f a = ACS -> f a
+
+rliftFmap : ((a -> b) -> f a -> f b) -> (a -> b) -> TriggerAT f a -> TriggerAT f b
 rliftFmap ub f r = ub f . r
 
-rliftPure : (a -> f a) -> a -> r -> f a
+rliftPure : (a -> f a) -> a -> TriggerAT f a
 rliftPure ub = const . ub
 
-rliftAp : (f (a -> b) -> f a -> f b) -> (r -> f (a -> b)) -> (r -> f a) -> r -> f b
+rliftAp : (f (a -> b) -> f a -> f b) -> TriggerAT f (a -> b) -> TriggerAT f a -> TriggerAT f b
 rliftAp ub ff fa r = ff r `ub` fa r
 
-rliftBind : (f a -> (a -> f b) -> f b) -> (r -> f a) -> (a -> r -> f b) -> r -> f b
+rliftBind : (f a -> (a -> f b) -> f b) -> TriggerAT f a -> (a -> TriggerAT f b) -> TriggerAT f b
 rliftBind ub fa f r = fa r `ub` \a -> f a r
