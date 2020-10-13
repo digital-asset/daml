@@ -3,10 +3,14 @@
 
 package com.daml.ledger
 
-import com.daml.resources.AbstractResourceOwner
+import com.daml.resources.{AbstractResourceOwner, ResourceFactories, Resource => AbstractResource}
 
 package object resources {
 
   type ResourceOwner[+A] = AbstractResourceOwner[ResourceContext, A]
+
+  type Resource[+A] = AbstractResource[ResourceContext, A]
+
+  val Resource = new ResourceFactories[ResourceContext]
 
 }

@@ -6,8 +6,7 @@ package com.daml.platform.apiserver
 import java.util.UUID
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.resources.Resource
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
 import io.netty.channel.{Channel, EventLoopGroup, ServerChannel}

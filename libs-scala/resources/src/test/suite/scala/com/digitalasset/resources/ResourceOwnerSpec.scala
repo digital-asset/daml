@@ -8,8 +8,9 @@ import java.util.concurrent.{Executors, RejectedExecutionException}
 import java.util.{Timer, TimerTask}
 
 import com.daml.resources.FailingResourceOwner.FailingResourceFailedToOpen
-import org.scalatest.{AsyncWordSpec, Matchers}
+import com.daml.resources.{Resource => AbstractResource}
 import com.github.ghik.silencer.silent
+import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
@@ -17,6 +18,8 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Futu
 import scala.util.{Failure, Success}
 
 final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
+  private type Resource[+T] = AbstractResource[TestContext, T]
+  private val Resource = new ResourceFactories[TestContext]
   private val Factories = new ResourceOwnerFactories[TestContext] {
     override protected implicit val hasExecutionContext: HasExecutionContext[TestContext] =
       TestContext.`TestContext has ExecutionContext`
@@ -273,7 +276,8 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       val transformedResource = resource.transformWith {
-        case Success(_) => Resource.failed[String](new IllegalStateException("Unexpected success."))
+        case Success(_) =>
+          Resource.failed[String](new IllegalStateException("Unexpected success."))
         case Failure(_) => Resource.successful("something")
       }
 

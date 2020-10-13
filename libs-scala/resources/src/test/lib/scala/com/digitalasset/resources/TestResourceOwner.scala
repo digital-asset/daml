@@ -15,11 +15,11 @@ final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
 
   def hasBeenAcquired: Boolean = acquired.get
 
-  def acquire()(implicit context: TestContext): Resource[T] = {
+  def acquire()(implicit context: TestContext): Resource[TestContext, T] = {
     if (!acquired.compareAndSet(false, true)) {
       throw new TriedToAcquireTwice
     }
-    Resource(acquire)(
+    Resource[TestContext].apply(acquire)(
       value =>
         if (acquired.compareAndSet(true, false))
           release(value)

@@ -6,6 +6,7 @@ package com.daml.resources
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.resources.ResettableResourceOwner.Reset
+import com.daml.resources.{Resource => AbstractResource}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -20,6 +21,9 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
   override def timeLimit: Span = 10.seconds
 
   private implicit val context: TestContext = new TestContext(executionContext)
+
+  private type Resource[+T] = AbstractResource[TestContext, T]
+  private val Resource = new ResourceFactories[TestContext]
 
   "resetting a resource" should {
     "reconstruct everything" in {

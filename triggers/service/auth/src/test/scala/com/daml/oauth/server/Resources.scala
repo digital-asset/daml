@@ -5,8 +5,7 @@ package com.daml.oauth.server
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.resources.Resource
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 
 object Resources {
   def authServer(config: Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =

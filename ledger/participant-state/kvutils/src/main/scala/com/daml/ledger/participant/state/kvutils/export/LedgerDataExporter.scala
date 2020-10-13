@@ -5,8 +5,7 @@ package com.daml.ledger.participant.state.kvutils.export
 
 import java.nio.file.Paths
 
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.resources.Resource
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import org.slf4j.LoggerFactory
 
 trait LedgerDataExporter {

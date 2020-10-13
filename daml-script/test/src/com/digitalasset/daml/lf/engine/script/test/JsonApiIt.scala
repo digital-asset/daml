@@ -25,7 +25,7 @@ import com.daml.ledger.api.testing.utils.{
 }
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceContext._
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.{
@@ -49,7 +49,6 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.ports.Port
-import com.daml.resources.Resource
 import io.grpc.Channel
 import org.scalatest._
 import scalaz.syntax.traverse._

@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.kvutils.{
   KeyValueCommitting
 }
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.LedgerStateOperations.Value
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -35,7 +35,6 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.resources.Resource
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success

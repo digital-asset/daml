@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceContext._
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -30,7 +30,6 @@ import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.resources.Resource
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal

@@ -24,7 +24,7 @@ import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -42,7 +42,7 @@ import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
-import com.daml.resources.{ResettableResourceOwner, Resource}
+import com.daml.resources.ResettableResourceOwner
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps

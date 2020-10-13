@@ -7,8 +7,7 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.resources.Resource
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 
 import scala.concurrent.Future
 

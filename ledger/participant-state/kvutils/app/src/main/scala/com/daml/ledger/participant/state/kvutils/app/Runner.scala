@@ -14,7 +14,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.ledger.resources.ResourceContext._
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -24,7 +24,6 @@ import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.Resource
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}

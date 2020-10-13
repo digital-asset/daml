@@ -12,7 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -27,7 +27,6 @@ import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
 import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.Resource
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.time.{Minute, Seconds, Span}

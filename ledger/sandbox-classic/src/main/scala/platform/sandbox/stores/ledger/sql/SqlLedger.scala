@@ -18,7 +18,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionCommitter
@@ -39,7 +39,6 @@ import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.resources.Resource
 import scalaz.Tag
 
 import scala.collection.immutable.Queue

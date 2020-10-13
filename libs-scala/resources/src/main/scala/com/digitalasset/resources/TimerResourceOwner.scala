@@ -9,6 +9,6 @@ import scala.concurrent.Future
 
 class TimerResourceOwner[Context: HasExecutionContext](acquireTimer: () => Timer)
     extends AbstractResourceOwner[Context, Timer] {
-  override def acquire()(implicit context: Context): Resource[Timer] =
-    Resource(Future(acquireTimer()))(timer => Future(timer.cancel()))
+  override def acquire()(implicit context: Context): Resource[Context, Timer] =
+    Resource.apply(Future(acquireTimer()))(timer => Future(timer.cancel()))
 }

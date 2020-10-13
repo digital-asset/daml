@@ -10,8 +10,8 @@ import scala.concurrent.Future
 object PostgresResource {
   def owner[Context: HasExecutionContext](): AbstractResourceOwner[Context, PostgresDatabase] =
     new AbstractResourceOwner[Context, PostgresDatabase] with PostgresAround {
-      override def acquire()(implicit context: Context): Resource[PostgresDatabase] =
-        Resource(Future {
+      override def acquire()(implicit context: Context): Resource[Context, PostgresDatabase] =
+        Resource[Context].apply(Future {
           connectToPostgresqlServer()
           createNewRandomDatabase()
         })(_ => Future(disconnectFromPostgresqlServer()))

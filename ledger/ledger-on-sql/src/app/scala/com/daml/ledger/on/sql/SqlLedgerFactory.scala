@@ -16,11 +16,10 @@ import com.daml.ledger.participant.state.kvutils.app.{
 }
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1.SeedService
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.resources.Resource
 import scopt.OptionParser
 
 object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {

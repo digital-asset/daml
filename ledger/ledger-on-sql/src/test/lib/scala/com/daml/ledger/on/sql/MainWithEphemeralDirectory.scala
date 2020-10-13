@@ -7,10 +7,10 @@ import java.nio.file.Files
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app._
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.resources.{ProgramResource, Resource}
+import com.daml.resources.ProgramResource
 import scopt.OptionParser
 
 object MainWithEphemeralDirectory {

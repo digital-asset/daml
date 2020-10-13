@@ -4,11 +4,10 @@
 package com.daml.platform.apiserver
 
 import akka.actor.ActorSystem
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
-import com.daml.resources.Resource
 import io.grpc.ServerInterceptor
 import io.netty.handler.ssl.SslContext
 

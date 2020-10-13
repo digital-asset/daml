@@ -27,23 +27,23 @@ abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
     * @param context The acquisition context, including the asynchronous task execution engine.
     * @return The acquired [[Resource]].
     */
-  def acquire()(implicit context: Context): Resource[A]
+  def acquire()(implicit context: Context): Resource[Context, A]
 
   /** @see [[Resource.map()]]*/
   def map[B](f: A => B): R[B] = new R[B] {
-    override def acquire()(implicit context: Context): Resource[B] =
+    override def acquire()(implicit context: Context): Resource[Context, B] =
       self.acquire().map(f)
   }
 
   /** @see [[Resource.flatMap()]]*/
   def flatMap[B](f: A => R[B]): R[B] = new R[B] {
-    override def acquire()(implicit context: Context): Resource[B] =
+    override def acquire()(implicit context: Context): Resource[Context, B] =
       self.acquire().flatMap(value => f(value).acquire())
   }
 
   /** @see [[Resource.withFilter()]] */
   def withFilter(p: A => Boolean): R[A] = new R[A] {
-    override def acquire()(implicit context: Context): Resource[A] =
+    override def acquire()(implicit context: Context): Resource[Context, A] =
       self.acquire().withFilter(p)
   }
 

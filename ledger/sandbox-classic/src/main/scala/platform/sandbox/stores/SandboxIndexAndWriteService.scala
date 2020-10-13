@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.v1.{
   LedgerId => _,
   TransactionId => _
 }
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
@@ -33,7 +33,6 @@ import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.daml.platform.sandbox.stores.ledger.{Ledger, MeteredLedger}
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.Resource
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future

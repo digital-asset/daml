@@ -16,7 +16,7 @@ final class OwnedResource[Context, T: ClassTag](
     releaseTimeout: FiniteDuration = 30.seconds,
 )(implicit context: Context)
     extends ManagedResource[T] {
-  private var resource: resources.Resource[T] = _
+  private var resource: resources.Resource[Context, T] = _
 
   override def construct(): T = {
     resource = owner.acquire()

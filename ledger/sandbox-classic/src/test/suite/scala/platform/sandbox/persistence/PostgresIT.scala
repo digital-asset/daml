@@ -5,13 +5,12 @@ package com.daml.platform.sandbox.persistence
 
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.{HikariJdbcConnectionProvider, JdbcConnectionProvider}
-import com.daml.resources.Resource
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 

@@ -20,7 +20,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.transaction.{
@@ -46,7 +46,6 @@ import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndex
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
-import com.daml.resources.Resource
 import scalaz.syntax.tag._
 
 import scala.collection.JavaConverters._

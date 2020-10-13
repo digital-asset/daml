@@ -15,8 +15,8 @@ class ResettableResourceOwner[Context: HasExecutionContext, A, ResetValue] priva
     owner: Reset => ResetValue => AbstractResourceOwner[Context, A],
     resetOperation: A => Future[ResetValue],
 ) extends AbstractResourceOwner[Context, A] {
-  override def acquire()(implicit context: Context): Resource[A] =
-    new Resource[A] {
+  override def acquire()(implicit context: Context): Resource[Context, A] =
+    new Resource[Context, A] {
       private val resettableOwner: ResetValue => AbstractResourceOwner[Context, A] = owner(reset _)
 
       @volatile
