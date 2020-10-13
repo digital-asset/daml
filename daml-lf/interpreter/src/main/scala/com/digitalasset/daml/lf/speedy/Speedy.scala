@@ -412,7 +412,7 @@ private[lf] object Speedy {
               pushKont(KCacheVal(eval, Nil))
               ctrl = body
             case None =>
-              if (compiledPackages.getPackage(ref.packageId).isDefined)
+              if (compiledPackages.getSignature(ref.packageId).isDefined)
                 crash(
                   s"definition $ref not found even after caller provided new set of packages",
                 )
@@ -422,7 +422,7 @@ private[lf] object Speedy {
                     ref.packageId, { packages =>
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
-                      assert(compiledPackages.getPackage(ref.packageId).isDefined)
+                      assert(compiledPackages.getSignature(ref.packageId).isDefined)
                       lookupVal(eval)
                     }
                   ),
@@ -643,7 +643,7 @@ private[lf] object Speedy {
               entries = entries.iterator.map { case (k, v) => go(k) -> go(v) }
             )
           case V.ValueVariant(Some(id), variant, arg) =>
-            compiledPackages.getPackage(id.packageId) match {
+            compiledPackages.getSignature(id.packageId) match {
               case Some(pkg) =>
                 pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
                   case DDataType(_, _, data: DataVariant) =>
@@ -662,7 +662,7 @@ private[lf] object Speedy {
                   ))
             }
           case V.ValueEnum(Some(id), constructor) =>
-            compiledPackages.getPackage(id.packageId) match {
+            compiledPackages.getSignature(id.packageId) match {
               case Some(pkg) =>
                 pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
                   case DDataType(_, _, data: DataEnum) =>

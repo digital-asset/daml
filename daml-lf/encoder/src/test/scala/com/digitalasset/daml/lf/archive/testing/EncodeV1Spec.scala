@@ -205,7 +205,7 @@ object EncodeV1Spec {
 
   private def validate(pkgId: PackageId, pkg: Package): Unit =
     Validation
-      .checkPackage(Map(pkgId -> pkg), pkgId)
+      .checkPackage(Map(pkgId -> pkg), pkgId, pkg)
       .left
       .foreach(e => sys.error(e.toString))
 

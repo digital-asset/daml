@@ -77,6 +77,8 @@ class EngineTest
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
     "daml-lf/tests/BasicTests.dar")
 
+  val basicTestsSignatures = toSignature(basicTestsPkg)
+
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: ContractInst[Tx.Value[ContractId]] =
@@ -146,7 +148,7 @@ class EngineTest
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
       val Right((params, DataVariant(variants))) =
-        PackageLookup.lookupVariant(basicTestsPkg, id.qualifiedName)
+        SignatureLookup.lookupVariant(basicTestsSignatures, id.qualifiedName)
       params should have length 1
       variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
     }
@@ -156,7 +158,7 @@ class EngineTest
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val Right((_, DataRecord(fields))) =
-        PackageLookup.lookupRecord(basicTestsPkg, id.qualifiedName)
+        SignatureLookup.lookupRecord(basicTestsSignatures, id.qualifiedName)
       fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
     }
   }
@@ -165,8 +167,7 @@ class EngineTest
     "return the right argument type" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
       val Right((_, DataRecord(fields))) =
-        PackageLookup.lookupRecord(basicTestsPkg, id.qualifiedName)
-      PackageLookup.lookupTemplate(basicTestsPkg, id.qualifiedName) shouldBe 'right
+        SignatureLookup.lookupRecord(basicTestsSignatures, id.qualifiedName)
       fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
     }
   }
@@ -809,8 +810,8 @@ class EngineTest
         )
       )
 
-      val Right(DDataType(_, ImmArray(), _)) = PackageLookup
-        .lookupDataType(basicTestsPkg, "BasicTests:MyNestedRec")
+      val Right(DDataType(_, ImmArray(), _)) = SignatureLookup
+        .lookupDataType(basicTestsSignatures, "BasicTests:MyNestedRec")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.empty),
@@ -828,7 +829,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -847,7 +848,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -864,7 +865,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -881,7 +882,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -898,7 +899,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),

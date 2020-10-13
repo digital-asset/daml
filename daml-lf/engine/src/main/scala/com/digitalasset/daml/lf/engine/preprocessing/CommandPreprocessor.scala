@@ -20,12 +20,12 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
 
   @throws[PreprocessorException]
   private def unsafeGetPackage(pkgId: Ref.PackageId) =
-    compiledPackages.getPackage(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
+    compiledPackages.getSignature(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
 
   @throws[PreprocessorException]
   private def unsafeGetTemplate(templateId: Ref.Identifier) =
     assertRight(
-      PackageLookup.lookupTemplate(
+      SignatureLookup.lookupTemplate(
         unsafeGetPackage(templateId.packageId),
         templateId.qualifiedName
       ))
@@ -33,7 +33,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
   @throws[PreprocessorException]
   private def unsafeGetChoiceArgType(
       tmplId: Ref.Identifier,
-      tmpl: Ast.Template,
+      tmpl: Ast.TemplateSignature,
       choiceId: Ref.ChoiceName) =
     tmpl.choices.get(choiceId) match {
       case Some(choice) => choice.argBinder._2
@@ -45,7 +45,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     }
 
   @throws[PreprocessorException]
-  private def unsafeGetContractKeyType(tmplId: Ref.Identifier, tmpl: Ast.Template) =
+  private def unsafeGetContractKeyType(tmplId: Ref.Identifier, tmpl: Ast.TemplateSignature) =
     tmpl.key match {
       case Some(ck) => ck.typ
       case None =>

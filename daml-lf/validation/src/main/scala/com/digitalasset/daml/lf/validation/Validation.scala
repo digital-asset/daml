@@ -3,8 +3,8 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.Ref.{ModuleName, PackageId}
-import com.daml.lf.language.Ast.{Module, Package}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.Ast._
 
 object Validation {
 
@@ -22,12 +22,14 @@ object Validation {
     }
 
   def checkPackage(
-      pkgs: PartialFunction[PackageId, Package],
-      pkgId: PackageId
+      interfaces: PartialFunction[PackageId, GenPackage[_]],
+      pkgId: PackageId,
+      pkg: Package,
   ): Either[ValidationError, Unit] =
     runSafely {
-      val world = new World(pkgs)
-      unsafeCheckPackage(world, pkgId, world.lookupPackage(NoContext, pkgId))
+      val lookForThisPackage: PartialFunction[PackageId, Package] = { case `pkgId` => pkg }
+      val world = new World(lookForThisPackage orElse interfaces)
+      unsafeCheckPackage(world, pkgId, pkg)
     }
 
   private def unsafeCheckPackage(
@@ -41,14 +43,14 @@ object Validation {
     pkg.modules.values.foreach(unsafeCheckModule(world, pkgId, _))
   }
 
-  def checkModule(
-      pkgs: PartialFunction[PackageId, Package],
+  private[lf] def checkModule(
+      pkgs: PartialFunction[PackageId, GenPackage[_]],
       pkgId: PackageId,
-      modName: ModuleName,
+      module: Module
   ): Either[ValidationError, Unit] =
     runSafely {
       val world = new World(pkgs)
-      unsafeCheckModule(world, pkgId, world.lookupModule(NoContext, pkgId, modName))
+      unsafeCheckModule(world, pkgId, module)
     }
 
   private def unsafeCheckModule(world: World, pkgId: PackageId, mod: Module): Unit = {

@@ -78,7 +78,7 @@ class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with
           DependencyVersion.checkPackage(
             world,
             pkgdId,
-            world.lookupPackage(NoContext, pkgdId),
+            pkgs(pkgdId),
           )
     }
 

@@ -12,7 +12,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.assertRight
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.ScenarioRunner
@@ -68,22 +68,22 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     * The package identifier to use for modules added to the context.
     * When decoding LF modules this package identifier should be used to rewrite
     * self-references. We only care that the identifier is disjunct from the package ids
-    * in extPackages.
+    * in extSignature.
     */
   val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
-  private var extPackages: Map[PackageId, Ast.Package] = HashMap.empty
+  private var extSignatures: Map[PackageId, Ast.PackageSignature] = HashMap.empty
   private var extDefns: Map[SDefinitionRef, SExpr] = HashMap.empty
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
   private var modDefns: Map[ModuleName, Map[SDefinitionRef, SExpr]] = HashMap.empty
   private var defns: Map[SDefinitionRef, SExpr] = HashMap.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
-  def loadedPackages(): Iterable[PackageId] = extPackages.keys
+  def loadedPackages(): Iterable[PackageId] = extSignatures.keys
 
   def cloneContext(): Context = synchronized {
     val newCtx = Context.newContext(languageVersion)
-    newCtx.extPackages = extPackages
+    newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules
     newCtx.modDefns = modDefns
@@ -122,10 +122,13 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
 
     val modulesToCompile =
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {
-        // if any change we recompile everything
-        extPackages --= unloadPackages
-        extPackages ++= newPackages
-        extDefns = assertRight(Compiler.compilePackages(extPackages, compilerConfig))
+        val invalidPackages = unloadModules ++ newPackages.keys
+        val newExtSignature = extSignatures -- unloadPackages ++ AstUtil.toSignatures(newPackages)
+        val newExtDefns = extDefns.filterKeys(sdef => !invalidPackages(sdef.packageId)) ++
+          assertRight(Compiler.compilePackages(newExtSignature, newPackages, compilerConfig))
+        // we update only if we manage to compile the new packages
+        extSignatures = newExtSignature
+        extDefns = newExtDefns
         modDefns = HashMap.empty
         modules.values
       } else {
@@ -133,12 +136,12 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         newModules
       }
 
-    val pkgs = allPackages
-    val compiler = new Compiler(pkgs, compilerConfig)
+    val allSignatures = this.allSignatures
+    val compiler = new Compiler(allSignatures, compilerConfig)
 
     modulesToCompile.foreach { mod =>
       if (!omitValidation)
-        assertRight(Validation.checkModule(pkgs, homePackageId, mod.name).left.map(_.pretty))
+        assertRight(Validation.checkModule(allSignatures, homePackageId, mod).left.map(_.pretty))
       modDefns +=
         mod.name -> compiler.unsafeCompileModule(homePackageId, mod).toMap
     }
@@ -147,8 +150,12 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     modDefns.values.foreach(defns ++= _)
   }
 
-  def allPackages: Map[PackageId, Ast.Package] = synchronized {
-    extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet, languageVersion, None))
+  def allSignatures: Map[PackageId, Ast.PackageSignature] = {
+    val extSignatures = this.extSignatures
+    extSignatures.updated(
+      homePackageId,
+      AstUtil.toSignature(Ast.Package(modules, extSignatures.keySet, languageVersion, None))
+    )
   }
 
   // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
@@ -157,7 +164,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     val defns = this.defns
-    val compiledPackages = PureCompiledPackages(allPackages, defns, compilerConfig)
+    val compiledPackages =
+      PureCompiledPackages(allSignatures, defns, compilerConfig)
     for {
       defn <- defns.get(LfDefRef(identifier))
     } yield
@@ -192,9 +200,10 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer)
     : Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
     val defns = this.defns
-    val compiledPackages = PureCompiledPackages(allPackages, defns, compilerConfig)
+    val compiledPackages =
+      PureCompiledPackages(allSignatures, defns, compilerConfig)
     val expectedScriptId = DottedName.assertFromString("Daml.Script")
-    val Some(scriptPackageId) = allPackages.collectFirst {
+    val Some(scriptPackageId) = allSignatures.collectFirst {
       case (pkgId, pkg) if pkg.modules contains expectedScriptId => pkgId
     }
     val scriptExpr = SExpr.SEVal(
