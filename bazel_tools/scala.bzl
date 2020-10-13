@@ -139,6 +139,9 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
+silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_2_12_12"
+silencer_lib = "@maven//:com_github_ghik_silencer_lib_2_12_12"
+
 default_initial_heap_size = "128m"
 default_max_heap_size = "1g"
 default_scalac_stack_size = "2m"
@@ -173,11 +176,24 @@ def _set_jvm_flags(
     })
     return result
 
-def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], generated_srcs = [], **kwargs):
+def _wrap_rule(
+        rule,
+        name = "",
+        scalacopts = [],
+        plugins = [],
+        generated_srcs = [],  # hiding from the underlying rule
+        deps = [],
+        silent_annotations = False,
+        **kwargs):
+    if silent_annotations:
+        scalacopts = ["-P:silencer:checkUnused"] + scalacopts
+        plugins = [silencer_plugin] + plugins
+        deps = [silencer_lib] + deps
     rule(
         name = name,
         scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
+        deps = deps,
         **kwargs
     )
 
@@ -452,20 +468,21 @@ Arguments:
   doctitle: title for Scalaadoc's index.html. Typically the name of the library
 """
 
-def _create_scaladoc_jar(**kwargs):
+def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scalacopts = [], generated_srcs = [], silent_annotations = False, **kwargs):
     # Limit execution to Linux and MacOS
     if is_windows == False:
-        plugins = []
-        if "plugins" in kwargs:
-            plugins = kwargs["plugins"]
-
+        if silent_annotations:
+            # as with _wrap_rule
+            scalacopts = ["-P:silencer:checkUnused"] + scalacopts
+            plugins = [silencer_plugin] + plugins
+            deps = [silencer_lib] + deps
         scaladoc_jar(
-            name = kwargs["name"] + "_scaladoc",
-            deps = kwargs.get("deps", []),
+            name = name + "_scaladoc",
+            deps = deps,
             plugins = plugins,
-            srcs = kwargs["srcs"],
-            scalacopts = kwargs.get("scalacopts", []),
-            generated_srcs = kwargs.get("generated_srcs", []),
+            srcs = srcs,
+            scalacopts = scalacopts,
+            generated_srcs = generated_srcs,
             tags = ["scaladoc"],
         )
 

@@ -5,6 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+    "silencer_plugin",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -47,7 +48,7 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app",
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_12",
+        silencer_plugin,
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = [
@@ -71,7 +72,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         # silencer warns if this is absent, but we don't use it here;
-        # buildozer errors if you add it
+        # buildozer errors if you add it, so silent_annotations can't be used
         # "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
