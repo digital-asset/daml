@@ -16,7 +16,6 @@ import scalaz.OneAnd
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 
-import scala.collection.compat._
 import scala.concurrent.ExecutionContext
 
 class ContractDao(xa: Connection.T) {
@@ -95,7 +94,7 @@ object ContractDao {
 
       dbContracts <- Queries
         .selectContracts(domain.Party.unsubst(parties), tpId, predicate)
-        .to(Vector)
+        .to[Vector]
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
   }
