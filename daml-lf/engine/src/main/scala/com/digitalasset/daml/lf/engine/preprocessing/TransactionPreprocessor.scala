@@ -36,14 +36,13 @@ private[preprocessing] final class TransactionPreprocessor(
     node match {
       case Node.NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
-        if (globalCids(coid))
+        val (cmd, argCids) =
+          commandPreprocessor.unsafePreprocessCreate(identifier, coinst.arg.value)
+        val newGlobalCids = globalCids | argCids.filterNot(localCids)
+        if (newGlobalCids(coid))
           fail("Conflicting discriminators between a global and local contract ID.")
 
-        val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessCreate(identifier, coinst.arg.value)
-        val newGlobalCids = globalCids + coid
-        val newLocalCids = localCids | newCids.filterNot(globalCids)
-        cmd -> (newLocalCids -> newGlobalCids)
+        cmd -> (localCids + coid -> newGlobalCids)
 
       case Node.NodeExercises(
           coid,
@@ -60,12 +59,12 @@ private[preprocessing] final class TransactionPreprocessor(
           exerciseResult @ _,
           key @ _) =>
         val templateId = template
-        val (cmd, newCids) =
+        val (cmd, argCids) =
           commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, chosenVal.value)
-        (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
+        (cmd, (localCids, globalCids | argCids.filterNot(localCids)))
       case Node.NodeFetch(coid, templateId, _, _, _, _, _) =>
         val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, coid)
-        (cmd, acc)
+        (cmd, (localCids, if (localCids(coid)) globalCids else globalCids + coid))
       case Node.NodeLookupByKey(templateId, _, key, _) =>
         val keyValue = unsafeAsValueWithNoContractIds(key.key.value)
         val cmd = commandPreprocessor.unsafePreprocessLookupByKey(templateId, keyValue)
@@ -80,7 +79,7 @@ private[preprocessing] final class TransactionPreprocessor(
 
     type Acc = ((Set[Value.ContractId], Set[Value.ContractId]), BackStack[speedy.Command])
 
-    val ((localCids, _), cmds) =
+    val ((_, globalCids), cmds) =
       tx.roots.foldLeft[Acc](((Set.empty, Set.empty), BackStack.empty)) {
         case ((cids, stack), id) =>
           tx.nodes.get(id) match {
@@ -99,7 +98,7 @@ private[preprocessing] final class TransactionPreprocessor(
           }
       }
 
-    cmds.toImmArray -> localCids
+    cmds.toImmArray -> globalCids
   }
 
 }
