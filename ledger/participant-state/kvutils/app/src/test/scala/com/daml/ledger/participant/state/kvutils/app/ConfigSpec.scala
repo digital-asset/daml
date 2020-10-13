@@ -10,9 +10,9 @@ import scopt.OptionParser
 final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
 
   private val dumpIndexMetadataCommand = "dump-index-metadata"
-  private val particiopantOption = "--participant"
+  private val participantOption = "--participant"
   private val participantId: ParticipantId = ParticipantId.assertFromString("dummy-participant")
-  private val defaultParticipantSubOptions = s"participant-id=$participantId,port=123"
+  private val fixedParticipantSubOptions = s"participant-id=$participantId,port=123"
   private val jdbcUrlSubOption = "server-jdbc-url"
   private val jdbcUrlEnvSubOption = "server-jdbc-url-env"
   private def configParser(
@@ -41,7 +41,7 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
   it should "get the jdbc string from the command line argument when provided" in {
     val jdbcFromCli = "command-line-jdbc"
     val config = configParser(
-      Seq(particiopantOption, s"$defaultParticipantSubOptions,$jdbcUrlSubOption=$jdbcFromCli"))
+      Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlSubOption=$jdbcFromCli"))
       .getOrElse(fail())
     config.participants.head.serverJdbcUrl should be(jdbcFromCli)
   }
@@ -50,7 +50,7 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
     val jdbcEnvVar = "JDBC_ENV_VAR"
     val jdbcFromEnv = "env-jdbc"
     val config = configParser(
-      Seq(particiopantOption, s"$defaultParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar"),
+      Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar"),
       { case `jdbcEnvVar` => Some(jdbcFromEnv) }
     ).getOrElse(fail())
     config.participants.head.serverJdbcUrl should be(jdbcFromEnv)
@@ -60,7 +60,7 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
     val jdbcEnvVar = "JDBC_ENV_VAR"
     val defaultJdbc = ParticipantConfig.defaultIndexJdbcUrl(participantId)
     val config = configParser(
-      Seq(particiopantOption, s"$defaultParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar")
+      Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar")
     ).getOrElse(fail())
     config.participants.head.serverJdbcUrl should be(defaultJdbc)
   }
