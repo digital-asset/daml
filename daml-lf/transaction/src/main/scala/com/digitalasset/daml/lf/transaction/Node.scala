@@ -50,6 +50,8 @@ object Node {
       */
     def requiredAuthorizers: Set[Party]
 
+    def byKey: Boolean
+
     def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit) =
       GenNode.foreach3(fNid, fCid, fVal)(this)
   }
@@ -82,6 +84,7 @@ object Node {
             _,
             _,
             key,
+            _,
           ) =>
         self copy (
           coid = f2(coid),
@@ -101,6 +104,7 @@ object Node {
             children,
             exerciseResult,
             key,
+            _,
           ) =>
         self copy (
           targetCoid = f2(targetCoid),
@@ -145,6 +149,7 @@ object Node {
           signatoriesd @ _,
           stakeholdersd @ _,
           key,
+          _,
           ) =>
         f2(coid)
         key.foreach(KeyWithMaintainers.foreach1(f3))
@@ -162,6 +167,7 @@ object Node {
           children @ _,
           exerciseResult,
           key,
+          _,
           ) =>
         f2(targetCoid)
         f3(chosenValue)
@@ -196,7 +202,7 @@ object Node {
       with NodeInfo.Create {
 
     override def templateId: TypeConName = coinst.template
-
+    override def byKey: Boolean = false
   }
 
   object NodeCreate extends WithTxValue2[NodeCreate]
@@ -210,8 +216,9 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
+      override val byKey: Boolean // invariant (!byKey || exerciseResult.isDefined)
   ) extends LeafOnlyNode[Cid, Val]
-      with NodeInfo.Fetch {}
+      with NodeInfo.Fetch
 
   object NodeFetch extends WithTxValue2[NodeFetch]
 
@@ -240,6 +247,7 @@ object Node {
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
       key: Option[KeyWithMaintainers[Val]],
+      override val byKey: Boolean // invariant (!byKey || exerciseResult.isDefined)
   ) extends GenNode[Nid, Cid, Val]
       with NodeInfo.Exercise {
     @deprecated("use actingParties instead", since = "1.1.2")
@@ -265,6 +273,7 @@ object Node {
         children: ImmArray[Nid],
         exerciseResult: Option[Val],
         key: Option[KeyWithMaintainers[Val]],
+        byKey: Boolean,
     ): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
         targetCoid,
@@ -280,6 +289,7 @@ object Node {
         children,
         exerciseResult,
         key,
+        byKey
       )
   }
 
@@ -293,7 +303,7 @@ object Node {
 
     override def keyMaintainers: Set[Party] = key.maintainers
     override def hasResult: Boolean = result.isDefined
-
+    override def byKey: Boolean = true
   }
 
   object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
@@ -352,6 +362,7 @@ object Node {
             signatories2,
             stakeholders2,
             key2,
+            _,
             ) =>
           import nf._
           coid === coid2 && templateId == templateId2 &&
@@ -374,6 +385,7 @@ object Node {
             _,
             exerciseResult2,
             key2,
+            _,
             ) =>
           import ne._
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&

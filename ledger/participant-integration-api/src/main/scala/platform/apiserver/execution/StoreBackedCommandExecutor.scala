@@ -10,7 +10,7 @@ import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{
   Engine,
   Result,
@@ -70,7 +70,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
               submissionSeed,
               Some(meta.usedPackages),
               Some(meta.nodeSeeds),
-              Some(meta.byKeyNodes),
+              Some(
+                updateTx.nodes
+                  .collect { case (nodeId, node) if node.byKey => nodeId }
+                  .to[ImmArray]),
             ),
             transaction = updateTx,
             dependsOnLedgerTime = meta.dependsOnTime,

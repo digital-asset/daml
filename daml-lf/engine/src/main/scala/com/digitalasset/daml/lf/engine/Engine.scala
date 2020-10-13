@@ -369,7 +369,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
           usedPackages = Set.empty,
           dependsOnTime = onLedger.dependsOnTime,
           nodeSeeds = onLedger.ptx.nodeSeeds.toImmArray,
-          byKeyNodes = onLedger.ptx.byKeyNodes.toImmArray,
         )
         config.profileDir.foreach { dir =>
           val hash = meta.nodeSeeds(0)._2.toHexString
