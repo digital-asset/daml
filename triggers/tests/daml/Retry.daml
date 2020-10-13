@@ -26,7 +26,7 @@ retryRule party allowedRetries = query @T >>= \case
     dedupCreate T { p = party }
   ((cid, _) :: _) | allowedRetries > 0 -> do
     dedupExercise cid C
-  otherwise -> query @Done >>= \case
+  _ -> query @Done >>= \case
     [] | allowedRetries == 0 -> do
       dedupCreate Done { p = party }
     otherwise -> pure ()

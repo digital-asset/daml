@@ -21,7 +21,7 @@ maxInboundMessageSizeRule : Party -> ()
 maxInboundMessageSizeRule party _ = query @MessageSize >>= \case
   [] ->
       void $ emitCommands [createAndExerciseCmd (MessageSize { p = party }) (CreateN {n = 50000})] []
-  otherwise -> pure ()
+  _ -> pure ()
 
 template MessageSize
   with
