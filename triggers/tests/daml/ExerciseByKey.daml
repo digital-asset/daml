@@ -8,7 +8,7 @@ import Daml.Trigger
 
 exerciseByKeyTrigger : Trigger Int
 exerciseByKeyTrigger = Trigger
-  { initialize = \_acs -> 3
+  { initialize = pure 3
   , updateState = \msg -> case msg of
       MCompletion c
         | Failed {} <- c.status -> modify (subtract 1)

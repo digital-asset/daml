@@ -8,7 +8,7 @@ import Daml.Trigger
 
 createAndExerciseTrigger : Trigger ()
 createAndExerciseTrigger = Trigger
-  { initialize = \_ -> ()
+  { initialize = pure ()
   , updateState = \_ -> pure ()
   , rule = createAndExerciseRule
   , registeredTemplates = AllInDar

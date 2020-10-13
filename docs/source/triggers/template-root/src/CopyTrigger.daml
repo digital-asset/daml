@@ -50,7 +50,7 @@ deriving instance Ord Copy
 -- TRIGGER_BEGIN
 copyTrigger : Trigger ()
 copyTrigger = Trigger
-  { initialize = \_acs -> ()
+  { initialize = pure ()
   , updateState = \_message -> pure ()
   , rule = copyRule
   , registeredTemplates = AllInDar

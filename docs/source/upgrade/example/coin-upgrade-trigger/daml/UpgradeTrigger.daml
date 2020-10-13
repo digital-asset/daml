@@ -17,7 +17,7 @@ import UpgradeFromCoinV1
 -- TRIGGER_BOILERPLATE_BEGIN
 upgradeTrigger : Trigger ()
 upgradeTrigger = Trigger with
-  initialize = \_acs -> ()
+  initialize = pure ()
   updateState = \_msg -> pure ()
   registeredTemplates = AllInDar
   heartbeat = None

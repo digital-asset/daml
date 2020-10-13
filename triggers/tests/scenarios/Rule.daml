@@ -29,7 +29,7 @@ template T
 
 trigger : Trigger Int
 trigger = Trigger with
-  initialize = const 0
+  initialize = pure 0
   updateState = \_msg -> put . length =<< query @T
   rule = \party count -> do
     when (count == 1) do

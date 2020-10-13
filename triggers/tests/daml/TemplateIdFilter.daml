@@ -9,7 +9,7 @@ import Daml.Trigger
 
 test : RegisteredTemplates -> Trigger ()
 test registered = Trigger
-  { initialize = \_acs -> ()
+  { initialize = pure ()
   , updateState = \_message -> pure ()
   , registeredTemplates = registered
   , rule = \party () -> do

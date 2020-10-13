@@ -101,7 +101,7 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
 .. code-block:: daml
 
     data Trigger s = Trigger
-      { initialize : ACS -> s
+      { initialize : TriggerInitializeA s
       , updateState : Message -> TriggerUpdateA s ()
       , rule : Party -> s -> TriggerA ()
       , registeredTemplates : RegisteredTemplates
@@ -109,7 +109,8 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
       }
 
 The ``initialize`` function is called on startup and allows you to
-initialize your user-defined state based on the active contract set.
+initialize your user-defined state based on querying the active contract
+set.
 
 The ``updateState`` function is called on new transactions and command
 completions and can be used to update your user-defined state based on

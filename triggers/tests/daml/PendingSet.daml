@@ -35,7 +35,7 @@ template Done
 
 booTrigger : Trigger ()
 booTrigger = Trigger with
-  initialize = \acs -> ()
+  initialize = pure ()
   updateState = \_ -> pure ()
   rule = booRule
   registeredTemplates = AllInDar
