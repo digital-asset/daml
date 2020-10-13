@@ -54,7 +54,7 @@ test = script do
 
   let acs = toACS coin <> toACS upgradeAgreement
 
-  commands <- testRule upgradeTrigger alice acs Map.empty ()
+  (_, commands) <- testRule upgradeTrigger alice acs Map.empty ()
   let flatCommands = flattenCommands commands
   assertExerciseCmd flatCommands $ \(cid, choiceArg) -> do
     cid === upgradeAgreement
