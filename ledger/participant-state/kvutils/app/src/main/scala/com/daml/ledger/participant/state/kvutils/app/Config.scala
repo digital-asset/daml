@@ -75,8 +75,9 @@ object Config {
       extraOptions: OptionParser[Config[Extra]] => Unit,
       defaultExtra: Extra,
       args: Seq[String],
+      getEnvVar: String => Option[String] = sys.env.get(_),
   ): Option[Config[Extra]] =
-    parser(name, extraOptions).parse(args, createDefault(defaultExtra)).flatMap {
+    parser(name, extraOptions, getEnvVar).parse(args, createDefault(defaultExtra)).flatMap {
       case config if config.mode == Mode.Run && config.participants.isEmpty =>
         System.err.println("No --participant provided to run")
         None
@@ -87,6 +88,7 @@ object Config {
   private def parser[Extra](
       name: String,
       extraOptions: OptionParser[Config[Extra]] => Unit,
+      getEnvVar: String => Option[String],
   ): OptionParser[Config[Extra]] = {
     val parser: OptionParser[Config[Extra]] = new OptionParser[Config[Extra]](name) {
       head(name)
@@ -108,8 +110,12 @@ object Config {
               throw new RuntimeException(
                 s"$unknownMode is not a valid run mode. Valid modes are: combined, indexer, ledger-api-server. Default mode is combined.")
           }
+          val jdbcUrlFromEnv =
+            kv.get("server-jdbc-url-env").flatMap(getEnvVar(_))
           val jdbcUrl =
-            kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
+            kv.getOrElse(
+              "server-jdbc-url",
+              jdbcUrlFromEnv.getOrElse(ParticipantConfig.defaultIndexJdbcUrl(participantId)))
           val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
           val managementServiceTimeout = kv
             .get("management-service-timeout")
