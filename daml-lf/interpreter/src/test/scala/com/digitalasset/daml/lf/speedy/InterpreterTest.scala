@@ -197,6 +197,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
                     DottedName.assertFromString("bar") ->
                       DValue(TBuiltin(BTBool), true, ETrue, false),
                   ),
+                  Map.empty,
                   FeatureFlags.default,
                 ),
               ),
@@ -213,6 +214,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
             List(
               Module(
                 modName,
+                Map.empty,
                 Map.empty,
                 FeatureFlags.default,
               ),

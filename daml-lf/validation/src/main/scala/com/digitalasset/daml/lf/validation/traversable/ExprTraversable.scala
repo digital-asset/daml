@@ -119,10 +119,7 @@ private[validation] object ExprTraversable {
   private[traversable] def foreach[U](x: Definition, f: Expr => U): Unit =
     x match {
       case DTypeSyn(params @ _, typ @ _) =>
-      case DDataType(serializable @ _, params @ _, DataRecord(fields @ _, template)) =>
-        template.foreach(foreach(_, f))
-      case DDataType(serializable @ _, params @ _, DataVariant(variants @ _)) =>
-      case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
+      case DDataType(serializable @ _, params @ _, dataCons @ _) =>
       case DValue(typ @ _, noPartyLiterals @ _, body, isTest @ _) =>
         f(body)
         ()
@@ -172,9 +169,12 @@ private[validation] object ExprTraversable {
       def foreach[U](f: Expr => U): Unit = that.foreach(template, f)
     }
 
-  def apply(definition: Definition): Traversable[Expr] =
+  def apply(module: Module): Traversable[Expr] =
     new Traversable[Expr] {
-      def foreach[U](f: Expr => U): Unit = that.foreach(definition, f)
+      def foreach[U](f: Expr => U): Unit = {
+        module.definitions.values.foreach(that.foreach(_, f))
+        module.templates.values.foreach(that.foreach(_, f))
+      }
     }
 
 }

@@ -68,6 +68,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           children = ImmArray.empty,
           exerciseResult = None,
           key = None,
+          byKey = false,
         )
       )
       builder.add(
@@ -81,6 +82,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = Some(
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
+          byKey = false
         ),
         parent = rootExercise,
       )
@@ -100,6 +102,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = Some(
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
+          byKey = false,
         ),
         parent = rootExercise,
       )

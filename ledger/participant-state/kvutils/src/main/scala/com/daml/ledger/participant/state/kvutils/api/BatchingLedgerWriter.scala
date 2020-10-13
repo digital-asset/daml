@@ -37,6 +37,12 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
   private val logger = ContextualizedLogger.get(getClass)
   private val queueHandle = queue.run(commitBatch)
 
+  /**
+    * Buffers the submission for the next batch.
+    * Note that the [[CommitMetadata]] written to the delegate along with a batched submission will
+    * be Empty as output keys cannot be determined due to potential conflicts among input/output
+    * keys in the batch.
+    */
   override def commit(
       correlationId: String,
       envelope: kvutils.Bytes,

@@ -245,8 +245,6 @@ fetch_s3_versions = do
 
 docs :: IO ()
 docs = do
-    Control.forM_ [IO.stdout, IO.stderr] $
-        \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
     gh_versions <- fetch_gh_versions
     s3_versions <- fetch_s3_versions
@@ -318,7 +316,11 @@ does_backup_exist gcp_credentials bash_lib path = do
         "set -euo pipefail",
         "eval \"$(dev-env/bin/dade assist)\"",
         "source \"" <> bash_lib <> "\"",
-        "if gcs \"" <> gcp_credentials <> "\" ls \"" <> path <> "\"; then",
+        "GCRED=$(cat <<END",
+        gcp_credentials,
+        "END",
+        ")",
+        "if gcs \"$GCRED\" ls \"" <> path <> "\" >/dev/null; then",
             "echo True",
         "else",
             "echo False",
@@ -332,7 +334,11 @@ push_to_gcp gcp_credentials bash_lib local_path remote_path = do
         "set -euo pipefail",
         "eval \"$(dev-env/bin/dade assist)\"",
         "source \"" <> bash_lib <> "\"",
-        "gcs \"" <> gcp_credentials <> "\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\"",
+        "GCRED=$(cat <<END",
+        gcp_credentials,
+        "END",
+        ")",
+        "gcs \"$GCRED\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\"",
         "'"]
 
 check_releases :: String -> String -> IO ()
@@ -351,7 +357,7 @@ check_releases gcp_credentials bash_lib = do
                     putStrLn $ gcp_path <> " already exists."
                 else do
                     putStr $ gcp_path <> " does not exist; pushing..."
-                    push_to_gcp gcp_credentials bash_lib f gcp_path
+                    push_to_gcp gcp_credentials bash_lib (temp_dir </> f) gcp_path
                     putStrLn " done."))
 
 data CliArgs = Docs | Check { bash_lib :: String, gcp_credentials :: String }
@@ -373,6 +379,8 @@ parser = info "This program is meant to be run by CI cron. You probably don't ha
 
 main :: IO ()
 main = do
+    Control.forM_ [IO.stdout, IO.stderr] $
+        \h -> IO.hSetBuffering h IO.LineBuffering
     opts <- Opt.execParser parser
     case opts of
       Docs -> docs

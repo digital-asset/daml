@@ -20,6 +20,7 @@ import com.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction,
   TransactionVersion,
+  VersionedTransaction,
   GenTransaction => GenTx,
   Transaction => Tx,
   TransactionVersions => TxVersions
@@ -33,6 +34,7 @@ import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{EitherValues, Matchers, WordSpec}
+import org.scalatest.Inside._
 import scalaz.std.either._
 import scalaz.syntax.apply._
 
@@ -57,6 +59,9 @@ class EngineTest
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
 
+  private[this] def byKeyNodes[Nid, Cid](tx: VersionedTransaction[Nid, Cid]) =
+    tx.nodes.collect { case (nodeId, node) if node.byKey => nodeId }.toSet
+
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
@@ -75,6 +80,8 @@ class EngineTest
 
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
     "daml-lf/tests/BasicTests.dar")
+
+  val basicTestsSignatures = toSignature(basicTestsPkg)
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
@@ -145,7 +152,7 @@ class EngineTest
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
       val Right((params, DataVariant(variants))) =
-        PackageLookup.lookupVariant(basicTestsPkg, id.qualifiedName)
+        SignatureLookup.lookupVariant(basicTestsSignatures, id.qualifiedName)
       params should have length 1
       variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
     }
@@ -154,8 +161,8 @@ class EngineTest
   "valid data record identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val Right((_, DataRecord(fields, _))) =
-        PackageLookup.lookupRecord(basicTestsPkg, id.qualifiedName)
+      val Right((_, DataRecord(fields))) =
+        SignatureLookup.lookupRecord(basicTestsSignatures, id.qualifiedName)
       fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
     }
   }
@@ -163,10 +170,9 @@ class EngineTest
   "valid template Identifier" should {
     "return the right argument type" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
-      val Right((_, DataRecord(fields, tpl))) =
-        PackageLookup.lookupRecord(basicTestsPkg, id.qualifiedName)
+      val Right((_, DataRecord(fields))) =
+        SignatureLookup.lookupRecord(basicTestsSignatures, id.qualifiedName)
       fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
-      tpl.isEmpty shouldBe false
     }
   }
 
@@ -485,7 +491,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      interpretResult.map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
 
   }
@@ -668,11 +674,12 @@ class EngineTest
     }
 
     "mark all the exercise nodes as performed byKey" in {
-      val exerciseNodes = tx.nodes.collect {
+      val expectedNodes = tx.nodes.collect {
         case (id, _: Node.NodeExercises[_, _, _]) => id
       }
-      txMeta.byKeyNodes shouldBe 'nonEmpty
-      txMeta.byKeyNodes.toSeq.toSet shouldBe exerciseNodes.toSet
+      val actualNodes = byKeyNodes(tx)
+      actualNodes shouldBe 'nonEmpty
+      actualNodes shouldBe expectedNodes.toSet
     }
   }
 
@@ -743,7 +750,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      interpretResult.map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
   }
 
@@ -808,8 +815,8 @@ class EngineTest
         )
       )
 
-      val Right(DDataType(_, ImmArray(), _)) = PackageLookup
-        .lookupDataType(basicTestsPkg, "BasicTests:MyNestedRec")
+      val Right(DDataType(_, ImmArray(), _)) = SignatureLookup
+        .lookupDataType(basicTestsSignatures, "BasicTests:MyNestedRec")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.empty),
@@ -827,7 +834,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -846,7 +853,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -863,7 +870,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -880,7 +887,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -897,7 +904,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        PackageLookup.lookupDataType(basicTestsPkg, "BasicTests:TypeWithParameters")
+        SignatureLookup.lookupDataType(basicTestsSignatures, "BasicTests:TypeWithParameters")
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -984,7 +991,9 @@ class EngineTest
             _,
             children,
             _,
-            _) =>
+            _,
+            _,
+            ) =>
           coid shouldBe originalCoid
           consuming shouldBe true
           actingParties shouldBe Set(bob)
@@ -1131,7 +1140,8 @@ class EngineTest
 
     def actFetchActors[Nid, Cid, Val](n: Node.GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, _, actingParties, _, _, _) => actingParties.getOrElse(Set.empty)
+        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _) =>
+          actingParties.getOrElse(Set.empty)
         case _ => Set()
       }
     }
@@ -1186,7 +1196,7 @@ class EngineTest
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
       val fetchNodes =
         tx.transaction.fold(Seq[(NodeId, Node.GenNode.WithTxValue[NodeId, ContractId])]()) {
-          case (ns, (nid, n @ Node.NodeFetch(_, _, _, _, _, _, _))) => ns :+ ((nid, n))
+          case (ns, (nid, n @ Node.NodeFetch(_, _, _, _, _, _, _, _))) => ns :+ ((nid, n))
           case (ns, _) => ns
         }
 
@@ -1204,7 +1214,7 @@ class EngineTest
     }
 
     "not mark any node as byKey" in {
-      runExample(fetcher2Cid, clara).map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+      runExample(fetcher2Cid, clara).map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
   }
 
@@ -1246,6 +1256,7 @@ class EngineTest
         signatories = Set.empty,
         stakeholders = Set.empty,
         key = None,
+        byKey = false,
       )
 
       val let = Time.Timestamp.now()
@@ -1262,7 +1273,7 @@ class EngineTest
 
   "lookup by key" should {
 
-    val submissionSeed = hash("interpreting lookup by key nodes")
+    val seed = hash("interpreting lookup by key nodes")
 
     val lookedUpCid = toContractId("#1")
     val lookerUpTemplate = "BasicTests:LookerUpByKey"
@@ -1307,16 +1318,16 @@ class EngineTest
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
-      val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
+      val Right((tx, _)) = engine
+        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
-      val lookupNodes = tx.transaction.nodes.collect {
+      val expectedByKeyNodes = tx.transaction.nodes.collect {
         case (id, _: Node.NodeLookupByKey[_, _]) => id
       }
-
-      txMeta.byKeyNodes shouldBe 'nonEmpty
-      txMeta.byKeyNodes.toSeq.toSet shouldBe lookupNodes.toSet
+      val actualByKeyNodes = byKeyNodes(tx)
+      actualByKeyNodes shouldBe 'nonEmpty
+      actualByKeyNodes shouldBe expectedByKeyNodes.toSet
     }
 
     "be reinterpreted to the same node when lookup finds a contract" in {
@@ -1326,7 +1337,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
+        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
@@ -1355,7 +1366,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
+        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
@@ -1370,6 +1381,33 @@ class EngineTest
           .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+    }
+
+    "crash if use a contract key with an empty set of maintainers" in {
+      val templateId =
+        Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
+
+      val cmds = ImmArray(
+        speedy.Command.LookupByKey(templateId, SParty(alice))
+      )
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+          globalCids = Set.empty,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            "Update failed due to a contract key with an empty sey of maintainers")
+      }
     }
   }
 
@@ -1424,7 +1462,7 @@ class EngineTest
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.NodeFetch(_, _, _, _, _, _, key)) =>
+        case Some(Node.NodeFetch(_, _, _, _, _, _, key, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1472,7 +1510,7 @@ class EngineTest
           ))
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
-      val Right((tx, txMeta)) = engine
+      val Right((tx, _)) = engine
         .interpretCommands(
           validating = false,
           submitters = Set(alice),
@@ -1493,7 +1531,7 @@ class EngineTest
                 assert(maintainers == Set(alice))
               case None => fail("the recomputed fetch didn't have a key")
             }
-            txMeta.byKeyNodes shouldBe ImmArray(id)
+            byKeyNodes(tx) shouldBe Set(id)
         }
         .getOrElse(fail("didn't find the fetch node resulting from fetchByKey"))
     }
@@ -1549,7 +1587,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1658,11 +1696,12 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
-      result shouldBe 'left
-      val Left(err) = result
-      err.msg should include("Update failed due to a contract key with an empty sey of maintainers")
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            "Update failed due to a contract key with an empty sey of maintainers")
+      }
     }
-
   }
 
   "Engine#submit" should {
@@ -1851,6 +1890,7 @@ object EngineTest {
                       _,
                       _,
                       _,
+                      _,
                       _))) =>
                 (contracts - targetCoid, keys)
               case (
@@ -1895,8 +1935,8 @@ object EngineTest {
             usedPackages = Set.empty,
             dependsOnTime = dependsOnTime,
             nodeSeeds = nodeSeeds.toImmArray,
-            byKeyNodes = ImmArray.empty,
-          ))
+          )
+        )
     }
   }
 

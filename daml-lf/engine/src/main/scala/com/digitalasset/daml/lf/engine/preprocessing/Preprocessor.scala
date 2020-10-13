@@ -63,12 +63,12 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
               go(fun :: arg :: typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
             case Ast.TTyCon(tyCon @ Ref.Identifier(pkgId, qualifiedName))
                 if !tyConAlreadySeen0(tyCon) =>
-              compiledPackages.packages.lift(pkgId) match {
+              compiledPackages.signatures.lift(pkgId) match {
                 case Some(pkg) =>
-                  PackageLookup.lookupDataType(pkg, qualifiedName) match {
+                  SignatureLookup.lookupDataType(pkg, qualifiedName) match {
                     case Right(Ast.DDataType(_, _, dataType)) =>
                       val typesToProcess = dataType match {
-                        case Ast.DataRecord(fields, _) =>
+                        case Ast.DataRecord(fields) =>
                           fields.foldRight(typesToProcess0)(_._2 :: _)
                         case Ast.DataVariant(variants) =>
                           variants.foldRight(typesToProcess0)(_._2 :: _)
@@ -97,9 +97,9 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
               go(Nil, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
             case tmplId :: tmplsToProcess =>
               val pkgId = tmplId.packageId
-              compiledPackages.getPackage(pkgId) match {
+              compiledPackages.getSignature(pkgId) match {
                 case Some(pkg) =>
-                  PackageLookup.lookupTemplate(pkg, tmplId.qualifiedName) match {
+                  SignatureLookup.lookupTemplate(pkg, tmplId.qualifiedName) match {
                     case Right(template) =>
                       val typs0 = template.choices.map(_._2.argBinder._2).toList
                       val typs1 =
@@ -158,9 +158,11 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
           controllersDifferFromActors @ _,
           children @ _,
           exerciseResult @ _,
-          key @ _) =>
+          key @ _,
+          byKey @ _,
+          ) =>
         templateId
-      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _) =>
+      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _, _) =>
         templateId
       case Node.NodeLookupByKey(templateId, _, key @ _, _) =>
         templateId

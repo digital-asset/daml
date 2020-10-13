@@ -117,11 +117,18 @@ final class Conversions(
             .build
         )
 
-      case SError.DamlEEmptyContractKeyMaintainers(tid, arg, key) =>
-        builder.setUpdateEmptyContractKeyMaintainers(
-          proto.ScenarioError.EmptyContractKeyMaintainers.newBuilder
-            .setTemplateId(convertIdentifier(tid))
+      case SError.DamlECreateEmptyContractKeyMaintainers(tid, arg, key) =>
+        builder.setCreateEmptyContractKeyMaintainers(
+          proto.ScenarioError.CreateEmptyContractKeyMaintainers.newBuilder
             .setArg(convertValue(arg))
+            .setTemplateId(convertIdentifier(tid))
+            .setKey(convertValue(key))
+        )
+
+      case SError.DamlEFetchEmptyContractKeyMaintainers(tid, key) =>
+        builder.setFetchEmptyContractKeyMaintainers(
+          proto.ScenarioError.FetchEmptyContractKeyMaintainers.newBuilder
+            .setTemplateId(convertIdentifier(tid))
             .setKey(convertValue(key))
         )
 

@@ -362,9 +362,9 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
     */
   final def inputContracts[Cid2 >: Cid]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid)))) =>
         acc + coid
@@ -501,11 +501,11 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
           node match {
             case Node.NodeCreate(_, c, _, _, _, Some(key)) =>
               state.created(globalKey(c.template, key.key.value))
-            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key)) =>
+            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _) =>
               state.consumed(globalKey(tmplId, key.key.value))
-            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key)) =>
+            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _) =>
               state.referenced(globalKey(tmplId, key.key.value))
-            case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key)) =>
+            case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key), _) =>
               state.referenced(globalKey(tmplId, key.key.value))
             case Node.NodeLookupByKey(tmplId, _, key, Some(_)) =>
               state.referenced(globalKey(tmplId, key.key.value))
@@ -560,9 +560,6 @@ object Transaction {
     *        time.
     * @param nodeSeeds: An association list that maps to each ID of create and exercise
     *        nodes its seeds.
-    * @param byKeyNodes: The list of the IDs of each node that corresponds to a FetchByKey,
-    *        LookupByKey, or ExerciseByKey commands. Empty in case of validation or
-    *        reinterpretation
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -570,7 +567,6 @@ object Transaction {
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(transaction.NodeId, crypto.Hash)],
-      byKeyNodes: ImmArray[transaction.NodeId],
   )
 
   @deprecated("Use com.daml.lf.transaction.SubmittedTransaction", since = "1.4.0")

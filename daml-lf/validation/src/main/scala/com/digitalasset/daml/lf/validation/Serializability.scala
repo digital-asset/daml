@@ -42,14 +42,9 @@ private[validation] object Serializability {
           checkType(tArg)
         } else {
           tArg match {
-            case TTyCon(tCon) => {
-              lookupDataType(ctx, tCon) match {
-                case DDataType(_, _, DataRecord(_, Some(_))) =>
-                  ()
-                case _ =>
-                  unserializable(URContractId)
-              }
-            }
+            case TTyCon(Identifier(packageId, QualifiedName(modName, name)))
+                if lookupModule(ctx, packageId, modName).templates.isDefinedAt(name) =>
+              ()
             case _ => unserializable(URContractId)
           }
         }
@@ -128,7 +123,7 @@ private[validation] object Serializability {
       case DataEnum(constructors) =>
         if (constructors.isEmpty) env.unserializable(URUninhabitatedType)
         else Iterator.empty
-      case DataRecord(fields, _) =>
+      case DataRecord(fields) =>
         fields.iterator.map(_._2)
     }
     typs.foreach(env.checkType)
@@ -157,12 +152,12 @@ private[validation] object Serializability {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
         if (serializable) checkDataType(version, world, tyCon, params, dataCons)
-        dataCons match {
-          case DataRecord(_, Some(template)) =>
-            checkTemplate(version, world, tyCon, template)
-          case _ =>
-        }
       case _ =>
+    }
+    module.templates.foreach {
+      case (defName, template) =>
+        val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+        checkTemplate(version, world, tyCon, template)
     }
   }
 }

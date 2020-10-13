@@ -72,7 +72,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
 
   @throws[PreprocessorException]
   private def unsafeGetPackage(pkgId: Ref.PackageId) =
-    compiledPackages.getPackage(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
+    compiledPackages.getSignature(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
@@ -145,7 +145,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                   s"Mismatching variant id, the type tells us $typeVariantId, but the value tells us $id"))
             val pkg = unsafeGetPackage(typeVariantId.packageId)
             val (dataTypParams, variantDef) =
-              assertRight(PackageLookup.lookupVariant(pkg, typeVariantId.qualifiedName))
+              assertRight(SignatureLookup.lookupVariant(pkg, typeVariantId.qualifiedName))
             variantDef.constructorRank.get(constructorName) match {
               case None =>
                 fail(
@@ -167,8 +167,8 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 fail(
                   s"Mismatching record id, the type tells us $typeRecordId, but the value tells us $id"))
             val pkg = unsafeGetPackage(typeRecordId.packageId)
-            val (dataTypParams, DataRecord(recordFlds, _)) =
-              assertRight(PackageLookup.lookupRecord(pkg, typeRecordId.qualifiedName))
+            val (dataTypParams, DataRecord(recordFlds)) =
+              assertRight(SignatureLookup.lookupRecord(pkg, typeRecordId.qualifiedName))
             // note that we check the number of fields _before_ checking if we can do
             // field reordering by looking at the labels. this means that it's forbidden to
             // repeat keys even if we provide all the labels, which might be surprising
@@ -214,7 +214,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 fail(
                   s"Mismatching enum id, the type tells us $typeEnumId, but the value tells us $id"))
             val pkg = unsafeGetPackage(typeEnumId.packageId)
-            val dataDef = assertRight(PackageLookup.lookupEnum(pkg, typeEnumId.qualifiedName))
+            val dataDef = assertRight(SignatureLookup.lookupEnum(pkg, typeEnumId.qualifiedName))
             dataDef.constructorRank.get(constructor) match {
               case Some(rank) =>
                 SValue.SEnum(typeEnumId, constructor, rank)

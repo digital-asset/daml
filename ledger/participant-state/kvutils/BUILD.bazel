@@ -20,10 +20,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_scala_library(
     name = "kvutils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
-    ],
-    scalacopts = ["-P:silencer:checkUnused"],
+    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -50,7 +47,6 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -113,10 +109,8 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common:model-tests.dar",
     ],
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
-    ],
     resources = glob(["src/test/resources/*"]),
+    silent_annotations = True,
     deps = [
         ":daml_kvutils_java_proto",
         ":kvutils",
@@ -143,7 +137,6 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "//libs-scala/contextualized-logging",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

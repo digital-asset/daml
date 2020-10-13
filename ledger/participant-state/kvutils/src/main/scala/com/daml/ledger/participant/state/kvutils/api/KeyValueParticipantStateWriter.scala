@@ -32,9 +32,11 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         transactionMeta,
         transaction,
       )
-    val metadata = SimpleCommitMetadata(
-      estimatedInterpretationCost = Some(estimatedInterpretationCost))
-    commit(correlationId = submitterInfo.commandId, submission = submission, metadata = metadata)
+    val metadata = CommitMetadata(submission, Some(estimatedInterpretationCost))
+    commit(
+      correlationId = submitterInfo.commandId,
+      submission = submission,
+      metadata = Some(metadata))
   }
 
   override def uploadPackages(
@@ -82,7 +84,11 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   private def commit(
       correlationId: String,
       submission: DamlSubmission,
-      metadata: CommitMetadata = CommitMetadata.Empty,
+      metadata: Option[CommitMetadata] = None,
   ): CompletionStage[SubmissionResult] =
-    FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission), metadata))
+    FutureConverters.toJava(
+      writer.commit(
+        correlationId,
+        Envelope.enclose(submission),
+        metadata.getOrElse(CommitMetadata(submission, None))))
 }

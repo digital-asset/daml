@@ -11,7 +11,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -24,6 +24,7 @@ import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
+
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
@@ -181,7 +182,7 @@ class ReplService(
     mat: Materializer)
     extends ReplServiceGrpc.ReplServiceImplBase
     with StrictLogging {
-  var packages: Map[PackageId, Package] = Map.empty
+  var signatures: Map[PackageId, PackageSignature] = Map.empty
   var compiledDefinitions: Map[SDefinitionRef, SExpr] = Map.empty
   var results: Seq[SValue] = Seq()
   implicit val ec_ = ec
@@ -196,9 +197,11 @@ class ReplService(
       req: LoadPackageRequest,
       respObs: StreamObserver[LoadPackageResponse]): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
-    packages = packages + (pkgId -> pkg)
-    compiledDefinitions = compiledDefinitions ++
-      new Compiler(packages, compilerConfig).unsafeCompilePackage(pkgId)
+    val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
+    val newCompiledDefinitions = compiledDefinitions ++
+      new Compiler(newSignatures, compilerConfig).unsafeCompilePackage(pkgId, pkg)
+    signatures = newSignatures
+    compiledDefinitions = newCompiledDefinitions
     respObs.onNext(LoadPackageResponse.newBuilder.build)
     respObs.onCompleted()
   }
@@ -221,9 +224,9 @@ class ReplService(
     // modules from each line.
     val pkg = Package(Seq(mod), Seq(), lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
-    val (scriptPackageId, _) = packages.find {
-      case (_, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
-    }.get
+    val Some(scriptPackageId) = this.signatures.collectFirst {
+      case (pkgId, pkg) if pkg.modules.contains(DottedName.assertFromString("Daml.Script")) => pkgId
+    }
 
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
@@ -232,15 +235,13 @@ class ReplService(
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }
 
-    val allPkgs = packages + (homePackageId -> pkg)
-    val defs =
-      new Compiler(allPkgs, compilerConfig).unsafeCompilePackage(homePackageId)
-    val compiledPackages =
-      PureCompiledPackages(
-        allPkgs,
-        compiledDefinitions ++ defs,
-        compilerConfig,
-      )
+    val signatures = this.signatures.updated(homePackageId, AstUtil.toSignature(pkg))
+    val defs = new Compiler(signatures, compilerConfig).unsafeCompilePackage(homePackageId, pkg)
+    val compiledPackages = new PureCompiledPackages(
+      signatures,
+      compiledDefinitions ++ defs,
+      compilerConfig,
+    )
     val runner =
       new Runner(compiledPackages, Script.Action(scriptExpr, ScriptIds(scriptPackageId)), timeMode)
     runner

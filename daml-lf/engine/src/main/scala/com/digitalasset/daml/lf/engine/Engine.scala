@@ -228,7 +228,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
   }
 
   private def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
-    pkgIds.dropWhile(compiledPackages.packages.isDefinedAt) match {
+    pkgIds.dropWhile(compiledPackages.signatures.isDefinedAt) match {
       case pkgId :: rest =>
         ResultNeedPackage(pkgId, {
           case Some(pkg) =>
@@ -369,7 +369,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
           usedPackages = Set.empty,
           dependsOnTime = onLedger.dependsOnTime,
           nodeSeeds = onLedger.ptx.nodeSeeds.toImmArray,
-          byKeyNodes = onLedger.ptx.byKeyNodes.toImmArray,
         )
         config.profileDir.foreach { dir =>
           val hash = meta.nodeSeeds(0)._2.toHexString
@@ -417,7 +416,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       pkgIds: Set[PackageId],
       pkgs: Map[PackageId, Package],
   ): Either[Error, Unit] = {
-    val allPackages = pkgs orElse compiledPackages().packages
+    val allSignatures = pkgs orElse compiledPackages().signatures
     for {
       _ <- pkgs
         .collectFirst {
@@ -429,7 +428,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         }
         .toLeft(())
       _ <- {
-        val unknownPackages = pkgIds.filterNot(allPackages.isDefinedAt)
+        val unknownPackages = pkgIds.filterNot(allSignatures.isDefinedAt)
         Either.cond(
           unknownPackages.isEmpty,
           (),
@@ -437,7 +436,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         )
       }
       _ <- {
-        val missingDeps = pkgIds.flatMap(pkgId => allPackages(pkgId).directDeps).filterNot(pkgIds)
+        val missingDeps = pkgIds.flatMap(pkgId => allSignatures(pkgId).directDeps).filterNot(pkgIds)
         Either.cond(
           missingDeps.isEmpty,
           (),
@@ -447,10 +446,12 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         )
       }
       _ <- {
-        pkgIds.iterator
+        pkgs.iterator
         // we trust already loaded packages
-          .filterNot(compiledPackages.packageIds)
-          .map(Validation.checkPackage(allPackages, _))
+          .collect {
+            case (pkgId, pkg) if !compiledPackages.signatures.isDefinedAt(pkgId) =>
+              Validation.checkPackage(allSignatures, pkgId, pkg)
+          }
           .collectFirst { case Left(err) => Error(err.pretty) }
       }.toLeft(())
 

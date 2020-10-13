@@ -158,8 +158,9 @@ object Repl {
       cmdValidate
 
   def cmdValidate(state: State): (Boolean, State) = {
-    val (validationResults, validationTime) = time(
-      state.packages.keys.map(Validation.checkPackage(state.packages, _)))
+    val (validationResults, validationTime) = time(state.packages.map {
+      case (pkgId, pkg) => Validation.checkPackage(state.packages, pkgId, pkg)
+    })
     System.err.println(s"${state.packages.size} package(s) validated in $validationTime ms.")
     validationResults collectFirst {
       case Left(e) =>
@@ -432,7 +433,10 @@ object Repl {
 
   def speedyCompile(state: State, args: Seq[String]): Unit = {
     val defs = assertRight(
-      Compiler.compilePackages(state.packages, state.scenarioRunner.compilerConfig))
+      Compiler.compilePackages(
+        toSignatures(state.packages),
+        state.packages,
+        state.scenarioRunner.compilerConfig))
     defs.get(idToRef(state, args(0))) match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list."); usage

@@ -20,6 +20,15 @@
     </license>
   </licenses>
 
+  <developers>
+    <developer>
+      <name>Digital Asset SDK Feedback</name>
+      <email>sdk-feedback@digitalasset.com</email>
+      <organization>Digital Asset (Switzerland) GmbH</organization>
+      <organizationUrl>http://www.daml.com</organizationUrl>
+    </developer>
+  </developers>
+
   <scm>
     <connection>scm:git:git://github.com/digital-asset/daml.git</connection>
     <developerConnection>scm:git:ssh://github.com:digital-asset/daml.git</developerConnection>

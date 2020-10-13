@@ -8,7 +8,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
-import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.Ast.{Package, PackageSignature}
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.Compiler.CompilationError
 
@@ -20,14 +21,14 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
   */
 private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Config)
     extends MutableCompiledPackages(compilerConfig) {
-  private[this] val _packages: ConcurrentMap[PackageId, Package] =
+  private[this] val _signatures: ConcurrentMap[PackageId, PackageSignature] =
     new ConcurrentHashMap().asScala
   private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
     new ConcurrentHashMap()
   private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
 
-  override def getPackage(pId: PackageId): Option[Package] = _packages.get(pId)
+  override def getSignature(pId: PackageId): Option[PackageSignature] = _signatures.get(pId)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
     Option(_defns.get(dref))
 
@@ -55,7 +56,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
         val pkgId: PackageId = toCompile.head
         toCompile = toCompile.tail
 
-        if (!_packages.contains(pkgId)) {
+        if (!_signatures.contains(pkgId)) {
 
           val pkg = state.packages.get(pkgId) match {
             case None => return ResultError(Error(s"Could not find package $pkgId"))
@@ -64,7 +65,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
 
           // Load dependencies of this package and transitively its dependencies.
           for (dependency <- pkg.directDeps) {
-            if (!_packages.contains(dependency) && !state.seenDependencies.contains(dependency)) {
+            if (!_signatures.contains(dependency) && !state.seenDependencies.contains(dependency)) {
               return ResultNeedPackage(
                 dependency, {
                   case None => ResultError(Error(s"Could not find package $dependency"))
@@ -83,11 +84,15 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           // map using 'computeIfAbsent' which will ensure we only compile the
           // package once. Other concurrent calls to add this package will block
           // waiting for the first one to finish.
-          if (!_packages.contains(pkgId)) {
+          if (!_signatures.contains(pkgId)) {
+            val signature = AstUtil.toSignature(pkg)
+            val signatureLookup: PartialFunction[PackageId, PackageSignature] = {
+              case `pkgId` => signature
+            }
             // Compile the speedy definitions for this package.
             val defns = try {
-              new speedy.Compiler(packages orElse state.packages, compilerConfig)
-                .unsafeCompilePackage(pkgId)
+              new speedy.Compiler(signatureLookup orElse _signatures, compilerConfig)
+                .unsafeCompilePackage(pkgId, pkg)
             } catch {
               case CompilationError(msg) =>
                 return ResultError(Error(s"Compilation Error: $msg"))
@@ -105,10 +110,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                 deps union _packageDeps.get(dependency)
             }
             _packageDeps.put(pkgId, deps)
-            _packages.put(
-              pkgId,
-              pkg
-            )
+            _signatures.put(pkgId, signature)
           }
         }
       }
@@ -117,13 +119,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     }
 
   def clear(): Unit = this.synchronized[Unit] {
-    _packages.clear()
+    _signatures.clear()
     _packageDeps.clear()
     _defns.clear()
   }
 
   override def packageIds: Set[PackageId] =
-    _packages.keySet.toSet
+    _signatures.keySet.toSet
 
   def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =
     Option(_packageDeps.get(pkgId))

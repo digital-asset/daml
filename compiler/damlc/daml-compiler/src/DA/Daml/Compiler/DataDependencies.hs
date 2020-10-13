@@ -314,6 +314,18 @@ generateSrcFromLf env = noLoc mod
                 , Just methodName <- [getClassMethodName fieldName]
                 ]
             params <- mapM (convTyVarBinder env) synParams
+
+            defaultMethods <- sequence
+                [ do
+                    sig <- convType env reexportedClasses defaultSig
+                    bind <- mkStubBind env (mkRdrName methodName) defaultSig
+                    pure (methodName, sig, bind)
+                | (fieldName, LF.TUnit LF.:-> _) <- fields
+                , Just methodName <- [getClassMethodName fieldName]
+                , Just LF.DefValue  { dvalBinder = (_, LF.TForalls _ (LF.TSynApp _ _ LF.:-> defaultSig)) }
+                    <- [NM.lookup (defaultMethodName methodName) (LF.moduleValues (envMod env))]
+                ]
+
             pure . noLoc . TyClD noExt $ ClassDecl
                 { tcdCExt = noExt
                 , tcdCtxt = noLoc (map noLoc supers)
@@ -322,16 +334,20 @@ generateSrcFromLf env = noLoc mod
                 , tcdFixity = Prefix
                 , tcdFDs = [] -- can't reconstruct fundeps without LF annotations
                 , tcdSigs =
-                    [ noLoc $ ClassOpSig noExt False
-                        [mkRdrName methodName]
-                        (HsIB noExt (noLoc methodType))
-                    | (methodName, methodType) <- methods
-                    ]
-                , tcdMeths = emptyBag -- can't reconstruct default methods yet
+                    [ mkOpSig False name ty | (name, ty) <- methods ] ++
+                    [ mkOpSig True  name ty | (name, ty, _) <- defaultMethods ]
+                , tcdMeths = listToBag
+                    [ noLoc bind | (_, _, bind) <- defaultMethods ]
                 , tcdATs = [] -- associated types not supported
                 , tcdATDefs = []
                 , tcdDocs = []
                 }
+      where
+        mkOpSig :: Bool -> T.Text -> HsType GhcPs -> LSig GhcPs
+        mkOpSig isDefault methodName methodType =
+            noLoc $ ClassOpSig noExt isDefault
+                    [mkRdrName methodName]
+                    (HsIB noExt (noLoc methodType))
 
     synonymDecls :: [Gen (LHsDecl GhcPs)]
     synonymDecls = do
@@ -1063,6 +1079,9 @@ getClassMethodName (LF.FieldName fieldName) =
 isSuperClassField :: LF.FieldName -> Bool
 isSuperClassField (LF.FieldName fieldName) =
     "s_" `T.isPrefixOf` fieldName
+
+defaultMethodName :: T.Text -> LF.ExprValName
+defaultMethodName name = LF.ExprValName ("$dm" <> name)
 
 -- | Signature data for a dictionary function.
 data DFunSig = DFunSig

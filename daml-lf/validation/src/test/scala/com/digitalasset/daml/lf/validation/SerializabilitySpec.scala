@@ -338,7 +338,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
   private def check(pkg: Package, modName: String): Unit = {
     val w = world(pkg)
     val longModName = DottedName.assertFromString(modName)
-    val mod = w.lookupModule(NoContext, defaultPackageId, longModName)
+    val mod = pkg.modules(longModName)
     require(Try(Typing.checkModule(w, defaultPackageId, mod)).isSuccess)
     Serializability.checkModule(w, defaultPackageId, mod)
   }

@@ -40,6 +40,7 @@ class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with
               EVal(Identifier(depPkgId, QualifiedName(depModName, u))),
               false)
         },
+        Map.empty,
         FeatureFlags.default
       )
 
@@ -77,7 +78,7 @@ class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with
           DependencyVersion.checkPackage(
             world,
             pkgdId,
-            world.lookupPackage(NoContext, pkgdId),
+            pkgs(pkgdId),
           )
     }
 

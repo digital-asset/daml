@@ -139,7 +139,8 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
       val archive = Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
       val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 
-      pkg shouldBe normalize(decodedPackage, hashCode, pkgId)
+      val pkg1 = normalize(decodedPackage, hashCode, pkgId)
+      pkg shouldBe pkg1
     }
 
     "Encoding of function type with different versions should work as expected" in {
@@ -204,7 +205,7 @@ object EncodeV1Spec {
 
   private def validate(pkgId: PackageId, pkg: Package): Unit =
     Validation
-      .checkPackage(Map(pkgId -> pkg), pkgId)
+      .checkPackage(Map(pkgId -> pkg), pkgId, pkg)
       .left
       .foreach(e => sys.error(e.toString))
 

@@ -35,6 +35,8 @@ class KeyValueCommitting private[daml] (
     engine: Engine,
     metrics: Metrics,
     inStaticTimeMode: Boolean) {
+  import KeyValueCommitting.submissionOutputs
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
@@ -140,6 +142,30 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")
     }
+
+  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
+      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
+      submission: DamlSubmission,
+  ): Unit = {
+    val expectedStateUpdates = submissionOutputs(submission)
+    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
+      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
+      sys.error(
+        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!",
+      )
+    }
+  }
+}
+
+object KeyValueCommitting {
+  case class PreExecutionResult(
+      readSet: Set[DamlStateKey],
+      successfulLogEntry: DamlLogEntry,
+      stateUpdates: Map[DamlStateKey, DamlStateValue],
+      outOfTimeBoundsLogEntry: DamlLogEntry,
+      minimumRecordTime: Option[Timestamp],
+      maximumRecordTime: Option[Timestamp]
+  )
 
   /** Compute the submission outputs, that is the DAML State Keys created or updated by
     * the processing of the submission.
@@ -261,28 +287,4 @@ class KeyValueCommitting private[daml] (
           .setHash(contractKey.hash.bytes.toByteString))
       .build
   }
-
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      submission: DamlSubmission,
-  ): Unit = {
-    val expectedStateUpdates = submissionOutputs(submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!",
-      )
-    }
-  }
-}
-
-object KeyValueCommitting {
-  case class PreExecutionResult(
-      readSet: Set[DamlStateKey],
-      successfulLogEntry: DamlLogEntry,
-      stateUpdates: Map[DamlStateKey, DamlStateValue],
-      outOfTimeBoundsLogEntry: DamlLogEntry,
-      minimumRecordTime: Option[Timestamp],
-      maximumRecordTime: Option[Timestamp]
-  )
 }

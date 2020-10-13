@@ -147,12 +147,13 @@ object Script {
 
   def fromIdentifier(
       compiledPackages: CompiledPackages,
-      scriptId: Identifier): Either[String, Script] = {
+      scriptId: Identifier,
+  ): Either[String, Script] = {
     val scriptExpr = SEVal(LfDefRef(scriptId))
     val scriptTy = compiledPackages
-      .getPackage(scriptId.packageId)
-      .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
-      case Some(DValue(ty, _, _, _)) => Right(ty)
+      .getSignature(scriptId.packageId)
+      .flatMap(_.lookupDefinition(scriptId.qualifiedName).toOption) match {
+      case Some(DValueSignature(ty, _, _, _)) => Right(ty)
       case Some(d @ DTypeSyn(_, _)) => Left(s"Expected DAML script but got synonym $d")
       case Some(d @ DDataType(_, _, _)) => Left(s"Expected DAML script but got datatype $d")
       case None => Left(s"Could not find DAML script $scriptId")
@@ -315,12 +316,13 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
         SEMakeClo(Array(), 1, SELocA(0))
     }
     new CompiledPackages(Runner.compilerConfig) {
-      override def getPackage(pkgId: PackageId): Option[Package] =
-        compiledPackages.getPackage(pkgId)
+      override def getSignature(pkgId: PackageId): Option[PackageSignature] =
+        compiledPackages.getSignature(pkgId)
       override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
-      override def packages: PartialFunction[PackageId, Package] = compiledPackages.packages
+      override def signatures: PartialFunction[PackageId, PackageSignature] =
+        compiledPackages.signatures
       override def packageIds: Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
       override def definitions: PartialFunction[SDefinitionRef, SExpr] =
@@ -335,18 +337,14 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
   private def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
       pkg <- compiledPackages
-        .getPackage(id.packageId)
+        .getSignature(id.packageId)
         .toRight(s"Failed to find package ${id.packageId}")
       module <- pkg.modules
         .get(id.qualifiedName.module)
         .toRight(s"Failed to find module ${id.qualifiedName.module}")
-      definition <- module.definitions
+      tpl <- module.templates
         .get(id.qualifiedName.name)
-        .toRight(s"Failed to find ${id.qualifiedName.name}")
-      tpl <- definition match {
-        case DDataType(_, _, DataRecord(_, Some(tpl))) => Right(tpl)
-        case _ => Left(s"Expected template definition but got $definition")
-      }
+        .toRight(s"Failed to find template ${id.qualifiedName.name}")
       choice <- tpl.choices
         .get(choice)
         .toRight(s"Failed to find choice $choice in $id")
@@ -357,7 +355,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   private val knownPackages: Map[String, PackageId] = (for {
     pkgId <- compiledPackages.packageIds
-    md <- compiledPackages.getPackage(pkgId).flatMap(_.metadata).toList
+    md <- compiledPackages.getSignature(pkgId).flatMap(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   // Returns the machine that will be used for execution as well as a Future for the result.

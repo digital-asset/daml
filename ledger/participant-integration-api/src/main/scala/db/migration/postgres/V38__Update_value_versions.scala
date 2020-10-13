@@ -58,8 +58,6 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
          contract_id = {contract_id}
     """
 
-  private[this] val EmptyArray: Array[Byte] = Array.empty
-
   private[this] def readValue(
       rows: ResultSet,
       label: String,
@@ -73,18 +71,17 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
       nameValue: (String, Option[Value]),
       tableName: String,
       rowKey: String
-  ): NamedParameter =
-    nameValue match {
-      case (label, Some(value)) =>
-        NamedParameter(
-          label,
-          ValueSerializer
-            .serializeValue(
-              value.copy(stableValueVersion),
-              s"failed to serialize $label for $tableName $rowKey"))
-      case (label, None) =>
-        NamedParameter(label, EmptyArray)
-    }
+  ): NamedParameter = {
+    val (label, oldValue) = nameValue
+    val newValue =
+      oldValue.map(
+        value =>
+          ValueSerializer.serializeValue(
+            value = value.copy(stableValueVersion),
+            errorContext = s"failed to serialize $label for $tableName $rowKey",
+        ))
+    NamedParameter(label, newValue)
+  }
 
   private[this] def readAndUpdate(
       rows: ResultSet,

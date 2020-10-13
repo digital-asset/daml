@@ -27,7 +27,7 @@ class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar wit
     usedPackages = Set.empty,
     dependsOnTime = false,
     nodeSeeds = ImmArray.empty,
-    byKeyNodes = ImmArray.empty)
+  )
 
   "execute" should {
     "add interpretation time to result" in {
