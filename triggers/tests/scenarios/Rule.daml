@@ -31,7 +31,8 @@ trigger : Trigger Int
 trigger = Trigger with
   initialize = pure 0
   updateState = \_msg -> put . length =<< query @T
-  rule = \party count -> do
+  rule = \party -> do
+    count <- get
     when (count == 1) do
       priorCIF <- getCommandsInFlight
       -- Create two additional T.

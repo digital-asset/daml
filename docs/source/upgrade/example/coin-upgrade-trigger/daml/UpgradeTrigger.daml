@@ -25,8 +25,8 @@ upgradeTrigger = Trigger with
 -- TRIGGER_BOILERPLATE_END
 
 -- TRIGGER_RULE_BEGIN
-triggerRule : Party -> () -> TriggerA ()
-triggerRule issuer _ = do
+triggerRule : Party -> TriggerA () ()
+triggerRule issuer = do
   agreements <-
     filter (\(_cid, agreement) -> agreement.issuer == issuer) <$>
     query @UpgradeCoinAgreement

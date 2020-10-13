@@ -13,5 +13,5 @@ trigger = Trigger with
   registeredTemplates = AllInDar
   heartbeat = None
 
-triggerRule : Party -> () -> TriggerA ()
-triggerRule _ _ = error "Intentional error"
+triggerRule : Party -> TriggerA () ()
+triggerRule _ = error "Intentional error"

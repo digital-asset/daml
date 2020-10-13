@@ -16,9 +16,8 @@ maxInboundMessageSizeTrigger = Trigger
   , heartbeat = None
   }
 
-maxInboundMessageSizeRule : Party -> ()
-  -> TriggerA ()
-maxInboundMessageSizeRule party _ = query @MessageSize >>= \case
+maxInboundMessageSizeRule : Party -> TriggerA () ()
+maxInboundMessageSizeRule party = query @MessageSize >>= \case
   [] ->
       void $ emitCommands [createAndExerciseCmd (MessageSize { p = party }) (CreateN {n = 50000})] []
   _ -> pure ()
