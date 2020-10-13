@@ -69,17 +69,17 @@ instance HasTime TriggerA where
 -- | TriggerUpdateA is the type used in the `updateState` of a DAML
 -- trigger.  It has similar actions in common with `TriggerA`, but
 -- cannot use `emitCommands` or `getTime`.
-newtype TriggerUpdateA s a = TriggerStateA { runTriggerStateA : ACS -> State s a }
+newtype TriggerUpdateA s a = TriggerUpdateA { runTriggerUpdateA : ACS -> State s a }
 
 instance Functor (TriggerUpdateA s) where
-  fmap f (TriggerUpdateA r) = TriggerStateA $ rliftFmap fmap f r
+  fmap f (TriggerUpdateA r) = TriggerUpdateA $ rliftFmap fmap f r
 
 instance Applicative (TriggerUpdateA s) where
   pure = TriggerUpdateA . rliftPure pure
-  TriggerUpdateA ff <*> TriggerStateA fa = TriggerStateA $ rliftAp (<*>) ff fa
+  TriggerUpdateA ff <*> TriggerUpdateA fa = TriggerUpdateA $ rliftAp (<*>) ff fa
 
 instance Action (TriggerUpdateA s) where
-  TriggerUpdateA fa >>= f = TriggerStateA $ rliftBind (>>=) fa (runTriggerStateA . f)
+  TriggerUpdateA fa >>= f = TriggerUpdateA $ rliftBind (>>=) fa (runTriggerUpdateA . f)
 
 instance ActionState s (TriggerUpdateA s) where
   get = TriggerUpdateA $ const get
