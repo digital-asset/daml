@@ -292,7 +292,9 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
-    } yield NodeFetch(coid, templateId, None, Some(actingParties), signatories, stakeholders, key)
+      byKey <- Gen.oneOf(true, false)
+    } yield
+      NodeFetch(coid, templateId, None, Some(actingParties), signatories, stakeholders, key, byKey)
   }
 
   /** Makes exercise nodes with some random child IDs. */
@@ -314,6 +316,7 @@ object ValueGenerators {
       exerciseResultValue <- versionedValueGen
       key <- versionedValueGen
       maintainers <- genNonEmptyParties
+      byKey <- Gen.oneOf(true, false)
     } yield
       NodeExercises(
         targetCoid,
@@ -328,7 +331,8 @@ object ValueGenerators {
         false,
         children,
         Some(exerciseResultValue),
-        Some(KeyWithMaintainers(key, maintainers))
+        Some(KeyWithMaintainers(key, maintainers)),
+        byKey = byKey,
       )
   }
 

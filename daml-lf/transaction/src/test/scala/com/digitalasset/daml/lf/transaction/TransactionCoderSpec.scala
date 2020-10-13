@@ -86,7 +86,7 @@ class TransactionCoderSpec
               )
               .toOption
               .get
-          Right((NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
+          Right((NodeId(0), withoutByKeyFlag(node))) shouldEqual TransactionCoder.decodeNode(
             TransactionCoder.NidDecoder,
             ValueCoder.CidDecoder,
             defaultTransactionVersion,
@@ -113,7 +113,7 @@ class TransactionCoderSpec
               )
               .toOption
               .get
-          Right((NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
+          Right((NodeId(0), withoutByKeyFlag(node))) shouldEqual TransactionCoder.decodeNode(
             TransactionCoder.NidDecoder,
             ValueCoder.CidDecoder,
             defaultTransactionVersion,
@@ -128,7 +128,8 @@ class TransactionCoderSpec
     }
 
     "do transactions with default versions" in {
-      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { genT =>
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { genT_ =>
+        val genT = genT_.copy(nodes = genT_.nodes.transform((_, n) => withoutByKeyFlag(n)))
         val t = TransactionVersions.assertAsVersionedTransaction(genT)
         val encodedTx: proto.Transaction =
           assertRight(
@@ -384,7 +385,6 @@ class TransactionCoderSpec
       case ne: NodeExercises[Nid, Cid, Val] => ne copy (key = None)
       case _ => gn
     }
-
   def withoutMaintainersInExercise[Nid, Cid, Val](
       gn: GenNode[Nid, Cid, Val],
   ): GenNode[Nid, Cid, Val] =
@@ -393,6 +393,18 @@ class TransactionCoderSpec
         ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
       case _ => gn
     }
+
+  // FIXME: https://github.com/digital-asset/daml/issues/7622
+  // Fix the usage of this function in the test, once `byKey` is added to the serialization format.
+  def withoutByKeyFlag[Nid, Cid, Val](gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
+    gn match {
+      case ne: NodeExercises[Nid, Cid, Val] =>
+        ne.copy(byKey = false)
+      case fe: NodeFetch[Cid, Val] =>
+        fe.copy(byKey = false)
+      case _ => gn
+    }
+
   def transactionWithout[Nid, Cid, Val](
       t: GenTransaction[Nid, Cid, Val],
       f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val],
@@ -413,7 +425,8 @@ class TransactionCoderSpec
       tx,
       condApply(minMaintainersInExercise, withoutMaintainersInExercise)
         .compose(condApply(minContractKeyInExercise, withoutContractKeyInExercise))
-        .compose(condApply(minExerciseResult, withoutExerciseResult)),
+        .compose(condApply(minExerciseResult, withoutExerciseResult))
+        .compose(withoutByKeyFlag[Nid, Cid, Val]),
     )
   }
 

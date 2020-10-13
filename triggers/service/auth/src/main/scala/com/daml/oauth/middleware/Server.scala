@@ -17,6 +17,11 @@ import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.oauth.server.{Request => OAuthRequest, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
+
+import com.daml.jwt.JwtDecoder
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.auth.AuthServiceJWTCodec
+
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
@@ -64,22 +69,33 @@ object Server extends StrictLogging {
     optionalCookie(cookieName).map(_.flatMap(f))
   }
 
+  // Check whether the provided access token grants at least the requested claims.
+  private def tokenProvidesClaims(accessToken: String, claims: Request.Claims): Boolean = {
+    for {
+      decodedJwt <- JwtDecoder.decode(Jwt(accessToken)).toOption
+      tokenPayload <- AuthServiceJWTCodec.readFromString(decodedJwt.payload).toOption
+    } yield {
+      (tokenPayload.admin || !claims.admin) &&
+      tokenPayload.actAs.toSet.subsetOf(claims.actAs.map(_.toString).toSet) &&
+      tokenPayload.readAs.toSet.subsetOf(claims.readAs.map(_.toString).toSet)
+    }
+  }.getOrElse(false)
+
   private def auth =
-    parameters(('claims))
+    parameters(('claims.as[Request.Claims]))
       .as[Request.Auth](Request.Auth) { auth =>
         optionalToken {
-          // TODO[AH] Implement mapping from scope to claims
-          // TODO[AH] Check whether granted scope subsumes requested claims
-          case Some(token) if token.scope == Some(auth.claims) =>
+          case Some(token) if tokenProvidesClaims(token.accessToken, auth.claims) =>
             complete(
               Response
                 .Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken))
+          // TODO[AH] Include a `WWW-Authenticate` header.
           case _ => complete(StatusCodes.Unauthorized)
         }
       }
 
   private def login(config: Config, requests: TrieMap[UUID, Uri]) =
-    parameters(('redirect_uri.as[Uri], 'claims))
+    parameters(('redirect_uri.as[Uri], 'claims.as[Request.Claims]))
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
           val requestId = UUID.randomUUID
@@ -88,8 +104,10 @@ object Server extends StrictLogging {
             responseType = "code",
             clientId = config.clientId,
             redirectUri = toRedirectUri(request.uri),
-            scope = Some(login.claims),
-            state = Some(requestId.toString))
+            scope = Some(login.claims.toQueryString),
+            state = Some(requestId.toString),
+            audience = Some("https://daml.com/ledger-api")
+          )
           redirect(config.oauthAuth.withQuery(authorize.toQuery), StatusCodes.Found)
         }
       }

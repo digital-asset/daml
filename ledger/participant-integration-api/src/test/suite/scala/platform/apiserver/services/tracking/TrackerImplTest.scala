@@ -8,6 +8,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, Source, SourceQueueWithComplete}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
@@ -16,7 +17,6 @@ import com.daml.ledger.api.testing.utils.{
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.dec.DirectExecutionContext
 import com.daml.logging.LoggingContext
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
@@ -24,6 +24,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterEach, Matchers, Succeeded, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.DurationInt
 
 class TrackerImplTest
     extends WordSpec
@@ -31,6 +32,8 @@ class TrackerImplTest
     with BeforeAndAfterEach
     with ScalaFutures
     with AkkaBeforeAndAfterAll {
+
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 1.second)
 
   private var sut: Tracker = _
   private var consumer: TestSubscriber.Probe[NotUsed] = _

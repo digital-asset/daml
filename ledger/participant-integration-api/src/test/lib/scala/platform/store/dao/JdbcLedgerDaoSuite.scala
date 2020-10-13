@@ -128,7 +128,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       signatories = Set(alice, bob),
       children = ImmArray.empty,
       exerciseResult = Some(ValueText("some exercise result")),
-      key = None
+      key = None,
+      byKey = false,
     )
 
   // All non-transient contracts created in a transaction
@@ -187,6 +188,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         children = ImmArray.empty,
         exerciseResult = Some(ValueUnit),
         key = None,
+        byKey = false,
       )
     )
     txBuilder.add(
@@ -198,6 +200,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         signatories = Set(alice),
         stakeholders = Set(alice),
         None,
+        byKey = false,
       ),
       exerciseId,
     )
@@ -514,7 +517,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         controllersDifferFromActors = false,
         children = ImmArray.empty,
         exerciseResult = Some(ValueUnit),
-        key = maybeKey.map(k => KeyWithMaintainers(ValueText(k), Set(party)))
+        key = maybeKey.map(k => KeyWithMaintainers(ValueText(k), Set(party))),
+        byKey = false,
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
@@ -570,6 +574,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         signatories = Set(party),
         stakeholders = Set(party),
         None,
+        byKey = false,
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),

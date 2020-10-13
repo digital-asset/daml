@@ -30,6 +30,9 @@ class BatchingLedgerWriterSpec
 
   import BatchingLedgerWriterSpec._
 
+  private val someCommitMetadata = mock[CommitMetadata]
+  when(someCommitMetadata.estimatedInterpretationCost).thenReturn(Some(123L))
+
   "BatchingLedgerWriter" should {
 
     "report unhealthy when queue is dead" in {
@@ -58,11 +61,12 @@ class BatchingLedgerWriterSpec
       for {
         submissionResult <- batchingWriter.commit(aCorrelationId, aSubmission, someCommitMetadata)
       } yield {
-        val expectedCommitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = None)
         verify(mockWriter).commit(
           anyString(),
           ArgumentMatchers.eq(expectedBatch),
-          ArgumentMatchers.eq(expectedCommitMetadata))
+          ArgumentMatchers.argThat((metadata: CommitMetadata) =>
+            metadata.estimatedInterpretationCost.isEmpty)
+        )
         submissionResult should be(SubmissionResult.Acknowledged)
       }
     }
@@ -93,7 +97,6 @@ class BatchingLedgerWriterSpec
 object BatchingLedgerWriterSpec {
   private val aCorrelationId = "aCorrelationId"
   private val aSubmission = ByteString.copyFromUtf8("a submission")
-  private val someCommitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = Some(123L))
 
   def immediateBatchingQueue()(implicit executionContext: ExecutionContext): BatchingQueue =
     new BatchingQueue {

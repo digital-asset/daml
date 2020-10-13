@@ -7,16 +7,18 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
-object PackageLookup {
-  def lookupDefinition(pkg: Package, identifier: QualifiedName): Either[Error, Definition] =
-    pkg.lookupIdentifier(identifier).fold(err => Left(Error(err)), Right(_))
+object SignatureLookup {
+  def lookupDefinition(
+      pkg: PackageSignature,
+      identifier: QualifiedName): Either[Error, DefinitionSignature] =
+    pkg.lookupDefinition(identifier).fold(err => Left(Error(err)), Right(_))
 
-  def lookupDataType(pkg: Package, identifier: QualifiedName): Either[Error, DDataType] =
+  def lookupDataType(pkg: PackageSignature, identifier: QualifiedName): Either[Error, DDataType] =
     for {
       defn <- lookupDefinition(pkg, identifier)
       dataTyp <- defn match {
         case dataType: DDataType => Right(dataType)
-        case _: DValue =>
+        case _: GenDValue[_] =>
           Left(Error(s"Got value definition instead of datatype when looking up $identifier"))
         case _: DTypeSyn =>
           Left(
@@ -25,8 +27,9 @@ object PackageLookup {
     } yield dataTyp
 
   def lookupRecord(
-      pkg: Package,
-      identifier: QualifiedName): Either[Error, (ImmArray[(TypeVarName, Kind)], DataRecord)] =
+      pkg: PackageSignature,
+      identifier: QualifiedName,
+  ): Either[Error, (ImmArray[(TypeVarName, Kind)], DataRecord)] =
     lookupDataType(pkg, identifier).flatMap { dataTyp =>
       dataTyp.cons match {
         case rec: DataRecord =>
@@ -39,8 +42,9 @@ object PackageLookup {
     }
 
   def lookupVariant(
-      pkg: Package,
-      identifier: QualifiedName): Either[Error, (ImmArray[(TypeVarName, Kind)], DataVariant)] =
+      pkg: PackageSignature,
+      identifier: QualifiedName,
+  ): Either[Error, (ImmArray[(TypeVarName, Kind)], DataVariant)] =
     lookupDataType(pkg, identifier).flatMap { dataTyp =>
       dataTyp.cons match {
         case v: DataVariant =>
@@ -52,7 +56,7 @@ object PackageLookup {
       }
     }
 
-  def lookupEnum(pkg: Package, identifier: QualifiedName): Either[Error, DataEnum] =
+  def lookupEnum(pkg: PackageSignature, identifier: QualifiedName): Either[Error, DataEnum] =
     lookupDataType(pkg, identifier).flatMap { dataTyp =>
       dataTyp.cons match {
         case v: DataEnum =>
@@ -65,17 +69,9 @@ object PackageLookup {
       }
     }
 
-  def lookupTemplate(pkg: Package, identifier: QualifiedName): Either[Error, Template] =
-    for {
-      dataTyp <- lookupDataType(pkg, identifier)
-      tpl <- dataTyp.cons match {
-        case DataRecord(_, Some(template)) => Right(template)
-        case DataRecord(_, None) =>
-          Left(Error(s"Got record with no template when looking up $identifier"))
-        case _: DataVariant =>
-          Left(Error(s"Expecting template for identifier $identifier, got variant"))
-        case _: DataEnum =>
-          Left(Error(s"Expecting template for identifier $identifier, got enum"))
-      }
-    } yield tpl
+  def lookupTemplate(
+      pkg: PackageSignature,
+      identifier: QualifiedName): Either[Error, TemplateSignature] =
+    pkg.lookupTemplate(identifier).left.map(Error(_))
+
 }

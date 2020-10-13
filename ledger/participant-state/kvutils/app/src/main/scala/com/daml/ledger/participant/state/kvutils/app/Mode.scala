@@ -7,8 +7,10 @@ sealed abstract class Mode
 
 object Mode {
 
+  /** Run the participant */
   case object Run extends Mode
 
+  /** Dump index metadata and exit */
   final case class DumpIndexMetadata(jdbcUrls: Vector[String]) extends Mode
 
 }

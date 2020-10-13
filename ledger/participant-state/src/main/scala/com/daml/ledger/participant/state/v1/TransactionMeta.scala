@@ -39,5 +39,5 @@ final case class TransactionMeta(
     submissionSeed: crypto.Hash,
     optUsedPackages: Option[Set[Ref.PackageId]],
     optNodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
-    optByKeyNodes: Option[ImmArray[NodeId]]
+    optByKeyNodes: Option[ImmArray[NodeId]],
 )

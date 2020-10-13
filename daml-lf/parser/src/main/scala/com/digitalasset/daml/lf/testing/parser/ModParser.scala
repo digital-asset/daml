@@ -75,7 +75,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       case defTags ~ id ~ params ~ fields =>
         DataDef(
           id,
-          DDataType(defTags(serializableTag), ImmArray(params), DataRecord(ImmArray(fields), None))
+          DDataType(defTags(serializableTag), ImmArray(params), DataRecord(ImmArray(fields)))
         )
     }
 

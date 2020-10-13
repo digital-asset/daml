@@ -234,16 +234,12 @@ private[validation] object Typing {
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(languageVersion, world, ContextDefDataType(pkgId, mod.name, dfnName), params.toMap)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
-          case DataRecord(fields, template) =>
+          case DataRecord(fields) =>
             env.checkRecordType(fields)
-            template.foreach { tmpl =>
-              if (params.nonEmpty) throw EExpectedTemplatableType(env.ctx, tyConName)
-              env.checkTemplate(tyConName, tmpl)
-            }
           case DataVariant(fields) =>
             env.checkVariantType(fields)
           case DataEnum(values) =>
@@ -256,6 +252,17 @@ private[validation] object Typing {
           Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
+    }
+    mod.templates.foreach {
+      case (dfnName, template) =>
+        val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
+        val env = Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), Map.empty)
+        world.lookupDataType(env.ctx, tyConName) match {
+          case DDataType(_, ImmArray(), DataRecord(_)) =>
+            env.checkTemplate(tyConName, template)
+          case _ =>
+            throw EExpectedTemplatableType(env.ctx, tyConName)
+        }
     }
   }
 
@@ -300,7 +307,7 @@ private[validation] object Typing {
     }
 
     def checkEnumType[X](
-        tyConName: TypeConName,
+        tyConName: => TypeConName,
         params: ImmArray[X],
         values: ImmArray[EnumConName]
     ): Unit = {
@@ -466,7 +473,7 @@ private[validation] object Typing {
 
     private def checkRecCon(typ: TypeConApp, recordExpr: ImmArray[(FieldName, Expr)]): Unit =
       checkTypConApp(typ) match {
-        case DataRecord(recordType, _) =>
+        case DataRecord(recordType) =>
           val (exprFieldNames, fieldExprs) = recordExpr.unzip
           val (typeFieldNames, fieldTypes) = recordType.unzip
           if (exprFieldNames != typeFieldNames) throw EFieldMismatch(ctx, typ, recordExpr)
@@ -495,7 +502,7 @@ private[validation] object Typing {
 
     private def typeOfRecProj(typ0: TypeConApp, field: FieldName, record: Expr): Type =
       checkTypConApp(typ0) match {
-        case DataRecord(recordType, _) =>
+        case DataRecord(recordType) =>
           val fieldType = recordType.lookup(field, EUnknownField(ctx, field))
           checkExpr(record, typeConAppToType(typ0))
           fieldType
@@ -505,7 +512,7 @@ private[validation] object Typing {
 
     private def typeOfRecUpd(typ0: TypeConApp, field: FieldName, record: Expr, update: Expr): Type =
       checkTypConApp(typ0) match {
-        case DataRecord(recordType, _) =>
+        case DataRecord(recordType) =>
           val typ1 = typeConAppToType(typ0)
           checkExpr(record, typ1)
           checkExpr(update, recordType.lookup(field, EUnknownField(ctx, field)))

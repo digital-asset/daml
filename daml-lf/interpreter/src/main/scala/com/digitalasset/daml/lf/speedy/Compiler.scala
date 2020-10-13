@@ -94,15 +94,15 @@ private[lf] object Compiler {
     * they transitively reference are in the [[packages]] in the compiler.
     */
   def compilePackages(
+      signatures: PackageId PartialFunction PackageSignature,
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
   ): Either[String, Map[SDefinitionRef, SExpr]] = {
-    val compiler = new Compiler(packages, compilerConfig)
+    val compiler = new Compiler(signatures, compilerConfig)
     try {
-      Right(
-        packages.keys.foldLeft(Map.empty[SDefinitionRef, SExpr])(
-          _ ++ compiler.unsafeCompilePackage(_))
-      )
+      Right(packages.foldLeft(Map.empty[SDefinitionRef, SExpr]) {
+        case (acc, (pkgId, pkg)) => acc ++ compiler.unsafeCompilePackage(pkgId, pkg)
+      })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
       case PackageNotFound(pkgId) => Left(s"Package not found $pkgId")
@@ -113,7 +113,7 @@ private[lf] object Compiler {
 }
 
 private[lf] final class Compiler(
-    packages: PackageId PartialFunction Package,
+    signatures: PackageId PartialFunction PackageSignature,
     config: Compiler.Config
 ) {
 
@@ -253,18 +253,22 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompileDefn(
-      identifier: Identifier,
-      defn: Definition,
-  ): List[(SDefinitionRef, SExpr)] =
-    defn match {
-      case DValue(_, _, body, _) =>
-        val ref = LfDefRef(identifier)
-        List(ref -> withLabel(ref, unsafeCompile(body)))
+  def unsafeCompileModule(
+      pkgId: PackageId,
+      module: Module,
+  ): Iterable[(SDefinitionRef, SExpr)] = {
+    val builder = Iterable.newBuilder[(SDefinitionRef, SExpr)]
 
-      case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
-        val builder = List.newBuilder[(SDefinitionRef, SExpr)]
+    module.definitions.foreach {
+      case (defName, DValue(_, _, body, _)) =>
+        val ref = LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
+        builder += (ref -> withLabel(ref, unsafeCompile(body)))
+      case _ =>
+    }
 
+    module.templates.foreach {
+      case (tmplName, tmpl) =>
+        val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
         builder += compileCreate(identifier, tmpl)
         builder += compileFetch(identifier, tmpl)
 
@@ -275,16 +279,15 @@ private[lf] final class Compiler(
           builder += compileLookupByKey(identifier, tmplKey)
           tmpl.choices.values.foreach(builder += compileChoiceByKey(identifier, tmpl, tmplKey, _))
         }
-
-        builder.result()
-      case _ =>
-        List()
     }
+
+    builder.result()
+  }
 
   /** Validates and compiles all the definitions in the package provided.
     *
     * Fails with [[PackageNotFound]] if the package or any of the packages it refers
-    * to are not in the [[packages]].
+    * to are not in the [[signatures]].
     *
     * @throws ValidationError if the package does not pass validations.
     */
@@ -293,12 +296,13 @@ private[lf] final class Compiler(
   @throws[ValidationError]
   def unsafeCompilePackage(
       pkgId: PackageId,
+      pkg: Package,
   ): Iterable[(SDefinitionRef, SExpr)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()
 
-    packages.lift(pkgId) match {
+    signatures.lift(pkgId) match {
       case Some(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
         throw CompilationError(
           s"Disallowed language version in package $pkgId: " +
@@ -310,7 +314,7 @@ private[lf] final class Compiler(
     config.packageValidation match {
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
-        Validation.checkPackage(packages, pkgId).left.foreach {
+        Validation.checkPackage(signatures, pkgId, pkg).left.foreach {
           case EUnknownDefinition(_, LEPackage(pkgId_)) =>
             logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
             throw PackageNotFound(pkgId_)
@@ -321,20 +325,14 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    val defns = for {
-      module <- lookupPackage(pkgId).modules.values
-      defnWithId <- module.definitions
-      (defnId, defn) = defnWithId
-      fullId = Identifier(pkgId, QualifiedName(module.name, defnId))
-      exprWithId <- unsafeCompileDefn(fullId, defn)
-    } yield exprWithId
-    val t2 = Time.Timestamp.now()
+    val result = pkg.modules.values.flatMap(unsafeCompileModule(pkgId, _))
 
+    val t2 = Time.Timestamp.now()
     logger.trace(
       s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms",
     )
 
-    defns
+    result
   }
 
   private[this] def patternNArgs(pat: SCasePat): Int = pat match {
@@ -397,10 +395,10 @@ private[lf] final class Compiler(
         SBSome(compile(body))
       case EEnumCon(tyCon, constructor) =>
         val enumDef =
-          lookupEnumDefinition(tyCon).getOrElse(throw CompilationError(s"enum $tyCon not found"))
+          lookupEnum(tyCon).getOrElse(throw CompilationError(s"enum $tyCon not found"))
         SEValue(SEnum(tyCon, constructor, enumDef.constructorRank(constructor)))
       case EVariantCon(tapp, variant, arg) =>
-        val variantDef = lookupVariantDefinition(tapp.tycon)
+        val variantDef = lookupVariant(tapp.tycon)
           .getOrElse(throw CompilationError(s"variant ${tapp.tycon} not found"))
         SBVariantCon(tapp.tycon, variant, variantDef.constructorRank(variant))(compile(arg))
       case let: ELet =>
@@ -607,8 +605,8 @@ private[lf] final class Compiler(
         case CaseAlt(pat, expr) =>
           pat match {
             case CPVariant(tycon, variant, binder) =>
-              val variantDef = lookupVariantDefinition(tycon).getOrElse(
-                throw CompilationError(s"variant $tycon not found"))
+              val variantDef =
+                lookupVariant(tycon).getOrElse(throw CompilationError(s"variant $tycon not found"))
               withBinders(binder) { _ =>
                 SCaseAlt(
                   SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
@@ -617,8 +615,8 @@ private[lf] final class Compiler(
               }
 
             case CPEnum(tycon, constructor) =>
-              val enumDef = lookupEnumDefinition(tycon).getOrElse(
-                throw CompilationError(s"enum $tycon not found"))
+              val enumDef =
+                lookupEnum(tycon).getOrElse(throw CompilationError(s"enum $tycon not found"))
               SCaseAlt(
                 SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
                 compile(expr),
@@ -961,25 +959,25 @@ private[lf] final class Compiler(
       case _ => expr
     }
 
-  private[this] def lookupPackage(pkgId: PackageId): Package =
-    if (packages.isDefinedAt(pkgId)) packages(pkgId)
+  private[this] def lookupPackage(pkgId: PackageId): PackageSignature =
+    if (signatures.isDefinedAt(pkgId)) signatures(pkgId)
     else throw PackageNotFound(pkgId)
 
-  private[this] def lookupDefinition(tycon: TypeConName): Option[Definition] =
+  private[this] def lookupDefinitionSignature(tycon: TypeConName): Option[DefinitionSignature] =
     lookupPackage(tycon.packageId).modules
       .get(tycon.qualifiedName.module)
       .flatMap(mod => mod.definitions.get(tycon.qualifiedName.name))
 
-  private[this] def lookupVariantDefinition(tycon: TypeConName): Option[DataVariant] =
-    lookupDefinition(tycon).flatMap {
+  private[this] def lookupVariant(tycon: TypeConName): Option[DataVariant] =
+    lookupDefinitionSignature(tycon).flatMap {
       case DDataType(_, _, data: DataVariant) =>
         Some(data)
       case _ =>
         None
     }
 
-  private[this] def lookupEnumDefinition(tycon: TypeConName): Option[DataEnum] =
-    lookupDefinition(tycon).flatMap {
+  private[this] def lookupEnum(tycon: TypeConName): Option[DataEnum] =
+    lookupDefinitionSignature(tycon).flatMap {
       case DDataType(_, _, data: DataEnum) =>
         Some(data)
       case _ =>
@@ -987,14 +985,14 @@ private[lf] final class Compiler(
     }
 
   private[this] def lookupRecordIndex(tapp: TypeConApp, field: FieldName): Int =
-    lookupDefinition(tapp.tycon)
+    lookupDefinitionSignature(tapp.tycon)
       .flatMap {
-        case DDataType(_, _, DataRecord(fields, _)) =>
+        case DDataType(_, _, DataRecord(fields)) =>
           val idx = fields.indexWhere(_._1 == field)
           if (idx < 0) None else Some(idx)
         case _ => None
       }
-      .getOrElse(throw CompilationError(s"record type $tapp not found"))
+      .getOrElse(throw CompilationError(s"record type ${tapp.pretty} not found"))
 
   private[this] def withEnv[A](f: Unit => A): A = {
     val oldEnv = env

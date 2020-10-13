@@ -6,6 +6,9 @@
 module Daml.Trigger.Internal
   ( ACS (..)
   , TriggerA (..)
+  , TriggerUpdateA (..)
+  , TriggerInitializeA (..)
+  , ActionTriggerAny (..)
   , addCommands
   , insertTpl
   , groupActiveContracts
@@ -14,10 +17,12 @@ module Daml.Trigger.Internal
   , applyEvent
   , applyTransaction
   , runRule
+  , liftTriggerRule
   , TriggerAState (..)
   , TriggerState (..)
   ) where
 
+import DA.Action.State
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
@@ -47,8 +52,51 @@ data ACS = ACS
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
-newtype TriggerA a = TriggerA (TriggerRule TriggerAState a)
-  deriving (Functor, Applicative, Action, HasTime, ActionTrigger)
+newtype TriggerA a = TriggerA { runTriggerA : ACS -> TriggerRule TriggerAState a }
+
+instance Functor TriggerA where
+  fmap f (TriggerA r) = TriggerA $ rliftFmap fmap f r
+
+instance Applicative TriggerA where
+  pure = TriggerA . rliftPure pure
+  TriggerA ff <*> TriggerA fa = TriggerA $ rliftAp (<*>) ff fa
+
+instance Action TriggerA where
+  TriggerA fa >>= f = TriggerA $ rliftBind (>>=) fa (runTriggerA . f)
+
+instance HasTime TriggerA where
+  getTime = TriggerA $ const getTime
+
+-- | TriggerUpdateA is the type used in the `updateState` of a DAML
+-- trigger.  It has similar actions in common with `TriggerA`, but
+-- cannot use `emitCommands` or `getTime`.
+newtype TriggerUpdateA s a = TriggerUpdateA { runTriggerUpdateA : ACS -> State s a }
+
+instance Functor (TriggerUpdateA s) where
+  fmap f (TriggerUpdateA r) = TriggerUpdateA $ rliftFmap fmap f r
+
+instance Applicative (TriggerUpdateA s) where
+  pure = TriggerUpdateA . rliftPure pure
+  TriggerUpdateA ff <*> TriggerUpdateA fa = TriggerUpdateA $ rliftAp (<*>) ff fa
+
+instance Action (TriggerUpdateA s) where
+  TriggerUpdateA fa >>= f = TriggerUpdateA $ rliftBind (>>=) fa (runTriggerUpdateA . f)
+
+instance ActionState s (TriggerUpdateA s) where
+  get = TriggerUpdateA $ const get
+  put = TriggerUpdateA . const . put
+  modify = TriggerUpdateA . const . modify
+
+-- | TriggerInitializeA is the type used in the `initialize` of a DAML
+-- trigger.  It can query, but not emit commands or update the state.
+newtype TriggerInitializeA a = TriggerInitializeA { runTriggerInitializeA : ACS -> a }
+  deriving (Functor, Applicative, Action)
+
+-- | Features possible in `initialize`, `updateState`, and `rule`.
+class ActionTriggerAny m where
+  -- | Extract the contracts of a given template from the ACS.  (However, the
+  -- type parameters are in the 'm a' order, so it is not exported.)
+  implQuery : forall a. Template a => m [(ContractId a, a)]
 
 -- Internal API
 
@@ -102,20 +150,20 @@ applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
 runRule
-  : (Party -> ACS -> s -> TriggerA ())
+  : (Party -> s -> TriggerA ())
   -> TriggerRule (TriggerState s) ()
 runRule rule = do
   state <- get
-  TriggerRule . zoom zoomIn zoomOut . runTriggerRule . runTriggerA
-      $ rule state.party state.acs state.userState
+  TriggerRule . zoom zoomIn zoomOut . runTriggerRule . flip runTriggerA state.acs
+      $ rule state.party state.userState
   where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts
         zoomOut state aState =
           let commandsInFlight = aState.commandsInFlight
               acs = state.acs { pendingContracts = aState.pendingContracts }
           in state { commandsInFlight, acs }
 
-runTriggerA : TriggerA a -> TriggerRule TriggerAState a
-runTriggerA (TriggerA f) = f
+liftTriggerRule : TriggerRule TriggerAState a -> TriggerA a
+liftTriggerRule = TriggerA . const
 
 data TriggerAState = TriggerAState
   { commandsInFlight : Map CommandId [Command]
@@ -132,3 +180,18 @@ data TriggerState s = TriggerState
   , userState : s
   , commandsInFlight : Map CommandId [Command]
   }
+
+-- unboxed newtype for common Trigger*A additions
+type TriggerAT f a = ACS -> f a
+
+rliftFmap : ((a -> b) -> f a -> f b) -> (a -> b) -> TriggerAT f a -> TriggerAT f b
+rliftFmap ub f r = ub f . r
+
+rliftPure : (a -> f a) -> a -> TriggerAT f a
+rliftPure ub = const . ub
+
+rliftAp : (f (a -> b) -> f a -> f b) -> TriggerAT f (a -> b) -> TriggerAT f a -> TriggerAT f b
+rliftAp ub ff fa r = ff r `ub` fa r
+
+rliftBind : (f a -> (a -> f b) -> f b) -> TriggerAT f a -> (a -> TriggerAT f b) -> TriggerAT f b
+rliftBind ub fa f r = fa r `ub` \a -> f a r

@@ -9,14 +9,14 @@ import Daml.Trigger
 
 test : RegisteredTemplates -> Trigger ()
 test registered = Trigger
-  { initialize = \_acs -> ()
-  , updateState = \_acs _message () -> ()
+  { initialize = pure ()
+  , updateState = \_message -> pure ()
   , registeredTemplates = registered
-  , rule = \party acs () -> do
-      let ones = getContracts @One acs
-      let twos = getContracts @Two acs
-      let doneOnes = getContracts @DoneOne acs
-      let doneTwos = getContracts @DoneTwo acs
+  , rule = \party () -> do
+      ones <- query @One
+      twos <- query @Two
+      doneOnes <- query @DoneOne
+      doneTwos <- query @DoneTwo
       case (ones, twos) of
         ([_], []) | null doneOnes -> dedupCreate DoneOne with p = party
         ([], [_]) | null doneTwos -> dedupCreate DoneTwo with p = party

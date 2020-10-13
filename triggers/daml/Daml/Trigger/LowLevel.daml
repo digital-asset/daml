@@ -39,13 +39,13 @@ module Daml.Trigger.LowLevel
   , TriggerSetup(..)
   , TriggerRule(..)
   , ActionState(..)
-  , modify
   , zoom
   , submitCommands
   , simulateRule
   ) where
 
-import qualified DA.Action.State as State
+import DA.Action.State
+import DA.Action.State.Class
 import DA.Functor ((<&>))
 import DA.Next.Map (MapKey(..))
 import DA.Time (RelTime(..))
@@ -272,16 +272,10 @@ instance Action m => Action (StateT s m) where
     (x', s') <- x s
     runStateT (f x') s'
 
-class ActionState s m | m -> s where
-  get : m s
-  put : s -> m ()
-
-modify : (Action m, ActionState s m) => (s -> s) -> m ()
-modify f = put . f =<< get
-
 instance Applicative m => ActionState s (StateT s m) where
   get = StateT $ \s -> pure (s, s)
   put s = StateT $ const $ pure ((), s)
+  modify f = StateT $ \s -> pure ((), f s)
 
 execStateT : Functor m => StateT s m a -> s -> m s
 execStateT (StateT fa) = fmap snd . fa
@@ -306,17 +300,18 @@ newtype TriggerRule s a = TriggerRule { runTriggerRule : StateT s (Free TriggerF
 -- meant for testing purposes only.
 simulateRule : TriggerRule s a -> Time -> s -> (s, [Commands], a)
 simulateRule rule time s = (s', reverse cmds, a)
-  where ((a, s'), (cmds, _)) = State.runState (foldFree sim (runStateT (runTriggerRule rule) s)) ([], 0)
-        sim : TriggerF x -> State.State ([Commands], Int) x
+  where ((a, s'), (cmds, _)) = runState (foldFree sim (runStateT (runTriggerRule rule) s)) ([], 0)
+        sim : TriggerF x -> State ([Commands], Int) x
         sim (GetTime f) = pure (f time)
         sim (Submit (cmds, f)) = do
-          (pastCmds, nextId) <- State.get
+          (pastCmds, nextId) <- get
           let nextIdShown = show nextId
-          State.put (Commands (CommandId nextIdShown) cmds :: pastCmds, nextId + 1)
+          put (Commands (CommandId nextIdShown) cmds :: pastCmds, nextId + 1)
           pure $ f nextIdShown
 
 deriving instance ActionState s (TriggerRule s)
 
+-- | Low-level trigger actions.
 class HasTime m => ActionTrigger m where
   liftTF : TriggerF a -> m a
 

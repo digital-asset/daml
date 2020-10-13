@@ -311,7 +311,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         ImmArray(params).map(decodeTypeVarWithKind),
         lfDataType.getDataConsCase match {
           case PLF.DefDataType.DataConsCase.RECORD =>
-            DataRecord(decodeFields(ImmArray(lfDataType.getRecord.getFieldsList.asScala)), None)
+            DataRecord(decodeFields(ImmArray(lfDataType.getRecord.getFieldsList.asScala)))
           case PLF.DefDataType.DataConsCase.VARIANT =>
             DataVariant(decodeFields(ImmArray(lfDataType.getVariant.getFieldsList.asScala)))
           case PLF.DefDataType.DataConsCase.ENUM =>

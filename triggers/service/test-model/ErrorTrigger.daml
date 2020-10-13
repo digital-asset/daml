@@ -7,11 +7,11 @@ import Daml.Trigger
 
 trigger : Trigger ()
 trigger = Trigger with
-  initialize = \_ -> ()
-  updateState = \_ _ _ -> ()
+  initialize = pure ()
+  updateState = \_ -> pure ()
   rule = triggerRule
   registeredTemplates = AllInDar
   heartbeat = None
 
-triggerRule : Party -> ACS -> () -> TriggerA ()
-triggerRule _ _ _ = error "Intentional error"
+triggerRule : Party -> () -> TriggerA ()
+triggerRule _ _ = error "Intentional error"

@@ -120,4 +120,51 @@ object Util {
       )
   }
 
+  private[this] def toSignature(choice: TemplateChoice): TemplateChoiceSignature =
+    choice match {
+      case TemplateChoice(name, consuming, _, selfBinder, argBinder, returnType, _) =>
+        TemplateChoiceSignature(name, consuming, (), selfBinder, argBinder, returnType, ())
+    }
+
+  private[this] def toSignature(key: TemplateKey): TemplateKeySignature =
+    key match {
+      case TemplateKey(typ, _, _) =>
+        TemplateKeySignature(typ, (), ())
+    }
+
+  private[this] def toSignature(template: Template): TemplateSignature =
+    template match {
+      case Template(param, _, _, _, choices, _, key) =>
+        TemplateSignature(
+          param,
+          (),
+          (),
+          (),
+          choices.transform((_, v) => toSignature(v)),
+          (),
+          key.map(toSignature),
+        )
+    }
+
+  private[this] def toSignature(module: Module): ModuleSignature =
+    module match {
+      case Module(name, definitions, templates, featureFlags) =>
+        ModuleSignature(
+          name = name,
+          definitions = definitions.transform {
+            case (_, dvalue: GenDValue[_]) => dvalue.copy(body = ())
+            case (_, dataType: DDataType) => dataType
+            case (_, typeSyn: DTypeSyn) => typeSyn
+          },
+          templates = templates.transform((_, template) => toSignature(template)),
+          featureFlags = featureFlags,
+        )
+    }
+
+  def toSignature(p: Package): PackageSignature =
+    p.copy(modules = p.modules.transform((_, mod) => toSignature(mod)))
+
+  def toSignatures(pkgs: Map[Ref.PackageId, Package]): Map[Ref.PackageId, PackageSignature] =
+    pkgs.transform((_, v) => toSignature(v))
+
 }

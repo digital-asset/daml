@@ -149,9 +149,8 @@ private[validation] object TypeTraversable {
       case DTypeSyn(params @ _, typ) =>
         f(typ)
         ()
-      case DDataType(serializable @ _, params @ _, DataRecord(fields, template)) =>
+      case DDataType(serializable @ _, params @ _, DataRecord(fields)) =>
         fields.values.foreach(f)
-        template.foreach(foreach(_, f))
       case DDataType(serializable @ _, params @ _, DataVariant(variants)) =>
         variants.values.foreach(f)
       case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
@@ -206,9 +205,12 @@ private[validation] object TypeTraversable {
       def foreach[U](f: Type => U): Unit = that.foreach(expr, f)
     }
 
-  def apply(definition: Definition): Traversable[Type] =
+  def apply(module: Module): Traversable[Type] =
     new Traversable[Type] {
-      def foreach[U](f: Type => U): Unit = that.foreach(definition, f)
+      def foreach[U](f: Type => U): Unit = {
+        module.definitions.values.foreach(that.foreach(_, f))
+        module.templates.values.foreach(that.foreach(_, f))
+      }
     }
 
 }

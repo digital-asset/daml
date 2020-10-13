@@ -30,15 +30,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "resources-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
-    ],
-    scalacopts = [
-        "-P:silencer:checkUnused",
-    ],
+    silent_annotations = True,
     deps = [
         ":resources",
         ":resources-test-lib",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
     ],
 )

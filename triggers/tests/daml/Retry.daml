@@ -8,11 +8,11 @@ import Daml.Trigger
 
 retryTrigger : Trigger Int
 retryTrigger = Trigger
-  { initialize = \_acs -> 3
-  , updateState = \_acs msg allowedFail -> case msg of
+  { initialize = pure 3
+  , updateState = \msg -> case msg of
       MCompletion c
-        | Failed {} <- c.status -> allowedFail - 1
-      _ -> allowedFail
+        | Failed {} <- c.status -> modify (subtract 1)
+      _ -> pure ()
   , rule = retryRule
   , registeredTemplates = AllInDar
   , heartbeat = None
@@ -20,17 +20,16 @@ retryTrigger = Trigger
 
 -- We first create a T template, then we try to exercise C 3 times until allowedRetries is 0
 -- finally we create Done
-retryRule : Party -> ACS -> Int -> TriggerA ()
-retryRule party acs allowedRetries
-  | [] <- getContracts @T acs = do
+retryRule : Party -> Int -> TriggerA ()
+retryRule party allowedRetries = query @T >>= \case
+  [] -> do
     dedupCreate T { p = party }
-  | ((cid, _) :: _) <- getContracts @T acs
-  , allowedRetries > 0 = do
+  ((cid, _) :: _) | allowedRetries > 0 -> do
     dedupExercise cid C
-  | allowedRetries == 0
-  , [] <- getContracts @Done acs = do
-    dedupCreate Done { p = party }
-  | otherwise = pure ()
+  _ -> query @Done >>= \case
+    [] | allowedRetries == 0 -> do
+      dedupCreate Done { p = party }
+    otherwise -> pure ()
 
 template T
   with

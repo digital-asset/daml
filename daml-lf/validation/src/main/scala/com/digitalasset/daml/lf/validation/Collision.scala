@@ -55,7 +55,7 @@ private[validation] object Collision {
       defn: Ast.Definition
   ): List[NamedEntity] =
     defn match {
-      case dDef @ Ast.DDataType(_, _, Ast.DataRecord(fields, _)) =>
+      case dDef @ Ast.DDataType(_, _, Ast.DataRecord(fields)) =>
         val recordDef = NRecDef(module, defName, dDef)
         recordDef :: fields.toList.map { case (name, _) => NField(recordDef, name) }
       case dDef @ Ast.DDataType(_, _, Ast.DataVariant(variants)) =>

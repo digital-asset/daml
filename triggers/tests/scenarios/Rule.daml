@@ -29,16 +29,17 @@ template T
 
 trigger : Trigger Int
 trigger = Trigger with
-  initialize = const 0
-  updateState = \acs _msg count -> length (getContracts @T acs)
-  rule = \party acs count -> do
+  initialize = pure 0
+  updateState = \_msg -> put . length =<< query @T
+  rule = \party count -> do
     when (count == 1) do
       priorCIF <- getCommandsInFlight
       -- Create two additional T.
       dedupCreate T with party, count
       dedupCreate T with party, count = succ count
       -- Exercise a choice
-      let [(tId, _)] = getContracts @T acs
+      ts <- query @T
+      let [(tId, _)] = ts
       dedupExercise tId Poke with n = 0
       -- Exercise a choice by key
       dedupExerciseByKey @T (party, 0) Poke with n = 1

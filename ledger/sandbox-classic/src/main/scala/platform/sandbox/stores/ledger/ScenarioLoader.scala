@@ -150,7 +150,7 @@ private[sandbox] object ScenarioLoader {
           val pkg = packages
             .getLfPackageSync(packageId)
             .getOrElse(sys.error(s"Listed package $packageId not found"))
-          pkg.lookupIdentifier(scenarioQualName) match {
+          pkg.lookupDefinition(scenarioQualName) match {
             case Right(x) =>
               List((Ref.Identifier(packageId, scenarioQualName) -> x))
             case Left(_) => List()

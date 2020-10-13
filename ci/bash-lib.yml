@@ -30,7 +30,8 @@ steps:
          | curl -XPOST -i -H 'Content-Type: application/json' -d @- $channel
     }
     gcs() {
-        local args cleanup cmd cred key restore_trap
+        local args cleanup cmd cred key restore_trap ret
+        ret=1
 
         cred="$1"
         cmd="$2"
@@ -45,9 +46,11 @@ steps:
         gcloud auth activate-service-account --key-file=$key
 
         BOTO_CONFIG=/dev/null gsutil $cmd "${args[@]}"
+        ret=$?
         eval "$cleanup"
         trap - EXIT
         eval "$restore_trap"
+        return $ret
     }
     gpg_verify() {
         local key gpg_dir signature_file res

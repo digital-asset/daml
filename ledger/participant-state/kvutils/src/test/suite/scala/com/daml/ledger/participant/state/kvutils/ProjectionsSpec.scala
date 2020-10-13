@@ -50,7 +50,8 @@ class ProjectionsSpec extends WordSpec with Matchers {
       signatories = signatories,
       children = ImmArray.empty,
       exerciseResult = None,
-      key = None
+      key = None,
+      byKey = false,
     )
 
   def project(tx: Transaction) = {

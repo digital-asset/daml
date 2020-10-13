@@ -17,22 +17,22 @@ import UpgradeFromCoinV1
 -- TRIGGER_BOILERPLATE_BEGIN
 upgradeTrigger : Trigger ()
 upgradeTrigger = Trigger with
-  initialize = \_acs -> ()
-  updateState = \_acs _msg () -> ()
+  initialize = pure ()
+  updateState = \_msg -> pure ()
   registeredTemplates = AllInDar
   heartbeat = None
   rule = triggerRule
 -- TRIGGER_BOILERPLATE_END
 
 -- TRIGGER_RULE_BEGIN
-triggerRule : Party -> ACS -> () -> TriggerA ()
-triggerRule issuer acs _ = do
-  let agreements =
-        filter (\(_cid, agreement) -> agreement.issuer == issuer) $
-        getContracts @UpgradeCoinAgreement acs
-  let allCoins =
-        filter (\(_cid, coin) -> coin.issuer == issuer) $
-        getContracts @Coin acs
+triggerRule : Party -> () -> TriggerA ()
+triggerRule issuer _ = do
+  agreements <-
+    filter (\(_cid, agreement) -> agreement.issuer == issuer) <$>
+    query @UpgradeCoinAgreement
+  allCoins <-
+    filter (\(_cid, coin) -> coin.issuer == issuer) <$>
+    query @Coin
   forA_ agreements $ \(agreementCid, agreement) -> do
     let coinsForOwner = filter (\(_cid, coin) -> coin.owner == agreement.owner) allCoins
     forA_ coinsForOwner $ \(coinCid, _) ->

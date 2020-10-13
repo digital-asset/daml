@@ -12,13 +12,8 @@ load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 da_scala_library(
     name = "app",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
-    ],
     resources = glob(["src/main/resources/**/*"]),
-    scalacopts = [
-        "-P:silencer:checkUnused",
-    ],
+    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-app:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -47,7 +42,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -64,6 +58,7 @@ da_scala_test_suite(
     srcs = glob(["src/test/**/*.scala"]),
     deps = [
         ":app",
+        "//daml-lf/data",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",

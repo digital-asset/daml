@@ -58,12 +58,13 @@ private[preprocessing] final class TransactionPreprocessor(
           controllersDifferFromActors @ _,
           children @ _,
           exerciseResult @ _,
-          key @ _) =>
+          key @ _,
+          byKey @ _) =>
         val templateId = template
         val (cmd, newCids) =
           commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, chosenVal.value)
         (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
-      case Node.NodeFetch(coid, templateId, _, _, _, _, _) =>
+      case Node.NodeFetch(coid, templateId, _, _, _, _, _, _) =>
         val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, coid)
         (cmd, acc)
       case Node.NodeLookupByKey(templateId, _, key, _) =>
@@ -88,7 +89,7 @@ private[preprocessing] final class TransactionPreprocessor(
               fail(s"invalid transaction, root refers to non-existing node $id")
             case Some(node) =>
               node match {
-                case Node.NodeFetch(_, _, _, _, _, _, _) =>
+                case Node.NodeFetch(_, _, _, _, _, _, _, _) =>
                   fail(s"Transaction contains a fetch root node $id")
                 case Node.NodeLookupByKey(_, _, _, _) =>
                   fail(s"Transaction contains a lookup by key root node $id")

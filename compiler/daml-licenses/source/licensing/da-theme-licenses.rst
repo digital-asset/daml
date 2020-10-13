@@ -3,10 +3,10 @@
 
 .. _da_theme_licenses:
 
-DAML SDK Documentation Theme Third-Party Software Notices
+DAML Connect Documentation Theme Third-Party Software Notices
 -------------------------------------------------------------------------
 
-The DAML SDK Documentation Theme includes components from the projects listed below.
+The DAML Connect Documentation Theme includes components from the projects listed below.
 Digital Asset relicenses these components under its Software License terms,
 except that components licensed under terms requiring that such components
 remain under their original license are being made available to you by Digital

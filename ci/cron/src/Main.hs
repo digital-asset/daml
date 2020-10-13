@@ -245,8 +245,6 @@ fetch_s3_versions = do
 
 docs :: IO ()
 docs = do
-    Control.forM_ [IO.stdout, IO.stderr] $
-        \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
     gh_versions <- fetch_gh_versions
     s3_versions <- fetch_s3_versions
@@ -295,7 +293,7 @@ verify_signatures bash_lib tmp version_tag = do
         "shopt -s extglob", -- enable !() pattern: things that _don't_ match
         "cd \"" <> tmp <> "\"",
         "for f in !(*.asc); do",
-            "p=github/" <> version_tag <> "/$f",
+            "p=" <> version_tag <> "/github/$f",
             "if ! test -f $f.asc; then",
                 "echo $p: no signature file",
             "else",
@@ -312,18 +310,57 @@ verify_signatures bash_lib tmp version_tag = do
        "done",
        "'"]
 
-check_releases :: String -> IO ()
-check_releases bash_lib = do
+does_backup_exist :: String -> FilePath -> FilePath -> IO Bool
+does_backup_exist gcp_credentials bash_lib path = do
+    out <- shell $ unlines ["bash -c '",
+        "set -euo pipefail",
+        "eval \"$(dev-env/bin/dade assist)\"",
+        "source \"" <> bash_lib <> "\"",
+        "GCRED=$(cat <<END",
+        gcp_credentials,
+        "END",
+        ")",
+        "if gcs \"$GCRED\" ls \"" <> path <> "\" >/dev/null; then",
+            "echo True",
+        "else",
+            "echo False",
+        "fi",
+        "'"]
+    return $ read out
+
+push_to_gcp :: String -> FilePath -> FilePath  -> FilePath -> IO ()
+push_to_gcp gcp_credentials bash_lib local_path remote_path = do
+    shell_ $ unlines ["bash -c '",
+        "set -euo pipefail",
+        "eval \"$(dev-env/bin/dade assist)\"",
+        "source \"" <> bash_lib <> "\"",
+        "GCRED=$(cat <<END",
+        gcp_credentials,
+        "END",
+        ")",
+        "gcs \"$GCRED\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\"",
+        "'"]
+
+check_releases :: String -> String -> IO ()
+check_releases gcp_credentials bash_lib = do
     releases <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
     Data.Foldable.for_ releases (\release -> do
         let v = show $ tag release
         putStrLn $ "Checking release " <> v <> " ..."
         IO.withTempDir $ \temp_dir -> do
             download_assets temp_dir release
-            out <- verify_signatures bash_lib temp_dir v
-            putStrLn out)
+            verify_signatures bash_lib temp_dir v >>= putStrLn
+            Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
+                let gcp_path = "gs://daml-data/releases/" <> v <> "/github/" <> f
+                exists <- does_backup_exist gcp_credentials bash_lib gcp_path
+                if exists then do
+                    putStrLn $ gcp_path <> " already exists."
+                else do
+                    putStr $ gcp_path <> " does not exist; pushing..."
+                    push_to_gcp gcp_credentials bash_lib (temp_dir </> f) gcp_path
+                    putStrLn " done."))
 
-data CliArgs = Docs | Check { bash_lib :: String }
+data CliArgs = Docs | Check { bash_lib :: String, gcp_credentials :: String }
 
 parser :: Opt.ParserInfo CliArgs
 parser = info "This program is meant to be run by CI cron. You probably don't have sufficient access rights to run it locally."
@@ -335,11 +372,16 @@ parser = info "This program is meant to be run by CI cron. You probably don't ha
         check = info "Check existing releases."
                      (Check <$> Opt.strOption (Opt.long "bash-lib"
                                          <> Opt.metavar "PATH"
-                                         <> Opt.help "Path to Bash library file."))
+                                         <> Opt.help "Path to Bash library file.")
+                            <*> Opt.strOption (Opt.long "gcp-creds"
+                                         <> Opt.metavar "CRED_STRING"
+                                         <> Opt.help "GCP credentials as a string."))
 
 main :: IO ()
 main = do
+    Control.forM_ [IO.stdout, IO.stderr] $
+        \h -> IO.hSetBuffering h IO.LineBuffering
     opts <- Opt.execParser parser
     case opts of
       Docs -> docs
-      Check { bash_lib } -> check_releases bash_lib
+      Check { bash_lib, gcp_credentials } -> check_releases gcp_credentials bash_lib

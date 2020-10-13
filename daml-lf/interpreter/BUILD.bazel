@@ -12,10 +12,8 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 da_scala_library(
     name = "interpreter",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
-    ],
     scalacopts = lf_scalacopts,
+    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:daml-lf-interpreter:__VERSION__"],
     visibility = [
         "//compiler/repl-service:__subpackages__",
@@ -30,7 +28,6 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
