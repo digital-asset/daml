@@ -79,12 +79,12 @@ config_setting(
     if versions.is_at_least(sdk_version, platform_version)
 ]
 
-last_pre_7600_trigger_version = "1.7.0-snapshot.20201006.5358.0.0c1cadcf"
+last_pre_7632_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
 
 [
     daml_trigger_dar(sdk_version)
     for sdk_version in sdk_versions
-    if not versions.is_at_most(last_pre_7600_trigger_version, sdk_version)
+    if not versions.is_at_most(last_pre_7632_trigger_version, sdk_version)
 ]
 
 [
@@ -97,7 +97,7 @@ last_pre_7600_trigger_version = "1.7.0-snapshot.20201006.5358.0.0c1cadcf"
     # Test that the DAML trigger runner can run DARs built with an older SDK
     # version. I.e. where the runner version is at least the SDK version or
     # more recent.
-    if (not versions.is_at_most(last_pre_7600_trigger_version, sdk_version)) and
+    if (not versions.is_at_most(last_pre_7632_trigger_version, sdk_version)) and
        versions.is_at_least(sdk_version, platform_version)
 ]
 
