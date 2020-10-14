@@ -1,6 +1,6 @@
--- @ERROR Attempt to create a contract key with an empty set of maintainers
--- @ERROR Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
--- @ERROR Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=14:0-14:18; Attempt to create a contract key with an empty set of maintainers
+-- @ERROR range=20:0-20:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=26:0-26:17; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
 module EmptyContractKeyMaintainers where
 
 template NoMaintainer
