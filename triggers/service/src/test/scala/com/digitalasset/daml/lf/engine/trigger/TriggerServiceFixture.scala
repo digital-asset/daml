@@ -7,23 +7,27 @@ import java.io.File
 import java.net.InetAddress
 import java.time.Duration
 
+import akka.actor.ActorSystem
 import akka.actor.typed.{ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri.Path
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.jwt.domain.DecodedJwt
+import com.daml.jwt.{HMAC256Verifier, JwtSigner}
+import com.daml.ledger.api.auth
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
+import com.daml.oauth.middleware.{Config => MiddlewareConfig, Server => MiddlewareServer}
+import com.daml.oauth.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
@@ -50,10 +54,12 @@ object TriggerServiceFixture extends StrictLogging {
       dars: List[File],
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
+      authSecret: Option[String],
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
       implicit mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
+      system: ActorSystem,
       pos: source.Position,
   ): Future[A] = {
     logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
@@ -77,9 +83,42 @@ object TriggerServiceFixture extends StrictLogging {
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
+    val authF: Future[(AuthConfig, () => Future[Unit])] = authSecret match {
+      case None => Future((NoAuth, () => Future(())))
+      case Some(secret) => for {
+        oauth <- OAuthServer.start(OAuthConfig(
+          port = Port.Dynamic,
+          ledgerId = LedgerId.unwrap(ledgerId),
+          // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
+          applicationId = None,
+          jwtSecret = secret,
+        ))
+        serverUri = Uri()
+          .withScheme("http")
+          .withAuthority(
+            oauth.localAddress.getHostString,
+            oauth.localAddress.getPort)
+        middleware <- MiddlewareServer.start(MiddlewareConfig(
+          port = Port.Dynamic,
+          oauthAuth = serverUri.withPath(Path./("authorize")),
+          oauthToken = serverUri.withPath(Path./("token")),
+          clientId = "oauth-middleware-id",
+          clientSecret = "oauth-middleware-secret",
+        ))
+        middlewareUri = Uri()
+            .withScheme("http")
+            .withAuthority(
+              middleware.localAddress.getHostString,
+              middleware.localAddress.getPort)
+        cleanup = () => for {
+          _ <- oauth.unbind()
+          _ <- middleware.unbind()
+        } yield ()
+      } yield (AuthMiddleware(middlewareUri), cleanup)
+    }
     val ledgerF = for {
       (_, toxiproxyClient) <- toxiproxyF
-      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
+      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authSecret), mat))
       ledgerPort <- ledger.portF
       ledgerProxyPort = LockedFreePort.find()
       ledgerProxy = toxiproxyClient.createProxy(
@@ -97,12 +136,13 @@ object TriggerServiceFixture extends StrictLogging {
       client <- LedgerClient.singleHost(
         host.getHostName,
         ledgerPort.value,
-        clientConfig(applicationId),
+        clientConfig(applicationId, authSecret),
       )
     } yield client
 
     // Configure the service with the ledger's *proxy* port.
     val serviceF: Future[(ServerBinding, TypedActorSystem[Message])] = for {
+      (authConfig, _) <- authF
       (_, _, ledgerProxyPort, _) <- ledgerF
       ledgerConfig = LedgerConfig(
         host.getHostName,
@@ -119,6 +159,7 @@ object TriggerServiceFixture extends StrictLogging {
       service <- ServiceMain.startServer(
         host.getHostName,
         servicePort.port.value,
+        authConfig,
         ledgerConfig,
         restartConfig,
         encodedDar,
@@ -152,7 +193,10 @@ object TriggerServiceFixture extends StrictLogging {
             proc.destroy()
             proc.exitValue() // destroy is async
         })
-        result <- (ta.failed.toOption orElse se orElse le orElse te)
+        ae <- optErr(authF.flatMap {
+          case (_, cleanup) => cleanup()
+        })
+        result <- (ta.failed.toOption orElse se orElse le orElse te orElse ae)
           .cata(Future.failed, Future fromTry ta)
       } yield result
     }
@@ -164,24 +208,45 @@ object TriggerServiceFixture extends StrictLogging {
   private def ledgerConfig(
       ledgerPort: Port,
       dars: List[File],
-      ledgerId: LedgerId
+      ledgerId: LedgerId,
+      jwtSecret: Option[String]
   ): SandboxConfig =
     sandbox.DefaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.Static),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = None,
+      authService = for {
+        secret <- jwtSecret
+        verifier <- HMAC256Verifier(secret).toOption
+      } yield auth.AuthServiceJWT(verifier)
     )
 
   private def clientConfig[A](
       applicationId: ApplicationId,
-      token: Option[String] = None): LedgerClientConfiguration =
+      jwtSecret: Option[String]): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
-      token = token,
+      token = for {
+        secret <- jwtSecret
+        header = """{"alg": "HS256", "typ": "JWT"}"""
+        payload = AuthServiceJWTPayload(
+          ledgerId = None,
+          applicationId = None,
+          participantId = None,
+          exp = None,
+          admin = true,
+          actAs = List(),
+          readAs = List(),
+        )
+        jwt <- JwtSigner.HMAC256
+          .sign(
+            DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)),
+            secret)
+          .toOption
+      } yield jwt.value,
     )
 }

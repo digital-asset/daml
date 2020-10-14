@@ -44,6 +44,9 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   // Abstract member for testing with and without a database
   def jdbcConfig: Option[JdbcConfig]
 
+  // Abstract member for testing with and without authentication/authorization
+  def authSecret: Option[String]
+
   // Default retry config for `eventually`
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
@@ -77,7 +80,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
 
   def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
       testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
-    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)(testFn)
+    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig, authSecret)(testFn)
 
   def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -446,6 +449,7 @@ object AbstractTriggerServiceTest {
 class TriggerServiceTestInMem extends AbstractTriggerServiceTest {
 
   override def jdbcConfig: Option[JdbcConfig] = None
+  override def authSecret: Option[String] = None
 
 }
 
@@ -456,6 +460,7 @@ class TriggerServiceTestWithDb
     with PostgresAroundAll {
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
+  override def authSecret: Option[String] = None
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
@@ -528,5 +533,13 @@ class TriggerServiceTestWithDb
       } yield succeed
     }
   } yield succeed)
+
+}
+
+// Tests for auth mode only go here
+class TriggerServiceTestAuth extends AbstractTriggerServiceTest {
+
+  override def jdbcConfig: Option[JdbcConfig] = None
+  override def authSecret: Option[String] = Some("secret")
 
 }
