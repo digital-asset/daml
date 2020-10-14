@@ -12,7 +12,6 @@ import scala.util.{Failure, Success}
   *
   * @tparam A The [[Resource]] value type.
   */
-@FunctionalInterface
 abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
   self =>
 
@@ -29,19 +28,19 @@ abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
     */
   def acquire()(implicit context: Context): Resource[Context, A]
 
-  /** @see [[Resource.map()]]*/
+  /** @see [[Resource#map()]]*/
   def map[B](f: A => B): R[B] = new R[B] {
     override def acquire()(implicit context: Context): Resource[Context, B] =
       self.acquire().map(f)
   }
 
-  /** @see [[Resource.flatMap()]]*/
+  /** @see [[Resource#flatMap()]]*/
   def flatMap[B](f: A => R[B]): R[B] = new R[B] {
     override def acquire()(implicit context: Context): Resource[Context, B] =
       self.acquire().flatMap(value => f(value).acquire())
   }
 
-  /** @see [[Resource.withFilter()]] */
+  /** @see [[Resource#withFilter()]] */
   def withFilter(p: A => Boolean): R[A] = new R[A] {
     override def acquire()(implicit context: Context): Resource[Context, A] =
       self.acquire().withFilter(p)

@@ -10,8 +10,8 @@ trait HasExecutionContext[Context] {
 }
 
 object HasExecutionContext {
-  def apply[Context: HasExecutionContext]: HasExecutionContext[Context] =
-    Option(implicitly[HasExecutionContext[Context]]).get
+  def apply[Context](implicit self: HasExecutionContext[Context]): HasExecutionContext[Context] =
+    Option(self).get
 
   implicit def executionContext[Context: HasExecutionContext](
       implicit context: Context

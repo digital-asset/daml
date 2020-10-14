@@ -206,7 +206,7 @@ object JdbcIndexer {
         )
     }
 
-  private def contextFor(offset: Offset, update: Update): Map[String, String] =
+  private def loggingContextFor(offset: Offset, update: Update): Map[String, String] =
     loggingContextFor(update)
       .updated("updateRecordTime", update.recordTime.toInstant.toString)
       .updated("updateOffset", offset.toHexString)
@@ -349,7 +349,7 @@ private[indexer] class JdbcIndexer private[indexer] (
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              withEnrichedLoggingContext(JdbcIndexer.contextFor(offset, update)) {
+              withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offset, update)) {
                 implicit loggingContext =>
                   Timed.future(
                     metrics.daml.indexer.stateUpdateProcessing,
