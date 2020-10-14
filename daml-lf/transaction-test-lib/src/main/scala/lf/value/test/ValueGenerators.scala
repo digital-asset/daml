@@ -292,7 +292,8 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
-      byKey <- Gen.option(Gen.oneOf(true, false))
+      byKey <- key.fold[Gen[Option[Boolean]]](Gen.const(None))(_ =>
+        Gen.option(Gen.oneOf(true, false)))
     } yield
       NodeFetch(coid, templateId, None, Some(actingParties), signatories, stakeholders, key, byKey)
   }
