@@ -400,7 +400,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
     val acs = scenarioRunner.ledger.query(
-      view = ScenarioLedger.ParticipantView(party),
+      view = ScenarioLedger.ParticipantView(Set(party)),
       effectiveAt = scenarioRunner.ledger.currentTime)
     val filtered = acs.collect {
       case ScenarioLedger.LookupOk(cid, Value.ContractInst(tpl, arg, _), stakeholders)
@@ -416,7 +416,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     scenarioRunner.ledger.lookupGlobalContract(
-      view = ScenarioLedger.ParticipantView(party),
+      view = ScenarioLedger.ParticipantView(Set(party)),
       effectiveAt = scenarioRunner.ledger.currentTime,
       cid) match {
       case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), stakeholders)

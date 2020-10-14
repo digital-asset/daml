@@ -22,6 +22,8 @@ import Value.{NodeId => _, _}
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable
+import scalaz.std.set._
+import scalaz.syntax.foldable._
 
 /** An in-memory representation of a ledger for scenarios */
 object ScenarioLedger {
@@ -181,7 +183,7 @@ object ScenarioLedger {
     /** 'True' if the given 'View' contains the given 'Node'. */
     def visibleIn(view: View): Boolean = view match {
       case OperatorView => true
-      case ParticipantView(party) => disclosures contains party
+      case ParticipantView(parties) => parties.any(disclosures.contains(_))
     }
 
     def addDisclosures(newDisclosures: Map[Party, Disclosure]): LedgerNodeInfo = {
@@ -282,7 +284,7 @@ object ScenarioLedger {
   case object OperatorView extends View
 
   /** The view of the ledger at the given party. */
-  final case class ParticipantView(party: Party) extends View
+  final case class ParticipantView(party: Set[Party]) extends View
 
   /** Result of committing a transaction is the new ledger,
     * and the enriched transaction.
