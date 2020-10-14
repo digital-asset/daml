@@ -1695,6 +1695,94 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             , "useBaz = baz M"
             ]
 
+    , simpleImportTest "Data constructor operators"
+        -- This test checks that we reconstruct data constructors operators properly.
+        [ "module Lib where"
+        , "data Expr = Lit Int | (:+:) {left: Expr, right: Expr}"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "two = Lit 1 :+: Lit 1"
+        ]
+
+    , simpleImportTest "Using TypeOperators extension"
+        -- This test checks that we reconstruct type operators properly.
+        [ "{-# LANGUAGE TypeOperators #-}"
+        , "module Lib where"
+        , "data a :+: b = (:+:){left: a, right:  b}"
+        , "type a + b = a :+: b"
+        ]
+        [ "{-# LANGUAGE TypeOperators #-}"
+        , "module Main where"
+        , "import Lib"
+        , "colonPlus: Bool :+: Int"
+        , "colonPlus = True :+: 1"
+        , "onlyPlus: Int + Bool"
+        , "onlyPlus = 2 :+: False"
+        ]
+
+    , simpleImportTest "Using PartialTypeSignatures extension"
+        -- This test checks that partial type signatures work in data-dependencies.
+        [ "{-# LANGUAGE PartialTypeSignatures #-}"
+        , "module Lib where"
+        , "f: _ -> _"
+        , "f xs = length xs + 1"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "g: [a] -> Int"
+        , "g = f"
+        ]
+
+    , simpleImportTest "Using AllowAmbiguousTypes extension"
+        -- This test checks that ambiguous types work in data-dependencies.
+        [ "{-# LANGUAGE AllowAmbiguousTypes #-}"
+        , "module Lib where"
+        , "f: forall a. Show a => Int"
+        , "f = 1"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "g: Int"
+        , "g = f @Text"
+        ]
+
+    , simpleImportTest "Using InstanceSigs extension"
+        -- This test checks that instance signatures work in data-dependencies.
+        [ "{-# LANGUAGE InstanceSigs #-}"
+        , "module Lib where"
+        , "class C a where"
+        , "  m: a -> a"
+        , "instance C Int where"
+        , "  m: Int -> Int"
+        , "  m x = x"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "f: Int -> Int"
+        , "f = m"
+        ]
+
+    , simpleImportTest "Using UndecidableInstances extension"
+        -- This test checks that undecidable instance work in data-dependencies.
+        [ "{-# LANGUAGE UndecidableInstances #-}"
+        , "module Lib where"
+        , "class PartialEqual a b where"
+        , "  peq: a -> b -> Bool"
+        , "class Equal a where"
+        , "  eq: a -> a -> Bool"
+        , "instance PartialEqual a a => Equal a where"
+        , "  eq x y = peq x y"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "data X = X {f: Int}"
+        , "instance PartialEqual X X where"
+        , "  peq x y = x.f == y.f"
+        , "eqD: X -> X -> Bool"
+        , "eqD x y = eq x y"
+        ]
+
     , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
         step "building project with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")
