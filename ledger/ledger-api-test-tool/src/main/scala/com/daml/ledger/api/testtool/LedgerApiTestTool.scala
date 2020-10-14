@@ -160,7 +160,7 @@ object LedgerApiTestTool {
         new ColorizedPrintStreamReporter(
           System.out,
           config.verbose,
-        ).report(summaries)
+        ).report(summaries, identifierSuffix)
         sys.exit(exitCode(summaries, config.mustFail))
       case Failure(exception: Errors.FrameworkException) =>
         logger.error(exception.getMessage)

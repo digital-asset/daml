@@ -25,9 +25,8 @@ For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
 
 We welcome feedback about the JSON API on
-`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-`on our forum <https://discuss.daml.com>`_, or
-`on Slack <https://slack.daml.com>`_.
+`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_, or
+`on our forum <https://discuss.daml.com>`_.
 
 .. toctree::
    :hidden:

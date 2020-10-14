@@ -59,6 +59,7 @@ ScriptTest:testStack SUCCESS
 ScriptTest:testMaxInboundMessageSize SUCCESS
 ScriptTest:testQueryContractId SUCCESS
 ScriptTest:testQueryContractKey SUCCESS
+ScriptTest:testMultiPartyQueries SUCCESS
 EOF
 )"
 

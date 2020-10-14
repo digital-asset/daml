@@ -46,6 +46,7 @@ private[parser] object Token {
   case object `create` extends Token
   case object `fetch` extends Token
   case object `exercise` extends Token
+  case object `exercise_by_key` extends Token
   case object `fetch_by_key` extends Token
   case object `lookup_by_key` extends Token
   case object `by` extends Token

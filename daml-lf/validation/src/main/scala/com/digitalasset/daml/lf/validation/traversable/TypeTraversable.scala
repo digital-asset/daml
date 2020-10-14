@@ -105,6 +105,10 @@ private[validation] object TypeTraversable {
         foreach(cid, f)
         actors.foreach(foreach(_, f))
         foreach(arg, f)
+      case UpdateExerciseByKey(templateId, choice @ _, key, arg) =>
+        f(TTyCon(templateId))
+        foreach(key, f)
+        foreach(arg, f)
       case UpdateEmbedExpr(typ, body) =>
         f(typ)
         foreach(body, f)

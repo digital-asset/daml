@@ -130,6 +130,7 @@ freeVarsStep = \case
         UBindF b e -> goBinding b e
         UCreateF _ e -> e
         UExerciseF _ _ e1 e2M e3 -> e1 <> fromMaybe mempty e2M <> e3
+        UExerciseByKeyF _ _ e1 e2 -> e1 <> e2
         UFetchF _ e -> e
         UGetTimeF -> mempty
         UEmbedExprF t e -> freeVarsInType t <> e
