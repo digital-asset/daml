@@ -113,6 +113,7 @@ da_scala_test(
         ":oauth-middleware",
         ":oauth-test-server",
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger-service/jwt",
