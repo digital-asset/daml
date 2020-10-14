@@ -35,9 +35,10 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, Tra
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.testing.postgresql.PostgresAroundAll
+import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
 
-abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually with Matchers {
+abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually with Matchers with StrictLogging {
 
   import AbstractTriggerServiceTest.CompatAssertion
 
@@ -82,6 +83,23 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
     TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig, authSecret)(testFn)
 
+  private def httpRequest(request: HttpRequest, maxRedirections: Int = 5): Future[HttpResponse] = {
+    Http().singleRequest(request).flatMap { resp =>
+      resp.status match {
+        case _ @ StatusCodes.Redirection(_) =>
+          if (maxRedirections == 0) {
+            throw new RuntimeException("Exceeded maximum redirections.")
+          } else {
+            val uri = resp.header[headers.Location].get.uri
+            logger.info(s"Follow redirect (${resp.status}) to ${uri.toString}")
+            httpRequest(HttpRequest(uri = uri), maxRedirections - 1)
+          }
+        case _ =>
+          Future(resp)
+      }
+    }
+  }
+
   def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
@@ -91,7 +109,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         s"""{"triggerName": "$triggerName", "party": "$party"}"""
       )
     )
-    Http().singleRequest(req)
+    httpRequest(req)
   }
 
   def listTriggers(uri: Uri, party: Party): Future[HttpResponse] = {
