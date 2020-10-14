@@ -385,6 +385,9 @@ instance Pretty Update where
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise_with_actors"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg actor, TmArg arg]
+    UExerciseByKey tpl choice key arg ->
+      pPrintAppKeyword lvl prec "exercise_by_key"
+      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
     UFetch tpl cid ->
       pPrintAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
     UGetTime ->

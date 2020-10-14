@@ -483,6 +483,18 @@ typeOfExercise tpl chName cid mbActors arg = do
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 
+typeOfExerciseByKey :: MonadGamma m =>
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
+typeOfExerciseByKey tplId chName key arg = do
+  tpl <- inWorld (lookupTemplate tplId)
+  case tplKey tpl of
+    Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey tplId)
+    Just tKey -> do
+      choice <- inWorld (lookupChoice (tplId, chName))
+      checkExpr key (tplKeyType tKey)
+      checkExpr arg (chcArgType choice)
+      pure (TUpdate (chcReturnType choice))
+
 checkFetch :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkFetch tpl cid = do
   _ :: Template <- inWorld (lookupTemplate tpl)
@@ -504,6 +516,7 @@ typeOfUpdate = \case
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UExercise tpl choice cid actors arg -> typeOfExercise tpl choice cid actors arg
+  UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
   UEmbedExpr typ e -> do

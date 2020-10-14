@@ -44,6 +44,7 @@
 //        2019-11-12: Add Generic Map (GenMap)
 //        2019-12-03: Add (experimental) text primitives.
 //        2019-12-05: Add Generic Equality builtin
+//        2019-13-10: Add ExerciseByKey Update
 
 syntax = "proto3";
 package daml_lf_1;
@@ -1099,6 +1100,18 @@ message Update {
     Expr arg = 5;
   }
 
+ // ExerciseByKey Update
+  message ExerciseByKey {
+    // Template type
+    TypeConName template = 1;
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+    // key
+    Expr key = 3;
+    // argument
+    Expr arg = 4;
+  }
+
   // Fetch Update
   message Fetch {
     // Template type
@@ -1128,6 +1141,7 @@ message Update {
     Block block = 2;
     Create create = 3;
     Exercise exercise = 4;
+    ExerciseByKey exercise_by_key = 10; // *Available in versions >= 1.dev*
     Fetch fetch = 5;
     Unit get_time = 6;
     RetrieveByKey lookup_by_key = 8; // *Available in versions >= 1.2*
