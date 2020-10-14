@@ -31,7 +31,8 @@ trigger : Trigger Int
 trigger = Trigger with
   initialize = pure 0
   updateState = \_msg -> put . length =<< query @T
-  rule = \party count -> do
+  rule = \party -> do
+    count <- get
     when (count == 1) do
       priorCIF <- getCommandsInFlight
       -- Create two additional T.
@@ -48,6 +49,7 @@ trigger = Trigger with
       if (changedCIF == 4)
         then pure ()
         else error $ show changedCIF <> " new commands in flight instead of 4"
+    put (-1) -- just introducing some chaos
   registeredTemplates = RegisteredTemplates [registeredTemplate @T]
   heartbeat = None
 
@@ -56,7 +58,8 @@ test = do
   tId <- submit alice do Script.createCmd T with party = alice, count = 1
   let activeContracts = toACS tId
   let commandsInFlight = Map.empty
-  commands <- testRule trigger alice activeContracts commandsInFlight 1
+  (endCount, commands) <- testRule trigger alice activeContracts commandsInFlight 1
+  assertEq endCount (-1)
   let flatCommands = flattenCommands commands
   assertCreateCmd flatCommands $ \T { party, count } -> do
     assertEq party alice

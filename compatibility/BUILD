@@ -79,7 +79,7 @@ config_setting(
     if versions.is_at_least(sdk_version, platform_version)
 ]
 
-last_pre_7632_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
+last_pre_7632_trigger_version = "1.7.0-snapshot.20201013.5418.0.bda13392"
 
 [
     daml_trigger_dar(sdk_version)

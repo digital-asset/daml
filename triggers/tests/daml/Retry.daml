@@ -20,16 +20,19 @@ retryTrigger = Trigger
 
 -- We first create a T template, then we try to exercise C 3 times until allowedRetries is 0
 -- finally we create Done
-retryRule : Party -> Int -> TriggerA ()
-retryRule party allowedRetries = query @T >>= \case
-  [] -> do
-    dedupCreate T { p = party }
-  ((cid, _) :: _) | allowedRetries > 0 -> do
-    dedupExercise cid C
-  _ -> query @Done >>= \case
-    [] | allowedRetries == 0 -> do
-      dedupCreate Done { p = party }
-    otherwise -> pure ()
+retryRule : Party -> TriggerA Int ()
+retryRule party = do
+  allowedRetries <- get
+  ts <- query @T
+  case ts of
+    [] -> do
+      dedupCreate T { p = party }
+    ((cid, _) :: _) | allowedRetries > 0 -> do
+      dedupExercise cid C
+    _ -> query @Done >>= \case
+      [] | allowedRetries == 0 -> do
+        dedupCreate Done { p = party }
+      otherwise -> pure ()
 
 template T
   with

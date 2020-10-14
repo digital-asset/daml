@@ -55,7 +55,7 @@ testRule
   -> ACSBuilder  -- ^ List these contracts in the 'ACS'.
   -> Map CommandId [Command]  -- ^ The commands in flight.
   -> s  -- ^ The trigger state.
-  -> Script [Commands]  -- ^ The 'Commands' emitted by the rule. The 'CommandId's will start from @"0"@.
+  -> Script (s, [Commands])  -- ^ The 'Commands' and new state emitted by the rule. The 'CommandId's will start from @"0"@.
 testRule trigger party acsBuilder commandsInFlight s = do
   time <- getTime
   acs <- buildACS party acsBuilder
@@ -70,8 +70,8 @@ testRule trigger party acsBuilder commandsInFlight s = do
   -- turn will likely require exposing `ScriptF` or both in some "internal"
   -- fashion.  Meanwhile, it is worth pushing `simulateRule` as far as possible
   -- to forestall that outcome. -SC
-  let (_, commands, _) = simulateRule (runRule trigger.rule) time state
-  pure commands
+  let (state', commands, _) = simulateRule (runRule trigger.rule) time state
+  pure (state'.userState, commands)
 
 -- | Drop 'CommandId's and extract all 'Command's.
 flattenCommands : [Commands] -> [Command]
