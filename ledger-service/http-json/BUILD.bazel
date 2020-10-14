@@ -148,6 +148,7 @@ da_scala_test(
         "@maven//:org_typelevel_cats_core_2_12",
         "@maven//:org_typelevel_cats_effect_2_12",
         "@maven//:org_typelevel_cats_free_2_12",
+        "@maven//:org_typelevel_cats_kernel_2_12",
     ],
 )
 
