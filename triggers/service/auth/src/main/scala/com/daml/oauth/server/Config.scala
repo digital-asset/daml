@@ -11,14 +11,14 @@ case class Config(
     // Ledger ID of issued tokens
     ledgerId: String,
     // Application ID of issued tokens
-    applicationId: String,
+    applicationId: Option[String],
     // Secret used to sign JWTs
     jwtSecret: String
 )
 
 object Config {
   private val Empty =
-    Config(port = Port.Dynamic, ledgerId = null, applicationId = null, jwtSecret = null)
+    Config(port = Port.Dynamic, ledgerId = null, applicationId = None, jwtSecret = null)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
@@ -37,7 +37,7 @@ object Config {
         .action((x, c) => c.copy(ledgerId = x))
 
       opt[String]("application-id")
-        .action((x, c) => c.copy(applicationId = x))
+        .action((x, c) => c.copy(applicationId = Some(x)))
 
       opt[String]("secret")
         .action((x, c) => c.copy(jwtSecret = x))
