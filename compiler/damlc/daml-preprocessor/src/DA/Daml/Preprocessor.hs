@@ -14,11 +14,13 @@ import           DA.Daml.Preprocessor.EnumType
 
 import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
+import qualified "ghc-lib-parser" EnumSet as ES
 import qualified "ghc-lib-parser" SrcLoc as GHC
 import qualified "ghc-lib-parser" Module as GHC
 import qualified "ghc-lib-parser" RdrName as GHC
 import qualified "ghc-lib-parser" OccName as GHC
 import qualified "ghc-lib-parser" FastString as GHC
+import qualified "ghc-lib-parser" GHC.LanguageExtensions.Type as GHC
 import Outputable
 
 import           Control.Monad.Extra
@@ -59,11 +61,11 @@ mayImportInternal =
         ]
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: Maybe GHC.UnitId -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
-damlPreprocessor mbUnitId dflags x
+damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe GHC.UnitId -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+damlPreprocessor dataDependableExtensions mbUnitId dflags x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = checkDamlHeader x ++ checkVariantUnitConstructors x
+        { preprocWarnings = checkDamlHeader x ++ checkVariantUnitConstructors x ++ checkLanguageExtensions dataDependableExtensions dflags x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
@@ -243,6 +245,26 @@ checkModuleDefinition x
           , "Missing module name, e.g. 'module ... where'.")
         ]
     | otherwise = []
+
+checkLanguageExtensions :: ES.EnumSet GHC.Extension -> GHC.DynFlags -> GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkLanguageExtensions dataDependableExtensions dflags x =
+    let exts = ES.toList (GHC.extensionFlags dflags)
+        badExts = filter (\ext -> not (ext `ES.member` dataDependableExtensions)) exts
+    in
+    [ (modNameLoc, warning ext) | ext <- badExts ]
+  where
+    warning ext = unlines
+        [ "Modules compiled with the " ++ show ext ++ " language extension"
+        , "might not work properly with data-dependencies. This might stop the"
+        , "whole package from being extensible or upgradable using other versions"
+        , "of the SDK. Please use this language extension at your own risk."
+        ]
+    -- NOTE(MH): Neither the `DynFlags` nor the `ParsedSource` contain
+    -- information about where a `{-# LANGUAGE ... #-}` pragma has been used.
+    -- In fact, there might not even be such a pragma if a `-X...` flag has been
+    -- used on the command line. Thus, we always put the warning at the location
+    -- of the module name.
+    modNameLoc = maybe GHC.noSrcSpan GHC.getLoc (GHC.hsmodName (GHC.unLoc x))
 
 -- Extract all data constructors with their locations
 universeConDecl :: GHC.ParsedSource -> [GHC.LConDecl GHC.GhcPs]

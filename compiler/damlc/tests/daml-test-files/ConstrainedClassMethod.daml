@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstrainedClassMethods #-}
+-- @WARN Modules compiled with the ConstrainedClassMethods language extension might not work properly with data-dependencies.
 
 -- | This module tests the case where a class method contains a constraint
 -- not present in the class itself.

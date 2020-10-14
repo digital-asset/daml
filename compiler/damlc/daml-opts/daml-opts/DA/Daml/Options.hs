@@ -20,6 +20,7 @@ module DA.Daml.Options
     , setupDamlGHC
     , toCompileOpts
     , PackageDynFlags(..)
+    , dataDependableExtensions
     ) where
 
 import Control.Exception
@@ -31,6 +32,7 @@ import Data.IORef
 import Data.List.Extra
 import Data.Maybe (fromMaybe)
 import DynFlags (parseDynamicFilePragma)
+import qualified EnumSet as ES
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Config (cProjectVersion)
@@ -64,7 +66,7 @@ import SdkVersion (damlStdlib)
 toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
-      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor (optUnitId options)
+      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions (optUnitId options)
       , optGhcSession = getDamlGhcSession options
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
@@ -239,7 +241,12 @@ runGhcFast act = do
 -- | Language options enabled in the DAML-1.2 compilation
 xExtensionsSet :: [Extension]
 xExtensionsSet =
-  [ -- syntactic convenience
+  [ -- Haskell 2010 extensions which are enabled by default (we would need to
+    -- list them for `dataDependableExtensions` below anyway, so let's make
+    -- them explicit here)
+    ImplicitPrelude, StarIsType, MonomorphismRestriction, TraditionalRecordSyntax
+  , EmptyDataDecls, PatternGuards, DoAndIfThenElse, RelaxedPolyRec, NondecreasingIndentation
+  , -- syntactic convenience
     RecordPuns, RecordWildCards, LambdaCase, TupleSections, BlockArguments, ViewPatterns,
     NumericUnderscores
     -- records
@@ -265,10 +272,22 @@ xExtensionsSet =
   , DamlSyntax
   ]
 
+-- | Extensions which we support with data-dependencies.
+dataDependableExtensions :: ES.EnumSet Extension
+dataDependableExtensions = ES.fromList $ xExtensionsSet ++
+  [ -- useful for beginners to learn about type inference
+    PartialTypeSignatures
+    -- needed for script and triggers
+  , ApplicativeDo
+  ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation
 xExtensionsUnset :: [Extension]
-xExtensionsUnset = [ ]
+xExtensionsUnset =
+  [ -- This is part of Haskell 2010 and would hence be enabled by default,
+    -- which makes zero sense for DAML.
+    ForeignFunctionInterface
+  ]
 
 -- | Flags set for DAML-1.2 compilation
 xFlagsSet :: Options -> [GeneralFlag]

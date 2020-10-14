@@ -1,0 +1,4 @@
+-- Test that we don't get a warning when using a default extension.
+{-# LANGUAGE ImplicitPrelude #-}
+
+module GoodExtensionUseless where
