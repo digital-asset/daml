@@ -8,7 +8,7 @@ import java.io.{PrintStream, PrintWriter, StringWriter}
 import scala.util.Try
 
 trait Reporter[A] {
-  def report(results: Vector[LedgerTestSummary]): A
+  def report(results: Vector[LedgerTestSummary], identifierSuffix: String): A
 }
 
 object Reporter {
@@ -102,13 +102,18 @@ object Reporter {
           }
       }
 
-    override def report(results: Vector[LedgerTestSummary]): Unit = {
+    override def report(results: Vector[LedgerTestSummary], identifierSuffix: String): Unit = {
       s.println()
       s.println(blue("#" * 80))
       s.println(blue("#"))
       s.println(blue("# TEST REPORT"))
       s.println(blue("#"))
       s.println(blue("#" * 80))
+
+      s.println()
+      s.println(yellow("### RUN INFORMATION"))
+      s.println()
+      s.println(cyan(s"identifierSuffix = $identifierSuffix"))
 
       val (successes, failures) = results.partition(_.result.isRight)
 
