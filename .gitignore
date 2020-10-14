@@ -16,8 +16,12 @@ target
 
 # Bazel
 .bazel-cache
-/bazel-*
+/bazel-bin
+/bazel-daml
+/bazel-out
+/bazel-testlogs
 /compatibility/bazel-*
+!/compatibility/bazel-haskell-deps.bzl
 /compatibility/.bazelrc
 /compatibility/head_sdk/
 .bazelrc.local
