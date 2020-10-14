@@ -253,8 +253,12 @@ class Server(
       case None => complete(StatusCodes.NotFound)(ctx)
       case Some(req) =>
         // Replay the stored request forwarding any new cookies.
-        val newRequest = req
-          .addHeader(headers.Cookie(cookies = ctx.request.cookies))
+        val cookies = ctx.request.cookies
+        val newRequest = if (cookies.nonEmpty) {
+          req.addHeader(headers.Cookie(cookies))
+        } else {
+          req
+        }
         val newCtx = ctx
           .withRequest(newRequest)
           .withUnmatchedPath(newRequest.uri.path)
