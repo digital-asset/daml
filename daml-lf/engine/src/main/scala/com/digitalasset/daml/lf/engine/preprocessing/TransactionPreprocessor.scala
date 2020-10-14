@@ -70,7 +70,7 @@ private[preprocessing] final class TransactionPreprocessor(
       case fetchByKey: Node.NodeFetch[_, _] if fetchByKey.byKey.getOrElse(false) =>
         val (cmd, newCids) = commandPreprocessor.unsafePreprocessFetchByKey(
           fetchByKey.templateId,
-          fetchByKey.key.fold(fail("unexpected exerciseByKey without key."))(_.key.value))
+          fetchByKey.key.fold(fail("unexpected fetchByKey without key."))(_.key.value))
         (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
       case fetch: Node.NodeFetch[_, _] =>
         val cmd = commandPreprocessor.unsafePreprocessFetch(fetch.templateId, fetch.coid)

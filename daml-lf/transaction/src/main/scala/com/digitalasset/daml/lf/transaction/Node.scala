@@ -214,9 +214,12 @@ object Node {
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
       byKey: Option[Boolean] // None if unknown
-      // invariant (!byKey || exerciseResult.isDefined)
   ) extends LeafOnlyNode[Cid, Val]
-      with NodeInfo.Fetch
+      with NodeInfo.Fetch {
+
+    require(byKey.forall(!_ || key.isDefined))
+
+  }
 
   object NodeFetch extends WithTxValue2[NodeFetch]
 
@@ -246,9 +249,10 @@ object Node {
       exerciseResult: Option[Val],
       key: Option[KeyWithMaintainers[Val]],
       byKey: Option[Boolean] // None if unknown
-      // invariant (byKey.forall( ! _  || exerciseResult.isDefined))
   ) extends GenNode[Nid, Cid, Val]
       with NodeInfo.Exercise {
+
+    require(byKey.forall(!_ || key.isDefined))
 
     @deprecated("use actingParties instead", since = "1.1.2")
     private[daml] def controllers: actingParties.type = actingParties
