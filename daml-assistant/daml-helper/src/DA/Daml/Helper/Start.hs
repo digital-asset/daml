@@ -275,7 +275,7 @@ runStart
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
         doUploadDar =
-          runLedgerUploadDar (LedgerFlags Nothing Nothing Nothing Nothing 10) Nothing
+          runLedgerUploadDar (LedgerFlags Grpc Nothing Nothing Nothing Nothing 10) Nothing
         listenForKeyPress projectConfig = do
           hSetBuffering stdin NoBuffering
           void $

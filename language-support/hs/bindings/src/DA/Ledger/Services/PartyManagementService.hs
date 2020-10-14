@@ -16,6 +16,8 @@ import DA.Ledger.Types
 import Data.Functor
 import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
+import qualified Data.Aeson as A
+import Data.Aeson ((.:))
 import qualified Com.Daml.Ledger.Api.V1.Admin.PartyManagementService as LL
 
 newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
@@ -36,6 +38,14 @@ data PartyDetails = PartyDetails
     , displayName :: Text
     , isLocal :: Bool
     } deriving (Eq,Ord,Show)
+
+instance A.FromJSON PartyDetails where
+  parseJSON =
+    A.withObject "PartyDetails" $ \v ->
+      PartyDetails
+        <$> v .: "identifier"
+        <*> v .: "displayName"
+        <*> v .: "isLocal"
 
 listKnownParties :: LedgerService [PartyDetails]
 listKnownParties =

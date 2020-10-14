@@ -361,6 +361,72 @@ packagingTests = testGroup "packaging"
               responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
+    , testCase "daml ledger via json api" $ withTempDir $ \tmpDir -> do
+          writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: ledger-json-api"
+              , "version: \"1.0\""
+              , "source: ."
+              , "dependencies:"
+              , "  - daml-prim"
+              , "  - daml-stdlib"
+              ]
+          sandboxPort :: Int <- fromIntegral <$> getFreePort
+          jsonApiPort :: Int <- fromIntegral <$> getFreePort
+          let startProc = shell $ unwords
+                [ "daml"
+                , "start"
+                , "--start-navigator no"
+                , "--sandbox-port " <> show sandboxPort
+                , "--json-api-port " <> show jsonApiPort
+                ]
+          withCurrentDirectory tmpDir $
+            withCreateProcess startProc $ \_ _ _ startPh ->
+              race_ (waitForProcess' startProc startPh) $ do
+                let token =
+                      JWT.encodeSigned
+                        (JWT.HMACSecret "secret")
+                        mempty
+                        mempty
+                          { JWT.unregisteredClaims =
+                              JWT.ClaimsMap $
+                              Map.fromList
+                                [ ( "https://daml.com/ledger-api"
+                                  , Aeson.Object $
+                                    HashMap.fromList
+                                      [ ("actAs", Aeson.toJSON ["Alice" :: T.Text])
+                                      , ("ledgerId", "MyLedger")
+                                      , ("applicationId", "foobar")
+                                      ])
+                                ]
+                          }
+                writeFileUTF8 (tmpDir </> "token.txt") $ T.unpack token
+                let headers =
+                      [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
+                      ] :: RequestHeaders
+                waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+                callCommand $
+                  unwords
+                    [ "daml"
+                    , "ledger"
+                    , "allocate-party"
+                    , "--port"
+                    , show sandboxPort
+                    , "alice"
+                    ]
+                callCommand $
+                  unwords
+                    [ "daml"
+                    , "ledger"
+                    , "list-parties"
+                    , "--json-api"
+                    , "--port"
+                    , show jsonApiPort
+                    , "--access-token-file"
+                    , "token.txt"
+                    ]
+                -- waitForProcess' will block on Windows so we explicitly kill the process.
+                terminateProcess startPh
       , testCase "daml start invokes codegen" $ withTempDir $ \tmpDir -> do
             writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
