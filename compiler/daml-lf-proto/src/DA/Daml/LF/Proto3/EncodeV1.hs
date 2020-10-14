@@ -15,6 +15,7 @@ import           Control.Monad.State.Strict
 
 import qualified Data.Bifunctor as Bf
 import           Data.Coerce
+import           Data.Either
 import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
@@ -649,7 +650,9 @@ encodeUpdate = fmap (P.Update . Just) . \case
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
-        update_ExerciseByKeyChoiceInternedStr <-  allocString (T.pack (show exeChoice))
+        update_ExerciseByKeyChoiceInternedStr <-
+          fromRight (error "INTERNAL: exercise_by_key is only available in DAML-LF versions supporting string interning")
+           <$> encodeName' @(Either TL.Text Int32) unChoiceName exeChoice
         update_ExerciseByKeyKey <- encodeExpr exeKey
         update_ExerciseByKeyArg <- encodeExpr exeArg
         pure $ P.UpdateSumExerciseByKey P.Update_ExerciseByKey{..}
