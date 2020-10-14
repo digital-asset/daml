@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
@@ -11,13 +11,11 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
-import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
-import scopt.RenderingMode
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -32,7 +30,7 @@ object Main extends StrictLogging {
   }
 
   def main(args: Array[String]): Unit =
-    parseConfig(args) match {
+    Cli.parseConfig(args) match {
       case Some(config) =>
         main(config)
       case None =>
@@ -117,103 +115,4 @@ object Main extends StrictLogging {
     case Failure(e) => logger.error(msg, e)
     case _ =>
   }
-
-  private def parseConfig(args: Seq[String]): Option[Config] =
-    configParser.parse(args, Config.Empty)
-
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  private val configParser: scopt.OptionParser[Config] =
-    new scopt.OptionParser[Config]("http-json-binary") {
-
-      override def renderingMode: RenderingMode = RenderingMode.OneColumn
-
-      head("HTTP JSON API daemon")
-
-      help("help").text("Print this usage text")
-
-      opt[String]("ledger-host")
-        .action((x, c) => c.copy(ledgerHost = x))
-        .required()
-        .text("Ledger host name or IP address")
-
-      opt[Int]("ledger-port")
-        .action((x, c) => c.copy(ledgerPort = x))
-        .required()
-        .text("Ledger port number")
-
-      import com.daml.cliopts
-
-      cliopts.Http.serverParse(this, serviceName = "HTTP JSON API")(
-        address = (f, c) => c copy (address = f(c.address)),
-        httpPort = (f, c) => c copy (httpPort = f(c.httpPort)),
-        defaultHttpPort = None,
-        portFile = Some((f, c) => c copy (portFile = f(c.portFile))),
-      )
-
-      opt[String]("application-id")
-        .foreach(x =>
-          logger.warn(
-            s"Command-line option '--application-id' is deprecated. Please do NOT specify it. " +
-              s"Application ID: '$x' provided in the command-line is NOT used, using Application ID from JWT."))
-        .optional()
-        .hidden()
-
-      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
-        c copy (tlsConfig = f(c.tlsConfig)))
-
-      opt[Duration]("package-reload-interval")
-        .action((x, c) => c.copy(packageReloadInterval = FiniteDuration(x.length, x.unit)))
-        .optional()
-        .text(
-          s"Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. " +
-            s"Defaults to ${Config.Empty.packageReloadInterval: FiniteDuration}")
-
-      opt[Int]("package-max-inbound-message-size")
-        .action((x, c) => c.copy(packageMaxInboundMessageSize = Some(x)))
-        .optional()
-        .text(
-          s"Optional max inbound message size in bytes used for uploading and downloading package updates." +
-            s" Defaults to the `max-inbound-message-size` setting.")
-
-      opt[Int]("max-inbound-message-size")
-        .action((x, c) => c.copy(maxInboundMessageSize = x))
-        .optional()
-        .text(
-          s"Optional max inbound message size in bytes. Defaults to ${Config.Empty.maxInboundMessageSize: Int}.")
-
-      opt[Map[String, String]]("query-store-jdbc-config")
-        .action((x, c) => c.copy(jdbcConfig = Some(JdbcConfig.createUnsafe(x))))
-        .validate(JdbcConfig.validate)
-        .optional()
-        .valueName(JdbcConfig.usage)
-        .text(s"Optional query store JDBC configuration string." +
-          " Query store is a search index, use it if you need to query large active contract sets. " +
-          JdbcConfig.help)
-
-      opt[Map[String, String]]("static-content")
-        .action((x, c) => c.copy(staticContentConfig = Some(StaticContentConfig.createUnsafe(x))))
-        .validate(StaticContentConfig.validate)
-        .optional()
-        .valueName(StaticContentConfig.usage)
-        .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
-          + StaticContentConfig.help)
-
-      opt[Unit]("allow-insecure-tokens")
-        .action((_, c) => c copy (allowNonHttps = true))
-        .text(
-          "DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.")
-
-      opt[String]("access-token-file")
-        .text(
-          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
-        .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
-        .optional()
-
-      opt[Map[String, String]]("websocket-config")
-        .action((x, c) => c.copy(wsConfig = Some(WebsocketConfig.createUnsafe(x))))
-        .validate(WebsocketConfig.validate)
-        .optional()
-        .valueName(WebsocketConfig.usage)
-        .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")
-    }
 }
