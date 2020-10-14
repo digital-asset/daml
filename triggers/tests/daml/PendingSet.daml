@@ -41,8 +41,8 @@ booTrigger = Trigger with
   registeredTemplates = AllInDar
   heartbeat = None
 
-booRule : Party -> () -> TriggerA ()
-booRule party _userState = do
+booRule : Party -> TriggerA () ()
+booRule party = do
   foos : [(ContractId Foo, Foo)] <- query @Foo
   boos : [(ContractId Boo, Boo)] <- query @Boo
   case (boos, foos) of

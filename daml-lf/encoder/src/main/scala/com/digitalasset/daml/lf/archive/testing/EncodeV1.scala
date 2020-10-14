@@ -368,6 +368,14 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
             throw EncodeError(s"Update.Exercise.actors is not supported by DAML-LF 1.$minor")
           b.setArg(arg)
           builder.setExercise(b)
+        case UpdateExerciseByKey(templateId, choice, key, arg) =>
+          assertSince(LV.Features.exerciseByKey, "exerciseByKey")
+          val b = PLF.Update.ExerciseByKey.newBuilder()
+          b.setTemplate(templateId)
+          b.setChoiceInternedStr(stringsTable.insert(choice))
+          b.setKey(key)
+          b.setArg(arg)
+          builder.setExerciseByKey(b)
         case UpdateGetTime =>
           builder.setGetTime(unit)
         case UpdateFetchByKey(rbk) =>

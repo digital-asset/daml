@@ -56,6 +56,7 @@ data UpdateF expr
   | UBindF     !(BindingF expr) !expr
   | UCreateF   !(Qualified TypeConName) !expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !(Maybe expr) !expr
+  | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr
@@ -100,6 +101,7 @@ projectUpdate = \case
   UBind a b -> UBindF (projectBinding a) b
   UCreate a b -> UCreateF a b
   UExercise a b c d e -> UExerciseF a b c d e
+  UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
   UGetTime -> UGetTimeF
   UEmbedExpr a b -> UEmbedExprF a b
@@ -115,6 +117,7 @@ embedUpdate = \case
   UBindF a b -> UBind (embedBinding a) b
   UCreateF a b -> UCreate a b
   UExerciseF a b c d e -> UExercise a b c d e
+  UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b
   UGetTimeF -> UGetTime
   UEmbedExprF a b -> UEmbedExpr a b

@@ -59,8 +59,8 @@ copyTrigger = Trigger
 -- TRIGGER_END
 
 -- RULE_SIGNATURE_BEGIN
-copyRule : Party -> () -> TriggerA ()
-copyRule party () = do
+copyRule : Party -> TriggerA () ()
+copyRule party = do
 -- RULE_SIGNATURE_END
 -- ACS_QUERY_BEGIN
   subscribers : [(ContractId Subscriber, Subscriber)] <- query @Subscriber

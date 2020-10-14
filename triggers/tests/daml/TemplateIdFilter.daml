@@ -12,7 +12,7 @@ test registered = Trigger
   { initialize = pure ()
   , updateState = \_message -> pure ()
   , registeredTemplates = registered
-  , rule = \party () -> do
+  , rule = \party -> do
       ones <- query @One
       twos <- query @Two
       doneOnes <- query @DoneOne
