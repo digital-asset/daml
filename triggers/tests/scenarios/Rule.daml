@@ -5,6 +5,7 @@
 module Rule where
 
 import DA.Action
+import DA.Action.State.Class
 import DA.Assert
 import qualified DA.Next.Map as Map
 import Daml.Trigger
@@ -52,6 +53,27 @@ trigger = Trigger with
     put (-1) -- just introducing some chaos
   registeredTemplates = RegisteredTemplates [registeredTemplate @T]
   heartbeat = None
+
+data RetryState = RetryState
+  { pendingRetries : Map.Map CommandId Int
+  }
+
+data Lens t a = Lens { getter : t -> a, setter : (a -> a) -> t -> t }
+
+_1 : Lens (a, b) a
+_1 = Lens fst (\f (a, b) -> (f a, b))
+
+_2 : Lens (a, b) b
+_2 = Lens snd (\f (a, b) -> (a, f b))
+
+getAt : (ActionState s m, Functor m) => Lens s a -> m a
+getAt Lens { getter } = getter <$> get
+
+bracketRetry : Int -> Lens s RetryState -> Trigger s -> Trigger s
+bracketRetry retries rs trigger =
+  let rule = do
+        trigger.rule
+  in trigger with rule
 
 test = do
   alice <- Script.allocateParty "Alice"
