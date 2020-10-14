@@ -144,6 +144,8 @@ private[daml] class AstRewriter(
         UpdateFetch(apply(templateId), apply(contractId))
       case UpdateExercise(templateId, choice, cid, actors, arg) =>
         UpdateExercise(apply(templateId), choice, cid, actors.map(apply), apply(arg))
+      case UpdateExerciseByKey(templateId, choice, key, arg) =>
+        UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
       case UpdateGetTime => x
       case UpdateFetchByKey(rbk) =>
         UpdateFetchByKey(apply(rbk))

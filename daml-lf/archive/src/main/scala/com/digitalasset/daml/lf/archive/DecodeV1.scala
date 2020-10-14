@@ -1086,6 +1086,18 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             argE = decodeExpr(exercise.getArg, definition)
           )
 
+        case PLF.Update.SumCase.EXERCISE_BY_KEY =>
+          assertSince(LV.Features.exerciseByKey, "exerciseByKey")
+          val exerciseByKey = lfUpdate.getExerciseByKey
+          UpdateExerciseByKey(
+            templateId = decodeTypeConName(exerciseByKey.getTemplate),
+            choice = getInternedName(
+              exerciseByKey.getChoiceInternedStr,
+              "Update.ExerciseByKey.choice.choice"),
+            keyE = decodeExpr(exerciseByKey.getKey, definition),
+            argE = decodeExpr(exerciseByKey.getArg, definition)
+          )
+
         case PLF.Update.SumCase.GET_TIME =>
           UpdateGetTime
 

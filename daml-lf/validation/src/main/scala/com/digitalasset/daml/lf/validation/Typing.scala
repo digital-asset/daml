@@ -729,17 +729,29 @@ private[validation] object Typing {
       TUpdate(choice.returnType)
     }
 
+    private def typeOfExerciseByKey(
+        tmplId: TypeConName,
+        chName: ChoiceName,
+        key: Expr,
+        arg: Expr
+    ): Type = {
+      checkByKey(tmplId, key)
+      val choice = lookupChoice(ctx, tmplId, chName)
+      checkExpr(arg, choice.argBinder._2)
+      TUpdate(choice.returnType)
+    }
+
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
 
-    private def checkRetrieveByKey(retrieveByKey: RetrieveByKey): Unit = {
-      lookupTemplate(ctx, retrieveByKey.templateId).key match {
+    private def checkByKey(tmplId: TypeConName, key: Expr): Unit = {
+      lookupTemplate(ctx, tmplId).key match {
         case None =>
-          throw EKeyOperationForTemplateWithNoKey(ctx, retrieveByKey.templateId)
-        case Some(key) =>
-          checkExpr(retrieveByKey.key, key.typ)
+          throw EKeyOperationForTemplateWithNoKey(ctx, tmplId)
+        case Some(tmplKey) =>
+          checkExpr(key, tmplKey.typ)
           ()
       }
     }
@@ -754,6 +766,8 @@ private[validation] object Typing {
         typeOfCreate(tpl, arg)
       case UpdateExercise(tpl, choice, cid, actors, arg) =>
         typeOfExercise(tpl, choice, cid, actors, arg)
+      case UpdateExerciseByKey(tpl, choice, key, arg) =>
+        typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>
         typeOfFetch(tpl, cid)
       case UpdateGetTime =>
@@ -762,7 +776,7 @@ private[validation] object Typing {
         checkExpr(exp, TUpdate(typ))
         TUpdate(typ)
       case UpdateFetchByKey(retrieveByKey) =>
-        checkRetrieveByKey(retrieveByKey)
+        checkByKey(retrieveByKey.templateId, retrieveByKey.key)
         // fetches return the contract id and the contract itself
         TUpdate(
           TStruct(
@@ -772,7 +786,7 @@ private[validation] object Typing {
                 contractFieldName -> TTyCon(retrieveByKey.templateId)
               ))))
       case UpdateLookupByKey(retrieveByKey) =>
-        checkRetrieveByKey(retrieveByKey)
+        checkByKey(retrieveByKey.templateId, retrieveByKey.key)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))
     }
 

@@ -590,6 +590,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> traverse decodeExpr update_ExerciseActor
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
+  LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
+    fmap EUpdate $ UExerciseByKey
+      <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName
+      <*> (lookupString update_ExerciseByKeyChoiceInternedStr >>= decodeNameString ChoiceName . snd)
+      <*> mayDecode "update_ExerciseByKeyKey" update_ExerciseByKeyKey decodeExpr
+      <*> mayDecode "update_ExerciseByKeyArg" update_ExerciseByKeyArg decodeExpr
   LF1.UpdateSumFetch LF1.Update_Fetch{..} ->
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName

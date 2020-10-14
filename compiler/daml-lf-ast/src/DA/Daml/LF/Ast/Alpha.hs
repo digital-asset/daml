@@ -272,6 +272,12 @@ alphaUpdate env = \case
             && onMaybe (alphaExpr' env) e1b e2b
             && alphaExpr' env e1c e2c
         _ -> False
+    UExerciseByKey t1 c1 e1a e1b -> \case
+        UExerciseByKey t2 c2 e2a e2b -> alphaTypeCon t1 t2
+            && c1 == c2
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
     UFetch t1 e1 -> \case
         UFetch t2 e2 -> alphaTypeCon t1 t2
             && alphaExpr' env e1 e2
