@@ -289,5 +289,18 @@ abstract class AbstractFuncIT
         }
       }
     }
+    "testMultiPartyQuery" should {
+      "should return contracts for all listed parties" in {
+        for {
+          clients <- participantClients()
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:testMultiPartyQueries"),
+            dar = stableDar)
+        } yield {
+          assert(v == SUnit)
+        }
+      }
+    }
   }
 }
