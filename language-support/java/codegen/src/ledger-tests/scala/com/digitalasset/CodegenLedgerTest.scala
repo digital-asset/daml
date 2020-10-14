@@ -8,7 +8,7 @@ import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
 
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
-import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Numeric
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import wolpertinger.color.Grey
@@ -16,11 +16,9 @@ import wolpertinger.{Color, Wolpertinger}
 
 import scala.collection.JavaConverters._
 
-class CodegenLedgerTest extends AsyncFlatSpec with Matchers {
+class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceContext {
 
   import TestUtil._
-
-  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
   val glookofly = new Wolpertinger(
     Alice,

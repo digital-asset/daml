@@ -8,8 +8,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
-import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
 import com.daml.platform.testing.LogCollector
@@ -20,11 +19,13 @@ import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-final class RecoveringIndexerSpec extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
+final class RecoveringIndexerSpec
+    extends AsyncWordSpec
+    with Matchers
+    with TestResourceContext
+    with BeforeAndAfterEach {
 
-  private[this] implicit val executionContext: ExecutionContext = DirectExecutionContext
   private[this] implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private[this] implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private[this] var actorSystem: ActorSystem = _
 
   override def beforeEach(): Unit = {

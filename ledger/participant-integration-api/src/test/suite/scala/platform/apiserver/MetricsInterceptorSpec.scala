@@ -14,7 +14,7 @@ import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.adapter.utils.implementations.AkkaImplementation
 import com.daml.grpc.sampleservice.Responding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -36,12 +36,11 @@ final class MetricsInterceptorSpec
     extends AsyncFlatSpec
     with AkkaBeforeAndAfterAll
     with Matchers
-    with Eventually {
+    with Eventually
+    with TestResourceContext {
 
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
-
-  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
   behavior of "MetricsInterceptor"
 

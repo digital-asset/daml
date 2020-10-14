@@ -12,7 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.{Resource, ResourceContext}
+import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -43,11 +43,11 @@ final class SqlLedgerSpec
     with AsyncTimeLimitedTests
     with ScaledTimeSpans
     with Eventually
+    with TestResourceContext
     with AkkaBeforeAndAfterAll
     with PostgresAroundEach
     with MetricsAround {
 
-  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   protected implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   override val timeLimit: Span = scaled(Span(1, Minute))

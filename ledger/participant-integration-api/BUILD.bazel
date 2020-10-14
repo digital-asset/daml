@@ -178,6 +178,7 @@ test_deps = [
     "//ledger/ledger-api-domain",
     "//ledger/ledger-api-health",
     "//ledger/ledger-resources",
+    "//ledger/ledger-resources:ledger-resources-test-lib",
     "//ledger/metrics",
     "//ledger/participant-state",
     "//ledger/participant-state-index",

@@ -21,8 +21,6 @@ abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFix
   // Database-backed reset service is allowed a bit more slack
   override def spanScaleFactor: Double = 2.0
 
-  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
-
   "ResetService" when {
 
     "run against a database backend" should {
