@@ -120,7 +120,7 @@ export function lazyMemo<A>(mkDecoder: () => jtv.Decoder<A>): jtv.Decoder<A> {
 /**
  * The counterpart of DAML's `()` type.
  */
-export type Unit = {};
+export interface Unit {}
 
 /**
  * Companion obect of the [[Unit]] type.
