@@ -12,7 +12,7 @@ DAML Triggers - Off-Ledger Automation in DAML
 DAML Triggers are currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
 We welcome feedback about DAML triggers on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_,
-`our forum <https://discuss.daml.com>`_, or `on Slack <https://slack.daml.com>`_.
+or `our forum <https://discuss.daml.com>`_.
 
 In addition to the actual DAML logic which is uploaded to the Ledger
 and the UI, DAML applications often need to automate certain

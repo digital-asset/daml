@@ -314,7 +314,7 @@ patches we backport to the 1.0 release branch).
    for this release will be added to docs.daml.com on the next hour.
 
 1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
-   announcements (public Slack, Twitter, etc.).
+   announcements (DAML Forum, Twitter, etc.).
 
 1. **[STABLE]** Documentation is published automatically once the release is
    public on GitHub, though this runs on an hourly cron.
