@@ -74,7 +74,12 @@ _2 = Lens snd (\f (a, b) -> (a, f b))
 pendingRetries' : Lens RetryState (Map.Map CommandId (Int, [Command]))
 pendingRetries' = Lens pendingRetries (\f s -> s { pendingRetries = f s.pendingRetries })
 
-infix 4 %=
+queuedRetry' : Lens RetryState (Optional (CommandId, [Command]))
+queuedRetry' = Lens queuedRetry (\f s -> s { queuedRetry = f s.queuedRetry })
+
+infix 4 .=, %=
+(.=) : ActionState s m => Lens s a -> a -> m ()
+(.=) Lens { setter } = modify . setter . const
 (%=) : ActionState s m => Lens s a -> (a -> a) -> m ()
 (%=) Lens { setter } = modify . setter
 
