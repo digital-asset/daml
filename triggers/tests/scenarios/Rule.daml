@@ -7,6 +7,7 @@ module Rule where
 import DA.Action
 import DA.Action.State.Class
 import DA.Assert
+import DA.Foldable (forA_)
 import qualified DA.Next.Map as Map
 import Daml.Trigger
 import Daml.Trigger.Assert
@@ -100,11 +101,26 @@ bracketRetry retries rs trigger =
         trigger.updateState msg
 
       rule party = do
-        -- TODO use queue
-        trigger.rule party
+        retry <- use (rs @@ queuedRetry')
+        retry `forA_` \(oldCmdId, cmds) -> do
+          -- the Failed would have removed the 2nd argument from the internal
+          -- state; I have no way to rederive it
+          newCmdId <- emitCommands cmds []
+          -- fixing the command ID now simplifies the update with
+          -- commands-in-flight later
+          rs @@ pendingRetries' %= \m ->
+            optional m (\v -> Map.insert newCmdId v m) $ Map.lookup oldCmdId m
+          rs @@ queuedRetry' .= None
 
-      enqueueRetry s commandId (retries, commands) = RetryState with
-        pendingRetries = (if retries <= 1
+        trigger.rule party -- actually running the rule
+
+        cif <- getCommandsInFlight
+        -- every *new* command joins the retry list
+        rs @@ pendingRetries' %=
+          Map.merge (\_ cmds -> Some (retries, cmds)) (const Some) (\_ -> const Some) cif
+
+      enqueueRetry s commandId (retriesLeft, commands) = RetryState with
+        pendingRetries = (if retriesLeft <= 1
                           then Map.delete commandId
                           else Map.insert commandId (retriesLeft - 1, commands)) s.pendingRetries
         -- This is why we save the commands in the map, instead of using
