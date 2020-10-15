@@ -97,7 +97,6 @@ bracketRetry retries rs trigger =
               optional s (enqueueRetry s commandId)
                 $ Map.lookup commandId s.pendingRetries
           MTransaction {} -> pure ()
-        -- NB: might be worth *not* performing the updateState on msg if a retry was enqueued
         trigger.updateState msg
 
       rule party = do
@@ -113,7 +112,12 @@ bracketRetry retries rs trigger =
               $ Map.lookup oldCmdId m
           rs @@ queuedRetry' .= None
 
-        trigger.rule party -- actually running the rule
+        -- NB: might be worth *not* performing the rule on msg if a retry was
+        -- enqueued.  Consider that runTrigger only runs the rule on a Failed
+        -- completion, not a succeeded one, but we have "filtered out" the
+        -- failure in a sense.  On the other hand, commands in flight *has*
+        -- changed; the rule might react to that in some way.
+        trigger.rule party
 
         cif <- getCommandsInFlight
         -- every *new* command joins the retry list
