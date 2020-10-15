@@ -38,7 +38,50 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
 
-abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually with Matchers with StrictLogging {
+import scala.collection.concurrent.TrieMap
+import scala.util.Success
+
+trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
+  private val cookieJar = TrieMap[String, String]()
+
+  override protected def afterEach(): Unit = {
+    try super.afterEach()
+    finally cookieJar.clear()
+  }
+
+  def httpRequest(request: HttpRequest)(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
+    Http().singleRequest {
+      if (cookieJar.nonEmpty) {
+        val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
+        request.addHeader(cookies)
+      } else {
+        request
+      }
+    }.andThen {
+      case Success(resp) =>
+        resp.headers.foreach {
+          case headers.`Set-Cookie`(cookie) => cookieJar.update(cookie.name, cookie.value)
+          case _ =>
+        }
+    }
+  }
+
+  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 5)(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
+    httpRequest(request).flatMap {
+      case resp @ HttpResponse(code @ StatusCodes.Redirection(_), _, _, _) =>
+        if (maxRedirections == 0) {
+          throw new RuntimeException("Too many redirections")
+        } else {
+          val uri = resp.header[headers.Location].get.uri
+          logger.info(s"Follow redirection (${code.toString}) to ${uri.toString}.")
+          httpRequestFollow(request, maxRedirections - 1)
+        }
+      case resp => Future(resp)
+    }
+  }
+}
+
+abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with HttpCookies with Eventually with Matchers with StrictLogging {
 
   import AbstractTriggerServiceTest.CompatAssertion
 
@@ -83,23 +126,6 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
     TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig, authSecret)(testFn)
 
-  private def httpRequest(request: HttpRequest, maxRedirections: Int = 5): Future[HttpResponse] = {
-    Http().singleRequest(request).flatMap { resp =>
-      resp.status match {
-        case _ @ StatusCodes.Redirection(_) =>
-          if (maxRedirections == 0) {
-            throw new RuntimeException("Exceeded maximum redirections.")
-          } else {
-            val uri = resp.header[headers.Location].get.uri
-            logger.info(s"Follow redirect (${resp.status}) to ${uri.toString}")
-            httpRequest(HttpRequest(uri = uri), maxRedirections - 1)
-          }
-        case _ =>
-          Future(resp)
-      }
-    }
-  }
-
   def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
@@ -109,7 +135,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         s"""{"triggerName": "$triggerName", "party": "$party"}"""
       )
     )
-    httpRequest(req)
+    httpRequestFollow(req)
   }
 
   def listTriggers(uri: Uri, party: Party): Future[HttpResponse] = {

@@ -262,6 +262,7 @@ class Server(
         val newCtx = ctx
           .withRequest(newRequest)
           .withUnmatchedPath(newRequest.uri.path)
+        // TODO[AH] Avoid endless redirect loop.
         route(ec, system)(newCtx)
     }
   }
