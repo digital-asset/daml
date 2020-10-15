@@ -1252,12 +1252,12 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  'exercise_without_actors' @Mod:T Ch e₁ e₂  : 'Update' σ
 
       'tpl' (x : T)
-          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' … ↦ …, …, 'key' τₖ …  } }
+          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' … ↦ …, … }, 'key' τₖ … }
         ∈ 〚Ξ〛Mod
       Γ  ⊢  e₁  :  τₖ
       Γ  ⊢  e₂  :  τ
     ——————————————————————————————————————————————————————————————— UpdExerciseByKey
-      Γ  ⊢  'exercise' @Mod:T Ch e₁ e₂  : 'Update' σ
+      Γ  ⊢  'exercise_by_key' @Mod:T Ch e₁ e₂  : 'Update' σ
 
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
       Γ  ⊢  e₁  :  'ContractId' Mod:T
@@ -2927,9 +2927,9 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
      'lookup_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  Ok ⟨'contractId': cid, 'contract': vₜ⟩ ‖ (st'; keys')
-     'exercise_without_actor' Mod:T.Ch v₁ v ‖ (st'; keys')  ⇓ᵤ  ur
+     'exercise_without_actor' Mod:T.Ch cid v₁ ‖ (st'; keys')  ⇓ᵤ  ur
    —————————————————————————————————————————————————————————————————————— EvUpdExercByKeyExercise
-     'exercise_by_key' Mod:T.Ch cid vₖ v₁ ‖ (st; keys)  ⇓ᵤ  ur
+     'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  ur
 
      LitTimestamp is the current ledger time
    —————————————————————————————————————————————————————————————————————— EvUpdGetTime
