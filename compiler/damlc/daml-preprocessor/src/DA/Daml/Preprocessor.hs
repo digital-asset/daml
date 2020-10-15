@@ -59,9 +59,9 @@ mayImportInternal =
         ]
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedModule -> IdePreprocessedSource
-damlPreprocessor mbUnitId (GHC.pm_parsed_source -> x)
-    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
+damlPreprocessor :: Maybe GHC.UnitId -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+damlPreprocessor mbUnitId dflags x
+    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = checkDamlHeader x ++ checkVariantUnitConstructors x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
@@ -71,17 +71,17 @@ damlPreprocessor mbUnitId (GHC.pm_parsed_source -> x)
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 -- | Preprocessor for generated code.
-generatedPreprocessor :: GHC.ParsedModule -> IdePreprocessedSource
-generatedPreprocessor x =
+generatedPreprocessor :: GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+generatedPreprocessor _dflags x =
     IdePreprocessedSource
       { preprocWarnings = []
       , preprocErrors = []
-      , preprocSource = enumTypePreprocessor "CurrentSdk.GHC.Types" (GHC.pm_parsed_source x)
+      , preprocSource = enumTypePreprocessor "CurrentSdk.GHC.Types" x
       }
 
 -- | No preprocessing.
-noPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
-noPreprocessor x =
+noPreprocessor :: GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+noPreprocessor _dflags x =
     IdePreprocessedSource
       { preprocWarnings = []
       , preprocErrors = []
