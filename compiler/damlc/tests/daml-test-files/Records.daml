@@ -2,7 +2,6 @@
 -- All rights reserved.
 
 -- @ ERROR B's Company is run by B and they are 3 years old
-{-# LANGUAGE FlexibleContexts #-}
 
 module Records where
 
