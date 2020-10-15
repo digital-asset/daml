@@ -257,7 +257,7 @@ checkLanguageExtensions dataDependableExtensions dflags x =
         [ "Modules compiled with the " ++ show ext ++ " language extension"
         , "might not work properly with data-dependencies. This might stop the"
         , "whole package from being extensible or upgradable using other versions"
-        , "of the SDK. Please use this language extension at your own risk."
+        , "of the SDK. Use this language extension at your own risk."
         ]
     -- NOTE(MH): Neither the `DynFlags` nor the `ParsedSource` contain
     -- information about where a `{-# LANGUAGE ... #-}` pragma has been used.
