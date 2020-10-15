@@ -53,20 +53,24 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
     Http().singleRequest {
       if (cookieJar.nonEmpty) {
         val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
+        logger.info(s"Request ${request.toString} with cookies ${cookies.toString}")
         request.addHeader(cookies)
       } else {
+        logger.info(s"Request ${request.toString} without cookies")
         request
       }
     }.andThen {
       case Success(resp) =>
         resp.headers.foreach {
-          case headers.`Set-Cookie`(cookie) => cookieJar.update(cookie.name, cookie.value)
+          case headers.`Set-Cookie`(cookie) =>
+            logger.info(s"Set Cookie ${cookie.name} = ${cookie.value}")
+            cookieJar.update(cookie.name, cookie.value)
           case _ =>
         }
     }
   }
 
-  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 5)(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
+  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
     httpRequest(request).flatMap {
       case resp @ HttpResponse(code @ StatusCodes.Redirection(_), _, _, _) =>
         if (maxRedirections == 0) {
