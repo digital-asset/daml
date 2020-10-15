@@ -196,7 +196,7 @@ class Server(
   // First asking for a token on the `/auth` endpoint and redirecting to `/login` if none was returned.
   // If a login is required then this will store the current request in `authRequests`
   // and register a callback to proceed with the request once the login flow completed.
-  private def authorize(claims: AuthRequest.Claims)(
+  private def authorize(claims: AuthRequest.Claims, isReplay: Boolean)(
       implicit ec: ExecutionContext,
       system: ActorSystem): Directive1[Option[String]] = Directive { inner => ctx =>
     authConfig match {
@@ -216,6 +216,9 @@ class Server(
               Unmarshal(resp).to[AuthResponse.Authorize].flatMap { auth =>
                 inner(Tuple1(Some(auth.accessToken)))(ctx)
               }
+            case StatusCodes.Unauthorized if isReplay =>
+              // TODO[AH] Add WWW-Authenticate header
+              ctx.complete(errorResponse(StatusCodes.Unauthorized))
             case StatusCodes.Unauthorized =>
               val requestId = UUID.randomUUID
               authRequests.update(requestId, ctx.request)
@@ -262,12 +265,11 @@ class Server(
         val newCtx = ctx
           .withRequest(newRequest)
           .withUnmatchedPath(newRequest.uri.path)
-        // TODO[AH] Avoid endless redirect loop.
-        route(ec, system)(newCtx)
+        route(isReplay = true)(ec, system)(newCtx)
     }
   }
 
-  private def route(implicit ec: ExecutionContext, system: ActorSystem) = concat(
+  private def route(isReplay: Boolean = false)(implicit ec: ExecutionContext, system: ActorSystem) = concat(
     post {
       concat(
         // Start a new trigger given its identifier and the party it
@@ -279,7 +281,7 @@ class Server(
               val claims =
                 AuthRequest.Claims(actAs = List(params.party))
               // TODO[AH] Why do we need to pass ec, system explicitly?
-              authorize(claims)(ec, system) { token =>
+              authorize(claims, isReplay)(ec, system) { token =>
                 startTrigger(params.party, params.triggerName, token) match {
                   case Left(err) =>
                     complete(errorResponse(StatusCodes.UnprocessableEntity, err))
@@ -537,7 +539,7 @@ object Server {
 
     // The server binding is a future that on completion will be piped
     // to a message to this actor.
-    val serverBinding = Http().bindAndHandle(Route.handlerFlow(server.route), host, port)
+    val serverBinding = Http().bindAndHandle(Route.handlerFlow(server.route()), host, port)
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)
       case Failure(ex) => StartFailed(ex)
