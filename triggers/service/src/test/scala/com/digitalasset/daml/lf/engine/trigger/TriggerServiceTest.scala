@@ -49,28 +49,34 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
     finally cookieJar.clear()
   }
 
-  def httpRequest(request: HttpRequest)(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
-    Http().singleRequest {
-      if (cookieJar.nonEmpty) {
-        val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
-        logger.info(s"Request ${request.toString} with cookies ${cookies.toString}")
-        request.addHeader(cookies)
-      } else {
-        logger.info(s"Request ${request.toString} without cookies")
-        request
-      }
-    }.andThen {
-      case Success(resp) =>
-        resp.headers.foreach {
-          case headers.`Set-Cookie`(cookie) =>
-            logger.info(s"Set Cookie ${cookie.name} = ${cookie.value}")
-            cookieJar.update(cookie.name, cookie.value)
-          case _ =>
+  def httpRequest(request: HttpRequest)(
+      implicit system: ActorSystem,
+      ec: ExecutionContext): Future[HttpResponse] = {
+    Http()
+      .singleRequest {
+        if (cookieJar.nonEmpty) {
+          val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
+          logger.info(s"Request ${request.toString} with cookies ${cookies.toString}")
+          request.addHeader(cookies)
+        } else {
+          logger.info(s"Request ${request.toString} without cookies")
+          request
         }
-    }
+      }
+      .andThen {
+        case Success(resp) =>
+          resp.headers.foreach {
+            case headers.`Set-Cookie`(cookie) =>
+              logger.info(s"Set Cookie ${cookie.name} = ${cookie.value}")
+              cookieJar.update(cookie.name, cookie.value)
+            case _ =>
+          }
+      }
   }
 
-  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
+  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(
+      implicit system: ActorSystem,
+      ec: ExecutionContext): Future[HttpResponse] = {
     httpRequest(request).flatMap {
       case resp @ HttpResponse(code @ StatusCodes.Redirection(_), _, _, _) =>
         if (maxRedirections == 0) {
@@ -85,7 +91,12 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
   }
 }
 
-abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with HttpCookies with Eventually with Matchers with StrictLogging {
+abstract class AbstractTriggerServiceTest
+    extends AsyncFlatSpec
+    with HttpCookies
+    with Eventually
+    with Matchers
+    with StrictLogging {
 
   import AbstractTriggerServiceTest.CompatAssertion
 
@@ -128,7 +139,12 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with HttpCookies
 
   def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
       testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
-    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig, authTestConfig)(testFn)
+    TriggerServiceFixture.withTriggerService(
+      testId,
+      List(darPath),
+      encodedDar,
+      jdbcConfig,
+      authTestConfig)(testFn)
 
   def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -588,9 +604,11 @@ class TriggerServiceTestWithDb
 class TriggerServiceTestAuth extends AbstractTriggerServiceTest {
 
   override def jdbcConfig: Option[JdbcConfig] = None
-  override def authTestConfig: Option[AuthTestConfig] = Some(AuthTestConfig(
-    jwtSecret = "secret",
-    parties = List(alice, bob),
-  ))
+  override def authTestConfig: Option[AuthTestConfig] =
+    Some(
+      AuthTestConfig(
+        jwtSecret = "secret",
+        parties = List(alice, bob),
+      ))
 
 }

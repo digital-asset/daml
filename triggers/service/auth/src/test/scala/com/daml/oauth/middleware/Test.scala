@@ -88,8 +88,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       val req = HttpRequest(
         uri = middlewareUri
           .withPath(Path./("auth"))
-          .withQuery(Query(
-            ("claims", Request.Claims(actAs = List(ApiTypes.Party("Bob"))).toQueryString))),
+          .withQuery(
+            Query(("claims", Request.Claims(actAs = List(ApiTypes.Party("Bob"))).toQueryString))),
         headers = List(cookieHeader)
       )
       for {

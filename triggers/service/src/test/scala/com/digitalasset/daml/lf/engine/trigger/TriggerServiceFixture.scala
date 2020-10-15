@@ -24,7 +24,11 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.oauth.middleware.{Config => MiddlewareConfig, Server => MiddlewareServer}
@@ -86,40 +90,41 @@ object TriggerServiceFixture extends StrictLogging {
     val applicationId = ApplicationId(testName)
     val authF: Future[(AuthConfig, () => Future[Unit])] = authTestConfig match {
       case None => Future((NoAuth, () => Future(())))
-      case Some(AuthTestConfig(secret, _)) => for {
-        oauth <- OAuthServer.start(OAuthConfig(
-          port = Port.Dynamic,
-          ledgerId = LedgerId.unwrap(ledgerId),
-          // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
-          applicationId = None,
-          jwtSecret = secret,
-        ))
-        serverUri = Uri()
-          .withScheme("http")
-          .withAuthority(
-            oauth.localAddress.getHostString,
-            oauth.localAddress.getPort)
-        middleware <- MiddlewareServer.start(MiddlewareConfig(
-          port = Port.Dynamic,
-          oauthAuth = serverUri.withPath(Path./("authorize")),
-          oauthToken = serverUri.withPath(Path./("token")),
-          clientId = "oauth-middleware-id",
-          clientSecret = "oauth-middleware-secret",
-        ))
-        middlewareUri = Uri()
+      case Some(AuthTestConfig(secret, _)) =>
+        for {
+          oauth <- OAuthServer.start(
+            OAuthConfig(
+              port = Port.Dynamic,
+              ledgerId = LedgerId.unwrap(ledgerId),
+              // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
+              applicationId = None,
+              jwtSecret = secret,
+            ))
+          serverUri = Uri()
             .withScheme("http")
-            .withAuthority(
-              middleware.localAddress.getHostString,
-              middleware.localAddress.getPort)
-        cleanup = () => for {
-          _ <- oauth.unbind()
-          _ <- middleware.unbind()
-        } yield ()
-      } yield (AuthMiddleware(middlewareUri), cleanup)
+            .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
+          middleware <- MiddlewareServer.start(
+            MiddlewareConfig(
+              port = Port.Dynamic,
+              oauthAuth = serverUri.withPath(Path./("authorize")),
+              oauthToken = serverUri.withPath(Path./("token")),
+              clientId = "oauth-middleware-id",
+              clientSecret = "oauth-middleware-secret",
+            ))
+          middlewareUri = Uri()
+            .withScheme("http")
+            .withAuthority(middleware.localAddress.getHostString, middleware.localAddress.getPort)
+          cleanup = () =>
+            for {
+              _ <- oauth.unbind()
+              _ <- middleware.unbind()
+            } yield ()
+        } yield (AuthMiddleware(middlewareUri), cleanup)
     }
     val ledgerF = for {
       (_, toxiproxyClient) <- toxiproxyF
-      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authTestConfig), mat))
+      ledger <- Future(
+        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authTestConfig), mat))
       ledgerPort <- ledger.portF
       ledgerProxyPort = LockedFreePort.find()
       ledgerProxy = toxiproxyClient.createProxy(
@@ -244,9 +249,7 @@ object TriggerServiceFixture extends StrictLogging {
           readAs = List(),
         )
         jwt <- JwtSigner.HMAC256
-          .sign(
-            DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)),
-            cfg.jwtSecret)
+          .sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), cfg.jwtSecret)
           .toOption
       } yield jwt.value,
     )
