@@ -531,7 +531,7 @@ convertClassDef env tycon
         funDepName = ExprValName ("$fd" <> getOccText tycon)
         funDepType = TForalls funDepTyVars (encodeFunDeps funDeps')
         funDepExpr = EBuiltin BEError `ETyApp` funDepType `ETmApp`
-            EBuiltin (BEText "undefined")
+            EBuiltin (BEText "undefined") -- We only care about the type, not the expr.
         funDepDef = defValue tycon (funDepName, funDepType) funDepExpr
 
     pure $ [typeDef] ++ [funDepDef | classHasFds cls && newStyle]
