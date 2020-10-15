@@ -74,7 +74,7 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
         } else {
           val uri = resp.header[headers.Location].get.uri
           logger.info(s"Follow redirection (${code.toString}) to ${uri.toString}.")
-          httpRequestFollow(request, maxRedirections - 1)
+          httpRequestFollow(HttpRequest(uri = uri), maxRedirections - 1)
         }
       case resp => Future(resp)
     }
