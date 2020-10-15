@@ -4,4 +4,4 @@
 
 module Tests.Import where
 
-data Synchronized = Switch () | Public with enum: Int, package: Int
+data Synchronized = Switch | Public with enum: Int, package: Int
