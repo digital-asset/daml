@@ -8,6 +8,7 @@ import java.time.Duration
 
 import akka.http.scaladsl.model.Uri
 import com.daml.cliopts
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.platform.services.time.TimeProviderType
 import scalaz.Show
 
@@ -36,6 +37,13 @@ final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
+)
+
+private[trigger] final case class AuthTestConfig(
+    // HMAC256 signature secret.
+    jwtSecret: String,
+    // Grant readAs claims for these parties to the ledger client provided to test cases.
+    parties: List[ApiTypes.Party],
 )
 
 object JdbcConfig {

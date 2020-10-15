@@ -21,6 +21,7 @@ import com.daml.jwt.{HMAC256Verifier, JwtSigner}
 import com.daml.ledger.api.auth
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
@@ -54,7 +55,7 @@ object TriggerServiceFixture extends StrictLogging {
       dars: List[File],
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
-      authSecret: Option[String],
+      authTestConfig: Option[AuthTestConfig],
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
       implicit mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -83,9 +84,9 @@ object TriggerServiceFixture extends StrictLogging {
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
-    val authF: Future[(AuthConfig, () => Future[Unit])] = authSecret match {
+    val authF: Future[(AuthConfig, () => Future[Unit])] = authTestConfig match {
       case None => Future((NoAuth, () => Future(())))
-      case Some(secret) => for {
+      case Some(AuthTestConfig(secret, _)) => for {
         oauth <- OAuthServer.start(OAuthConfig(
           port = Port.Dynamic,
           ledgerId = LedgerId.unwrap(ledgerId),
@@ -118,7 +119,7 @@ object TriggerServiceFixture extends StrictLogging {
     }
     val ledgerF = for {
       (_, toxiproxyClient) <- toxiproxyF
-      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authSecret), mat))
+      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authTestConfig), mat))
       ledgerPort <- ledger.portF
       ledgerProxyPort = LockedFreePort.find()
       ledgerProxy = toxiproxyClient.createProxy(
@@ -136,7 +137,7 @@ object TriggerServiceFixture extends StrictLogging {
       client <- LedgerClient.singleHost(
         host.getHostName,
         ledgerPort.value,
-        clientConfig(applicationId, authSecret),
+        clientConfig(applicationId, authTestConfig),
       )
     } yield client
 
@@ -209,7 +210,7 @@ object TriggerServiceFixture extends StrictLogging {
       ledgerPort: Port,
       dars: List[File],
       ledgerId: LedgerId,
-      jwtSecret: Option[String]
+      authTestConfig: Option[AuthTestConfig]
   ): SandboxConfig =
     sandbox.DefaultConfig.copy(
       port = ledgerPort,
@@ -217,21 +218,21 @@ object TriggerServiceFixture extends StrictLogging {
       timeProviderType = Some(TimeProviderType.Static),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = for {
-        secret <- jwtSecret
-        verifier <- HMAC256Verifier(secret).toOption
+        cfg <- authTestConfig
+        verifier <- HMAC256Verifier(cfg.jwtSecret).toOption
       } yield auth.AuthServiceJWT(verifier)
     )
 
   private def clientConfig[A](
       applicationId: ApplicationId,
-      jwtSecret: Option[String]): LedgerClientConfiguration =
+      authTestConfig: Option[AuthTestConfig]): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
       token = for {
-        secret <- jwtSecret
+        cfg <- authTestConfig
         header = """{"alg": "HS256", "typ": "JWT"}"""
         payload = AuthServiceJWTPayload(
           ledgerId = None,
@@ -239,13 +240,13 @@ object TriggerServiceFixture extends StrictLogging {
           participantId = None,
           exp = None,
           admin = true,
-          actAs = List(),
+          actAs = cfg.parties.map(ApiTypes.Party.unwrap),
           readAs = List(),
         )
         jwt <- JwtSigner.HMAC256
           .sign(
             DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)),
-            secret)
+            cfg.jwtSecret)
           .toOption
       } yield jwt.value,
     )

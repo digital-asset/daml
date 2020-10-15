@@ -93,7 +93,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with HttpCookies
   def jdbcConfig: Option[JdbcConfig]
 
   // Abstract member for testing with and without authentication/authorization
-  def authSecret: Option[String]
+  def authTestConfig: Option[AuthTestConfig]
 
   // Default retry config for `eventually`
   override implicit def patienceConfig: PatienceConfig =
@@ -128,7 +128,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with HttpCookies
 
   def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
       testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
-    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig, authSecret)(testFn)
+    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig, authTestConfig)(testFn)
 
   def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -497,7 +497,7 @@ object AbstractTriggerServiceTest {
 class TriggerServiceTestInMem extends AbstractTriggerServiceTest {
 
   override def jdbcConfig: Option[JdbcConfig] = None
-  override def authSecret: Option[String] = None
+  override def authTestConfig: Option[AuthTestConfig] = None
 
 }
 
@@ -508,7 +508,7 @@ class TriggerServiceTestWithDb
     with PostgresAroundAll {
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
-  override def authSecret: Option[String] = None
+  override def authTestConfig: Option[AuthTestConfig] = None
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
@@ -588,6 +588,9 @@ class TriggerServiceTestWithDb
 class TriggerServiceTestAuth extends AbstractTriggerServiceTest {
 
   override def jdbcConfig: Option[JdbcConfig] = None
-  override def authSecret: Option[String] = Some("secret")
+  override def authTestConfig: Option[AuthTestConfig] = Some(AuthTestConfig(
+    jwtSecret = "secret",
+    parties = List(alice, bob),
+  ))
 
 }
