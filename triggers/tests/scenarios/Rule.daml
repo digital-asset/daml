@@ -56,6 +56,7 @@ trigger = Trigger with
 
 data RetryState = RetryState
   { pendingRetries : Map.Map CommandId (Int, [Command])
+  , queuedRetry : Optional [Command]
   }
 
 data Lens t a = Lens { getter : t -> a, setter : (a -> a) -> t -> t }
@@ -82,9 +83,28 @@ use Lens { getter } = getter <$> get
 
 bracketRetry : Int -> Lens s RetryState -> Trigger s -> Trigger s
 bracketRetry retries rs trigger =
-  let rule = do
-        trigger.rule
-  in trigger with rule
+  let updateState msg = do
+        case msg of
+          MCompletion (Completion { commandId, status }) -> case status of
+            Succeeded {} -> rs @@ pendingRetries' %= Map.delete commandId
+            Failed {} -> rs %= \s ->
+              optional s (enqueueRetry s commandId)
+                $ Map.lookup commandId s.pendingRetries
+          MTransaction {} -> pure ()
+        -- NB: might be worth *not* performing the updateState on msg if a retry was enqueued
+        trigger.updateState msg
+
+      rule party = do
+        -- TODO use queue
+        trigger.rule party
+
+      enqueueRetry s commandId (retries, commands) = RetryState with
+        pendingRetries = (if retries <= 1
+                          then Map.delete commandId
+                          else Map.insert commandId (retries - 1, commands)) s.pendingRetries
+        queuedRetry = Some commands
+
+  in trigger with updateState; rule
 
 test = do
   alice <- Script.allocateParty "Alice"
