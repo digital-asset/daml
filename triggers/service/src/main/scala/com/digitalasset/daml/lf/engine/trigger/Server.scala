@@ -255,7 +255,7 @@ class Server(
         // Replay the stored request forwarding any new cookies.
         val cookies = ctx.request.cookies
         val newRequest = if (cookies.nonEmpty) {
-          req.addHeader(headers.Cookie(cookies))
+          req.mapHeaders(_.filterNot(_.isInstanceOf[headers.Cookie]) :+ headers.Cookie(cookies))
         } else {
           req
         }
