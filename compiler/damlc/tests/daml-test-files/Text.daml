@@ -1,8 +1,8 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=36:9-36:17; Evaluate
--- @INFO range=50:2-50:12; Evaluate
+-- @INFO range=36:10-36:18; Evaluate
+-- @INFO range=50:3-50:13; Evaluate
 
 module Text where
 

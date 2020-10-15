@@ -332,40 +332,14 @@ parseRange :: String -> Range
 parseRange s =
   case traverse readMaybe (wordsBy (`elem` (":-" :: String)) s) of
     Just [rowStart, colStart, rowEnd, colEnd] ->
-      -- When specifying ranges:
-      --  * lines are 1-based
-      --  * columns are 0-based
-      --  * the column span is open, that is, the end column is "one
-      --    past the end" of the span.
-      --
-      -- Positions in these ranges are matched against LSP coordinates
-      -- which are 0-based in both line and column and also open. Error
-      -- messages are formatted by GHC and are 1-based in line, 0-based
-      -- in column and closed (so add one to column start, one to
-      -- column end to make them 1-based, then subtract one from column
-      -- end to convert to closed!)
-      --
-      -- 'showDiagnostics' reports ranges such that lines are 1-based,
-      -- columns are 0-based and open.
-      --
-      -- Example:
-      --   If @INFO 'range=8:13-8:47':
-      --   then the actual (LSP) range is
-      --      { _start = Position {_line = 7, _character = 13}
-      --      ,   _end = Position {_line = 7, _character = 47}}
-      --   and 'showDiagnostics' reports:
-      --     Hidden:   no
-      --     Range:    8:13-8:47
-      --     Source:   linter
-      --     Severity: DsInfo
-      --     Message:  RangeTest.daml:8:14-47: Some error message.
-      --
-      -- TL;DR: To mark a diagnostic as "expected" paste the range as it
-      -- appears in 'showDiagnostics' e.g. '@INFO range=8:13-8:47; Some
-      -- error message'.
       Range
-        (Position (rowStart - 1) colStart)
-        (Position (rowEnd - 1) colEnd)
+        -- NOTE(MH): The locations/ranges in dagnostics are zero-based
+        -- internally but are pretty-printed one-based, both by our command
+        -- line tools and in vscode. In our test files, we want to specify them
+        -- the way they are printed to be able to just copy & paste them. Thus,
+        -- we need to subtract 1 from all coordinates here.
+        (Position (rowStart - 1) (colStart - 1))
+        (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
 mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
