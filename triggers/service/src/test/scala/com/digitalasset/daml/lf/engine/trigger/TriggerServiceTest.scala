@@ -44,7 +44,7 @@ import scala.util.Success
 /**
  * A test-fixture that persists cookies between http requests for each test-case.
  */
-trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
+trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   private val cookieJar = TrieMap[String, String]()
 
   override protected def afterEach(): Unit = {
@@ -62,10 +62,8 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
       .singleRequest {
         if (cookieJar.nonEmpty) {
           val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
-          logger.info(s"Request ${request.toString} with cookies ${cookies.toString}")
           request.addHeader(cookies)
         } else {
-          logger.info(s"Request ${request.toString} without cookies")
           request
         }
       }
@@ -73,7 +71,6 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
         case Success(resp) =>
           resp.headers.foreach {
             case headers.`Set-Cookie`(cookie) =>
-              logger.info(s"Set Cookie ${cookie.name} = ${cookie.value}")
               cookieJar.update(cookie.name, cookie.value)
             case _ =>
           }
@@ -87,12 +84,11 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
       implicit system: ActorSystem,
       ec: ExecutionContext): Future[HttpResponse] = {
     httpRequest(request).flatMap {
-      case resp @ HttpResponse(code @ StatusCodes.Redirection(_), _, _, _) =>
+      case resp @ HttpResponse(StatusCodes.Redirection(_), _, _, _) =>
         if (maxRedirections == 0) {
           throw new RuntimeException("Too many redirections")
         } else {
           val uri = resp.header[headers.Location].get.uri
-          logger.info(s"Follow redirection (${code.toString}) to ${uri.toString}.")
           httpRequestFollow(HttpRequest(uri = uri), maxRedirections - 1)
         }
       case resp => Future(resp)
