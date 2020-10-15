@@ -109,7 +109,8 @@ bracketRetry retries rs trigger =
           -- fixing the command ID now simplifies the update with
           -- commands-in-flight later
           rs @@ pendingRetries' %= \m ->
-            optional m (\v -> Map.insert newCmdId v m) $ Map.lookup oldCmdId m
+            optional m (\v -> Map.insert newCmdId v $ Map.delete oldCmdId m)
+              $ Map.lookup oldCmdId m
           rs @@ queuedRetry' .= None
 
         trigger.rule party -- actually running the rule
