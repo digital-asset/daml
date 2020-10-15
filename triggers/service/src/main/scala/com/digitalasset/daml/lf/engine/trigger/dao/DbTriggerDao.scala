@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger.dao
 
 import java.util.UUID
+import java.util.concurrent.Executors.newWorkStealingPool
 
 import cats.effect.{Blocker, ContextShift, IO}
 import cats.syntax.apply._
@@ -39,7 +40,10 @@ object Connection {
     (
       ds,
       Transactor
-        .fromDataSource[IO](ds, connectEC = ec, blocker = Blocker liftExecutionContext ec)(
+        .fromDataSource[IO](
+          ds,
+          connectEC = ec,
+          blocker = Blocker liftExecutorService newWorkStealingPool(poolSize))(
           IO.ioConcurrentEffect(cs),
           cs))
   }
