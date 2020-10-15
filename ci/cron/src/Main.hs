@@ -8,6 +8,7 @@ import Data.Semigroup ((<>))
 import System.FilePath.Posix ((</>))
 
 import qualified Control.Concurrent.Async
+import qualified Control.Concurrent.QSem
 import qualified Control.Exception
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
@@ -23,11 +24,11 @@ import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import qualified Options.Applicative as Opt
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified Network.URI
+import qualified Options.Applicative as Opt
 import qualified System.Directory as Directory
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
@@ -270,13 +271,18 @@ docs = do
 
 download_assets :: FilePath -> GitHubRelease -> IO ()
 download_assets tmp release = do
-    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url -> do
+    tokens <- Control.Concurrent.QSem.newQSem 20
+    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
+        Control.Exception.bracket_
+          (Control.Concurrent.QSem.waitQSem tokens)
+          (Control.Concurrent.QSem.signalQSem tokens)
+          (do
         shell_ $ unlines ["bash -c '",
             "set -euo pipefail",
             "eval \"$(dev-env/bin/dade assist)\"",
             "cd \"" <> tmp <> "\"",
             "wget --quiet \"" <> show url <> "\"",
-            "'"])
+            "'"]))
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
