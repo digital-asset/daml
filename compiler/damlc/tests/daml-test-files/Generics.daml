@@ -3,6 +3,7 @@
 
 {-# LANGUAGE EmptyCase #-}
 -- @WARN Modules compiled with the EmptyCase language extension might not work properly with data-dependencies.
+-- @WARN Modules importing DA.Generics do not work with data-dependencies.
 
 module Generics where
 

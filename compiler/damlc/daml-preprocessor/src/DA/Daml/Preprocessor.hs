@@ -65,7 +65,12 @@ damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe GHC.UnitId -> GHC.DynFlags
 damlPreprocessor dataDependableExtensions mbUnitId dflags x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = checkDamlHeader x ++ checkVariantUnitConstructors x ++ checkLanguageExtensions dataDependableExtensions dflags x
+        { preprocWarnings = concat
+            [ checkDamlHeader x
+            , checkVariantUnitConstructors x
+            , checkLanguageExtensions dataDependableExtensions dflags x
+            , checkImportsWrtDataDependencies x
+            ]
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
@@ -265,6 +270,19 @@ checkLanguageExtensions dataDependableExtensions dflags x =
     -- used on the command line. Thus, we always put the warning at the location
     -- of the module name.
     modNameLoc = maybe GHC.noSrcSpan GHC.getLoc (GHC.hsmodName (GHC.unLoc x))
+
+checkImportsWrtDataDependencies :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkImportsWrtDataDependencies x =
+    [ (loc, warning)
+    | GHC.L loc GHC.ImportDecl{ideclName = GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x
+    , GHC.moduleNameString m == "DA.Generics"
+    ]
+  where
+    warning = unlines
+        [ "Modules importing DA.Generics do not work with data-dependencies."
+        , "This will prevent the whole package from being extensible or upgradable"
+        , "using other versionsof the SDK. Use DA.Generics at your own risk."
+        ]
 
 -- Extract all data constructors with their locations
 universeConDecl :: GHC.ParsedSource -> [GHC.LConDecl GHC.GhcPs]
