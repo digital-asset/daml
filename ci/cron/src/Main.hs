@@ -7,6 +7,7 @@ import Data.Function ((&))
 import Data.Semigroup ((<>))
 import System.FilePath.Posix ((</>))
 
+import qualified Control.Concurrent.Async
 import qualified Control.Exception
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
@@ -269,21 +270,13 @@ docs = do
 
 download_assets :: FilePath -> GitHubRelease -> IO ()
 download_assets tmp release = do
-    shell_ $ unlines ["bash -c '",
-        "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
-        "cd \"" <> tmp <> "\"",
-        "PIDS=\"\"",
-        "for ass in " <> unwords (map (show . uri) $ assets release) <> "; do",
-            "{",
-                "wget --quiet \"$ass\" &",
-            "}",
-            "PIDS=\"$PIDS $!\"",
-        "done",
-        "for pid in $PIDS; do",
-            "wait $pid",
-        "done",
-        "'"]
+    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url -> do
+        shell_ $ unlines ["bash -c '",
+            "set -euo pipefail",
+            "eval \"$(dev-env/bin/dade assist)\"",
+            "cd \"" <> tmp <> "\"",
+            "wget --quiet \"" <> show url <> "\"",
+            "'"])
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
