@@ -17,7 +17,10 @@ target
 # Bazel
 .bazel-cache
 /bazel-*
+!/bazel-haskell-deps.bzl
+!/bazel-java-deps.bzl
 /compatibility/bazel-*
+!/compatibility/bazel-haskell-deps.bzl
 /compatibility/.bazelrc
 /compatibility/head_sdk/
 .bazelrc.local

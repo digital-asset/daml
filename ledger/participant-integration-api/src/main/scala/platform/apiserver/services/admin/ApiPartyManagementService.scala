@@ -84,10 +84,14 @@ private[apiserver] final class ApiPartyManagementService private (
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     // TODO: This should do proper validation.
-    val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+    def randomSubmissionId(prefix: String): Ref.IdString.LedgerString =
+      v1.SubmissionId.assertFromString(s"${prefix}_${UUID.randomUUID().toString}")
+
     val party =
       if (request.partyIdHint.isEmpty) None
       else Some(Ref.Party.assertFromString(request.partyIdHint))
+    val submissionId = randomSubmissionId(prefix = party.getOrElse(""))
+
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
     synchronousResponse
