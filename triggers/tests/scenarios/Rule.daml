@@ -56,7 +56,7 @@ trigger = Trigger with
 
 data RetryState = RetryState
   { pendingRetries : Map.Map CommandId (Int, [Command])
-  , queuedRetry : Optional [Command]
+  , queuedRetry : Optional (CommandId, [Command])
   }
 
 data Lens t a = Lens { getter : t -> a, setter : (a -> a) -> t -> t }
@@ -106,8 +106,11 @@ bracketRetry retries rs trigger =
       enqueueRetry s commandId (retries, commands) = RetryState with
         pendingRetries = (if retries <= 1
                           then Map.delete commandId
-                          else Map.insert commandId (retries - 1, commands)) s.pendingRetries
-        queuedRetry = Some commands
+                          else Map.insert commandId (retriesLeft - 1, commands)) s.pendingRetries
+        -- This is why we save the commands in the map, instead of using
+        -- getCommandsInFlight: by the time we get to the rule where we can use
+        -- getCommandsInFlight, the association with commandId is gone.
+        queuedRetry = Some (commandId, commands)
 
   in trigger with updateState; rule
 
