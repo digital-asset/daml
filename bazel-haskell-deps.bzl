@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "9b6e7122516f9de9b0ba20cd37d59c58a4d634ec"
-GHCIDE_SHA256 = "e125fc97f35b418918cd29d4d70b36e46bde506d1669426d6802d8531fe3e9ac"
+GHCIDE_REV = "30860c8c175732bbc9652b8e6d7dafb354380227"
+GHCIDE_SHA256 = "94afc5a3eda790956187080445a76e56b16f2e77c8f5cb3cc3450b6dd019d40a"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
@@ -123,8 +123,8 @@ haskell_library(
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch",
         ],
         sha256 = GHCIDE_SHA256,
-        strip_prefix = "ghcide-%s" % GHCIDE_REV,
-        urls = ["https://github.com/digital-asset/ghcide/archive/%s.tar.gz" % GHCIDE_REV],
+        strip_prefix = "daml-ghcide-%s" % GHCIDE_REV,
+        urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
     )
 
     # The Bazel-provided grpc libs cause issues in GHCi so we get them from Nix on Linux and MacOS.
