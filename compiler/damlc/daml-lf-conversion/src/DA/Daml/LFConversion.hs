@@ -112,6 +112,7 @@ import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
 import           "ghc-lib-parser" TyCoRep
+import           "ghc-lib-parser" Class (FunDep, classHasFds)
 import qualified "ghc-lib-parser" Name
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
@@ -497,7 +498,9 @@ convertTypeSynonym env tycon
     = pure []
 
 convertClassDef :: Env -> TyCon -> ConvertM [Definition]
-convertClassDef env tycon = do
+convertClassDef env tycon
+    | Just cls <- tyConClass_maybe tycon
+    = do
     let con = tyConSingleDataCon tycon
         sanitize = (TUnit :->) -- DICTIONARY SANITIZATION step (1)
         labels = ctorLabels con
@@ -509,14 +512,48 @@ convertClassDef env tycon = do
     let fields = zipExact labels (map sanitize fieldTypes)
         tconName = mkTypeCon [getOccText tycon]
         tsynName = mkTypeSyn [getOccText tycon]
+        newStyle = envLfVersion env `supports` featureTypeSynonyms
+            -- "new-style typeclasses" are type synonyms
+            -- "old-style typeclasses" were record types
         typeDef
-            | envLfVersion env `supports` featureTypeSynonyms =
-              -- Structs must have > 0 fields, therefore we simply make a typeclass a synonym for Unit
-              -- if it has no fields
-              defTypeSyn tsynName tyVars (if null fields then TUnit else TStruct fields)
+            | newStyle =
+                -- LF structs must have > 0 fields, therefore we define the
+                -- typeclass as a synonym for Unit if it has no fields.
+                defTypeSyn tsynName tyVars (if null fields then TUnit else TStruct fields)
             | otherwise = defDataType tconName tyVars (DataRecord fields)
 
-    pure [typeDef]
+    let funDeps = snd (classTvsFds cls)
+    funDeps' <- mapM (mapFunDepM (convTypeVarName env')) funDeps
+
+    let funDepTyVars = [(v, KStar) | (v, _) <- tyVars]
+            -- We use the the type variables as types in the fundep encoding,
+            -- not as whatever kind they were previously defined.
+        funDepName = ExprValName ("$fd" <> getOccText tycon)
+        funDepType = TForalls funDepTyVars (encodeFunDeps funDeps')
+        funDepExpr = EBuiltin BEError `ETyApp` funDepType `ETmApp`
+            EBuiltin (BEText "undefined") -- We only care about the type, not the expr.
+        funDepDef = defValue tycon (funDepName, funDepType) funDepExpr
+
+    pure $ [typeDef] ++ [funDepDef | classHasFds cls && newStyle]
+        -- NOTE (SF): No reason to generate fundep metadata with old-style typeclasses,
+        -- since data-dependencies support for old-style typeclasses is extremely limited.
+
+mapFunDepM :: Monad m => (a -> m b) -> (FunDep a -> m (FunDep b))
+mapFunDepM f (a, b) = liftM2 (,) (mapM f a) (mapM f b)
+
+-- | Encode a list of functional dependencies as an LF type.
+encodeFunDeps :: [FunDep TypeVarName] -> LF.Type
+encodeFunDeps = encodeTypeList $ \(xs, ys) ->
+    encodeTypeList TVar xs :->
+    encodeTypeList TVar ys
+
+-- | Encode a list as an LF type. Given @'map' f xs == [y1, y2, ..., yn]@
+-- then @'encodeTypeList' f xs == { _1: y1, _2: y2, ..., _n: yn }@.
+encodeTypeList :: (t -> LF.Type) -> [t] -> LF.Type
+encodeTypeList f xs =
+    LF.TStruct $ zipWith
+        (\i x -> (mkField (T.pack ('_' : show @Int i)), f x))
+        [1..] xs
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
