@@ -16,10 +16,9 @@ target
 
 # Bazel
 .bazel-cache
-/bazel-bin
-/bazel-daml
-/bazel-out
-/bazel-testlogs
+/bazel-*
+!/bazel-haskell-deps.bzl
+!/bazel-java-deps.bzl
 /compatibility/bazel-*
 !/compatibility/bazel-haskell-deps.bzl
 /compatibility/.bazelrc
