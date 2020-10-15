@@ -55,10 +55,14 @@ trigger = Trigger with
   heartbeat = None
 
 data RetryState = RetryState
-  { pendingRetries : Map.Map CommandId Int
+  { pendingRetries : Map.Map CommandId (Int, [Command])
   }
 
 data Lens t a = Lens { getter : t -> a, setter : (a -> a) -> t -> t }
+
+infixr 9 @@
+(@@) : Lens h n -> Lens n a -> Lens h a
+hn @@ na = Lens (na.getter . hn.getter) (hn.setter . na.setter)
 
 _1 : Lens (a, b) a
 _1 = Lens fst (\f (a, b) -> (f a, b))
@@ -66,8 +70,15 @@ _1 = Lens fst (\f (a, b) -> (f a, b))
 _2 : Lens (a, b) b
 _2 = Lens snd (\f (a, b) -> (a, f b))
 
-getAt : (ActionState s m, Functor m) => Lens s a -> m a
-getAt Lens { getter } = getter <$> get
+pendingRetries' : Lens RetryState (Map.Map CommandId (Int, [Command]))
+pendingRetries' = Lens pendingRetries (\f s -> s { pendingRetries = f s.pendingRetries })
+
+infix 4 %=
+(%=) : ActionState s m => Lens s a -> (a -> a) -> m ()
+(%=) Lens { setter } = modify . setter
+
+use : (ActionState s m, Functor m) => Lens s a -> m a
+use Lens { getter } = getter <$> get
 
 bracketRetry : Int -> Lens s RetryState -> Trigger s -> Trigger s
 bracketRetry retries rs trigger =
