@@ -1,13 +1,13 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=115:16-115:31; Use dedup
--- @INFO range=301:9-301:23; Evaluate
--- @INFO range=316:37-316:47; Use sum
--- @INFO range=317:42-317:52; Use sum
--- @INFO range=318:28-318:38; Use sum
--- @INFO range=321:2-321:22; Use head
--- @INFO range=326:28-326:35; Use head
+-- @INFO range=115:17-115:32; Use dedup
+-- @INFO range=301:10-301:24; Evaluate
+-- @INFO range=316:38-316:48; Use sum
+-- @INFO range=317:43-317:53; Use sum
+-- @INFO range=318:29-318:39; Use sum
+-- @INFO range=321:3-321:23; Use head
+-- @INFO range=326:29-326:36; Use head
 
 module List where
 
