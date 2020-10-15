@@ -41,6 +41,9 @@ import eu.rekawek.toxiproxy._
 import scala.collection.concurrent.TrieMap
 import scala.util.Success
 
+/**
+ * A test-fixture that persists cookies between http requests for each test-case.
+ */
 trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
   private val cookieJar = TrieMap[String, String]()
 
@@ -49,6 +52,9 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
     finally cookieJar.clear()
   }
 
+  /**
+   * Adds a Cookie header for the currently stored cookies and performs the given http request.
+   */
   def httpRequest(request: HttpRequest)(
       implicit system: ActorSystem,
       ec: ExecutionContext): Future[HttpResponse] = {
@@ -74,6 +80,9 @@ trait HttpCookies extends BeforeAndAfterEach with StrictLogging { this: Suite =>
       }
   }
 
+  /**
+   * Same as [[httpRequest]] but will follow redirections.
+   */
   def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(
       implicit system: ActorSystem,
       ec: ExecutionContext): Future[HttpResponse] = {
