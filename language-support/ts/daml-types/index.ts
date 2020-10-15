@@ -120,7 +120,16 @@ export function lazyMemo<A>(mkDecoder: () => jtv.Decoder<A>): jtv.Decoder<A> {
 /**
  * The counterpart of DAML's `()` type.
  */
-export type Unit = {};
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface Unit {
+  // NOTE(MH): Although eslint claims that the empty interface and the type
+  // `{}` are equivalent, that's not true. The former does not extend
+  // `{[key: string]: string}` whereas the latter does. In other words,
+  // `Unit extends {[key: string]: string} ? true : false` is `false`,
+  // whereas `{} extends {[key: string]: string} ? true : false` is `true`.
+  // This might become important for defining a better version of the
+  // `Query<T>` type in @daml/ledger.
+}
 
 /**
  * Companion obect of the [[Unit]] type.
