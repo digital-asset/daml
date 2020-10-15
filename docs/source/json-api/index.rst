@@ -91,7 +91,12 @@ using.
 With Query Store
 ------------------
 
-To improve the performance of the JSON API you can configure it to use a PostgreSQL backend as a cache. This is particularly beneficial if your ACS changes only very little (compared to the whole ACS size) between queries. Note that the PostgreSQL backend acts purely as a cache. It is safe to reinitialize the database at any time.
+In production setups, you should configure the JSON API to use a
+PostgreSQL backend as a cache. The in-memory backend will call the
+ledger to fetch the entire active contract set for the templates in
+your query every time so it is generally not recommended to rely on
+this in production. Note that the PostgreSQL backend acts purely as a
+cache. It is safe to reinitialize the database at any time.
 
 To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
 
