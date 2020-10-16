@@ -156,7 +156,8 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       for {
         _ <- ledger.submit(aliceRequest)
         _ <- ledger.submit(bobRequest)
-        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == aliceCommandId))
+        _ <- WithTimeout(5.seconds)(
+          ledger.findCompletion(alice, bob)(_.commandId == aliceCommandId))
         _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == bobCommandId))
       } yield {
         // Nothing to do, if the two completions are found the test is passed
