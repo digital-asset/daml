@@ -123,8 +123,8 @@ object TriggerServiceFixture extends StrictLogging {
             .withAuthority(middleware.localAddress.getHostString, middleware.localAddress.getPort)
           cleanup = () =>
             for {
-              _ <- oauth.unbind()
               _ <- middleware.unbind()
+              _ <- oauth.unbind()
             } yield ()
         } yield (AuthMiddleware(middlewareUri), cleanup)
     }
