@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import java.util.UUID
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -151,15 +149,15 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
-      val a = UUID.randomUUID.toString
-      val b = UUID.randomUUID.toString
       val aliceRequest = ledger.submitRequest(alice, Dummy(alice).create.command)
       val bobRequest = ledger.submitRequest(bob, Dummy(bob).create.command)
+      val aliceCommandId = aliceRequest.getCommands.commandId
+      val bobCommandId = bobRequest.getCommands.commandId
       for {
-        _ <- ledger.submit(aliceRequest.update(_.commands.commandId := a))
-        _ <- ledger.submit(bobRequest.update(_.commands.commandId := b))
-        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == a))
-        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == b))
+        _ <- ledger.submit(aliceRequest)
+        _ <- ledger.submit(bobRequest)
+        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == aliceCommandId))
+        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == bobCommandId))
       } yield {
         // Nothing to do, if the two completions are found the test is passed
       }
