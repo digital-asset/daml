@@ -528,7 +528,7 @@ convertClassDef env tycon
     let funDepTyVars = [(v, KStar) | (v, _) <- tyVars]
             -- We use the the type variables as types in the fundep encoding,
             -- not as whatever kind they were previously defined.
-        funDepName = ExprValName ("$fd" <> getOccText tycon)
+        funDepName = ExprValName ("$$fd" <> getOccText tycon)
         funDepType = TForalls funDepTyVars (encodeFunDeps funDeps')
         funDepExpr = EBuiltin BEError `ETyApp` funDepType `ETmApp`
             EBuiltin (BEText "undefined") -- We only care about the type, not the expr.

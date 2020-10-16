@@ -578,13 +578,13 @@ topoSortDefValues m =
 
 simplifyTemplate :: Template -> Simplifier Template
 simplifyTemplate t = do
-    setFreshNamePrefix ("$sc_" <> T.intercalate "_" (unTypeConName (tplTypeCon t)) <> "_")
+    setFreshNamePrefix ("$$sc_" <> T.intercalate "_" (unTypeConName (tplTypeCon t)) <> "_")
     templateExpr simplifyExpr t
 
 simplifyModule :: World -> Version -> Module -> Module
 simplifyModule world version m = runSimplifier world version m $ do
     forM_ (topoSortDefValues m) $ \ dval -> do
-        setFreshNamePrefix ("$sc_" <> unExprValName (fst (dvalBinder dval)) <> "_")
+        setFreshNamePrefix ("$$sc_" <> unExprValName (fst (dvalBinder dval)) <> "_")
         body' <- simplifyExpr (dvalBody dval)
         addDefValue dval { dvalBody = body' }
     t' <- NM.traverse simplifyTemplate (moduleTemplates m)
@@ -596,5 +596,5 @@ runSimplifier sWorld sVersion m x =
     let sModule = m { moduleValues = NM.empty }
         sReserved = Set.fromList (NM.names (moduleValues m))
         sCache = Map.empty
-        sFreshNamePrefix = "$sc"
+        sFreshNamePrefix = "$$sc"
     in evalState x SimplifierState {..}
