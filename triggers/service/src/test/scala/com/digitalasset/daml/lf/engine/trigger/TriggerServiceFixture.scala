@@ -49,6 +49,13 @@ import scala.concurrent._
 import scala.concurrent.duration._
 import scala.sys.process.Process
 
+private[trigger] final case class AuthTestConfig(
+    // HMAC256 signature secret.
+    jwtSecret: String,
+    // Grant readAs claims for these parties to the ledger client provided to test cases.
+    parties: List[ApiTypes.Party],
+)
+
 object TriggerServiceFixture extends StrictLogging {
 
   // Use a small initial interval so we can test restart behaviour more easily.
