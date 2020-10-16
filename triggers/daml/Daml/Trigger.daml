@@ -5,6 +5,8 @@
 
 module Daml.Trigger
  ( query
+ , queryContractId
+ , queryContractKey
  , ActionTriggerAny
  , Trigger(..)
  , TriggerA
@@ -70,6 +72,16 @@ getContracts (ACS tpls pending) = mapOptional fromAny
 -- | Extract the contracts of a given template from the ACS.
 query : forall a m. (Template a, ActionTriggerAny m) => m [(ContractId a, a)]
 query = implQuery
+
+-- | Find the contract with the given `id` in the ACS, if present.
+queryContractId : forall a m. (Template a, ActionTriggerAny m, Functor m)
+    => ContractId a -> m (Optional a)
+queryContractId id = fmap snd . find (\(id', _) -> id == id') <$> query
+
+-- | Find the contract with the given `key` in the ACS, if present.
+queryContractKey : forall a k m. (Template a, HasKey a k, Eq k, ActionTriggerAny m, Functor m)
+    => k -> m (Optional (ContractId a, a))
+queryContractKey k = find (\(_, a) -> k == key a) <$> query
 
 instance ActionTriggerAny (TriggerA s) where
   implQuery = TriggerA $ pure . getContracts
