@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import java.util.UUID
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertGrpcError, assertSingleton}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -119,7 +117,7 @@ final class CommandDeduplicationIT(ledgerTimeInterval: ScalaDuration) extends Le
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
-      val key = UUID.randomUUID().toString
+      val key = ledger.nextKeyId()
 
       for {
         // Create a helper and a text key

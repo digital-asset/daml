@@ -123,6 +123,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     Identification.indexSuffix(s"$identifierPrefix-command")
   private[this] val nextSubmissionId: () => String =
     Identification.indexSuffix(s"$identifierPrefix-submission")
+  val nextKeyId: () => String =
+    Identification.indexSuffix(s"$identifierPrefix-key")
 
   /**
     * Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need

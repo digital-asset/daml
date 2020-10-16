@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import java.util.UUID
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -29,7 +27,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
-      val key = s"${UUID.randomUUID.toString}-key"
+      val key = alpha.nextKeyId()
       for {
         // create contracts to work with
         delegated <- alpha.create(owner, Delegated(owner, key))
@@ -68,7 +66,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
-      val key = s"${UUID.randomUUID.toString}-key"
+      val key = alpha.nextKeyId()
       for {
         // create contracts to work with
         delegated <- alpha.create(owner, Delegated(owner, key))
@@ -111,10 +109,9 @@ final class ContractKeysIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
-      val keyPrefix = UUID.randomUUID.toString
-      val key1 = s"$keyPrefix-some-key"
-      val key2 = s"$keyPrefix-some-other-key"
-      val unknownKey = s"$keyPrefix-unknown-key"
+      val key1 = alpha.nextKeyId()
+      val key2 = alpha.nextKeyId()
+      val unknownKey = alpha.nextKeyId()
 
       for {
         // create contracts to work with
@@ -191,7 +188,7 @@ final class ContractKeysIT extends LedgerTestSuite {
   test("CKRecreate", "Contract keys can be recreated in single transaction", allocate(SingleParty))(
     implicit ec => {
       case Participants(Participant(ledger, owner)) =>
-        val key = s"${UUID.randomUUID.toString}-key"
+        val key = ledger.nextKeyId()
         for {
           delegated1TxTree <- ledger
             .submitAndWaitForTransactionTree(
@@ -222,8 +219,8 @@ final class ContractKeysIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, owner)) =>
-      val key = s"${UUID.randomUUID.toString}-key"
-      val key2 = s"${UUID.randomUUID.toString}-key"
+      val key = ledger.nextKeyId()
+      val key2 = ledger.nextKeyId()
 
       for {
         delegation <- ledger.create(owner, Delegation(owner, owner))
@@ -250,7 +247,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
-      val expectedKey = "some-fancy-key"
+      val expectedKey = ledger.nextKeyId()
       for {
         _ <- ledger.create(party, TextKey(party, expectedKey, List.empty))
         transactions <- ledger.flatTransactions(party)
@@ -273,7 +270,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
-      val keyString = UUID.randomUUID.toString
+      val keyString = ledger.nextKeyId()
       val expectedKey = Value(
         Value.Sum.Record(
           Record(
