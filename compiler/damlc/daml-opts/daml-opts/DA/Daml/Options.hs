@@ -279,6 +279,9 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     PartialTypeSignatures
     -- needed for script and triggers
   , ApplicativeDo
+    -- used in daml-stdlib and triggers and a very reasonable
+    -- extension in general in the presence of TypeApplications
+  , AllowAmbiguousTypes
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation
