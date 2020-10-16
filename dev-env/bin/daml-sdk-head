@@ -20,6 +20,7 @@ NUKE=0
 PROFILING=0
 SKIP_JARS=0
 JUST_DAMLC=0
+SHA=0
 for opt in "$@"; do
   case "$opt" in
     "--nuke")
@@ -34,6 +35,9 @@ for opt in "$@"; do
     "--damlc")
       JUST_DAMLC=1
       ;;
+    "--sha")
+      SHA=1
+      ;;
     *)
       echo "Unknown option: $opt"
       echo "Available options:"
@@ -41,6 +45,8 @@ for opt in "$@"; do
       echo "  --profiling  Build Haskell executables with profiling enabled."
       echo "  --skip-jars  Skip building and installing the JARs."
       echo "  --damlc  Update damlc only, if daml-head is already installed."
+      echo "  --sha Include SHA information in version number."
+
       exit 1
   esac
 done
@@ -58,7 +64,21 @@ if [[ -d "$DAML_HOME" && "$NUKE" -ne 0 ]]; then
   rm -rf "$DAML_HOME"
 fi
 
-readonly DAML_HEAD_SDK="$DAML_HOME/sdk/0.0.0"
+sha_version() {
+    local dirty date nr sha8
+    dirty=$([[ -z $(git status -s) ]] && echo clean || echo dirty)
+    date=$(git log -n1 --format=%cd --date=format:%Y%m%d HEAD)
+    nr=$(git rev-list --count HEAD)
+    sha8=$(git log -n1 --format=%h --abbrev=8 HEAD)
+    echo "0.0.0-head.${dirty}.${date}.${nr}.${sha8}"
+}
+if [ $SHA = 0 ]; then
+    export DAML_SDK_RELEASE_VERSION=0.0.0
+else
+    export DAML_SDK_RELEASE_VERSION=$(sha_version)
+fi
+
+readonly DAML_HEAD_SDK="$DAML_HOME/sdk/$DAML_SDK_RELEASE_VERSION"
 if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -eq 0 ]]; then
   echo "$(tput setaf 3)Removing existing daml-head installation.$(tput sgr 0)"
   rm -f "${DAML_HOME}/bin/daml-head"
@@ -69,11 +89,11 @@ fi
 if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -ne 0 ]]; then
   # daml-head is installed, so just replace damlc
   echo "$(tput setaf 3)Existing daml-head installation found."
-  echo "Building damlc version 0.0.0, this may take a while ...$(tput sgr 0)"
+  echo "Building damlc version $DAML_SDK_RELEASE_VERSION, this may take a while ...$(tput sgr 0)"
   echo ""
 
   function cleanup() {
-    echo "damlc 0.0.0 failed to build/install - if you need help ask on #product-daml"
+    echo "damlc $DAML_SDK_RELEASE_VERSION failed to build/install; if you need help ask on https://discuss.daml.com"
     echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
   }
   trap cleanup EXIT
@@ -87,15 +107,15 @@ if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -ne 0 ]]; then
   tar xzf "$TARBALL" -C "${DAML_HEAD_SDK}/damlc" --strip-components 1
 
   trap - EXIT
-  echo "$(tput setaf 3)Done installing damlc 0.0.0$(tput sgr 0)"
+  echo "$(tput setaf 3)Done installing damlc $DAML_SDK_RELEASE_VERSION$(tput sgr 0)"
   exit 0
 fi
 
-echo "$(tput setaf 3)Building version 0.0.0 - this may take a while ...$(tput sgr 0)"
+echo "$(tput setaf 3)Building version $DAML_SDK_RELEASE_VERSION - this may take a while ...$(tput sgr 0)"
 echo ""
 
 function cleanup() {
-  echo "SDK 0.0.0 failed to build/install - if you need help ask on"
+  echo "SDK $DAML_SDK_RELEASE_VERSION failed to build/install - if you need help ask on"
   echo "https://discuss.daml.com"
   echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
 
@@ -117,7 +137,7 @@ tar xzf "$TARBALL" -C "$SDK_DIR" --strip-components 1
 
 readonly DAML_CMD="$(command -v daml)"
 if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]]; then
-  # A daml installation already exists, so just install SDK version 0.0.0.
+  # A daml installation already exists, so just install SDK version $DAML_SDK_RELEASE_VERSION.
   "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force
 else
   # No daml installation detected, so install the tarball normally but disable auto-install.
@@ -131,15 +151,15 @@ fi
 
 cat > "${DAML_HOME}/bin/daml-head" << EOF
 #!/bin/sh
-exec env DAML_SDK_VERSION=0.0.0 "${DAML_HEAD_SDK}/daml/daml" "\$@"
+exec env DAML_SDK_VERSION=$DAML_SDK_RELEASE_VERSION "${DAML_HEAD_SDK}/daml/daml" "\$@"
 EOF
 chmod +x "${DAML_HOME}/bin/daml-head"
 
 trap - EXIT
-echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
+echo "$(tput setaf 3)Successfully installed daml-head command pointing to $DAML_SDK_RELEASE_VERSION.$(tput sgr 0)"
 
 if [[ "$SKIP_JARS" -eq 0 ]]; then
-    echo "$(tput setaf 3)Installing JARs as 0.0.0...$(tput sgr 0)"
+    echo "$(tput setaf 3)Installing JARs as $DAML_SDK_RELEASE_VERSION...$(tput sgr 0)"
 
     function cleanup() {
       echo "$(tput setaf 3)FAILED TO INSTALL JARS! $(tput sgr 0)"
@@ -152,5 +172,5 @@ if [[ "$SKIP_JARS" -eq 0 ]]; then
 
     trap - EXIT
 
-    echo "$(tput setaf 3)Done installing JARs as 0.0.0.$(tput sgr 0)"
+    echo "$(tput setaf 3)Done installing JARs as $DAML_SDK_RELEASE_VERSION.$(tput sgr 0)"
 fi
