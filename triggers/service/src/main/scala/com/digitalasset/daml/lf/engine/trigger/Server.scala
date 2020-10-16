@@ -21,22 +21,12 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import com.daml.oauth.middleware.{
-  JsonProtocol => AuthJsonProtocol,
-  Request => AuthRequest,
-  Response => AuthResponse
-}
+import com.daml.oauth.middleware.{JsonProtocol => AuthJsonProtocol, Request => AuthRequest, Response => AuthResponse}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.{
-  ConcurrentCompiledPackages,
-  MutableCompiledPackages,
-  Result,
-  ResultDone,
-  ResultNeedPackage
-}
+import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
 import com.daml.lf.engine.trigger.dao._
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.lf.engine.trigger.Response._
@@ -187,89 +177,90 @@ class Server(
     triggerLog.getOrDefault(uuid, Vector.empty)
 
   // TODO[AH] Make sure this is bounded in size.
-  private val authRequests: TrieMap[UUID, HttpRequest] = TrieMap()
+  private val authCallbacks: TrieMap[UUID, Route] = TrieMap()
 
   // This directive requires authorization for the given claims via the auth middleware, if configured.
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
   //
   // Authorization follows the steps defined in `triggers/service/authentication.md`.
   // First asking for a token on the `/auth` endpoint and redirecting to `/login` if none was returned.
-  // If a login is required then this will store the current request in `authRequests`
-  // and register a callback to proceed with the request once the login flow completed.
-  private def authorize(claims: AuthRequest.Claims, isReplay: Boolean)(
+  // If a login is required then this will store the current continuation in `authCallbacks`
+  // to proceed once the login flow completed and authentication succeeded.
+  private def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[String]] = Directive { inner => ctx =>
+      system: ActorSystem): Directive1[Option[String]] =
     authConfig match {
-      case NoAuth => inner(Tuple1(None))(ctx)
+      case NoAuth => provide(None)
       case AuthMiddleware(authUri) =>
-        val uri = authUri
-          .withPath(Path./("auth"))
-          .withQuery(AuthRequest.Auth(claims).toQuery)
-        // forward cookies
-        val cookies = ctx.request.header[headers.Cookie]
-        val req = HttpRequest(uri = uri, headers = cookies.toList)
-        import AuthJsonProtocol._
-        for {
-          resp <- Http().singleRequest(req)
-          result <- resp.status match {
-            case StatusCodes.OK =>
-              Unmarshal(resp).to[AuthResponse.Authorize].flatMap { auth =>
-                inner(Tuple1(Some(auth.accessToken)))(ctx)
-              }
-            case StatusCodes.Unauthorized if isReplay =>
-              // TODO[AH] Add WWW-Authenticate header
-              ctx.complete(errorResponse(StatusCodes.Unauthorized))
-            case StatusCodes.Unauthorized =>
-              val requestId = UUID.randomUUID
-              authRequests.update(requestId, ctx.request)
+        // Attempt to obtain the access token from the middleware's /auth endpoint.
+        // Forwards the current request's cookies.
+        // Fails if the response is not OK or Unauthorized.
+        def auth: Directive1[Option[String]] = {
+          val uri = authUri
+            .withPath(Path./("auth"))
+            .withQuery(AuthRequest.Auth(claims).toQuery)
+          import AuthJsonProtocol._
+          extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
+            onSuccess(Http().singleRequest(HttpRequest(uri = uri, headers = cookies))).flatMap {
+              case HttpResponse(StatusCodes.OK, _, entity, _) =>
+                onSuccess(Unmarshal(entity).to[AuthResponse.Authorize]).map { auth =>
+                  Some(auth.accessToken): Option[String]
+                }
+              case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
+                provide(None)
+              case resp @ HttpResponse(code, _, _, _) =>
+                onSuccess(Unmarshal(resp).to[String]).flatMap { msg =>
+                  logger.error(s"Failed to authorize with middleware ($code): $msg")
+                  complete(
+                    errorResponse(
+                      StatusCodes.InternalServerError,
+                      "Failed to authorize with middleware"))
+                }
+            }
+          }
+        }
+        Directive { inner =>
+          auth {
+            // Authorization successful - pass token to continuation
+            case Some(token) => inner(Tuple1(Some(token)))
+            // Authorization failed - login and retry on callback request.
+            case None => { ctx =>
+              val requestId = UUID.randomUUID()
+              authCallbacks.update(requestId, {
+                auth {
+                  case None => {
+                    // Authorization failed after login - respond with 401
+                    // TODO[AH] Add WWW-Authenticate header
+                    complete(errorResponse(StatusCodes.Unauthorized))
+                  }
+                  case Some(token) =>
+                    // Authorization successful after login - use old request context and pass token to continuation.
+                    mapRequestContext(_ => ctx) {
+                      inner(Tuple1(Some(token)))
+                    }
+                }
+              })
+              // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
+              val callbackUri = Uri()
+                .withScheme(ctx.request.uri.scheme)
+                .withAuthority(ctx.request.uri.authority)
+                .withPath(Path./("cb"))
               val uri = authUri
                 .withPath(Path./("login"))
-                .withQuery(
-                  AuthRequest
-                    .Login(
-                      // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
-                      Uri()
-                        .withScheme(ctx.request.uri.scheme)
-                        .withAuthority(ctx.request.uri.authority)
-                        .withPath(Path./("cb")),
-                      claims,
-                      Some(requestId.toString),
-                    )
-                    .toQuery)
+                .withQuery(AuthRequest.Login(callbackUri, claims, Some(requestId.toString)).toQuery)
               ctx.redirect(uri, StatusCodes.Found)
-            case statusCode =>
-              Unmarshal(resp).to[String].flatMap { msg =>
-                logger.error(s"Failed to authorize with middleware ($statusCode): $msg")
-                ctx.complete(
-                  errorResponse(
-                    StatusCodes.InternalServerError,
-                    "Failed to authorize with middleware"))
-              }
+            }
           }
-        } yield result
-    }
-  }
-
-  private def authCallback(
-      requestId: UUID)(implicit ec: ExecutionContext, system: ActorSystem): Route = ctx => {
-    authRequests.remove(requestId) match {
-      case None => complete(StatusCodes.NotFound)(ctx)
-      case Some(req) =>
-        // Replay the stored request forwarding any new cookies.
-        val cookies = ctx.request.cookies
-        val newRequest = if (cookies.nonEmpty) {
-          req.mapHeaders(_.filterNot(_.isInstanceOf[headers.Cookie]) :+ headers.Cookie(cookies))
-        } else {
-          req
         }
-        val newCtx = ctx
-          .withRequest(newRequest)
-          .withUnmatchedPath(newRequest.uri.path)
-        route(isReplay = true)(ec, system)(newCtx)
     }
-  }
 
-  private def route(isReplay: Boolean = false)(implicit ec: ExecutionContext, system: ActorSystem) = concat(
+  private def authCallback(requestId: UUID): Route =
+    authCallbacks.remove(requestId) match {
+      case None => complete(StatusCodes.NotFound)
+      case Some(callback) => callback
+    }
+
+  private def route(implicit ec: ExecutionContext, system: ActorSystem) = concat(
     post {
       concat(
         // Start a new trigger given its identifier and the party it
@@ -281,7 +272,7 @@ class Server(
               val claims =
                 AuthRequest.Claims(actAs = List(params.party))
               // TODO[AH] Why do we need to pass ec, system explicitly?
-              authorize(claims, isReplay)(ec, system) { token =>
+              authorize(claims)(ec, system) { token =>
                 startTrigger(params.party, params.triggerName, token) match {
                   case Left(err) =>
                     complete(errorResponse(StatusCodes.UnprocessableEntity, err))
@@ -539,7 +530,7 @@ object Server {
 
     // The server binding is a future that on completion will be piped
     // to a message to this actor.
-    val serverBinding = Http().bindAndHandle(Route.handlerFlow(server.route()), host, port)
+    val serverBinding = Http().bindAndHandle(Route.handlerFlow(server.route), host, port)
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)
       case Failure(ex) => StartFailed(ex)
