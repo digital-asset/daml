@@ -114,17 +114,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
     */
   val end: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+  
+  private[this] def nextId(idType: String): () => String =
+    Identification.indexSuffix(s"$applicationId-$endpointId-$identifierSuffix-$idType")
 
-  private[this] val identifierPrefix = s"$applicationId-$endpointId-$identifierSuffix"
-
-  private[this] val nextPartyHintId: () => String =
-    Identification.indexSuffix(s"$identifierPrefix-party")
-  private[this] val nextCommandId: () => String =
-    Identification.indexSuffix(s"$identifierPrefix-command")
-  private[this] val nextSubmissionId: () => String =
-    Identification.indexSuffix(s"$identifierPrefix-submission")
-  val nextKeyId: () => String =
-    Identification.indexSuffix(s"$identifierPrefix-key")
+  private[this] val nextPartyHintId: () => String = nextId("party")
+  private[this] val nextCommandId: () => String = nextId("command")
+  private[this] val nextSubmissionId: () => String = nextId("submission")
+  val nextKeyId: () => String = nextId("key")
 
   /**
     * Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
