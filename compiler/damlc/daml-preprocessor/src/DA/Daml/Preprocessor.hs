@@ -281,7 +281,7 @@ checkImportsWrtDataDependencies x =
     warning = unlines
         [ "Modules importing DA.Generics do not work with data-dependencies."
         , "This will prevent the whole package from being extensible or upgradable"
-        , "using other versionsof the SDK. Use DA.Generics at your own risk."
+        , "using other versions of the SDK. Use DA.Generics at your own risk."
         ]
 
 -- Extract all data constructors with their locations
