@@ -21,12 +21,22 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import com.daml.oauth.middleware.{JsonProtocol => AuthJsonProtocol, Request => AuthRequest, Response => AuthResponse}
+import com.daml.oauth.middleware.{
+  JsonProtocol => AuthJsonProtocol,
+  Request => AuthRequest,
+  Response => AuthResponse
+}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
+import com.daml.lf.engine.{
+  ConcurrentCompiledPackages,
+  MutableCompiledPackages,
+  Result,
+  ResultDone,
+  ResultNeedPackage
+}
 import com.daml.lf.engine.trigger.dao._
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.lf.engine.trigger.Response._
@@ -226,20 +236,22 @@ class Server(
             // Authorization failed - login and retry on callback request.
             case None => { ctx =>
               val requestId = UUID.randomUUID()
-              authCallbacks.update(requestId, {
-                auth {
-                  case None => {
-                    // Authorization failed after login - respond with 401
-                    // TODO[AH] Add WWW-Authenticate header
-                    complete(errorResponse(StatusCodes.Unauthorized))
-                  }
-                  case Some(token) =>
-                    // Authorization successful after login - use old request context and pass token to continuation.
-                    mapRequestContext(_ => ctx) {
-                      inner(Tuple1(Some(token)))
+              authCallbacks.update(
+                requestId, {
+                  auth {
+                    case None => {
+                      // Authorization failed after login - respond with 401
+                      // TODO[AH] Add WWW-Authenticate header
+                      complete(errorResponse(StatusCodes.Unauthorized))
                     }
+                    case Some(token) =>
+                      // Authorization successful after login - use old request context and pass token to continuation.
+                      mapRequestContext(_ => ctx) {
+                        inner(Tuple1(Some(token)))
+                      }
+                  }
                 }
-              })
+              )
               // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
               val callbackUri = Uri()
                 .withScheme(ctx.request.uri.scheme)
