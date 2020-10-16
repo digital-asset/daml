@@ -114,9 +114,10 @@ private[testtool] final class ParticipantTestContext private[participant] (
     */
   val end: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
-  
+
+  private[this] val identifierPrefix = s"$applicationId-$endpointId-$identifierSuffix"
   private[this] def nextId(idType: String): () => String =
-    Identification.indexSuffix(s"$applicationId-$endpointId-$identifierSuffix-$idType")
+    Identification.indexSuffix(s"$identifierPrefix-$idType")
 
   private[this] val nextPartyHintId: () => String = nextId("party")
   private[this] val nextCommandId: () => String = nextId("command")
