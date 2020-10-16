@@ -40,8 +40,10 @@ module Daml.Trigger
  , RelTime(..)
  ) where
 
+import Prelude hiding (any)
 import DA.Action
 import DA.Action.State (execState)
+import DA.Foldable (any)
 import DA.Functor ((<&>))
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import qualified DA.Map as GMap
@@ -69,14 +71,21 @@ getContracts (ACS tpls pending) = mapOptional fromAny
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
     allPending = concatMap snd $ Map.toList pending
 
+getContractById : forall a. Template a => ACS -> ContractId a -> Optional a
+getContractById (ACS tpls pending) id = do
+  let aid = toAnyContractId id
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+      implSpecific = GMap.lookup aid <=< GMap.lookup (templateTypeRep @a)
+#else
+      implSpecific = fmap snd . find ((aid ==) . fst)
+#endif
+  aa <- implSpecific tpls
+  a <- fromAnyTemplate aa
+  if any (elem aid) pending then None else Some a
+
 -- | Extract the contracts of a given template from the ACS.
 query : forall a m. (Template a, ActionTriggerAny m) => m [(ContractId a, a)]
 query = implQuery
-
--- | Find the contract with the given `id` in the ACS, if present.
-queryContractId : forall a m. (Template a, ActionTriggerAny m, Functor m)
-    => ContractId a -> m (Optional a)
-queryContractId id = fmap snd . find (\(id', _) -> id == id') <$> query
 
 -- | Find the contract with the given `key` in the ACS, if present.
 queryContractKey : forall a k m. (Template a, HasKey a k, Eq k, ActionTriggerAny m, Functor m)
@@ -85,12 +94,15 @@ queryContractKey k = find (\(_, a) -> k == key a) <$> query
 
 instance ActionTriggerAny (TriggerA s) where
   implQuery = TriggerA $ pure . getContracts
+  queryContractId id = TriggerA $ pure . flip getContractById id
 
 instance ActionTriggerAny (TriggerUpdateA s) where
   implQuery = TriggerUpdateA $ pure . getContracts
+  queryContractId id = TriggerUpdateA $ pure . flip getContractById id
 
 instance ActionTriggerAny TriggerInitializeA where
   implQuery = TriggerInitializeA getContracts
+  queryContractId = TriggerInitializeA . flip getContractById
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.

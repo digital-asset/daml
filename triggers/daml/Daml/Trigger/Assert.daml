@@ -17,8 +17,8 @@ import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 import qualified DA.Text as Text
 
-import Daml.Trigger
-import Daml.Trigger.Internal
+import Daml.Trigger hiding (queryContractId)
+import Daml.Trigger.Internal hiding (queryContractId)
 import Daml.Trigger.LowLevel hiding (Trigger)
 
 import Daml.Script (Script, queryContractId)
