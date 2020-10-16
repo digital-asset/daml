@@ -5,7 +5,7 @@
   {% if (theme_prev_next_buttons_location == 'bottom' or theme_prev_next_buttons_location == 'both') and (next or prev) %}
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       {% if next %}
-        <a href="{{ next.link|e }}" class="btn btn-neutral float-right btn-next" title="{{ next.title|striptags|e }}" accesskey="n" rel="next">{{ _('Next') }} <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="{{ next.link|e }}" class="btn btn-neutral btn-next" title="{{ next.title|striptags|e }}" accesskey="n" rel="next">{{ _('Next') }} <span class="fa fa-arrow-circle-right"></span></a>
       {% endif %}
       {% if prev %}
         <a href="{{ prev.link|e }}" class="btn btn-neutral float-left btn-prev" title="{{ prev.title|striptags|e }}" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> {{ _('Previous') }}</a>
@@ -52,4 +52,3 @@
   {%- block extrafooter %} {% endblock %}
 
 </footer>
-
