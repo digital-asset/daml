@@ -19,15 +19,19 @@ import scalaz.{Equal, Order}
 final case class Struct[+X] private (private val sortedFields: ImmArray[(Ref.Name, X)])
     extends NoCopy {
 
-  /** O(n) */
+  private val index: Map[Name, Int] = sortedFields.indices.view
+    .map(i => sortedFields(i)._1 -> i)
+    .toMap
+
+  /** O(1) */
   @throws[IndexOutOfBoundsException]
   def apply(name: Ref.Name): X = sortedFields(indexOf(name))._2
 
-  /** O(n) */
-  def indexOf(name: Ref.Name): Int = sortedFields.indexWhere(_._1 == name)
+  /** O(1) */
+  def indexOf(name: Ref.Name): Int = index.getOrElse(name, -1)
 
-  /** O(n) */
-  def lookup(name: Ref.Name): Option[X] = sortedFields.find(_._1 == name).map(_._2)
+  /** O(1) */
+  def lookup(name: Ref.Name): Option[X] = index.get(name).map(x => sortedFields(x)._2)
 
   /** O(n) */
   def mapValues[Y](f: X => Y) = new Struct(sortedFields.map { case (k, v) => k -> f(v) })
@@ -100,7 +104,7 @@ object Struct {
     // following daml-lf specification, this considers first names, then values.
     orderBy(
       s => (toIterableForScalazInstances(s.names), toIterableForScalazInstances(s.values)),
-      true,
+      inductiveNaturalEqual = true,
     )
 
 }

@@ -8,7 +8,8 @@ import org.scalatest.{Matchers, WordSpec}
 
 class StructSpec extends WordSpec with Matchers with PropertyChecks {
 
-  private[this] val List(f1, f2, f3) = List("f1", "f2", "f3").map(Ref.Name.assertFromString)
+  private[this] val List(f1, f2, f3, f4) =
+    List("f1", "f2", "f3", "f4").map(Ref.Name.assertFromString)
 
   "SortMap.toSeq" should {
 
@@ -95,4 +96,34 @@ class StructSpec extends WordSpec with Matchers with PropertyChecks {
     }
   }
 
+  "Struct.indexOf" should {
+    "work for empty" in {
+      struct().indexOf(f1) shouldBe -1
+    }
+
+    "work for one" in {
+      struct(f1 -> 1).indexOf(f1) shouldBe 0
+      struct(f1 -> 1).indexOf(f2) shouldBe -1
+    }
+
+    "work for many" in {
+      val s = struct(f1 -> 1, f2 -> 2, f3 -> 3)
+      s.indexOf(f1) shouldBe 0
+      s.indexOf(f2) shouldBe 1
+      s.indexOf(f3) shouldBe 2
+      s.indexOf(f4) shouldBe -1
+    }
+  }
+
+  "Struct.lookup" should {
+    "return None if not found" in {
+      struct(f1 -> 1).lookup(f2) shouldBe None
+    }
+
+    "should lookup successfully" in {
+      struct(f1 -> 1).lookup(f1) shouldBe Some(1)
+    }
+  }
+
+  def struct(ps: (Ref.Name, Int)*): Struct[Int] = Struct.assertFromSeq(ps.toList)
 }
