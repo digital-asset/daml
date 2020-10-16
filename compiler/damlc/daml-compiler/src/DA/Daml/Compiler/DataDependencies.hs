@@ -332,7 +332,7 @@ generateSrcFromLf env = noLoc mod
                 , tcdLName = noLoc $ mkRdrUnqual occName
                 , tcdTyVars = HsQTvs noExt params
                 , tcdFixity = Prefix
-                , tcdFDs = [] -- can't reconstruct fundeps without LF annotations
+                , tcdFDs = mkFunDeps name
                 , tcdSigs =
                     [ mkOpSig False name ty | (name, ty) <- methods ] ++
                     [ mkOpSig True  name ty | (name, ty, _) <- defaultMethods ]
@@ -348,6 +348,39 @@ generateSrcFromLf env = noLoc mod
             noLoc $ ClassOpSig noExt isDefault
                     [mkRdrName methodName]
                     (HsIB noExt (noLoc methodType))
+
+        mkFunDeps :: T.Text -> [LHsFunDep GhcPs]
+        mkFunDeps className = fromMaybe [] $ do
+            let values = LF.moduleValues (envMod env)
+            LF.DefValue{..} <- NM.lookup (funDepName className) values
+            LF.TForalls _ ty <- pure (snd dvalBinder)
+            decodeTypeList decodeFunDep ty
+
+        decodeFunDep :: LF.Type -> Maybe (LHsFunDep GhcPs)
+        decodeFunDep ty = do
+            (left LF.:-> right) <- pure ty
+            left' <- decodeTypeList decodeTypeVar left
+            right' <- decodeTypeList decodeTypeVar right
+            pure (noLoc (left', right'))
+
+        decodeTypeVar :: LF.Type -> Maybe (Located RdrName)
+        decodeTypeVar ty = do
+            LF.TVar (LF.TypeVarName x) <- pure ty
+            pure (mkRdrName x)
+
+        decodeTypeList :: (LF.Type -> Maybe t) -> LF.Type -> Maybe [t]
+        decodeTypeList f ty = do
+            LF.TStruct fields <- pure ty
+            pairs <- sortOn fst <$> mapM (decodeTypeListField f) fields
+            guard (map fst pairs == [1 .. length pairs])
+            pure (map snd pairs)
+
+        decodeTypeListField :: (LF.Type -> Maybe t) -> (LF.FieldName, LF.Type) -> Maybe (Int, t)
+        decodeTypeListField f (LF.FieldName fieldName, x) = do
+            suffix <- T.stripPrefix "_" fieldName
+            i <- readMay (T.unpack suffix)
+            y <- f x
+            pure (i, y)
 
     synonymDecls :: [Gen (LHsDecl GhcPs)]
     synonymDecls = do
@@ -1082,6 +1115,9 @@ isSuperClassField (LF.FieldName fieldName) =
 
 defaultMethodName :: T.Text -> LF.ExprValName
 defaultMethodName name = LF.ExprValName ("$dm" <> name)
+
+funDepName :: T.Text -> LF.ExprValName
+funDepName x = LF.ExprValName ("$$fd" <> x)
 
 -- | Signature data for a dictionary function.
 data DFunSig = DFunSig
