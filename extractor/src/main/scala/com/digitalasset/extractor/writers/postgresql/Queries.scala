@@ -10,6 +10,9 @@ import com.daml.extractor.Types._
 import com.daml.extractor.ledger.types._
 import doobie._
 import doobie.implicits._
+// legacy versions required for postgres see https://github.com/tpolecat/doobie/releases/tag/v0.8.8
+import doobie.implicits.legacy.instant._
+import doobie.implicits.legacy.localdate._
 import java.time.{Instant, LocalDate}
 
 import scalaz._
@@ -240,13 +243,13 @@ object Queries {
         isRoot: Boolean): Fragment = {
       // using `DEFAULT`s so there's no need to explicitly list field names (which btw aren't available in the event)
       val baseColumns = List(
-        Fragment("?", event.eventId), // _event_id
+        fr0"${event.eventId}", // _event_id
         Fragment.const("DEFAULT"), // _archived_by_event_id
-        Fragment("?", event.contractId), // _contract_id
-        Fragment("?", transactionId), // _transaction_id
+        fr0"${event.contractId}", // _contract_id
+        fr0"${transactionId}", // _transaction_id
         Fragment.const("DEFAULT"), // _archived_by_transaction_id
         Fragment.const(if (isRoot) "TRUE" else "FALSE"), // _is_root_event
-        Fragment("?::jsonb", toJsonString(event.stakeholders)) // _stakeholders
+        fr0"${toJsonString(event.stakeholders)}::jsonb" // _stakeholders
       )
 
       val contractArgColumns = event.createArguments.fields.map {
@@ -277,34 +280,34 @@ object Queries {
         case V.ValueBool(value) =>
           Fragment.const(if (value) "TRUE" else "FALSE")
         case r @ V.ValueRecord(_, _) =>
-          Fragment("?::jsonb", toJsonString(r))
+          fr0"${toJsonString(r)}::jsonb"
         case v @ V.ValueVariant(_, _, _) =>
-          Fragment("?::jsonb", toJsonString(v))
+          fr0"${toJsonString(v)}::jsonb"
         case V.ValueEnum(_, constructor) =>
-          Fragment("?", constructor: String)
+          fr0"${constructor: String}"
         case o @ V.ValueOptional(_) =>
-          Fragment("?::jsonb", toJsonString(o))
-        case V.ValueContractId(value) => Fragment("?", value)
+          fr0"${toJsonString(o)}::jsonb"
+        case V.ValueContractId(value) => fr0"${value}"
         case l @ V.ValueList(_) =>
-          Fragment("?::jsonb", toJsonString(l))
+          fr0"${toJsonString(l)}::jsonb"
         case V.ValueInt64(value) =>
-          Fragment("?", value)
+          fr0"${value}"
         case V.ValueNumeric(value) =>
-          Fragment(s"?::numeric(38,${value.scale})", value: BigDecimal)
+          fr0"${value: BigDecimal}::numeric(38,${value.scale})"
         case V.ValueText(value) =>
-          Fragment("?", value)
+          fr0"${value}"
         case ts @ V.ValueTimestamp(_) =>
-          Fragment("?", ts)
+          fr0"${ts}"
         case V.ValueParty(value) =>
-          Fragment("?", value: String)
+          fr0"${value: String}"
         case V.ValueUnit =>
           Fragment.const("FALSE")
         case V.ValueDate(LfTime.Date(days)) =>
-          Fragment("?", LocalDate.ofEpochDay(days.toLong))
+          fr0"${LocalDate.ofEpochDay(days.toLong)}"
         case V.ValueTextMap(value) =>
-          Fragment("?::jsonb", toJsonString(value))
+          fr0"${toJsonString(value)}::jsonb"
         case V.ValueGenMap(entries) =>
-          Fragment("?::jsonb", toJsonString(entries))
+          fr0"${toJsonString(entries)}::jsonb"
       }
     }
   }

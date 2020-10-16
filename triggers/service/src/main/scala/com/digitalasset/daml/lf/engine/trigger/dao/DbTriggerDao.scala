@@ -4,8 +4,9 @@
 package com.daml.lf.engine.trigger.dao
 
 import java.util.UUID
+import java.util.concurrent.Executors.newWorkStealingPool
 
-import cats.effect.{ContextShift, IO}
+import cats.effect.{Blocker, ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
@@ -39,7 +40,12 @@ object Connection {
     (
       ds,
       Transactor
-        .fromDataSource[IO](ds, connectEC = ec, transactEC = ec)(IO.ioConcurrentEffect(cs), cs))
+        .fromDataSource[IO](
+          ds,
+          connectEC = ec,
+          blocker = Blocker liftExecutorService newWorkStealingPool(poolSize))(
+          IO.ioConcurrentEffect(cs),
+          cs))
   }
 
   type PoolSize = Int

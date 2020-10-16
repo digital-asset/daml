@@ -7,7 +7,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresAroundAll
 import spray.json.{JsString, JsValue}
 
-import scala.collection.compat._
 import scala.concurrent.Future
 
 class HttpServiceWithPostgresIntTest
@@ -70,7 +69,7 @@ class HttpServiceWithPostgresIntTest
       sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM contract"""
         .query[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
 
-    dao.transact(q.to(List)).unsafeToFuture()
+    dao.transact(q.to[List]).unsafeToFuture()
   }
 
   private def getField(k: String)(a: domain.ActiveContract[JsValue]): JsValue =

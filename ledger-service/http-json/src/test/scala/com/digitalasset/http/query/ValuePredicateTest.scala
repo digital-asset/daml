@@ -223,20 +223,14 @@ class ValuePredicateTest
       val frag = vp.toSqlWhereClause
       frag.toString should ===(sql.toString)
       import language.reflectiveCalls
-      flattenFragmentExistential(frag.asInstanceOf[{ def a: AnyRef }].a) should ===(
-        flattenFragmentExistential(sql.asInstanceOf[{ def a: AnyRef }].a))
+      frag.asInstanceOf[{ def elems: FragmentElems }].elems should ===(
+        sql.asInstanceOf[{ def elems: FragmentElems }].elems)
     }
   }
 }
 
 object ValuePredicateTest {
-  import shapeless.{::, HNil}
+  import cats.data.Chain, doobie.util.fragment.Elem
 
-  /** Flatten tuples and hlists in Fragment.a. */
-  private def flattenFragmentExistential(v: Any): Seq[Any] = v match {
-    case (l, r) => flattenFragmentExistential(l) ++ flattenFragmentExistential(r)
-    case hd :: tl => hd +: flattenFragmentExistential(tl)
-    case HNil => Seq.empty
-    case x => Seq(x)
-  }
+  private type FragmentElems = Chain[Elem]
 }
