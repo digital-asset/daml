@@ -3,6 +3,7 @@
 
 package com.daml.platform.index
 
+import java.sql.SQLException
 import java.time.Instant
 
 import akka.actor.Cancellable
@@ -62,9 +63,10 @@ private[platform] object ReadOnlySqlLedger {
         loggingContext: LoggingContext,
     ): Future[LedgerId] = {
       val predicate: PartialFunction[Throwable, Boolean] = {
-        // If the index database schema is not yet fully created, querying for the
-        // ledger ID will throw SQL errors.
-        case _: java.sql.SQLNonTransientException => true
+        // If the index database is not yet fully initialized,
+        // querying for the ledger ID will throw different errors,
+        // depending on the database, and how far the initialization is.
+        case _: SQLException => true
         case _: LedgerIdNotFoundException => true
         case _: MismatchException.LedgerId => false
         case _ => false
