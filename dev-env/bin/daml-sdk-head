@@ -74,14 +74,14 @@ sha_version() {
         trap "$old_trap; rm -f $index_file" EXIT
         cp -f $(git rev-parse --show-toplevel)/.git/index $index_file
         GIT_INDEX_FILE=$index_file git add --all
-        dirty="dirty.$(GIT_INDEX_FILE=$index_file git write-tree)"
+        dirty=".dirty.$(GIT_INDEX_FILE=$index_file git write-tree)"
         rm -f $index_file
         trap "$old_trap" EXIT
     fi
     date=$(git log -n1 --format=%cd --date=format:%Y%m%d HEAD)
     nr=$(git rev-list --count HEAD)
     sha8=$(git log -n1 --format=%h --abbrev=8 HEAD)
-    echo "0.0.0-head.${date}.${nr}.${sha8}.${dirty}"
+    echo "0.0.0-head.${date}.${nr}.${sha8}${dirty}"
 }
 if [ $SHA = 0 ]; then
     export DAML_SDK_RELEASE_VERSION=0.0.0
