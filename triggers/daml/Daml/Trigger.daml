@@ -71,8 +71,8 @@ getContracts (ACS tpls pending) = mapOptional fromAny
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
     allPending = concatMap snd $ Map.toList pending
 
-getContractById : forall a. Template a => ACS -> ContractId a -> Optional a
-getContractById (ACS tpls pending) id = do
+getContractById : forall a. Template a => ContractId a -> ACS -> Optional a
+getContractById id (ACS tpls pending) = do
   let aid = toAnyContractId id
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
       implSpecific = GMap.lookup aid <=< GMap.lookup (templateTypeRep @a)
@@ -94,15 +94,15 @@ queryContractKey k = find (\(_, a) -> k == key a) <$> query
 
 instance ActionTriggerAny (TriggerA s) where
   implQuery = TriggerA $ pure . getContracts
-  queryContractId id = TriggerA $ pure . flip getContractById id
+  queryContractId id = TriggerA $ pure . getContractById id
 
 instance ActionTriggerAny (TriggerUpdateA s) where
   implQuery = TriggerUpdateA $ pure . getContracts
-  queryContractId id = TriggerUpdateA $ pure . flip getContractById id
+  queryContractId id = TriggerUpdateA $ pure . getContractById id
 
 instance ActionTriggerAny TriggerInitializeA where
   implQuery = TriggerInitializeA getContracts
-  queryContractId = TriggerInitializeA . flip getContractById
+  queryContractId = TriggerInitializeA . getContractById
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
