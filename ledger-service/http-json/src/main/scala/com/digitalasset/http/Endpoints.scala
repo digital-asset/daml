@@ -32,7 +32,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, OneAnd, Show, \/, \/-}
+import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -403,7 +403,7 @@ class Endpoints(
       reference: domain.ContractLocator[LfValue])
     : Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
-      .resolveContractReference(jwt, OneAnd(jwtPayload.party, Set.empty), reference)
+      .resolveContractReference(jwt, jwtPayload.parties, reference)
       .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
         val a: Error \/ domain.ResolvedContractRef[LfValue] =
           o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))

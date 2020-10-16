@@ -89,7 +89,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected val metdata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
-  protected val jwt: Jwt = jwtForParties(List("Alice"), testId)
+  protected val jwt: Jwt = jwtForParties(List("Alice"), List(), testId)
 
   protected val jwtAdminNoParty: Jwt = {
     val decodedJwt = DecodedJwt(
@@ -133,8 +133,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected val headersWithAuth = authorizationHeader(jwt)
 
-  protected def headersWithPartyAuth(parties: List[String]) =
-    HttpServiceTestFixture.headersWithPartyAuth(parties, testId)
+  protected def headersWithPartyAuth(actAs: List[String], readAs: List[String] = List()) =
+    HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, testId)
 
   protected def postJsonStringRequest(
       uri: Uri,
@@ -729,6 +729,24 @@ abstract class AbstractHttpServiceIntegrationTest
           expectedOneErrorMessage(output) should include(
             "missing Authorization header with OAuth 2.0 Bearer Token")
       }: Future[Assertion]
+  }
+
+  "create IOU should support extra readAs parties" in withHttpService { (uri, encoder, _) =>
+    import encoder.implicits._
+
+    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
+    val input: JsValue = SprayJson.encode1(command).valueOr(e => fail(e.shows))
+
+    postJsonRequest(
+      uri.withPath(Uri.Path("/v1/create")),
+      input,
+      headers = headersWithPartyAuth(actAs = List("Alice"), readAs = List("Bob"))).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val activeContract = getResult(output)
+        assertActiveContract(activeContract)(command, encoder)
+    }: Future[Assertion]
   }
 
   "create IOU with unsupported templateId should return proper error" in withHttpService {

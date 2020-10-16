@@ -448,7 +448,7 @@ class WebsocketServiceIntegrationTest
         cid2 = getContractId(getResult(r2._2))
 
         lastState <- singleClientQueryStream(
-          jwtForParties(List("Alice", "Bob"), testId),
+          jwtForParties(List("Alice", "Bob"), List(), testId),
           uri,
           query) via parseResp runWith resp(cid1, cid2)
         liveOffset = inside(lastState) {
@@ -687,7 +687,7 @@ class WebsocketServiceIntegrationTest
         cid2 = getContractId(getResult(r2._2))
 
         lastState <- singleClientFetchStream(
-          jwtForParties(List("Alice", "Bob"), testId),
+          jwtForParties(List("Alice", "Bob"), List(), testId),
           uri,
           query) via parseResp runWith resp(cid1, cid2)
         liveOffset = inside(lastState) {
@@ -696,7 +696,7 @@ class WebsocketServiceIntegrationTest
             liveStart
         }
         rescan <- (singleClientFetchStream(
-          jwtForParties(List("Alice", "Bob"), testId),
+          jwtForParties(List("Alice", "Bob"), List(), testId),
           uri,
           query,
           Some(liveOffset))

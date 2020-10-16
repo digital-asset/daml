@@ -26,6 +26,9 @@ final class FailureTests
     with Inside {
   import HttpServiceTestFixture._
 
+  private def headersWithParties(actAs: List[String]) =
+    headersWithPartyAuth(actAs, List(), ledgerId().unwrap)
+
   "Command submission succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
       for {
@@ -34,14 +37,14 @@ final class FailureTests
           accountCreateCommand(p, "23"),
           encoder,
           uri,
-          headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+          headersWithParties(List(p.unwrap)))
         _ = status shouldBe StatusCodes.OK
         _ = proxy.disable()
         (status, output) <- postCreateCommand(
           accountCreateCommand(p, "24"),
           encoder,
           uri,
-          headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+          headersWithParties(List(p.unwrap)))
         _ = status shouldBe StatusCodes.InternalServerError
         _ <- inside(output) {
           case JsObject(fields) =>
@@ -57,7 +60,7 @@ final class FailureTests
               accountCreateCommand(p, "25"),
               encoder,
               uri,
-              headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+              headersWithParties(List(p.unwrap)))
           } yield status shouldBe StatusCodes.OK)
       } yield succeed
   }
@@ -70,10 +73,10 @@ final class FailureTests
           accountCreateCommand(p, "23"),
           encoder,
           uri,
-          headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+          headersWithParties(List(p.unwrap)))
         (status, output) <- getRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
-          headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+          headersWithParties(List(p.unwrap)))
         _ <- inside(output) {
           case JsObject(fields) =>
             inside(fields.get("result")) {
@@ -83,7 +86,7 @@ final class FailureTests
         _ = proxy.disable()
         (status, output) <- getRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
-          headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+          headersWithParties(List(p.unwrap)))
         _ <- inside(output) {
           case JsObject(fields) =>
             inside(fields.get("status")) {
@@ -104,14 +107,14 @@ final class FailureTests
           accountCreateCommand(p, "23"),
           encoder,
           uri,
-          headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+          headersWithParties(List(p.unwrap)))
         _ = status shouldBe StatusCodes.OK
         query = jsObject("""{"templateIds": ["Account:Account"]}""")
         _ = println("first query")
         (status, output) <- postRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
           query,
-          headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+          headersWithParties(List(p.unwrap)))
         _ = status shouldBe StatusCodes.OK
         _ <- inside(output) {
           case JsObject(fields) =>
@@ -123,7 +126,7 @@ final class FailureTests
         (status, output) <- postRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
           query,
-          headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+          headersWithParties(List(p.unwrap)))
         _ <- inside(output) {
           case JsObject(fields) =>
             inside(fields.get("status")) {
@@ -139,7 +142,7 @@ final class FailureTests
             (status, output) <- postRequest(
               uri = uri.withPath(Uri.Path("/v1/query")),
               query,
-              headersWithPartyAuth(List(p.unwrap), ledgerId().unwrap))
+              headersWithParties(List(p.unwrap)))
             _ = status shouldBe StatusCodes.OK
             _ <- inside(output) {
               case JsObject(fields) =>
