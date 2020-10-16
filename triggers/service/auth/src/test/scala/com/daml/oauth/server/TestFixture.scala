@@ -29,7 +29,7 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
           Config(
             port = Port.Dynamic,
             ledgerId = ledgerId,
-            applicationId = applicationId,
+            applicationId = Some(applicationId),
             jwtSecret = jwtSecret))
         client <- Resources.authClient(
           Client.Config(

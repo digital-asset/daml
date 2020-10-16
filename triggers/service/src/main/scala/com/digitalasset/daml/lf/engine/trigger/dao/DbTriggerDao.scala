@@ -149,7 +149,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
       triggerInstance: UUID,
       party: String,
       fullTriggerName: String): Either[String, RunningTrigger] = {
-    Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, Tag(party)))
+    // TODO[AH] Persist the access and refresh token.
+    Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, Tag(party), None))
   }
 
   // Drop all tables and other objects associated with the database.

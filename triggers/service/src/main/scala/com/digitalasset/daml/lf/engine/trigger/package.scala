@@ -10,9 +10,14 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.services.time.TimeProviderType
 
+import akka.http.scaladsl.model.Uri
 import scala.concurrent.duration.FiniteDuration
 
 package trigger {
+
+  sealed trait AuthConfig
+  case object NoAuth extends AuthConfig
+  final case class AuthMiddleware(uri: Uri) extends AuthConfig
 
   case class LedgerConfig(
       host: String,
@@ -32,7 +37,6 @@ package trigger {
       triggerInstance: UUID,
       triggerName: Identifier,
       triggerParty: Party,
-      // TODO(SF, 2020-0610): Add access token field here in the
-      // presence of authentication.
+      triggerToken: Option[String],
   )
 }

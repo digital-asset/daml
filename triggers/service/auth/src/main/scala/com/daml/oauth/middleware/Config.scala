@@ -6,7 +6,7 @@ package com.daml.oauth.middleware
 import akka.http.scaladsl.model.Uri
 import com.daml.ports.Port
 
-private[middleware] case class Config(
+case class Config(
     // Port the middleware listens on
     port: Port,
     // OAuth2 server endpoints
@@ -17,7 +17,7 @@ private[middleware] case class Config(
     clientSecret: String,
 )
 
-private[middleware] object Config {
+object Config {
   private val Empty =
     Config(
       port = Port.Dynamic,

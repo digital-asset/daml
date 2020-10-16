@@ -18,6 +18,7 @@ da_scala_library(
     deps = [
         ":oauth-test-server",  # TODO[AH] Extract OAuth2 request/response types
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
@@ -112,6 +113,7 @@ da_scala_test(
         ":oauth-middleware",
         ":oauth-test-server",
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger-service/jwt",

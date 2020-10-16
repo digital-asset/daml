@@ -12,8 +12,8 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.lf.data.Ref.Party
 import com.daml.oauth.server.{Response => OAuthResponse}
 import org.scalatest.AsyncWordSpec
 
@@ -33,8 +33,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       participantId = None,
       exp = None,
       admin = claims.admin,
-      actAs = claims.actAs,
-      readAs = claims.readAs
+      actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
+      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_))
     )
     OAuthResponse.Token(
       accessToken = JwtSigner.HMAC256
@@ -63,7 +63,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "return the token from a cookie" in {
-      val claims = Request.Claims(actAs = List(Party.assertFromString("Alice")))
+      val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
       val token = makeToken(claims)
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       val req = HttpRequest(
@@ -83,13 +83,13 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "return unauthorized on insufficient claims" in {
-      val token = makeToken(Request.Claims(actAs = List(Party.assertFromString("Alice"))))
+      val token = makeToken(Request.Claims(actAs = List(ApiTypes.Party("Alice"))))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       val req = HttpRequest(
         uri = middlewareUri
           .withPath(Path./("auth"))
-          .withQuery(Query(
-            ("claims", Request.Claims(actAs = List(Party.assertFromString("Bob"))).toQueryString))),
+          .withQuery(
+            Query(("claims", Request.Claims(actAs = List(ApiTypes.Party("Bob"))).toQueryString))),
         headers = List(cookieHeader)
       )
       for {

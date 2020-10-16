@@ -6,7 +6,7 @@ package com.daml.oauth.middleware
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.unmarshalling.Unmarshaller
-import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import spray.json.{
   DefaultJsonProtocol,
   JsString,
@@ -48,9 +48,9 @@ object Request {
             if (w == "admin") {
               admin = true
             } else if (w.startsWith("actAs:")) {
-              actAs.append(Party.assertFromString(w.stripPrefix("actAs:")))
+              actAs.append(Party(w.stripPrefix("actAs:")))
             } else if (w.startsWith("readAs:")) {
-              readAs.append(Party.assertFromString(w.stripPrefix("readAs:")))
+              readAs.append(Party(w.stripPrefix("readAs:")))
             } else {
               throw new IllegalArgumentException(s"Expected claim but got $w")
             }
@@ -62,14 +62,26 @@ object Request {
 
   /** Auth endpoint query parameters
     */
-  case class Auth(claims: Claims)
+  case class Auth(claims: Claims) {
+    def toQuery: Uri.Query = Uri.Query("claims" -> claims.toQueryString())
+  }
 
   /** Login endpoint query parameters
     *
     * @param redirectUri Redirect target after the login flow completed. I.e. the original request URI on the trigger service.
     * @param claims Required ledger claims.
+    * @param state State that will be forwarded to the callback URI after authentication and authorization.
     */
-  case class Login(redirectUri: Uri, claims: Claims)
+  case class Login(redirectUri: Uri, claims: Claims, state: Option[String]) {
+    def toQuery: Uri.Query = {
+      var params = Seq(
+        "redirect_uri" -> redirectUri.toString,
+        "claims" -> claims.toQueryString(),
+      )
+      state.foreach(x => params ++= Seq("state" -> x))
+      Uri.Query(params: _*)
+    }
+  }
 
 }
 

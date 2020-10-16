@@ -95,11 +95,15 @@ object Server extends StrictLogging {
       }
 
   private def login(config: Config, requests: TrieMap[UUID, Uri]) =
-    parameters(('redirect_uri.as[Uri], 'claims.as[Request.Claims]))
+    parameters(('redirect_uri.as[Uri], 'claims.as[Request.Claims], 'state ?))
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
           val requestId = UUID.randomUUID
-          requests += (requestId -> login.redirectUri)
+          requests += (requestId -> {
+            var query = login.redirectUri.query().to[Seq]
+            login.state.foreach(x => query ++= Seq("state" -> x))
+            login.redirectUri.withQuery(Uri.Query(query: _*))
+          })
           val authorize = OAuthRequest.Authorize(
             responseType = "code",
             clientId = config.clientId,

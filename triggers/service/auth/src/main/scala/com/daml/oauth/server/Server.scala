@@ -41,7 +41,7 @@ object Server {
         }
       AuthServiceJWTPayload(
         ledgerId = Some(config.ledgerId),
-        applicationId = Some(config.applicationId),
+        applicationId = config.applicationId,
         // Not required by the default auth service
         participantId = None,
         // Only for testing, expire never.

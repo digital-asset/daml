@@ -6,6 +6,7 @@ package com.daml.lf.engine.trigger
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
+import akka.http.scaladsl.model.Uri
 import com.daml.cliopts
 import com.daml.platform.services.time.TimeProviderType
 import scalaz.Show
@@ -21,6 +22,7 @@ private[trigger] final case class ServiceConfig(
     httpPort: Int,
     ledgerHost: String,
     ledgerPort: Int,
+    authUri: Option[Uri],
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
@@ -105,6 +107,13 @@ private[trigger] object ServiceConfig {
       .action((t, c) => c.copy(ledgerPort = t))
       .text("Ledger port.")
 
+    opt[String]("auth")
+      .optional()
+      .action((t, c) => c.copy(authUri = Some(Uri(t))))
+      .text("Auth middleware URI.")
+      // TODO[AH] Expose once the feature is fully implemented.
+      .hidden()
+
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
@@ -157,6 +166,7 @@ private[trigger] object ServiceConfig {
         httpPort = DefaultHttpPort,
         ledgerHost = null,
         ledgerPort = 0,
+        authUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
         maxRestartInterval = DefaultMaxRestartInterval,
