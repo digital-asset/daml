@@ -2926,7 +2926,7 @@ as described by the ledger model::
      'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  Err t
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
-     'lookup_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  Ok ⟨'contractId': cid, 'contract': vₜ⟩ ‖ (st'; keys')
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  Ok ⟨'contractId': cid, 'contract': vₜ⟩ ‖ (st'; keys')
      'exercise_without_actor' Mod:T.Ch cid v₁ ‖ (st'; keys')  ⇓ᵤ  ur
    —————————————————————————————————————————————————————————————————————— EvUpdExercByKeyExercise
      'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  ur
