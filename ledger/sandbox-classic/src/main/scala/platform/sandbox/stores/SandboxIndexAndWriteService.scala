@@ -10,13 +10,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{
-  ParticipantId,
-  WriteService,
-  ApplicationId => _,
-  LedgerId => _,
-  TransactionId => _
-}
+import com.daml.ledger.participant.state.v1.{ParticipantId, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.TransactionCommitter

@@ -7,8 +7,7 @@ import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.concurrent.TimeUnit.SECONDS
 
-import com.daml.ledger.resources
-import com.daml.ledger.resources.{Resource, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
 import com.google.protobuf.Message
@@ -39,7 +38,7 @@ private[apiserver] object GrpcServer {
       eventLoopGroups: ServerEventLoopGroups,
       services: Iterable[BindableService],
   ) extends ResourceOwner[Server] {
-    override def acquire()(implicit context: resources.ResourceContext): Resource[Server] = {
+    override def acquire()(implicit context: ResourceContext): Resource[Server] = {
       val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
       Resource(Future {
         val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))

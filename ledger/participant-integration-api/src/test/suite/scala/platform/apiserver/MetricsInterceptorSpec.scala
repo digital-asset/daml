@@ -22,9 +22,9 @@ import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.testing.StreamConsumer
 import com.daml.ports.Port
-import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
+import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}
 import org.scalatest.{AsyncFlatSpec, Matchers}

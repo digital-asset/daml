@@ -16,7 +16,13 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach
 }
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  SubmissionResult,
+  SubmitterInfo,
+  TimeModel,
+  TransactionMeta
+}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}

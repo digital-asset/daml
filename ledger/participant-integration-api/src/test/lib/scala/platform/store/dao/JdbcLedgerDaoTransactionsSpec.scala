@@ -20,7 +20,7 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalacheck.Gen
-import org.scalatest._
+import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers, OptionValues}
 
 import scala.concurrent.Future
 
