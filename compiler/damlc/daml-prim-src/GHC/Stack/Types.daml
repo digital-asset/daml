@@ -40,7 +40,7 @@ type HasCallStack = (?callStack : CallStack)
 -- needs to use `TextLit`. Otherwise, you will get core linting errors
 -- due to mismatch between TextLit and Text.
 
--- | Type of callstacks constructed automatically from `HasCallStack` constraint.
+-- | Type of callstacks constructed automatically from `HasCallStack` constraints.
 --
 -- Use `callStack` to get the current callstack, and use `getCallStack`
 -- to deconstruct the `CallStack`.
