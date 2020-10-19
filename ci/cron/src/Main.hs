@@ -79,12 +79,14 @@ robustly_download_nix_packages = do
               _ | "unexpected end-of-file" `Data.List.isInfixOf` err -> h (n - 1)
               _ -> die cmd exit out err
 
+add_github_contact_header :: HTTP.Request -> HTTP.Request
+add_github_contact_header req =
+    req { HTTP.requestHeaders = ("User-Agent", "DAML cron (team-daml-app-runtime@digitalasset.com)") : HTTP.requestHeaders req }
+
 http_get :: JSON.FromJSON a => String -> IO (a, H.HashMap String String)
 http_get url = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
-    request' <- HTTP.parseRequest url
-    -- Be polite
-    let request = request' { HTTP.requestHeaders = [("User-Agent", "DAML cron (team-daml-language@digitalasset.com)")] }
+    request <- add_github_contact_header <$> HTTP.parseRequest url
     response <- HTTP.httpLbs request manager
     let body = JSON.decode $ HTTP.responseBody response
     let status = Status.statusCode $ HTTP.responseStatus response
@@ -279,8 +281,7 @@ download_assets tmp release = do
           (Control.Concurrent.QSem.waitQSem tokens)
           (Control.Concurrent.QSem.signalQSem tokens)
           (do
-              req' <- HTTP.parseRequest (show url)
-              let req = req' { HTTP.requestHeaders = [("User-Agent", "DAML cron (team-daml-language@digitalasset.com)")] }
+              req <- add_github_contact_header <$> HTTP.parseRequest (show url)
               HTTP.withResponse req manager (\resp -> do
                   let body = HTTP.responseBody resp
                   IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle -> do
