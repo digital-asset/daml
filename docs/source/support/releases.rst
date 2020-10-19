@@ -30,6 +30,13 @@ No more than one major version is released every six months, barring exceptional
 
 Individual DAML Drivers follow their own release cadence, using already released Integration Components as a dependency.
 
+.. _support_duration:
+
+Support Duration
+----------------
+
+Major versions of components are supported and supplied with critical security and bug fixes for at least 12 months from the release of the last minor version. Within a major version, only the latest minor version is supported.
+
 .. _release-notes:
 
 Release Notes
