@@ -27,6 +27,12 @@ template T
         do
           pure ()
 
+-- not instances we want in the stdlib, but good enough for this test
+instance CanAbort (TriggerA s) where
+  abort = error
+instance ActionFail (TriggerA s) where
+  fail = error
+
 trigger : Trigger Int
 trigger = Trigger with
   initialize = pure 0
@@ -46,9 +52,7 @@ trigger = Trigger with
       dedupExerciseByKey @T (party, 0) Poke with n = 1
       newCIF <- getCommandsInFlight
       let changedCIF = Map.size (Map.filterWithKey (\k _ -> not (Map.member k priorCIF)) newCIF)
-      if (changedCIF == 4)
-        then pure ()
-        else error $ show changedCIF <> " new commands in flight instead of 4"
+      assertEq changedCIF 4
     put (-1) -- just introducing some chaos
   registeredTemplates = RegisteredTemplates [registeredTemplate @T]
   heartbeat = None
@@ -71,3 +75,33 @@ test = do
     assertEq k (alice, 0)
     assertEq choiceArg (Poke 1)
   pure ()
+
+queryIds : Trigger ()
+queryIds = Trigger with
+  initialize = pure ()
+  updateState = const (pure ())
+  rule = \party -> do
+    [(tId, queried), (tId', queried')] <- query @T
+    assertById tId queried
+    assertById tId' queried'
+    -- exercise leaves the contract there
+    dedupExercise tId Poke with n = 43
+    assertById tId queried
+    -- emit will filter out after the rule runs
+    emitCommands [exerciseCmd tId Poke with n = 44] [toAnyContractId tId]
+    assertById tId queried
+    assertById tId' queried'
+  registeredTemplates = RegisteredTemplates [registeredTemplate @T]
+  heartbeat = None
+
+assertById tId lookedUp = do
+  Some c <- queryContractId tId
+  assertEq c lookedUp
+
+testQueryIds = do
+  alice <- Script.allocateParty "Alice"
+  tId <- submit alice do Script.createCmd T with party = alice, count = 42
+  tId' <- submit alice do Script.createCmd T with party = alice, count = 43
+  let activeContracts = toACS tId <> toACS tId'
+  let commandsInFlight = Map.empty
+  testRule queryIds alice activeContracts commandsInFlight ()
